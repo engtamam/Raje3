@@ -1,0 +1,18 @@
+# Line endings are LF, everywhere, always.
+#
+# The catalog under data/ compiles to canonical JSON. A CRLF checkout on Windows
+# and an LF checkout on Linux would hash differently for identical content and
+# break any signature or content check for reasons nobody can explain.
+* text=auto eol=lf
+
+# Never touch binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+
+# SVG is text — keep it LF
+*.svg text eol=lf

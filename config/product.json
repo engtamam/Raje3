@@ -1,0 +1,120 @@
+{
+  "$schema": "./product.schema.json",
+
+  "_readme": [
+    "The ONE place Raje3's identity lives. Nothing else in the codebase says 'Raje3' / 'راجِع'.",
+    "Renaming the product is an edit to THIS file — never a search-and-replace across services.",
+    "",
+    "THREE LEVELS, never mixed:",
+    "  1. This file  — build-time identity. Name, brand, legal entity. Same in every environment.",
+    "  2. Env vars   — runtime wiring. URLs, keys, hosts, limits. Different per environment.",
+    "  3. tenant-service/branding — per-establishment white-label. Different per tenant (the",
+    "     message a customer receives carries the ESTABLISHMENT's name and logo, never Raje3's).",
+    "",
+    "Anything under `identifiers` is FROZEN. Read the note there before touching it.",
+    "Validated in CI by ci/check_product_config.py so a bad edit fails at lint, not in production."
+  ],
+
+  "identity": {
+    "slug": "raje3",
+    "name": "راجِع",
+    "nameEn": "Raje3",
+    "legalName": "",
+    "tagline": {
+      "ar": "يرجّع زبونك عبر الواتساب.",
+      "en": "Bring your customers back — automatically, over WhatsApp."
+    },
+    "description": {
+      "ar": "منصة تذكير واحتفاظ آلي للأنشطة الخدمية الدورية، تُرسل باسم المنشأة وهويتها عبر الواتساب.",
+      "en": "Automated reminder & retention platform for recurring service businesses — sent in each establishment's own name and identity over WhatsApp."
+    }
+  },
+
+  "urls": {
+    "marketing": "https://raje3.sa",
+    "app": "https://app.raje3.sa",
+    "admin": "https://admin.raje3.sa",
+    "docs": "https://docs.raje3.sa",
+    "status": "https://status.raje3.sa"
+  },
+
+  "support": {
+    "email": "support@raje3.sa",
+    "salesEmail": "sales@raje3.sa",
+    "securityEmail": "security@raje3.sa",
+    "phone": ""
+  },
+
+  "brand": {
+    "tokensRef": "brand/tokens/colors.json",
+    "logo": {
+      "light": "brand/logo/logo-light.svg",
+      "dark": "brand/logo/logo-dark.svg",
+      "mark": "brand/logo/mark.svg",
+      "favicon": "brand/logo/favicon.svg"
+    },
+    "wordmark": "راجِع",
+    "_colorNote": "The brand accent — the ONE colour that carries Raje3's identity. Light and dark are the same hue at different lightness so it reads on both grounds. The full palette (surfaces, borders, semantic colours) lives in the UI theme; only the accent is brand-owned and lives here so a rebrand is one edit. A tenant may still override it (white-label).",
+    "accent": {
+      "light": "#0e8a5f",
+      "dark": "#34c98a"
+    },
+    "documentFooter": {
+      "ar": "أُرسلت هذه الرسالة عبر منصة راجِع باسم المنشأة.",
+      "en": "Delivered via the Raje3 platform on behalf of the establishment."
+    }
+  },
+
+  "locale": {
+    "default": "ar",
+    "supported": ["ar", "en"],
+    "rtl": ["ar"],
+    "timezone": "Asia/Riyadh",
+    "currency": "SAR",
+    "currencyMinorUnits": 2
+  },
+
+  "legal": {
+    "entityCountry": "SA",
+    "commercialRegistration": "",
+    "vatNumber": "",
+    "address": {
+      "ar": "",
+      "en": ""
+    },
+    "termsUrl": "https://raje3.sa/terms",
+    "privacyUrl": "https://raje3.sa/privacy",
+    "dpoEmail": ""
+  },
+
+  "identifiers": {
+    "_frozen": [
+      "DO NOT CHANGE THESE WHEN THE PRODUCT IS RENAMED.",
+      "They are written into data that customers already hold:",
+      "  jwtIssuer     — rename it and every live session and refresh token is rejected.",
+      "  optoutLinkNs  — rename it and every unsubscribe link ever sent stops resolving. A customer",
+      "                  who can no longer opt out is a compliance breach (PDPL / WhatsApp policy),",
+      "                  not just a broken link. The namespace is immutable for the life of the links.",
+      "  eventNs       — rename it and peers that key off the event namespace stop matching our events.",
+      "",
+      "To rebrand: change `identity` and `brand`. Leave this block alone.",
+      "If one of these MUST change, it is a data migration with a compatibility window,",
+      "not a config edit — old links keep resolving against the old value."
+    ],
+    "jwtIssuer": "raje3",
+    "optoutLinkNs": "raje3.optout.v1",
+    "eventNs": "raje3",
+    "userAgent": "raje3-platform"
+  },
+
+  "services": {
+    "_note": "Our product services — the business logic base-services will never build for us. Internal names carry NO product name, on purpose: `operations`, not `raje3-operations`. A rename never touches a service name, a database name, a table, a JSON key, a log field, or a header. Platform services (identity, tenant, authz, audit, notification, job, analytics, wallet, billing, file, api-gateway, …) are NOT listed here — they are base-services images we run, not services we own.",
+    "names": [
+      "operations",
+      "reminders",
+      "loyalty",
+      "campaigns",
+      "catalog"
+    ]
+  }
+}

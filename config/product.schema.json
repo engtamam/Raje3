@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raje3/config/product/1.0",
+  "title": "Raje3 product configuration",
+  "description": "Build-time product identity. The ONE place the product name, brand, and legal entity live. Renaming the product is an edit to product.json, never a search-and-replace. Runtime wiring belongs in env vars; per-establishment white-label belongs in tenant-service branding. Validated in CI so a bad edit fails at lint, not in production.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["identity", "urls", "support", "brand", "locale", "legal", "identifiers", "services"],
+
+  "properties": {
+    "$schema": { "type": "string" },
+    "_readme": { "type": "array", "items": { "type": "string" } },
+
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "name", "tagline", "description"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,30}$",
+          "description": "Lowercase machine name. Used in file names and CLI output only — never in a service name, a table, or a token."
+        },
+        "name": { "type": "string", "minLength": 1, "description": "The product name as a human reads it." },
+        "nameEn": { "type": "string", "description": "The product name in English, since the primary name is Arabic-script." },
+        "legalName": { "type": "string", "description": "Registered legal entity, exactly as on the commercial registration. May be empty until incorporation." },
+        "tagline": { "$ref": "#/$defs/bilingual" },
+        "description": { "$ref": "#/$defs/bilingual" }
+      }
+    },
+
+    "urls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["marketing", "app", "admin"],
+      "description": "app = the establishment portal (owner/manager dashboard + field-entry screen). admin = the Super Admin platform console. Kept as separate origins, not paths behind a flag.",
+      "properties": {
+        "marketing": { "$ref": "#/$defs/httpsUrl" },
+        "app":       { "$ref": "#/$defs/httpsUrl" },
+        "admin":     { "$ref": "#/$defs/httpsUrl" },
+        "docs":      { "$ref": "#/$defs/httpsUrl" },
+        "status":    { "$ref": "#/$defs/httpsUrl" }
+      }
+    },
+
+    "support": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["email", "securityEmail"],
+      "properties": {
+        "email":         { "$ref": "#/$defs/email" },
+        "salesEmail":    { "$ref": "#/$defs/email" },
+        "securityEmail": { "$ref": "#/$defs/email", "description": "Published for vulnerability disclosure. Required." },
+        "phone":         { "type": "string" }
+      }
+    },
+
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokensRef", "logo", "wordmark", "accent", "documentFooter"],
+      "properties": {
+        "tokensRef": { "type": "string", "description": "Path to the colour token file. Colours live there, never here, and never in code." },
+        "logo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["light", "dark", "mark", "favicon"],
+          "properties": {
+            "light":   { "type": "string" },
+            "dark":    { "type": "string" },
+            "mark":    { "type": "string" },
+            "favicon": { "type": "string" }
+          }
+        },
+        "wordmark": { "type": "string" },
+        "_colorNote": { "type": "string", "description": "Prose note about the accent. Underscore-prefixed: documentation for a human editor, not consumed by code." },
+        "accent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["light", "dark"],
+          "properties": {
+            "light": { "$ref": "#/$defs/hexColor" },
+            "dark":  { "$ref": "#/$defs/hexColor" }
+          }
+        },
+        "documentFooter": { "$ref": "#/$defs/bilingual" }
+      }
+    },
+
+    "locale": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "supported", "rtl", "timezone", "currency", "currencyMinorUnits"],
+      "properties": {
+        "default":  { "type": "string", "description": "Raje3 is Arabic-first: the field screen and default templates are `ar`." },
+        "supported": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "rtl":      { "type": "array", "items": { "type": "string" } },
+        "timezone": { "type": "string", "description": "IANA tz. Reminder scheduling and daily-report timing anchor to it." },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "currencyMinorUnits": { "type": "integer", "minimum": 0, "maximum": 3 }
+      }
+    },
+
+    "legal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entityCountry", "termsUrl", "privacyUrl"],
+      "properties": {
+        "entityCountry": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "commercialRegistration": { "type": "string" },
+        "vatNumber": { "type": "string" },
+        "address": { "$ref": "#/$defs/bilingual" },
+        "termsUrl":   { "$ref": "#/$defs/httpsUrl" },
+        "privacyUrl": { "$ref": "#/$defs/httpsUrl" },
+        "dpoEmail":   { "type": "string" }
+      }
+    },
+
+    "identifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jwtIssuer", "optoutLinkNs", "eventNs", "userAgent"],
+      "description": "FROZEN. These are written into data customers already hold. Renaming the product must NOT touch them.",
+      "properties": {
+        "_frozen": { "type": "array", "items": { "type": "string" } },
+        "jwtIssuer":    { "type": "string", "minLength": 1 },
+        "optoutLinkNs": { "type": "string", "minLength": 1, "description": "Namespace stamped into every signed unsubscribe link. Immutable for the life of the links." },
+        "eventNs":      { "type": "string", "minLength": 1 },
+        "userAgent":    { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "services": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["names"],
+      "properties": {
+        "_note": { "type": "string" },
+        "names": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}$" },
+          "description": "Our product services only. Platform (base-services) images are not listed here."
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "bilingual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ar", "en"],
+      "properties": {
+        "ar": { "type": "string" },
+        "en": { "type": "string" }
+      }
+    },
+    "httpsUrl": { "type": "string", "pattern": "^https://" },
+    "email": { "type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" },
+    "hexColor": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+  }
+}
