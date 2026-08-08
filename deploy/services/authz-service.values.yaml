@@ -1,0 +1,104 @@
+# authz-service — Raje3 deployment values.
+#
+# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+#
+# What this service is to us: spec §3 in full — the owner -> manager -> custom roles -> operator
+# hierarchy, the permission matrix (§3.3), the custom role builder (§3.4), and the three golden
+# security rules (§3.2). It is the PDP: every other service asks it, none of them decides.
+service:
+  name: authz-service
+  port: 8000
+
+image:
+  repository: ghcr.io/base-services/authz-service
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m          # on the hot path of every authorised request — not the place to be stingy
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: authz-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  serviceMonitor: true
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  # ── Decision semantics ────────────────────────────────────────────────────────────────────
+  POLICY_ENGINE_DRIVER: "combined"   # RBAC for the role hierarchy + ABAC for shift/geo fencing (§11.3)
+  DENY_OVERRIDES: "true"             # a matching deny beats any allow — deny-by-default, golden rule 3
+  WILDCARD_CAPS: "true"
+
+  # An unresolvable role answers 4xx, never 200-with-no-capabilities. The second is worse than it
+  # looks: it is a correct answer to a question asked in the wrong vocabulary, so a typo in a role
+  # name mints a session that can do nothing while every screen 403s and nothing says why.
+  AUTHZ_UNKNOWN_ROLE: "reject"
+  AUTHZ_ROLE_LOOKUP: "both"          # callers hold the NAME; only authz knows the generated id
+
+  # 30s of cache on the PDP hot path. The field-entry screen must record a visit in under five
+  # seconds (§1.1) and it authorises on every save — but a revoked operator must lose access
+  # quickly too. 30s is the balance; §11.1 instant suspension is a login-path concern, not this.
+  AUTHZ_CACHE_TTL_SECONDS: "30"
+
+  # ── No privilege escalation (spec §3.2) ───────────────────────────────────────────────────
+  # This is the rule that "a user can never grant a capability they do not hold" is BUILT from,
+  # enforced server-side where the UI cannot route around it.
+  AUTHZ_TENANT_DENIED_CAP_PREFIXES: "platform."   # nothing platform-level is ever tenant-assignable
+  AUTHZ_TENANT_DENIED_CAPS: "authz.manage"        # granting this would let the grantee mint further
+                                                  # roles — escalation by proxy
+
+  # The positive allowlist. Upstream leaves it EMPTY, and upstream is right to: empty is safe by
+  # default. We must set it, because spec §3.4 gives establishment owners a custom role BUILDER —
+  # that is customer self-service role management, exactly what the knob's own comment says to
+  # curate before enabling.
+  #
+  # This is Raje3's capability vocabulary, first defined here, mapped from the §3.3 matrix. Our
+  # product services (operations/reminders/loyalty/campaigns/insights) must use these exact names.
+  # Deliberately ABSENT and therefore un-assignable by any establishment: tenant.manage (only the
+  # owner closes an establishment, §3.2 root protection) and everything under platform.*.
+  AUTHZ_TENANT_ASSIGNABLE_CAPS: >-
+    operations.record.create,operations.record.amend,operations.customer.read,
+    operations.asset.manage,operations.catalog.edit,operations.catalog.reorder,
+    team.operator.create,team.operator.suspend,team.role.assign,
+    reminders.rule.edit,reminders.schedule.read,
+    templates.activate,templates.request,whatsapp.connect,
+    campaigns.create,campaigns.send,
+    loyalty.rule.edit,loyalty.redeem,
+    insights.read,insights.staff.read,insights.digest.subscribe,
+    billing.subscription.read,billing.invoice.read
+
+  # ── Audit ─────────────────────────────────────────────────────────────────────────────────
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false
