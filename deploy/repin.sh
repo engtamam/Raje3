@@ -12,9 +12,15 @@
 #  Run it from the deploy host, where the cluster holds the registry credential — this reads the
 #  `ghcr` pull secret rather than asking anyone to re-type a token.
 #
+#  IT PRINTS THE LIST OF SERVICES THAT MOVED, and that list is the point. update.sh takes --only,
+#  and its own comment says why: "Re-rolling every service to change one is slow and restarts pods
+#  nobody touched". A release that changes one service should take two minutes, not thirty. Feeding
+#  this output into --only is the difference, and forgetting to is a mistake I made for three
+#  releases in a row.
+#
 #  Usage:
-#    bash deploy/repin.sh v0.12.8              # re-pin everything, then run update.sh
-#    bash deploy/repin.sh v0.12.8 --dry-run    # show what would change, touch nothing
+#    bash deploy/repin.sh v0.13.1              # re-pin, then print the --only line to run
+#    bash deploy/repin.sh v0.13.1 --dry-run    # show what would change, touch nothing
 #
 #  A service with no image at that tag is LEFT ON ITS CURRENT DIGEST and named in the output. That
 #  is deliberate: silently leaving it behind while reporting success is how half a fleet ends up on
@@ -36,7 +42,7 @@ AUTH=$(kubectl -n "$NS" get secret ghcr -o jsonpath='{.data.\.dockerconfigjson}'
 [[ -n "$AUTH" ]] || echo "  (no ghcr credential in the cluster — anonymous pulls only)"
 
 ACC='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
-changed=0; same=0; missing=0
+changed=0; same=0; missing=0; moved_list=""
 
 for f in "$VALUES_DIR"/*.values.yaml; do
   svc=$(basename "$f" .values.yaml)
@@ -70,9 +76,21 @@ s=re.sub(r'(\n\s*digest:\s*)"[^"]*"', lambda m: m.group(1)+'"'+dig+'"', s, count
 io.open(f,"w",encoding="utf-8",newline="\n").write(s)
 PY
   echo -e "  ${C_G}✔ $svc -> ${dig:0:19}…${C_N}"
-  changed=$((changed+1))
+  changed=$((changed+1)); moved_list="$moved_list,$svc"
 done
 
 echo
 echo -e "  moved: $changed · unchanged: $same · not published at $TAG: $missing"
+
+# The whole reason to know WHICH moved. Rolling nineteen services to change one restarts eighteen
+# pods for nothing, and on a modest node that is half an hour instead of two minutes.
+if [[ -n "$moved_list" ]]; then
+  echo
+  echo -e "  ${C_G}roll only what changed:${C_N}"
+  echo -e "    sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml PRODUCT_NAME=raje3 \\"
+  echo -e "      CHART=\$ROOT/platform/deploy/chart VALUES_DIR=\$ROOT/deploy/services \\"
+  echo -e "      bash \$ROOT/platform/deploy/server/update.sh --only ${moved_list#,}"
+elif [[ $missing -eq 0 ]]; then
+  echo -e "  ${C_D}nothing moved — the fleet is already on $TAG, no rollout needed${C_N}"
+fi
 [[ $missing -eq 0 ]]
