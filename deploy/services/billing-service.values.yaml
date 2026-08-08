@@ -1,0 +1,164 @@
+# billing-service — Raje3 deployment values.
+#
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
+# core/{pricing,entitlements,grants,settlement,periods,invoice_format,currency}.py,
+# ports/{payment_gateway,tax_calculator,einvoicer,wallet}.py. Nothing upstream edited.
+#
+# Spec §16 in one service: four plans, message top-ups, the 14-day trial, annual discount,
+# coupons, invoices, failed-payment tracking (§15.4), and the entitlement registry that finally
+# makes plan gating real instead of hand-maintained.
+service:
+  name: billing-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/billing-service
+  digest: "sha256:70e713781adfed9b140b45746353af4303889ce0dd024dd0cf2d39d9721273b4"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis          # the wallet outbox drains through this
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, SECRETS_KEK,
+# WALLET_SERVICE_TOKEN, and later PAYMENT_API_KEY / PAYMENT_WEBHOOK_SECRET.
+existingSecret: billing-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # FALSE while PAYMENT_GATEWAY_DRIVER is null. It becomes true the day a real gateway is
+    # wired, and that is a decision with a blast radius: this service will then hold the
+    # credentials that move our customers' money.
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Money ─────────────────────────────────────────────────────────────────────────────────
+  CURRENCY: "SAR"
+  TAX_CALCULATOR_DRIVER: "vat"
+  VAT_RATE: "0.15"
+  # Off. Reverse charge is for cross-border B2B; our customers are Saudi establishments buying a
+  # Saudi service, so every sale is domestic and VAT-bearing. Turning it on would zero-rate a
+  # sale that owes 15%.
+  REVERSE_CHARGE_B2B: "false"
+
+  # ── The trial (§16.5) ─────────────────────────────────────────────────────────────────────
+  # 14 days, no card, covering two weekends — the spec is explicit that weekends are peak for a
+  # tyre shop, and a trial that misses them proves nothing to the owner.
+  TRIAL_DAYS: "14"
+
+  # ── Grandfathering (§16 — and the reason this is ON) ──────────────────────────────────────
+  # A subscription captures its price AND its limits at signup. Raise a plan's price or cut its
+  # included messages later and existing customers are untouched; only new signups get the new
+  # terms. Moving an existing customer becomes an explicit act, not a side effect of editing a
+  # catalogue. The alternative — a price edit silently re-billing every shop — is the kind of
+  # thing that ends a relationship with a small business permanently.
+  GRANDFATHER: "true"
+
+  # ── Dunning (§15.4 failed payments) ───────────────────────────────────────────────────────
+  # 4 attempts on a 24h doubling curve, then past_due with a 7-day grace. Auto-reactivate when
+  # payment lands, because the alternative is a shop that paid and still cannot work.
+  # The grace matters more here than in most products: suspending an establishment stops its
+  # reminders going out, which its customers feel before its owner does.
+  DUNNING_RETRY_BASE_HOURS: "24"
+  DUNNING_MAX_ATTEMPTS: "4"
+  GRACE_DAYS: "7"
+  BILLING_AUTO_REACTIVATE: "true"
+  BILLABLE_STATUSES: "active,trialing,past_due"
+
+  # ── Entitlements — this is what makes the four plans real ─────────────────────────────────
+  # An unknown key DENIES (0). Deny-by-default applied to plan limits: a capability nobody has
+  # declared must not be silently unlimited, or a Starter shop gets an Enterprise feature
+  # because someone forgot a row.
+  ENTITLEMENT_UNKNOWN_KEY_DEFAULT: "0"
+  LIMITS_CACHE_TTL_SECONDS: "300"
+  USAGE_DEFAULT_PERIOD: "billing_period"
+  USAGE_IDEMPOTENCY_TTL_SECONDS: "86400"
+
+  # ── Wallet: where a paid-for message pack actually becomes messages ───────────────────────
+  # §16.4. This is the link that turns "the owner bought a 500-message pack" into credit they
+  # can spend. It is a PORT with a durable outbox, deliberately not an event: the bus is
+  # at-most-once, so a wallet-service that happens to be restarting when payment.succeeded
+  # fires would never hear it, and nothing anywhere would record the miss. A customer pays and
+  # the credit never arrives — not late, never.
+  WALLET_DRIVER: "http"
+  WALLET_SERVICE_URL: "http://wallet-service:8000"
+  WALLET_TIMEOUT_SECONDS: "10"
+  # Must match a fund declared in wallet's WALLET_FUNDS. `topup` is the paid one; `included` is
+  # granted by the plan cycle, not bought. Naming the wrong fund here would credit purchased
+  # messages into the allowance that gets clawed back every month.
+  WALLET_GRANT_FUND: "topup"
+
+  # ── Invoicing ─────────────────────────────────────────────────────────────────────────────
+  # `both`: a receipt for the customer and a tax invoice for the record. Blank until the legal
+  # entity exists — config/product.json still has empty legalName, vatNumber and
+  # commercialRegistration, and those are OUR identity, not per-deployment values. They must be
+  # filled before a single real invoice is issued; an invoice missing a seller VAT number is not
+  # a tax invoice, it is a document that looks like one.
+  BILLING_DOCUMENT_MODE: "both"
+  INVOICE_SELLER_NAME: ""
+  INVOICE_SELLER_VAT: ""
+  INVOICE_SELLER_CR: ""
+  INVOICE_SELLER_ADDRESS: ""
+
+  # ── Not yet wired, each with the reason rather than a silent default ──────────────────────
+  # PAYMENT_GATEWAY_DRIVER: the service ships Moyasar, Tap, HyperPay, PayTabs, Geidea and APS —
+  # Mada, Apple Pay and STC Pay reach us through them — plus Stripe/PayPal/Checkout. `null`
+  # FAILS CLOSED, which is the right state while we have no merchant account: nothing can
+  # accidentally take money. `recording` runs the whole flow without charging when we pilot.
+  PAYMENT_GATEWAY_DRIVER: "null"
+  # EINVOICER: zatca-service is Wave 6a. Until it exists, invoices are issued and NOT reported.
+  # That is legal exposure with a deadline attached, not a nice-to-have — it is why zatca is in
+  # the plan at all rather than "if we get to it".
+  EINVOICER_DRIVER: "null"
+  # PDF needs the optional reportlab extra and an Arabic font. An Arabic invoice rendered with a
+  # Latin font is unreadable, so this stays off until INVOICE_FONT_PATH points at a real one.
+  PDF_RENDERER_DRIVER: "null"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# cycle-due bills every subscription whose period has ended; dunning retries what failed.
+# Without cycle-due nobody is ever invoiced — the product would run for free and look healthy
+# doing it. Without dunning a failed card is never retried and the customer is simply lost.
+cronJobs:
+  - name: cycle-due
+    schedule: "17 3 * * *"
+    path: /internal/billing/cycle-due
+  - name: dunning
+    schedule: "31 4 * * *"
+    path: /internal/billing/dunning
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
