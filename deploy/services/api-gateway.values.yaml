@@ -50,7 +50,6 @@ metrics:
   serviceMonitor: false
 
 env:
-  DEFAULT_LOCALE: "ar"
 
   # ── Token verification ────────────────────────────────────────────────────────────────────
   # Same trap that cost us a debugging session in Wave 1: this defaults to `null`, which denies

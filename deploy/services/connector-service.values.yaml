@@ -74,7 +74,6 @@ metrics:
   serviceMonitor: false   # re-enabled with the rest of the fleet once Prometheus Operator is in
 
 env:
-  DEFAULT_LOCALE: "ar"
 
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"

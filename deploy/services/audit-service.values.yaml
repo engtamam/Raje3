@@ -57,7 +57,6 @@ metrics:
   serviceMonitor: false
 
 env:
-  DEFAULT_LOCALE: "ar"
 
   # ── Token verification ────────────────────────────────────────────────────────────────────
   # rs256 VERIFY-only: the public key is in this service's secret, the private key exists

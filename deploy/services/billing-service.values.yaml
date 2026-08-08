@@ -58,7 +58,6 @@ metrics:
   serviceMonitor: false
 
 env:
-  DEFAULT_LOCALE: "ar"
 
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"

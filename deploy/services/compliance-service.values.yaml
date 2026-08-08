@@ -65,7 +65,6 @@ metrics:
   serviceMonitor: false   # Prometheus Operator not installed yet; /metrics still served
 
 env:
-  DEFAULT_LOCALE: "ar"
 
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"

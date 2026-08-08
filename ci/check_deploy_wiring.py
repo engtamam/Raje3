@@ -25,7 +25,22 @@
 #                            A CronJob whose endpoint does not exist runs on schedule and 404s or
 #                            422s forever, silently, and the only symptom is work not happening.
 #
-#   5. SHARED SECRET NAMED — a service that serves /internal/backup/export needs BACKUP_KEK, which
+#   5. ENV KEY IS REAL     — every env key must be a field the service's Settings actually declares.
+#                            An unknown key is not an error at runtime: pydantic DROPS it. So a typo
+#                            is a setting that silently never applies, and the service runs happily
+#                            on the default you thought you had overridden. This is the single
+#                            cheapest check here and the one that catches the quietest failure.
+#
+#   6. EGRESS MATCHES USE  — a service configured to reach the object store or the open internet
+#                            must have the NetworkPolicy to match. Get this wrong and the pod
+#                            answers /healthz, hangs on /readyz, logs NOTHING, and sits at 0/1 while
+#                            its packets are blackholed. That cost an evening.
+#
+#   7. SECURITY INVARIANTS — the posture we decided once and must not drift from: audit fail-closed,
+#                            a real token verifier, the frozen issuer, and never a wildcard origin
+#                            on a surface that also allows credentials.
+#
+#   8. SHARED SECRET NAMED — a service that serves /internal/backup/export needs BACKUP_KEK, which
 #                            is SHARED. Without it the endpoint answers 503 and the fleet looks
 #                            backed up while most of it cannot produce a readable archive. This
 #                            checks the values file says so, since the secret itself is not in git.
@@ -175,6 +190,72 @@ for f in values_files():
                      f"BACKUP_KEK — it is a SHARED secret, and without it the endpoint answers 503 "
                      f"while the fleet looks backed up")
 
+# ── 5. every env key is a field the service actually declares ────────────────────────────────
+def settings_fields(svc: str) -> set[str]:
+    cfg = service_source(svc) / "app" / "config.py"
+    if not cfg.exists():
+        return set()
+    # `    NAME: type = default` inside the Settings class. Upper-case only: those are the env-bound
+    # knobs, and lower-case names are derived properties, not settings.
+    return set(re.findall(r"^\s{4}([A-Z][A-Z0-9_]*)\s*:", read(cfg), re.M))
+
+
+for f in values_files():
+    svc = f.name.removesuffix(".values.yaml")
+    declared = settings_fields(svc)
+    if not declared:
+        notes.append(f"{svc}: no config.py found — env keys unchecked")
+        continue
+    text = read(f)
+    marker = "\nenv:"
+    env = text.split(marker, 1)[1] if marker in text else ""
+    env = re.split(r"^\S", env, maxsplit=1, flags=re.M)[0]     # stop at the next top-level key
+    for key in re.findall(r"^\s{2}([A-Z][A-Z0-9_]*)\s*:", env, re.M):
+        if key not in declared:
+            fail(f.name, f"{key} is not a setting {svc} declares — pydantic DROPS unknown keys, so "
+                         f"this silently never applies and the service runs on the default")
+
+# ── 6. the network policy matches what the service is configured to reach ────────────────────
+for f in values_files():
+    text = read(f)
+    svc = f.name.removesuffix(".values.yaml")
+    wants_objectstore = scalar(text, "OBJECTSTORE_DRIVER") == "s3"
+    has_objectstore = re.search(r"objectStore:\s*\n\s*enabled:\s*true", text) is not None
+    if wants_objectstore and not has_objectstore:
+        fail(f.name, "OBJECTSTORE_DRIVER is s3 but networkPolicy.egress.objectStore is not enabled "
+                     "— the pod will answer /healthz, hang on /readyz, log nothing, and sit at 0/1")
+    hosts = scalar(text, "EGRESS_ALLOWED_HOSTS")
+    internet = re.search(r"^\s*internet:\s*true", text, re.M) is not None
+    if hosts and not internet:
+        fail(f.name, f"EGRESS_ALLOWED_HOSTS names {hosts!r} but networkPolicy.egress.internet is "
+                     f"false — the application allows a host the network will never let it reach")
+
+# ── 7. the security posture we decided once ──────────────────────────────────────────────────
+for f in values_files():
+    text = read(f)
+    # `in text` would match the key inside a COMMENT — and these files explain themselves at
+    # length, so prose about a setting is everywhere. Presence must mean "the key is set".
+    def is_set(key: str) -> bool:
+        return re.search(rf"^\s{{2}}{key}:", text, re.M) is not None
+    if is_set("AUDIT_SINK_DRIVER"):
+        if scalar(text, "AUDIT_SINK_DRIVER") == "null":
+            fail(f.name, "AUDIT_SINK_DRIVER is null — the service records NOTHING, and an empty "
+                         "hash chain looks like a working control while answering nothing")
+        # Absent is fine: the default is True. Only an explicit weakening is a problem.
+        if is_set("AUDIT_FAIL_CLOSED") and scalar(text, "AUDIT_FAIL_CLOSED") != "true":
+            fail(f.name, "AUDIT_FAIL_CLOSED is not true — a privileged action would proceed "
+                         "unwitnessed whenever the log is unreachable")
+    if is_set("TOKEN_VERIFIER_DRIVER") and scalar(text, "TOKEN_VERIFIER_DRIVER") != "rs256":
+        fail(f.name, "TOKEN_VERIFIER_DRIVER is not rs256 — identity signs, everyone else verifies; "
+                     "anything else means a second trust model")
+    if is_set("TOKEN_ISSUER") and scalar(text, "TOKEN_ISSUER") != "raje3":
+        fail(f.name, "TOKEN_ISSUER is not 'raje3' — the issuer is frozen; a token minted under a "
+                     "different one is rejected by every peer")
+    origins = scalar(text, "CORS_ALLOWED_ORIGINS")
+    if "*" in origins and scalar(text, "CORS_ALLOW_CREDENTIALS") == "true":
+        fail(f.name, "a wildcard CORS origin together with credentials — that combination lets any "
+                     "site on the internet make authenticated calls as a logged-in user")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
@@ -184,4 +265,5 @@ if problems:
         print(f"    {C_R}{p}{C_N}")
     sys.exit(1)
 print(f"{C_G}  ✔ deploy wiring is consistent — digests pinned, databases provisioned, "
-      f"erasure fan-out complete, cron paths real, shared secrets named{C_N}")
+      f"erasure fan-out complete, cron paths real, env keys declared, egress matches use, "
+      f"security posture held, shared secrets named{C_N}")

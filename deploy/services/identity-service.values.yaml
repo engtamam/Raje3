@@ -59,7 +59,6 @@ metrics:
   serviceMonitor: false
 
 env:
-  DEFAULT_LOCALE: "ar"
 
   # ── Token signing ─────────────────────────────────────────────────────────────────────────
   # rs256, not hs256: identity SIGNS and every other service only VERIFIES. With a shared

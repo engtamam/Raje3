@@ -58,11 +58,9 @@ metrics:
   serviceMonitor: false   # Prometheus Operator not installed; /metrics still served
 
 env:
-  DEFAULT_LOCALE: "ar"
   # Cron is parsed in UTC by the builtin parser. Our operators think in Asia/Riyadh (UTC+3),
   # so any schedule we write must be converted deliberately — a "9am" reminder written as
   # `0 9 * * *` fires at noon Riyadh. Kept explicit so nobody has to rediscover it.
-  DEFAULT_TIMEZONE: "Asia/Riyadh"
 
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"
