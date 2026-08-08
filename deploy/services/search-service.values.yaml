@@ -1,0 +1,105 @@
+# search-service — Raje3 deployment values.
+#
+# Read in full at v0.12.5: manifest.py, api/v1/*, api/internal.py, config.py, core/analyzer.py,
+# ports/*. Nothing upstream edited.
+#
+# What it is to us: §4.3's recent-customers strip on the field screen, and the actionable tables
+# an owner works from in §10.7 — at-risk this week, slow returners, missed opportunities.
+#
+# Why it is a service and not a LIKE query: Arabic. The analyzer strips tashkeel and folds the
+# variants a person will not type — alef forms, alef maqsura, taa marbuta — so محمد entered three
+# different ways finds one customer. A LIKE query finds none of them, and the failure is invisible
+# in testing because whoever wrote the test typed the name the same way both times.
+service:
+  name: search-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/search-service
+  digest: "sha256:6195cde8c7ba52d1ea909ac30a25d9e45d94d01448d2fc199a81af5c729ae18e"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis          # result cache on the hot path
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 150m           # the field screen calls this on every keystroke of a phone number
+    memory: 256Mi       # the builtin index is in-process
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: search-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false     # the builtin index is local; no external search vendor
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── The index ─────────────────────────────────────────────────────────────────────────────
+  # builtin, and the alternatives are named in the config as a documented follow-up rather than
+  # available today. For our data volumes — hundreds of establishments, thousands of customers
+  # each — an in-process index is the right answer and one less system to operate. Revisit if a
+  # single tenant's customer count reaches a scale where the index no longer fits memory.
+  SEARCH_INDEX_DRIVER: "builtin"
+  SEARCH_CACHE_TTL_SECONDS: "30"
+
+  # ── Arabic ────────────────────────────────────────────────────────────────────────────────
+  # ON, and it is the reason this service exists rather than a SQL LIKE. The analyzer strips
+  # tashkeel and tatweel, folds أ إ آ ٱ to ا, ى to ي, and ة to ه. Without it a customer saved as
+  # "محمّد" is invisible to someone typing "محمد", and the operator concludes the system lost
+  # their customer.
+  ARABIC_NORMALIZE: "true"
+  # Arabic stopwords are built in (في، من، على، مع…). Harmless for names and phone numbers, and
+  # useful the day we search service notes.
+  STOPWORDS_ENABLED: "true"
+  # Typo tolerance at edit-distance 1. The field screen is used one-handed, on a phone, in a
+  # service bay — a single transposed character must not hide a customer.
+  TYPO_TOLERANCE: "true"
+
+  # ── Cost limits ───────────────────────────────────────────────────────────────────────────
+  # The five-second rule (§1.1) is what these protect. A query is refused rather than allowed to
+  # run long, because a slow search on the field screen is worse than no search: the operator
+  # waits, then types it again.
+  MAX_QUERY_LEN: "512"
+  MAX_QUERY_TERMS: "32"
+  DEFAULT_PAGE_SIZE: "20"
+  MAX_PAGE_SIZE: "100"
+  # The recent-customers strip shows a handful, not a page.
+  SUGGEST_MAX: "10"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# No CronJobs. Checked against the manifest rather than assumed: this service has no sweep,
+# retention or drain endpoint. Indexing is push-driven — /internal/search/index and /bulk are
+# called by whoever owns the data, not by a clock.
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
