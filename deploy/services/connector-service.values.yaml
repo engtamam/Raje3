@@ -1,0 +1,141 @@
+# connector-service — Raje3 deployment values.
+#
+# Read in full at v0.12.6: README, config.py, and upstream's values file. Nothing upstream edited.
+#
+# What it is to us: the answer to the first objection every established shop raises — "I already
+# have my customers somewhere else." An establishment that has been running for six years has a
+# customer list in a POS, an accounting package, or a spreadsheet, and asking them to re-enter it
+# by hand is asking them not to sign up. This service is how that list arrives.
+#
+# It is also §16's Enterprise tier from the other direction: webhook-service PUSHES Raje3 events
+# out; this one PULLS a customer's system in. Same plan, opposite arrow.
+#
+# ── PROVIDERS ARE CONFIG, WHICH IS THE WHOLE REASON THIS IS USABLE FOR US ─────────────────────
+# The Saudi market's POS systems are not Slack and HubSpot. If integrating a vendor meant shipping
+# an adapter, every new one would be a release, and we would be in the integration business rather
+# than the retention business. `oauth2-rest` is spec-driven: a provider is a JSON document with a
+# token URL, endpoints, and a field map, stored through the API. Adding a vendor is DATA, not a
+# deploy — no eval, unknown mapping ops fail closed.
+#
+# So: NO SPECS ARE REGISTERED TODAY, and that is the honest state. The service runs so the seam is
+# real when the first customer names their POS; it is not integrated with anything yet, and
+# nothing in this file should be read as claiming otherwise.
+service:
+  name: connector-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/connector-service
+  digest: "sha256:7382d1ec0902244e11cce67c6b91d5f2ed3316a712013aad5ed14ad15fad6602"   # v0.12.6
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis        # credential resolution is cached — see the seal-key note below
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi     # it holds a batch of records in flight
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, and one this
+# service alone needs:
+#
+# CREDENTIAL_SEAL_KEY — AES-256-GCM key material sealing a CUSTOMER'S OAuth tokens at rest. It is
+# NOT one of the platform-wide shared secrets (PII_SALT, INTERNAL_SERVICE_TOKEN, BACKUP_KEK): it
+# belongs to this service and no other, so it must be generated per-deployment and must never be
+# copied from another service's secret. Lose it and every connection must be re-authorised by the
+# customer; leak it and their tokens to their own POS are readable.
+existingSecret: connector-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # Same reasoning as webhook-service: the destination is a customer's system, so no allow-list
+    # at this layer can express it. Note the DIVISION OF LABOUR upstream states explicitly —
+    # host allow-listing here is APPLICATION-layer, via EGRESS_ALLOWED_HOSTS below. This toggle
+    # opens 80/443 to any public IP; the app is what narrows it. Reading this line as "the
+    # network is the control" is the mistake.
+    internet: true
+
+metrics:
+  serviceMonitor: false   # re-enabled with the rest of the fleet once Prometheus Operator is in
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── The provider driver ───────────────────────────────────────────────────────────────────
+  # oauth2-rest, deliberately, and NOT slack or hubspot. Those two ship as concrete adapters to
+  # prove the port's shape against real vendor docs; neither is a system a Saudi tyre shop or
+  # salon runs. Everything we will actually meet is REST + OAuth2, which is exactly what the
+  # spec-driven driver covers as data.
+  #
+  # `null` fails closed and `recording` performs no network call at all — either would make a
+  # sync look successful while importing nothing.
+  CONNECTOR_PROVIDER_DRIVER: "oauth2-rest"
+
+  # ── Token refresh ─────────────────────────────────────────────────────────────────────────
+  # Refresh EARLY. Many providers rotate the refresh token on every use, so a refresh that races
+  # or arrives late can leave us holding a token the provider has already invalidated — and that
+  # breaks the connection PERMANENTLY, requiring the customer to re-authorise. 60s of skew is
+  # upstream's and is the right order for clock disagreement between us and a vendor.
+  TOKEN_REFRESH_SKEW_SECONDS: "60"
+
+  # ── Sync ──────────────────────────────────────────────────────────────────────────────────
+  # Upstream's ladder kept whole. What matters is not the numbers but the two guarantees behind
+  # them, which we are relying on and must not undo by "tuning":
+  #   - the watermark advances only AFTER a batch is durably processed, so a failed batch is
+  #     retried rather than silently skipped;
+  #   - a partial run is reported as partial — 997 imported and 3 dead-lettered, never "success".
+  # An importer that quietly skips records is worse than one that fails: the establishment
+  # believes its customer list arrived, and only finds out when a customer never gets a message.
+  SYNC_BATCH_SIZE: "100"
+  SYNC_MAX_ATTEMPTS: "5"
+  SYNC_RETRY_BASE_SECONDS: "5"
+  SYNC_RETRY_MAX_SECONDS: "3600"
+  SYNC_RETRY_JITTER: "true"
+
+  # ── Circuit breaker ───────────────────────────────────────────────────────────────────────
+  # A customer's POS that is down or rate-limiting must not have us hammering it. Five consecutive
+  # failures opens the circuit for five minutes; `Retry-After` is obeyed when the provider sends
+  # one. This protects THEIR system, and our standing with them, as much as ours.
+  CIRCUIT_FAILURE_THRESHOLD: "5"
+  CIRCUIT_RESET_SECONDS: "300"
+
+  CONNECTOR_LIST_LIMIT: "100"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  # THIS is the host allow-list, and it is the one that matters — see the networkPolicy note.
+  # Empty while no spec exists. It is filled with the vendor's API host at the moment a provider
+  # spec is registered, so the two are added together and never drift apart.
+  EGRESS_ALLOWED_HOSTS: ""
+
+# No CronJobs, and this is upstream's design rather than an omission on our side: sync is driven
+# by job-service through POST /internal/connectors/sync, which is what gives it scheduling and
+# retry semantics we would otherwise be reimplementing in a crontab. NOTHING IS REGISTERED IN
+# job-service YET — the first registration belongs with the first provider spec, not before it,
+# because a scheduled sync against no connection is a job that fails on a timer.
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door

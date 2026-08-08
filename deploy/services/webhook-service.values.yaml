@@ -1,0 +1,152 @@
+# webhook-service — Raje3 deployment values.
+#
+# Read in full at v0.12.5: README, config.py, core/inbound_service.py, core/ssrf.py,
+# core/webhook_service.py, adapters/signer/*, and upstream's values file. Nothing upstream edited.
+#
+# What it is to us: the API tier of §16's Enterprise plan — the differentiator we sell to an
+# establishment large enough to want Raje3 events inside its own systems. "A visit was recorded",
+# "a customer withdrew marketing consent", "message credit is running low" pushed to their
+# endpoint instead of them polling us.
+#
+# It is therefore SWITCHED ON BUT UNSOLD. No tenant has an endpoint registered today, and the
+# gate is the plan check in our own services when they call dispatch — not a knob here. Running it
+# now means the plan has a working spine the day the first Enterprise contract is signed, rather
+# than a promise we then have to build.
+#
+# ── The part worth reading before anyone points a provider at this ────────────────────────────
+# INBOUND INGEST IS STRIPE-SHAPED, AND META IS NOT. Verified in adapters/signer/hmac_sha256.py
+# and core/inbound_service.py: verification expects `t=<unix>,v1=<hex>` and REQUIRES a timestamp,
+# because the timestamp is what makes replay protection possible. Meta's WhatsApp callback sends
+# `X-Hub-Signature-256: sha256=<hex>` over the raw body with no timestamp at all.
+#
+# So a Meta webhook pointed at /inbound/meta would fail signature verification on every single
+# delivery, and — correctly — return 400 rather than 5xx, meaning Meta would NOT retry and the
+# message-status callbacks would be silently lost. WhatsApp delivery receipts belong to
+# notification-service, which speaks Meta's dialect. Nothing about this is a defect: the service
+# documents the format it implements. It is a defect only if we assume "inbound webhook" means
+# "any provider" and wire it up without reading. INBOUND_SECRETS stays empty until a provider that
+# actually signs this way exists.
+service:
+  name: webhook-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/webhook-service
+  digest: "sha256:35da490dfa579b2f32db49ad271730206c6be91e50c938d7d5ade94570111aa1"   # v0.12.5, the fleet version
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis        # the subscriber index sits on the hot path of every dispatched event
+  eventbus: redis
+  queue: redis        # delivery and retry are queue work, never inline in the caller's request
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT.
+existingSecret: webhook-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # THE ONE SERVICE THAT LEGITIMATELY DIALS THE OPEN INTERNET. Its entire job is POSTing to a
+    # customer's URL, which we cannot know in advance, so no allow-list can express it. The guard
+    # is not the NetworkPolicy — it is core/ssrf.py, which resolves DNS, requires every resolved
+    # address to be public unicast, and PINS the connection to that validated IP so the answer
+    # cannot change between the check and the connect. That is the control we are relying on;
+    # this line just stops pretending otherwise.
+    internet: true
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Transport and signing ─────────────────────────────────────────────────────────────────
+  # stdlib, because the whole point of this service is one POST with a size-capped read; httpx
+  # would be a dependency bought for nothing. NEVER `null` or `recording` outside a test — both
+  # make every delivery look successful without a packet leaving the pod.
+  WEBHOOK_TRANSPORT_DRIVER: "stdlib"
+  # The customer's only way to know a request is genuinely from us. `null` fails closed by design;
+  # naming it here so nobody reaches for it while debugging a signature mismatch.
+  WEBHOOK_SIGNER_DRIVER: "hmac-sha256"
+
+  # ── SSRF — the settings that must never move ──────────────────────────────────────────────
+  # An Enterprise customer registers an arbitrary URL and OUR server makes the request. Without
+  # these, a registered http://169.254.169.254/ would hand them our cloud credentials, and
+  # http://redis:6379 would let them talk to our datastore from inside the cluster.
+  WEBHOOK_REQUIRE_HTTPS: "true"
+  # false, permanently. It stays false in every environment we run, including staging: an
+  # establishment does not have an endpoint on our private network, so nothing legitimate is lost,
+  # while the one thing it enables is exactly the attack.
+  WEBHOOK_ALLOW_PRIVATE_IPS: "false"
+  # Empty = any PUBLIC host, which is the correct policy for a feature whose premise is that the
+  # customer chooses the destination. The restriction is "public", not "listed".
+  WEBHOOK_ALLOWED_HOSTS: ""
+  WEBHOOK_DENIED_HOSTS: ""
+
+  # ── Delivery and retry ────────────────────────────────────────────────────────────────────
+  # 10s: a customer's slow endpoint must not hold our worker. Their problem stays theirs.
+  DELIVERY_TIMEOUT_SECONDS: "10"
+  # Upstream's ladder kept whole — 30s doubling to a 6h ceiling over 8 attempts, roughly two days
+  # of trying before dead-letter. That is the right shape for an integration that broke on a
+  # Thursday evening and gets looked at on Sunday. Nothing exhausted is discarded; it lands in the
+  # DLQ and is replayable, so a customer who fixes their endpoint recovers the events rather than
+  # being told they are gone.
+  RETRY_BASE_SECONDS: "30"
+  RETRY_MAX_SECONDS: "21600"
+  RETRY_MAX_ATTEMPTS: "8"
+  # ON. Without jitter every delivery that failed in the same incident retries in the same
+  # instant, and we build our own thundering herd against a customer that is already struggling.
+  RETRY_JITTER: "true"
+
+  MAX_PAYLOAD_BYTES: "1048576"
+  MAX_RESPONSE_BYTES: "65536"
+
+  # ── Inbound ───────────────────────────────────────────────────────────────────────────────
+  # EMPTY, deliberately — see the header. Any name added here is a claim that the provider signs
+  # `t=…,v1=…`, and an unknown source or missing secret fails closed. The 5-minute tolerance and
+  # 24h dedupe window are upstream's and are the right bounds for a signed-with-timestamp
+  # provider whenever we have one.
+  INBOUND_SECRETS: ""
+  INBOUND_TIMESTAMP_TOLERANCE_SECONDS: "300"
+  INBOUND_DEDUPE_TTL_SECONDS: "86400"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  # Distinct from WEBHOOK_ALLOWED_HOSTS: this bounds the service's OWN outbound helper calls, not
+  # customer delivery destinations. Empty, because it has none.
+  EGRESS_ALLOWED_HOSTS: ""
+
+# Upstream's job, kept whole and unaltered. It is the retry engine: without it a delivery that
+# failed its first attempt is scheduled and then never re-driven, and the circuit breaker never
+# gets its half-open probe — so an endpoint that recovered stays broken from our side.
+cronJobs:
+  - name: sweep
+    schedule: "*/5 * * * *"
+    path: /internal/webhooks/sweep
+
+ingress:
+  enabled: false   # /inbound/{source} would be the one public path, and nothing uses it yet

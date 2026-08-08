@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/file-service
-  digest: "sha256:de080b191df2b75d20ebb7b9d006b285efa4466b7b83f82fa5cbe8e4f7a505ab"
+  digest: "sha256:4becaea7abbc2cad31583b012656ee1937c8cd0ec2039e118abc89751c123bda"
 
 replicas: 1
 
