@@ -10,8 +10,8 @@ service:
   port: 8000
 
 image:
-  repository: ghcr.io/base-services/authz-service
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  repository: ghcr.io/engtamam/authz-service
+  digest: "sha256:c15c6fc284103634008f7673b4135d23a88d2f5d4638ee676f0ff7243d582244"
 
 replicas: 1
 
@@ -43,7 +43,11 @@ networkPolicy:
     internet: false
 
 metrics:
-  serviceMonitor: true
+  # Off until we run the Prometheus Operator: a ServiceMonitor is a CRD it owns, and
+  # without it helm cannot even render (no matches for kind ServiceMonitor). /metrics is
+  # still served by every pod — this only controls whether Prometheus is told to scrape it.
+  # Flip back on with the operator, in the same wave that brings up monitoring.
+  serviceMonitor: false
 
 env:
   DEFAULT_LOCALE: "ar"

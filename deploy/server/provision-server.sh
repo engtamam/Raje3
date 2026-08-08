@@ -24,6 +24,7 @@
 #    8  swap              swapfile when RAM is small
 #    9  kernel + ulimits  inotify/conntrack/file-max for Postgres + k8s
 #   10  Docker CE         official repo + compose plugin
+#   10.5 Helm             deploy goes through the base-services Helm chart
 #   11  k3s               single-node Kubernetes (flannel policy OFF for Calico; Traefik OFF — own edge)
 #
 #  Environment (all optional; never hardcode a secret here):
@@ -284,6 +285,22 @@ EOF
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
 # 10 — Docker CE (official repo + compose plugin)
 # ══════════════════════════════════════════════════════════════════════════════════════════════════
+# 10.5 — Helm
+#
+#  NOT in imtithal's provisioner, and its absence is not an oversight there: imtithal deploys
+#  from plain kubectl manifests. We deploy through the base-services Helm CHART, so setup.sh
+#  phase 5 dies without this. Found the hard way on the first real bring-up.
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
+install_helm() {
+  header "Helm"
+  if have helm; then ok "helm present ($(helm version --short 2>/dev/null || echo '?'))"; return; fi
+  if (( DRY_RUN )); then echo -e "${DIM}  [dry-run] install helm 3 via get-helm-3${NC}"; return; fi
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash >/dev/null
+  record "installed helm $(helm version --short 2>/dev/null || echo '')"
+  ok "helm installed"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════
 install_docker() {
   header "Docker CE"
   if have docker && docker info >/dev/null 2>&1; then ok "Docker already installed";
@@ -379,6 +396,7 @@ main() {
   step swap            setup_swap
   step kernel          setup_kernel
   step docker          install_docker
+  step helm            install_helm
   step k3s             install_k3s
 
   header "Done"

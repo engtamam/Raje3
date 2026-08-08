@@ -13,10 +13,10 @@ service:
   port: 8000
 
 image:
-  repository: ghcr.io/base-services/tenant-service
+  repository: ghcr.io/engtamam/tenant-service
   # Digest, never a tag: with :latest + IfNotPresent a node silently keeps the image it already
   # has, so a rollback is not a rollback. Replace at publish time.
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  digest: "sha256:15d30156218c06a66924ef05f16c30be21e94797b5b4bc2844f9a70b6f9f3d9e"
 
 replicas: 1
 
@@ -53,7 +53,11 @@ networkPolicy:
     internet: false    # tenant-service calls no third party. Nothing to open.
 
 metrics:
-  serviceMonitor: true
+  # Off until we run the Prometheus Operator: a ServiceMonitor is a CRD it owns, and
+  # without it helm cannot even render (no matches for kind ServiceMonitor). /metrics is
+  # still served by every pod — this only controls whether Prometheus is told to scrape it.
+  # Flip back on with the operator, in the same wave that brings up monitoring.
+  serviceMonitor: false
 
 env:
   # ── Raje3 locale. The product is Arabic-first (config/product.json). ──────────────────────
