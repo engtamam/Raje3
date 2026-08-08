@@ -1,6 +1,6 @@
 # job-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
 #
 # What this service is to us: the engine room of the product's core promise. Spec §5 — every
 # reminder is computed and sent here, in the background. The rule that decides WHEN a customer

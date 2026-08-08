@@ -30,7 +30,7 @@ rules, loyalty points, campaigns, sectors.** Nobody else will ever build those f
 
 | Repo | What it is | How we use it |
 | --- | --- | --- |
-| **`engtamam/base-services`** (private) | ~24 generic, production-grade backend microservices (FastAPI), plus a Helm chart and CI harness. Hexagonal, config-driven, deny-by-default, zero-hardcoded. | **CONSUME, NEVER EDIT.** We run its services from published images and adapt them via env vars / config / Helm values. We keep only its Helm **chart** + **CI harness** in-tree (sparse), never its service source. Pinned to a tag (currently **`v0.12.1`**). |
+| **`engtamam/base-services`** (private) | ~24 generic, production-grade backend microservices (FastAPI), plus a Helm chart and CI harness. Hexagonal, config-driven, deny-by-default, zero-hardcoded. | **CONSUME, NEVER EDIT.** We run its services from published images and adapt them via env vars / config / Helm values. We keep only its Helm **chart** + **CI harness** in-tree (sparse), never its service source. Pinned to a tag (currently **`v0.12.2`**). |
 | **`engtamam/imtithal`** (private) | A *real* product built the same way — it consumes `base-services` and adds its own product services. Its deploy scripts are excellent. | **REFERENCE ONLY, DO NOT COPY VERBATIM.** Learn its repo structure and its `deploy/server/` scripts, then write Raje3's own equivalents. Never depend on it at runtime. |
 | **`engtamam/raje3`** (this repo) | Raje3 itself. | **BUILD HERE.** Our product services, our UI, our deploy pipeline, our config. |
 
@@ -133,7 +133,7 @@ wave needs** — an unused service is left out of the values, not deployed.
 | **0 — Foundation** | K3s + Calico + metrics-server + **postgres/redis/minio**; run `make verify` (proves default-deny NetworkPolicy) | nothing runs before the cluster + datastores | ✅ |
 | **1 — Spine** | `tenant` → `authz` → `identity` → `audit` | tenancy is the source of truth; then authz decisions; then auth; then the log everything writes to | ✅ |
 | **2 — Door & async** | `api-gateway` · `job` · `file` | the only public door; the scheduler (reminders need it); storage (tenant logos) | ✅ |
-| **3 — Messaging & control** | `notification` (**WhatsApp available since `v0.12.1`** — `meta` / `webhook` / `console`) · `feature-flag` | the send channel; per-plan feature gating | ✅ |
+| **3 — Messaging & control** | `notification` (**WhatsApp available since `v0.12.2`** — `meta` / `webhook` / `console`) · `feature-flag` | the send channel; per-plan feature gating | ✅ |
 | **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base (the 20 dashboard metrics); points base; subscriptions/plans/quotas; opt-out/PDPL | ✅ |
 | **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
 
@@ -213,12 +213,12 @@ the chart promises.
 
 ---
 
-## 8. WhatsApp — the gap is closed (upstream, as of `v0.12.1`)
+## 8. WhatsApp — the gap is closed (upstream, as of `v0.12.2`)
 
 This section used to describe Raje3's one blocking gap: `notification-service` had Email /
 SMS / in-app but no WhatsApp, the core channel for the whole product (spec §6). We requested
 it upstream rather than building it, because a WhatsApp channel is generic. **It shipped in
-base-services `v0.12.1`** — exactly the config-driven shape we asked for. We wrote no code
+base-services `v0.12.2`** — exactly the config-driven shape we asked for. We wrote no code
 for it and we still edit nothing.
 
 The knobs (read from `services/notification-service/app/config.py`, never edited):
@@ -293,7 +293,7 @@ A service — ours or an adapted base-services one — is "done" only when:
 
 ## Appendix — quick reference
 
-- **base-services pin:** `v0.12.1` (bump deliberately; test `make verify` after).
+- **base-services pin:** `v0.12.2` (bump deliberately; test `make verify` after).
 - **Consume base-services (fresh clone):**
   ```bash
   git submodule update --init platform

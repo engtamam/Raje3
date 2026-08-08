@@ -1,6 +1,6 @@
 # file-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
 #
 # What this service is to us: an establishment's LOGO, first and foremost. Spec §6.1 and §6.2 —
 # every WhatsApp message goes out carrying the establishment's own name and mark, never the

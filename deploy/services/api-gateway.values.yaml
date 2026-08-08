@@ -1,6 +1,6 @@
 # api-gateway — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/core/models.py (the Route shape) and app/config.py at v0.12.1.
+# Read from app/manifest.py, app/core/models.py (the Route shape) and app/config.py at v0.12.2.
 # Nothing upstream edited.
 #
 # What this service is to us: the ONE public door. Everything in Wave 1 is internal-tier only —

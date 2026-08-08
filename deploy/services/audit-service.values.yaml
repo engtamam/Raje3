@@ -1,6 +1,6 @@
 # audit-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
 #
 # What this service is to us: spec §11.2 — the trail that cannot be edited, recording who did
 # what and when, so an establishment owner can hold staff accountable and we can answer a

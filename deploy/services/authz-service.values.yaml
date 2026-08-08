@@ -1,6 +1,6 @@
 # authz-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
 #
 # What this service is to us: spec §3 in full — the owner -> manager -> custom roles -> operator
 # hierarchy, the permission matrix (§3.3), the custom role builder (§3.4), and the three golden
