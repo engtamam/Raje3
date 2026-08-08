@@ -131,6 +131,30 @@ env:
   # spec is registered, so the two are added together and never drift apart.
   EGRESS_ALLOWED_HOSTS: ""
 
+# ── PROVEN on the live cluster, and one gap found doing it ───────────────────────────────────
+# The SSRF guard was tested against a registered provider spec, not assumed from the README:
+#
+#   base_url http://169.254.169.254   -> 400   cloud metadata refused
+#   base_url http://redis:6379        -> 400   in-cluster address refused
+#   base_url http://example.com       -> 400   plain http refused (INSTANCE_REQUIRE_HTTPS)
+#   base_url https://example.com      -> 201   registered, scoped to the calling tenant
+#   field_map {"op":"exec"}           -> 422   unknown mapping op fails CLOSED
+#
+# The last line is the one that matters most to us: a provider spec is DATA, and an operation the
+# service does not recognise is refused rather than run. That is what makes "add a new POS vendor"
+# a configuration change instead of a release.
+#
+# A NOTE ON HOW THE FIRST ATTEMPT LIED: pointing base_url at https://api.example.com returned 400
+# as well — a host that does not resolve is indistinguishable, in the response, from one the guard
+# rejected. Without a KNOWN-GOOD case in the same run it would have been recorded as proof of a
+# guard that had not actually been exercised. Always include the case that must succeed.
+#
+# GAP, upstream: there is no way to DELETE a provider spec. The routes are POST /specs and
+# GET /specs and nothing else — DELETE /specs/{id} returns 404 because no such route exists. So a
+# spec registered with a wrong token URL is permanent, and keeps being offered to an operator as a
+# valid choice. Not blocking us today (no spec is registered), and reported rather than worked
+# around.
+
 # No CronJobs, and this is upstream's design rather than an omission on our side: sync is driven
 # by job-service through POST /internal/connectors/sync, which is what gives it scheduling and
 # retry semantics we would otherwise be reimplementing in a crontab. NOTHING IS REGISTERED IN
