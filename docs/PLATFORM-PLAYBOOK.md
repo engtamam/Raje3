@@ -366,6 +366,138 @@ Registered with the value, or empty, every call is a 401 that names nothing.
 **Rule:** read the field's comment, not its type. `_ref`, `_name` and `_key` frequently mean
 indirection.
 
+### 4.12 A key that is not a setting at all
+
+Worse than §4.2, and quieter. A configuration loader that validates its fields will usually **drop
+an unknown key in silence** — no error, no warning, no log line. So a misspelled name, or a real
+name borrowed from a service that does declare it, produces a file that asserts a behaviour and a
+process that never sees the assertion.
+
+We shipped `DEFAULT_LOCALE: "ar"` in eighteen values files. Exactly two services declare that
+setting. Sixteen ran on their defaults for weeks while every file said otherwise, and nothing
+anywhere disagreed.
+
+**Rule:** every key you set must be a field the service **declares**. Check it against the config
+source, and make a build guard do it — this is the cheapest check you will ever write and it
+catches the failure with no symptom at all.
+
+### 4.13 A finite resource with no owner
+
+Each service takes a share of something shared — database connections, file handles, a rate limit
+at a provider — and each share is reasonable on its own. Nobody multiplies by the number of
+services, because no single service is in a position to.
+
+The arithmetic that bit us: every service opened a connection pool that filled to ten on first use
+and never released, against a database whose ceiling was one hundred. Ten services fill it. The
+platform ships twenty-four. And it was not a startup failure — the pool filled **lazily, on first
+query** — so the cluster looked healthy for hours and then deadlocked on an ordinary request,
+because that service happened to be the one that crossed the line. It correlates with success: the
+more of the platform a customer uses, the sooner it arrives.
+
+**Rule:** for every shared finite resource, write the multiplication down — per-service share ×
+number of services versus the ceiling — and put it in a preflight that REFUSES the install. A floor
+that does not fit is not a risk, it is a scheduled outage.
+
+### 4.14 The step you skipped was the control
+
+Deployment tooling that looks slow is usually slow **on purpose**. A health-gated rollout that
+moves one service at a time is not an unoptimised loop; the gate is the product.
+
+We replaced one with a hand-written parallel restart of ten deployments, and deadlocked the
+cluster: the new pods could not get connections while the old pods still held them, and with
+`maxUnavailable: 0` the old ones were never retired. The sequential gate would have absorbed it
+without noticing.
+
+The same failure twice in one day, in a second shape: a script left in `/tmp` instead of the
+repository, deleted by our own cleanup, and rewritten from memory.
+
+**Rule:** use the tooling that exists before writing your own, and read its flags first — the
+`--only` that would have turned a thirty-minute rollout into two minutes was there from the start.
+Anything worth running twice lives in the repository, not in `/tmp`.
+
+### 4.15 A guard that cries wolf gets switched off
+
+The guards you write to catch these traps have their own failure mode, and it is fatal to their
+purpose: a false positive on a tree that is already correct. People do not debug a noisy guard,
+they disable it.
+
+Ours produced four on its first run, all of the same species — reading the file as text when the
+question was about structure. It read a trailing `# v0.12.6` comment as part of a digest and
+rejected every correctly-pinned file. It matched a setting name inside a **comment explaining that
+setting**, in files that argue their own choices at length. It assumed a mechanical
+service→database name transform that one service breaks. And a byte-range regex for Arabic-Indic
+digits matched clean English shell scripts.
+
+**Rule:** a new guard's first job is to run clean against a tree already known to be good. Match on
+structure, not on the presence of a substring somewhere in a file.
+
+### 4.16 Silence read as success
+
+The worst failure reports nothing. An installer that hangs while every step inside it succeeds in
+isolation; piped through `tail`, it shows a clean exit and an empty output, and the operator
+believes the thing is installed.
+
+That is how a deploy host ended up with **no boot recovery at all**: the leftover unit from another
+product had been removed, the replacement had silently never landed, and only `systemctl` told the
+truth. A visible failure would have been strictly better.
+
+The same shape in a different place: a script with `set -e` aborting on a `helm --wait` timeout
+whose pods came up healthy a minute later — so the monitoring stack installed its dashboards and
+never installed the exporter that feeds its most important alert.
+
+**Rule:** verify against the system's own state, never the installer's exit code. `systemctl
+is-enabled`, the running image of a deployment, the series actually present in Prometheus. And
+distinguish "I looked and there is nothing" from "I could not tell" — only one of those should
+reassure anyone.
+
+### 4.17 A defect in your test harness wearing another service's face
+
+You will spend hours on a service that is fine because your own probe was wrong, and the symptom
+will point somewhere else entirely.
+
+A hand-minted test token used `tenant_id` for a claim the service reads as `tenant`. That did not
+fail at the token check. It left the tenant empty, the empty value travelled into an audit record,
+and **audit-service** rejected it — so a perfectly healthy service returned `503
+AUDIT_UNAVAILABLE`, and the investigation went to the audit service and toward an escalation that
+had no defect behind it.
+
+**Rule:** before escalating anything, reproduce the failing call by hand with values you control.
+Posting the exact payload directly to the service that rejected it returned 200 — which proved the
+contract was fine and the sender's input was not, in one call.
+
+### 4.18 Endpoint present is not endpoint working
+
+A release note that says thirteen services gained a capability is a statement about code, not about
+your cluster. Measure it.
+
+Ours did: thirteen services gained a backup export endpoint, and three of seventeen could actually
+produce an archive. The other fourteen answered a bare `503`, because the endpoint needed a shared
+secret only the original three held. The fleet looked covered while most of it could not produce a
+readable archive.
+
+**Rule:** for every capability you depend on, call it on every service that claims it and count the
+successes. "It is implemented" and "it works here" are different claims, and only the second one is
+yours to make.
+
+### 4.19 A value that was valid where it was written
+
+Copying a working value across a boundary is how a correct string becomes a broken one. A
+connection string, a service URL, a path — each is resolved relative to something, and the
+something travels with the reader, not with the value.
+
+We took a database DSN out of a service's secret and handed it to an exporter in a different
+namespace. The services address the database as `@postgres:5432` — a short name that resolves only
+inside their own namespace. In the monitoring namespace it means nothing. The exporter started,
+went Ready, logged `lookup postgres: no such host` where nobody was reading, and Prometheus simply
+had no series. **Everything was green and the alert we built the stack for was blind.**
+
+It was found only because the installer verifies its own outcome (§4.16) rather than trusting its
+exit code.
+
+**Rule:** when a value crosses a namespace, a cluster or a host, qualify it fully at the crossing.
+And expect this class specifically wherever you reuse a credential or an address that was written
+for somewhere else.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced

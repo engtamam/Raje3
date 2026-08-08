@@ -140,9 +140,15 @@ real calls** before the next; the evidence is in each service's commit message.
 | **2** | `api-gateway` · `job` · `file` | ✅ routing and guards proven; edge reachable from outside |
 | **3** | `compliance` → `notification` · `feature-flag` | ✅ consent tenant-scoped, withdrawal instant, plan gating proven |
 | **4** | `analytics` · `wallet` · `billing` | ✅ HLL uniques, fund priority, receipts without VAT |
-| **5** | `ticket` · `onboarding` · `backup` · `search` | in progress |
-| **6** | `zatca` · `webhook` · `connector` · `assistant` · `verification` | pending — see §11 |
-| **7** | **our product services** | last, on a platform proven underneath them |
+| **5** | `ticket` · `onboarding` · `backup` · `search` | ✅ workflow capability boundary, trial grant, restore drill, Arabic normalisation |
+| **6** | `webhook` · `connector` | ✅ SSRF guard refuses metadata, in-cluster and plain-http; mapping ops fail closed |
+| **6** | `zatca` · `assistant` · `verification` | deferred by decision, not pending — see §11 |
+| **7** | **our product services** | next, on a platform proven underneath them |
+
+**Nineteen services on v0.13.1, every one verified from the CLUSTER** — `deploy/verify-pinned.sh`
+compares each deployment's running image to its pinned digest. `update.sh` reports what helm told
+it, which is a different claim: services have been reported failed while running the correct
+digest, and one the script walked past was never created at all.
 
 **Two ordering facts that are ours, not the platform's:**
 
@@ -295,14 +301,12 @@ Honest state. Each is real, none is hidden in a commit message.
 
 | Item | State |
 | --- | --- |
-| **Backup coverage** | Only a handful of services implement the export endpoint the backup service calls. Tenants, accounts, permissions, balances, consent and audit **cannot be backed up today**. Reported upstream. Interim answer — a full `pg_dump` on a schedule, off the box — is still undecided. Do not say "we have backups". |
-| **Archives share a disk with their source** | The object store runs on the same node as the data it protects. A backup inside its own failure domain protects against nothing that actually happens. |
-| **Monitoring** | `serviceMonitor` is off in every values file because the Prometheus Operator is not installed. `/metrics` is served; nothing scrapes it, and every HPA would be inert if we scaled. |
-| **Secrets by hand** | Databases and secrets were provisioned by hand for several services before `deploy/hooks/pre-deploy.sh` existed. A second environment would drift. Verify the hook covers every service before trusting it. |
-| **TLS** | The edge runs without certificates: `raje3.sa` does not resolve to the dev box, so ACME cannot complete a challenge. On the production host, turn `auto_https` on **and** move the edge's data volume to a PVC, or every restart re-issues every certificate. |
-| **CI** | Nothing stops a broken values file being pushed. At minimum: the product-config guard, `helm template` over every values file, `bash -n` over every script, and an assertion that no image uses a tag or a placeholder digest. |
+| **Archives share a disk with their source** | The object store runs on the same node as the data it protects. A backup inside its own failure domain protects against nothing that actually happens. Unchanged, and the oldest item here. |
+| **`/metrics` is not scraped yet** | The monitoring stack is installed and our alert rules are loaded, but `serviceMonitor` is still `false` in every values file — flipping it restarts every pod, so it waits for a quiet moment. Prometheus watches the cluster and the database; it does not yet watch the services' own counters. |
+| **TLS is written, not applied** | `deploy/k3s/edge.production.yaml` is ready — ACME, HSTS, a PVC for the certificates, and a catch-all for unknown hosts. It cannot be applied until a hostname resolves to a production box. |
+| **WhatsApp templates are not registered** | The channel is open (a `whatsapp` send reaches the engine) and the library is written (63 templates, three tones per type, spec Appendix A). None is registered with Meta, so no template send can succeed yet. This is the last thing between us and a real message. |
 | **`zatca`** | Deferred to VAT registration, not to a sprint. On the day we register, four things move together: the tax calculator to `vat`, the document mode to a tax invoice, the e-invoicer to `zatca-http`, and the seller VAT number filled in `config/product.json`. Flipping one produces a document whose error a customer's accountant finds first. |
-| **Tenant creation at signup** | Ours for now, in `services/`, never a patch to `platform/`. Must carry an undo (or an orphan establishment nobody can see or bill) and be idempotent (or a retried signup creates two). Re-check on every platform bump. |
+| **`assistant` · `verification`** | Deferred by decision. `assistant` answers from a knowledge base we have not written; support is served by `ticket`. `verification` checks a commercial registration through Wathq or an identity through Nafath — we hold no contract with either, and upstream rightly does not invent their endpoints. |
 
 **Anything here that a platform release closes should be deleted from this table, not annotated.**
 History belongs in git.

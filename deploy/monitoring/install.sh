@@ -18,7 +18,12 @@
 #  that pressures the workload it watches generates the faults it reports. Run it on a node with
 #  headroom, or accept that this box is a test box and this belongs on production.
 # ==================================================================================================
-set -euo pipefail
+# NOT `set -e`. helm --wait on this stack routinely exceeds its timeout while a pod is still
+# pulling — the release lands and the pods come up healthy a minute later, but helm returns
+# non-zero. Under `set -e` that aborted the script BEFORE the postgres exporter and our alert
+# rules were installed, leaving a monitoring stack that watches the cluster and misses the one
+# metric it was built for. Each step below reports its own outcome instead.
+set -uo pipefail
 NS_MON="${NS_MON:-monitoring}"
 NS="${NS:-base-services}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -26,6 +31,7 @@ export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 info(){ echo -e "\e[36m  ▸ $*\e[0m"; }
 ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }
+warn(){ echo -e "\e[33m  ! $*\e[0m"; }
 
 command -v helm >/dev/null || { echo "helm is required"; exit 1; }
 
@@ -42,8 +48,10 @@ kubectl create namespace "$NS_MON" --dry-run=client -o yaml | kubectl apply -f -
 kubectl label namespace "$NS_MON" kubernetes.io/metadata.name="$NS_MON" --overwrite >/dev/null
 
 helm upgrade --install mon prometheus-community/kube-prometheus-stack \
-  --namespace "$NS_MON" -f "$HERE/values.yaml" --wait --timeout 900s
-ok "operator, prometheus, alertmanager and grafana are up"
+  --namespace "$NS_MON" -f "$HERE/values.yaml" --wait --timeout 900s \
+  || warn "helm --wait returned non-zero — on this stack that is usually a slow pull, not a
+           failure. Continuing; the verification at the end is what decides."
+ok "operator, prometheus, alertmanager and grafana applied"
 
 # ── 2. the postgres exporter ──────────────────────────────────────────────────────────────────
 # It reads the SAME credential the services use. A monitoring account with its own password is one
@@ -54,6 +62,12 @@ DSN=$(kubectl -n "$NS" get secret tenant-service-secrets -o jsonpath='{.data.DAT
 # connecting to a service's database would have the exporter competing for the very slots it exists
 # to measure.
 DSN="${DSN%/*}/postgres?sslmode=disable"
+# A DSN IS NAMESPACE-RELATIVE, and this one is being carried ACROSS a namespace. The services keep
+# `@postgres:5432`, a bare name that only resolves inside base-services. Copied as-is into the
+# monitoring namespace it fails with "lookup postgres: no such host" — the exporter starts, stays
+# Ready, logs the error where nobody reads it, and Prometheus simply has no series. A value that was
+# valid where it was written is not valid where it is used.
+DSN=$(printf '%s' "$DSN" | sed -E "s#@postgres:#@postgres.${NS}.svc.cluster.local:#")
 kubectl -n "$NS_MON" create secret generic pg-exporter \
   --from-literal=DATA_SOURCE_NAME="$DSN" \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
@@ -66,13 +80,26 @@ helm upgrade --install pg-exporter prometheus-community/prometheus-postgres-expo
   --set resources.requests.cpu=20m \
   --set resources.requests.memory=32Mi \
   --set resources.limits.memory=64Mi \
-  --wait --timeout 300s
-ok "postgres exporter is up — pg_stat_activity_count is now a series"
+  --wait --timeout 300s || warn "exporter helm wait timed out — verified below instead"
+ok "postgres exporter applied"
 
 # ── 3. our rules ──────────────────────────────────────────────────────────────────────────────
 info "applying the alert rules"
 kubectl apply -f "$HERE/alerts.yaml" >/dev/null
 ok "rules applied"
+
+# ── 4. verify, because applying is not the same claim as working ──────────────────────────────
+# The stack can be "installed" and still be blind: rules that did not load, or an exporter whose
+# series never arrives. Both are silent, and both defeat the entire point of installing it.
+step_ok=1
+PROM="kubectl -n $NS_MON exec prometheus-mon-prometheus-0 -c prometheus -- wget -qO-"
+groups=$($PROM "http://localhost:9090/api/v1/rules" 2>/dev/null | grep -c "raje3\." || true)
+if [ "${groups:-0}" -gt 0 ]; then ok "our alert rules are loaded in prometheus"
+else warn "rules NOT loaded — check the release label on alerts.yaml"; step_ok=0; fi
+
+series=$($PROM "http://localhost:9090/api/v1/query?query=pg_stat_activity_count" 2>/dev/null | grep -c '"value"' || true)
+if [ "${series:-0}" -gt 0 ]; then ok "pg_stat_activity_count is flowing — the connection alert can fire"
+else warn "the postgres gauge has no series — the alert that cost us an hour is BLIND"; step_ok=0; fi
 
 echo
 echo "  Next, and NOT done by this script because it restarts pods:"
