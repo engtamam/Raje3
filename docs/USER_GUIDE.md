@@ -30,7 +30,7 @@ rules, loyalty points, campaigns, sectors.** Nobody else will ever build those f
 
 | Repo | What it is | How we use it |
 | --- | --- | --- |
-| **`engtamam/base-services`** (private) | ~24 generic, production-grade backend microservices (FastAPI), plus a Helm chart and CI harness. Hexagonal, config-driven, deny-by-default, zero-hardcoded. | **CONSUME, NEVER EDIT.** We run its services from published images and adapt them via env vars / config / Helm values. We keep only its Helm **chart** + **CI harness** in-tree (sparse), never its service source. Pinned to a tag (currently **`v0.9.0`**). |
+| **`engtamam/base-services`** (private) | ~24 generic, production-grade backend microservices (FastAPI), plus a Helm chart and CI harness. Hexagonal, config-driven, deny-by-default, zero-hardcoded. | **CONSUME, NEVER EDIT.** We run its services from published images and adapt them via env vars / config / Helm values. We keep only its Helm **chart** + **CI harness** in-tree (sparse), never its service source. Pinned to a tag (currently **`v0.12.1`**). |
 | **`engtamam/imtithal`** (private) | A *real* product built the same way — it consumes `base-services` and adds its own product services. Its deploy scripts are excellent. | **REFERENCE ONLY, DO NOT COPY VERBATIM.** Learn its repo structure and its `deploy/server/` scripts, then write Raje3's own equivalents. Never depend on it at runtime. |
 | **`engtamam/raje3`** (this repo) | Raje3 itself. | **BUILD HERE.** Our product services, our UI, our deploy pipeline, our config. |
 
@@ -133,7 +133,7 @@ wave needs** — an unused service is left out of the values, not deployed.
 | **0 — Foundation** | K3s + Calico + metrics-server + **postgres/redis/minio**; run `make verify` (proves default-deny NetworkPolicy) | nothing runs before the cluster + datastores | ✅ |
 | **1 — Spine** | `tenant` → `authz` → `identity` → `audit` | tenancy is the source of truth; then authz decisions; then auth; then the log everything writes to | ✅ |
 | **2 — Door & async** | `api-gateway` · `job` · `file` | the only public door; the scheduler (reminders need it); storage (tenant logos) | ✅ |
-| **3 — Messaging & control** | `notification` (SMS/console now, **WhatsApp when upstream ships it**) · `feature-flag` | the send channel; per-plan feature gating | ✅ |
+| **3 — Messaging & control** | `notification` (**WhatsApp available since `v0.12.1`** — `meta` / `webhook` / `console`) · `feature-flag` | the send channel; per-plan feature gating | ✅ |
 | **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base (the 20 dashboard metrics); points base; subscriptions/plans/quotas; opt-out/PDPL | ✅ |
 | **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
 
@@ -213,25 +213,37 @@ the chart promises.
 
 ---
 
-## 8. The one known gap: WhatsApp
+## 8. WhatsApp — the gap is closed (upstream, as of `v0.12.1`)
 
-`notification-service` today supports Email / SMS / in-app — **not WhatsApp**, which is the
-core channel for Raje3 (spec §6). This is a **generic** capability, so it is **requested
-upstream**, not built by us:
+This section used to describe Raje3's one blocking gap: `notification-service` had Email /
+SMS / in-app but no WhatsApp, the core channel for the whole product (spec §6). We requested
+it upstream rather than building it, because a WhatsApp channel is generic. **It shipped in
+base-services `v0.12.1`** — exactly the config-driven shape we asked for. We wrote no code
+for it and we still edit nothing.
 
-> Add a `whatsapp` channel to `notification-service` the same config-driven way as email/SMS:
-> a `WHATSAPP_CHAIN` provider port with a **Meta WhatsApp Cloud API** driver (plus `console`
-> and `webhook` for dev/QR), and an **approved-template lifecycle** (store template + category
-> UTILITY/MARKETING/AUTHENTICATION + variables, submit to Meta, track pending/approved/rejected,
-> auto-substitute variables at send). No domain logic, no template content on their side — we
-> own those.
+The knobs (read from `services/notification-service/app/config.py`, never edited):
 
-Until it ships: build reminders/campaigns against the notification port, use SMS/console as a
-temporary adapter, and swap to WhatsApp when the upstream channel lands — no rework of our
-domain logic.
+| Knob | What it does |
+| --- | --- |
+| `WHATSAPP_CHAIN` | provider chain, e.g. `meta,console`. `console` · `webhook` · `meta` |
+| `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | per-tenant credential + sending number, resolved via the secret store |
+| `WHATSAPP_GRAPH_BASE` | Meta Cloud API base — config, never a value from a request |
+| `WHATSAPP_TEMPLATE_MANAGER` | `console` \| `meta` — the approved-template lifecycle |
+| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WABA id for the template-management endpoint |
+| `WHATSAPP_TEMPLATE_SYNC_LIMIT` | pending templates reconciled per sweep |
+| `WHATSAPP_WEBHOOK_URL` / `_BEARER` | generic gateway/QR relay — host must be in `EGRESS_ALLOWED_HOSTS` (SSRF guard) |
+
+This maps onto the spec's two channels directly (§6.1): the **official channel** is
+`meta`, the **fast QR channel** is `webhook` pointed at a relay. `console` stays the dev
+and test driver. Switching between them is a values change, not a deploy of different code.
 
 **What stays ours regardless:** *which* template is chosen for *which* service, the sector
-template library, variable values, and the encrypted per-tenant opt-out links (`optoutLinkNs`).
+template library, the variable values, and the encrypted per-tenant opt-out links
+(`optoutLinkNs`). Upstream owns the pipe; we own the message.
+
+**The lesson, not the exception:** the gap closed because it was reported upstream instead
+of patched locally. When base-services lacks something generic, that is the move — never a
+local edit. See §2 rule 1.
 
 ---
 
@@ -281,7 +293,7 @@ A service — ours or an adapted base-services one — is "done" only when:
 
 ## Appendix — quick reference
 
-- **base-services pin:** `v0.9.0` (bump deliberately; test `make verify` after).
+- **base-services pin:** `v0.12.1` (bump deliberately; test `make verify` after).
 - **Consume base-services (fresh clone):**
   ```bash
   git submodule update --init platform
