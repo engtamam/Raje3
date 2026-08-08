@@ -134,8 +134,8 @@ wave needs** — an unused service is left out of the values, not deployed.
 | **1 — Spine** | `tenant` → `authz` → `identity` → `audit` | tenancy is the source of truth; then authz decisions; then auth; then the log everything writes to | ✅ |
 | **2 — Door & async** | `api-gateway` · `job` · `file` | the only public door; the scheduler (reminders need it); storage (tenant logos) | ✅ |
 | **3 — Messaging & control** | `notification` (SMS/console now, **WhatsApp when upstream ships it**) · `feature-flag` | the send channel; per-plan feature gating | ✅ |
-| **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base; points base; subscriptions; opt-out/PDPL | later |
-| **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | as needed |
+| **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base (the 20 dashboard metrics); points base; subscriptions/plans/quotas; opt-out/PDPL | ✅ |
+| **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
 
 **Per-service adaptation recipe (the same 7 steps every time):**
 1. Pull the image from the registry (never the code) — pinned by digest/tag.
@@ -146,7 +146,11 @@ wave needs** — an unused service is left out of the values, not deployed.
 6. Health-gate: wait for readiness, assert `/readyz`.
 7. Verify end-to-end (hit a real endpoint), then move to the next service.
 
-Waves 0–3 are enough to launch the tyre-shop (بنشر) MVP. The rest follow.
+**Scope decision (binding): Raje3 ships as a COMPLETE platform, not an MVP.** All five waves
+are in scope. The order above is a *build sequence*, not a scope filter — we still bring
+services up one wave at a time (never big-bang), but no wave is dropped. Waves 0–3 make the
+field flow work; waves 4–5 are what make it a product you can sell, bill, support, and
+operate (spec §9, §10, §15, §16).
 
 ---
 
@@ -159,14 +163,17 @@ then implement the domain logic. Internal names carry **no** product name (`oper
 
 | Service | Owns (spec section) | Leans on (base-services) | Phase |
 | --- | --- | --- | --- |
-| **`operations`** | end customers, assets (car/device), service records, operators + PIN, field entry (§4, §13) | identity, audit | MVP |
-| **`reminders`** | reminder rules (time / usage / custom) + adaptive EWMA learning + min/max bounds + anomaly filtering + lead-days + next-due computation (§5) | job, notification | MVP |
-| **`catalog`** *(as `data/`, not code)* | sectors, services (name/icon/colour/rule/points), dynamic fields, sector templates (§1.2, §4.6) | — grows without deploy | MVP |
-| **`loyalty`** | points earn/redeem, thresholds, cross-branch balance (§9) | wallet | later |
-| **`campaigns`** | segmentation, campaign send, anti-ban pacing (random delay + rate limit), opt-out gatekeeper (§7, §8) | notification, analytics, job | later |
+| **`operations`** | end customers, assets (car/device), service records, operators + PIN, field entry, branches (§4, §12, §13) | identity, audit | 1 |
+| **`reminders`** | reminder rules (time / usage / custom) + adaptive EWMA learning + min/max bounds + anomaly filtering + lead-days + next-due computation (§5) | job, notification | 1 |
+| **`catalog`** *(as `data/`, not code)* | sectors, services (name/icon/colour/rule/points), dynamic fields, sector templates (§1.2, §4.6) | — grows without deploy | 1 |
+| **`loyalty`** | points earn/redeem, thresholds, cross-branch balance (§9) | wallet | 2 |
+| **`campaigns`** | segmentation, campaign send, anti-ban pacing (random delay + rate limit), opt-out gatekeeper (§7, §8) | notification, analytics, job | 2 |
+| **`insights`** | the 20 dashboard metrics, adaptive/contextual service re-sort, cross-sell matrix, at-risk lists, staff KPIs, daily owner digest (§4.4, §10, §11.4) | analytics, job, notification | 3 |
 
-**MVP is just `operations` + `reminders` + `catalog`.** Do not build loyalty/campaigns until
-the MVP is proven in the field.
+**All six are in scope.** The numbers are build ORDER, not a cut line: 1 makes the field flow
+real, 2 makes it retain and market, 3 makes it insightful. Nothing here is deferred out of
+the product — only sequenced. Do not start the next number before the previous one is
+verified end-to-end (§10).
 
 **Generate a new service:**
 ```bash
@@ -250,6 +257,11 @@ big-bang.
   tenant isolation) works end-to-end.
 - Week 2 — Wave 2 + Wave 3: `api-gateway`/`job`/`file`/`notification`/`feature-flag`. At this
   point the platform is ready to build our `operations` + `reminders` on top of it.
+
+After that, keep the same loop through waves 4–5 and product services 2–3. The three UIs
+(`ui/`) are built alongside the services that back them: the field-entry screen with
+`operations`, the establishment dashboard with `insights`, the super-admin console with
+`billing`/`ticket`/`analytics` (spec §15).
 
 ---
 
