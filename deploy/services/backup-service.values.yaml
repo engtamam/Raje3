@@ -3,6 +3,19 @@
 # Read in full at v0.12.5: manifest.py, api/v1/operator.py, config.py, core/*, ports/*.
 # Nothing upstream edited.
 #
+# COVERAGE TODAY IS TWO SERVICES, and pretending otherwise would be the exact failure this file
+# exists to prevent. Only 4 of 24 services declare /internal/backup/export: _template, backup,
+# billing, ticket. tenant, identity, authz, wallet, compliance and audit cannot be backed up at
+# all — the establishments, the accounts, the permissions, the balances, the consent records and
+# the audit trail. Reported upstream; until it moves, our disaster recovery covers billing and
+# ticket and nothing else.
+#
+# PROVEN, on a real run: ticket-service exports 12 rows, verifies, and PASSES a restore drill.
+# billing-service FAILS verification — "billing_seq: a row has no id, cannot be restored
+# idempotently" — so its archive is not restorable, and the drill says so rather than reporting a
+# partial success. That is the verify step earning its place: without it the backup would have
+# looked taken and been useless on the day it mattered. Also reported.
+#
 # Spec §14.4 (scheduled + on-demand backups, reliable restore, secure off-box copy) and §15.10
 # (our console manages them). It is the ONE service whose value is entirely unproven until a
 # restore is actually performed — a backup nobody has restored is a belief, not a backup.
@@ -40,6 +53,18 @@ autoscaling:
 
 # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
 # SECRETS_KEK, BACKUP_KEK, OBJECTSTORE_ACCESS_KEY / _SECRET_KEY.
+#
+# BACKUP_KEK IS A SHARED SECRET — the same class as PII_SALT and INTERNAL_SERVICE_TOKEN, and
+# nothing upstream says so. EVERY export-capable TARGET needs it, holding the SAME value this
+# service holds, or the archives it collects cannot be opened. Without it a target's export
+# endpoint returns a bare 503: correct behaviour (far better than writing an archive in the
+# clear) with nothing naming the cause. Found by hitting the 503 and reading a comment on a
+# different service. Reported.
+#
+# A TARGET'S token_ref IS THE NAME OF AN OPERATOR SECRET, never a token. Registered empty, every
+# export is a 401. Store the shared internal token once:
+#     PUT /api/v1/operator/secrets   {"name":"platform-internal","value":"<internal token>"}
+# (PUT, not POST — POST is 405) and reference that name in each target.
 existingSecret: backup-service-secrets
 
 networkPolicy:
