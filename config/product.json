@@ -108,13 +108,13 @@
   },
 
   "services": {
-    "_note": "Our product services — the business logic base-services will never build for us. Internal names carry NO product name, on purpose: `operations`, not `raje3-operations`. A rename never touches a service name, a database name, a table, a JSON key, a log field, or a header. Platform services (identity, tenant, authz, audit, notification, job, analytics, wallet, billing, file, api-gateway, …) are NOT listed here — they are base-services images we run, not services we own.",
+    "_note": "Our product services — the business logic base-services will never build for us. Internal names carry NO product name, on purpose: `operations`, not `raje3-operations`. A rename never touches a service name, a database name, a table, a JSON key, a log field, or a header. Platform services (identity, tenant, authz, audit, notification, job, analytics, wallet, billing, file, api-gateway, …) are NOT listed here — they are base-services images we run, not services we own. `catalog` is NOT listed either: sectors, services, dynamic fields and sector templates are CONTENT under data/, edited and loaded without a deploy — not code.",
     "names": [
       "operations",
       "reminders",
       "loyalty",
       "campaigns",
-      "catalog"
+      "insights"
     ]
   }
 }
