@@ -1,0 +1,120 @@
+# identity-service — Raje3 deployment values.
+#
+# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+#
+# SCOPE — read this before adding anything here. identity-service authenticates the people who
+# log into a PORTAL: the owner, the manager, custom roles, and our own super-admin team. It does
+# NOT authenticate the field operator. Spec §3.5 puts operators on a shared tablet switching by
+# 4-digit PIN in one second; that is a Raje3 domain concern and belongs in our `operations`
+# service. Bending identity into it would trade a five-second field flow for a login screen.
+service:
+  name: identity-service
+  port: 8000
+
+image:
+  repository: ghcr.io/base-services/identity-service
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi     # argon2 hashing is memory-hard by design
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PRIVATE_KEY, PII_SALT,
+# AUTHZ_INTERNAL_TOKEN, EMAIL_VERIFICATION_PEPPER.
+existingSecret: identity-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false   # it talks to authz and notification in-cluster only
+
+metrics:
+  serviceMonitor: true
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  # ── Token signing ─────────────────────────────────────────────────────────────────────────
+  # rs256, not hs256: identity SIGNS and every other service only VERIFIES. With a shared
+  # symmetric secret any service holding it could mint a token for any subject, so one
+  # compromised service is a platform-wide forgery. Asymmetric keeps the private key here.
+  TOKEN_ISSUER_DRIVER: "rs256"
+  # FROZEN — config/product.json identifiers.jwtIssuer. Renaming the product must never touch
+  # this: change it and every live session and refresh token is rejected at once.
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+  ACCESS_TTL_SECONDS: "900"        # 15 min
+  REFRESH_TTL_SECONDS: "604800"    # 7 days
+
+  PASSWORD_HASHER_DRIVER: "argon2"
+  PASSWORD_MIN_LENGTH: "12"        # this account can connect a WhatsApp number and message
+                                   # thousands of an establishment's customers in its name
+  LOGIN_MAX_ATTEMPTS: "5"
+  LOGIN_ATTEMPT_WINDOW_SECONDS: "900"
+  LOGIN_LOCKOUT_SECONDS: "900"
+
+  # ── Where capabilities come from ──────────────────────────────────────────────────────────
+  # `authz`, not `membership`. We run a real PDP, so it must be the single source of truth —
+  # otherwise the permission matrix lives in two places and drifts, and §3.2's "you cannot grant
+  # what you do not hold" would be enforced in one of them only.
+  IDENTITY_CAPS_SOURCE: "authz"
+  AUTHZ_URL: "http://authz-service:8000"
+  AUTHZ_TIMEOUT_MS: "2000"         # minting is a hot path; it may not hang on authz
+  # ALSO the role-change propagation window: a capability revoked in authz takes up to this long
+  # to bite on an already-issued token.
+  AUTHZ_CAPS_TTL_SECONDS: "60"
+
+  # ── Signup ────────────────────────────────────────────────────────────────────────────────
+  # Open registration: spec §16.5 is a 14-day self-serve trial with no card and no operator step.
+  REGISTRATION_ENABLED: "true"
+  # NOTE (accepted limitation, not an oversight): the knob offers `username | email` only, and
+  # Saudi SMB owners are reached by mobile far more naturally than by email. Email is the login
+  # field because verification, invites and recovery all hang off it here. Phone identity for
+  # owners, if we want it, is verification-service (Wave 5) — not a patch to this one.
+  IDENTITY_LOGIN_FIELD: "email"
+  EMAIL_VERIFICATION_ENABLED: "true"
+  LOGIN_REQUIRES_VERIFIED_EMAIL: "true"
+  EMAIL_VERIFICATION_URL: "https://app.raje3.sa/verify?token="
+  # Sends through notification-service, which arrives in Wave 3. Until then verification mail is
+  # not delivered and this is the first thing to re-check when Wave 3 lands.
+  NOTIFIER_DRIVER: "http"
+  NOTIFY_SERVICE_URL: "http://notification-service:8000"
+
+  # Managers and custom roles join by invite, so no one but the person themself ever knows the
+  # password. An invite expires — one that never does is a spare key left under the mat.
+  IDENTITY_MEMBER_ADD_MODE: "invite"
+  IDENTITY_INVITE_TTL_SECONDS: "604800"
+
+  # One establishment per account for now — spec §2.1's single unified account. Branches (§12)
+  # live INSIDE a tenant and are scoped by our own services, not by multi-tenant membership here.
+  IDENTITY_MULTI_TENANT: "false"
+
+  # ── Audit ─────────────────────────────────────────────────────────────────────────────────
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false
