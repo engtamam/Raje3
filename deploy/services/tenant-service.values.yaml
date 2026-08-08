@@ -1,0 +1,108 @@
+# tenant-service — Raje3 deployment values.
+#
+# The image is base-services'. Everything Raje3 about it is in this file: nothing upstream is
+# edited, forked, or patched. Read from app/manifest.py, app/config.py and
+# app/auditable_actions.py at v0.12.1.
+#
+# What this service is to us: the establishment (المنشأة). Spec §13.1 — name, logo, sector,
+# site link, WhatsApp connection state. It owns the isolation boundary that every other
+# guarantee in the product rests on (§2.3, §14.1): one establishment can never see another's
+# customers, points, or opt-outs.
+service:
+  name: tenant-service
+  port: 8000
+
+image:
+  repository: ghcr.io/base-services/tenant-service
+  # Digest, never a tag: with :latest + IfNotPresent a node silently keeps the image it already
+  # has, so a rollback is not a rollback. Replace at publish time.
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+# Shared drivers, not in-memory — required before this can ever scale past one pod, and the
+# chart refuses replicas>1 otherwise.
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi      # no cpu limit: a CPU limit throttles under the load it should survive
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*, PII_SALT.
+# PII_SALT must be the SAME value in every service — two different salts fold one person into
+# two pseudonyms and every service still boots and still looks correct.
+existingSecret: tenant-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false    # tenant-service calls no third party. Nothing to open.
+
+metrics:
+  serviceMonitor: true
+
+env:
+  # ── Raje3 locale. The product is Arabic-first (config/product.json). ──────────────────────
+  DEFAULT_LOCALE: "ar"
+  DEFAULT_TIMEZONE: "Asia/Riyadh"
+  DEFAULT_CALENDAR: "gregorian"        # service cycles are counted in gregorian days (§5)
+
+  # ── Isolation ─────────────────────────────────────────────────────────────────────────────
+  # shared-row: one database, every row carries its tenant, enforced at the data layer rather
+  # than by a WHERE clause a developer has to remember. Correct for our shape — many small
+  # establishments, spec §2.1 single unified account. Revisit only if a customer contracts for
+  # physical separation; `schema` and `db` are the same knob, not a rewrite.
+  ISOLATION_DRIVER: "shared-row"
+  DOMAIN_RESOLVER_DRIVER: "subdomain"
+  BASE_DOMAIN: "app.raje3.sa"
+
+  # ── Audit (spec §11.2 — an immutable trail of who did what) ───────────────────────────────
+  # http, not null: the boot guard refuses null in production, and rightly — a service that
+  # cannot witness its own privileged actions has no audit trail while looking perfectly healthy.
+  # NOTE: audit-service is Wave 1d, brought up AFTER this one. The guard only requires the URL
+  # to be set, so tenant-service starts; until audit answers, critical actions (suspend,
+  # reactivate, delete, close, erase) will correctly 503 with Retry-After, while routine ones
+  # (create, config, branding) fail open and proceed. That is the intended behaviour, not a
+  # workaround — but it does mean the spine is not fully green until 1d lands.
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  # ── Tenant lifecycle ──────────────────────────────────────────────────────────────────────
+  # An owner closing their establishment suspends immediately and erases after a grace window,
+  # so a regretted close is recoverable by reactivating inside it.
+  TENANT_CLOSE_GRACE_DAYS: "30"
+  # tombstone: the row survives as a marker. The event bus is at-most-once, so a peer that
+  # missed `tenant.deleted` learns the truth on its next read instead of 404ing forever and
+  # failing open on a tenant that is gone. Carries no name, branding or config — the proof that
+  # someone was erased must not itself be a copy of them.
+  TENANT_DELETE_MODE: "tombstone"
+
+  # ── CORS ──────────────────────────────────────────────────────────────────────────────────
+  # Both portals are browser apps on their own origins (§4 field entry + dashboard, §15 console),
+  # so without this every fetch() is refused by the browser before our code sees it — invisible
+  # from curl, fatal in the product. Exact origins, never '*'.
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+
+  # ── Egress ────────────────────────────────────────────────────────────────────────────────
+  EGRESS_ALLOWED_HOSTS: ""    # empty = no host may be reached. Nothing here needs one.
+
+# No ingress. Reached service-to-service on the internal tier; the api-gateway (Wave 2) is the
+# only public door. The chart refuses to expose /internal publicly anyway.
+ingress:
+  enabled: false
