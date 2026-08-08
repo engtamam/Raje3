@@ -1,0 +1,117 @@
+# onboarding-service — Raje3 deployment values.
+#
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, config.py, core/*,
+# adapters/provisioner/http.py, ports/*. Nothing upstream edited.
+#
+# What it is: a flow engine. A signup declares REQUIREMENTS, each answered by asking the service
+# that owns the fact; GRANTS, which is what the new customer gets; and PROVISIONERS, which is
+# what signup CREATES — each with a matching undo, because a create without an undo is how
+# orphans happen.
+#
+# What it is to us: spec §16.5 — a 14-day self-serve trial with no card and no operator step,
+# and §6.2's minimal connect flow. A new owner should reach a working dashboard without anyone
+# on our side touching anything.
+service:
+  name: onboarding-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/onboarding-service
+  digest: "sha256:bfd458e95f37d51b3d694f9140f71cf4c2087b44d10394306bc2cd4962846b8b"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: onboarding-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Requirement sources ───────────────────────────────────────────────────────────────────
+  # Each source is asked whether a requirement is satisfied. A source NOT listed answers UNKNOWN,
+  # never satisfied — deny-by-default applied to onboarding steps, which is what stops a flow
+  # advancing past a check that silently could not be made.
+  ONBOARDING_SOURCES: "identity=http://identity-service:8000"
+  ONBOARDING_SOURCE_TIMEOUT_SECONDS: "5"
+
+  # ── The grant (§16.5) ─────────────────────────────────────────────────────────────────────
+  # `trial`, not `wallet` and not `plan`. Three candidates, and the reasoning matters:
+  #   wallet — would hand the new owner message credit. Wrong instrument: the trial is 14 days of
+  #            the Pro feature set, not a pile of messages. Credit is granted by billing when the
+  #            plan cycle runs.
+  #   plan   — would create a paid subscription at signup. The spec is explicit: no card.
+  #   trial  — a time-boxed window, which is exactly what §16.5 describes.
+  # 14 days, covering two weekends, because weekends are peak for a tyre shop and a trial that
+  # misses them proves nothing to the owner.
+  ONBOARDING_ENTITLEMENT: "trial"
+  ONBOARDING_GRANTS: "welcome=days:14"
+
+  # ── Provisioning ──────────────────────────────────────────────────────────────────────────
+  # DELIBERATELY EMPTY, and this is a finding rather than a gap we chose to leave.
+  #
+  # The provisioner authenticates with `X-Internal-Token` (adapters/provisioner/http.py). But
+  # tenant-service has no internal create: its internal tier is close-sweep, resolve and a GET by
+  # id. Creating a tenant is POST /api/v1/tenants on the USER tier and requires a JWT carrying
+  # `platform.tenants`. So a provisioner entry pointing at tenant-service would send an internal
+  # token to a route that wants a bearer JWT, and fail on every signup.
+  #
+  # Wiring it anyway would produce the worst outcome available here: a signup that appears to
+  # start, creates nothing, and leaves a person with an account and no establishment.
+  #
+  # Reported upstream. Until it is resolved, tenant creation stays an explicit step in our own
+  # signup path, where the caller already holds a platform-capable token. Revisit the moment
+  # either side moves — an internal create on tenant-service, or bearer support in the
+  # provisioner.
+  ONBOARDING_PROVISIONERS: ""
+  ONBOARDING_PROVISION_TIMEOUT_SECONDS: "10"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# resume-provisioning retries a signup whose provisioning half-finished — the step that turns a
+# crashed signup into a recoverable one rather than a person stuck with an account and nothing
+# behind it. Scheduled even though ONBOARDING_PROVISIONERS is empty today: the day it is wired,
+# forgetting this is exactly the silent failure the rest of this file argues against.
+cronJobs:
+  - name: resume-provisioning
+    schedule: "*/10 * * * *"
+    path: /internal/onboarding/resume-provisioning
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
