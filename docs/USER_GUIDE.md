@@ -133,8 +133,8 @@ wave needs** — an unused service is left out of the values, not deployed.
 | **0 — Foundation** | K3s + Calico + metrics-server + **postgres/redis/minio**; run `make verify` (proves default-deny NetworkPolicy) | nothing runs before the cluster + datastores | ✅ |
 | **1 — Spine** | `tenant` → `authz` → `identity` → `audit` | tenancy is the source of truth; then authz decisions; then auth; then the log everything writes to | ✅ |
 | **2 — Door & async** | `api-gateway` · `job` · `file` | the only public door; the scheduler (reminders need it); storage (tenant logos) | ✅ |
-| **3 — Messaging & control** | `notification` (**WhatsApp available since `v0.12.2`** — `meta` / `webhook` / `console`) · `feature-flag` | the send channel; per-plan feature gating | ✅ |
-| **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base (the 20 dashboard metrics); points base; subscriptions/plans/quotas; opt-out/PDPL | ✅ |
+| **3 — Messaging & control** | `notification` (**four channels**: email · SMS · WhatsApp · in-app) · `feature-flag` | every message the product sends, not just WhatsApp; per-plan feature gating | ✅ |
+| **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base (the 20 dashboard metrics); the establishment's **prepaid message credit** (§16.4) — a VAT-aware money ledger, *not* loyalty points; subscriptions/plans/quotas; opt-out/PDPL | ✅ |
 | **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
 
 **Per-service adaptation recipe (the same 7 steps every time):**
@@ -166,7 +166,7 @@ then implement the domain logic. Internal names carry **no** product name (`oper
 | **`operations`** | end customers, assets (car/device), service records, operators + PIN, field entry, branches (§4, §12, §13) | identity, audit | 1 |
 | **`reminders`** | reminder rules (time / usage / custom) + adaptive EWMA learning + min/max bounds + anomaly filtering + lead-days + next-due computation (§5) | job, notification | 1 |
 | **`catalog`** *(as `data/`, not code)* | sectors, services (name/icon/colour/rule/points), dynamic fields, sector templates (§1.2, §4.6) | — grows without deploy | 1 |
-| **`loyalty`** | points earn/redeem, thresholds, cross-branch balance (§9) | wallet | 2 |
+| **`loyalty`** | points earn/redeem, thresholds, cross-branch balance (§9) | — **ours alone** | 2 |
 | **`campaigns`** | segmentation, campaign send, anti-ban pacing (random delay + rate limit), opt-out gatekeeper (§7, §8) | notification, analytics, job | 2 |
 | **`insights`** | the 20 dashboard metrics, adaptive/contextual service re-sort, cross-sell matrix, at-risk lists, staff KPIs, daily owner digest (§4.4, §10, §11.4) | analytics, job, notification | 3 |
 
