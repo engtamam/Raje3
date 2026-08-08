@@ -89,6 +89,24 @@ env:
   # The recent-customers strip shows a handful, not a page.
   SUGGEST_MAX: "10"
 
+  # ── MEASURED: two endpoints, two jobs. The field screen needs both ────────────────────────
+  # Not a knob — a fact about the engine that decides how the field screen is built.
+  #
+  #   POST /api/v1/search          WHOLE-TOKEN match. Proven: "محمد" finds a record stored as
+  #                                "محمّد", and "احمد" finds "أحمد" — the analyzer earning its
+  #                                place. But a phone matches ONLY in full: 966501234567 hits,
+  #                                while 96650, 0501234567 and 1234567 all return nothing.
+  #                                Typo tolerance is edit-distance 1 and does not bridge a
+  #                                truncation.
+  #
+  #   GET  /api/v1/search/suggest  PREFIX match, and the parameter is `prefix`, not `q`.
+  #                                96650 -> 966501234567. مح -> محمد.
+  #
+  # So the operator typing the first digits on the keypad (spec §4.3) must be served by
+  # SUGGEST, and the full-number lookup by search. Wiring the keypad to search alone would let
+  # an operator type five correct digits, see nothing, and conclude the customer is not in the
+  # system — with the customer standing in front of him.
+
   AUDIT_SINK_DRIVER: "http"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
