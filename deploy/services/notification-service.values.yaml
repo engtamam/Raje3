@@ -1,0 +1,181 @@
+# notification-service — Raje3 deployment values.
+#
+# Read in full at v0.12.2: manifest.py, api/v1/*, api/internal.py, config.py (543 lines),
+# core/notifier.py, ports/consent_gate.py, adapters/consent_gate/*. Nothing upstream edited.
+#
+# THIS IS NOT "THE WHATSAPP SERVICE". It carries four channels and Raje3 needs all four:
+#   email    — identity's verification mail, invites, password recovery. That flow is broken
+#              until this exists; identity already points NOTIFIER_DRIVER here.
+#   whatsapp — §6, the reminders and campaigns that ARE the product, in the establishment's name
+#   sms      — the fallback when WhatsApp is not connected or a send fails
+#   in-app   — §15's console and the owner dashboard: template approved, payment failed, trial
+#              ending. Those must not all arrive as WhatsApp messages.
+service:
+  name: notification-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/notification-service
+  digest: "sha256:143e3e19e3105e8d9b8700693fb83420447e0654f8d6fac90dafbba21d514a35"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis          # the retry queue. NEVER memory: a queued message is one an outage
+                        # delayed rather than destroyed, and per-pod memory loses it on restart.
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, SECRETS_KEK.
+# Provider credentials are NOT here: they are per-tenant, set through the operator surface and
+# sealed with SECRETS_KEK, because every establishment sends under its own WhatsApp identity.
+existingSecret: notification-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: true      # the only Raje3 service so far that legitimately calls third parties.
+                        # NOTE, measured not assumed: this opens the network to EVERYTHING. From
+                        # inside the pod both graph.facebook.com and example.com connect. The
+                        # NetworkPolicy has no host granularity, so EGRESS_ALLOWED_HOSTS below is
+                        # an APPLICATION-layer SSRF guard on the service's own HTTP client — not
+                        # a network boundary. Real host restriction would need an egress proxy.
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Channels ──────────────────────────────────────────────────────────────────────────────
+  # Chains are failover lists, tried in order. `console` last everywhere is deliberate: it is a
+  # driver that always succeeds and records what it would have sent, so a provider outage
+  # degrades to a visible no-op rather than a hard failure — during bring-up. Before real
+  # customers, console must be REMOVED from these chains or a genuine outage looks like success.
+  EMAIL_CHAIN: "console"        # TODO before launch: a real provider. Verification mail is the
+                                # first thing a new owner touches (spec 16.5 signup).
+  SMS_CHAIN: "console"          # unifonic and taqnyat are both built in — Saudi providers, ready
+                                # when we have an account.
+  WHATSAPP_CHAIN: "console"     # §6.1's two channels are `meta` (official Cloud API) and
+                                # `webhook` (the fast QR relay). Both need real credentials.
+  EMAIL_FROM: "no-reply@raje3.sa"
+  HTTP_TIMEOUT_SECONDS: "15"
+
+  # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────
+  # http, not null. The null gate answers UNKNOWN forever and the production boot guard REFUSES
+  # to start on it for a service that declares consent-gated processing. That guard is why
+  # compliance-service was moved ahead of this one.
+  CONSENT_GATE_DRIVER: "http"
+  COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
+  CONSENT_TIMEOUT_SECONDS: "3"
+  CONSENT_GATED: "true"
+
+  # THIS MAP IS §8.4, EXPRESSED AS CONFIG. Only what is listed here is gated on consent.
+  # Everything unlisted is sent under CONTRACT — an OTP, a verification mail, a service reminder
+  # the customer's own visit created. Gating those would break the product while protecting
+  # nobody, which is exactly what the spec means by "UTILITY messages always pass".
+  #
+  # So: our MARKETING templates are listed. Our UTILITY reminder templates are deliberately NOT.
+  # Every template added to the marketing library must be added here too, or it sends without a
+  # lawful basis — the single most expensive mistake available in this file.
+  NOTIFY_CONSENT_PURPOSES: |
+    {
+      "summer_promo_offer": "marketing",
+      "national_day_promo": "marketing",
+      "free_addon_offer": "marketing",
+      "winback_discount_offer": "marketing",
+      "travel_checkup_promo": "marketing",
+      "weekend_special_deal": "marketing",
+      "second_car_discount": "marketing",
+      "new_oil_product_launch": "marketing",
+      "refer_a_friend_promo": "marketing",
+      "loyalty_points_claim": "marketing",
+      "campaign.send": "marketing"
+    }
+  # Closed when the gate cannot answer. An unsent marketing message is a smaller harm than one
+  # sent with no lawful basis, and the gated set is by definition what a regulator asks about.
+  NOTIFY_CONSENT_UNKNOWN: "fail_closed"
+
+  # ── Seeded templates ──────────────────────────────────────────────────────────────────────
+  # Seeded at boot, idempotently. auth.verify_email is not optional: identity-service is already
+  # configured with EMAIL_VERIFICATION_TEMPLATE=auth.verify_email, and a flow that depends on a
+  # template nobody created fails at the worst moment — the mail is accepted, silently never
+  # rendered, and the account cannot log in with nothing to show why.
+  # Arabic first, because the product is (config/product.json locale.default = ar).
+  NOTIFY_SEED_TEMPLATES: |
+    [
+      {"key":"auth.verify_email","locale":"ar","subject":"تأكيد بريدك الإلكتروني — راجِع",
+       "body":"مرحباً،\n\nلتأكيد بريدك الإلكتروني وتفعيل حسابك في راجِع، افتح الرابط التالي:\n{{link}}\n\nإن لم تطلب هذا، تجاهل الرسالة."},
+      {"key":"auth.verify_email","locale":"en","subject":"Verify your email — Raje3",
+       "body":"Hello,\n\nConfirm your email and activate your Raje3 account:\n{{link}}\n\nIf you did not request this, ignore this message."},
+      {"key":"auth.invite","locale":"ar","subject":"دعوة للانضمام إلى {{tenant_name}} على راجِع",
+       "body":"تمت دعوتك للانضمام إلى {{tenant_name}}.\n\nلتفعيل حسابك:\n{{link}}\n\nتنتهي صلاحية الدعوة خلال ٧ أيام."},
+      {"key":"auth.password_reset","locale":"ar","subject":"إعادة تعيين كلمة المرور — راجِع",
+       "body":"لإعادة تعيين كلمة المرور:\n{{link}}\n\nإن لم تطلب ذلك، تجاهل الرسالة ولم يتغير شيء."}
+    ]
+
+  # ── Delivery: an outage must DELAY a message, not destroy it ──────────────────────────────
+  # queued, not inline. Inline records "failed" and stops — a five-minute provider outage would
+  # silently destroy every reminder sent during it.
+  NOTIFY_DELIVERY_MODE: "queued"
+  NOTIFY_MAX_ATTEMPTS: "5"
+  NOTIFY_BACKOFF_BASE_MS: "1000"
+  NOTIFY_BACKOFF_MAX_MS: "300000"
+  NOTIFY_DRAIN_LIMIT: "100"
+  # Idempotency window. A duplicate reminder is not a cosmetic bug here: §14.2 says a duplicate
+  # is among the fastest ways to get an establishment's number blocked.
+  NOTIFY_DEDUPE_TTL_SECONDS: "86400"
+  NOTIFY_DEDUPE_STATES: "sent,suppressed,queued"
+  # Added to the upstream permanent list: a WhatsApp number that has BLOCKED the sender must
+  # never be retried. Retrying a block is how a temporary annoyance becomes a permanent ban.
+  NOTIFY_PERMANENT_ERRORS: "invalid,malformed,not found,unknown channel,unsubscrib,blocked,suppress,recipient_blocked,400,401,403,404"
+
+  # ── Egress ────────────────────────────────────────────────────────────────────────────────
+  # APP-LAYER guard, verified: this stops the SERVICE from calling an unlisted host (a
+  # tenant-supplied webhook URL, for instance). It does NOT stop the pod from reaching the
+  # internet — tested from inside, example.com connects fine. Both layers matter and only one of
+  # them is here; see the networkPolicy note above.
+  EGRESS_ALLOWED_HOSTS: "graph.facebook.com"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+
+# ── The job without which queued messages never leave ───────────────────────────────────────
+# Upstream ships /internal/notifications/drain and its own docstring shows this exact CronJob —
+# but their values file does not include it. Without it NOTIFY_DELIVERY_MODE=queued becomes a
+# trap: every message that hits a provider hiccup is queued, nothing drains it, and the delivery
+# log fills with "queued" while the operator sees a healthy service. Third time this pattern has
+# bitten us (audit retention, job scheduler-tick, now this).
+cronJobs:
+  - name: notify-drain
+    schedule: "* * * * *"
+    path: /internal/notifications/drain
+  - name: whatsapp-template-sync
+    schedule: "*/15 * * * *"
+    path: /internal/whatsapp/templates/sync
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
