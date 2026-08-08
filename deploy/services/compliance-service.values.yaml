@@ -1,0 +1,143 @@
+# compliance-service — Raje3 deployment values.
+#
+# Read in full at v0.12.2: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
+# core/* (consent_service, dsar_service, privacy_dispatcher, retention, consent_sweeper),
+# ports/*. Nothing upstream edited.
+#
+# WHY THIS IS IN WAVE 3 AND NOT WAVE 4: notification-service will not BOOT in production with
+# CONSENT_GATE_DRIVER=null, because it declares consent-gated processing and the null gate
+# answers UNKNOWN forever. So the consent gate needs something to ask before the send path can
+# exist at all. The guide had this a wave later; the source decided otherwise.
+#
+# What this service is to us:
+#   §8  opt-out — consent per purpose, per tenant, withdrawal effective immediately
+#   §8.4 the gatekeeper's other half: notification asks, this answers
+#   §14.3 PDPL — DSAR with a legal deadline, erasure that is PROVEN complete, RoPA, breaches
+#
+# What it is NOT: the encrypted unsubscribe link of §8.2. This service owns the withdrawal; the
+# link and its landing page are ours (optoutLinkNs), and they call consent/withdraw.
+service:
+  name: compliance-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/compliance-service
+  digest: "sha256:e4fa1f3ef9360d02426b9a42c46f3a661ccdabda247d95149bc3c1e69519c858"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis          # the consent hot path caches by (tenant, subject, purpose, generation)
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
+# JOB_SERVICE_TOKEN, SECRETS_KEK.
+existingSecret: compliance-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false     # erasure fan-out targets are in-cluster today. The day a target is an
+                        # external system, this and EGRESS_ALLOWED_HOSTS both change, together.
+
+metrics:
+  serviceMonitor: false   # Prometheus Operator not installed yet; /metrics still served
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Consent: the hot path notification depends on ─────────────────────────────────────────
+  # 30s cache keyed by (tenant, subject, purpose, GENERATION). Any consent change bumps the
+  # generation, so a withdrawal invalidates instantly — a cached "allowed" can never outlive it.
+  # That is what makes §8's "respect the decision immediately" true rather than eventual.
+  CONSENT_CACHE_TTL_SECONDS: "30"
+  # Age of majority is OFF (0). Raje3's subjects are car owners and shop customers; we do not
+  # collect age, and a threshold we cannot evaluate would refuse everyone under CONSENT_UNKNOWN_AGE.
+  # Turning this on without an age source would break every send on day one.
+  CONSENT_AGE_OF_MAJORITY: "0"
+
+  # ── Data residency (PDPL) ─────────────────────────────────────────────────────────────────
+  # Saudi Arabia. This is recorded in RoPA and is the answer to "where does this data live",
+  # which a regulator asks before anything else.
+  DATA_RESIDENCY_DEFAULT: "SA"
+
+  # ── DSAR and breach clocks ────────────────────────────────────────────────────────────────
+  DSAR_SLA_DAYS: "30"          # the legal deadline, not a target
+  BREACH_NOTIFY_HOURS: "72"    # from DISCOVERY, and the API exposes hours_remaining/overdue
+  DSAR_VERIFICATION_TTL_SECONDS: "86400"
+
+  # ── Erasure orchestration ─────────────────────────────────────────────────────────────────
+  # job-http, not null and not eventbus. `null` records and dispatches nothing (and says so).
+  # eventbus is at-most-once, and a lost erasure task is a right not honoured with no trace.
+  # job-service retries, dead-letters, and its unique_key makes a re-dispatch idempotent.
+  ORCHESTRATOR_DRIVER: "job-http"
+  JOB_SERVICE_URL: "http://job-service:8000"
+  PRIVACY_TRANSPORT_DRIVER: "http"
+  PRIVACY_ERASE_PATH: "/internal/privacy/erase"
+
+  # EVERY service that holds a subject's data. This list is load-bearing, not documentation: an
+  # erasure fans out one task per REGISTERED target and completes only when every one
+  # acknowledges. A service that is missing here is never asked, never acks, and is therefore
+  # never MISSED — the request closes green on an erasure that did not happen.
+  #
+  # Deliberately ABSENT, each with a reason rather than silence:
+  #   api-gateway   — routes, stores no subject data
+  #   feature-flag  — flags are per tenant, not per person
+  #   compliance    — itself; it is the coordinator, and its own erasure path is called directly
+  # Every new service is added here as step 8 of the adaptation recipe, before it counts as done.
+  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,file-service=http://file-service:8000,job-service=http://job-service:8000"
+  PRIVACY_MAX_ATTEMPTS: "8"          # then FAILED and VISIBLE — never silently abandoned
+  PRIVACY_CONCURRENCY: "5"
+  PRIVACY_PENDING_TIMEOUT_SECONDS: "21600"
+
+  # ── Retention of the compliance records themselves ────────────────────────────────────────
+  # The evidence outlives the request. consent_proof is kept longest because it is what proves
+  # we had a lawful basis on the day we sent — the exact thing a complaint disputes years later.
+  # dsar 1 year, breaches 5 years, consent proof 7 years. POLICY: revisit with counsel.
+  RETENTION_RULES: "dsar=365,breaches=1825,consent_proof=2555"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# ── The jobs without which this service is decorative ───────────────────────────────────────
+# dsar-sweep drives open erasure requests toward completion; without it a request is created and
+# then waits forever while the API cheerfully reports it pending. retention-purge enforces
+# RETENTION_RULES above — the same inert-policy trap we hit on audit.
+# sweep-lapses is upstream's third endpoint and is NOT scheduled here on purpose: it exists for
+# guardian consent expiring at majority, and we have CONSENT_AGE_OF_MAJORITY=0, so it would have
+# nothing to sweep. Schedule it the day that changes.
+cronJobs:
+  - name: dsar-sweep
+    schedule: "*/5 * * * *"
+    path: /internal/compliance/dsar/run
+  - name: retention-purge
+    schedule: "17 3 * * *"
+    path: /internal/compliance/retention/run
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
