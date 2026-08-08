@@ -62,20 +62,25 @@ For each requirement in the description, name the service that satisfies it. Thr
 | No service covers it, and it is **generic** | Rare | Request it upstream. Adapter on your side meanwhile. |
 | No service covers it, and it is **domain** | Your actual product | Build it. This is the only code you write. |
 
-**The mapping is where this method most often fails.** A service's name and its one-line summary
-will mislead you. Two real examples from a live build:
+**The mapping is where this method most often fails, and the failure mode is always the same
+shape:** a service's name suggests a familiar concept, you map a requirement onto it, and the
+service turns out to be something adjacent but materially different. Two patterns to expect:
 
-- A service called `wallet` was assumed to be the loyalty-points system. It is a **VAT-aware
-  money ledger** — currency, tax basis points, funds with taxability, reserve/confirm/refund.
-  Loyalty points have no currency and no VAT. Putting them there would have attached tax
-  semantics to a free car wash.
-- A service called `notification` was assumed to be "the WhatsApp service". It carries **four
-  channels** — email, SMS, WhatsApp, in-app — plus a deliberate split between per-channel
-  *preferences* and per-purpose *consent*. Email verification for signup depended on it, and
-  that dependency was invisible from the name.
+- **A name that matches your domain word but not your domain meaning.** A "wallet" may be a
+  currency-and-tax ledger rather than a points system; a "search" may index documents rather than
+  people. If a service carries currency, tax rates, or units in its config, it is about money —
+  and bending a money ledger into a rewards scheme attaches tax semantics to a free gift.
+- **A name narrower than the thing.** A "notification" service is rarely one channel. Assuming it
+  is the channel your product cares most about hides the other three — and hides which *other*
+  services already depend on those channels, such as an account-verification flow you have not
+  written yet.
 
-Both were caught by a human who knew the services. Neither would have been caught by reading
-summaries. **Open the service before you claim what it does** — see §3.1.
+Neither is caught by reading a summary; both are caught in about ten minutes of reading the
+service. Two cheap tells: **the config knobs** (currency and tax basis points mean money;
+plural `*_CHAIN` settings mean multiple channels) and **who else already points at it** — grep the
+other services for its URL before you decide what it is for.
+
+**Open the service before you claim what it does** — see §3.1.
 
 ### 1.4 Produce the plan
 
@@ -106,11 +111,15 @@ Bring services up in dependency order, one at a time, each verified before the n
 | **6** | e-invoicing · webhooks · connectors · assistant · verification | On demand. |
 | **7** | **Your domain services** | Last. Everything they lean on exists and is proven. |
 
-**Compliance before notification** is not obvious and cost a wasted attempt to discover.
-`notification-service` refuses to boot in production with `CONSENT_GATE_DRIVER=null`, because it
-declares consent-gated processing and the null gate can only ever answer `unknown`. The guide's
-wave table had compliance a full wave later. **The source decided otherwise, and the source
-wins.** Expect to find one or two of these per platform; find them by reading, not by deploying.
+**The order above is a starting point, not a fact.** At least one dependency will contradict it,
+and the way you find out matters. A well-built service often has a **boot guard**: it refuses to
+start in production when a driver it depends on is left at a safe-but-inert default. That guard is
+a dependency declaration — it says, in code, "this other service must exist first" — and it is
+cheaper to read than to discover by watching a pod fail to start.
+
+**Rule:** before fixing a wave order, grep the services for their boot guards (`assert_*_ok`,
+fail-fast validators, anything raising at startup). Each one you find either confirms the order or
+corrects it. Expect one or two corrections per platform, and expect the source to be right.
 
 **Your own services go last.** They are the only thing nobody else can build, and they are the
 thing most likely to be redesigned once the platform underneath them is real.
@@ -134,9 +143,11 @@ Run this for every service. Never batch. Never skip a step because the service "
 | `app/ports/*` | Its dependencies, as interfaces |
 | `app/core/*` | The real logic, where the hard decisions live |
 
-Read the **request models** specifically. Guessing field names costs a round trip every time —
-`amount` vs `net`, `template` vs `template_key`, `id` vs `subject`. Every one of those was
-guessed and every one was wrong.
+Read the **request models** specifically, every time. A field name you can predict is a field name
+you will predict wrongly: the difference between an amount and a *pre-tax* amount, between a
+template and a template *key*, between an id and a *subject*, is exactly the kind of distinction a
+careful service makes and a guess erases. Each wrong guess costs a full round trip through deploy
+and test, and the schema was always one file away.
 
 Config comments are the highest-value text in the repository. They routinely explain a failure
 mode you were about to walk into. Read them.
@@ -228,19 +239,25 @@ Every one of these was hit. Each is silent by construction — none produces a r
 
 ### 4.1 A scheduled endpoint without its schedule
 
-Charts ship an empty `cronJobs` list. Services ship endpoints — retention enforcement, queue
-drains, scheduler ticks, dunning runs, hold sweeps — that **do nothing unless you schedule
-them**. Hit four times in one build:
+Charts commonly ship an empty schedule list while services ship endpoints that **do nothing unless
+you schedule them**: retention enforcement, queue drains, scheduler ticks, dunning runs, hold
+sweeps, reconciliation. Each one reads as healthy without its schedule, because the endpoint works
+perfectly when called by hand.
 
 | Missing schedule | What it looks like | What it actually is |
 | --- | --- | --- |
 | Retention purge | A retention policy in config | Nothing is ever deleted. A compliance finding. |
-| Scheduler tick | A healthy scheduler | Nothing is ever due. No reminder ever fires. |
-| Queue drain | Delivery mode "queued" | Every message queues and nothing sends. |
-| Hold sweep | Reserved credit | An interrupted operation locks that credit forever. |
+| Scheduler tick | A healthy scheduler | Nothing is ever due. No background work fires. |
+| Queue drain | Delivery mode "queued" | Everything queues and nothing sends. |
+| Hold sweep | Reserved balance | An interrupted operation locks that balance forever. |
+
+This is the single most repeated trap in the whole method — expect it in most services that have
+any notion of time.
 
 **Rule:** when a service exposes an endpoint meant to be called on a schedule, schedule it in the
-same values file. Verify it exists *and has run* after deploying.
+same values file. Verify it exists *and has run* after deploying. Modern platforms may ship a CI
+gate for this; if yours does, read what it enforces, because it will also tell you which endpoints
+it considers scheduler-driven.
 
 ### 4.2 A setting that is configured and inert
 
@@ -311,24 +328,35 @@ file and does **not** schedule that endpoint, treat the absence as the answer, n
 
 ### 4.9 A shared secret nobody tells you is shared
 
-Some values must be **identical across every service**, and only two are usually documented: the
-PII salt and the internal service token. A third appeared with the backup service — the archive
-key — needed by every export-capable *target*, holding the same value the collector holds.
-Missing it, the export endpoint returns a bare `503`: correct behaviour, no indication of cause,
-and the explanation living in a comment on a different service.
+Some values must be **identical across every service** — typically a pseudonymisation salt and a
+shared internal token, both usually documented. Any cross-service feature that seals or signs
+something adds another, and those are rarely documented anywhere the operator will look: the
+explanation tends to live in a comment on the *calling* service, while the field sits
+uncommented on every target.
 
-**Rule:** for any cross-service feature, ask which secrets both ends must agree on, and check the
-*target's* config as well as the caller's.
+The failure is quiet by design. A service that cannot find its key correctly **refuses** rather
+than proceeding insecurely — which is right — and the refusal is often a bare status code with no
+body, because naming the missing key on an unauthenticated path would leak configuration.
+
+**Rule:** for any feature spanning two services, list the secrets *both ends* must agree on before
+deploying either. Check the target's config, not just the caller's. When a cross-service call
+fails with an unexplained refusal, suspect a shared secret before suspecting the network.
 
 ### 4.10 A capability you assumed was universal
 
-"The platform has backups" was true and almost meaningless: **4 of 24 services** implemented the
-export endpoint the backup service calls. The services holding what a customer would actually
-miss — tenants, accounts, permissions, balances, consent records, the audit log — answered 404.
+A cross-cutting capability — backup, erasure fan-out, health reporting — is usually implemented as
+"every service exposes endpoint X, and one service calls all of them". That design is only as
+broad as its least-covered participant, and partial coverage looks identical to full coverage from
+the calling side: the collector reports what it collected, not what it could not reach.
 
-**Rule:** when a cross-cutting capability depends on every service implementing something, count
-how many actually do, and write the number down. A platform-level feature is only as broad as its
-least-covered participant.
+**Rule:** never accept "the platform has X" as an answer. Enumerate which services actually
+implement the endpoint, count them, and write the number in the values file. Re-count on every
+platform upgrade — coverage moves, in both directions.
+
+**How to check:** ask each service's manifest whether it declares the endpoint, rather than
+trusting a summary. Then look at *which* services are missing: a gap covering peripheral services
+is a scheduling matter; a gap covering the ones holding identity, money or consent is a different
+conversation.
 
 ### 4.11 A name that is a reference, not a value
 
@@ -357,12 +385,12 @@ Your deploy script must:
 - **Survive a dropped connection.** Run it detached; an interrupted deployment is worse than one
   never started.
 
-**Check whether the platform already ships this before you write it.** We wrote a provisioner, an
-orchestrator and a health-gated rollout script. Two releases later the platform shipped all three,
-carrying the same decisions we had reached independently — and generalised for consumers, with our
-own product named in the usage example. We deleted ours. Keeping them would have meant maintaining
-a divergent fork of something now maintained upstream, and the rule that governs services governs
-scripts: consume it, do not reimplement it.
+**Check whether the platform already ships this — and check again after every upgrade.** A living
+platform grows toward its consumers: the thing you built because it was missing is a strong
+candidate for what arrives in the next release, often carrying the same decisions you reached, and
+generalised. Keeping your copy then means maintaining a divergent fork of something now maintained
+for you. The rule that governs services governs scripts: consume it, do not reimplement it. Re-read
+the platform's own deploy directory on each version bump and delete what has been superseded.
 
 If a reference implementation exists, **take it whole and adapt it**. Do not rewrite from
 scratch what someone has already debugged in production. Change what your shape genuinely
@@ -380,14 +408,14 @@ requires, keep the rest, and say in a comment which parts are theirs and why the
 4. State what a consumer can and cannot work around.
 5. Propose a fix, and mention the test that would have caught it.
 
-This works, and better than expected. Across one build every defect reported this way was fixed in
-the next release, and **three became permanent build gates** — a schedule-coverage gate, a
-peer-path gate, and a contract fix — so nobody hits them again. One gate's own sweep then found
-four more instances upstream that we had never reported, and the deploy script they shipped
-surfaced two schedules **we** had got wrong.
+**Ask for a guard, not just a fix.** The most valuable outcome of a report is not the patch — it is
+a build gate that makes the whole class impossible. When you report, name the check that would
+have caught it: a CI rule, a boot-time assertion, a test. A maintainer who accepts that suggestion
+closes the defect permanently, for every consumer, including the instances neither of you knew
+about.
 
-A good report pays for itself twice: once when your bug is fixed, and again when the guard it
-produces catches something you would never have seen.
+Expect the guard to find things you did not report, and to catch mistakes of your own. That is the
+point of it.
 
 **If a workaround does not work, remove it.** A stopgap was tried, verified as ineffective, and
 deleted rather than left in place. Configuration that claims a mitigation it does not deliver is
