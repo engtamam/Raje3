@@ -1,0 +1,137 @@
+# ==================================================================================================
+#  Raje3 alert rules — every one of these is a failure we have actually had.
+# --------------------------------------------------------------------------------------------------
+#  The test each rule had to pass before being written: would this have told us, in one line, what
+#  took us an hour? A rule that would not have helped is not here, because the cost of a noisy alert
+#  is not the noise — it is that the next real one is ignored.
+#
+#  Nothing here alerts on CPU or memory being "high". High is not a fault; it is a Tuesday. These
+#  alert on states that do not resolve themselves.
+# ==================================================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: raje3-platform
+  namespace: monitoring
+  labels:
+    release: mon
+spec:
+  groups:
+    - name: raje3.datastore
+      rules:
+        # THE ONE THAT COST AN HOUR. Every service builds an unconfigurable asyncpg pool that fills
+        # to ten connections on first use and holds them forever, against a postgres whose ceiling
+        # is finite. When it fills, new pods cannot become Ready, so old pods are never retired, so
+        # the slots are never freed — a deadlock the cluster cannot leave on its own. `readyz`
+        # reports `datastore: down`, which sends you to look at a database that is perfectly
+        # healthy and merely full.
+        #
+        # 80% because the gap between "getting full" and "deadlocked" is one rollout, and a rollout
+        # is exactly when the surge arrives. Warning at 80 gives room to act before it is a page.
+        - alert: PostgresConnectionsSaturating
+          expr: pg_stat_activity_count / pg_settings_max_connections > 0.8
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "postgres is {{ $value | humanizePercentage }} of its connection ceiling"
+            description: >-
+              The pools are fixed at ten per service and are never returned. At 100% a rollout
+              DEADLOCKS: the new pod cannot connect, so it never becomes Ready, so the old pod
+              holding the slots is never retired. Raise max_connections
+              (deploy/hooks/post-datastores.sh) or put a pooler in front — do not wait for it to
+              resolve itself, because it will not.
+
+        - alert: PostgresConnectionsExhausted
+          expr: pg_stat_activity_count / pg_settings_max_connections > 0.95
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "postgres has no connection slots left — rollouts will deadlock now"
+
+    - name: raje3.workloads
+      rules:
+        # A pod that has been not-Ready for fifteen minutes is not starting slowly. Fifteen, not
+        # five: image pulls on a modest node genuinely take minutes, and an alert that fires on
+        # every normal deploy is one people mute.
+        - alert: PodNotReadyTooLong
+          expr: |
+            sum by (namespace, pod) (
+              kube_pod_status_ready{condition="false", namespace="base-services"}
+            ) > 0
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.pod }} has not been Ready for 15 minutes"
+            description: >-
+              Check /readyz for WHICH dependency is down before restarting anything. A restart is
+              the wrong move when the cause is a shared resource — it consumes another slot and
+              makes the problem worse.
+
+        - alert: DeploymentStuckMidRollout
+          expr: |
+            kube_deployment_status_replicas_unavailable{namespace="base-services"} > 0
+          for: 20m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.deployment }} has been mid-rollout for 20 minutes"
+            description: >-
+              With maxUnavailable: 0 the old pod is held until the new one is Ready, so a rollout
+              that cannot finish also cannot roll itself back. This is the shape a resource
+              deadlock takes.
+
+        - alert: PodRestartLoop
+          expr: rate(kube_pod_container_status_restarts_total{namespace="base-services"}[15m]) > 0
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{ $labels.pod }} keeps restarting"
+
+    - name: raje3.scheduled-work
+      rules:
+        # A CronJob that fails silently is the worst kind of broken: everything is green and the
+        # work simply does not happen. We shipped two jobs pointing at endpoints that 422'd on
+        # every run, and found out by reading logs for another reason.
+        - alert: CronJobFailing
+          expr: |
+            kube_job_status_failed{namespace="base-services"} > 0
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "scheduled job {{ $labels.job_name }} is failing"
+            description: >-
+              Check the endpoint it calls actually exists and accepts an internal token. A job
+              whose path is wrong fails on every run forever, and the only symptom is work not
+              happening.
+
+        # The backup that nobody notices stopped. backup-service exposes its own staleness, but a
+        # service cannot report that IT is not running.
+        - alert: NoBackupJobCompleted
+          expr: |
+            time() - kube_job_status_completion_time{namespace="base-services", job_name=~"backup-service-run.*"} > 93600
+          for: 30m
+          labels: { severity: critical }
+          annotations:
+            summary: "no backup has completed in 26 hours"
+            description: >-
+              One missed nightly run is an incident here, not a blip. Coverage is already the
+              thinnest part of our disaster recovery, and an archive nobody has restored is a
+              belief, not a backup.
+
+    - name: raje3.product
+      rules:
+        # Not infrastructure — this one is the business. Every message we send is a WhatsApp
+        # template through notification-service. Sends failing is silent from the platform's side:
+        # the pods are healthy, the queue drains, and customers simply stop hearing from the
+        # establishment that is paying us to reach them.
+        - alert: NotificationDeliveriesFailing
+          expr: |
+            sum(rate(notification_delivery_failed_total[15m]))
+              / clamp_min(sum(rate(notification_delivery_total[15m])), 0.001) > 0.2
+          for: 15m
+          labels: { severity: critical }
+          annotations:
+            summary: "more than a fifth of sends are failing"
+            description: >-
+              Check the Meta credential and the template approval state first — an expired token
+              or a template that lost approval fails every send while every pod stays green. This
+              is the failure our customers feel and we do not.

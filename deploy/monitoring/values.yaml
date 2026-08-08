@@ -1,0 +1,94 @@
+# kube-prometheus-stack — Raje3 values.
+#
+# Sized for ONE node running a platform, not for a monitoring cluster. Everything switched off
+# below is off because it would cost memory the services need, and a monitoring stack that
+# pressures the workload it watches is a fault generator wearing a stethoscope.
+#
+# WHY THIS EXISTS AT ALL, stated concretely rather than as a principle: we spent an hour on a
+# deadlocked cluster with no way to see that postgres had run out of connection slots. Every probe
+# said `datastore: down`, which reads as "the database is unavailable" and sends you to look at a
+# database that is perfectly healthy and merely full. One gauge would have answered it in seconds.
+# The alert rules in alerts.yaml are that hour, written down.
+
+fullnameOverride: mon
+
+# ── Prometheus ────────────────────────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # 15 days. Long enough to compare this week against last, which is the question that matters
+    # for a retention product's own load; short enough to fit a disk we can afford.
+    retention: 15d
+    retentionSize: 8GB
+
+    # Scrape EVERY ServiceMonitor in the cluster, not only ones carrying a release label. The
+    # default requires a matching label on each ServiceMonitor, and the chart that renders ours is
+    # upstream's — we do not add labels to it, so the default would silently scrape nothing while
+    # the stack looked healthy.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+    resources:
+      requests: { cpu: 100m, memory: 512Mi }
+      limits:   { memory: 1Gi }
+
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+
+# ── Alertmanager ──────────────────────────────────────────────────────────────────────────────
+# ON, because a rule that fires into a UI nobody has open is not an alert — it is a log line with
+# ambitions. The receiver is deliberately left as the default until there is a real destination;
+# routing it to our own notification-service is circular (the thing that pages us must not depend
+# on the thing that breaks).
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits:   { memory: 128Mi }
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests: { storage: 1Gi }
+
+# ── Grafana ───────────────────────────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+  # No public exposure. Reached by port-forward until there is an operator surface behind auth —
+  # a dashboard showing every tenant's traffic is not something to hang on the open internet with
+  # a default password.
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { memory: 256Mi }
+
+# ── What we do NOT run ────────────────────────────────────────────────────────────────────────
+# k3s does not expose these components the way a kubeadm cluster does: they run inside the single
+# k3s process, so a ServiceMonitor for each would scrape an endpoint that does not exist and
+# produce a permanently red target. Red targets that are expected teach everyone to ignore red.
+kubeEtcd: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }
+
+# Kept: it is what answers "is a pod stuck not-ready", which is exactly today's incident.
+kubeStateMetrics: { enabled: true }
+nodeExporter: { enabled: true }
+
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits:   { memory: 64Mi }
+kube-state-metrics:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits:   { memory: 128Mi }
