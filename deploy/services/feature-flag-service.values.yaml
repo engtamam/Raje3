@@ -1,0 +1,136 @@
+# feature-flag-service — Raje3 deployment values.
+#
+# Read in full at v0.12.2: README.md, manifest.py, api/v1/flags.py, config.py, core/evaluate.py,
+# core/rollout.py, core/rules.py, ports/entitlement_checker.py. Nothing upstream edited.
+#
+# It is NOT just "the plan gate". It is the runtime control plane, and Raje3 uses three parts:
+#   1. FLAGS      — §16.3, which capability each plan unlocks
+#   2. CONFIG     — versioned system configuration with history and rollback, appended never
+#                   overwritten, so a bad change is undone rather than argued about
+#   3. MAINTENANCE— global or PER MODULE, with scheduled windows and a bypass allowlist. This is
+#                   how the field-entry screen keeps working while the dashboard is down.
+service:
+  name: feature-flag-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/feature-flag-service
+  digest: "sha256:1e066e750a228eb9a02fb4e3f4e0d8fe906d32c7bf3e4730ab7b9e9453e41319"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis          # the hot path. Evaluation runs on EVERY request in the product and the
+                        # design guarantees 0 datastore reads once warm; memory would make that
+                        # per-pod and wrong the moment we scale.
+  eventbus: redis       # flag.exposed and config.changed are published here
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 150m           # highest-QPS endpoint in the platform
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: feature-flag-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false     # no external flag vendor: FLAG_PROVIDER_DRIVER is local. If we ever
+                        # switch to unleash or launchdarkly this becomes true and needs an
+                        # allowlist, and the flag data leaves our boundary — a decision, not a
+                        # config change.
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Where flag definitions live ───────────────────────────────────────────────────────────
+  # local: our own store. The evaluation engine is always base-services' either way, so the only
+  # thing a vendor would buy us is a UI — at the cost of sending which establishment has which
+  # feature to a third party, and a hard dependency on their uptime for every request.
+  FLAG_PROVIDER_DRIVER: "local"
+
+  # ── Plan entitlements (§16.3) ─────────────────────────────────────────────────────────────
+  # null FOR NOW, and this is a real gap rather than a preference: billing-service is Wave 4c,
+  # and until it exists a flag cannot ask "is this tenant on a plan that includes this". So
+  # today plan gating is expressed as per-tenant flag overrides — correct behaviour, manual
+  # bookkeeping. Flip to billing-http the moment billing lands, or the four plans drift from
+  # what customers actually pay for. Tracked as part of the billing task.
+  ENTITLEMENT_CHECKER_DRIVER: "null"
+  # BILLING_SERVICE_URL: "http://billing-service:8000"   ← with the switch above
+
+  # ── Rollout ───────────────────────────────────────────────────────────────────────────────
+  # Salt is ours, not the upstream default. Changing it RE-BUCKETS every subject, so it is set
+  # once and left alone — a casual edit would move every establishment across every gradual
+  # rollout simultaneously.
+  ROLLOUT_SALT: "raje3-v1"
+  # Note for whoever writes the first gradual rollout: bucket_by is per flag, and `tenant` is
+  # almost always right for us. Our unit of change is an establishment — every operator in one
+  # shop must see the same field screen, or two workers on the same counter get different
+  # buttons and neither trusts the system.
+  FLAG_CACHE_TTL_SECONDS: "30"
+  LAST_SEEN_WRITE_THRESHOLD_SECONDS: "3600"
+  PREREQUISITE_MAX_DEPTH: "5"
+
+  # ── Experiments ───────────────────────────────────────────────────────────────────────────
+  # 100% exposure sampling. Our volumes are small — hundreds of shops, not millions of users —
+  # so sampling would cost us statistical power to save nothing. analytics-service (Wave 4a)
+  # consumes flag.exposed; until then the events are published and nobody listens, which is
+  # harmless and correct.
+  EXPOSURE_SAMPLE_PCT: "100.0"
+
+  # ── Hygiene ───────────────────────────────────────────────────────────────────────────────
+  # A flag not evaluated in 90 days is a candidate for removal. Dead flags are how a control
+  # plane becomes a maze nobody dares touch.
+  STALE_FLAG_DAYS: "90"
+  CONFIG_ENV: "production"
+
+  # ── A FOOTGUN, MEASURED, NOT GUESSED ──────────────────────────────────────────────────────
+  # Not a knob — a fact about the evaluation order that anyone writing a plan flag must know.
+  # `rollout_pct` DEFAULTS TO 100, and precedence puts rollout (#11) ABOVE default (#12). So a
+  # flag created with default=false is still ON for every tenant, with reason "rollout", and the
+  # default never applies. We hit exactly this: a Starter tenant read loyalty_points as enabled.
+  #
+  # For a PLAN flag — where the answer must come only from an entitlement or an explicit
+  # override — always set rollout_pct: 0. Then an unlisted tenant falls through to default and
+  # reads OFF, with reason "default", which is the answer §16.3 requires.
+  # rollout_pct > 0 is for GRADUAL ROLLOUTS, a different job entirely.
+
+  # ── Maintenance mode ──────────────────────────────────────────────────────────────────────
+  # Left EMPTY deliberately, and this needs a decision before launch rather than a default:
+  # the bypass allowlist is what lets an on-call operator reach the system during a maintenance
+  # window. Empty means nobody bypasses — including whoever is trying to fix it. Populate with
+  # our platform-operator subjects once those accounts exist (spec §15.11's internal roles).
+  MAINTENANCE_BYPASS_SUBJECTS: ""
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# No CronJobs. Upstream ships none for this service and, unlike the last three, that is correct:
+# the stale-flag list is a REPORT read on demand (GET /api/v1/flags/stale), not a sweep that has
+# to run. Nothing here degrades silently without a schedule.
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
