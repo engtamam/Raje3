@@ -5,7 +5,14 @@
 # claim worth making after a rollout — a release can be "deployed" while the pods that matter were
 # never replaced, and a rollout can be reported failed while the digest landed correctly.
 set -uo pipefail
-NS="${NS:-base-services}"; ROOT="${ROOT:-$HOME/raje3}"; VALUES_DIR="${VALUES_DIR:-$ROOT/deploy/services}"
+NS="${NS:-base-services}"
+# Derived from where this script LIVES, not from $HOME — it is run under sudo, and sudo's $HOME is
+# /root, so a home-relative default silently resolves to a directory that does not exist and the
+# loop then reports every service as "never deployed".
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${ROOT:-$(cd "$HERE/.." && pwd)}"
+VALUES_DIR="${VALUES_DIR:-$ROOT/deploy/services}"
+[ -d "$VALUES_DIR" ] || { echo "  ✗ no values directory at $VALUES_DIR" >&2; exit 2; }
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 ok=0; bad=0; missing=0
 for f in "$VALUES_DIR"/*.values.yaml; do
