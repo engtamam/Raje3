@@ -23,7 +23,6 @@ rollout that cannot finish while the ceiling is full.
 | `bring-up.sh` | the whole install, in the order that works |
 | `services/*.values.yaml` | one per service — the config, and the reasoning behind every non-default |
 | `hooks/pre-deploy.sh` | one database per service, and the two object-store buckets |
-| `hooks/post-datastores.sh` | raises postgres `max_connections`; the fleet outgrew the stock 100 |
 | `repin.sh` | moves every values file to a release, **by digest** — a tag can be moved |
 | `verify-pinned.sh` | reads what the cluster is *running* and compares it to what is pinned |
 | `k3s/edge.yaml` | the Caddy edge for a host with no DNS (no ACME) |

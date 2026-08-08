@@ -19,11 +19,16 @@ spec:
   groups:
     - name: raje3.datastore
       rules:
-        # THE ONE THAT COST AN HOUR. Every service builds an unconfigurable asyncpg pool that fills
-        # to ten connections on first use and holds them forever, against a postgres whose ceiling
-        # is finite. When it fills, new pods cannot become Ready, so old pods are never retired, so
-        # the slots are never freed — a deadlock the cluster cannot leave on its own. `readyz`
-        # reports `datastore: down`, which sends you to look at a database that is perfectly
+        # THE ONE THAT COST AN HOUR. The pool was unconfigurable then — it filled to ten per
+        # service on first use and never released. v0.13.0 made it lazy and configurable
+        # (DATASTORE_POOL_MIN 1, MAX 5), which removes the deadlock at our current size. The alert
+        # stays because the arithmetic does not go away: it moves with replica count, and the
+        # preflight only runs at install.
+        #
+        # What the state looks like, so nobody re-learns it: when the ceiling fills, new pods cannot
+        # become Ready, so old pods are never retired, so the slots are never freed — a deadlock the
+        # cluster cannot leave on its own. v0.13.0 also made readyz name it ("pool exhausted") in
+        # place of the old "down", which had sent us to inspect a database that was perfectly
         # healthy and merely full.
         #
         # 80% because the gap between "getting full" and "deadlocked" is one rollout, and a rollout
@@ -35,11 +40,10 @@ spec:
           annotations:
             summary: "postgres is {{ $value | humanizePercentage }} of its connection ceiling"
             description: >-
-              The pools are fixed at ten per service and are never returned. At 100% a rollout
-              DEADLOCKS: the new pod cannot connect, so it never becomes Ready, so the old pod
-              holding the slots is never retired. Raise max_connections
-              (deploy/hooks/post-datastores.sh) or put a pooler in front — do not wait for it to
-              resolve itself, because it will not.
+              At 100% a rollout DEADLOCKS: the new pod cannot connect, so it never becomes Ready, so the old pod
+              holding the slots is never retired. Lower DATASTORE_POOL_MAX, raise
+              max_connections, or put a pooler in front — do not wait for it to resolve itself,
+              because it will not.
 
         - alert: PostgresConnectionsExhausted
           expr: pg_stat_activity_count / pg_settings_max_connections > 0.95

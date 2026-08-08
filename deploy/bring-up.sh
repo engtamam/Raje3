@@ -20,7 +20,7 @@
 #  ORDER IS THE POINT. Each step needs the one before it:
 #    1. preflight      refuse a host that cannot run this before touching it
 #    2. datastores     postgres and redis must exist before a secret can name a DSN
-#    3. post-datastores  raise the connection ceiling BEFORE services start filling it
+#    3. pool preflight   refuse the install if the pools cannot fit before any of them is opened
 #    4. secrets        minted once, shared values byte-identical across every service
 #    5. databases      one per service; a service without one starts, passes /healthz, then fails
 #                      on its first write
@@ -58,11 +58,23 @@ kubectl -n "$NS" rollout status statefulset/postgres --timeout=300s >/dev/null
 ok "postgres and redis are up"
 
 # ── 3 ─────────────────────────────────────────────────────────────────────────────────────────
-# BEFORE the services, deliberately. Raising the ceiling after they have filled it means a restart
-# of the whole fleet to benefit from it — which is the rollout that cannot complete while the
-# ceiling is full. Order is the difference between a setting and an outage.
-step "connection ceiling"
-bash "$HERE/hooks/post-datastores.sh"
+# Upstream's, and it is a REFUSAL, not a report. It computes services x DATASTORE_POOL_MIN against
+# postgres's max_connections and fails the install when the guaranteed floor cannot fit — because
+# a floor that does not fit is not a risk, it is a certain deadlock, and discovering it here beats
+# discovering it during an upgrade at 2am.
+#
+# We used to patch max_connections to 300 here. That is gone: it existed to work around an
+# unconfigurable pool that filled to ten per service and never released, and v0.13.0 fixed the pool
+# itself (min 1, max 5, lazy, with idle connections returned). The arithmetic now reads
+# floor 19, peak 95 against a stock ceiling of 100 — so the patch would be a divergence from
+# upstream's defaults with no reason left behind it, costing an extra gigabyte of postgres memory
+# on a node that does not have one to spare.
+#
+# If we ever scale a service past one replica the peak crosses the ceiling, and THIS STEP is what
+# will say so, at install, in one line. The signal to raise it again is automatic; it is not
+# something anyone has to remember.
+step "database pool arithmetic"
+VALUES_DIR="$ROOT/deploy/services" bash "$ROOT/platform/deploy/server/preflight-db-pool.sh"
 
 # ── 4 ─────────────────────────────────────────────────────────────────────────────────────────
 # THEIRS, called rather than reimplemented. It mints the shared values once — INTERNAL_SERVICE_TOKEN,
