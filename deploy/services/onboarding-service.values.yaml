@@ -77,23 +77,24 @@ env:
   ONBOARDING_ENTITLEMENT: "trial"
   ONBOARDING_GRANTS: "welcome=days:14"
 
-  # ── Provisioning ──────────────────────────────────────────────────────────────────────────
-  # DELIBERATELY EMPTY, and this is a finding rather than a gap we chose to leave.
+  # ── Provisioning — what a signup CREATES ──────────────────────────────────────────────────
+  # This was empty until v0.12.6, and the reason it was empty is worth keeping: the provisioner
+  # authenticates with X-Internal-Token, while creating a tenant used to be a USER-tier route
+  # needing a JWT with `platform.tenants`. Pointing a provisioner at it would have sent an internal
+  # token to a route that wanted a bearer, and failed on EVERY signup — a signup that appears to
+  # start, creates nothing, and leaves a person with an account and no establishment. Reported, and
+  # upstream added POST /internal/tenants for exactly this saga.
   #
-  # The provisioner authenticates with `X-Internal-Token` (adapters/provisioner/http.py). But
-  # tenant-service has no internal create: its internal tier is close-sweep, resolve and a GET by
-  # id. Creating a tenant is POST /api/v1/tenants on the USER tier and requires a JWT carrying
-  # `platform.tenants`. So a provisioner entry pointing at tenant-service would send an internal
-  # token to a route that wants a bearer JWT, and fail on every signup.
+  # THE UNDO IS NOT OPTIONAL. The format names a create AND a compensate, because a create without
+  # a matching undo is how orphan tenants are born: the tenant is made, a later step fails, and a
+  # registry row survives that no account can reach and no one will ever look for. The delete
+  # returns 404 when the tenant is already gone, which a resumed rollback treats as success.
   #
-  # Wiring it anyway would produce the worst outcome available here: a signup that appears to
-  # start, creates nothing, and leaves a person with an account and no establishment.
-  #
-  # Reported upstream. Until it is resolved, tenant creation stays an explicit step in our own
-  # signup path, where the caller already holds a platform-capable token. Revisit the moment
-  # either side moves — an internal create on tenant-service, or bearer support in the
-  # provisioner.
-  ONBOARDING_PROVISIONERS: ""
+  # Idempotency is the SLUG, not a key we pass — a repeat provision returns 409 and the caller
+  # reads that as "already ours". So a retried signup cannot produce two establishments.
+  ONBOARDING_PROVISIONERS: "tenant=http://tenant-service:8000/internal/tenants|/internal/tenants/{id}"
+  # 10s. A tenant create is one insert; anything slower than this is a fault, not a slow day, and
+  # a signup left hanging on it is worse than a signup that fails and can be retried.
   ONBOARDING_PROVISION_TIMEOUT_SECONDS: "10"
 
   AUDIT_SINK_DRIVER: "http"

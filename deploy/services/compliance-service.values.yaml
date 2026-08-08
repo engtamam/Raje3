@@ -105,7 +105,32 @@ env:
   #   feature-flag  — flags are per tenant, not per person
   #   compliance    — itself; it is the coordinator, and its own erasure path is called directly
   # Every new service is added here as step 8 of the adaptation recipe, before it counts as done.
-  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,file-service=http://file-service:8000,job-service=http://job-service:8000"
+  # ── PRIVACY_TARGETS — every service a deletion request must reach ─────────────────────────
+  # This list WAS six services, and six was wrong. Every service below serves
+  # /internal/privacy/erase, and upstream ships a build gate — safety:privacy-wiring — that fails
+  # when a service implements the endpoint and is then left out of this list. A target missing here
+  # is not "a service we skipped": it is a customer told their data was deleted while a copy of it
+  # kept living somewhere, which is the precise failure PDPL Article 18 is written about.
+  #
+  # The ones that were missing mattered most:
+  #   notification  every phone number we ever messaged, and the send history against it
+  #   search        the index — names and phone numbers, the exact fields a person asks us to erase
+  #   ticket        support threads, where a customer describes their own situation in free text
+  #   webhook       delivery records, whose payloads carried customer identifiers outward
+  #   connector     records pulled from an establishment's own system
+  #
+  # Services with nothing to erase are listed anyway and answer the contract with an honest no-op.
+  # That is not noise: the fan-out derives completion from ACKS, so a service that answers "nothing
+  # of theirs here" is what lets us state the request was fully served. Silence is not an answer.
+  #
+  # NOT LISTED, deliberately: api-gateway. It serves the endpoint but holds no store of its own —
+  # it routes. Adding it would add an ack that asserts nothing.
+  #
+  # ONE HONEST LIMIT: backup-service acknowledges the request but says plainly that it holds no
+  # subject rows — the sealed ARCHIVES still contain the person until retention expires them. That
+  # is a retention answer, not an erasure answer, and it is the one place "deleted everywhere" is
+  # not literally true. Bounded by BACKUP_RETENTION_MAX_AGE_SECONDS (90 days).
+  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,file-service=http://file-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,search-service=http://search-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,billing-service=http://billing-service:8000,onboarding-service=http://onboarding-service:8000,analytics-service=http://analytics-service:8000,webhook-service=http://webhook-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,backup-service=http://backup-service:8000"
   PRIVACY_MAX_ATTEMPTS: "8"          # then FAILED and VISIBLE — never silently abandoned
   PRIVACY_CONCURRENCY: "5"
   PRIVACY_PENDING_TIMEOUT_SECONDS: "21600"

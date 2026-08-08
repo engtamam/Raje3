@@ -3,12 +3,21 @@
 # Read in full at v0.12.5: manifest.py, api/v1/operator.py, config.py, core/*, ports/*.
 # Nothing upstream edited.
 #
-# COVERAGE TODAY IS TWO SERVICES, and pretending otherwise would be the exact failure this file
-# exists to prevent. Only 4 of 24 services declare /internal/backup/export: _template, backup,
-# billing, ticket. tenant, identity, authz, wallet, compliance and audit cannot be backed up at
-# all — the establishments, the accounts, the permissions, the balances, the consent records and
-# the audit trail. Reported upstream; until it moves, our disaster recovery covers billing and
-# ticket and nothing else.
+# COVERAGE WAS TWO SERVICES. It is now the whole fleet, and the history is worth keeping because
+# it is the clearest thing this file has taught.
+#
+# Only 4 of 24 services declared /internal/backup/export — tenant, identity, authz, wallet,
+# compliance and audit could not be backed up AT ALL: the establishments, the accounts, the
+# permissions, the balances, the consent records and the audit trail. Reported. v0.12.6 onboarded
+# thirteen more and added a build gate, safety:backup-export, so a service must either serve an
+# export or carry a declared exemption. search-service is a permanent exemption and rightly so — a
+# derived index holds no durable data, and restoring it would restore a stale copy of records the
+# owning service already has.
+#
+# THEN A SECOND, QUIETER GAP: every newly-onboarded service answered 503, because BACKUP_KEK is a
+# SHARED secret and only the three original targets held it. The endpoint existing and the endpoint
+# working are not the same claim, and only measuring the difference tells them apart — the fleet
+# looked covered while thirteen services could not produce a readable archive.
 #
 # PROVEN, on a real run: ticket-service exports 12 rows, verifies, and PASSES a restore drill.
 # billing-service FAILS verification — "billing_seq: a row has no id, cannot be restored
