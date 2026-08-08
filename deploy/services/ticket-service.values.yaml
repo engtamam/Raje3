@@ -1,0 +1,167 @@
+# ticket-service — Raje3 deployment values.
+#
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/tickets.py, config.py,
+# core/{workflow,ticket_service,suggester,notifier}.py, ports/*. Nothing upstream edited.
+#
+# Two jobs in this product, and they are not the same shape:
+#   §15.6  our support desk — an establishment raises a problem, our team answers it
+#   §6.7   the custom WhatsApp template request, which is a WORKFLOW, not a mailbox: the owner
+#          writes what they want in plain Arabic, our team rewrites it with valid variables and
+#          the correct category so Meta will approve it, it is submitted, and on approval the
+#          owner is told and the template appears in their library
+#
+# The second is why this service is worth its weight: the ticket TYPE carries its own statuses,
+# transitions, required fields and per-transition capabilities, all as DATA. A template request
+# is not a support ticket with a label on it — it has different states and different rules.
+service:
+  name: ticket-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/ticket-service
+  digest: "sha256:bf91f0f65e90d37f69ca5e001977681951c44310dc08d0f3eaf479eed8dc6f27"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis          # the notify outbox drains through this
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: ticket-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Notifications ─────────────────────────────────────────────────────────────────────────
+  # THE PATH IS OVERRIDDEN ON PURPOSE. The default is /internal/notifications/send;
+  # notification-service actually serves /internal/notify. Left alone, every ticket
+  # notification would 404 — and a notification that fails is exactly the kind of thing nobody
+  # notices until an establishment says "you never replied to me".
+  NOTIFY_DRIVER: "http"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  NOTIFICATION_SEND_PATH: "/internal/notify"
+  NOTIFY_TIMEOUT_SECONDS: "5"
+
+  # ── Consent ───────────────────────────────────────────────────────────────────────────────
+  # OFF, and this is the correct reading rather than an omission. A ticket notification is
+  # transactional — it answers a message the establishment itself sent us. That is contract,
+  # not consent, and gating it would mean an owner who never opted into marketing stops
+  # receiving replies to their own support request.
+  CONSENT_GATED: "false"
+  CONSENT_GATE_DRIVER: "null"
+
+  # ── Suggestions ───────────────────────────────────────────────────────────────────────────
+  # null: assistant-service is Wave 6d. When it lands this becomes http, and §6.7 gets a real
+  # draft of the rewritten template for our team to edit.
+  # SUGGEST_AUTOTAG_MIN_CONFIDENCE stays 1.0 — never auto-apply. A machine may draft; a human
+  # decides what is submitted to Meta under an establishment's name.
+  SUGGEST_DRIVER: "null"
+  SUGGEST_AUTOTAG_MIN_CONFIDENCE: "1.0"
+
+  # ── The workflows, as data ────────────────────────────────────────────────────────────────
+  # `support` is §15.6. `template_request` is §6.7, and its states are the actual lifecycle of a
+  # WhatsApp template — not a support ticket wearing a label:
+  #
+  #   new          the owner wrote what they want, in their own words
+  #   drafting     our team is rewriting it with valid variables and the right category
+  #   submitted    it is with Meta, and nobody on our side can move it
+  #   approved     it appears in the establishment's library — the happy end
+  #   rejected     Meta refused; back to drafting or closed
+  #
+  # `submitted` deliberately has NO transition to approved that our staff can make: the state is
+  # owned by Meta's answer, and letting an operator mark it approved would put a template in an
+  # establishment's library that Meta will refuse at send time.
+  #
+  # An incoherent type (a transition to an unknown status, no terminal, an unreachable state) is
+  # refused at BOOT by the workflow registry, so a bad edit here fails loudly rather than at 2am.
+  TICKET_TYPES_JSON: |
+    [
+      {
+        "key": "support",
+        "label": {"en": "Support", "ar": "دعم فني"},
+        "statuses": ["new", "in_progress", "waiting_customer", "resolved", "closed"],
+        "start": "new",
+        "transitions": {
+          "new": ["in_progress", "closed"],
+          "in_progress": ["waiting_customer", "resolved", "closed"],
+          "waiting_customer": ["in_progress", "closed"],
+          "resolved": ["closed", "in_progress"]
+        },
+        "terminal": ["closed"],
+        "required_fields": [],
+        "reply_capability": "tickets.self",
+        "transition_capabilities": {
+          "in_progress": "tickets.manage",
+          "resolved": "tickets.manage"
+        },
+        "notify": {"on": ["created", "replied", "status_changed"],
+                   "template_prefix": "ticket.support"}
+      },
+      {
+        "key": "template_request",
+        "label": {"en": "Custom template request", "ar": "طلب قالب مخصص"},
+        "statuses": ["new", "drafting", "submitted", "approved", "rejected", "closed"],
+        "start": "new",
+        "transitions": {
+          "new": ["drafting", "closed"],
+          "drafting": ["submitted", "closed"],
+          "submitted": ["approved", "rejected"],
+          "rejected": ["drafting", "closed"],
+          "approved": ["closed"]
+        },
+        "terminal": ["closed"],
+        "required_fields": ["ref"],
+        "reply_capability": "tickets.self",
+        "transition_capabilities": {
+          "drafting": "tickets.manage",
+          "submitted": "tickets.manage",
+          "approved": "platform.tickets",
+          "rejected": "platform.tickets"
+        },
+        "notify": {"on": ["created", "replied", "status_changed"],
+                   "template_prefix": "ticket.template_request"}
+      }
+    ]
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# No CronJobs, and unlike four earlier services that is correct here: the notify outbox drains
+# inline and there is no retention or sweep endpoint on this service. Verified against its
+# manifest rather than assumed.
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
