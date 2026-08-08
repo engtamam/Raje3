@@ -1,6 +1,6 @@
 # feature-flag-service — Raje3 deployment values.
 #
-# Read in full at v0.12.3: README.md, manifest.py, api/v1/flags.py, config.py, core/evaluate.py,
+# Read in full at v0.12.5: README.md, manifest.py, api/v1/flags.py, config.py, core/evaluate.py,
 # core/rollout.py, core/rules.py, ports/entitlement_checker.py. Nothing upstream edited.
 #
 # It is NOT just "the plan gate". It is the runtime control plane, and Raje3 uses three parts:

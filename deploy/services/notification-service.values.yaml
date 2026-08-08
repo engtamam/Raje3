@@ -1,6 +1,6 @@
 # notification-service — Raje3 deployment values.
 #
-# Read in full at v0.12.3: manifest.py, api/v1/*, api/internal.py, config.py (543 lines),
+# Read in full at v0.12.5: manifest.py, api/v1/*, api/internal.py, config.py (543 lines),
 # core/notifier.py, ports/consent_gate.py, adapters/consent_gate/*. Nothing upstream edited.
 #
 # THIS IS NOT "THE WHATSAPP SERVICE". It carries four channels and Raje3 needs all four:
@@ -169,13 +169,13 @@ env:
 # trap: every message that hits a provider hiccup is queued, nothing drains it, and the delivery
 # log fills with "queued" while the operator sees a healthy service. Third time this pattern has
 # bitten us (audit retention, job scheduler-tick, now this).
+# whatsapp-template-sync is NOT scheduled, and was removed after every run 422'd: that endpoint
+# also needs a body, and upstream schedules neither. Template sync belongs to the moment a tenant
+# connects a WhatsApp account, not to a clock ticking against tenants that have not.
 cronJobs:
   - name: notify-drain
     schedule: "* * * * *"
     path: /internal/notifications/drain
-  - name: whatsapp-template-sync
-    schedule: "*/15 * * * *"
-    path: /internal/whatsapp/templates/sync
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

@@ -1,6 +1,6 @@
 # onboarding-service — Raje3 deployment values.
 #
-# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, config.py, core/*,
+# Read in full at v0.12.5: README.md, manifest.py, api/v1/*, config.py, core/*,
 # adapters/provisioner/http.py, ports/*. Nothing upstream edited.
 #
 # What it is: a flow engine. A signup declares REQUIREMENTS, each answered by asking the service
@@ -104,14 +104,21 @@ env:
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
-# resume-provisioning retries a signup whose provisioning half-finished — the step that turns a
-# crashed signup into a recoverable one rather than a person stuck with an account and nothing
-# behind it. Scheduled even though ONBOARDING_PROVISIONERS is empty today: the day it is wired,
-# forgetting this is exactly the silent failure the rest of this file argues against.
-cronJobs:
-  - name: resume-provisioning
-    schedule: "*/10 * * * *"
-    path: /internal/onboarding/resume-provisioning
+# NO CronJob, and this was a mistake I made and had to undo. I scheduled
+# /internal/onboarding/resume-provisioning on a 10-minute timer; every run failed with a 422 and
+# had been failing for half an hour before the deploy script's not-ready listing surfaced it.
+#
+# The endpoint takes `tenant` and `subject` as REQUIRED query parameters — it resumes ONE stalled
+# signup, it is not a sweep. Upstream's own comment says why, and it is worse than a wasted call:
+#
+#   "Deliberately NOT a blanket sweep over every run: resuming re-attempts DELETES, and a sweeper
+#    that walked every record would re-attempt them on runs an operator may be mid-way through"
+#
+# So a scheduled blanket call would have been re-attempting deletions across signups in progress.
+# Upstream schedules nothing here, and that absence was the answer. Read the handler signature
+# before scheduling a path, not just its name.
+#
+# Resuming a specific stalled signup is an operator action from the console (§15), not a clock.
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

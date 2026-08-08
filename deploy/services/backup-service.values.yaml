@@ -1,0 +1,145 @@
+# backup-service — Raje3 deployment values.
+#
+# Read in full at v0.12.5: manifest.py, api/v1/operator.py, config.py, core/*, ports/*.
+# Nothing upstream edited.
+#
+# Spec §14.4 (scheduled + on-demand backups, reliable restore, secure off-box copy) and §15.10
+# (our console manages them). It is the ONE service whose value is entirely unproven until a
+# restore is actually performed — a backup nobody has restored is a belief, not a backup.
+#
+# The service knows that too, which is why it ships DRILLS: /operator/backup/drill/run restores
+# into a scratch space and verifies, so the question "would this actually come back" has an
+# answer that is not a shrug. And a restore has an UNDO, because the worst moment to discover
+# you restored the wrong archive is after it has overwritten the right data.
+service:
+  name: backup-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/backup-service
+  digest: "sha256:7421fffaaf9714e278b7d91ba819eedb0b34f8b0b4e78a1d6a042f84b27633d8"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi     # it streams whole collections
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
+# SECRETS_KEK, BACKUP_KEK, OBJECTSTORE_ACCESS_KEY / _SECRET_KEY.
+existingSecret: backup-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # It calls every other service's /internal/backup/export, and writes archives to the object
+    # store. Both are in-cluster.
+    objectStore:
+      enabled: true
+      port: 9000
+      roleLabel: objectstore
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Where archives live ───────────────────────────────────────────────────────────────────
+  # s3 against SeaweedFS, NOT the local driver. Local would write archives to an emptyDir under a
+  # read-only root filesystem — they would vanish on the next pod restart, which is a backup
+  # system that loses backups. A SEPARATE BUCKET from the application's: a restore must not be
+  # able to overwrite the archive it is restoring from, and a misconfigured file-service must not
+  # be able to reach the backups.
+  OBJECTSTORE_DRIVER: "s3"
+  OBJECTSTORE_ENDPOINT_URL: "http://objectstore:9000"
+  OBJECTSTORE_BUCKET: "raje3-backups"
+  OBJECTSTORE_REGION: "us-east-1"
+  OBJECTSTORE_FORCE_PATH_STYLE: "true"
+
+  # ── Bounds ────────────────────────────────────────────────────────────────────────────────
+  # 500 is the upstream default and far above our ~18 services. Left as-is: it is a ceiling
+  # against a runaway, not a number to tune.
+  BACKUP_TARGET_LIMIT: "500"
+  BACKUP_TARGET_TIMEOUT_SECONDS: "120"
+  # A failed backup beats an OOM. Sized well above anything Raje3 holds today — the largest
+  # collection will be service records, and a busy tyre shop writes tens of thousands a year, not
+  # millions. Revisit when a real tenant's numbers say so.
+  BACKUP_MAX_ROWS_PER_COLLECTION: "5000000"
+
+  # ── Staleness — the alarm that catches a cron that quietly stopped ────────────────────────
+  # 26h, not the 48h default. 48h tolerates TWO missed daily runs before anyone is told, and two
+  # days of an establishment's customer records is not a gap we would accept. 26h means one
+  # missed run is an incident, with two hours of slack for a slow night.
+  BACKUP_STALE_AFTER_SECONDS: "93600"
+
+  # ── Retention ─────────────────────────────────────────────────────────────────────────────
+  # 30 runs, and the last VERIFIED backup of every target is kept regardless of age — the sweep
+  # can never delete a service's only working archive. 90 days as a second bound so a target that
+  # stopped being backed up does not keep 30 stale runs forever.
+  BACKUP_RETENTION_RUNS: "30"
+  BACKUP_RETENTION_MAX_AGE_SECONDS: "7776000"
+
+  # Alerts are recorded and readable on the health endpoint regardless. A push destination needs
+  # an egress allowance, so it stays empty until we have somewhere real to send it — our own
+  # notification-service, once there is an operator channel for it (§15).
+  BACKUP_ALERT_WEBHOOK_URL: ""
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://admin.raje3.sa"   # operator surface only — not the tenant app
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# Upstream's four jobs, kept whole. I first wrote two of my own pointing at /api/v1/operator/…
+# — which are USER-tier routes needing a JWT, while a chart CronJob presents the internal token.
+# Every run would have 401'd. The service has internal equivalents for exactly this, and upstream
+# already schedules all four. Reading their values file before writing ours would have saved the
+# mistake; kept here as the reason to look first.
+#
+#   run          the nightly backup
+#   health-check HOURLY, and the most valuable of the four: it is what notices that the nightly
+#                stopped firing three days ago. A backup system that fails silently is worse than
+#                none, because it is trusted.
+#   prune        retention, after the run so a fresh archive is never the one pruned
+#   drill        WEEKLY RESTORE REHEARSAL. This is the job that turns "we have backups" into
+#                something with evidence behind it.
+cronJobs:
+  - name: run
+    schedule: "42 2 * * *"
+    path: /internal/backup/run
+  - name: health-check
+    schedule: "23 * * * *"
+    path: /internal/backup/health/check
+  - name: prune
+    schedule: "51 3 * * *"
+    path: /internal/backup/prune
+  - name: drill
+    schedule: "7 4 * * 0"
+    path: /internal/backup/drill
+
+ingress:
+  enabled: false   # operator-only, reached through the gateway

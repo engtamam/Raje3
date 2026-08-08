@@ -1,6 +1,6 @@
 # billing-service — Raje3 deployment values.
 #
-# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
+# Read in full at v0.12.5: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
 # core/{pricing,entitlements,grants,settlement,periods,invoice_format,currency}.py,
 # ports/{payment_gateway,tax_calculator,einvoicer,wallet}.py. Nothing upstream edited.
 #

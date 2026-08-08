@@ -1,6 +1,6 @@
 # identity-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.3. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.5. Nothing upstream edited.
 #
 # SCOPE — read this before adding anything here. identity-service authenticates the people who
 # log into a PORTAL: the owner, the manager, custom roles, and our own super-admin team. It does

@@ -1,6 +1,6 @@
 # ticket-service — Raje3 deployment values.
 #
-# Read in full at v0.12.3: README.md, manifest.py, api/v1/tickets.py, config.py,
+# Read in full at v0.12.5: README.md, manifest.py, api/v1/tickets.py, config.py,
 # core/{workflow,ticket_service,suggester,notifier}.py, ports/*. Nothing upstream edited.
 #
 # Two jobs in this product, and they are not the same shape:
@@ -19,7 +19,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/ticket-service
-  digest: "sha256:bf91f0f65e90d37f69ca5e001977681951c44310dc08d0f3eaf479eed8dc6f27"
+  digest: "sha256:eda4fddbf278df6abf6144e7658f2b8f14637e8f524c603718ed7757af89bf5e"
 
 replicas: 1
 

@@ -1,6 +1,6 @@
 # compliance-service — Raje3 deployment values.
 #
-# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
+# Read in full at v0.12.5: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
 # core/* (consent_service, dsar_service, privacy_dispatcher, retention, consent_sweeper),
 # ports/*. Nothing upstream edited.
 #
