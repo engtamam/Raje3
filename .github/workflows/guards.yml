@@ -1,0 +1,45 @@
+# Guards — refuse a change that would only fail once it is deployed.
+#
+# Everything here runs in seconds with nothing installed, because a guard that is slow or needs a
+# toolchain is a guard people start skipping. The chart render needs helm and nothing else.
+name: guards
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      # The submodule is required: check_deploy_wiring.py reads base-services' SOURCE to answer
+      # "does this service actually serve the route this values file schedules a job against".
+      # Without it the guard degrades to a note and stops guarding.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: product identity is intact
+        run: python3 ci/check_product_config.py
+
+      - name: deploy wiring is consistent
+        run: python3 ci/check_deploy_wiring.py
+
+      - uses: azure/setup-helm@v4
+
+      # A values file that cannot render is a failed deploy discovered on the cluster. Rendering
+      # here moves that discovery to the pull request, before anything is touched.
+      - name: every values file renders against the chart
+        run: |
+          fail=0
+          for f in deploy/services/*.values.yaml; do
+            svc=$(basename "$f" .values.yaml)
+            if ! helm template "$svc" platform/deploy/chart -f "$f" >/dev/null 2>err.txt; then
+              echo "::error file=$f::$svc does not render"; sed 's/^/    /' err.txt; fail=1
+            fi
+          done
+          exit $fail

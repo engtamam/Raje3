@@ -38,6 +38,11 @@ resources:
 autoscaling:
   enabled: false
 
+# BACKUP_KEK IS ALSO REQUIRED HERE, and it is SHARED — the same value every export-capable
+# service and backup-service itself holds. This service serves /internal/backup/export, and without
+# the key that endpoint answers a bare 503: correct behaviour, far better than writing an archive in
+# the clear, but nothing in the response names the cause. Miss it and the fleet looks backed up
+# while this service cannot produce a readable archive.
 existingSecret: onboarding-service-secrets
 
 networkPolicy:
