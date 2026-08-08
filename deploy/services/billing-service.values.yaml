@@ -61,11 +61,23 @@ env:
 
   # ── Money ─────────────────────────────────────────────────────────────────────────────────
   CURRENCY: "SAR"
-  TAX_CALCULATOR_DRIVER: "vat"
-  VAT_RATE: "0.15"
-  # Off. Reverse charge is for cross-border B2B; our customers are Saudi establishments buying a
-  # Saudi service, so every sale is domestic and VAT-bearing. Turning it on would zero-rate a
-  # sale that owes 15%.
+
+  # ── VAT is OFF, and that is a legal position rather than a preference ─────────────────────
+  # Raje3 is not VAT-registered yet. An unregistered seller must NOT collect VAT — charging 15%
+  # without a registration number is not conservative, it is collecting a tax we have no right
+  # to collect and no mechanism to remit. So the calculator is null and every price below is the
+  # whole price.
+  #
+  # THE TRIGGER TO REVISIT IS REGISTRATION, NOT REVENUE GUESSWORK. The day we register, THREE
+  # settings change together and none of them works alone:
+  #   TAX_CALCULATOR_DRIVER -> vat, VAT_RATE -> 0.15
+  #   BILLING_DOCUMENT_MODE -> tax_invoice (or both)
+  #   EINVOICER_DRIVER      -> zatca-http, with zatca-service deployed
+  # plus INVOICE_SELLER_VAT filled in. Changing one and not the others produces a document that
+  # is wrong in a way a customer's accountant notices before we do.
+  TAX_CALCULATOR_DRIVER: "null"
+  VAT_RATE: "0.0"
+  # Irrelevant while unregistered — reverse charge is a mechanism for VAT-registered sellers.
   REVERSE_CHARGE_B2B: "false"
 
   # ── The trial (§16.5) ─────────────────────────────────────────────────────────────────────
@@ -116,12 +128,13 @@ env:
   WALLET_GRANT_FUND: "topup"
 
   # ── Invoicing ─────────────────────────────────────────────────────────────────────────────
-  # `both`: a receipt for the customer and a tax invoice for the record. Blank until the legal
-  # entity exists — config/product.json still has empty legalName, vatNumber and
-  # commercialRegistration, and those are OUR identity, not per-deployment values. They must be
-  # filled before a single real invoice is issued; an invoice missing a seller VAT number is not
-  # a tax invoice, it is a document that looks like one.
-  BILLING_DOCUMENT_MODE: "both"
+  # RECEIPT, not tax_invoice. A tax invoice is a document only a VAT-registered seller may issue;
+  # producing one without a registration number would be issuing a document that claims a status
+  # we do not hold. A receipt is the correct instrument for an unregistered seller and is what a
+  # customer needs for their own books.
+  # INVOICE_SELLER_NAME / _CR still need filling from config/product.json (legalName and
+  # commercialRegistration are both empty there) — a receipt still names its seller.
+  BILLING_DOCUMENT_MODE: "receipt"
   INVOICE_SELLER_NAME: ""
   INVOICE_SELLER_VAT: ""
   INVOICE_SELLER_CR: ""
@@ -133,9 +146,10 @@ env:
   # FAILS CLOSED, which is the right state while we have no merchant account: nothing can
   # accidentally take money. `recording` runs the whole flow without charging when we pilot.
   PAYMENT_GATEWAY_DRIVER: "null"
-  # EINVOICER: zatca-service is Wave 6a. Until it exists, invoices are issued and NOT reported.
-  # That is legal exposure with a deadline attached, not a nice-to-have — it is why zatca is in
-  # the plan at all rather than "if we get to it".
+  # EINVOICER: null, and no longer urgent. ZATCA e-invoicing obliges VAT-REGISTERED persons; an
+  # unregistered seller issuing receipts has nothing to report. This stops being a gap and
+  # becomes a prerequisite the day we register — see the VAT block above. zatca-service moves
+  # from "overdue" to "scheduled with the registration".
   EINVOICER_DRIVER: "null"
   # PDF needs the optional reportlab extra and an Arabic font. An Arabic invoice rendered with a
   # Latin font is unreadable, so this stays off until INVOICE_FONT_PATH points at a real one.
