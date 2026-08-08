@@ -133,8 +133,8 @@ wave needs** — an unused service is left out of the values, not deployed.
 | **0 — Foundation** | K3s + Calico + metrics-server + **postgres/redis/minio**; run `make verify` (proves default-deny NetworkPolicy) | nothing runs before the cluster + datastores | ✅ |
 | **1 — Spine** | `tenant` → `authz` → `identity` → `audit` | tenancy is the source of truth; then authz decisions; then auth; then the log everything writes to | ✅ |
 | **2 — Door & async** | `api-gateway` · `job` · `file` | the only public door; the scheduler (reminders need it); storage (tenant logos) | ✅ |
-| **3 — Messaging & control** | `notification` (**four channels**: email · SMS · WhatsApp · in-app) · `feature-flag` | every message the product sends, not just WhatsApp; per-plan feature gating | ✅ |
-| **4 — Growth** | `analytics` · `wallet` · `billing` · `compliance` | KPI base (the 20 dashboard metrics); the establishment's **prepaid message credit** (§16.4) — a VAT-aware money ledger, *not* loyalty points; subscriptions/plans/quotas; opt-out/PDPL | ✅ |
+| **3 — Messaging & control** | `compliance` → `notification` (**four channels**: email · SMS · WhatsApp · in-app) · `feature-flag` | compliance FIRST: notification's boot guard refuses to start in production with `CONSENT_GATE_DRIVER=null`, so the consent gate must have something to ask. Then every message the product sends, not just WhatsApp; then per-plan feature gating | ✅ |
+| **4 — Growth** | `analytics` · `wallet` · `billing` | KPI base (the 20 dashboard metrics); the establishment's **prepaid message credit** (§16.4) — a VAT-aware money ledger, *not* loyalty points; subscriptions/plans/quotas | ✅ |
 | **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
 
 **Per-service adaptation recipe (the same 7 steps every time):**
