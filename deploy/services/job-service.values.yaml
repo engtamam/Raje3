@@ -1,0 +1,120 @@
+# job-service — Raje3 deployment values.
+#
+# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+#
+# What this service is to us: the engine room of the product's core promise. Spec §5 — every
+# reminder is computed and sent here, in the background. The rule that decides WHEN a customer
+# is due belongs to our `reminders` service; job knows nothing about oil changes or service
+# cycles. It runs work on time, retries it, and never loses it.
+#
+# Spec §1.1 and §2.2 both say it in different words: background work must never slow the field
+# screen. That is the constraint this whole file is shaped around.
+service:
+  name: job-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/job-service
+  digest: "sha256:03579e1cdc0b6f7b534bb760c24af3a28c2d021a5dca02ccb71bd88c21d23153"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis          # NEVER memory here. An in-memory queue is per-pod: work vanishes on a
+                        # restart and is invisible while it does. A dropped reminder is a
+                        # customer who never came back.
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 200m           # runs continuously — a tick every minute, plus every due reminder
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: job-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false     # jobs call in-cluster services; sending goes through notification
+                        # (Wave 3), which owns the outbound path
+
+metrics:
+  serviceMonitor: false   # Prometheus Operator not installed; /metrics still served
+
+env:
+  DEFAULT_LOCALE: "ar"
+  # Cron is parsed in UTC by the builtin parser. Our operators think in Asia/Riyadh (UTC+3),
+  # so any schedule we write must be converted deliberately — a "9am" reminder written as
+  # `0 9 * * *` fires at noon Riyadh. Kept explicit so nobody has to rediscover it.
+  DEFAULT_TIMEZONE: "Asia/Riyadh"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Delivery guarantees ───────────────────────────────────────────────────────────────────
+  # A worker that crashes mid-job must not strand it: the lease expires and the job returns to
+  # the queue. 60s is short enough that a dead pod is noticed quickly, long enough that a slow
+  # WhatsApp send is not treated as a crash.
+  LEASE_SECONDS: "60"
+  HEARTBEAT_EXTEND_SECONDS: "60"
+  CLAIM_BATCH_MAX: "50"
+
+  # Retries with jitter. Without jitter, a provider outage that fails 500 reminders retries all
+  # 500 at the same instant, repeatedly — we would DDoS our own WhatsApp provider and look like
+  # an abusive sender at exactly the wrong moment.
+  RETRY_BASE_SECONDS: "10"
+  RETRY_MAX_SECONDS: "3600"
+  RETRY_MAX_ATTEMPTS: "5"
+  RETRY_JITTER: "true"
+
+  # ── Not sending twice ─────────────────────────────────────────────────────────────────────
+  # 24h dedupe window. A customer receiving the same reminder twice is not a cosmetic bug in
+  # this product: §5.2 says every message must stay welcome, and a duplicate is the fastest way
+  # to get an establishment's number blocked (§14.2). One day covers a retry storm, a redeploy,
+  # and a scheduler that ticks twice across a restart.
+  UNIQUE_DEDUPE_TTL_SECONDS: "86400"
+
+  # Round-robin across tenants inside a priority. Without it, one establishment launching a
+  # campaign to 5,000 customers (§7) starves every other establishment's due reminders behind
+  # it — one tenant's marketing push silently delays another tenant's service reminders.
+  FAIRNESS_ENABLED: "true"
+
+  # Skip a cron run if the previous one is still going. The tick runs every minute; if a tick
+  # ever takes longer than a minute, overlapping runs would claim the same due reminders twice.
+  SCHEDULER_SINGLETON: "true"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# ── The two jobs that make this service actually run ────────────────────────────────────────
+# The chart's cronJobs list is empty by default — Wave 1 taught us that the hard way with an
+# inert RETENTION_DAYS. Here the cost is higher: without `scheduler-tick` nothing is ever due,
+# so no reminder ever fires, and every dashboard stays green while the product silently does
+# nothing at all. `reclaim` is the other half: it returns jobs whose worker died holding a lease.
+cronJobs:
+  - name: scheduler-tick
+    schedule: "* * * * *"
+    path: /internal/scheduler/tick
+  - name: reclaim
+    schedule: "*/5 * * * *"
+    path: /internal/jobs/reclaim
+
+ingress:
+  enabled: false   # reached service-to-service; the gateway is the only public door

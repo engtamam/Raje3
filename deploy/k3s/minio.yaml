@@ -1,0 +1,152 @@
+# MinIO — object storage for file-service.
+#
+# OURS, not base-services'. Its bootstrap deploys postgres and redis only; MinIO is named in the
+# Wave 0 plan but no manifest ships for it, so we provide one. Nothing here edits platform/.
+#
+# There is no "minio driver" in base-services and there does not need to be: MinIO speaks S3, so
+# it IS the s3 driver pointed at this endpoint. The one knob that must be right is
+# OBJECTSTORE_FORCE_PATH_STYLE=true — boto defaults to virtual-host addressing
+# (https://bucket.host/key), which needs a wildcard DNS record MinIO does not have, and fails to
+# resolve rather than failing clearly.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  labels: { app: minio }
+spec:
+  selector: { app: minio }
+  ports:
+    - { name: api, port: 9000, targetPort: 9000 }
+    - { name: console, port: 9001, targetPort: 9001 }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  labels: { app: minio }
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: the PVC is ReadWriteOnce, so a second pod would sit Pending
+  # forever waiting for a volume the old pod still holds.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: minio }
+  template:
+    metadata:
+      # `base-services/role: datastore` is REQUIRED, not decorative. The chart's
+      # networkPolicy.egress.datastore rule selects peers by exactly this label, so without it
+      # every service's egress to MinIO is denied — and the symptom is not a connection error,
+      # it is /readyz hanging until the probe times out while /healthz stays 200. Cost an
+      # afternoon on the first bring-up; postgres and redis carry the same label.
+      labels:
+        app: minio
+        base-services/role: datastore
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000          # without this the mounted PVC is root-owned and MinIO cannot write
+      containers:
+        - name: minio
+          image: quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            # Same secret the rest of the platform reads from — one place to rotate.
+            - name: MINIO_ROOT_USER
+              valueFrom: { secretKeyRef: { name: platform-secrets, key: MINIO_ROOT_USER } }
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: platform-secrets, key: MINIO_ROOT_PASSWORD } }
+          ports:
+            - { containerPort: 9000, name: api }
+            - { containerPort: 9001, name: console }
+          # /minio/health/live touches no dependency, which is what a liveness probe needs.
+          # Readiness uses the cluster-aware check so we do not send traffic to a starting node.
+          livenessProbe:
+            httpGet: { path: /minio/health/live, port: 9000 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /minio/health/ready, port: 9000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }     # no cpu limit — throttling storage under load is worse
+                                        # than the load itself
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: minio-data }
+---
+# Default-deny for MinIO too. The platform chart gives every service a NetworkPolicy; this pod
+# is ours, so it would otherwise be the one unguarded thing in the namespace — reachable by
+# anything, and holding every establishment's files.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio
+spec:
+  podSelector:
+    matchLabels: { app: minio }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # Only from inside this namespace. Nothing outside the cluster reaches object storage
+    # directly — file-service signs URLs and serves them from its own endpoint.
+    - from:
+        - podSelector: {}
+      ports:
+        - { protocol: TCP, port: 9000 }
+        - { protocol: TCP, port: 9001 }
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+# Egress allowance for the object store — OURS, and necessary.
+#
+# The chart's `networkPolicy.egress.datastore` opens exactly two ports: 5432 and 6379. It has no
+# concept of an in-cluster object store, even though it fully supports STORAGE_DRIVER=s3. So a
+# service configured for MinIO is denied on 9000 no matter how the pod is labelled.
+#
+# The failure mode is the reason this comment is long: egress denial does not refuse the
+# connection, it BLACKHOLES it. /healthz stays 200 (it touches no dependency, by design), while
+# /readyz hangs until the probe times out. The pod sits Running 0/1 with no error in any log and
+# no event — it looks like a slow start forever.
+#
+# NetworkPolicies are additive, so this unions with the chart's rules rather than replacing
+# them. Nothing in platform/ is edited. Reported upstream as a gap: a chart that offers an s3
+# driver should be able to reach one.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-objectstore-egress
+spec:
+  # Every service that talks to the object store. file-service today; add others as they need it
+  # rather than opening 9000 to the whole namespace.
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [file-service]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app: minio }
+      ports:
+        - { protocol: TCP, port: 9000 }

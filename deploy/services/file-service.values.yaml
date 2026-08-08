@@ -1,0 +1,106 @@
+# file-service — Raje3 deployment values.
+#
+# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+#
+# What this service is to us: an establishment's LOGO, first and foremost. Spec §6.1 and §6.2 —
+# every WhatsApp message goes out carrying the establishment's own name and mark, never the
+# platform's. That identity is the product's promise to the shop owner, and it is a file.
+# Later: the optional plate-photo capture (§4.3).
+service:
+  name: file-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/file-service
+  digest: "sha256:39c1df9a6ade038e3cc96d0da47c518094b9f80135d35a130df65f4336091a0b"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis          # the async scan path drains through this
+  ratelimiter: redis
+  # NOTE: `objectstore` is deliberately NOT here. The chart's drivers block accepts only the
+  # five stateful ports it can reason about for the scale-out guard (datastore, cache, eventbus,
+  # queue, ratelimiter); the object store is selected by env below, like any other adapter.
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
+# OBJECTSTORE_ACCESS_KEY / _SECRET_KEY, SIGNED_URL_SECRET, SECRETS_KEK.
+existingSecret: file-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true     # MinIO is in-namespace, reached over the datastore allowance
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Object store ──────────────────────────────────────────────────────────────────────────
+  # MinIO speaks S3 — it IS the s3 driver pointed at our endpoint. There is no separate minio
+  # driver and there should not be.
+  OBJECTSTORE_DRIVER: "s3"
+  OBJECTSTORE_ENDPOINT_URL: "http://minio:9000"
+  OBJECTSTORE_BUCKET: "raje3-files"
+  OBJECTSTORE_REGION: "us-east-1"      # boto refuses to sign without one; MinIO ignores the value
+  # THE MinIO knob. Boto defaults to virtual-host addressing (https://bucket.host/key), which
+  # needs a wildcard DNS record. MinIO serves path-style and simply fails to resolve otherwise —
+  # a DNS error, not a storage error, which is the kind that costs an afternoon.
+  OBJECTSTORE_FORCE_PATH_STYLE: "true"
+
+  # ── Upload limits ─────────────────────────────────────────────────────────────────────────
+  # 5 MiB, far below the 25 MiB default. Nothing this product accepts today is large: a shop
+  # logo is kilobytes and a phone photo of a plate is a couple of megabytes. A limit sized for
+  # what we actually store is a smaller target than one sized for what the platform can bear.
+  MAX_UPLOAD_BYTES: "5242880"
+  BODY_LIMIT_BYTES: "5242880"          # MAX_UPLOAD_BYTES must be <= this, so they move together
+
+  # Images only. An establishment uploading its logo has no reason to send a PDF or an archive,
+  # and a stored file is served back to browsers.
+  ALLOWED_CONTENT_TYPES: "image/png,image/jpeg,image/webp,image/svg+xml"
+  # Declared content-type is a claim by the uploader; magic bytes are evidence. Strict means a
+  # file that says image/png and is not one is refused, which is how an executable stops being
+  # uploadable as a shop logo.
+  MAGIC_STRICT: "true"
+  SCANNER_DRIVER: "magic"              # `none` accepts anything; clamav needs a daemon we do not
+                                       # run yet. magic is the honest middle for now.
+
+  # ── Serving ───────────────────────────────────────────────────────────────────────────────
+  # hmac: URLs are signed against OUR endpoint, not presigned bucket GETs. A presigned bucket URL
+  # hands the caller a direct line to storage that we can no longer revoke, log, or scope.
+  SIGNED_URL_DRIVER: "hmac"
+  SIGNED_URL_TTL_SECONDS: "300"        # a logo URL embedded in a page needs minutes, not hours
+  UPLOAD_SESSION_TTL_SECONDS: "3600"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false
