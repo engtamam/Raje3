@@ -98,8 +98,15 @@ env:
   RETENTION_DAYS: "1095"
 
   # ── Ingest ────────────────────────────────────────────────────────────────────────────────
-  # Our services post over HTTP (AUDIT_SINK_DRIVER=http). Subscribing to the topic as well means
-  # a service configured for the eventbus sink is still recorded rather than silently unwitnessed.
+  # Only the sink topic. Services POST here over HTTP (AUDIT_SINK_DRIVER=http); this catches a
+  # service configured for the eventbus sink instead, so neither is silently unwitnessed.
+  #
+  # TRIED AND REVERTED: subscribing to tenant.created/tenant.updated to work around the upstream
+  # gap where tenant-service declares those actions in auditable_actions.py but only publishes
+  # them as domain events, never calling auditor.record. It captured nothing — the subscriber
+  # logs no subscription and no entry appeared after a real tenant create. Leaving it in place
+  # would have been a config that claims a mitigation it does not deliver, which is the same
+  # failure as the inert RETENTION_DAYS above. The gap is upstream's to close.
   AUDIT_SUBSCRIBE_TOPICS: "audit.events"
 
   AUDIT_QUERY_LIMIT: "100"
