@@ -133,7 +133,7 @@ env:
       {"key":"auth.verify_email","locale":"en","subject":"Verify your email — Raje3",
        "body":"Hello,\n\nConfirm your email and activate your Raje3 account:\n{{link}}\n\nIf you did not request this, ignore this message."},
       {"key":"auth.invite","locale":"ar","subject":"دعوة للانضمام إلى {{tenant_name}} على راجِع",
-       "body":"تمت دعوتك للانضمام إلى {{tenant_name}}.\n\nلتفعيل حسابك:\n{{link}}\n\nتنتهي صلاحية الدعوة خلال ٧ أيام."},
+       "body":"تمت دعوتك للانضمام إلى {{tenant_name}}.\n\nلتفعيل حسابك:\n{{link}}\n\nتنتهي صلاحية الدعوة خلال 7 أيام."},
       {"key":"auth.password_reset","locale":"ar","subject":"إعادة تعيين كلمة المرور — راجِع",
        "body":"لإعادة تعيين كلمة المرور:\n{{link}}\n\nإن لم تطلب ذلك، تجاهل الرسالة ولم يتغير شيء."}
     ]

@@ -256,6 +256,27 @@ for f in values_files():
         fail(f.name, "a wildcard CORS origin together with credentials — that combination lets any "
                      "site on the internet make authenticated calls as a logged-in user")
 
+# ── 9. western digits only, everywhere ───────────────────────────────────────────────────────
+# Deliberately scoped to what WE author. platform/ is upstream's and read-only, and .git is not
+# prose. The check is on codepoints, not a regex: a byte-range grep gives false matches on other
+# Arabic characters, which is how a first attempt reported clean English shell scripts as failures.
+_ARABIC_INDIC = [(0x0660, 0x0669), (0x06F0, 0x06F9)]
+for p in sorted(ROOT.rglob("*")):
+    if not p.is_file():
+        continue
+    parts = p.relative_to(ROOT).parts
+    if parts and parts[0] in (".git", "platform", "node_modules"):
+        continue
+    try:
+        text = p.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        continue                                  # binary, or unreadable: not prose
+    hits = sorted({c for c in text if any(lo <= ord(c) <= hi for lo, hi in _ARABIC_INDIC)})
+    if hits:
+        fail(str(p.relative_to(ROOT)),
+             f"Arabic-Indic digits {''.join(hits)} — every number in this product is 0-9, including "
+             f"in Arabic text")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
@@ -266,4 +287,4 @@ if problems:
     sys.exit(1)
 print(f"{C_G}  ✔ deploy wiring is consistent — digests pinned, databases provisioned, "
       f"erasure fan-out complete, cron paths real, env keys declared, egress matches use, "
-      f"security posture held, shared secrets named{C_N}")
+      f"security posture held, shared secrets named, digits western{C_N}")
