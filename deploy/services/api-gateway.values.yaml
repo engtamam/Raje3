@@ -1,0 +1,139 @@
+# api-gateway — Raje3 deployment values.
+#
+# Read from app/manifest.py, app/core/models.py (the Route shape) and app/config.py at v0.12.1.
+# Nothing upstream edited.
+#
+# What this service is to us: the ONE public door. Everything in Wave 1 is internal-tier only —
+# no browser and no phone can reach any of it. Both portals (§4 field entry + dashboard, §15
+# super-admin console) come through here and nowhere else.
+service:
+  name: api-gateway
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/api-gateway
+  digest: "sha256:dc844abb4dac1b43918105e92052c18e258d11f75b87192802bb8443e1aec22a"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis     # NOT memory: an in-memory limiter is per-pod, so the limit multiplies
+                         # by the replica count the moment we scale — silently, under load
+
+resources:
+  requests:
+    cpu: 200m            # every single request in the product passes through this pod
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: api-gateway-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false      # it forwards to in-cluster upstreams only
+
+metrics:
+  # Off until the Prometheus Operator runs — the ServiceMonitor CRD is its, and helm cannot
+  # render without it. /metrics is still served.
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  # ── Token verification ────────────────────────────────────────────────────────────────────
+  # Same trap that cost us a debugging session in Wave 1: this defaults to `null`, which denies
+  # every token while /readyz stays green. Here it would 401 the entire product.
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── The route table — routes are DATA, not code ───────────────────────────────────────────
+  # strip_prefix is FALSE everywhere on purpose. Our upstreams serve these exact paths
+  # (/api/v1/tenants, not /tenants), so stripping would forward "/" and 404 everything.
+  #
+  # auth=none is granted to exactly three paths, and each one is a deliberate decision:
+  #   register / login  — a stranger has no token yet; that is the whole point of the route.
+  #   refresh           — the refresh token IS the credential; an access token is not required.
+  # Everything else is auth=required. Deny-by-default applies to routing too.
+  GATEWAY_ROUTES: |
+    [
+      {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/auth/login","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/auth/refresh","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/auth","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/tenancy","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/tenants","upstream":"http://tenant-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/tenant","upstream":"http://tenant-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/roles","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/policies","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/subjects","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/audit","upstream":"http://audit-service:8000","auth":"required","strip_prefix":false,"capabilities":["audit.view"]}
+    ]
+  UPSTREAM_TIMEOUT_SECONDS: "15"
+
+  # ── Rate limiting ─────────────────────────────────────────────────────────────────────────
+  # Keyed by subject AND ip: by subject alone one abusive tenant hides behind many users; by ip
+  # alone an entire shop behind one router is throttled as though it were one person.
+  RATELIMIT_KEY_PARTS: "subject,ip"
+  RATELIMIT_MAX: "300"
+  RATELIMIT_WINDOW_SECONDS: "60"
+  # Failed logins count toward the limit. Without this a credential-stuffing run is free: every
+  # attempt 401s, and a limiter that only counts successes never sees it.
+  RATELIMIT_COUNT_STATUSES: "401"
+  # `local` on limiter failure, not `open`: if redis is unreachable we still enforce a per-pod
+  # limit rather than removing the brakes at exactly the moment something is wrong.
+  RATELIMIT_DEGRADE: "local"
+  # The field-entry screen authorises on every save and must stay under five seconds (§1.1), so
+  # the operator path gets its own generous class. The auth surface gets a tight one — it is
+  # where an attacker knocks, and no human logs in twenty times a minute.
+  RATELIMIT_ROUTES: |
+    [
+      {"prefix":"/api/v1/auth/login","class":"auth","limit":10,"window_s":60,"cost":1},
+      {"prefix":"/api/v1/auth/register","class":"auth","limit":5,"window_s":300,"cost":1},
+      {"prefix":"/api/v1/operations","class":"field","limit":600,"window_s":60,"cost":1}
+    ]
+
+  # ── Admin panel aggregator (spec §15) ─────────────────────────────────────────────────────
+  # CONFIG ONLY — never a request value. An aggregator that fans out to a caller-named host is
+  # an SSRF console. Each service appears the moment it answers /internal/manifest.
+  ADMIN_SERVICES: "tenant-service=http://tenant-service:8000,authz-service=http://authz-service:8000,identity-service=http://identity-service:8000,audit-service=http://audit-service:8000"
+  ADMIN_CATALOG_CAP: "platform.admin"
+
+  # ── Audit ─────────────────────────────────────────────────────────────────────────────────
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  # ── CORS ──────────────────────────────────────────────────────────────────────────────────
+  # This is the origin the browser actually talks to, so this is where CORS truly matters.
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+
+  EGRESS_ALLOWED_HOSTS: ""
+
+# ── Public exposure ─────────────────────────────────────────────────────────────────────────
+# Disabled for now, and this is a real decision rather than a default left alone: k3s was
+# installed with `--disable traefik` because we bring our own edge, so the chart's
+# `className: traefik` Ingress would render an object no controller ever reconciles — an
+# Ingress that exists, reports nothing wrong, and routes no traffic.
+#
+# Until the edge (platform/deploy/edge, Caddy + ACME) is stood up, the gateway is reached
+# in-cluster and through an explicit port-forward for testing. Turning this on without the
+# controller would look like exposure and provide none.
+#
+# When enabled: paths stay at /api/v1 only. The chart REFUSES anything else — /internal is
+# guarded by a shared token, not by being unlisted, and /metrics leaks operational detail.
+ingress:
+  enabled: false
