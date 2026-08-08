@@ -1,6 +1,6 @@
 # job-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.3. Nothing upstream edited.
 #
 # What this service is to us: the engine room of the product's core promise. Spec §5 — every
 # reminder is computed and sent here, in the background. The rule that decides WHEN a customer
@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/job-service
-  digest: "sha256:03579e1cdc0b6f7b534bb760c24af3a28c2d021a5dca02ccb71bd88c21d23153"
+  digest: "sha256:cd6c50c78bc97e246946926e82359e011b255645b536de146072f0b489d53d99"
 
 replicas: 1
 

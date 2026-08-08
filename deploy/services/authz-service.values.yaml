@@ -1,6 +1,6 @@
 # authz-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.3. Nothing upstream edited.
 #
 # What this service is to us: spec §3 in full — the owner -> manager -> custom roles -> operator
 # hierarchy, the permission matrix (§3.3), the custom role builder (§3.4), and the three golden
@@ -11,7 +11,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/authz-service
-  digest: "sha256:c15c6fc284103634008f7673b4135d23a88d2f5d4638ee676f0ff7243d582244"
+  digest: "sha256:c82642d43ba6ae5f51dd7da72c3ae838993f68717f0462901e8b55dd0aaf60e6"
 
 replicas: 1
 

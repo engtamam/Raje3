@@ -1,6 +1,6 @@
 # api-gateway — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/core/models.py (the Route shape) and app/config.py at v0.12.2.
+# Read from app/manifest.py, app/core/models.py (the Route shape) and app/config.py at v0.12.3.
 # Nothing upstream edited.
 #
 # What this service is to us: the ONE public door. Everything in Wave 1 is internal-tier only —
@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/api-gateway
-  digest: "sha256:dc844abb4dac1b43918105e92052c18e258d11f75b87192802bb8443e1aec22a"
+  digest: "sha256:6fb3fa54991e1e96da6d126f0d59977476ee8b4ed65f0736205e7b8a93ff8870"
 
 replicas: 1
 

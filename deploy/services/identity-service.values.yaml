@@ -1,6 +1,6 @@
 # identity-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.3. Nothing upstream edited.
 #
 # SCOPE — read this before adding anything here. identity-service authenticates the people who
 # log into a PORTAL: the owner, the manager, custom roles, and our own super-admin team. It does
@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:6395b4f82100e33f909c21bd264ff6b894a0e59496e6750d015718e6f4c6b507"
+  digest: "sha256:32f40c5a759ec7296b7823769e709e96e43fe13747fb6cd9f03a25dc0b29a7ba"
 
 replicas: 1
 

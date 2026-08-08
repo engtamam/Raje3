@@ -1,0 +1,132 @@
+# wallet-service — Raje3 deployment values.
+#
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
+# core/wallet_service.py, core/funds.py, core/money.py, auditable_actions.py. Nothing upstream
+# edited.
+#
+# ── WHAT THIS IS NOT ────────────────────────────────────────────────────────────────────────
+# NOT the loyalty programme. Spec §9's points have no currency, no VAT and no invoice; they are
+# earned per service and redeemed for a free wash. They belong in our own `loyalty` service.
+# Putting them in a VAT-aware money ledger would attach tax semantics to a free car wash.
+#
+# ── WHAT IT IS ──────────────────────────────────────────────────────────────────────────────
+# The establishment's PREPAID MESSAGE BALANCE — spec §16.3 (messages included per plan) and
+# §16.4 (top-up packs bought mid-month). The unit here is A MESSAGE, not a riyal.
+#
+# That is a deliberate reading of the service, not a workaround. Everything the ledger gives us
+# maps onto sending exactly:
+#   reserve → confirm/release   reserve before handing a message to the provider, confirm when
+#                               it is accepted, release when it fails — so a failed send does
+#                               not consume an establishment's credit
+#   grants with expiry          the monthly included allowance, clawed back unused at period end
+#   priority ordering           spend the free allowance BEFORE the pack they paid for
+#   ledger is the truth         "why did my messages run out" must be answerable line by line
+service:
+  name: wallet-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/wallet-service
+  digest: "sha256:bb58ea49ff7037243bb7fc2f5816c0f5d614a76e741d28e6ccdeb5e78af5d73f"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: wallet-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── The funds ─────────────────────────────────────────────────────────────────────────────
+  # name : spend-priority : taxability
+  #
+  # `included` first, `topup` second, and the ORDER is the point: an establishment's free monthly
+  # allowance must be consumed before the pack it paid 50 riyals for. Reverse them and we bill a
+  # customer for messages their plan already covered — the kind of error that is discovered by
+  # an angry owner, not by us.
+  #
+  # BOTH untaxed, and this needs saying because the knob is VAT-aware: spending here is not a
+  # sale. VAT was charged by billing-service when the plan or the pack was purchased. Charging
+  # it again on consumption would tax the same riyal twice. Hence WALLET_VAT_BP=0 below —
+  # consumption is not a taxable event in this design.
+  WALLET_FUNDS: "included:1:untaxed,topup:2:untaxed"
+  WALLET_VAT_BP: "0"
+  # A label, not a unit conversion — the balance counts MESSAGES. Left as SAR would read as
+  # riyals in every statement and invite exactly the confusion this file exists to prevent.
+  WALLET_CURRENCY: "MSG"
+
+  # ── Holds ─────────────────────────────────────────────────────────────────────────────────
+  # 900s covers reserve → provider accepts → confirm with generous slack. The sweeper is what
+  # makes the hold honest: without expiry, a send interrupted between reserve and confirm locks
+  # that credit forever while the balance still shows it. That is the leak upstream's README
+  # says the reference implementation actually has.
+  HOLD_TTL_SECONDS: "900"
+  HOLD_SWEEP_LIMIT: "500"
+  GRANT_SWEEP_LIMIT: "500"
+  # A retried send must not double-charge. 24h matches notification's own dedupe window, so the
+  # two agree about what "the same send" means.
+  WALLET_IDEMPOTENCY_TTL_SECONDS: "86400"
+
+  # ── Low balance ───────────────────────────────────────────────────────────────────────────
+  # 100 messages remaining on the paid fund. Without this the only signal an establishment gets
+  # is a 402 mid-campaign, which is not a warning — it is an outage for whoever was working.
+  # `crossing` warns ONCE on the way down and re-arms after a top-up, rather than nagging.
+  # Measured on `topup` specifically: the included allowance running out is normal and monthly;
+  # the paid balance running out is what actually stops the sending.
+  WALLET_LOW_BALANCE_THRESHOLD: "100"
+  WALLET_LOW_BALANCE_MODE: "crossing"
+  WALLET_LOW_BALANCE_FUND: "topup"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# Both sweepers, and neither is optional. sweep-holds is what stops an interrupted send from
+# locking a credit permanently; sweep-grants claws back the UNUSED remainder of last month's
+# allowance — the establishment keeps whatever it actually sent, and money currently reserved
+# for an in-flight send is never touched.
+cronJobs:
+  - name: sweep-holds
+    schedule: "*/2 * * * *"
+    path: /internal/wallet/sweep-holds
+  - name: sweep-grants
+    schedule: "41 3 * * *"
+    path: /internal/wallet/sweep-grants
+
+ingress:
+  enabled: false   # money moves on the internal tier only; the user tier is read-only by design

@@ -2,7 +2,7 @@
 #
 # The image is base-services'. Everything Raje3 about it is in this file: nothing upstream is
 # edited, forked, or patched. Read from app/manifest.py, app/config.py and
-# app/auditable_actions.py at v0.12.2.
+# app/auditable_actions.py at v0.12.3.
 #
 # What this service is to us: the establishment (المنشأة). Spec §13.1 — name, logo, sector,
 # site link, WhatsApp connection state. It owns the isolation boundary that every other
@@ -16,7 +16,7 @@ image:
   repository: ghcr.io/engtamam/tenant-service
   # Digest, never a tag: with :latest + IfNotPresent a node silently keeps the image it already
   # has, so a rollback is not a rollback. Replace at publish time.
-  digest: "sha256:201496fbf4949fe0983a02fa0bd66689621d71c432ac008f0687092e6e020a9d"
+  digest: "sha256:894073c5ddd610d571c9efa1161b719cdc14521144cd01a8560937f9fea87627"
 
 replicas: 1
 

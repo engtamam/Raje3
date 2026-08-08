@@ -1,6 +1,6 @@
 # analytics-service — Raje3 deployment values.
 #
-# Read in full at v0.12.2: README.md, manifest.py, api/v1/analytics.py, config.py,
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/analytics.py, config.py,
 # core/buckets.py, core/hll.py, core/histogram.py, core/ingest_service.py, core/query.py,
 # ports/warehouse.py. Nothing upstream edited.
 #
@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/analytics-service
-  digest: "sha256:49f4451582258c337f7af7f2e014024450aac6e2ade4d2a0293d71d785cba734"
+  digest: "sha256:e4db5d8fd4829948fad8ab24b6de067535256ffc02fa89e428e059e8bf4960be"
 
 replicas: 1
 

@@ -1,6 +1,6 @@
 # audit-service — Raje3 deployment values.
 #
-# Read from app/manifest.py, app/config.py at v0.12.2. Nothing upstream edited.
+# Read from app/manifest.py, app/config.py at v0.12.3. Nothing upstream edited.
 #
 # What this service is to us: spec §11.2 — the trail that cannot be edited, recording who did
 # what and when, so an establishment owner can hold staff accountable and we can answer a
@@ -12,7 +12,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/audit-service
-  digest: "sha256:bb3200ef23a184bc22b2b9c6e85bf7e7fb71e9d800075b0c727408bd9c746446"
+  digest: "sha256:d89c3cb00db1f8451a2bf3faf8692914c1429a5e3d141bf7b97808d0ac5a0297"
 
 replicas: 1
 

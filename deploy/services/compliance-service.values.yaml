@@ -1,6 +1,6 @@
 # compliance-service — Raje3 deployment values.
 #
-# Read in full at v0.12.2: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/*, api/internal.py, config.py,
 # core/* (consent_service, dsar_service, privacy_dispatcher, retention, consent_sweeper),
 # ports/*. Nothing upstream edited.
 #
@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/compliance-service
-  digest: "sha256:e4fa1f3ef9360d02426b9a42c46f3a661ccdabda247d95149bc3c1e69519c858"
+  digest: "sha256:165f36a23dbef4ae063b1f9f092b90b4105a1f8c5027783de4aed9d39d919e02"
 
 replicas: 1
 

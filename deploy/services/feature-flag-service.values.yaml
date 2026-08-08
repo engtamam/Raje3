@@ -1,6 +1,6 @@
 # feature-flag-service — Raje3 deployment values.
 #
-# Read in full at v0.12.2: README.md, manifest.py, api/v1/flags.py, config.py, core/evaluate.py,
+# Read in full at v0.12.3: README.md, manifest.py, api/v1/flags.py, config.py, core/evaluate.py,
 # core/rollout.py, core/rules.py, ports/entitlement_checker.py. Nothing upstream edited.
 #
 # It is NOT just "the plan gate". It is the runtime control plane, and Raje3 uses three parts:
@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/feature-flag-service
-  digest: "sha256:1e066e750a228eb9a02fb4e3f4e0d8fe906d32c7bf3e4730ab7b9e9453e41319"
+  digest: "sha256:8744630840d26d54aa07706140be9d690b0835b9104f257ecbe685272ccc4b09"
 
 replicas: 1
 

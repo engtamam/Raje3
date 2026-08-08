@@ -1,6 +1,6 @@
 # notification-service — Raje3 deployment values.
 #
-# Read in full at v0.12.2: manifest.py, api/v1/*, api/internal.py, config.py (543 lines),
+# Read in full at v0.12.3: manifest.py, api/v1/*, api/internal.py, config.py (543 lines),
 # core/notifier.py, ports/consent_gate.py, adapters/consent_gate/*. Nothing upstream edited.
 #
 # THIS IS NOT "THE WHATSAPP SERVICE". It carries four channels and Raje3 needs all four:
@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:143e3e19e3105e8d9b8700693fb83420447e0654f8d6fac90dafbba21d514a35"
+  digest: "sha256:8a5b2dc289c92bb012f0762de38a97c175139a3401019b26ebad0f2d8230b938"
 
 replicas: 1
 
