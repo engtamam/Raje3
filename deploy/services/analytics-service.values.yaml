@@ -1,0 +1,140 @@
+# analytics-service — Raje3 deployment values.
+#
+# Read in full at v0.12.2: README.md, manifest.py, api/v1/analytics.py, config.py,
+# core/buckets.py, core/hll.py, core/histogram.py, core/ingest_service.py, core/query.py,
+# ports/warehouse.py. Nothing upstream edited.
+#
+# What this is to us: the engine under spec §10's twenty metrics, and §15.7's platform-wide
+# reporting. It answers WITH NUMBERS, not with dashboards — the Raje3 vocabulary (retention
+# rate, service affinity, at-risk this week) is our `insights` service, later, on top of this.
+#
+# Three things it gets right that a naive counter does not, and all three matter to us:
+#   uniques don't add   — a mergeable HyperLogLog per bucket, unioned once. Summing daily
+#                         actives to get a weekly number is how "active customers" (§10.2)
+#                         becomes silently wrong.
+#   percentiles don't average — a mergeable histogram. "Average entry time" (§10.6) is a
+#                         percentile question, and a mean of p95s is a percentile of nothing.
+#   at-least-once delivery — ingest is idempotent by event id, so a redelivered visit does not
+#                         become two visits.
+service:
+  name: analytics-service
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/analytics-service
+  digest: "sha256:49f4451582258c337f7af7f2e014024450aac6e2ade4d2a0293d71d785cba734"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis          # query results, invalidated by a per-tenant generation counter
+  eventbus: redis       # any service can feed ingest from the bus
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 200m           # write-heavy on ingest, read-heavy on query, both on the hot path
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+existingSecret: analytics-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false     # WAREHOUSE_DRIVER is null; nothing leaves the cluster
+
+metrics:
+  serviceMonitor: false
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── Time ──────────────────────────────────────────────────────────────────────────────────
+  # Buckets are always UTC; this offset is applied at RENDER time only. 180 = UTC+3 = Riyadh,
+  # which happens to be upstream's default already. Getting this wrong is not a display bug: a
+  # local-time bucket under DST double-counts or drops an hour, and moving a tenant's timezone
+  # would rewrite history. Saudi Arabia has no DST, so our exposure is low — but the shop owner
+  # reading "today's cars" (§10.1) still expects a Riyadh day, not a UTC one.
+  DEFAULT_TIMEZONE_OFFSET_MINUTES: "180"
+
+  # A visit recorded on a phone that was offline in the service bay arrives late. Later than
+  # this is counted under <metric>.late — never dropped, and never quietly merged into a bucket
+  # the owner already read.
+  #
+  # RAISED to 7 days from upstream's 48h, after watching it happen: a test event 49 hours old
+  # landed in visit.recorded.late, which is correct behaviour and the wrong threshold for us.
+  # Our writer is an operator on a phone in a service bay — the connectivity we design for is
+  # bad, and a shop that loses signal over a weekend would have Friday and Saturday's visits
+  # quarantined out of the owner's Monday numbers. Seven days covers a long weekend plus slack.
+  #
+  # The cost of raising it: a bucket the owner already read can be amended up to a week later,
+  # so "yesterday's cars" can change. That is the right trade — a number that corrects itself
+  # beats a number that is quietly missing three visits.
+  LATE_EVENT_MAX_SECONDS: "604800"    # 7 days
+
+  # ── Cost limits ───────────────────────────────────────────────────────────────────────────
+  # An oversized query is REFUSED, not approximated, which is the right trade for a service that
+  # answers questions about money and customers.
+  MAX_QUERY_RANGE_DAYS: "400"      # a year plus a comparison window
+  MAX_GROUPS: "500"
+  # Our highest-cardinality dimension is the service catalogue: an establishment has dozens of
+  # services, not thousands. 1000 leaves generous headroom before anything spills to __other__,
+  # and totals stay exact even when it does.
+  MAX_DIMENSION_CARDINALITY: "1000"
+  QUERY_CACHE_TTL_SECONDS: "60"
+
+  # ── Sketch accuracy ───────────────────────────────────────────────────────────────────────
+  # HLL is EXACT below ~1024 distinct values per cell and only then promotes to the approximate
+  # form. That is the whole ballgame for us: a tyre shop with 300 monthly customers gets exact
+  # counts, not estimator noise on a number its owner can verify by hand. Raising precision
+  # would only help tenants we do not have yet.
+  HLL_PRECISION: "12"
+  HISTOGRAM_BUCKETS: "128"
+
+  # ── PII ───────────────────────────────────────────────────────────────────────────────────
+  # Empty = drop known-PII property keys, allow the rest. Deliberate: the properties we want on
+  # an event are service type, branch, operator, amounts — never the customer's phone or the
+  # vehicle plate, which are exactly what identifies a person in this product. If a metric ever
+  # seems to need one, the answer is a pseudonym, not an allowlist entry.
+  PII_ALLOWED_PROPERTIES: ""
+
+  # ── Raw retention ─────────────────────────────────────────────────────────────────────────
+  # 90 days of raw events; ROLLUPS PERSIST beyond it, so the twenty metrics keep their history
+  # while the raw table stays bounded. What is lost after 90 days is the ability to run a NEW
+  # funnel or retention cohort over an older window — those two read raw events by nature.
+  # Sized for a 79GB disk and small tenants; revisit when either changes.
+  RAW_RETENTION_DAYS: "90"
+
+  WAREHOUSE_DRIVER: "null"   # csv export is on-demand through the API; no warehouse to feed yet
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# Without this, RAW_RETENTION_DAYS above is inert and the raw event table grows until the disk
+# does not. Fourth service where a documented endpoint shipped without its schedule.
+cronJobs:
+  - name: prune-raw
+    schedule: "17 3 * * *"
+    path: /internal/analytics/prune-raw
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
