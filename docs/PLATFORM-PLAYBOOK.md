@@ -198,6 +198,12 @@ When a result surprises you, **do not report it until you understand it**. A cou
 was expected turned out to be a late-event threshold working exactly as designed — and the
 correct response was to change the threshold, not to file a bug or quietly accept the number.
 
+**Some capabilities cannot be proven by any endpoint.** A backup is the clearest case: readiness,
+a successful run, and a stored archive together prove nothing about whether the data comes back.
+Only a restore does. If the service ships a drill or verify step, run it — on our first real run
+it caught an archive that was recorded as taken, looked healthy everywhere, and could not be
+restored. Ask, for every service: *what would still be false if every green light here were true?*
+
 If you cannot prove it, say so. "Deployed and green, behaviour unproven" is an honest status.
 "Done" is not.
 
@@ -292,6 +298,46 @@ before deploying.
 
 ---
 
+### 4.8 A path scheduled by its name instead of its signature
+
+Two CronJobs were added because an endpoint's *name* looked like a sweep. Both returned 422 on
+every run — they take required parameters a scheduled POST does not send. One of them was worse
+than useless: it resumes a single stalled signup by re-attempting **deletes**, and upstream's own
+comment says a blanket sweep would "re-attempt them on runs an operator may be mid-way through".
+A timer had been retrying deletions against in-progress signups every ten minutes.
+
+**Rule:** before scheduling a path, read the handler signature. If the platform ships a values
+file and does **not** schedule that endpoint, treat the absence as the answer, not an oversight.
+
+### 4.9 A shared secret nobody tells you is shared
+
+Some values must be **identical across every service**, and only two are usually documented: the
+PII salt and the internal service token. A third appeared with the backup service — the archive
+key — needed by every export-capable *target*, holding the same value the collector holds.
+Missing it, the export endpoint returns a bare `503`: correct behaviour, no indication of cause,
+and the explanation living in a comment on a different service.
+
+**Rule:** for any cross-service feature, ask which secrets both ends must agree on, and check the
+*target's* config as well as the caller's.
+
+### 4.10 A capability you assumed was universal
+
+"The platform has backups" was true and almost meaningless: **4 of 24 services** implemented the
+export endpoint the backup service calls. The services holding what a customer would actually
+miss — tenants, accounts, permissions, balances, consent records, the audit log — answered 404.
+
+**Rule:** when a cross-cutting capability depends on every service implementing something, count
+how many actually do, and write the number down. A platform-level feature is only as broad as its
+least-covered participant.
+
+### 4.11 A name that is a reference, not a value
+
+A field called something like `token_ref` holds the **name** of a stored secret, not the secret.
+Registered with the value, or empty, every call is a 401 that names nothing.
+
+**Rule:** read the field's comment, not its type. `_ref`, `_name` and `_key` frequently mean
+indirection.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced
@@ -311,6 +357,13 @@ Your deploy script must:
 - **Survive a dropped connection.** Run it detached; an interrupted deployment is worse than one
   never started.
 
+**Check whether the platform already ships this before you write it.** We wrote a provisioner, an
+orchestrator and a health-gated rollout script. Two releases later the platform shipped all three,
+carrying the same decisions we had reached independently — and generalised for consumers, with our
+own product named in the usage example. We deleted ours. Keeping them would have meant maintaining
+a divergent fork of something now maintained upstream, and the rule that governs services governs
+scripts: consume it, do not reimplement it.
+
 If a reference implementation exists, **take it whole and adapt it**. Do not rewrite from
 scratch what someone has already debugged in production. Change what your shape genuinely
 requires, keep the rest, and say in a comment which parts are theirs and why they are unchanged.
@@ -327,8 +380,14 @@ requires, keep the rest, and say in a comment which parts are theirs and why the
 4. State what a consumer can and cannot work around.
 5. Propose a fix, and mention the test that would have caught it.
 
-This works. Every defect reported this way in one build was fixed in the next release — and one
-of them became a permanent build guard, so nobody hits it again.
+This works, and better than expected. Across one build every defect reported this way was fixed in
+the next release, and **three became permanent build gates** — a schedule-coverage gate, a
+peer-path gate, and a contract fix — so nobody hits them again. One gate's own sweep then found
+four more instances upstream that we had never reported, and the deploy script they shipped
+surfaced two schedules **we** had got wrong.
+
+A good report pays for itself twice: once when your bug is fixed, and again when the guard it
+produces catches something you would never have seen.
 
 **If a workaround does not work, remove it.** A stopgap was tried, verified as ineffective, and
 deleted rather than left in place. Configuration that claims a mitigation it does not deliver is
