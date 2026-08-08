@@ -1,12 +1,17 @@
-# Raje3 — Build Guide for Claude Code
+# Raje3 — the build guide
 
 **Read this before writing any code.** It tells you how to build Raje3 by *standing on*
-two existing repositories instead of building everything from scratch. Following it will
-save months of work and keep the codebase consistent, secure, and production-grade.
+`base-services` instead of building everything from scratch.
 
-This guide is the **HOW**. The product spec (the functional description you were given
-separately) is the **WHAT** and **WHY**. When they seem to conflict, the spec defines the
-product behaviour; this guide defines the engineering method — they do not actually conflict.
+Three documents, and they do not overlap:
+
+| Document | Answers |
+| --- | --- |
+| `docs/وصف-منصة-راجع.md` | **WHAT** and **WHY** — the product, in the owner's words. It wins on behaviour. |
+| `docs/PLATFORM-PLAYBOOK.md` | **HOW to build any platform** on base-services — the general method, the traps, the per-service loop. Read it once, fully. |
+| this file | **What is true about RAJE3 specifically** — our wave order, our services, our decisions, our open items. |
+
+If you are new here: playbook first, then this.
 
 ---
 
@@ -30,13 +35,13 @@ rules, loyalty points, campaigns, sectors.** Nobody else will ever build those f
 
 | Repo | What it is | How we use it |
 | --- | --- | --- |
-| **`engtamam/base-services`** (private) | ~24 generic, production-grade backend microservices (FastAPI), plus a Helm chart and CI harness. Hexagonal, config-driven, deny-by-default, zero-hardcoded. | **CONSUME, NEVER EDIT.** We run its services from published images and adapt them via env vars / config / Helm values. We keep only its Helm **chart** + **CI harness** in-tree (sparse), never its service source. Pinned to a tag (currently **`v0.12.2`**). |
-| **`engtamam/imtithal`** (private) | A *real* product built the same way — it consumes `base-services` and adds its own product services. Its deploy scripts are excellent. | **REFERENCE ONLY, DO NOT COPY VERBATIM.** Learn its repo structure and its `deploy/server/` scripts, then write Raje3's own equivalents. Never depend on it at runtime. |
+| **`engtamam/base-services`** (private) | ~24 generic, production-grade backend microservices (FastAPI), plus a Helm chart and CI harness. Hexagonal, config-driven, deny-by-default, zero-hardcoded. | **CONSUME, NEVER EDIT.** We run its services from published images and adapt them via env vars / config / Helm values. We keep only its Helm **chart** + **CI harness** in-tree (sparse), never its service source. Pinned to a tag (see the appendix for the current pin; bump deliberately). |
+| **`engtamam/imtithal`** (private) | A *real* product built the same way. | **REFERENCE ONLY**, and less needed now than it was: the deploy scripts we once adapted from it were superseded when base-services shipped its own `deploy/server/`. Still useful for seeing how another product structures itself. Never depend on it at runtime. |
 | **`engtamam/raje3`** (this repo) | Raje3 itself. | **BUILD HERE.** Our product services, our UI, our deploy pipeline, our config. |
 
-> Access note: both `base-services` and `imtithal` are private. You need read access to
-> clone them. `base-services` is wired as a git submodule (read-only); `imtithal` is read
-> once as a reference and not vendored.
+> Access note: both are private; you need read access. `base-services` is a git submodule,
+> sparse-checked-out to the Helm chart + CI harness, and **read-only**. Reveal its source to
+> read it (§4), never to change it.
 
 ---
 
@@ -123,165 +128,147 @@ our own `services/` (if domain-specific). Never edit the image to get it.
 
 ---
 
-## 5. Bring-up order for `base-services` (do this in waves)
+## 5. Bring-up order — and where we actually are
 
-Bring services up one wave at a time; each wave builds on the previous. **Enable only what a
-wave needs** — an unused service is left out of the values, not deployed.
+Deployed and verified on the dev server. Each was read, configured, deployed and **proven with
+real calls** before the next; the evidence is in each service's commit message.
 
-| Wave | Services | Why in this order | MVP? |
-| --- | --- | --- | --- |
-| **0 — Foundation** | K3s + Calico + metrics-server + **postgres/redis/minio**; run `make verify` (proves default-deny NetworkPolicy) | nothing runs before the cluster + datastores | ✅ |
-| **1 — Spine** | `tenant` → `authz` → `identity` → `audit` | tenancy is the source of truth; then authz decisions; then auth; then the log everything writes to | ✅ |
-| **2 — Door & async** | `api-gateway` · `job` · `file` | the only public door; the scheduler (reminders need it); storage (tenant logos) | ✅ |
-| **3 — Messaging & control** | `compliance` → `notification` (**four channels**: email · SMS · WhatsApp · in-app) · `feature-flag` | compliance FIRST: notification's boot guard refuses to start in production with `CONSENT_GATE_DRIVER=null`, so the consent gate must have something to ask. Then every message the product sends, not just WhatsApp; then per-plan feature gating | ✅ |
-| **4 — Growth** | `analytics` · `wallet` · `billing` | KPI base (the 20 dashboard metrics); the establishment's **prepaid message credit** (§16.4) — a VAT-aware money ledger, *not* loyalty points; subscriptions/plans/quotas | ✅ |
-| **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
+| Wave | Services | Status |
+| --- | --- | --- |
+| **0** | K3s + Calico + metrics-server + postgres/redis + object store | ✅ policy enforcement proven by a denied packet |
+| **1** | `tenant` → `authz` → `identity` → `audit` | ✅ isolation, rs256 flow, no-escalation, audit chain all proven |
+| **2** | `api-gateway` · `job` · `file` | ✅ routing and guards proven; edge reachable from outside |
+| **3** | `compliance` → `notification` · `feature-flag` | ✅ consent tenant-scoped, withdrawal instant, plan gating proven |
+| **4** | `analytics` · `wallet` · `billing` | ✅ HLL uniques, fund priority, receipts without VAT |
+| **5** | `ticket` · `onboarding` · `backup` · `search` | in progress |
+| **6** | `zatca` · `webhook` · `connector` · `assistant` · `verification` | pending — see §11 |
+| **7** | **our product services** | last, on a platform proven underneath them |
 
-**Per-service adaptation recipe (the same 8 steps every time):**
-1. Pull the image from the registry (never the code) — pinned by digest/tag.
-2. Write our `deploy/services/<svc>.values.yaml` (deploy shape).
-3. Set env vars + config (choose adapters: postgres/redis/s3…).
-4. Provision its isolated database (`provision-db`).
-5. Apply the manifest via the Helm chart.
-6. Health-gate: wait for readiness, assert `/readyz`.
-7. Verify end-to-end (hit a real endpoint).
-8. **Register it in `compliance-service`** — add it to `PRIVACY_TARGETS` and to the data map
-   (`POST /api/v1/compliance/data-targets`). Not bookkeeping: an erasure fans out one task per
-   REGISTERED target and completes only when every one acknowledges. A service holding personal
-   data that is not registered is never asked, never acks, and is therefore never *missed* — the
-   request closes green on an erasure that did not happen. A service that holds no personal data
-   still needs that decision written down, not left silent.
+**Two ordering facts that are ours, not the platform's:**
 
-**Scope decision (binding): Raje3 ships as a COMPLETE platform, not an MVP.** All five waves
-are in scope. The order above is a *build sequence*, not a scope filter — we still bring
-services up one wave at a time (never big-bang), but no wave is dropped. Waves 0–3 make the
-field flow work; waves 4–5 are what make it a product you can sell, bill, support, and
-operate (spec §9, §10, §15, §16).
+- **`compliance` comes BEFORE `notification`**, not a wave later. notification declares
+  consent-gated processing, and its boot guard refuses to start in production with a null
+  consent gate. Found by reading, not by deploying.
+- **`zatca` is deferred to VAT registration**, not to a sprint. An unregistered seller issues
+  receipts and has nothing to report; deploying it now would wire a pipeline for documents that
+  must not exist yet. The trigger and the four settings that move together are in §11.
 
----
+**Per-service recipe:** the 8 steps live in the playbook (§3). Do not shorten them.
 
-## 6. Our product services (build these from `_template`, one at a time)
+## 6. Our product services — build these last, one at a time
 
-These are Raje3's business logic — the part `base-services` will never build. Generate each
-from `base-services/_template` so it inherits the ports, auth, security gate, and CI gate,
-then implement the domain logic. Internal names carry **no** product name (`operations`, not
-`raje3-operations`).
+Generated from `base-services/_template` so each inherits the ports, auth, security gate and CI
+gates, then the domain logic is ours. Internal names carry **no** product name (`operations`,
+not `raje3-operations`).
 
-| Service | Owns (spec section) | Leans on (base-services) | Phase |
-| --- | --- | --- | --- |
-| **`operations`** | end customers, assets (car/device), service records, operators + PIN, field entry, branches (§4, §12, §13) | identity, audit | 1 |
-| **`reminders`** | reminder rules (time / usage / custom) + adaptive EWMA learning + min/max bounds + anomaly filtering + lead-days + next-due computation (§5) | job, notification | 1 |
-| **`catalog`** *(as `data/`, not code)* | sectors, services (name/icon/colour/rule/points), dynamic fields, sector templates (§1.2, §4.6) | — grows without deploy | 1 |
-| **`loyalty`** | points earn/redeem, thresholds, cross-branch balance (§9) | — **ours alone** | 2 |
-| **`campaigns`** | segmentation, campaign send, anti-ban pacing (random delay + rate limit), opt-out gatekeeper (§7, §8) | notification, analytics, job | 2 |
-| **`insights`** | the 20 dashboard metrics, adaptive/contextual service re-sort, cross-sell matrix, at-risk lists, staff KPIs, daily owner digest (§4.4, §10, §11.4) | analytics, job, notification | 3 |
+| Service | Owns | Leans on |
+| --- | --- | --- |
+| **`operations`** | end customers, assets, service records, operators + PIN, field entry, branches (spec §4, §12, §13) | identity, audit, search |
+| **`reminders`** | reminder rules, adaptive EWMA learning, min/max bounds, anomaly filtering, lead days, **the escalating follow-up sequence**, and the post-service check-ins tied to each service (spec §5) | job, notification |
+| **`loyalty`** | points earn/redeem, thresholds, cross-branch balance (spec §9) | **nothing upstream** — `wallet` is a VAT-aware money ledger for prepaid message credit, not a points system |
+| **`campaigns`** | segmentation, sending, anti-ban pacing, the consent gatekeeper (spec §7, §8) | notification, analytics, job, compliance |
+| **`insights`** | the 20 metrics, adaptive and contextual re-sort, cross-sell matrix, at-risk lists, staff KPIs, the daily owner digest (spec §4.4, §10, §11.5) | analytics, job, notification |
+| **`portal`** | the customer's own page — due date, points, visits, offers banner, notification preferences (spec §8.6.1) | operations, loyalty, compliance |
 
-**All six are in scope.** The numbers are build ORDER, not a cut line: 1 makes the field flow
-real, 2 makes it retain and market, 3 makes it insightful. Nothing here is deferred out of
-the product — only sequenced. Do not start the next number before the previous one is
-verified end-to-end (§10).
+`catalog` is **not** a service: sectors, services, dynamic fields and sector templates are
+content under `data/`, edited and loaded without a deploy.
+
+**Two product decisions that constrain these before a line is written:**
+
+- **The customer page carries the establishment's identity alone.** No Raje3 name, logo, or
+  attribution line anywhere on it. The owner paid us to bring his customers back, not to
+  introduce them to us.
+- **Metrics are free in every plan** and the retention engine is complete in every plan. What
+  the plans gate is marketing and scale (spec §16). Do not build a metric behind a flag.
 
 **Generate a new service:**
 ```bash
-# from inside base-services (read-only reference) or its published tooling:
 python scripts/create_service.py my-service --desc "..."
-# it arrives with guards, gates, and a deploy values file already wired.
 ```
-Then implement the domain logic in the generated service, keeping every base-services
-discipline (ports/adapters, zero-hardcode, tenant isolation, tests, hot-path benchmark,
-config-knob guard).
 
----
+## 7. The deploy pipeline — theirs, not ours
 
-## 7. The deploy pipeline (K3s) — adapt from `imtithal`, don't copy
+`base-services` ships the whole pipeline in `platform/deploy/server/`: `provision-server.sh`,
+`setup.sh`, `update.sh`, `reset-platform.sh`, `boot-heal.sh`, `gen-secrets.py`, `pull-images.sh`.
+It is generalised for consumers and driven by environment variables.
 
-`imtithal/deploy/server/` has battle-tested scripts. **Study them, then write Raje3's own**
-(they are wired to imtithal's names/DBs/seeds — the *structure and patterns* transfer, not the
-files). Reproduce these, adapted for Raje3:
+**We wrote our own before that existed, and deleted them when it arrived.** Maintaining a
+divergent copy of something upstream now maintains is the same mistake as forking a service.
 
-| Script | What it must do | Patterns to keep |
-| --- | --- | --- |
-| `provision-server.sh` | blank Ubuntu → hardened single-node k3s | **idempotent + resumable** (stamps), `--dry-run`, SSH hardening that **refuses to lock you out** without a key, UFW/fail2ban/swap/kernel tuning, Traefik disabled (own edge) |
-| `setup.sh` | THE ONE COMMAND: provision → pull-secret → bring-up → edge/TLS → boot-heal | each phase idempotent, fast no-op if already done |
-| `reset-platform.sh` | idempotent full bring-up + end-to-end verify | every phase **retries transient failures, asserts success, fails loud at the exact phase**; handles real footguns (PVC delete doesn't wipe host dir; consistent secret generation); ends by minting a token and hitting services |
-| `update.sh` | continuous delivery of OUR images | roll each deployment, **health-gate each rollout, auto-rollback on failure**, `--only` guard, warn that `:latest` breaks rollback; **leave base-services images untouched** |
-| `boot-heal.sh` | survive an ungraceful reboot | systemd unit that clears stale pods after power-off |
+**How we invoke it:**
 
-**Design qualities to carry into every script:** idempotent + resumable; `--dry-run`; fail
-LOUD at the exact step (never silently); **assert success, don't assume it**; health-gated
-rollouts with auto-rollback; immutable tags; safety guards (never lock out SSH, never wipe
-without verifying, never touch base-services images).
+```bash
+sudo PRODUCT_NAME=raje3 NS=base-services      CHART=$HOME/raje3/platform/deploy/chart      VALUES_DIR=$HOME/raje3/deploy/services      bash platform/deploy/server/update.sh            # add --only <svc> or --dry-run
+```
 
-The base-services Helm chart already **refuses to render a mistake** (scale-out on in-memory
-drivers, HPA without CPU requests, unpinned images, `/internal` exposed publicly, a values key
-nothing reads). Run `make verify` before `make deploy` — it *proves* the cluster enforces what
-the chart promises.
+It renders every values file before touching the cluster, health-gates each release, rolls back
+to the revision captured **before** the upgrade, lists anything not fully ready, exits non-zero
+on any failure, and prunes superseded node images once everything is green.
 
----
+**What stays ours, in `deploy/`:**
 
-## 8. WhatsApp — the gap is closed (upstream, as of `v0.12.2`)
-
-This section used to describe Raje3's one blocking gap: `notification-service` had Email /
-SMS / in-app but no WhatsApp, the core channel for the whole product (spec §6). We requested
-it upstream rather than building it, because a WhatsApp channel is generic. **It shipped in
-base-services `v0.12.2`** — exactly the config-driven shape we asked for. We wrote no code
-for it and we still edit nothing.
-
-The knobs (read from `services/notification-service/app/config.py`, never edited):
-
-| Knob | What it does |
+| Path | Why it is ours |
 | --- | --- |
-| `WHATSAPP_CHAIN` | provider chain, e.g. `meta,console`. `console` · `webhook` · `meta` |
-| `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | per-tenant credential + sending number, resolved via the secret store |
-| `WHATSAPP_GRAPH_BASE` | Meta Cloud API base — config, never a value from a request |
-| `WHATSAPP_TEMPLATE_MANAGER` | `console` \| `meta` — the approved-template lifecycle |
-| `WHATSAPP_BUSINESS_ACCOUNT_ID` | WABA id for the template-management endpoint |
-| `WHATSAPP_TEMPLATE_SYNC_LIMIT` | pending templates reconciled per sweep |
-| `WHATSAPP_WEBHOOK_URL` / `_BEARER` | generic gateway/QR relay — host must be in `EGRESS_ALLOWED_HOSTS` (SSRF guard) |
+| `deploy/services/*.values.yaml` | Every Raje3 decision, with its reason |
+| `deploy/hooks/pre-deploy.sh` | Our databases and object-store buckets — the seam their `setup.sh` calls |
+| `deploy/k3s/edge.yaml` | Caddy at the edge. Modelled on theirs, not copied: their image digest is a placeholder and their probe path is unanswered by the shipped Caddyfile |
 
-This maps onto the spec's two channels directly (§6.1): the **official channel** is
-`meta`, the **fast QR channel** is `webhook` pointed at a relay. `console` stays the dev
-and test driver. Switching between them is a values change, not a deploy of different code.
+**Run it detached.** An interrupted rollout is worse than one never started, and a dropped SSH
+session will kill it otherwise.
 
-**What stays ours regardless:** *which* template is chosen for *which* service, the sector
-template library, the variable values, and the encrypted per-tenant opt-out links
-(`optoutLinkNs`). Upstream owns the pipe; we own the message.
+**Object store:** SeaweedFS, invoked from `platform/deploy/k3s/objectstore.yaml`. Apache-2.0.
+MinIO is AGPLv3 and has no place under a product we sell — check the licence of anything you
+deploy before it runs, not after.
 
-**The lesson, not the exception:** the gap closed because it was reported upstream instead
-of patched locally. When base-services lacks something generic, that is the move — never a
-local edit. See §2 rule 1.
+## 8. Messaging — the model the whole product rests on
 
----
+`notification-service` carries four channels: **email · SMS · WhatsApp · in-app**. It is not
+"the WhatsApp service", and identity's verification mail depends on it.
 
-## 9. The working loop (how to proceed, one service per iteration)
+**Two message classes, two different legal bases** (spec §8.4). Get this wrong in either
+direction and the product either breaks or breaks the law:
 
-Work in small, verifiable increments. **One service (or one wave step) per iteration.** Never
-big-bang.
+| Class | Basis | Default | Consent |
+| --- | --- | --- | --- |
+| **Non-marketing** — confirmation, check-in, due reminder, operational, support reply | an existing relationship | ON | none needed |
+| **Marketing** — offers, win-back, launches | explicit prior consent | OFF | required, recorded |
 
-**Iteration checklist:**
-1. **Pick the next item** from the wave order (§5) or the product-service list (§6).
-2. If it's a `base-services` service → apply the **7-step recipe** (§5): image → values →
-   config/adapters → DB → apply → health-gate → verify. Adapt it to Raje3 by config only.
-3. If it's a Raje3 product service → generate from `_template`, implement the domain logic,
-   keep every discipline (§2), write its tests + deploy values.
-4. **Verify end-to-end** before moving on (hit a real endpoint; prove the behaviour).
-5. **Commit** with a clear message. Small commits, each one green.
-6. **Update `docs/`** with any decision you made and why.
-7. Only then start the next item.
+**In configuration this is `NOTIFY_CONSENT_PURPOSES`:** only templates listed there are gated.
+Anything unlisted sends under contract. **Every marketing template added to the library must be
+added to that map**, or it sends without a lawful basis — the most expensive single mistake
+available in our values files.
 
-**Recommended first two weeks:**
-- Week 1 — Wave 0 + Wave 1: scaffold (if empty) → `provision-server.sh` → K3s up → bring up
-  `tenant`/`authz`/`identity`/`audit`, and prove a full auth flow (token + authz decision +
-  tenant isolation) works end-to-end.
-- Week 2 — Wave 2 + Wave 3: `api-gateway`/`job`/`file`/`notification`/`feature-flag`. At this
-  point the platform is ready to build our `operations` + `reminders` on top of it.
+**Two permissions, not one** (spec §8.5): contact permission is verbal, taken when the customer
+gives their number; marketing consent is **electronic only**, from the customer's own page, by
+their own tap. Never verbal, never entered by an operator on someone's behalf.
 
-After that, keep the same loop through waves 4–5 and product services 2–3. The three UIs
-(`ui/`) are built alongside the services that back them: the field-entry screen with
-`operations`, the establishment dashboard with `insights`, the super-admin console with
-`billing`/`ticket`/`analytics` (spec §15).
+**And Meta's own policy sits above both:** a business-initiated message needs opt-in regardless
+of category, templates are pre-approved per category, and the number's **quality rating** governs
+how much it may send. A blocked number costs the shop its customers, not just our campaigns —
+which is why pacing and the one-tap unsubscribe are product features, not politeness.
 
----
+## 9. The working loop
+
+**One service per iteration. Never batch. Never skip a step because a service looks simple.**
+
+The 8 steps are in the playbook (§3): read → decide → pin by digest → provision → render →
+deploy → **prove** → register with compliance. What follows is only what is specific to us.
+
+1. **Read the whole surface**, not the summary. The platform's own one-line descriptions have
+   been wrong about what a service is more than once, and a values file written from a summary
+   is architecture built on a guess.
+2. **Write the decision in the values file**, in terms of the spec section it serves. That file
+   is the only documentation anyone reads at 3am.
+3. **Prove one real product behaviour** and **tenant isolation on read and write**. A green
+   `/readyz` proves the process started, nothing more.
+4. **Commit with the evidence in the message** — what was proven, and what was not. "Deployed,
+   behaviour unproven" is an honest status; "done" is not.
+5. **Update the spec** if a decision changed the product, and **this file** if it changed the
+   method or the open items.
+
+**When a result surprises you, understand it before reporting it.** A number that looks wrong
+has more than once been a mechanism working exactly as designed — and the right response was to
+change our configuration, not to file a bug.
 
 ## 10. Definition of done (per service)
 
@@ -296,13 +283,48 @@ A service — ours or an adapted base-services one — is "done" only when:
 - [ ] **Registered in `compliance-service`**: present in `PRIVACY_TARGETS` and in the data map,
       with an erasure fan-out proven to reach it at least once. A service holding no personal
       data is exempt from the map but not from the decision — write it down.
+- [ ] **One real product behaviour proven with real calls**, and the evidence in the commit.
+- [ ] Anything unproven **stated plainly**, not implied by silence.
 - [ ] Any decision is recorded in `docs/`.
 
 ---
 
+## 11. Open items — read this before assuming something works
+
+Honest state. Each is real, none is hidden in a commit message.
+
+| Item | State |
+| --- | --- |
+| **Backup coverage** | Only a handful of services implement the export endpoint the backup service calls. Tenants, accounts, permissions, balances, consent and audit **cannot be backed up today**. Reported upstream. Interim answer — a full `pg_dump` on a schedule, off the box — is still undecided. Do not say "we have backups". |
+| **Archives share a disk with their source** | The object store runs on the same node as the data it protects. A backup inside its own failure domain protects against nothing that actually happens. |
+| **Monitoring** | `serviceMonitor` is off in every values file because the Prometheus Operator is not installed. `/metrics` is served; nothing scrapes it, and every HPA would be inert if we scaled. |
+| **Secrets by hand** | Databases and secrets were provisioned by hand for several services before `deploy/hooks/pre-deploy.sh` existed. A second environment would drift. Verify the hook covers every service before trusting it. |
+| **TLS** | The edge runs without certificates: `raje3.sa` does not resolve to the dev box, so ACME cannot complete a challenge. On the production host, turn `auto_https` on **and** move the edge's data volume to a PVC, or every restart re-issues every certificate. |
+| **CI** | Nothing stops a broken values file being pushed. At minimum: the product-config guard, `helm template` over every values file, `bash -n` over every script, and an assertion that no image uses a tag or a placeholder digest. |
+| **`zatca`** | Deferred to VAT registration, not to a sprint. On the day we register, four things move together: the tax calculator to `vat`, the document mode to a tax invoice, the e-invoicer to `zatca-http`, and the seller VAT number filled in `config/product.json`. Flipping one produces a document whose error a customer's accountant finds first. |
+| **Tenant creation at signup** | Ours for now, in `services/`, never a patch to `platform/`. Must carry an undo (or an orphan establishment nobody can see or bill) and be idempotent (or a retried signup creates two). Re-check on every platform bump. |
+
+**Anything here that a platform release closes should be deleted from this table, not annotated.**
+History belongs in git.
+
+## 12. Reporting upstream
+
+`base-services` is read-only. When it lacks something generic or behaves wrongly:
+
+1. Give the file and line, the mechanism, and evidence from a live system.
+2. State what a consumer can and cannot work around.
+3. **Ask for a guard, not just a fix** — the CI rule or boot assertion that closes the whole
+   class. That is worth more than the patch, and it catches instances nobody reported.
+
+Work around it behind a port on our side, in `services/`, and delete our workaround when theirs
+lands. If a workaround turns out not to work, **remove it** rather than leave configuration
+claiming a mitigation it does not deliver.
+
 ## Appendix — quick reference
 
-- **base-services pin:** `v0.12.2` (bump deliberately; test `make verify` after).
+- **base-services pin:** see `platform` submodule (`git -C platform describe --tags`). Bump
+  deliberately, re-read `platform/deploy/` for anything that supersedes ours, and re-run the
+  proofs — a version bump has changed defaults before.
 - **Consume base-services (fresh clone):**
   ```bash
   git submodule update --init platform
@@ -310,6 +332,9 @@ A service — ours or an adapted base-services one — is "done" only when:
   git -C platform sparse-checkout set deploy tools/ci   # chart + CI harness only
   ```
 - **Validate product identity:** `python3 ci/check_product_config.py`
+- **Roll a release:** `sudo PRODUCT_NAME=raje3 NS=base-services CHART=…/platform/deploy/chart
+  VALUES_DIR=…/deploy/services bash platform/deploy/server/update.sh` (detached; `--only`, `--dry-run`)
+- **Read a service:** `git -C platform sparse-checkout disable` → read → `reapply`. Never edit.
 - **Frozen identifiers** (in `config/product.json` — never change on a rename): `jwtIssuer`,
   `optoutLinkNs`, `eventNs`, `userAgent`.
 - **The 3 things we touch on base-services:** config, env vars, Helm values. Nothing else.
