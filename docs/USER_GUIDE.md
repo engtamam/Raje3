@@ -276,22 +276,109 @@ deploy → **prove** → register with compliance. What follows is only what is 
 has more than once been a mechanism working exactly as designed — and the right response was to
 change our configuration, not to file a bug.
 
-## 10. Definition of done (per service)
+## 10. Definition of done — the bar every service clears
 
-A service — ours or an adapted base-services one — is "done" only when:
+Not a checklist to tick. Every line below is a claim someone will one day have to defend — to a
+regulator, to a customer whose data leaked, or to a colleague at 3am. If a line cannot be
+demonstrated, it is not done, and saying it is done is the fault.
 
-- [ ] It runs from a **pinned image** (digest / `vX.Y.Z`), never `:latest`.
-- [ ] All behaviour comes from **config/env/values** — zero hardcoded values.
-- [ ] **Tenant isolation** holds on every query (verified, not assumed).
-- [ ] It has a **K3s manifest / values file** and passes `make verify`.
-- [ ] It **health-gates** (`/readyz`) and an end-to-end check passes.
-- [ ] For our services: **tests** pass, and it writes an **audit entry** for meaningful actions.
-- [ ] **Registered in `compliance-service`**: present in `PRIVACY_TARGETS` and in the data map,
-      with an erasure fan-out proven to reach it at least once. A service holding no personal
-      data is exempt from the map but not from the decision — write it down.
-- [ ] **One real product behaviour proven with real calls**, and the evidence in the commit.
-- [ ] Anything unproven **stated plainly**, not implied by silence.
-- [ ] Any decision is recorded in `docs/`.
+**The standard is base-services' own.** We consume that platform because it holds a line we
+respect: deny by default, ports and adapters, zero hardcoded config, gates that fail the build
+rather than a comment that asks nicely. A service of ours that falls below that line makes the
+whole product only as strong as its weakest half.
+
+### 10.1 It is correct
+
+- [ ] **Tenant isolation proven on READ and WRITE.** Not "the query has a tenant filter" — an
+      actual call from tenant B against tenant A's row, refused. Read-only proof is half a proof:
+      the write path is where cross-tenant damage is permanent.
+- [ ] **Idempotent where a retry is possible.** Any endpoint a client may call twice — a double
+      tap, a network retry, a resumed job — produces one effect. Proven with two identical calls.
+- [ ] **Concurrency stated.** For every counter, balance or sequence: what happens under two
+      simultaneous writers. If the answer is "we never checked", the answer is "it is wrong".
+- [ ] **Failure is legible.** An error names what failed and what the caller should do. `503
+      AUDIT_UNAVAILABLE` beats `500`; "pool exhausted" beats "down". We lost an hour to a
+      `datastore: down` on a database that was healthy and merely full.
+- [ ] **Tests pass**, including the ones that assert the failure modes, not only the happy path.
+
+### 10.2 It is secure
+
+- [ ] **No hardcoded anything.** No URL, no key, no limit, no locale, no path. Config or values,
+      always. And every key you set must be a field the service DECLARES — an unknown key is
+      dropped in silence, so a typo is a setting that never applies.
+- [ ] **Deny by default.** New capability, new route, new consent purpose: closed until opened
+      deliberately. An `allow` that arrives by default arrives unnoticed.
+- [ ] **Auth is the platform's, never a second one.** rs256, the frozen issuer, capabilities
+      checked at the route. If you find yourself minting your own credentials, stop — that is a
+      second authentication system, a second place secrets live, and a permanent divergence.
+- [ ] **The CWE classes that actually apply here**, each proven refused, not assumed:
+      SSRF where we call a URL a customer chose (resolve, require public unicast, PIN the IP);
+      IDOR/broken object-level authorisation on every `{id}` route; injection on every query and
+      every rendered template; timing leaks on credential comparison (one 401 for wrong secret,
+      unknown client and revoked account alike); privilege escalation, where a grant must be a
+      SUBSET of the granter's; and secrets in logs and error bodies.
+- [ ] **`security_gate.py` and the upstream gates pass**, plus our nine in
+      `ci/check_deploy_wiring.py`. A gate that a service cannot pass is a service that is not done —
+      not a gate to be waived.
+- [ ] **Audit fail-closed on privileged actions.** A privileged action the log cannot witness must
+      not happen. And audited WRITE-AHEAD, so a caller is never told "done" about something the
+      record does not hold.
+- [ ] **PII is pseudonymised at rest** except where a product decision says otherwise, and that
+      decision is written where it is made — never left implied.
+
+### 10.3 It holds under load
+
+- [ ] **The hot path is measured, not estimated.** The five-second field entry is a budget: one
+      round trip to the datastore on the request, everything else after the response.
+- [ ] **Shared finite resources are multiplied out.** Connection pool × services against the
+      ceiling. Rate limit share × services against the provider's. A share that is reasonable alone
+      and fatal in aggregate is the failure mode nobody owns — write the arithmetic down and put it
+      in a preflight that REFUSES.
+- [ ] **It degrades rather than collapses.** A dependency that is slow makes us slower, not broken.
+      A queue that backs up delays work, never destroys it.
+- [ ] **Nothing unbounded.** Every scan, page, retry ladder and payload has a ceiling, and
+      exceeding it is a clean refusal — not an OOM, which is illegible where an error is not.
+- [ ] **Restartable.** The fleet must be able to restart itself: no eager resource grab that
+      prevents a new instance coming up while the old one is still holding.
+
+### 10.4 It is clean to operate commercially
+
+- [ ] **Every dependency's licence checked and permissive** — MIT, Apache-2.0, BSD. **No AGPL, no
+      SSPL, no "source-available" licence** in anything we ship or run as a service. This is not
+      pedantry: we replaced MinIO with SeaweedFS for exactly this reason, and the time to find out
+      is before a service is built on it, not during due diligence.
+- [ ] **No known CVE at a severity we would not accept** in the image or the dependency tree,
+      checked at build and re-checked on a schedule — a clean image today is not a clean image in
+      three months, and nothing about it changes to tell you.
+- [ ] **Pinned by digest, never by tag.** A tag can be moved, so a tag-pinned rollback is a hope.
+- [ ] **Backup export implemented and PROVEN to restore.** A backup nobody has restored is a
+      belief. And the shared key it needs is named in the values file.
+- [ ] **Registered in `PRIVACY_TARGETS`** with an erasure ack proven by a real call. A service
+      missing from that list is a customer told their data was deleted while a copy kept living.
+- [ ] **Data residency and retention are decided**, not defaulted: what is kept, for how long, on
+      what basis. A retention basis nobody agreed to is not a defensible answer to a regulator.
+
+### 10.5 It can be understood by whoever comes next
+
+- [ ] **Every non-default setting carries WHY**, in the values file, at the line. Not what it does —
+      the manual says that. Why it is not the default, and what breaks if it is changed back.
+- [ ] **What is NOT proven is stated plainly.** Silence reads as verified. Every gap we have owned
+      early cost minutes; every one discovered later cost hours.
+- [ ] **One real product behaviour proven with real calls**, and the evidence in the commit message
+      where it will be found — not in a document that will not be opened.
+- [ ] **No dead code and no stale comment.** A comment that argues from a bug that has since been
+      fixed teaches the next reader something false. Delete it; history is in git.
+
+### 10.6 The tests that must exist, whatever else does not
+
+Not coverage for its own sake. These four, because each maps to a failure that has actually
+happened on this platform:
+
+1. **Cross-tenant refusal**, read and write.
+2. **The idempotent path**, called twice.
+3. **The deny-by-default path** — the request that must be refused, asserted refused.
+4. **The failure mode** — the dependency down, the ceiling reached — asserting the LEGIBLE error,
+   not merely a non-200.
 
 ---
 
