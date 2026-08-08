@@ -1,0 +1,99 @@
+# audit-service — Raje3 deployment values.
+#
+# Read from app/manifest.py, app/config.py at v0.12.1. Nothing upstream edited.
+#
+# What this service is to us: spec §11.2 — the trail that cannot be edited, recording who did
+# what and when, so an establishment owner can hold staff accountable and we can answer a
+# dispute. It is brought up LAST in Wave 1 because it is the log the other three write to;
+# standing it up first would have given an empty sink nobody had tested against.
+service:
+  name: audit-service
+  port: 8000
+
+image:
+  repository: ghcr.io/base-services/audit-service
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis      # also how it SUBSCRIBES to events, below
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, PII_SALT, INTEGRITY_HMAC_KEY.
+existingSecret: audit-service-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  serviceMonitor: true
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  # ── Integrity ─────────────────────────────────────────────────────────────────────────────
+  # hmac-chain, not the default hash-chain. With a plain hash chain, anyone who can write to the
+  # database can also recompute every downstream link, so a tampered row verifies perfectly —
+  # the chain proves the data is self-consistent, not that it is untouched. hmac-chain keys the
+  # links with a secret that does NOT live in the database, so an attacker with DB access can no
+  # longer forge a valid chain. Spec §11.2 asks for a log that cannot be modified; this is the
+  # difference between that and a log that merely looks consistent.
+  INTEGRITY_DRIVER: "hmac-chain"
+
+  # ── Isolation ─────────────────────────────────────────────────────────────────────────────
+  # Per tenant, not one global chain. An establishment's trail is its own; a global partition
+  # would let one tenant's export or verification touch another's rows (§2.3, §14.1).
+  AUDIT_PARTITION: "tenant"
+
+  # ── PII ───────────────────────────────────────────────────────────────────────────────────
+  # fold: audit pseudonymises identities itself, so personal data cannot land in the chain no
+  # matter what a caller forgets to strip. This is not tidiness — a raw identity hashed into the
+  # chain is PERMANENT, and redacting it later breaks verify() for every row after it. There is
+  # no "clean it up afterwards" with a hash chain.
+  AUDIT_PII_MODE: "fold"
+  # The upstream default is a platform-neutral list. Ours adds what is personal in THIS product:
+  # a customer is identified by their mobile number (§4.3) and their vehicle by its plate (§4.3),
+  # so both must fold. national_id/iqama are already there and stay — this is a Saudi platform.
+  AUDIT_PII_FIELDS: "email,phone,name,username,address,ip,national_id,iqama,passport,plate,vehicle_plate,customer_phone"
+
+  # ── Retention ─────────────────────────────────────────────────────────────────────────────
+  # 3 years. Upstream defaults to 0 = keep forever, which is a safe engineering default and a
+  # poor privacy one: under PDPL personal data is kept no longer than the purpose needs, and the
+  # purpose here is settling disputes about who suspended, deleted or messaged whom. Three years
+  # covers a commercial dispute window comfortably. POLICY, not physics — revisit with counsel
+  # before launch. Enforced by the chart's CronJob (/internal/audit/enforce-retention, 23:03).
+  RETENTION_DAYS: "1095"
+
+  # ── Ingest ────────────────────────────────────────────────────────────────────────────────
+  # Our services post over HTTP (AUDIT_SINK_DRIVER=http). Subscribing to the topic as well means
+  # a service configured for the eventbus sink is still recorded rather than silently unwitnessed.
+  AUDIT_SUBSCRIBE_TOPICS: "audit.events"
+
+  AUDIT_QUERY_LIMIT: "100"
+  EXPORTER_DEFAULT: "json"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false
