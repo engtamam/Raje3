@@ -1,0 +1,174 @@
+# The edge — the one container that faces the outside world.
+#
+# OURS, modelled on platform/deploy/edge/edge.deployment.yaml, not a copy of it. Two reasons we
+# could not simply apply theirs:
+#   1. Its image is a placeholder digest (all zeros) with an explicit "replace with the digest
+#      you actually deploy" note. Filling it in would mean editing platform/.
+#   2. Its liveness probe hits /health, and the shipped Caddyfile has no /health handler — the
+#      request falls through to the SPA file_server, which 404s because /srv/ui is not mounted.
+#      A 404 fails liveness, so the pod would restart forever. We answer /health explicitly.
+#
+# Their security posture is kept exactly: non-root, read-only root filesystem, all capabilities
+# dropped, RuntimeDefault seccomp. The most exposed container gets the strictest posture, not an
+# exemption for being important.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edge-caddyfile
+data:
+  Caddyfile: |
+    {
+      # No automatic HTTPS on this box. raje3.sa does not resolve here, so ACME could never
+      # complete a challenge; Caddy would retry, fail, and serve nothing. TLS belongs on the
+      # production host where the DNS record actually points at us.
+      auto_https off
+      admin off
+    }
+
+    :8080 {
+      encode gzip zstd
+
+      header {
+        -Server
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+      }
+
+      # Answered by the edge itself. Without this the probe falls through to the SPA handler
+      # and 404s, and the pod restart-loops on a working configuration.
+      handle /health {
+        respond "ok" 200
+      }
+
+      # Everything under /api goes to api-gateway and nowhere else. We deliberately do NOT
+      # shortcut /api/v1/auth straight to identity-service the way the upstream sample does:
+      # the gateway is where rate limiting, the 401-counting credential-stuffing guard, and the
+      # route table live. Bypassing it for the login path would remove exactly the protection
+      # that path needs most.
+      handle /api/* {
+        reverse_proxy api-gateway:8000
+      }
+
+      # No SPA fallback yet — the portals are not built. An explicit 404 beats Caddy choosing
+      # for us, and beats a file_server pointed at an empty directory.
+      handle {
+        respond "not found" 404
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge
+  labels: { app: edge }
+spec:
+  # NodePort, because this VM sits behind VirtualBox NAT: there is no LoadBalancer and no
+  # ingress controller (k3s runs with --disable traefik). The host reaches 30080, which a
+  # VirtualBox port-forward maps to a port on the workstation.
+  type: NodePort
+  selector: { app: edge }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080, nodePort: 30080 }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge
+  labels: { app: edge }
+spec:
+  # One replica on a single node. Upstream defaults to 2, which is correct for a real cluster
+  # and pointless here — two replicas on one node is not high availability, it is two copies of
+  # the same failure domain.
+  replicas: 1
+  selector:
+    matchLabels: { app: edge }
+  template:
+    metadata:
+      labels: { app: edge }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: caddy
+          # Pinned by digest. A moving tag means a rollback is not a rollback.
+          image: caddy:2.8.4-alpine@sha256:af32e97399febea808609119bb21544d0265c58a02836576e32a2d082c262c17
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              # NET_BIND_SERVICE is added back, and NOT because we bind a privileged port — we
+              # listen on 8080. The official caddy image ships /usr/bin/caddy with this as a FILE
+              # capability. `allowPrivilegeEscalation: false` sets no_new_privs, and the kernel
+              # refuses to exec a file whose capabilities would grant the process something it
+              # does not already hold: `exec /usr/bin/caddy: operation not permitted`, as a
+              # CrashLoopBackOff with a one-line log and no hint that capabilities are involved.
+              # Listing it here puts it in the permitted set, so the exec grants nothing new and
+              # is allowed. Privilege escalation stays off.
+              #
+              # NOTE: upstream's edge.deployment.yaml drops ALL and adds nothing back, with a
+              # comment saying the pod "needs no privileged port" — true, and not the reason the
+              # exec fails. Their manifest would crash-loop the same way on this image.
+              add: [NET_BIND_SERVICE]
+          ports:
+            - { name: http, containerPort: 8080 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/caddy, readOnly: true }
+            - { name: data, mountPath: /data }
+            - { name: caddy-config, mountPath: /config }
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+      volumes:
+        - name: config
+          configMap: { name: edge-caddyfile }
+        - name: caddy-config
+          emptyDir: {}
+        # emptyDir is correct while auto_https is off — there are no ACME certs to lose. On the
+        # production host this becomes a PersistentVolumeClaim, or every restart re-issues every
+        # certificate and walks into Let's Encrypt's rate limits.
+        - name: data
+          emptyDir: {}
+---
+# The edge is the one pod that may be reached from outside the cluster, and the only one allowed
+# to reach api-gateway from outside the namespace's normal service-to-service pattern.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edge
+spec:
+  podSelector:
+    matchLabels: { app: edge }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # No `from` selector: this is the deliberate exception. Traffic arrives from outside the
+    # cluster via NodePort, so it has no pod or namespace identity to match on.
+    - ports:
+        - { protocol: TCP, port: 8080 }
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: api-gateway }
+      ports:
+        - { protocol: TCP, port: 8000 }
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
