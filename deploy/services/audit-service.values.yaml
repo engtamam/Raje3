@@ -54,6 +54,16 @@ metrics:
 env:
   DEFAULT_LOCALE: "ar"
 
+  # ── Token verification ────────────────────────────────────────────────────────────────────
+  # rs256 VERIFY-only: the public key is in this service's secret, the private key exists
+  # nowhere but identity-service. Without this the driver defaults to `null`, which denies
+  # every token — correct as a default (deny-by-default), and silently fatal if you ship it:
+  # the service starts, /readyz is green, and every authenticated call 401s.
+  # Issuer and audience must match what identity-service SIGNS (the frozen jwtIssuer).
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
   # ── Integrity ─────────────────────────────────────────────────────────────────────────────
   # hmac-chain, not the default hash-chain. With a plain hash chain, anyone who can write to the
   # database can also recompute every downstream link, so a tampered row verifies perfectly —
@@ -98,6 +108,17 @@ env:
   CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
+
+# ── Retention enforcement ───────────────────────────────────────────────────────────────────
+# The chart's cronJobs list is EMPTY by default, so RETENTION_DAYS above is inert without this:
+# the setting is read, reported, and never acted on. An unenforced retention policy is a
+# compliance finding, not a TODO — it reads as "we delete after 3 years" while nothing deletes.
+# Found on the first real bring-up: `kubectl get cronjob` returned nothing.
+# 23:03 is the upstream-recommended slot, staggered so jobs do not stampede one database.
+cronJobs:
+  - name: enforce-retention
+    schedule: "23 3 * * *"
+    path: /internal/audit/enforce-retention
 
 ingress:
   enabled: false

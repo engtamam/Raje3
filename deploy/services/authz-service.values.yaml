@@ -52,6 +52,16 @@ metrics:
 env:
   DEFAULT_LOCALE: "ar"
 
+  # ── Token verification ────────────────────────────────────────────────────────────────────
+  # rs256 VERIFY-only: the public key is in this service's secret, the private key exists
+  # nowhere but identity-service. Without this the driver defaults to `null`, which denies
+  # every token — correct as a default (deny-by-default), and silently fatal if you ship it:
+  # the service starts, /readyz is green, and every authenticated call 401s.
+  # Issuer and audience must match what identity-service SIGNS (the frozen jwtIssuer).
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
   # ── Decision semantics ────────────────────────────────────────────────────────────────────
   POLICY_ENGINE_DRIVER: "combined"   # RBAC for the role hierarchy + ABAC for shift/geo fencing (§11.3)
   DENY_OVERRIDES: "true"             # a matching deny beats any allow — deny-by-default, golden rule 3
