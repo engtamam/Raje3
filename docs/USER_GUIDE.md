@@ -137,14 +137,20 @@ wave needs** — an unused service is left out of the values, not deployed.
 | **4 — Growth** | `analytics` · `wallet` · `billing` | KPI base (the 20 dashboard metrics); the establishment's **prepaid message credit** (§16.4) — a VAT-aware money ledger, *not* loyalty points; subscriptions/plans/quotas | ✅ |
 | **5 — Ops & support** | `backup` · `ticket` · `onboarding` · `webhook` · `connector` · `assistant` · `verification` · `search` · `zatca` | backups, support tickets, sign-up, POS integrations, KB, Nafath/CR, Arabic search, e-invoicing | ✅ |
 
-**Per-service adaptation recipe (the same 7 steps every time):**
+**Per-service adaptation recipe (the same 8 steps every time):**
 1. Pull the image from the registry (never the code) — pinned by digest/tag.
 2. Write our `deploy/services/<svc>.values.yaml` (deploy shape).
 3. Set env vars + config (choose adapters: postgres/redis/s3…).
 4. Provision its isolated database (`provision-db`).
 5. Apply the manifest via the Helm chart.
 6. Health-gate: wait for readiness, assert `/readyz`.
-7. Verify end-to-end (hit a real endpoint), then move to the next service.
+7. Verify end-to-end (hit a real endpoint).
+8. **Register it in `compliance-service`** — add it to `PRIVACY_TARGETS` and to the data map
+   (`POST /api/v1/compliance/data-targets`). Not bookkeeping: an erasure fans out one task per
+   REGISTERED target and completes only when every one acknowledges. A service holding personal
+   data that is not registered is never asked, never acks, and is therefore never *missed* — the
+   request closes green on an erasure that did not happen. A service that holds no personal data
+   still needs that decision written down, not left silent.
 
 **Scope decision (binding): Raje3 ships as a COMPLETE platform, not an MVP.** All five waves
 are in scope. The order above is a *build sequence*, not a scope filter — we still bring
@@ -287,6 +293,9 @@ A service — ours or an adapted base-services one — is "done" only when:
 - [ ] It has a **K3s manifest / values file** and passes `make verify`.
 - [ ] It **health-gates** (`/readyz`) and an end-to-end check passes.
 - [ ] For our services: **tests** pass, and it writes an **audit entry** for meaningful actions.
+- [ ] **Registered in `compliance-service`**: present in `PRIVACY_TARGETS` and in the data map,
+      with an erasure fan-out proven to reach it at least once. A service holding no personal
+      data is exempt from the map but not from the decision — write it down.
 - [ ] Any decision is recorded in `docs/`.
 
 ---
