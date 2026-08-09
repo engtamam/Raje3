@@ -16,13 +16,29 @@ service:
 
 image:
   repository: docker.io/raje3/portal
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  digest: "sha256:173b49d1378513f4b572ae395e07f4208025d48123fc003eb3ea89cb76ccce8c"
 
-# TWO REPLICAS, unlike every other service here. This is the one that is down when a customer is
-# looking at it — every other outage is discovered by us, and this one is discovered by a shop's
-# customer opening a link the shop sent them. It is also stateless by construction, so a second
-# replica costs nothing and needs no coordination.
-replicas: 2
+# ONE REPLICA — and this is a correction, not the original plan.
+#
+# It was set to 2, because this is the one service that is down while a CUSTOMER is looking at it:
+# every other outage is discovered by us, and this one is discovered by a shop's customer opening
+# a link the shop sent them.
+#
+# THE CHART REFUSED IT, and the chart was right:
+#
+#   UNSAFE SCALE-OUT: portal runs 2 replicas but these ports use in-memory drivers:
+#   datastore, eventbus, queue. An in-memory cache is PER-POD, so one pod's write never
+#   invalidates another pod's cache.
+#
+# Our answer would have been "we never call those ports" — and that is a claim the chart cannot
+# verify and should not take on trust. The alternative, declaring redis for three ports we do not
+# use, is configuration that asserts something untrue to get past a guard, which is precisely the
+# habit this codebase keeps paying for.
+#
+# So: one replica, and the availability argument stands unmet rather than pretended. When the TLS
+# edge exists and this page is genuinely public, the honest fix is a real second replica with
+# nothing in-memory behind it — not a values file that talks its way past a check.
+replicas: 1
 
 drivers:
   # NO POSTGRES. Deliberate and load-bearing: there is nothing to store, and a datastore would
