@@ -233,6 +233,53 @@ that it holds none.
 
 ---
 
+## 3B. Writing a service of our own — the eleven steps, in this order
+
+§3 is the loop for CONSUMING a base service. This is the loop for the ones we write, and it was
+derived from `operations` — the first one built this way, and the only reason the order below is
+not a guess.
+
+**1 · Generate from `_template`, and PAY THE PLATFORM TAX FIRST.** Auth, capabilities, rate limit,
+audit, backup export/import, privacy erase, manifest, `admin_actions`/`user_actions` — all of it
+wired and passing before a single line of domain logic exists.
+
+This is step one and not step nine for one reason: **a service that gets its obligations last never
+gets them.** Once the domain works, the erase endpoint is a chore nobody schedules — and the shape
+that follows is §4.18, an endpoint that exists and does nothing. Written first, the domain grows
+inside them. `_template` already carries them, so the cost of doing it first is nearly zero and the
+cost of doing it later is a service that ships without them.
+
+**2 · The data model, and the identifier decision.** Decide what identifies a subject HERE and what
+goes to peers. Raw identifiers stay in the service that already had them; peers get the
+`subject_ref` pseudonym. Write down why, at the field.
+
+**3 · The platform obligations proven, not just present.** Erase and export called once, by hand,
+before anything depends on them.
+
+**4 · The write path**, under its latency budget.
+
+**5 · The read path** — what the screen actually needs, not what the model contains.
+
+**6 · Attribution and access** — who did it, and what a token must carry to.
+
+**7 · The seams** — index, event, telemetry: all AFTER the response, each in its own try/except,
+none able to lose the write.
+
+**8 · Content as data, not code.** Anything our own people will revise — sectors, templates,
+catalogues — lives in the datastore with a one-time seed file, never in the image. A word that
+costs a rebuild is a word that never gets fixed.
+
+**9 · Deploy and PROVE with real calls** against the running image, on its pinned digest.
+
+**10 · Register with compliance**, and prove the ack.
+
+**11 · The five traps no guard can catch** — the last task of every service, always.
+
+**And one rule that came out of step 11 the hard way:** for every rule enforced in the core, one
+test must reach it through the HTTP route with the real request model in the way. See §4.20.
+
+---
+
 ## 4. The traps
 
 Every one of these was hit. Each is silent by construction — none produces a red dashboard.
@@ -497,6 +544,38 @@ exit code.
 **Rule:** when a value crosses a namespace, a cluster or a host, qualify it fully at the crossing.
 And expect this class specifically wherever you reuse a credential or an address that was written
 for somewhere else.
+
+### 4.20 A rule enforced in the core and bypassed at the door
+
+`TemplateLibrary.upsert()` refuses a template that asks the owner to fill more than one field.
+The unit test proved it. The live call did not: the console's pydantic model never declared
+`fills`, so the field was dropped on the way in, the core received an empty list, checked nothing,
+and answered **200**.
+
+The rule was real. The path to it was not.
+
+Pydantic drops an undeclared key **silently and successfully** — the same mechanism that made
+`DEFAULT_LOCALE` sit unread in eighteen values files (4.12), wearing a different hat. And a unit
+test cannot see it, because a unit test calls the core directly and never crosses the model.
+
+**Whenever a rule lives in the core, one test must reach it through the actual door** — the HTTP
+route, with the real request model in the way. If your only proof of a refusal is a direct call to
+the function that refuses, you have proven the function, not the product.
+
+### 4.21 Their gate suite is rooted in their repo, not yours
+
+Running `platform/tools/ci/run_all_gates.sh` from a consumer's tree reported twelve failures.
+None was about our code: no `pytest` in the interpreter it picked, no `.github/workflows/ci.yml`
+in a submodule that has none, `no app/core/ found`, and a privacy fan-out complaint about the
+platform's own values directory.
+
+Worse, the run BEFORE that one reported **ALL RUNNABLE GATES PASSED** while running nothing at
+all — twenty-eight gates skipped because the host has `python3` and not `python`. Their own runner
+warns about exactly this shape, and it still reads as a pass at a glance.
+
+**Their gates guard their repo. Ours guard ours.** Run theirs when reading their code; never quote
+its result as evidence about a service in `services/`. And on any suite that can skip: read the
+skip list before reading the verdict.
 
 ## 5. Automate the deployment on day one
 

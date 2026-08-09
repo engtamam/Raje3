@@ -147,6 +147,12 @@ class TemplateIn(BaseModel):
     body: str = Field(min_length=1, max_length=1024)
     header: str = Field(default="", max_length=60)
     button: str | None = Field(default=None, max_length=32)
+    # Who fills each variable — "system", "catalogue", or "owner", one entry per variable. It MUST
+    # be declared here: pydantic drops a field the model does not name, silently and with a 200.
+    # A live call caught exactly that — a template declaring two owner fields was accepted because
+    # `fills` never reached the library that refuses it, and the unit test passed because it called
+    # the library directly, never crossing this model. The rule was real; the path to it was not.
+    fills: list[str] = Field(default_factory=list, max_length=4)
     active: bool = True
 
     model_config = {"populate_by_name": True}
