@@ -45,6 +45,13 @@ jobs:
       - name: no price appears in code
         run: python3 ci/check_no_prices.py
 
+      # Three of the four behaviours of an unsubscribed establishment (§16.4.2) are behaviours by
+      # ABSENCE — nothing deletes, nothing gates — and an absence is what a refactor removes by
+      # accident with nothing failing. Two of them are held here: the customer's page never
+      # consults billing, and insights knows exactly one entitlement key.
+      - name: the customer page and the dashboard do not know about a subscription
+        run: python3 ci/check_unsubscribed_paths.py
+
       - uses: azure/setup-helm@v4
 
       # A values file that cannot render is a failed deploy discovered on the cluster. Rendering
