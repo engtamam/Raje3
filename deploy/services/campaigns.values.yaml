@@ -17,7 +17,7 @@ service:
 
 image:
   repository: docker.io/raje3/campaigns
-  digest: "sha256:8b606b3024803072a0b8ed2ca4dae3291e5fb13638b5bcff0c4784e88cb9cf8a"
+  digest: "sha256:14579065c5d9377d17cdda1fbd499d6bbdb6ec15ae4f1c15ddbafa15005f96fd"
 
 replicas: 1
 
