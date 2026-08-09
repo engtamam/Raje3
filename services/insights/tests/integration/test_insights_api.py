@@ -70,7 +70,7 @@ def owner(client) -> dict:
 def pro(client) -> dict:
     """The same token as anybody else — the difference is what BILLING says, not what he carries."""
     from app.core import plans
-    _bought(client, plans.ENGINE, plans.BRANCH_COMPARE)
+    _bought(client, plans.ENGINE)
     return _auth("insights.read")
 
 
@@ -144,12 +144,10 @@ def test_a_higher_plan_sees_it(client, pro):
     assert "associations" in values
 
 
-def test_the_branch_table_is_its_own_key(client):
-    """A chain may want branch comparison without the engine — a ladder cannot express that
-    without inventing a plan between two others."""
-    from app.core import plans
+def test_a_shop_that_bought_nothing_still_sees_its_branches(client):
+    """One key is left — the engine. Branches are not a purchase."""
     _seed(client, visits(20))
-    _bought(client, plans.BRANCH_COMPARE)
+    _bought(client)
     tok = _auth("insights.read")
     assert client.get("/api/v1/insights/branches", headers=tok).status_code == 200
     assert client.get("/api/v1/insights/associations", headers=tok).status_code == 402
@@ -238,9 +236,11 @@ def test_the_bundles_page_is_gated_too(client, owner):
     assert client.get("/api/v1/insights/bundles", headers=owner).status_code == 402
 
 
-def test_the_branches_page_is_gated_too(client, owner):
+def test_the_branches_page_is_never_gated(client, owner):
+    """It follows the branch count, not a purchase — and the unified balance behind it needs no
+    code at all, so charging for it would mean writing code to make the product worse."""
     _seed(client, visits(20))
-    assert client.get("/api/v1/insights/branches", headers=owner).status_code == 402
+    assert client.get("/api/v1/insights/branches", headers=owner).status_code == 200
 
 
 # ── the teaser ─────────────────────────────────────────────────────────────────────────────────

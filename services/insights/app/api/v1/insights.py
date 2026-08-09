@@ -179,10 +179,11 @@ async def suggested_bundles(request: Request, principal: Principal = Depends(_RE
 @router.get("/branches", dependencies=[Depends(rate_limit)])
 async def branches(request: Request, principal: Principal = Depends(_READ)):
     """The branch table, with its unspecified row and its ranking rule (spec §10.6.3)."""
+    # NO GATE. Everything about branches follows the branch count the establishment bought, not a
+    # separate purchase — see core/plans.py. A shop with one branch gets an empty table here and
+    # needs nothing else: the switch does not render for it either (core/tick.py).
     c = request.app.state.container
     tenant = _tenant(principal)
-    if not plans.can_see("branch_comparison", await _keys(c, tenant)):
-        return _refuse(LOCKED, status.HTTP_402_PAYMENT_REQUIRED)
     snap = await _snapshot(c, tenant)
     cov = ((snap or {}).get("coverage") or {}).get("branch_comparison") or {}
     return {"coverage": cov,

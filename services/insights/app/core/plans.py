@@ -29,7 +29,21 @@ from typing import Any
 # Named here, in one place, so the routes and the dashboard filter cannot disagree about which
 # string to ask for — a typo'd key fails closed and looks exactly like "not bought".
 ENGINE = "feature.insights.engine"          # the association engine and everything built on it
-BRANCH_COMPARE = "feature.branch_compare"   # the branch workspace and the branch table
+
+# THERE IS NO KEY FOR BRANCHES, and that is a decision rather than an omission.
+#
+# Everything about branches follows `branches` — the count the establishment bought. A shop with
+# two gets the switch, the per-branch dashboard and the comparison; a shop with one gets none of
+# them and needs none.
+#
+# Two reasons, and the second settles it:
+#
+#   a branch switch that renders and shows nothing is a worse experience than no switch, and an
+#   owner asks which branch is doing better because he HAS two — not because he bought an analysis,
+#
+#   and the unified balance across branches needs NO CODE AT ALL: the balance is keyed by tenant
+#   and branches share a tenant (spec §12.2). Charging for it would mean writing code to make the
+#   product worse when unpaid, which is not a position anyone can defend.
 
 # indicator name -> the key that unlocks it. An indicator ABSENT from this map needs no
 # entitlement: the eleven free ones are the reason an owner sees value at all, and gating them
@@ -38,7 +52,6 @@ REQUIRES: dict[str, str] = {
     "associations": ENGINE,
     "missed_opportunities": ENGINE,
     "suggested_bundles": ENGINE,
-    "branch_comparison": BRANCH_COMPARE,
 }
 
 
@@ -50,10 +63,11 @@ async def allowed_keys(peers: Any, tenant: str) -> set[str]:
     """Which of OUR keys this establishment holds, asked once per request.
 
     Once, not per indicator: the dashboard filters a dozen values and asking billing a dozen times
-    would put its latency on our hot path twelve-fold. Two distinct questions, one round trip each.
+    would put its latency on our hot path twelve-fold. One key today; the loop stays so a second
+    costs a line rather than a refactor.
     """
     out: set[str] = set()
-    for key in (ENGINE, BRANCH_COMPARE):
+    for key in (ENGINE,):
         if await peers.entitled(tenant, key):
             out.add(key)
     return out

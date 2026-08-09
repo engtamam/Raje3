@@ -97,7 +97,7 @@ def test_coverage_is_computed_for_the_optional_fields():
 
 
 # ── what he bought (spec §15) ──────────────────────────────────────────────────────────────────
-ENGINE, BRANCH = plans.ENGINE, plans.BRANCH_COMPARE
+ENGINE = plans.ENGINE
 
 
 def test_the_free_eleven_need_no_entitlement_at_all():
@@ -114,11 +114,12 @@ def test_the_engine_needs_its_key():
     assert plans.can_see("suggested_bundles", {ENGINE})
 
 
-def test_the_branch_table_is_a_separate_purchase():
-    """Two keys rather than one ladder: a chain may want branch comparison without the engine, and
-    a ladder cannot express that without inventing a plan between two others."""
-    assert plans.can_see("branch_comparison", {BRANCH})
-    assert not plans.can_see("branch_comparison", {ENGINE})
+def test_nothing_about_branches_is_sold_separately():
+    """It follows the branch count. And the unified balance needs no code at all — the balance is
+    keyed by tenant and branches share one — so charging for it would mean writing code to make the
+    product worse when unpaid."""
+    assert plans.is_free("branch_comparison")
+    assert plans.can_see("branch_comparison", set())
 
 
 def test_a_locked_indicator_is_absent_rather_than_empty():
@@ -155,7 +156,7 @@ def test_billing_is_asked_once_per_key_not_once_per_indicator():
 
     peer = Counting()
     run(plans.allowed_keys(peer, T))
-    assert sorted(peer.calls) == sorted({ENGINE, BRANCH})
+    assert peer.calls == [ENGINE]
 
 
 def test_the_teaser_uses_his_own_real_number():
