@@ -121,3 +121,57 @@ def test_one_tenants_catalogue_is_never_touched_by_another(store):
                   tenant="t2", service_store=store, new_id=new_id, now=NOW))
     assert run(store.by_external_id("t1", "P1")).name == "غيار الزيت"
     assert len(run(store.list("t2", active_only=False))) == 1
+
+
+# ── the integrated establishment ───────────────────────────────────────────────────────────────
+from app.core.sectors import SectorCatalogue
+
+
+def _cat(st):
+    return SectorCatalogue(st)
+
+
+SECTOR = {"key": "tyres", "name": "بنشري", "asset": "vehicle", "sort": 1,
+          "services": [{"name": "تبديل إطار", "cycle_days": 0, "sort": 1},
+                       {"name": "غيار زيت", "cycle_days": 90, "sort": 2},
+                       {"name": "خدمة أخرى", "cycle_days": 0, "sort": 99, "catchall": True}]}
+
+
+def test_a_manual_shop_gets_the_whole_sector_catalogue():
+    st = MemoryDataStore()
+    run(_cat(st).upsert(SECTOR))
+    n = run(_cat(st).seed_tenant(tenant="manual", sector_key="tyres"))
+    assert n == 3
+
+
+def test_an_integrated_shop_gets_only_the_catch_all():
+    """Seeding names its invoices never mention leaves an owner staring at services they cannot
+    tell apart from the real ones."""
+    st = MemoryDataStore()
+    run(_cat(st).upsert(SECTOR))
+    n = run(_cat(st).seed_tenant(tenant="wired", sector_key="tyres", integrated=True))
+    assert n == 1
+    services = run(ServiceStore(st).list("wired", active_only=False))
+    assert len(services) == 1 and services[0].catchall is True
+
+
+def test_the_catch_all_is_never_skipped_even_when_integrated():
+    """A line with no product id has to land somewhere; without it the first free item fails the
+    whole invoice."""
+    st = MemoryDataStore()
+    run(_cat(st).upsert(SECTOR))
+    run(_cat(st).seed_tenant(tenant="wired", sector_key="tyres", integrated=True))
+    assert run(ServiceStore(st).catchall("wired")) is not None
+
+
+def test_the_catalogue_is_a_copy_so_one_shop_never_edits_anothers():
+    """Without the copy, one tyre shop renaming a service renames it for every tyre shop."""
+    st = MemoryDataStore()
+    run(_cat(st).upsert(SECTOR))
+    store = ServiceStore(st)
+    for t in ("shopA", "shopB"):
+        run(_cat(st).seed_tenant(tenant=t, sector_key="tyres"))
+    svc = [s for s in run(store.list("shopA", active_only=False)) if s.name == "غيار زيت"][0]
+    svc.name = "تغيير الزيت"
+    run(store.save(svc))
+    assert any(s.name == "غيار زيت" for s in run(store.list("shopB", active_only=False)))

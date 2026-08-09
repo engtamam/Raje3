@@ -15,7 +15,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.config import Settings, get_settings
 from app.core.erasure import OperationsErasure
 from app.core.models import CUSTOMERS, VISITS
+from app.core import invoices as _invoices
 from app.core.partners import PartnerError, PartnerRegistry
+from app.core.stores import ServiceStore, new_id
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -117,6 +119,17 @@ class BatchVisitIn(BaseModel):
     # What the till called it, when the service is not in our catalogue. Preserved on the visit so
     # the owner can read it — and a name that keeps recurring is the signal to add it properly.
     custom_service: str = Field(default="", max_length=200)
+    # ── the POS path (spec §16.6.4) ────────────────────────────────────────────────────────────
+    # Invoice lines, as the till holds them. Present INSTEAD of service_ids for an integrated
+    # establishment: the caller does not know our service ids and must not have to.
+    #
+    # Permissive like everything else on this model — a malformed line becomes a free-text line
+    # rather than failing the item, because the till has already taken the customer's money.
+    lines: list[dict] = Field(default_factory=list, max_length=50)
+    # THEIR invoice number. The idempotency key is derived from it when present, because the till
+    # is the only party that knows whether two calls are the same sale — our own generated key
+    # would be new on every retry, which is exactly the doubling this prevents.
+    invoice_id: str = Field(default="", max_length=128)
     # REQUIRED here, unlike the interactive route. A batch is by definition a replay, and a replay
     # without a stable key is how one lost reply becomes two visits, two reminders and doubled
     # revenue. The device cannot know whether we saved the first attempt — only we can.
@@ -152,11 +165,38 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
     batch could in principle carry more than one — so it is per item rather than per request, and
     every item is scoped to its own.
     """
-    svc = request.app.state.container.operations
+    c = request.app.state.container
+    svc = c.operations
     results: list[dict] = []
     accepted = 0
 
     for item in body.visits:
+        # ── invoice lines become services BEFORE the visit is recorded ────────────────────────
+        # Resolved per item rather than per batch: two items may belong to different tenants, and
+        # a catalogue write scoped to the wrong one is the worst bug this endpoint could have.
+        extra_custom = ""
+        if item.lines:
+            try:
+                res = await _invoices.resolve(
+                    _invoices.parse_lines(item.lines), tenant=item.tenant,
+                    service_store=ServiceStore(c.datastore), new_id=new_id,
+                    now=int(time.time()))
+                item.service_ids = list(dict.fromkeys(list(item.service_ids) + res.service_ids))
+                # Free-text lines ride along as the custom label so the owner can read what was
+                # actually sold. Joined rather than dropped: a recurring label is the signal to
+                # offer it as a real service.
+                extra_custom = "، ".join(res.free_text[:5])
+            except Exception as exc:                                        # noqa: BLE001
+                # The visit still lands. A catalogue failure must never cost a recorded sale.
+                c.telemetry.event("invoice_resolve_failed", tenant=item.tenant,
+                                  error=str(exc)[:200])
+        if extra_custom and not item.custom_service:
+            item.custom_service = extra_custom
+        if item.invoice_id and not item.idempotency_key:
+            # Namespaced, so a till whose invoice numbers restart at 1 each day cannot collide with
+            # a key some other integration chose.
+            item.idempotency_key = f"inv:{item.tenant}:{item.invoice_id}"
+
         # The tenant is per item and must be present. Checked here rather than by the model, so a
         # single item missing it is REJECTED while the rest of the batch still lands.
         if not item.tenant or not item.idempotency_key:
@@ -214,6 +254,13 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
 class SeedTenantIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     sector: str = Field(min_length=1, max_length=64)
+    # The till will send this establishment's catalogue, so we seed only the catch-all. NOT a
+    # sixth sector: an integrated tyre shop is still a tyre shop with the same services and the
+    # same cycles, and duplicating every sector would double the table to express one flag.
+    integrated: bool = False
+    # Who brought it. Stamped here, at creation, so attribution exists before the first invoice —
+    # and stamped ONCE, so a later key cannot rewrite it (core/partners.py).
+    partner_key: str = Field(default="", max_length=128)
 
 
 @router.post("/operations/seed-tenant", dependencies=[Depends(require_internal_token)])
@@ -231,12 +278,25 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
     """
     sectors = request.app.state.container.sectors
     try:
-        created = await sectors.seed_tenant(tenant=body.tenant, sector_key=body.sector)
+        created = await sectors.seed_tenant(tenant=body.tenant, sector_key=body.sector,
+                                            integrated=body.integrated)
     except SectorError as exc:
         # 400 and the list of valid sectors: a caller that sent a typo can fix it from the
         # response, without reading our source.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    # ATTRIBUTION BEFORE THE FIRST INVOICE. Failing the whole provisioning because a partner key
+    # was mistyped would be worse than an unattributed shop, so a bad key is reported in the
+    # response rather than raised — the shop exists, and the stamp can be applied by hand.
+    stamp_error = ""
+    try:
+        await PartnerRegistry(request.app.state.container.datastore,
+                              salt=get_settings().PII_SALT).stamp(body.tenant,
+                                                                  key=body.partner_key)
+    except PartnerError as exc:
+        stamp_error = str(exc)
+
     return {"tenant": body.tenant, "sector": body.sector, "services_created": created,
+            "integrated": body.integrated, "stamp_error": stamp_error,
             "fields": await sectors.fields_for(body.sector),
             "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
 

@@ -154,11 +154,23 @@ class SectorCatalogue:
         return n
 
     # ── seeding a tenant's catalogue ──────────────────────────────────────────────────────────
-    async def seed_tenant(self, *, tenant: str, sector_key: str) -> int:
+    async def seed_tenant(self, *, tenant: str, sector_key: str,
+                          integrated: bool = False) -> int:
         """Give a new establishment its catalogue. Returns how many services were created.
 
         IDEMPOTENT BY NAME. Re-running adds nothing, so a retried provisioning step cannot produce
         a catalogue listing every service twice — a mess the owner cleans by hand, on day one.
+
+        THE COPY IS THE POINT (spec §16.6.4). These rows become the establishment's OWN services,
+        editable by it and by nobody else. Without the copy, one tyre shop renaming "بنشر" would
+        rename it for every tyre shop on the product — which is why there is no such thing as a
+        shared catalogue here, and why auto-creating services from invoices is safe at all.
+
+        `integrated` — the establishment's till will send its catalogue. Seeding names it does not
+        use would leave an owner staring at a grid of services their invoices never mention, unable
+        to tell which are real. So an integrated shop starts EMPTY except for the catch-all, which
+        is not optional: a line with no product id has to land somewhere, and without it the first
+        free item would fail the whole invoice.
         """
         sector = await self.get(sector_key)
         if sector is None or not sector.get("active", True):
@@ -172,6 +184,9 @@ class SectorCatalogue:
         for entry in sector.get("services", []):
             name = (entry.get("name") or "").strip()
             if not name or name in existing:
+                continue
+            # An integrated shop takes the catch-all and nothing else — see the docstring.
+            if integrated and not entry.get("catchall", False):
                 continue
             await svc_store.save(Service(
                 id=new_id("srv"), tenant=tenant, name=name,
