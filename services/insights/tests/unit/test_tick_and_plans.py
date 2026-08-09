@@ -96,36 +96,72 @@ def test_coverage_is_computed_for_the_optional_fields():
     assert snap.coverage["branch_comparison"]["unknown"] == 6
 
 
-# ── the plan gate ──────────────────────────────────────────────────────────────────────────────
-def test_the_free_eleven_belong_to_the_entry_plan():
-    """Gating them would gate the reason to stay."""
-    assert plans.can_see("smart", "return_rate")
-    assert plans.can_see("smart", "at_risk")
+# ── what he bought (spec §15) ──────────────────────────────────────────────────────────────────
+ENGINE, BRANCH = plans.ENGINE, plans.BRANCH_COMPARE
 
 
-def test_the_engine_is_above_it():
-    assert not plans.can_see("smart", "associations")
-    assert plans.can_see("pro", "associations")
-    assert plans.can_see("chain", "suggested_bundles")
+def test_the_free_eleven_need_no_entitlement_at_all():
+    """Gating them would gate the reason to stay — a shop that never sees its own return rate has
+    no argument for the next invoice."""
+    for name in ("return_rate", "at_risk", "churn_rate", "cycle_completion"):
+        assert plans.is_free(name)
+        assert plans.can_see(name, set())
 
 
-def test_an_unknown_plan_is_treated_as_the_lowest_never_the_highest():
-    """A typo in a plan name must not open the paid surface to everyone."""
-    assert plans.rank("premiumm") == 0
-    assert not plans.can_see("premiumm", "return_rate")
+def test_the_engine_needs_its_key():
+    assert not plans.can_see("associations", set())
+    assert plans.can_see("associations", {ENGINE})
+    assert plans.can_see("suggested_bundles", {ENGINE})
+
+
+def test_the_branch_table_is_a_separate_purchase():
+    """Two keys rather than one ladder: a chain may want branch comparison without the engine, and
+    a ladder cannot express that without inventing a plan between two others."""
+    assert plans.can_see("branch_comparison", {BRANCH})
+    assert not plans.can_see("branch_comparison", {ENGINE})
 
 
 def test_a_locked_indicator_is_absent_rather_than_empty():
     """A key present with a null value is a section the console renders blank, and a blank section
     reads as a broken feature rather than one he has not bought."""
-    got = plans.filter_snapshot({"return_rate": 0.4, "associations": {"pairs": []}}, "smart")
-    assert "associations" not in got
+    got = plans.filter_snapshot({"return_rate": 0.4, "associations": {"pairs": []}}, set())
+    assert "associations" not in got and "return_rate" in got
+
+
+def test_an_unreachable_billing_denies_rather_than_grants():
+    """FAIL CLOSED. Showing a paid surface to somebody who has not bought it cannot be taken
+    back; a refusal during an outage is a minute that fixes itself."""
+    class Down:
+        async def entitled(self, tenant, key):
+            raise RuntimeError("billing unreachable")
+
+    class Denies(Down):
+        async def entitled(self, tenant, key):
+            return False
+
+    assert run(plans.allowed_keys(Denies(), T)) == set()
+
+
+def test_billing_is_asked_once_per_key_not_once_per_indicator():
+    """Three indicators hang off the engine; asking billing three times would put its latency on
+    our hot path threefold."""
+    class Counting:
+        def __init__(self):
+            self.calls = []
+
+        async def entitled(self, tenant, key):
+            self.calls.append(key)
+            return True
+
+    peer = Counting()
+    run(plans.allowed_keys(peer, T))
+    assert sorted(peer.calls) == sorted({ENGINE, BRANCH})
 
 
 def test_the_teaser_uses_his_own_real_number():
     pairs = [Pair(tenant=T, a="oil", b="filter", verdict="real", customers=340),
              Pair(tenant=T, a="wash", b="wax", verdict="temporal", customers=20)]
-    t = plans.teaser("smart", pairs)
+    t = plans.teaser(set(), pairs)
     assert t["count"] == 2 and t["largest_customers"] == 340
     # AND IT NEVER LEAKS THE PAIR — a teaser that names it has given away what it is selling.
     assert "oil" not in t["message"] and "filter" not in t["message"]
@@ -133,14 +169,14 @@ def test_the_teaser_uses_his_own_real_number():
 
 def test_no_teaser_when_there_is_nothing_behind_it():
     """A teaser shown to a shop with no relationships is an advertisement, and one that is a lie."""
-    assert plans.teaser("smart", []) is None
-    assert plans.teaser("smart", [Pair(tenant=T, a="a", b="b", verdict="group",
-                                       customers=99)]) is None
+    assert plans.teaser(set(), []) is None
+    assert plans.teaser(set(), [Pair(tenant=T, a="a", b="b", verdict="group",
+                                     customers=99)]) is None
 
 
 def test_no_teaser_for_somebody_who_already_bought_it():
     pairs = [Pair(tenant=T, a="oil", b="filter", verdict="real", customers=340)]
-    assert plans.teaser("pro", pairs) is None
+    assert plans.teaser({ENGINE}, pairs) is None
 
 
 # ── the bundles page ───────────────────────────────────────────────────────────────────────────

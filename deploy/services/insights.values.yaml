@@ -68,6 +68,11 @@ env:
   # THE ONLY THING THIS SERVICE SENDS — the weekly digest, through the same gate as everything
   # else. There is no notification client here and no channel configuration.
   REMINDERS_SEND_PATH: "/internal/reminders/send"
+  # THE PLAN IS NOT ON THE TOKEN. Every locked surface asks billing per request, and an
+  # unreachable billing DENIES — showing a paid feature to somebody who has not bought it cannot
+  # be taken back, while a refusal during an outage fixes itself.
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_ENTITLEMENT_PATH: "/internal/billing/entitlements/check"
   PEER_TIMEOUT_SECONDS: "8"
 
   # ── the sweep ─────────────────────────────────────────────────────────────────────────────

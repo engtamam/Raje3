@@ -36,9 +36,13 @@ class NullPeers:
     driver = "null"
 
     def __init__(self, visits: list[dict] | None = None,
-                 catalogue: list[dict] | None = None) -> None:
+                 catalogue: list[dict] | None = None,
+                 entitlements: set[str] | None = None) -> None:
         self._visits = visits or []
         self._catalogue = catalogue or []
+        # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
+        # every check must be correct about.
+        self.entitlements: set[str] = set(entitlements or set())
         self.sent: list[dict] = []
 
     async def visits(self, tenant: str, *, since: int = 0, limit: int = 5000) -> list[dict]:
@@ -54,15 +58,20 @@ class NullPeers:
         self.sent.append(kw)
         return {"sent": True}
 
+    async def entitled(self, tenant: str, key: str) -> bool:
+        return key in self.entitlements
+
 
 class HttpPeers:
     driver = "http"
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
-                 reminders_url: str, send_path: str, token: str, timeout: int = 8) -> None:
+                 reminders_url: str, send_path: str, billing_url: str, entitlement_path: str,
+                 token: str, timeout: int = 8) -> None:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
         self._send_url = reminders_url.rstrip("/") + send_path
+        self._entitlement_url = billing_url.rstrip("/") + entitlement_path
         self._token = token
         self._timeout = timeout
 
@@ -119,6 +128,30 @@ class HttpPeers:
             return {"sent": False, "reason": f"تعذّر الوصول لخدمة التذكيرات: {exc}"}
 
 
+    async def entitled(self, tenant: str, key: str) -> bool:
+        """Does this establishment's SUBSCRIPTION include this feature?
+
+        THE PLAN IS NOT ON THE TOKEN, and reading it from there was the mistake this replaces.
+        Two things were wrong with it, and billing-service's own code warns about the first:
+
+          a claim the caller presents is a server-side decision enforced client-side (CWE-602),
+          and a token minted before an upgrade keeps saying `smart` for its whole lifetime — so a
+          shop that just paid is refused for an hour with no error anywhere to explain it.
+
+        FAILS CLOSED, and that is the harder half. If billing is unreachable we deny: showing a
+        paid surface to somebody who has not bought it is a leak we cannot take back, while a
+        refusal during an outage is a minute of inconvenience that fixes itself. The refusal says
+        WHY, so it is not mistaken for "you did not buy this".
+        """
+        url = self._entitlement_url + "?" + urllib.parse.urlencode({"tenant": tenant, "key": key})
+        req = urllib.request.Request(url, headers={"X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                return bool(json.loads(resp.read() or b"{}").get("allowed"))
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return False
+
+
 def build_peers(settings) -> Any:
     if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
         return NullPeers()
@@ -127,5 +160,7 @@ def build_peers(settings) -> Any:
                      catalogue_path=settings.OPERATIONS_CATALOGUE_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
+                     billing_url=settings.BILLING_SERVICE_URL,
+                     entitlement_path=settings.BILLING_ENTITLEMENT_PATH,
                      token=settings.INTERNAL_SERVICE_TOKEN,
                      timeout=settings.PEER_TIMEOUT_SECONDS)

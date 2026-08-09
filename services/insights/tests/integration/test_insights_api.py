@@ -30,12 +30,19 @@ def _make_app() -> TestClient:
     return TestClient(create_app(), raise_server_exceptions=False)
 
 
-def _auth(*caps: str, tenant: str = TENANT, plan: str = "smart") -> dict:
+def _auth(*caps: str, tenant: str = TENANT) -> dict:
+    """NO PLAN CLAIM. What an establishment bought is asked of billing per request, never carried
+    on a token the caller presents (core/plans.py)."""
     now = dt.datetime.now(dt.timezone.utc)
     tok = jwt.encode({"sub": "owner-1", "iss": ISS, "aud": AUD, "caps": list(caps),
-                      "tenant": tenant, "plan": plan,
+                      "tenant": tenant,
                       "exp": now + dt.timedelta(minutes=5), "iat": now}, SECRET, algorithm="HS256")
     return {"Authorization": f"Bearer {tok}"}
+
+
+def _bought(client, *keys: str):
+    """What this establishment's subscription grants, as billing would answer."""
+    client.app.state.container.peers.entitlements = set(keys)
 
 
 @pytest.fixture(scope="module")
@@ -54,13 +61,17 @@ def client(env_guard) -> TestClient:
 
 
 @pytest.fixture
-def owner() -> dict:
+def owner(client) -> dict:
+    _bought(client)          # bought nothing beyond the entry plan
     return _auth("insights.read")
 
 
 @pytest.fixture
-def pro() -> dict:
-    return _auth("insights.read", plan="pro")
+def pro(client) -> dict:
+    """The same token as anybody else — the difference is what BILLING says, not what he carries."""
+    from app.core import plans
+    _bought(client, plans.ENGINE, plans.BRANCH_COMPARE)
+    return _auth("insights.read")
 
 
 def _seed(client, rows, catalogue=None):
@@ -108,14 +119,40 @@ def test_the_entry_plan_sees_the_free_eleven(client, owner):
 
 def test_the_entry_plan_does_not_see_the_engine_and_the_key_is_absent(client, owner):
     _seed(client, visits(20))
-    values = client.get("/api/v1/insights/dashboard", headers=owner).json()["values"]
-    assert "associations" not in values and "missed_opportunities" not in values
+    got = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert "associations" not in got["values"] and "missed_opportunities" not in got["values"]
+    # The console renders a lock from the ABSENCE of a key, not from a plan name whose ladder it
+    # would otherwise have to know.
+    assert got["entitlements"] == []
+
+
+def test_paying_takes_effect_without_reissuing_the_token(client, owner):
+    """THE BUG THIS DESIGN REPLACES. A plan carried on a token keeps saying what it said, so a
+    shop that pays at 10am is refused what it just bought until its session is reissued — with no
+    error anywhere, and support cannot reproduce it because their token is new."""
+    _seed(client, visits(20))
+    same_token = owner
+    assert client.get("/api/v1/insights/associations", headers=same_token).status_code == 402
+    from app.core import plans
+    _bought(client, plans.ENGINE)
+    assert client.get("/api/v1/insights/associations", headers=same_token).status_code == 200
 
 
 def test_a_higher_plan_sees_it(client, pro):
     _seed(client, visits(20))
     values = client.get("/api/v1/insights/dashboard", headers=pro).json()["values"]
     assert "associations" in values
+
+
+def test_the_branch_table_is_its_own_key(client):
+    """A chain may want branch comparison without the engine — a ladder cannot express that
+    without inventing a plan between two others."""
+    from app.core import plans
+    _seed(client, visits(20))
+    _bought(client, plans.BRANCH_COMPARE)
+    tok = _auth("insights.read")
+    assert client.get("/api/v1/insights/branches", headers=tok).status_code == 200
+    assert client.get("/api/v1/insights/associations", headers=tok).status_code == 402
 
 
 def test_a_token_with_no_establishment_is_refused(client):

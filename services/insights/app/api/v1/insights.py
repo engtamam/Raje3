@@ -49,20 +49,13 @@ def _tenant(principal: Principal) -> str:
     return t
 
 
-def _tier(principal: Principal) -> str:
-    """The plan, from the token's CLAIMS.
+# THE PLAN IS NOT ON THE TOKEN — see core/plans.py. It is asked of billing, per request, and a
+# failure to reach billing denies. `_keys` is the one place that asks.
+async def _keys(c, tenant: str) -> set[str]:
+    return await plans.allowed_keys(c.peers, tenant)
 
-    Read off `principal.raw` and not off the object: `Principal` carries subject, caps and tenant
-    as fields and everything else in `raw`. `getattr(principal, "plan")` returns nothing, silently,
-    and every caller then falls through to the default — which meant a paying establishment was
-    served the entry-plan surface with no error anywhere. Found by a route test; the unit tests of
-    `plans.py` all passed, because the bug was in reading the claim rather than in judging it.
 
-    AND THE DEFAULT IS NEVER UPWARD. An absent claim is the entry plan, so a token minted before
-    plans existed shows the free surface rather than the paid one.
-    """
-    claims = getattr(principal, "raw", None) or {}
-    return str(claims.get("plan") or claims.get("tier") or "smart")
+LOCKED = "هذه الميزة في باقة أعلى"
 
 
 async def _snapshot(c, tenant: str, branch_id: str = "") -> dict | None:
@@ -79,7 +72,7 @@ async def dashboard(request: Request, branch_id: str = "",
     """
     c = request.app.state.container
     tenant = _tenant(principal)
-    tier = _tier(principal)
+    keys = await _keys(c, tenant)
     snap = await _snapshot(c, tenant, branch_id)
 
     if not snap:
@@ -90,13 +83,13 @@ async def dashboard(request: Request, branch_id: str = "",
 
     now = int(time.time())
     age_hours = (now - int(snap.get("computed_at") or 0)) // 3600
-    values = plans.filter_snapshot(snap.get("values") or {}, tier)
+    values = plans.filter_snapshot(snap.get("values") or {}, keys)
 
     # The pairs are a paid surface, and the teaser is the ONE deliberate exception to "what a plan
     # does not include is not rendered at all".
     pairs = [_as_pair(r) for r in (snap.get("values", {}).get("associations", {}) or {})
              .get("pairs", [])]
-    teaser = plans.teaser(tier, pairs)
+    teaser = plans.teaser(keys, pairs)
 
     cov = snap.get("coverage") or {}
     not_enabled = []
@@ -107,7 +100,7 @@ async def dashboard(request: Request, branch_id: str = "",
             not_enabled.append({"indicator": name, **b})
     assoc = (snap.get("values") or {}).get("associations") or {}
     b = blocked("associations", learning=assoc)
-    if b and not plans.can_see(tier, "associations"):
+    if b and not plans.can_see("associations", keys):
         pass          # a locked surface is not "not enabled" — it is not bought. Two different
                       # sentences, and mixing them tells the owner to fix something he cannot.
     elif b:
@@ -126,7 +119,9 @@ async def dashboard(request: Request, branch_id: str = "",
         "visits": snap.get("visits", 0),
         "not_enabled": not_enabled,
         "teaser": teaser,
-        "tier": tier,
+        # WHAT HE HOLDS, not what plan he is on. The console renders a lock from the absence of a
+        # key rather than from a plan name it would otherwise have to know the ladder of.
+        "entitlements": sorted(keys),
     }
 
 
@@ -148,9 +143,9 @@ async def associations(request: Request, principal: Principal = Depends(_READ)):
     this service: the engine is the product's own IP (core/associations.py).
     """
     c = request.app.state.container
-    tenant, tier = _tenant(principal), _tier(principal)
-    if not plans.can_see(tier, "associations"):
-        return _refuse("هذه الميزة في باقة أعلى", status.HTTP_402_PAYMENT_REQUIRED)
+    tenant = _tenant(principal)
+    if not plans.can_see("associations", await _keys(c, tenant)):
+        return _refuse(LOCKED, status.HTTP_402_PAYMENT_REQUIRED)
     snap = await _snapshot(c, tenant)
     assoc = ((snap or {}).get("values") or {}).get("associations") or {}
     if assoc.get("learning"):
@@ -166,9 +161,9 @@ async def associations(request: Request, principal: Principal = Depends(_READ)):
 async def suggested_bundles(request: Request, principal: Principal = Depends(_READ)):
     """The suggested-bundles page (spec §10.6.2.1) — where, never how much."""
     c = request.app.state.container
-    tenant, tier = _tenant(principal), _tier(principal)
-    if not plans.can_see(tier, "suggested_bundles"):
-        return _refuse("هذه الميزة في باقة أعلى", status.HTTP_402_PAYMENT_REQUIRED)
+    tenant = _tenant(principal)
+    if not plans.can_see("suggested_bundles", await _keys(c, tenant)):
+        return _refuse(LOCKED, status.HTTP_402_PAYMENT_REQUIRED)
     snap = await _snapshot(c, tenant)
     values = (snap or {}).get("values") or {}
     pairs = [_as_pair(r) for r in (values.get("associations") or {}).get("pairs", [])]
@@ -185,9 +180,9 @@ async def suggested_bundles(request: Request, principal: Principal = Depends(_RE
 async def branches(request: Request, principal: Principal = Depends(_READ)):
     """The branch table, with its unspecified row and its ranking rule (spec §10.6.3)."""
     c = request.app.state.container
-    tenant, tier = _tenant(principal), _tier(principal)
-    if not plans.can_see(tier, "branch_comparison"):
-        return _refuse("هذه الميزة في باقة أعلى", status.HTTP_402_PAYMENT_REQUIRED)
+    tenant = _tenant(principal)
+    if not plans.can_see("branch_comparison", await _keys(c, tenant)):
+        return _refuse(LOCKED, status.HTTP_402_PAYMENT_REQUIRED)
     snap = await _snapshot(c, tenant)
     cov = ((snap or {}).get("coverage") or {}).get("branch_comparison") or {}
     return {"coverage": cov,

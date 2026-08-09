@@ -253,6 +253,12 @@ class Settings(BaseSettings):
     REMINDERS_SERVICE_URL: str = ""
     # THE ONLY WAY THIS SERVICE SENDS ANYTHING — the weekly digest and nothing else.
     REMINDERS_SEND_PATH: str = "/internal/reminders/send"
+    BILLING_SERVICE_URL: str = ""
+    # THEIRS. "May this establishment do <key>?" — advisory by their own documentation, which is
+    # exactly right here: nothing on this dashboard is a counter to burn, only a surface to show
+    # or withhold. The ENFORCING call (/internal/billing/usage/consume) belongs where a unit is
+    # actually spent, which in this product is a message, not a chart.
+    BILLING_ENTITLEMENT_PATH: str = "/internal/billing/entitlements/check"
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── the sweep ─────────────────────────────────────────────────────────────
@@ -370,7 +376,11 @@ class Settings(BaseSettings):
                 "PEERS_DRIVER=null in production: every indicator would compute over an empty "
                 "list and render zeros, which an owner reads as his shop being dead. Set it to "
                 "'http' with OPERATIONS_SERVICE_URL and REMINDERS_SERVICE_URL.")
-        missing = [n for n in ("OPERATIONS_SERVICE_URL", "REMINDERS_SERVICE_URL")
+        missing = [n for n in ("OPERATIONS_SERVICE_URL", "REMINDERS_SERVICE_URL",
+                               # Without it every entitlement check fails closed, so every paying
+                               # establishment is refused the surface it bought — quietly, and
+                               # identically to a shop that never paid.
+                               "BILLING_SERVICE_URL")
                    if not getattr(self, n)]
         if self.PEERS_DRIVER == "http" and missing:
             raise ValueError(f"PEERS_DRIVER=http but {', '.join(missing)} empty.")

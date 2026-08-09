@@ -1,79 +1,90 @@
-"""Which indicators belong to which plan, and the teaser that is true (spec §15, §10.6.2).
+"""What an establishment has BOUGHT — asked of billing, never read off a token.
 
-THE SPLIT IS NOT BY DIFFICULTY. The eleven free indicators are the reason an owner sees value in
-this product at all — gating them would gate the reason to stay, and a shop that never sees its
-own return rate has no argument for the next invoice. So they belong to the entry plan and the
-ADVANCED SURFACE — the association engine, missed opportunities, suggested bundles, branch
-comparison — belongs above it.
+THE MISTAKE THIS FILE REPLACES. The first version ranked a `plan` claim carried on the caller's own
+token. Two things were wrong with it:
 
-THE TEASER, AND WHY IT IS HONEST.
+  it is a server-side decision enforced client-side (CWE-602) — billing-service's own code carries
+  the same warning about the same shape,
 
-    "وجدنا 4 ترابطات في محلك، وأكبرها يشمل 340 عميلاً. رقّ باقتك لتراها."
+  and a token minted before an upgrade keeps saying what it said. A shop that pays at 10am is
+  refused the thing it just bought until its session is reissued, with no error anywhere to explain
+  why, and support cannot reproduce it because their token is new.
 
-The count is computed from HIS OWN data. That is what makes it sell harder than any general
-promise, and it is also what obliges two rules:
+SO THERE IS NO TIER LADDER HERE AT ALL. No ordering of plan names, no `rank()`, nothing that has to
+be edited when a plan is added between two others. A surface is open or it is not, and billing
+answers — which also means our own pricing page can change without a deploy of this service.
 
-  it appears ONLY when something is genuinely behind it — a teaser shown to a shop with no
-  relationships found is an advertisement, and one that is also a lie,
+THE KEYS ARE OURS AND THE ENGINE IS THEIRS. billing-service knows nothing about what
+`feature.insights.engine` means; it knows a plan's `limits` dict granted it. That is what lets the
+same platform code price any product, and what lets us re-price without touching it.
 
-  it never leaks the content — the count and the size, never which pair. A teaser that names the
-  pair has already given away the thing it is selling.
-
-AND THE PANEL IS A MAP, NEVER THE AUTHORITY. Everything here decides what is SHOWN. Every route
-re-checks the plan on every call, because a client that stops asking is a client that sees
-everything.
+FAIL CLOSED, ALWAYS. An unreachable billing answers "no". Showing a paid surface to somebody who
+has not bought it cannot be taken back; refusing during an outage is a minute that fixes itself.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from app.core.models import FREE_INDICATORS, PAID_INDICATORS
+# ── the entitlement keys this service asks about ───────────────────────────────────────────────
+# Named here, in one place, so the routes and the dashboard filter cannot disagree about which
+# string to ask for — a typo'd key fails closed and looks exactly like "not bought".
+ENGINE = "feature.insights.engine"          # the association engine and everything built on it
+BRANCH_COMPARE = "feature.branch_compare"   # the branch workspace and the branch table
 
-# Ordered, so "at or above" is a comparison rather than a set membership test that forgets a tier
-# the day one is added between two others.
-TIERS = ("basic", "smart", "pro", "chain")
-
-# What each tier ADDS. Loyalty appears from `smart` because the programme itself does (spec §15).
-TIER_INDICATORS: dict[str, tuple[str, ...]] = {
-    "basic": (),
-    "smart": FREE_INDICATORS,
-    "pro": PAID_INDICATORS,
-    # A chain adds nothing new here — branch comparison is already in `pro`. What it adds is that
-    # the branch switch has more than one branch to switch between (spec §10.6.4).
-    "chain": (),
+# indicator name -> the key that unlocks it. An indicator ABSENT from this map needs no
+# entitlement: the eleven free ones are the reason an owner sees value at all, and gating them
+# would gate the reason to stay.
+REQUIRES: dict[str, str] = {
+    "associations": ENGINE,
+    "missed_opportunities": ENGINE,
+    "suggested_bundles": ENGINE,
+    "branch_comparison": BRANCH_COMPARE,
 }
 
 
-def rank(tier: str) -> int:
-    try:
-        return TIERS.index((tier or "basic").lower())
-    except ValueError:
-        # An unknown tier is treated as the LOWEST, never the highest. A typo in a plan name must
-        # not open the paid surface to everyone — it must be visible as something missing.
-        return 0
+def is_free(indicator: str) -> bool:
+    return indicator not in REQUIRES
 
 
-def allowed(tier: str) -> set[str]:
-    r = rank(tier)
+async def allowed_keys(peers: Any, tenant: str) -> set[str]:
+    """Which of OUR keys this establishment holds, asked once per request.
+
+    Once, not per indicator: the dashboard filters a dozen values and asking billing a dozen times
+    would put its latency on our hot path twelve-fold. Two distinct questions, one round trip each.
+    """
     out: set[str] = set()
-    for i, t in enumerate(TIERS):
-        if i <= r:
-            out |= set(TIER_INDICATORS.get(t, ()))
+    for key in (ENGINE, BRANCH_COMPARE):
+        if await peers.entitled(tenant, key):
+            out.add(key)
     return out
 
 
-def can_see(tier: str, indicator: str) -> bool:
-    return indicator in allowed(tier)
+def can_see(indicator: str, keys: set[str]) -> bool:
+    needed = REQUIRES.get(indicator)
+    return needed is None or needed in keys
 
 
-def teaser(tier: str, pairs: list[Any]) -> dict[str, Any] | None:
+def filter_snapshot(values: dict[str, Any], keys: set[str]) -> dict[str, Any]:
+    """What this establishment may actually see.
+
+    ABSENT, NOT EMPTY (spec §8.6.1). A key present with a null value is a section the console
+    renders blank, and a blank section reads as a broken feature rather than one he has not bought.
+    """
+    return {k: v for k, v in (values or {}).items() if can_see(k, keys)}
+
+
+def teaser(keys: set[str], pairs: list[Any]) -> dict[str, Any] | None:
     """The one deliberate exception to "what a plan does not include is not rendered" (§8.6.1).
 
-    Returns None — meaning render NOTHING — when the plan already includes the pairs, or when
-    there is nothing real to tease. Both silences matter: the first would be a sales pitch to
+    Returns None — meaning render NOTHING — when the establishment already holds the engine, or
+    when there is nothing real to tease. Both silences matter: the first would be a sales pitch to
     somebody who already bought, and the second would be a claim we cannot back.
+
+    THE COUNT IS COMPUTED FROM HIS OWN DATA, which is what makes it sell harder than any general
+    promise — and what obliges the second rule above. It never names the pair: a teaser that gives
+    away the thing it is selling is not a teaser.
     """
-    if can_see(tier, "associations"):
+    if ENGINE in keys:
         return None
     real = [p for p in pairs if getattr(p, "verdict", "") in ("real", "temporal")]
     if not real:
@@ -84,17 +95,7 @@ def teaser(tier: str, pairs: list[Any]) -> dict[str, Any] | None:
     return {
         "count": len(real),
         "largest_customers": biggest.customers,
-        # NOT the pair. See the module docstring.
         "message": f"وجدنا {len(real)} ترابطات في محلك، "
                    f"وأكبرها يشمل {biggest.customers} عميلاً.",
-        "upgrade_to": "pro",
+        "unlocks": ENGINE,
     }
-
-
-def filter_snapshot(values: dict[str, Any], tier: str) -> dict[str, Any]:
-    """What this plan may actually see.
-
-    ABSENT, NOT EMPTY (spec §8.6.1). A key present with a null value is a section the console
-    renders blank, and a blank section reads as a broken feature rather than one he has not bought.
-    """
-    return {k: v for k, v in (values or {}).items() if can_see(tier, k)}

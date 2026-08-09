@@ -36,21 +36,6 @@ SEQUENCES = "insight_sequences"
 PAIRS = "insight_pairs"
 SUBSCRIPTIONS = "insight_digest_subs"
 
-# The eleven that need nothing but a visit (spec §10.6.1). Named here so the tick, the panel and
-# the tier gate all read one list rather than three that drift.
-FREE_INDICATORS = (
-    "return_rate", "return_cycle_days", "churn_rate", "active_customers",
-    "new_vs_returning", "service_popularity", "service_co_occurrence",
-    "peak_map", "expected_flow", "services_per_visit", "at_risk", "cycle_completion",
-)
-
-# Everything behind the higher plan (spec §15). The split is not by difficulty but by what makes an
-# owner see value at all: the free ones are the reason to stay, so gating them gates the reason.
-PAID_INDICATORS = (
-    "associations", "missed_opportunities", "suggested_bundles", "branch_comparison",
-)
-
-
 def _now() -> int:
     return int(time.time())
 
