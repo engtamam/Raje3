@@ -9,7 +9,7 @@ service:
   port: 8000
 
 image:
-  repository: ghcr.io/base-services/loyalty
+  repository: docker.io/raje3/loyalty
   digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"   # CI rewrites this at publish; never a :latest tag
 
 replicas: 1
@@ -42,13 +42,73 @@ networkPolicy:
     internet: false
 
 metrics:
-  serviceMonitor: true
+  # Off until the Prometheus Operator is running — a ServiceMonitor is a CRD it owns, and
+  # without it helm cannot render at all. /metrics is still served by every pod.
+  serviceMonitor: false
 
 # From config/product.json — regenerate with scripts/gen_deploy_values.py.
 # Do not hand-edit: `identifiers` are frozen and guarded by safety:product.
 env:
-  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── the peers ─────────────────────────────────────────────────────────────────────────────
+  # `null` deducts points and tells nobody: every probe green, the ledger impeccable, and an
+  # operator spending a customer's balance never caught — because the receipt IS the audit
+  # (spec §9.6). The boot guard refuses it in production.
+  PEERS_DRIVER: "http"
+  REMINDERS_SERVICE_URL: "http://reminders:8000"
+  # THE ONLY WAY THIS SERVICE SENDS ANYTHING. No WhatsApp client here and no channel config:
+  # reminders owns the gate and the send. The receipt's exemption from the quiet hours is a
+  # property the gate knows about `per_account_notice`, not a bypass we implement.
+  REMINDERS_SEND_PATH: "/internal/reminders/send"
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  # A free service bought with points must be recorded as a real visit, or the customer is
+  # reminded to come in for the wash he just received. By PSEUDONYM: this service holds no phone.
+  OPERATIONS_VISIT_PATH: "/internal/operations/visits/by-ref"
+  OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_LOOKUP_PATH: "/internal/tenants/{id}"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  # ── the programme's defaults ──────────────────────────────────────────────────────────────
+  # What a shop that has configured nothing gets. Not zero: a first visit awarding nothing is a
+  # programme the owner concludes is broken before he has touched a setting.
+  DEFAULT_POINTS_PER_VISIT: "10"
+  # EXPIRY IS ON (spec §9.7). Twelve months from the LAST MOVEMENT, warned two weeks ahead — so
+  # the active customer never loses anything and the one who lapses is warned before he does.
+  # Zero would switch it off, and it is deliberately not zero: a balance that never dies is an
+  # obligation with no end, whose size the owner discovers far too late.
+  EXPIRY_DAYS: "365"
+  EXPIRY_WARN_DAYS: "14"
+  # Balances per tick. Bounded so a large tenant cannot turn one cron run into a request that
+  # times out and retries from the beginning forever.
+  EXPIRY_SWEEP_LIMIT: "500"
+
   AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # FAIL-CLOSED. A redemption spends something the customer owns, performed by an employee with
+  # the customer standing there. When a balance is disputed months later, this log and the
+  # customer's own receipt are the only two records — and an unattributable spend cannot be
+  # defended at all.
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# THE HEARTBEAT. Without it this service is inert and looks perfectly healthy: balances
+# accumulate, every probe passes, nothing ever expires, and no customer is ever warned — until an
+# owner discovers an obligation years old that he believed had a twelve-month life.
+#
+# DAILY, not every fifteen minutes. Expiry is measured in days and the warning window is two
+# weeks wide, so a sweep that runs at 03:10 rather than 03:00 is invisible to everyone — while
+# ninety-six passes a day over every balance in the product is not.
+cronJobs:
+  - name: tick
+    schedule: "10 3 * * *"
+    path: /internal/loyalty/tick
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:

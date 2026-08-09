@@ -625,6 +625,67 @@ A restart changes nothing about what is deployed. Only re-applying the chart wit
 does — which on a loaded node is exactly the operation that keeps timing out, which is why the
 temptation to reach for restart appears in the first place.
 
+### 4.25 A refusal the user is never told
+
+Every service in this product writes careful, actionable refusals — "the reward name is longer than
+40 characters", "invoice earning needs a till" — raises them as `HTTPException(400, message)`, and
+none of them has ever reached a user. The platform's error handler strips `detail` from every
+exception by design (CWE-209: information exposure through error messages), so what arrives is
+`{"error": "BAD_REQUEST"}`.
+
+That default is right. A stack trace, an ORM message or a reflected input must never leave the
+process. But an author-written sentence naming a RULE is none of those, and the handler cannot tell
+the difference — so the careful message is discarded along with the dangerous one.
+
+**Both layers read correctly in isolation**, which is why this survived three services. The route
+says "400 with the owner's sentence"; the handler says "never leak detail". Only a test that reads
+`response.text` and asserts the sentence is in it finds the gap, and a test that asserts on the
+status code alone passes forever.
+
+The fix is not to weaken the handler. It is to RETURN the refusal rather than raise it:
+
+```python
+return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=400)
+```
+
+with one rule attached: `reason` must stay author-written text. The moment it interpolates caller
+input it becomes a reflection, and the handler was right after all.
+
+### 4.26 A materialised total, and the crash between two writes
+
+Anything kept alongside the record it summarises — a running balance, a counter, a cached
+aggregate — can drift from it, and the drift is invisible because the wrong number stays entirely
+plausible. `loyalty` writes the ledger entry first and the total second, so a crash between them
+leaves a movement the total has not caught up with; the other order loses the entry and leaves a
+total nobody can explain.
+
+Three things make that survivable, and all three are cheap only if they are designed in:
+
+- the ledger is the truth and the total is explicitly a **read** of it,
+- each entry carries the balance it produced, so drift is **locatable** and not merely detectable,
+- a `reconcile` exists and is exposed on a platform-capability route, because "where did my points
+  go?" is a support question about a shop that is not the caller's.
+
+### 4.27 An out-of-order event that moves a clock backwards
+
+Events carry their own timestamp, and a queue drained after an outage delivers old ones late. Any
+field written as `field = event.time` will therefore move BACKWARDS when a stale event lands — and
+if that field drives an expiry, a retention window or a schedule, the stale event silently ages a
+record that was current. `max(field, event.time)` is one word longer and is almost always what was
+meant.
+
+Found by a test that ran the sweep twice with a stale visit in between. Nothing in the read path
+would ever have shown it.
+
+### 4.28 A counter that counts intended work rather than done work
+
+The expiry sweep incremented `expired` next to the call that expired a balance, not based on
+whether the call did anything. When the movement was refused as a duplicate, the tick still
+reported the work. That is the quietest wrong number there is, because it is exactly the number an
+operator reads to decide the sweep is healthy.
+
+If a function can legitimately return "already done", the caller must count its RESULT.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced

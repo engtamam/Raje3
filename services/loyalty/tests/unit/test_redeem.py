@@ -205,3 +205,44 @@ def test_nothing_to_say_when_every_reward_is_affordable():
     assert to_next_reward(500, [50, 200]) == 0
     assert to_next_reward(100, []) == 0
     assert to_next_reward(100, [50, 250, 900]) == 150
+
+
+# ── who benefits, and where the programme is invisible (spec §9.9, §9.10) ──────────────────────
+def test_a_customer_who_stopped_marketing_earns_and_redeems_like_anyone():
+    """The points are his. What he loses is the BALANCE message, not the balance (spec §9.9)."""
+    _, ledger, rewards, red = build()
+    give(ledger, 300)
+    r = run(rewards.create(T, name="قهوة", cost=50, type="item"))
+    rec, is_new = run(red.redeem(T, S, r.id, idem_key="k1"))
+    # Nothing in this path consults a marketing preference — and that absence IS the rule. The
+    # receipt is `personal`, so the gate delivers it to him too (see the receipt test above).
+    assert is_new and run(ledger.balance(T, S)).points == 250
+
+
+def test_the_balance_is_one_across_a_chains_branches():
+    """Branches share a tenant, so earn-here-redeem-there needs no code — and this proves it."""
+    _, ledger, rewards, red = build()
+    run(ledger.post(tenant=T, subject_ref=S, delta=200, reason="earn", source="branch-a-visit"))
+    r = run(rewards.create(T, name="غسلة", cost=150, type="item"))
+    run(red.redeem(T, S, r.id, idem_key="branch-b-key"))
+    assert run(ledger.balance(T, S)).points == 50
+
+
+def test_the_report_names_the_outstanding_obligation_and_the_warning():
+    import asyncio as _a
+    from app.core.report import build as build_report
+    store, ledger, rewards, red = build()
+    give(ledger, 300, source="v1")
+    r = run(rewards.create(T, name="قهوة", cost=50, type="item"))
+    run(red.redeem(T, S, r.id, idem_key="k1"))
+    run(ledger.post(tenant=T, subject_ref="ref_lapsed00000", delta=100, reason="earn",
+                    source="v2"))
+    run(ledger.post(tenant=T, subject_ref="ref_lapsed00000", delta=-100, reason="expire",
+                    source="e2"))
+    rep = _a.run(build_report(store, T))
+    assert rep["granted"] == 400 and rep["consumed"] == 50 and rep["expired_unredeemed"] == 100
+    # The obligation still standing — the number with money behind it.
+    assert rep["outstanding"] == 250
+    # The warning: a quarter of everything granted died unspent, so the thresholds are out of reach.
+    assert rep["expired_share"] == 0.25
+    assert rep["top_rewards"] == [("قهوة", 1)]
