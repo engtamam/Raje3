@@ -1,0 +1,121 @@
+# insights — deployment values.
+#
+# Defaults are SAFE, not scalable: one replica, in-memory drivers. To scale out, move every
+# stateful port to a shared driver below; the chart REFUSES to render replicas>1 otherwise,
+# because an in-memory cache is per-pod and our generation-keyed invalidation would silently
+# serve stale reads.
+service:
+  name: insights
+  port: 8000
+
+image:
+  repository: docker.io/raje3/insights
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"   # CI rewrites this at publish; never a :latest tag
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false        # flip on once you have load; requests.cpu above makes it real
+
+existingSecret: insights-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    internet: false
+
+metrics:
+  # Off until the Prometheus Operator is running — a ServiceMonitor is a CRD it owns.
+  serviceMonitor: false
+
+# From config/product.json — regenerate with scripts/gen_deploy_values.py.
+# Do not hand-edit: `identifiers` are frozen and guarded by safety:product.
+env:
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── the peers ─────────────────────────────────────────────────────────────────────────────
+  # `null` computes every indicator cleanly over an empty list: return rate 0, active customers
+  # 0, at-risk nobody. The owner reads that as his shop being dead, and it is our configuration
+  # wearing his numbers. The boot guard refuses it in production.
+  PEERS_DRIVER: "http"
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  # A bounded, watermarked catch-up read on a schedule — NOT an event subscription. Nothing here
+  # needs to be up to the second, and subscribing would inherit at-most-once delivery for nothing.
+  OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+  # Service names and cycles. Names make a bundle card pressable; cycles make cycle completion
+  # free, because the owner already gave us them so reminders could schedule.
+  OPERATIONS_CATALOGUE_PATH: "/internal/operations/catalogue"
+  REMINDERS_SERVICE_URL: "http://reminders:8000"
+  # THE ONLY THING THIS SERVICE SENDS — the weekly digest, through the same gate as everything
+  # else. There is no notification client here and no channel configuration.
+  REMINDERS_SEND_PATH: "/internal/reminders/send"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  # ── the sweep ─────────────────────────────────────────────────────────────────────────────
+  # Tenants per pass, so the run does not grow with the product until it times out and retries
+  # from the beginning for ever.
+  SNAPSHOT_BATCH: "50"
+  SNAPSHOT_VISIT_LIMIT: "5000"
+  # After this the panel LABELS the number stale. It is still served — a figure from this morning
+  # beats a spinner — but the owner is told its age, because one who compares ours to his till at
+  # 2pm must be able to see why they differ.
+  SNAPSHOT_STALE_HOURS: "30"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # FAIL-CLOSED. The only privileged action here is one of OUR operators recomputing a shop's
+  # dashboard, which changes numbers its owner may have just read.
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# THE HEARTBEAT. Without it every dashboard says "أحسب الآن" for ever while every probe stays
+# green and no error is raised anywhere (trap §4.1).
+#
+# The snapshot runs at 04:00 — AFTER loyalty's expiry sweep at 03:10, so a balance that expired
+# overnight is already expired in the numbers rather than counted twice across two mornings.
+# The digest runs Sunday at 09:00: the start of the working week here, inside the sending window,
+# and the same hour every week so it becomes a habit rather than a surprise.
+cronJobs:
+  - name: tick
+    schedule: "0 4 * * *"
+    path: /internal/insights/tick
+  - name: digest
+    schedule: "0 9 * * 0"
+    path: /internal/insights/digest
+
+# No ingress: reached service-to-service on the internal tier only.
+ingress:
+  enabled: false
+
+# ── the SHARED secrets ────────────────────────────────────────────────────────────────────────
+# BACKUP_KEK: /internal/backup/export answers 503 without it, so the derived customer sequences —
+# the only thing here that cannot be recomputed from a peer — would be absent from the archive
+# while the fleet reported itself backed up.
+#
+# PII_SALT must be the SAME value every other service holds. This service never computes a
+# pseudonym; it RECEIVES them from operations and groups by them. A different salt here would not
+# fail — it would silently group nobody, because no ref would ever match.
+#
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN

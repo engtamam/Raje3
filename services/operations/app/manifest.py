@@ -93,6 +93,8 @@ def build_manifest(
             # The template library and the customer list, for campaigns. Customers are
             # PSEUDONYMS with a visit count — never a phone, never a name.
             {"path": "/internal/operations/templates", "tier": "internal", "method": "GET"},
+            # Service names and cycles, for insights. Includes retired services on purpose.
+            {"path": "/internal/operations/catalogue", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule

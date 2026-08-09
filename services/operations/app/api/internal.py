@@ -645,6 +645,31 @@ async def record_visit_by_ref(request: Request, body: FreeVisitIn) -> dict:
     return {"recorded": True, "visit_id": res.visit.id, "duplicate": res.duplicate}
 
 
+class CatalogueIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/catalogue", dependencies=[Depends(require_internal_token)])
+async def read_catalogue(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's services — id, name, and cycle.
+
+    FOR `insights`, which needs three things this service already holds: the NAME, so a bundle
+    card says "غيار زيت" rather than `svc_9f2a` and is therefore pressable; the CYCLE, because
+    cycle completion is computed from it and asking the owner for it a second time would be asking
+    for something he already gave us; and the FULL LIST INCLUDING RETIRED SERVICES, because an
+    indicator over the last ninety days covers visits to services that have since been switched
+    off, and dropping them would silently shrink every denominator.
+
+    No prices. `insights` does not price anything (spec §10.6.2.1) and a field sent for no reason
+    is a field that ends up used for one.
+    """
+    c = request.app.state.container
+    rows = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
+    return {"services": [{"id": s.id, "name": s.name, "cycle_days": s.cycle_days,
+                          "active": s.active} for s in rows],
+            "count": len(rows)}
+
+
 @router.get("/operations/sectors", dependencies=[Depends(require_internal_token)])
 async def list_sectors(request: Request) -> dict:
     """The sectors this deployment knows, with the fields each one renders.

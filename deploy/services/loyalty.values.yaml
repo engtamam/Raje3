@@ -10,7 +10,7 @@ service:
 
 image:
   repository: docker.io/raje3/loyalty
-  digest: "sha256:88e67e033fd4bcfa276f8c3bf7baed28958ace95563537d71f47a34ec08100e2"   # CI rewrites this at publish; never a :latest tag
+  digest: "sha256:162db0e7ad6d29aa5ccd04dad70a50f2e85579d813239dc33b1b334e4dd1c3db"   # CI rewrites this at publish; never a :latest tag
 
 replicas: 1
 
