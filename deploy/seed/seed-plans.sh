@@ -138,7 +138,10 @@ for plan in PRODUCTS:
             created += 1
             # A hidden plan is hidden in a SECOND call: create takes no availability, by design —
             # listed is an operator decision rather than a property of the price list.
-            if plan.get("listed") is False:
+            # A PACK IS NEVER ON THE PRICING PAGE. It is offered from the balance line in his
+            # weekly report and from the panel, at the moment he needs it — beside the three
+            # plans it reads as a fourth one.
+            if is_pack or plan.get("listed") is False:
                 s2, _ = call("/api/v1/billing/plans/" + res["id"] + "/availability", {"listed": False})
                 print("    " + ("unlisted" if s2 < 400 else "COULD NOT UNLIST: " + str(s2)))
         else:
@@ -176,6 +179,28 @@ for plan in PRODUCTS:
     else:
         print("  ! " + name + " " + str(s) + " " + str(res))
         failed += 1
+
+# ── WHAT IS ON THE PRICING PAGE THAT IS NOT IN THIS FILE ─────────────────────────────────────
+# Reported, never retired. Two different things end up listed and subscribable without being in
+# the price list, and they need opposite treatment:
+#
+#   leftovers  - the platform's bootstrap plans (starter, pro_smart) and anything a proof script
+#                created and forgot to retire. Four of these were live and subscribable on the
+#                public pricing page beside our three, and nobody had looked.
+#   deliberate - a plan negotiated for one customer (16.4.1). Those are UNLISTED, which is why
+#                this only looks at listed ones.
+#
+# It is a report because retiring a plan somebody is subscribed to is not a thing a seed script
+# may decide. A pack is exempt: it is sold from inside the product, never from the pricing page.
+KNOWN = {p["name"] for p in PRODUCTS}
+stray = [p for p in have.values()
+         if p.get("active") and p.get("listed") and p.get("name") not in KNOWN]
+if stray:
+    print("")
+    print("  ON THE PUBLIC PRICING PAGE AND NOT IN plans.json:")
+    for p in stray:
+        print("    ? " + str(p.get("name")) + "  (" + str(p.get("id")) + ")")
+    print("    Retire what is a leftover; a negotiated plan should be unlisted, not listed.")
 
 print("")
 print("created=" + str(created) + " corrected=" + str(corrected)

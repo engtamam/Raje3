@@ -62,7 +62,7 @@ EXPECT = {
   "الأعمال":  {"messages.monthly": 8000, "staff.seats": -1, "branches": 8,
                "feature.campaigns": 1, "feature.loyalty": 1, "feature.insights.engine": 1,
                "feature.roles.custom": 1, "templates.custom": -1, "feature.api": 0},
-  "منشآت":    {"messages.monthly": -1, "staff.seats": -1, "branches": -1,
+  "المؤسسات":    {"messages.monthly": -1, "staff.seats": -1, "branches": -1,
                "feature.campaigns": 1, "feature.loyalty": 1, "feature.insights.engine": 1,
                "feature.roles.custom": 1, "templates.custom": -1, "feature.api": 1},
 }
