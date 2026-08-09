@@ -67,12 +67,16 @@ class NullPeers:
     async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
         return dict(self.extras)
 
+    async def consented(self, tenant: str) -> int:
+        return int(self.extras.get("consented") or 0)
+
 
 class HttpPeers:
     driver = "http"
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
-                 reminders_url: str, send_path: str, billing_url: str, entitlement_path: str,
+                 reminders_url: str, send_path: str, consent_count_path: str,
+                 billing_url: str, entitlement_path: str,
                  usage_path: str, loyalty_url: str, loyalty_report_path: str,
                  tenant_url: str, tenant_read_path: str,
                  token: str, timeout: int = 8) -> None:
@@ -80,6 +84,7 @@ class HttpPeers:
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
+        self._consent_url = reminders_url.rstrip("/") + consent_count_path
         self._usage_url = billing_url.rstrip("/") + usage_path
         self._loyalty_url = loyalty_url.rstrip("/") + loyalty_report_path
         self._tenant_url = tenant_url.rstrip("/")
@@ -164,8 +169,22 @@ class HttpPeers:
             return False
 
 
+    async def consented(self, tenant: str) -> int:
+        """How many customers allow this shop's offers — a number, never a list.
+
+        Zero on failure rather than raising: the dashboard degrades by not showing the line, which
+        is right. Showing a wrong count would be worse than showing none, because the whole point
+        of the number is that the owner can trust it — it is his own data, and it is what we ask
+        him to upgrade on.
+        """
+        try:
+            return int(_post(self._consent_url, {"tenant": tenant},
+                             self._token, self._timeout).get("granted") or 0)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return 0
+
     async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
-        """The three things the weekly report needs and this service does not hold.
+        """The FOUR things the weekly report needs and this service does not hold.
 
         EACH FAILURE COSTS ONE LINE, NEVER THE MESSAGE. A digest that refuses to go out because
         billing was slow is a report the owner does not get for a reason he will never learn —
@@ -203,6 +222,14 @@ class HttpPeers:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass
 
+        # How many customers currently allow this shop's offers. A COUNT and never a list — the
+        # peer's route has no shape that could return who (spec §8.5).
+        try:
+            out["consented"] = int(_post(self._consent_url, {"tenant": tenant},
+                                         self._token, self._timeout).get("granted") or 0)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            pass
+
         # Points redeemed this week. AGGREGATES ONLY — the peer's route returns totals and never
         # who, because a report builder has no business receiving a customer list.
         try:
@@ -223,6 +250,7 @@ def build_peers(settings) -> Any:
                      catalogue_path=settings.OPERATIONS_CATALOGUE_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
+                     consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,
                      billing_url=settings.BILLING_SERVICE_URL,
                      entitlement_path=settings.BILLING_ENTITLEMENT_PATH,
                      usage_path=settings.BILLING_USAGE_PATH,

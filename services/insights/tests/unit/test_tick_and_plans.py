@@ -356,3 +356,41 @@ def test_unspecified_visits_are_reported_and_not_attributed():
     assert whole["branch_unknown"] == 9
     # 9 unknown against a gap of 1 — no ranking claim may be made.
     assert whole["branch_can_rank"] is False
+
+
+# ── the audience he already has (spec §8.5) ────────────────────────────────────────────────────
+def test_a_shop_without_campaigns_is_shown_the_audience_it_already_has():
+    """The truest upgrade motivator in the product, and only honest because consent is now
+    explicit: counted from refusals it was every customer he had."""
+    msg = build_digest(snapshot=snap(), consented=340, can_campaign=False)
+    assert "وافقوا على استقبال عروضك: 340" in msg["text"]
+
+
+def test_a_shop_that_can_already_send_offers_is_not_told_about_its_audience():
+    """He can reach them. Repeating the number would be a line about nothing he can act on."""
+    assert "وافقوا" not in build_digest(snapshot=snap(), consented=340,
+                                        can_campaign=True)["text"]
+
+
+def test_nobody_having_agreed_shows_no_line_rather_than_zero():
+    """"0 customers agreed" is not a motivator, it is a verdict on his customer page — and one he
+    cannot act on from a message."""
+    assert "وافقوا" not in build_digest(snapshot=snap(), consented=0,
+                                        can_campaign=False)["text"]
+
+
+def test_the_audience_line_never_names_a_plan_either():
+    msg = build_digest(snapshot=snap(), consented=340, can_campaign=False)
+    for word in ("باقة", "رقّ", "ريال", "اشترك", "ترقية"):
+        assert word not in msg["text"], word
+
+
+def test_the_two_alternatives_are_never_both_shown():
+    """A shop that cannot campaign gets its audience; one that can gets the finding. The message
+    stays the same length whatever he bought."""
+    both = build_digest(snapshot=snap(associations={"pairs": [
+        {"a": "oil", "b": "filter", "verdict": "real", "customers": 340}]}),
+        consented=200, can_campaign=False)
+    assert "وافقوا" in both["text"]
+    # and the finding is still there — they are different facts, not two ways of saying one thing
+    assert "وجدنا" in both["text"]

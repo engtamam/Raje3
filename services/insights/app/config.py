@@ -253,6 +253,10 @@ class Settings(BaseSettings):
     REMINDERS_SERVICE_URL: str = ""
     # THE ONLY WAY THIS SERVICE SENDS ANYTHING — the weekly digest and nothing else.
     REMINDERS_SEND_PATH: str = "/internal/reminders/send"
+    # THEIRS. How many customers explicitly agreed to this shop's offers (spec §8.5) — a count and
+    # never a list. It is the truest upgrade motivator in the product precisely because it is his
+    # own number, which is why it must count explicit grants and nothing else.
+    REMINDERS_CONSENT_COUNT_PATH: str = "/internal/reminders/consent/count"
     BILLING_SERVICE_URL: str = ""
     # THEIRS. "May this establishment do <key>?" — advisory by their own documentation, which is
     # exactly right here: nothing on this dashboard is a counter to burn, only a surface to show

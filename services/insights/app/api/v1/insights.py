@@ -106,9 +106,27 @@ async def dashboard(request: Request, branch_id: str = "",
     elif b:
         not_enabled.append({"indicator": "associations", **b})
 
+    # ── the audience he already has (spec §8.5) ───────────────────────────────────────────────
+    # Shown to a shop WITHOUT campaigns, and to nobody else. It is the truest upgrade motivator in
+    # the product because it is his own number — customers who explicitly agreed to receive his
+    # offers, sitting there while he cannot send one.
+    #
+    # And it is only honest because consent is now recorded explicitly (reminders/core/consent.py).
+    # Computed from refusals — as it would have been a week ago — this was every customer he had,
+    # which sells an upgrade on a premise the first campaign disproves.
+    audience = None
+    if not plans.can_see("associations", keys):
+        count = await c.peers.consented(tenant)
+        if count:
+            # ZERO SHOWS NOTHING. "0 customers agreed" is not a motivator, it is a verdict on his
+            # customer page — and one he cannot act on from this screen.
+            audience = {"consented": count,
+                        "message": f"{count} عميلاً وافقوا على استقبال عروضك."}
+
     return {
         "computing": False,
         "values": values,
+        "audience": audience,
         "coverage": cov,
         "as_of": int(snap.get("computed_at") or 0),
         # SHOWN, ALWAYS. An owner comparing our number to his till at 2pm must see that ours was

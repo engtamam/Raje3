@@ -353,3 +353,25 @@ def test_the_digest_never_names_a_plan_or_a_price(client, owner):
     assert call["cls"] == "service"
     for word in ("باقة", "رقّ", "ريال", "اشترك"):
         assert word not in call["owner_text"], word
+
+
+# ── the audience card, through the route (spec §8.5) ───────────────────────────────────────────
+def test_a_shop_without_the_engine_is_shown_the_audience_it_already_has(client, owner):
+    _seed(client, regulars(30, "aud", ["wash"]))
+    client.app.state.container.peers.extras = {"consented": 340}
+    got = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert got["audience"]["consented"] == 340
+    assert "340" in got["audience"]["message"]
+
+
+def test_a_shop_that_bought_the_engine_is_not_sold_to(client, pro):
+    """A pitch to somebody who already bought is noise, and it is the same rule the teaser follows."""
+    _seed(client, regulars(30, "aud2", ["wash"]))
+    client.app.state.container.peers.extras = {"consented": 340}
+    assert client.get("/api/v1/insights/dashboard", headers=pro).json()["audience"] is None
+
+
+def test_nobody_having_agreed_shows_no_card_rather_than_zero(client, owner):
+    _seed(client, regulars(30, "aud3", ["wash"]))
+    client.app.state.container.peers.extras = {"consented": 0}
+    assert client.get("/api/v1/insights/dashboard", headers=owner).json()["audience"] is None

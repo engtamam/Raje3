@@ -219,6 +219,11 @@ async def digest(request: Request, body: TickIn) -> dict:
         snap = await c.datastore.get(SNAPSHOTS, f"{tenant}|_all")
         # Each of these may fail on its own and cost exactly one line. See peers.digest_extras.
         extras = await c.peers.digest_extras(tenant, since=week_ago)
+        # Whether he can already send offers decides which of two lines he gets — the audience he
+        # has, or nothing. Asked once per tenant per week, so the cost is irrelevant.
+        from app.core import plans
+
+        extras["can_campaign"] = await c.peers.entitled(tenant, plans.ENGINE) or             await c.peers.entitled(tenant, "feature.campaigns")
         msg = build_digest(snapshot=snap or {}, **extras)
         if not msg:
             skipped += 1

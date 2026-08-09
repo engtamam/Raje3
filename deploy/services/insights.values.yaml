@@ -68,6 +68,7 @@ env:
   # THE ONLY THING THIS SERVICE SENDS — the weekly digest, through the same gate as everything
   # else. There is no notification client here and no channel configuration.
   REMINDERS_SEND_PATH: "/internal/reminders/send"
+  REMINDERS_CONSENT_COUNT_PATH: "/internal/reminders/consent/count"
   # THE PLAN IS NOT ON THE TOKEN. Every locked surface asks billing per request, and an
   # unreachable billing DENIES — showing a paid feature to somebody who has not bought it cannot
   # be taken back, while a refusal during an outage fixes itself.

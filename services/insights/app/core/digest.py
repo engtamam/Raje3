@@ -5,12 +5,16 @@ So the highest-leverage surface this service has is not the panel, it is a messa
 where they already are — which makes this small file more consequential than the eleven indicators
 behind it.
 
-EIGHT LINES, ONE NUMBER EACH, AND ONE THING TO DO. Read in ten seconds on a phone. The discipline
-that makes it work is the ninth line nobody adds.
+EIGHT LINES AT MOST, ONE NUMBER EACH, AND ONE THING TO DO. Read in ten seconds on a phone, and the
+discipline that makes it work is the line nobody adds.
+
+Two of them are alternatives rather than additions: a shop that cannot send offers yet gets the
+audience it already has, and a shop that can gets the relationship we found. Nobody gets both, so
+the message stays the same length whatever he has bought.
 
 THE REPORT TELLS; THE PANEL SELLS — and that line is what keeps this message SERVICE class.
 
-Line eight states a finding about HIS shop: "we found 4 relationships between your services, the
+The last line states a finding about HIS shop: "we found 4 relationships between your services, the
 largest covers 340 customers". It carries no price, no plan name, and no invitation to buy. He
 opens it because he is curious about his own business, not because we offered him something.
 
@@ -41,7 +45,8 @@ def _line(label: str, value: Any) -> str:
 
 def build(*, snapshot: dict, previous: dict | None = None,
           messages_used: int = 0, messages_limit: int = 0,
-          points_redeemed: int = 0, shop: str = "") -> dict[str, Any] | None:
+          points_redeemed: int = 0, consented: int = 0,
+          can_campaign: bool = True, shop: str = "") -> dict[str, Any] | None:
     """The message, or None when there is nothing honest to send.
 
     None is returned — never an empty message and never a zeroed one. See the module docstring:
@@ -99,9 +104,18 @@ def build(*, snapshot: dict, previous: dict | None = None,
     if points_redeemed:
         lines.append(_line("نقاط استُبدلت", points_redeemed))
 
-    # 8 · A FINDING ABOUT HIS SHOP. No price, no plan, no invitation — see the module docstring.
-    #     It reaches the owner who has bought the engine and the one who has not, identically: the
-    #     first opens it and reads the pairs, the second opens it and finds the card.
+    # 8 · THE AUDIENCE HE ALREADY HAS, for a shop that cannot send offers yet. Customers who
+    #     explicitly agreed, sitting there while he has no way to reach them — a fact about his own
+    #     business in the same column as the rest, with no price and no invitation.
+    #
+    #     ONLY HONEST BECAUSE CONSENT IS NOW EXPLICIT. Counted from refusals, as it would have been
+    #     a week ago, this was every customer he had.
+    if consented and not can_campaign:
+        lines.append(_line("وافقوا على استقبال عروضك", consented))
+
+    # 9 · A FINDING ABOUT HIS SERVICES. Reaches the owner who bought the engine and the one who did
+    #     not, identically: the first opens it and reads the pairs, the second opens it and finds
+    #     the card. No price, no plan, no invitation — see the module docstring.
     assoc = values.get("associations") or {}
     pairs = [p for p in (assoc.get("pairs") or []) if p.get("verdict") in ("real", "temporal")]
     if pairs:
