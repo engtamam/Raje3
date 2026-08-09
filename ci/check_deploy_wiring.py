@@ -498,6 +498,38 @@ if operator_roles.is_file():
                      f"operator role `{r.get('name')}` carries `{cap}`, which is a tenant "
                      f"capability — the operator lane is not the tenant lane")
 
+# ── 15. the custom-role builder can actually build a role ─────────────────────────────────────
+# AUTHZ_TENANT_ASSIGNABLE_CAPS is an ALLOWLIST, and an allowlist with a wrong name in it does not
+# fail — it silently refuses. Ours was written by hand in a vocabulary no service ever declared
+# (`operations.record.create`), so every owner building a custom role got a 403 that read like
+# policy. Nothing caught it: the seeder holds `platform.authz` and skips the check. So the list is
+# not allowed to be hand-maintained — it must be the owner's capabilities minus the three that are
+# nobody's to hand out, exactly.
+_az = ROOT / "deploy" / "services" / "authz-service.values.yaml"
+if _az.is_file() and tenant_roles.is_file():
+    import json as _json
+    _text = read(_az)
+    # A `>-` folded block: take the indented lines that follow the key.
+    _m = re.search(r"^(\s*)AUTHZ_TENANT_ASSIGNABLE_CAPS:\s*>-\s*$((?:\n\1\s+.*)+)", _text, re.M)
+    if not _m:
+        fail("deploy/services/authz-service.values.yaml",
+             "AUTHZ_TENANT_ASSIGNABLE_CAPS is missing or not a folded block — the owner's custom "
+             "role builder (§3.4) needs it, and empty means it refuses everything")
+    else:
+        allowed = {c.strip() for c in _m.group(2).replace("\n", "").split(",") if c.strip()}
+        _owner = next((r for r in _json.loads(read(tenant_roles)).get("roles", [])
+                       if r.get("name") == "owner"), {})
+        never = {"authz.manage", "tenant.manage"}   # escalation by proxy; §3.2 root protection
+        want = {c for c in _owner.get("capabilities", []) if c not in never}
+        for cap in sorted(want - allowed):
+            fail("deploy/services/authz-service.values.yaml",
+                 f"the owner holds `{cap}` but no establishment may put it in a custom role — "
+                 f"a capability that exists and cannot be delegated")
+        for cap in sorted(allowed - want):
+            fail("deploy/services/authz-service.values.yaml",
+                 f"`{cap}` is assignable in a custom role but the owner does not hold it — "
+                 f"nobody can grant a capability they do not have (§3.2)")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")

@@ -94,20 +94,27 @@ env:
   # that is customer self-service role management, exactly what the knob's own comment says to
   # curate before enabling.
   #
-  # This is Raje3's capability vocabulary, first defined here, mapped from the §3.3 matrix. Our
-  # product services (operations/reminders/loyalty/campaigns/insights) must use these exact names.
-  # Deliberately ABSENT and therefore un-assignable by any establishment: tenant.manage (only the
-  # owner closes an establishment, §3.2 root protection) and everything under platform.*.
+  # This list is EXACTLY the owner's capabilities minus the two nobody may hand out, and a guard in
+  # CI keeps it that way. It was first written by hand, from the §3.3 matrix, in a vocabulary of my
+  # own invention (`operations.record.create`, `team.operator.create`, `templates.activate`) — none
+  # of which any service ever declared. Every name was wrong, so the allowlist allowed nothing: an
+  # owner asking for a custom role with `operations.read` got a 403 that read like a policy decision
+  # and was a typo. The seeder never noticed because it holds `platform.authz`, which skips the
+  # check entirely. A denylist fails loudly when it is wrong; an allowlist fails silently.
+  #
+  # ABSENT ON PURPOSE, and this is the whole content of the list:
+  #   authz.manage   — granting it is escalation by proxy (also in DENIED_CAPS above; twice is fine)
+  #   tenant.manage  — only the owner closes an establishment (§3.2 root protection)
+  #   partner.read   — belongs to the till company, not to anyone inside a shop
+  #   platform.*     — ours (also in DENIED_CAP_PREFIXES above)
   AUTHZ_TENANT_ASSIGNABLE_CAPS: >-
-    operations.record.create,operations.record.amend,operations.customer.read,
-    operations.asset.manage,operations.catalog.edit,operations.catalog.reorder,
-    team.operator.create,team.operator.suspend,team.role.assign,
-    reminders.rule.edit,reminders.schedule.read,
-    templates.activate,templates.request,whatsapp.connect,
-    campaigns.create,campaigns.send,
-    loyalty.rule.edit,loyalty.redeem,
-    insights.read,insights.staff.read,insights.digest.subscribe,
-    billing.subscription.read,billing.invoice.read
+    operations.record,operations.read,operations.manage,
+    reminders.read,reminders.manage,
+    campaigns.read,campaigns.manage,
+    billing.read,billing.manage,
+    tenant.read,identity.read,identity.manage,
+    file.read,file.write,ticket.read,ticket.write,
+    analytics.read,wallet.read,notification.read
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────
   AUDIT_SINK_DRIVER: "http"
