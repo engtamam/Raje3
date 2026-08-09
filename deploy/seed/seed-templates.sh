@@ -121,9 +121,16 @@ for ty in LIB["types"]:
         # variables and does not name them, so a variable that moves between two templates is a
         # send error waiting for its day.
         used = sorted({int(n) for n in __import__("re").findall(r"\\{\\{(\\d+)\\}\\}", text)})
-        # THE EXAMPLE VALUE, not the description. Meta requires an example for every
-        # parameter at creation; a template with a placeholder is refused without one.
-        variables = [LIB["variables"][str(i)]["example"] for i in used]
+        # TWO ORDERED LISTS, AND THEY ARE NOT THE SAME THING.
+        #
+        # `variables` are the parameter NAMES the send substitutes by, whose order maps each to a
+        # position. `examples` are the example VALUES Meta requires at creation — and a name is
+        # not a valid example: their review rejects placeholder-looking ones.
+        #
+        # We sent the values in the names field for a day. It was correct against the older port,
+        # which had one list, and wrong the moment it became two.
+        variables = [LIB["variables"][str(i)]["name"] for i in used]
+        examples = [LIB["variables"][str(i)]["example"] for i in used]
 
         if name in have:
             existing += 1
@@ -137,6 +144,7 @@ for ty in LIB["types"]:
             "category": ty["category"],
             "body": text,
             "variables": variables,
+            "examples": examples,
         })
         if s == 201:
             registered += 1

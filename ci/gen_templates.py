@@ -105,6 +105,33 @@ def parse() -> tuple[list[dict], list[str]]:
     return types, problems
 
 
+def check_variables(lib_vars: dict) -> list[str]:
+    """A NAME IS NOT AN EXAMPLE, and Meta's review is where that is discovered otherwise.
+
+    We shipped the example values in the names field for a day — correct against a port with one
+    list, wrong the moment it became two. Nothing failed loudly: the API accepted it, and the
+    rejection would have arrived from a human reviewer hours later, against 72 names that cannot
+    then be reused or renamed.
+    """
+    problems: list[str] = []
+    names = [v["name"] for v in lib_vars.values()]
+    if len(set(names)) != len(names):
+        problems.append(f"variables: two parameters share a name {names} — a send substitutes by "
+                        f"name, so the second would overwrite the first")
+    for num, v in lib_vars.items():
+        if v["name"] == v["example"]:
+            problems.append(f"variable {num}: the example IS the name ({v['name']!r}) — Meta's "
+                            f"review rejects placeholder-looking examples")
+        if not v["example"].strip():
+            problems.append(f"variable {num}: no example — Meta refuses a template whose text "
+                            f"carries a placeholder with no example value")
+        if re.fullmatch(r"[a-z_]+", v["name"]) is None:
+            problems.append(f"variable {num}: name {v['name']!r} is not a plain identifier")
+
+
+    return problems
+
+
 def build(types: list[dict]) -> dict:
     return {
         "_comment": [
@@ -121,23 +148,32 @@ def build(types: list[dict]) -> dict:
             "cannot change after approval, so submitting a single tone makes a later change a",
             "second review the owner waits through. Submitting all makes it a switch.",
         ],
-        # WHAT EACH NUMBER MEANS, AND AN EXAMPLE OF IT — and the example is not decoration.
+        # THREE THINGS PER NUMBER, AND THE LAST TWO ARE NOT THE SAME THING.
         #
-        # Meta's template documentation requires an example value for EVERY parameter at creation
-        # time; a component whose text contains a placeholder is refused without one. Every text in
-        # this library has at least one, so without examples not a single template can be created.
-        # Learned from their documentation rather than from a rejection, which would have arrived
-        # hours later against names that cannot then be reused or renamed.
+        # `name` is the parameter's NAME — the key a send substitutes by, whose ORDER maps it to a
+        # position, because Meta fills by position and does not name anything.
+        #
+        # `example` is an example VALUE, and Meta REQUIRES one for every parameter at creation: a
+        # component whose text contains a placeholder is refused without it. Every text here has at
+        # least one, so without examples not a single template can be created.
+        #
+        # AND A NAME IS NOT A VALID EXAMPLE. Meta's review rejects placeholder-looking examples, so
+        # sending "customer_name" where "محمد" belongs fails review rather than the API — hours
+        # later, against a name that cannot then be reused or renamed. We sent examples in the
+        # name field for a day, which was correct against the older contract and wrong against this
+        # one; the two are separate here so they cannot be confused again.
+        #
+        # `means` is for us. It never leaves this file.
         "variables": {
-            "1": {"means": "the customer's name or its substitute — never empty; Meta rejects an "
-                           "empty variable",
-                  "example": "محمد"},
-            "2": {"means": "the establishment's name — its identity, never ours",
-                  "example": "مغسلة النخيل"},
-            "3": {"means": "the service or the content",
-                  "example": "غيار الزيت"},
-            "4": {"means": "a second detail: a date, an amount, a transaction reference",
-                  "example": "1234"},
+            "1": {"name": "customer_name", "example": "محمد",
+                  "means": "the customer's name or its substitute — never empty; Meta rejects an "
+                           "empty variable"},
+            "2": {"name": "establishment", "example": "مغسلة النخيل",
+                  "means": "the establishment's name — its identity, never ours"},
+            "3": {"name": "service", "example": "غيار الزيت",
+                  "means": "the service or the content"},
+            "4": {"name": "detail", "example": "1234",
+                  "means": "a second detail: a date, an amount, a transaction reference"},
         },
         "tones": list(TONES),
         "types": types,
@@ -147,6 +183,7 @@ def build(types: list[dict]) -> dict:
 def main() -> int:
     check = "--check" in sys.argv
     types, problems = parse()
+    problems += check_variables(build([])["variables"])
 
     for p in problems:
         print(f"{C_R}  ✗ {p}{C_N}")

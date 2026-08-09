@@ -15,20 +15,24 @@
   ],
   "variables": {
     "1": {
-      "means": "the customer's name or its substitute — never empty; Meta rejects an empty variable",
-      "example": "محمد"
+      "name": "customer_name",
+      "example": "محمد",
+      "means": "the customer's name or its substitute — never empty; Meta rejects an empty variable"
     },
     "2": {
-      "means": "the establishment's name — its identity, never ours",
-      "example": "مغسلة النخيل"
+      "name": "establishment",
+      "example": "مغسلة النخيل",
+      "means": "the establishment's name — its identity, never ours"
     },
     "3": {
-      "means": "the service or the content",
-      "example": "غيار الزيت"
+      "name": "service",
+      "example": "غيار الزيت",
+      "means": "the service or the content"
     },
     "4": {
-      "means": "a second detail: a date, an amount, a transaction reference",
-      "example": "1234"
+      "name": "detail",
+      "example": "1234",
+      "means": "a second detail: a date, an amount, a transaction reference"
     }
   },
   "tones": [

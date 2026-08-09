@@ -90,8 +90,10 @@ token, submit = sys.argv[1], sys.argv[2] == "1"
 name, category, body = sys.argv[3], sys.argv[4].upper(), sys.argv[5]
 H = "http://localhost:8000"
 
-# THE EXAMPLE VALUE FOR EACH VARIABLE. Meta requires one for every parameter at creation time
-# and refuses a template with a placeholder and no example — so these are values, not descriptions.
+# TWO LISTS PER TEMPLATE, AND THEY ARE NOT THE SAME THING. NAME is the parameter's name — what a
+# send substitutes by, ordered so each maps to a position. EXAMPLE is a value Meta requires at
+# creation, and a name is not a valid one: their review rejects placeholder-looking examples.
+NAME = {1: "customer_name", 2: "establishment", 3: "service", 4: "detail"}
 EXAMPLE = {1: "محمد", 2: "مغسلة النخيل", 3: "غيار الزيت", 4: "1234"}
 
 def call(path, payload=None):
@@ -128,7 +130,8 @@ if name in have:
 
 s, out = call("/api/v1/whatsapp/templates", {
     "name": name, "language": "ar", "category": category, "body": body,
-    "variables": [EXAMPLE[i] for i in used],
+    "variables": [NAME[i] for i in used],
+    "examples": [EXAMPLE[i] for i in used],
 })
 if s != 201:
     print("  x register " + str(s) + " " + str(out))
