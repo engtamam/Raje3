@@ -33,12 +33,19 @@ class DispatchResult:
 
 class Dispatcher:
     def __init__(self, *, store, sender, audience_resolver, batch: int = 200,
-                 telemetry=None) -> None:
+                 telemetry=None, daily_share: int = 0) -> None:
         self._s = store
         self._sender = sender
         self._resolve = audience_resolver
         self._batch = batch
         self._t = telemetry
+        # THE CAMPAIGN'S SHARE OF TODAY'S PROVIDER CEILING — the ceiling minus what the automatic
+        # engine reserved (spec §8.4.3). Deliberately a NUMBER rather than a channel: this module
+        # must not learn which provider imposes it, and a test enforces that by reading this
+        # source. Zero means unknown, and unknown falls back to the pass batch — the provider
+        # enforces its own limit regardless, and a campaign refusing to run because we could not
+        # read a number would be our outage wearing their ceiling.
+        self._daily_share = int(daily_share)
 
     async def fire(self, campaign: dict[str, Any], *, now: int,
                    fired_by: str = "system") -> DispatchResult:
@@ -60,9 +67,14 @@ class Dispatcher:
         if audience.excluded:
             run.reasons["البوابة رفضتها قبل الإرسال"] = audience.excluded
 
+        # SPREAD ACROSS DAYS RATHER THAN FAILING AT THE CEILING. Ten thousand recipients against a
+        # share of two thousand is five days whether we plan it or not; the only question is
+        # whether the system does it deliberately or the shop discovers it as a list of failures.
+        per_pass = self._daily_share or self._batch
+
         sent_this_pass = 0
         for candidate in audience.candidates:
-            if sent_this_pass >= self._batch:
+            if sent_this_pass >= per_pass:
                 # BOUNDED. The run is saved with what it reached and the next pass continues —
                 # a campaign that re-sends its first four hundred recipients because the pod was
                 # evicted is worse than one that sends nothing.
