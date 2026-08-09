@@ -46,7 +46,7 @@ if [[ "$enc" == "Enabled" ]]; then
   raw=""
   if [[ -n "$probe" ]]; then
     name="${probe#secret/}"
-    raw=$(sudo /var/lib/rancher/k3s/data/current/bin/etcdctl get           "/registry/secrets/$NS/$name" --prefix 2>/dev/null | head -c 400)
+    raw=$(sudo /var/lib/rancher/k3s/data/current/bin/etcdctl           get "/registry/secrets/$NS/$name" --prefix 2>/dev/null | head -c 400)
   fi
   if [[ -z "$raw" ]]; then
     ok "k3s secrets encryption is enabled"
@@ -55,7 +55,7 @@ if [[ "$enc" == "Enabled" ]]; then
   elif [[ "$raw" == *"k8s:enc:"* ]]; then
     ok "k3s secrets are encrypted at rest — confirmed by reading the stored bytes"
   else
-    bad "encryption is ENABLED but the stored secret is still plaintext — enable only covers what
+    bad "encryption is ENABLED but the stored secret is still plaintext — enable covers only what
        is written after it, and this cluster was serving before that"         "sudo k3s secrets-encrypt reencrypt"
   fi
 else
