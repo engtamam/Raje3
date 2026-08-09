@@ -231,6 +231,9 @@ def build_container(settings: Settings) -> Container:
                               strong=settings.ASSOC_STRONG_LIFT,
                               weak=settings.ASSOC_WEAK_LIFT,
                               min_baskets=settings.ASSOC_MIN_BASKETS,
-                              min_pair_support=settings.ASSOC_MIN_PAIR_SUPPORT))
+                              min_pair_support=settings.ASSOC_MIN_PAIR_SUPPORT),
+                          reserve_weeks=settings.RESERVE_WEEKS,
+                          reserve_percentile=settings.RESERVE_PERCENTILE,
+                          reserve_floor=settings.RESERVE_FLOOR)
     container.subscriptions = Subscriptions(container.datastore)
     return container

@@ -287,6 +287,15 @@ class Settings(BaseSettings):
     # is a picture in a small shop and a rounding error in a large one.
     INSIGHTS_MIN_OPPORTUNITY: int = 20
 
+    # ── the engine's share of the daily sending ceiling (spec §8.4.3) ─────────
+    # How much of the day to hold back for messages nobody can predict — a visitor this evening,
+    # tomorrow's appointment reminder — before a campaign is allowed to spend the rest.
+    RESERVE_WEEKS: int = 8                  # the rolling window it learns from
+    RESERVE_PERCENTILE: float = 0.95        # absorbs a busy day, ignores a freak one
+    # And the floor for a shop with no history. Its first fortnight is exactly when a dropped
+    # confirmation does the most damage, and there is no percentile to take.
+    RESERVE_FLOOR: int = 20
+
 
 
     # ── the sweep ─────────────────────────────────────────────────────────────

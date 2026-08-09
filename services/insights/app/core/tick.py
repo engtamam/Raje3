@@ -29,7 +29,9 @@ from app.core.models import PAIRS, SEQUENCES, SNAPSHOTS, CustomerSequence, Snaps
 class Tick:
     def __init__(self, store: Any, peers: Any, *, batch: int = 50,
                  telemetry: Any = None,
-                 thresholds: associations.Thresholds | None = None) -> None:
+                 thresholds: associations.Thresholds | None = None,
+                 reserve_weeks: int = 8, reserve_percentile: float = 0.95,
+                 reserve_floor: int = 20) -> None:
         self.store = store
         self.peers = peers
         self.batch = batch
@@ -38,6 +40,12 @@ class Tick:
         # means something in one is noise in the other — so the four numbers are settings, and the
         # defaults here are only what an unconfigured deployment gets.
         self.thresholds = thresholds or associations.DEFAULTS
+        # The reserve's own three judgements. Defaults live in indicators.engine_reserve; these
+        # are what the deployment chose, and a new shop's floor is the one that matters most —
+        # it is the fortnight when a dropped confirmation does the most damage.
+        self._reserve_weeks = reserve_weeks
+        self._reserve_percentile = reserve_percentile
+        self._reserve_floor = reserve_floor
 
     async def run(self, *, now: int, tenants: list[str], since: int = 0) -> dict:
         done: list[str] = []
@@ -92,6 +100,15 @@ class Tick:
             "services_per_visit": indicators.services_per_visit(visits),
             "peak_map": indicators.peak_map(visits),
             "expected_flow": indicators.expected_flow(visits, now=now),
+            # HOW MUCH OF TODAY'S SENDING CEILING THE ENGINE NEEDS (spec §8.4.3). Computed here
+            # because the input — visits by weekday — is already in this snapshot, and computing
+            # it anywhere else would mean a second counter of the same thing that drifts from it.
+            #
+            # The CEILING is not ours to know, so it is not applied here: this says how much the
+            # shop's own traffic warrants, and whoever holds the ceiling caps it.
+            "engine_reserve": indicators.engine_reserve(
+                visits, now=now, weeks=self._reserve_weeks,
+                percentile=self._reserve_percentile, floor=self._reserve_floor),
             "cycle_completion": indicators.cycle_completion(visits, cycles=cycles, now=now),
             "at_risk": indicators.at_risk(visits, now=now),
             "weak_services": indicators.weak_services(
