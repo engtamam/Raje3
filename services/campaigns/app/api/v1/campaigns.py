@@ -25,6 +25,9 @@ from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
 from app.core.models import Campaign, as_row
 from app.core.preview import PreviewError, build as build_preview, describe_when
+from app.core.share import compute as compute_share
+from app.core.spread import plan as plan_spread
+from app.core.spread import sentence as spread_sentence
 from app.core.report import build as build_report, history, totals
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
@@ -41,6 +44,11 @@ class CampaignIn(BaseModel):
     # For `occasion` only. Ignored for every other goal rather than rejected: a console that sends
     # a spare field must not fail a campaign over it.
     fire_at: int = Field(default=0, ge=0)
+    # When the offer stops being true. Optional, and it CHANGES THE ANSWER rather than decorating
+    # it: a campaign that cannot reach everyone before this date refuses at launch instead of
+    # spilling past it, because a customer receiving an offer that expired yesterday sees a shop
+    # that looks careless (§8.4.3).
+    expires_at: int = Field(default=0, ge=0)
 
 
 @router.get("/goals", dependencies=[Depends(rate_limit)])
@@ -88,7 +96,34 @@ async def preview(request: Request, body: CampaignIn,
         # 400 WITH THE OWNER'S SENTENCE. Not a code and not a field name: this message is rendered
         # straight onto the screen they are looking at, and it has to be actionable in their words.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
-    return vars(p)
+
+    # HOW LONG IT WILL TAKE, ON THE SCREEN WHERE HE DECIDES — not reconstructed afterwards from a
+    # progress bar. Ten thousand recipients against a share of two thousand is five days whether
+    # we plan it or not, and an owner who expected an afternoon and got a week will say the
+    # product is broken. He will be right to: nothing told him.
+    out = vars(p)
+    share = await _todays_share(c, principal.tenant)
+    if share.known:
+        sp = plan_spread(audience=audience.count, available_per_day=share.per_day,
+                         expires_at=body.expires_at or 0, now=_now())
+        out["spread"] = sp.to_dict()
+        out["spread_says"] = spread_sentence(sp)
+    else:
+        # NO ESTIMATE RATHER THAN A WRONG ONE. The ceiling is unknown — a shop that connected this
+        # morning, or a peer that did not answer — and a promise made on a guess is worse than no
+        # promise: he plans around it, and we are the reason he was wrong.
+        out["spread"] = None
+        out["spread_says"] = ""
+    return out
+
+
+async def _todays_share(c, tenant: str):
+    """The campaign's slice of today: the ceiling, minus the engine's reserve, minus what has
+    already gone. Three numbers from three services, none of which this one could compute."""
+    ceiling = await c.ceiling.read(tenant)
+    reserved, used = await c.engine_load(tenant)
+    return compute_share(ceiling=ceiling.limit, reserved=reserved, used=used,
+                         fallback=c.settings.CAMPAIGN_MAX_AUDIENCE)
 
 
 @router.post("", dependencies=[Depends(rate_limit)])

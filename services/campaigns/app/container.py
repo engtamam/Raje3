@@ -131,6 +131,46 @@ def _pick(registry: dict[str, Builder], driver: str, port_name: str, settings: S
     return builder(settings)
 
 
+@dataclass(frozen=True)
+class _Unknown:
+    """A ceiling nobody could read. `0` is the shape notification-service reports for unknown, and
+    share.compute() reads it as 'do not promise anything' rather than 'send nothing'."""
+
+    limit: int = 0
+    tier: str = ""
+    quality: str = ""
+
+
+class _NoCeiling:
+    """Answers unknown. A deployment without the peer plans nothing and still sends everything."""
+
+    async def read(self, tenant: str) -> _Unknown:
+        return _Unknown()
+
+
+async def _engine_load(peers, tenant: str) -> tuple[int, int]:
+    """What the automatic engine has reserved for today, and what it has already spent.
+
+    BOTH FROM PEERS THAT ALREADY OWN THEM. The reserve is in the insights snapshot, computed from
+    visits it already holds; what has been used today is reminders' unique-customer count. Either
+    computed here would be a second version of somebody else's number, drifting from it quietly.
+
+    A peer that does not answer contributes ZERO rather than blocking, which errs toward letting
+    the campaign run — the same direction as an unknown ceiling, and for the same reason.
+    """
+    reserved = used = 0
+    read = getattr(peers, "engine_load", None)
+    if read is not None:
+        try:
+            out = await read(tenant)
+            reserved = int(out.get("reserved") or 0)
+            used = int(out.get("used") or 0)
+        except Exception:                                              # noqa: BLE001
+            pass
+    return reserved, used
+
+
+
 @dataclass
 class Container:
     datastore: DataStore
@@ -232,6 +272,13 @@ def build_container(settings: Settings) -> Container:
     container.sender = peers["sender"]
     container.identity = peers["identity"]
     container.gate = peers["window"]
+    # THE THREE NUMBERS BEHIND "this will take five days", each from whoever owns it (core/share).
+    # The ceiling is Meta's, read through notification-service; the reserve and today's usage
+    # belong to insights and reminders. This service computes none of them, and that is the point:
+    # a second version of somebody else's number drifts from it silently.
+    container.ceiling = peers.get("ceiling") or _NoCeiling()
+    container.engine_load = lambda tenant: _engine_load(peers.get("engine"), tenant)
+    container.settings = settings
 
     async def _resolver(campaign, *, already_reached, now):
         return await container.audience.resolve_for(

@@ -196,6 +196,12 @@ class Settings(BaseSettings):
     # How long a refused message waits. OURS, and the only certainly-wrong answer is an hour: the
     # window is rolling, so an hour later is the same closed door and a tick spent finding out.
     CEILING_DEFER_SECONDS: int = 43_200
+    # THE CEILING ITSELF, read live from Meta through notification-service (base-services v0.14.1,
+    # added after we escalated it). `null` answers unknown, and unknown is a real answer here — we
+    # stop PLANNING and never stop sending, because Meta enforces its own limit at the door and a
+    # shop silenced by our failure to read a number is our outage wearing their ceiling.
+    CEILING_DRIVER: str = "null"             # null | http
+    NOTIFICATION_MESSAGING_LIMIT_PATH: str = "/internal/whatsapp/messaging-limit"
 
     @property
     def whatsapp_ceiling_codes(self) -> tuple[str, ...]:

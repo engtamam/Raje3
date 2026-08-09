@@ -73,22 +73,29 @@ env:
   TOKEN_AUDIENCE: "raje3"
 
   # ── The funds ─────────────────────────────────────────────────────────────────────────────
-  # name : spend-priority : taxability
+  # name : spend-priority : taxability [: withdrawability]
   #
-  # `included` first, `topup` second, and the ORDER is the point: an establishment's free monthly
-  # allowance must be consumed before the pack it paid 50 riyals for. Reverse them and we bill a
-  # customer for messages their plan already covered — the kind of error that is discovered by
-  # an angry owner, not by us.
+  # THIS SERVICE NO LONGER CARRIES A MESSAGE BALANCE, and the two funds that did are gone. It held
+  # `included` and `topup` while we sold messages; we do not (§16.7) — the establishment contracts
+  # with Meta and tops up on its own account, so a wallet of ours holding "messages" would be a
+  # balance of something we neither buy nor sell.
   #
-  # BOTH untaxed, and this needs saying because the knob is VAT-aware: spending here is not a
-  # sale. VAT was charged by billing-service when the plan or the pack was purchased. Charging
-  # it again on consumption would tax the same riyal twice. Hence WALLET_VAT_BP=0 below —
-  # consumption is not a taxable event in this design.
-  WALLET_FUNDS: "included:1:untaxed,topup:2:untaxed"
-  WALLET_VAT_BP: "0"
-  # A label, not a unit conversion — the balance counts MESSAGES. Left as SAR would read as
-  # riyals in every statement and invite exactly the confusion this file exists to prevent.
-  WALLET_CURRENCY: "MSG"
+  # IT IS KEPT DEPLOYED FOR ONE FUTURE PURPOSE: the marketing partner's commission and its
+  # withdrawal (§16.15). base-services v0.14.1 added the withdrawable dimension for exactly that,
+  # and the 4th field defaults to `locked` — a fund is spend-only unless somebody deliberately
+  # makes it payable out.
+  #
+  # `commission` is declared now and used by nothing. That is deliberate and stated rather than
+  # left as an empty configuration nobody can explain: removing the service today would mean
+  # re-adding it, its database and its secrets the day partners ship.
+  WALLET_FUNDS: "commission:1:taxed:withdrawable"
+  # Taxed, unlike the message funds that preceded it: a commission paid to a partner IS a supply,
+  # and VAT on it is a real obligation rather than a second charge on a riyal already taxed.
+  WALLET_VAT_BP: "1500"
+  # SAR now, not MSG. The balance is money again — the label was "MSG" only while it counted
+  # messages, and leaving it would have every partner statement denominated in a unit that
+  # stopped existing.
+  WALLET_CURRENCY: "SAR"
 
   # ── Holds ─────────────────────────────────────────────────────────────────────────────────
   # 900s covers reserve → provider accepts → confirm with generous slack. The sweeper is what

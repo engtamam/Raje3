@@ -223,6 +223,7 @@ def build_container(settings: Settings) -> Container:
     # means the ports above stay importable by anything that only needs a driver.
     from app.adapters.identity import build_identity
     from app.adapters.message_sender import build_sender
+    from app.core.ceiling import build_ceiling
     from app.core.quota import build_quota
     from app.core import rendering as R
     from app.core.adaptive import AdaptiveConfig
@@ -253,6 +254,7 @@ def build_container(settings: Settings) -> Container:
     # The message quota. Null in a local run, refused in production by assert_sender_config_ok —
     # a service that sends without counting is a plan limit nothing enforces.
     container.quota = build_quota(settings)
+    container.ceiling = build_ceiling(settings)
     # Absent when notification-service is not configured, and ApprovedTemplates then answers None
     # — NOT KNOWN, which skips the filter. An empty set would silence every establishment.
     container.approved_templates = R.ApprovedTemplates(

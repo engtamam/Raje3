@@ -111,6 +111,14 @@ env:
   # hours: 250 before its business is verified, 2,000 after (spec §6.2.2). None of that is ours
   # to decide and all of it can change by an announcement, so nothing about it sits in code.
   REACH_WINDOW_SECONDS: "86400"
+  # THE CEILING ITSELF, read live from Meta through notification-service — added in base-services
+  # v0.14.1 after we escalated that nothing exposed it. Before this, everything that needed the
+  # number ran on a value typed into a file: a guess about somebody else's system, wrong from the
+  # moment Meta moved the tier, which it does within about six hours of the conditions being met.
+  #
+  # `null` answers UNKNOWN, and unknown is a real answer: planning stops, sending never does.
+  CEILING_DRIVER: "http"
+  NOTIFICATION_MESSAGING_LIMIT_PATH: "/internal/whatsapp/messaging-limit"
   # The codes that mean "not now". From Meta's Cloud API error reference — numbers rather than
   # message text, because the text is translated and reworded and a phrase match dies silently.
   WHATSAPP_CEILING_CODES: "130429,80007,131048,131056,131064,131049"
