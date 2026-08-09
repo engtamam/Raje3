@@ -97,6 +97,14 @@ env:
   # every notification went to a silent 404 for weeks — a failed notification is not a failed
   # ticket, so nothing looked wrong until a customer said "you never replied".
   NOTIFICATION_SEND_PATH: "/internal/notify"
+  # WHICH TEMPLATES META HAS APPROVED for this establishment. Added in v0.13.5 after we escalated:
+  # the user-tier list needs a JWT this service cannot mint, so choose(approved=) was written and
+  # removed the same day. Without it, a shop that connected this morning spends a send and a slot
+  # in its daily cap discovering that a template is still in review — for its entire library.
+  #
+  # Unset means NOT KNOWN, and the filter is skipped. It never means "nothing is approved": that
+  # would silence every establishment we host the moment this path was wrong.
+  NOTIFICATION_TEMPLATES_PATH: "/internal/whatsapp/templates"
 
   # ── operations: the two reads this service cannot work without ────────────────────────────
   # RECIPIENT resolves a subject_ref to a phone number at send time, so no number ever rests here.

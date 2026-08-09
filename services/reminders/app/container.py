@@ -224,6 +224,7 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.identity import build_identity
     from app.adapters.message_sender import build_sender
     from app.core.quota import build_quota
+    from app.core import rendering as R
     from app.core.adaptive import AdaptiveConfig
     from app.core.engagement import EngagementConfig
     from app.core.gate import Limits
@@ -252,6 +253,13 @@ def build_container(settings: Settings) -> Container:
     # The message quota. Null in a local run, refused in production by assert_sender_config_ok —
     # a service that sends without counting is a plan limit nothing enforces.
     container.quota = build_quota(settings)
+    # Absent when notification-service is not configured, and ApprovedTemplates then answers None
+    # — NOT KNOWN, which skips the filter. An empty set would silence every establishment.
+    container.approved_templates = R.ApprovedTemplates(
+        url=settings.NOTIFICATION_SERVICE_URL,
+        path=settings.NOTIFICATION_TEMPLATES_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN,
+        timeout=settings.PEER_TIMEOUT_SECONDS)
     container.identity = build_identity(settings)
     container.scheduler = Scheduler(
         store=container.datastore, cfg=adaptive_cfg, eng_cfg=eng_cfg,
@@ -269,5 +277,6 @@ def build_container(settings: Settings) -> Container:
                               visits_client=visits, telemetry=container.telemetry)
     container.tick = Tick(store=container.datastore, sender=container.sender, limits=limits,
                           eng_cfg=eng_cfg, batch=settings.TICK_BATCH_SIZE,
-                          telemetry=container.telemetry, quota=container.quota)
+                          telemetry=container.telemetry, quota=container.quota,
+                          approved=container.approved_templates)
     return container

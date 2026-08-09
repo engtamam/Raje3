@@ -178,6 +178,12 @@ class Settings(BaseSettings):
     # and every notification went to a silent 404 for weeks — a failed notification is not a failed
     # ticket, so nothing looked wrong.
     NOTIFICATION_SEND_PATH: str = "/internal/notify"
+    # WHICH TEMPLATES META HAS APPROVED, for this tenant. Added in base-services v0.13.5 after we
+    # escalated: the user-tier list needed a JWT this service cannot mint, so choose(approved=) was
+    # written and removed the same day. Empty means the filter is skipped and a send is spent
+    # discovering a template is still in review — correct, and wasteful for a shop that connected
+    # this morning with its whole library pending.
+    NOTIFICATION_TEMPLATES_PATH: str = "/internal/whatsapp/templates"
     # OURS. Turns a subject_ref back into a destination at send time, so no phone number ever rests
     # in this service. See adapters/message_sender for why this is a route and not a column.
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000

@@ -58,7 +58,7 @@ class TickResult:
 
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
-                 batch: int = 100, telemetry=None, quota=None) -> None:
+                 batch: int = 100, telemetry=None, quota=None, approved=None) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
@@ -72,6 +72,9 @@ class Tick:
         # production refuses that driver at boot (config.py), because a service that sends without
         # counting is exactly the defect core/quota.py exists to fix.
         self._quota = quota or Q.NullQuota()
+        # Which templates WhatsApp has approved for this tenant. Unconfigured answers None, which
+        # means NOT KNOWN and behaves exactly as this service did before it existed.
+        self._approved = approved or R.ApprovedTemplates()
         self._limits = limits
         self._eng_cfg = eng_cfg
         self._batch = batch
@@ -92,6 +95,11 @@ class Tick:
         due = await self._sched.due(tenant, now=now, limit=self._batch)
         res.scanned = len(due)
 
+        # ONE READ PER TENANT PER TICK, beside the library it belongs with. A shop with 300 due
+        # reminders would otherwise ask notification-service 300 times for an answer that cannot
+        # change while this loop runs. None means NOT KNOWN — see ApprovedTemplates.
+        approved = await self._approved.names(tenant) if due else None
+
         # PRIORITY ORDER (spec 8.4.2 section 4). Two messages competing for one daily slot must
         # resolve the same way every time, and the losing one must be the lower-priority one — not
         # whichever the datastore happened to return first.
@@ -102,7 +110,7 @@ class Tick:
                 await self._one(tenant, row, now=now, res=res, library=library,
                                 service_names=service_names, establishment=establishment,
                                 customer_name=names.get(row.get("subject_ref", ""), ""),
-                                tone=tone)
+                                tone=tone, approved=approved)
             except Unsendable as exc:
                 # PERMANENT, not transient. There is nobody to send to — erased, or never there.
                 # Retrying would ask operations about a forgotten customer on every tick forever,
@@ -123,7 +131,8 @@ class Tick:
 
     async def send_one(self, tenant: str, row: dict[str, Any], *, now: int,
                        library: list[dict[str, Any]], service_names: dict[str, str],
-                       establishment: str, tone: str = "brief") -> dict[str, Any]:
+                       establishment: str, tone: str = "brief",
+                       approved: set[str] | None = None) -> dict[str, Any]:
         """Send ONE message that is not on a schedule — the campaigns path.
 
         THE SAME GATE, THE SAME TEMPLATE SELECTION, THE SAME SANITISER, THE SAME LEDGER. What it
@@ -165,7 +174,7 @@ class Tick:
 
         try:
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                                library=library)
+                                library=library, approved=approved)
             owner_text = row.get("owner_text", "")
             rendered = R.render(
                 template=template,
@@ -213,7 +222,8 @@ class Tick:
 
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
                    library: list[dict[str, Any]], service_names: dict[str, str],
-                   establishment: str, customer_name: str, tone: str) -> None:
+                   establishment: str, customer_name: str, tone: str,
+                   approved: set[str] | None = None) -> None:
         subject = row.get("subject_ref", "")
         cls = row.get("cls", "service")
 
@@ -262,7 +272,7 @@ class Tick:
 
         # ── 3. render ─────────────────────────────────────────────────────────────────────────
         template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                            library=library)
+                            library=library, approved=approved)
         service_text = R.merged_service_text(
             [service_names.get(s, s) for s in
              [row.get("service_id", "")] + list(row.get("also_services") or [])])

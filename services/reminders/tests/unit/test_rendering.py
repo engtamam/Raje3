@@ -128,3 +128,53 @@ def test_seven_services_are_summarised_not_listed():
     reminder."""
     out = merged_service_text([f"خدمة {i}" for i in range(1, 8)])
     assert out.endswith("و4 غيرها")
+
+
+# ── approval, restored now that something can supply it ────────────────────────────────────────
+LIB_A = [
+    {"name": "svc_x_brief", "type": "svc_x", "tone": "brief", "active": True},
+    {"name": "svc_x_warm", "type": "svc_x", "tone": "warm", "active": True},
+    {"name": "svc_x_formal", "type": "svc_x", "tone": "formal", "active": True},
+]
+
+
+def test_none_means_not_known_and_skips_the_filter():
+    """DELIBERATELY NOT AN EMPTY SET. Empty means nothing may be sent, so a caller that forgot the
+    argument would silence the entire product rather than behave as it did before."""
+    t = choose(template_type="svc_x", tone="brief", library=LIB_A, approved=None)
+    assert t["name"] == "svc_x_brief"
+
+
+def test_an_approved_template_is_preferred_in_the_chosen_tone():
+    t = choose(template_type="svc_x", tone="warm", library=LIB_A,
+                 approved={"svc_x_brief", "svc_x_warm"})
+    assert t["name"] == "svc_x_warm"
+
+
+def test_the_tone_is_given_up_before_the_send_is():
+    """A shop whose chosen tone is still in review and whose other two are approved sends in a
+    different voice. A message in the wrong register reaches the customer; one held for the right
+    register does not."""
+    t = choose(template_type="svc_x", tone="warm", library=LIB_A, approved={"svc_x_formal"})
+    assert t["name"] == "svc_x_formal"
+
+
+def test_nothing_approved_is_a_different_sentence_from_nothing_existing():
+    """One means Meta is still reviewing and the answer is patience; the other means the library
+    was never seeded and the answer is us. One message for both sends an owner to support for a
+    thing that resolves itself in an hour."""
+    with pytest.raises(RenderError) as pending:
+        choose(template_type="svc_x", tone="brief", library=LIB_A, approved=set())
+    with pytest.raises(RenderError) as missing:
+        choose(template_type="svc_nothing", tone="brief", library=LIB_A, approved={"svc_x_brief"})
+    assert "مراجعة واتساب" in str(pending.value)
+    assert "مراجعة واتساب" not in str(missing.value)
+
+
+def test_a_paused_or_disabled_template_is_not_sendable():
+    """v0.13.5 split the statuses. The filter asks for `approved` rather than excluding `pending`,
+    so paused and disabled — and any status added later — stay out by default."""
+    with pytest.raises(RenderError):
+        # Only the paused one exists in the library; it is absent from the approved set.
+        choose(template_type="svc_x", tone="brief",
+                 library=[LIB_A[0]], approved={"svc_other"})

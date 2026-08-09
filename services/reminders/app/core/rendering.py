@@ -83,31 +83,66 @@ def sanitise_owner_text(value: str) -> str:
     return v
 
 
-def choose(*, template_type: str, tone: str, library: list[dict[str, Any]]) -> dict[str, Any]:
-    """Pick the template for this type in this tenant's tone.
+def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
+           approved: set[str] | None = None) -> dict[str, Any]:
+    """Pick the template for this type in this tenant's tone, preferring one Meta has approved.
 
     FALLS BACK TO ANY ACTIVE TONE rather than failing. A tenant whose tone was set to one we later
     retired would otherwise stop sending entirely — a configuration mismatch becoming a silent
     outage, which is the shape this codebase keeps finding.
 
-    IT DOES NOT CHECK META'S APPROVAL, and that is a limit rather than an oversight.
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    WHY APPROVAL IS CHECKED HERE AT ALL, when notification-service checks it anyway.
 
     Approval is per (tenant, name): the library is authored once and submitted to every
     establishment's own WhatsApp account, so the same text is approved for one shop and pending for
-    another (spec §6.6.1). Choosing an approved one here would save a wasted send — but
-    `notification-service` exposes no INTERNAL route to read those statuses. Its list is user-tier,
-    and a service cannot mint a user token without the signing key, which lives in identity-service
-    and must stay there.
+    another (spec §6.6.1).
 
-    So the check happens where the fact lives: notification-service refuses an unapproved template
-    at send time, and `tick` treats that refusal as a DEFERRAL rather than a failure — the schedule
-    is not consumed and the message goes when the template clears. An `approved` parameter was
-    written here and removed the same day: nothing could supply it, and a parameter nobody can pass
-    is a promise the code does not keep. Escalated for the internal read.
+    Without this, a shop whose library is still under review sends, the peer refuses at the
+    delivery layer, and the schedule is deferred. That is correct — nothing is lost — but the
+    attempt has already taken its slot in the daily cap, and a shop that connected this morning has
+    an entire library in review. One read per tenant per tick replaces all of it.
+
+    THIS PARAMETER EXISTED ONCE AND WAS REMOVED THE SAME DAY, because nothing could supply it:
+    notification-service's template list was user-tier, and a service cannot mint a user token
+    without the signing key, which lives in identity-service and must stay there. A parameter
+    nobody can pass is a promise the code does not keep. It was escalated, and v0.13.5 added
+    GET /internal/whatsapp/templates?tenant=&status= — token-authed, tenant as a parameter. So it
+    is back, with the same rules that were right the first time.
+
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    `approved=None` MEANS NOT KNOWN, AND SKIPS THE FILTER ENTIRELY.
+
+    Deliberately not an empty set. An empty set means "nothing may be sent", so a caller that
+    forgot to pass the argument would silence the entire product rather than behave as it did
+    before. Not-known and none-approved are opposite facts and must not share a representation.
+
+    THE TONE IS WHAT IS GIVEN UP, NEVER THE SEND. A shop whose chosen tone is still pending and
+    whose other two are approved sends in a different voice — a message in the wrong register
+    reaches the customer, and a message held for the right one does not.
+
+    AND IT ASKS FOR `approved`, IT DOES NOT EXCLUDE `pending`. v0.13.5 split the statuses:
+    pending | approved | rejected | paused | disabled. Excluding pending would let paused and
+    disabled straight through, and neither is sendable — Meta pauses a template for quality and
+    disables it permanently. An allowlist keeps a status added later out by default; a denylist
+    lets it in.
     """
     active = [t for t in library if t.get("type") == template_type and t.get("active", True)]
     if not active:
         raise RenderError(f"لا يوجد قالب فعّال من نوع {template_type}.")
+
+    if approved is not None:
+        usable = [t for t in active if t.get("name") in approved]
+        if not usable:
+            # A DIFFERENT SENTENCE FROM THE ONE ABOVE, and the difference is who has to act.
+            # "No approved template of this type" means Meta is still reviewing and the answer is
+            # patience; "no template of this type" means the library was never seeded and the
+            # answer is us. One error message for both would send a shop owner to support for a
+            # thing that resolves itself in an hour.
+            raise RenderError(
+                f"قوالب {template_type} ما زالت قيد مراجعة واتساب — سترسل تلقائياً عند اعتمادها.")
+        active = usable
+
     for t in active:
         if t.get("tone") == tone:
             return t
@@ -179,3 +214,52 @@ def merged_service_text(names: list[str]) -> str:
     if len(clean) <= 3:
         return "، ".join(clean[:-1]) + " و" + clean[-1]
     return "، ".join(clean[:3]) + f" و{len(clean) - 3} غيرها"
+
+
+class ApprovedTemplates:
+    """Which template names WhatsApp has approved for one tenant.
+
+    ONE READ PER TENANT PER TICK, not one per message. The tick already reads a library once per
+    tenant and this belongs beside it: a shop with 300 due reminders would otherwise ask
+    notification-service 300 times for an answer that cannot change mid-tick.
+
+    NOT CACHED ACROSS TICKS, deliberately. A template approved five minutes ago should start being
+    used on the next tick, not in an hour — and the whole reason this exists is a shop that
+    connected this morning, whose statuses are changing while it runs. A stale cache would recreate
+    the wasted send it was built to avoid, just later.
+
+    UNREACHABLE ANSWERS `None`, WHICH MEANS NOT KNOWN. choose() then skips the filter and behaves
+    exactly as it did before this existed: it sends, and notification-service refuses if the
+    template is not ready. That is a wasted send, and it is the correct failure — an unreachable
+    peer must not stop a shop's reminders, and `set()` here would silence every establishment we
+    host for as long as the outage lasted.
+    """
+
+    def __init__(self, *, url: str = "", path: str = "", token: str = "",
+                 timeout: int = 8) -> None:
+        self._url = (url.rstrip("/") + path) if url else ""
+        self._token = token
+        self._timeout = timeout
+
+    async def names(self, tenant: str) -> set[str] | None:
+        if not self._url:
+            return None                       # not configured — not known, never "none approved"
+        import json
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        # ASKS FOR approved, RATHER THAN EXCLUDING pending. v0.13.5 split the statuses and both
+        # `paused` and `disabled` are unsendable; a denylist would let each new one through.
+        query = urllib.parse.urlencode({"tenant": tenant, "status": "approved", "limit": 200})
+        req = urllib.request.Request(f"{self._url}?{query}",
+                                     headers={"X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                out = json.loads(resp.read() or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return None
+        rows = out.get("templates")
+        if rows is None:
+            return None
+        return {str(r.get("name")) for r in rows if r.get("name")}
