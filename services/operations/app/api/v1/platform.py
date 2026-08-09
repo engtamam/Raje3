@@ -268,6 +268,12 @@ class RotateIn(BaseModel):
     # DAYS, not seconds, because a human sets this and thinks in days. Bounded at 90: an overlap
     # longer than a quarter is not a migration window, it is two live credentials nobody is
     # tracking.
+    #
+    # THE CONSOLE DEFAULTS TO 14 WHILE THE LIBRARY DEFAULTS TO 0, and the difference is deliberate.
+    # A caller that omits the argument in code has not decided anything, so it gets the safe
+    # answer. A human pressing "rotate" in a panel is performing a planned migration and would
+    # otherwise take a partner's whole fleet offline with one click — and 0 is still available to
+    # them, which is what they should choose for a leak.
     overlap_days: int = Field(default=14, ge=0, le=90)
 
 

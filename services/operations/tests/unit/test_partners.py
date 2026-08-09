@@ -116,11 +116,19 @@ def test_the_partners_shops_are_read_from_the_stamps(reg):
 import time as _time
 
 
+def test_rotation_defaults_to_an_immediate_cutover(reg):
+    """The case where you most want to rotate is a leaked key, and that is the case where an
+    overlap is exactly wrong. base-services v0.13.3 made the same call for service accounts."""
+    p, old = mk(reg)
+    run(reg.rotate(p["id"]))
+    assert run(reg.resolve(old)) is None
+
+
 def test_both_keys_work_during_the_overlap(reg):
     """A hard swap stops every till in the country the moment we press the button, and each stays
     broken until it is updated — a fortnight, for a shop that opens on Thursdays."""
     p, old = mk(reg)
-    _, new = run(reg.rotate(p["id"]))
+    _, new = run(reg.rotate(p["id"], overlap_seconds=14 * 86400))
     assert run(reg.resolve(old))["id"] == p["id"]
     assert run(reg.resolve(new))["id"] == p["id"]
 
@@ -135,7 +143,7 @@ def test_the_old_key_stops_working_by_itself(reg):
 
 def test_a_shop_onboarded_on_the_old_key_during_the_window_is_stamped_normally(reg):
     p, old = mk(reg)
-    run(reg.rotate(p["id"]))
+    run(reg.rotate(p["id"], overlap_seconds=14 * 86400))
     assert run(reg.stamp("shop_mid_rotation", key=old))["partner_id"] == p["id"]
 
 
@@ -143,8 +151,8 @@ def test_a_second_rotation_drops_the_oldest_key_rather_than_chaining(reg):
     """Two overlapping windows is a credential nobody can reason about — and a second rotation is
     usually somebody reacting to a leak, so the oldest key is the one to kill."""
     p, first = mk(reg)
-    _, second = run(reg.rotate(p["id"]))
-    _, third = run(reg.rotate(p["id"]))
+    _, second = run(reg.rotate(p["id"], overlap_seconds=14 * 86400))
+    _, third = run(reg.rotate(p["id"], overlap_seconds=14 * 86400))
     assert run(reg.resolve(first)) is None
     assert run(reg.resolve(second))["id"] == p["id"]
     assert run(reg.resolve(third))["id"] == p["id"]
@@ -154,7 +162,7 @@ def test_rotating_does_not_change_the_partner_id_or_its_shops(reg):
     """The stamps point at the id, not the key. A rotation that moved them would move the money."""
     p, key = mk(reg)
     run(reg.stamp("shop9", key=key))
-    run(reg.rotate(p["id"]))
+    run(reg.rotate(p["id"], overlap_seconds=14 * 86400))
     assert run(reg.tenants_of(p["id"])) == ["shop9"]
 
 

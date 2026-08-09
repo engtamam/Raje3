@@ -107,7 +107,7 @@ class PartnerRegistry:
         # a screenshot, or a support ticket.
         return [{k: v for k, v in r.items() if k != "key_hash"} for r in rows]
 
-    async def rotate(self, partner_id: str, *, overlap_seconds: int = 14 * 86400
+    async def rotate(self, partner_id: str, *, overlap_seconds: int = 0
                      ) -> tuple[dict[str, Any], str]:
         """Issue a new key while the old one keeps working for a window.
 
@@ -121,6 +121,13 @@ class PartnerRegistry:
         part people get wrong: an overlap that ends when somebody remembers to end it is an
         overlap that never ends, and a rotated credential that still works a year later was not a
         rotation.
+
+        THE DEFAULT IS ZERO — an immediate cutover. Our first version defaulted to fourteen days,
+        and base-services v0.13.3 (which implements this same overlap for service accounts, from
+        our report) chose zero. Theirs is right and ours was not: a caller who does not know the
+        feature exists must not silently end up with two live credentials, and the case where you
+        MOST want rotation — a leaked key — is the case where an overlap is exactly wrong. The
+        window is a decision somebody writes down, not a gift nobody asked for.
 
         The old key's hash is kept, not the key — we never held the key in the first place.
         """
