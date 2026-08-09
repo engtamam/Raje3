@@ -128,3 +128,123 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     # messages. Showing them would put rows in an owner's log that mean nothing to them.
     rows = [r for r in rows if r.get("subject_ref") != "_visit_marker"]
     return {"log": rows, "count": len(rows)}
+
+
+# ── settings: general, group, and one service's own (spec §10.8.1) ────────────────────────────
+class SettingsIn(BaseModel):
+    # Every field optional: an owner changing the lead time must not be forced to restate the
+    # interval, and a model requiring both would make a one-field edit a two-field decision.
+    interval_days: float | None = Field(default=None, ge=1, le=1095)
+    lead_days: float | None = Field(default=None, ge=0, le=60)
+    follow_up_days: int | None = Field(default=None, ge=0, le=180)
+    enabled: bool | None = None
+
+    def values(self) -> dict:
+        # `exclude_none` is the whole contract: an omitted field means "leave it", NOT "clear it".
+        # Sending nulls for what the owner did not touch would erase settings on every save.
+        return self.model_dump(exclude_none=True)
+
+
+def _settings(request: Request):
+    from app.config import get_settings
+    from app.core.settings_tree import SettingsStore
+    s = get_settings()
+    return SettingsStore(request.app.state.container.datastore, defaults={
+        "interval_days": s.DEFAULT_INTERVAL_DAYS,
+        "lead_days": s.DEFAULT_LEAD_DAYS,
+        "follow_up_days": 0,
+        "enabled": True})
+
+
+@router.get("/settings", dependencies=[Depends(rate_limit)])
+async def read_settings(request: Request, service_id: str = Query(default=""),
+                        principal: Principal = Depends(_READ)) -> dict:
+    """The effective settings, and WHERE each value came from.
+
+    The source is not decoration: the screen cannot say "this one is customised — tap to go back"
+    unless the API says which level answered. A response carrying only the numbers would force the
+    console to re-derive it, and the two would disagree the first time the resolver changed.
+    """
+    tree = await _settings(request).load(principal.tenant)
+    if service_id:
+        return {"service_id": service_id,
+                "customised": tree.is_customised(service_id),
+                "settings": {k: {"value": r.value, "source": r.source}
+                             for k, r in tree.resolve_all(service_id).items()}}
+    return {"general": tree.general, "groups": tree.groups,
+            "customised_services": sorted(tree.services)}
+
+
+@router.put("/settings", dependencies=[Depends(rate_limit)])
+async def set_general_settings(request: Request, body: SettingsIn,
+                               principal: Principal = Depends(_MANAGE)) -> dict:
+    """Change the tenant-wide setting.
+
+    Reaches every service that follows and leaves every customised one alone. An owner who spent a
+    minute setting the oil change to 60 days has not asked us to undo that minute.
+    """
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource="settings:general", ip=request.client.host if request.client else "")
+    tree = await _settings(request).set_general(principal.tenant, body.values())
+    return {"general": tree.general,
+            "note": "يسري على كل خدمة تتبع الإعداد العام. الخدمات المخصّصة تبقى كما هي."}
+
+
+@router.put("/settings/service/{service_id}", dependencies=[Depends(rate_limit)])
+async def set_service_settings(request: Request, service_id: str, body: SettingsIn,
+                               principal: Principal = Depends(_MANAGE)) -> dict:
+    """Give one service its own values — which is what "customising" means here."""
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"settings:service:{service_id}",
+        ip=request.client.host if request.client else "")
+    tree = await _settings(request).set_service(principal.tenant, service_id, body.values())
+    return {"service_id": service_id, "own": tree.services.get(service_id, {}),
+            "note": "هذه الخدمة لها إعدادها الخاص الآن. للعودة إلى العام احذف تخصيصها."}
+
+
+@router.delete("/settings/service/{service_id}", dependencies=[Depends(rate_limit)])
+async def follow_general_again(request: Request, service_id: str,
+                               principal: Principal = Depends(_MANAGE)) -> dict:
+    """The "tap to go back" the note offers.
+
+    DELETES the service's own values rather than writing the current general ones into it. Writing
+    them would look identical today and diverge tomorrow — the service would stop following, and
+    the next general edit would skip it.
+    """
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"settings:service:{service_id}",
+        ip=request.client.host if request.client else "")
+    await _settings(request).follow_again(principal.tenant, service_id)
+    return {"service_id": service_id, "follows": "general"}
+
+
+class GroupIn(SettingsIn):
+    service_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.put("/settings/group/{name}", dependencies=[Depends(rate_limit)])
+async def set_group_settings(request: Request, name: str, body: GroupIn,
+                             principal: Principal = Depends(_MANAGE)) -> dict:
+    """Create or update a group. Arrives late and by suggestion — never as a step somebody must
+    complete before sending their first message."""
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"settings:group:{name}", ip=request.client.host if request.client else "")
+    values = {k: v for k, v in body.values().items() if k != "service_ids"}
+    tree = await _settings(request).set_group(principal.tenant, name, values,
+                                              service_ids=body.service_ids)
+    return {"group": name, "settings": tree.groups.get(name, {}),
+            "services": [s for s, g in tree.service_group.items() if g == name]}
+
+
+@router.get("/settings/suggest-group", dependencies=[Depends(rate_limit)])
+async def suggest_group(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Is the owner repeating themselves?
+
+    Proposes only. Acting on it would be a system rearranging their settings without being asked,
+    which is the fastest way to lose their trust in a screen.
+    """
+    return {"suggestion": await _settings(request).suggest_group(principal.tenant)}

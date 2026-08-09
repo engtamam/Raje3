@@ -16,7 +16,7 @@ service:
 
 image:
   repository: docker.io/raje3/portal
-  digest: "sha256:173b49d1378513f4b572ae395e07f4208025d48123fc003eb3ea89cb76ccce8c"
+  digest: "sha256:914dc4933b9221a4f59bef032271ae920d8fdf6f3c27da1f497cdbb5c9dad3d6"
 
 # ONE REPLICA — and this is a correction, not the original plan.
 #

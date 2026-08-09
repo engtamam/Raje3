@@ -36,6 +36,9 @@ BACKUP: dict[str, Any] = {
         # re-enables what they switched off — the one data loss here we could not defend.
         {"name": "prefs", "tenant_scoped": True},
         {"name": "engagement", "tenant_scoped": True},
+        # The owner's own configuration. Losing it silently reverts every service to the platform
+        # default — messages keep going out, at the wrong intervals, and nothing says why.
+        {"name": "reminder_settings", "tenant_scoped": True},
         # Platform-scoped, not tenant-scoped: one row per establishment under a reserved tenant,
         # plus the global default. A per-tenant restore must not bring back an override that was
         # deliberately removed, which is why this is declared whole rather than scoped.

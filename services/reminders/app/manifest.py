@@ -88,6 +88,14 @@ def build_manifest(
             {"path": "/api/v1/reminders/rules", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/rules/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/log", "tier": "user", "method": "GET"},
+            # Settings, three levels deep (spec 10.8.1). The owner never picks a level — they edit
+            # a service and it becomes an override, with the way back offered where it happened.
+            {"path": "/api/v1/reminders/settings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/settings", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/settings/service/{}", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/settings/service/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/reminders/settings/group/{}", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/settings/suggest-group", "tier": "user", "method": "GET"},
             # ── the customer's own switches — no token in the URL (spec 8.6.1) ────────────
             {"path": "/api/v1/prefs/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/prefs/{}", "tier": "user", "method": "PUT"},
