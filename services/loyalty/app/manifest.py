@@ -79,6 +79,8 @@ def build_manifest(
             # The integrated till redeems here (spec §9.8) — the SAME core path as the field.
             {"path": "/internal/loyalty/redeem", "tier": "internal", "method": "POST"},
             # The repair for a materialised total that drifted from its own ledger.
+            # Aggregates for insights' weekly digest — totals only, never who.
+            {"path": "/internal/loyalty/report", "tier": "internal", "method": "POST"},
             {"path": "/internal/loyalty/reconcile", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # DECLARED, because a data map built from manifests is how a DSAR fan-out

@@ -314,3 +314,42 @@ def test_erasure_removes_the_derived_sequence_and_is_idempotent(client, owner):
 
 def test_the_tick_needs_the_internal_token(client):
     assert client.post("/internal/insights/tick", json={}).status_code in (401, 403)
+
+
+# ── the weekly report's eight lines, through the route ─────────────────────────────────────────
+def test_the_digest_asks_its_peers_and_each_failure_costs_one_line(client, owner):
+    """A digest that does not go out because billing was slow is a report the owner never learns
+    he was owed — while the seven other lines were correct."""
+    _seed(client, regulars(40, "d", ["wash"]))
+    client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
+    c = client.app.state.container
+    c.peers.extras = {"shop": "مغسلة النخيل", "messages_used": 780, "messages_limit": 3000,
+                      "points_redeemed": 9}
+    c.peers.sent.clear()
+    r = client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
+    assert r.status_code == 200 and r.json()["sent"] == 1
+    text = c.peers.sent[0]["owner_text"]
+    assert "مغسلة النخيل" in text and "780 من 3000" in text and "نقاط استُبدلت: 9" in text
+
+    # Now every peer read fails. The message still goes, three lines lighter.
+    c.peers.extras = {}
+    c.peers.sent.clear()
+    r = client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
+    assert r.json()["sent"] == 1
+    lean = c.peers.sent[0]["owner_text"]
+    assert "رصيد رسائلك" not in lean and "نقاط" not in lean
+    assert "الزيارات" in lean
+
+
+def test_the_digest_never_names_a_plan_or_a_price(client, owner):
+    """One word about a package and the whole template becomes promotional — and a shop's own
+    operational report sits behind quiet hours and a consent its owner never gave himself."""
+    _seed(client, regulars(40, "n", ["wash"]))
+    client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
+    c = client.app.state.container
+    c.peers.sent.clear()
+    client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
+    call = c.peers.sent[0]
+    assert call["cls"] == "service"
+    for word in ("باقة", "رقّ", "ريال", "اشترك"):
+        assert word not in call["owner_text"], word

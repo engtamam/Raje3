@@ -259,6 +259,14 @@ class Settings(BaseSettings):
     # or withhold. The ENFORCING call (/internal/billing/usage/consume) belongs where a unit is
     # actually spent, which in this product is a message, not a chart.
     BILLING_ENTITLEMENT_PATH: str = "/internal/billing/entitlements/check"
+    # THEIRS. "18 of 3000 messages" — the weekly report's sixth line, and the warning that stops
+    # the return engine going quiet mid-month with nobody told.
+    BILLING_USAGE_PATH: str = "/internal/billing/usage"
+    LOYALTY_SERVICE_URL: str = ""
+    # OURS. Aggregates only: how many points were redeemed, never by whom.
+    LOYALTY_REPORT_PATH: str = "/internal/loyalty/report"
+    TENANT_SERVICE_URL: str = ""
+    TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── the sweep ─────────────────────────────────────────────────────────────

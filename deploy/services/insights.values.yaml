@@ -73,6 +73,14 @@ env:
   # be taken back, while a refusal during an outage fixes itself.
   BILLING_SERVICE_URL: "http://billing-service:8000"
   BILLING_ENTITLEMENT_PATH: "/internal/billing/entitlements/check"
+  # The weekly report's own three reads. EACH FAILURE COSTS ONE LINE, never the message — a
+  # digest that does not go out because billing was slow is a report the owner never learns he
+  # was owed, while the seven other lines were correct.
+  BILLING_USAGE_PATH: "/internal/billing/usage"
+  LOYALTY_SERVICE_URL: "http://loyalty:8000"
+  LOYALTY_REPORT_PATH: "/internal/loyalty/report"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_READ_PATH: "/internal/tenants/{id}"
   PEER_TIMEOUT_SECONDS: "8"
 
   # ── the sweep ─────────────────────────────────────────────────────────────────────────────

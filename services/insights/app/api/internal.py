@@ -207,12 +207,19 @@ async def digest(request: Request, body: TickIn) -> dict:
     from app.core.digest import build as build_digest
     from app.core.models import SNAPSHOTS
 
+    import time as _time
+
     c = request.app.state.container
     tenants = [body.tenant] if body.tenant else await c.peers.tenants()
+    # The week this report covers. Passed to the peers so "points redeemed" means THIS WEEK rather
+    # than all time — a lifetime total in a weekly report is a number that never changes visibly.
+    week_ago = int(_time.time()) - 7 * 86400
     sent = skipped = 0
     for tenant in tenants:
         snap = await c.datastore.get(SNAPSHOTS, f"{tenant}|_all")
-        msg = build_digest(snapshot=snap or {})
+        # Each of these may fail on its own and cost exactly one line. See peers.digest_extras.
+        extras = await c.peers.digest_extras(tenant, since=week_ago)
+        msg = build_digest(snapshot=snap or {}, **extras)
         if not msg:
             skipped += 1
             continue

@@ -308,6 +308,38 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
     }
 
 
+# ── what the programme did, for a peer's report ───────────────────────────────────────────────
+class ReportIn(BaseModel):
+    tenant: str
+    # Empty = all time. A window makes "this week" answerable without the caller filtering rows it
+    # is not allowed to see.
+    since: int = 0
+
+
+@router.post("/loyalty/report", dependencies=[Depends(require_internal_token)])
+async def internal_report(request: Request, body: ReportIn) -> dict:
+    """The same totals the owner's screen shows, for `insights` to put one line in the weekly
+    digest.
+
+    AGGREGATES ONLY, and that is the whole reason this is separate from the ledger: it answers
+    "how many points were redeemed" and never "by whom". A peer building a report has no business
+    receiving a list of customers, and a route that returned one would be a customer export
+    wearing a different name.
+    """
+    from app.core.report import build as build_report
+
+    c = request.app.state.container
+    rep = await build_report(c.datastore, body.tenant)
+    if body.since:
+        rows, _ = await c.datastore.find(
+            "loyalty_redemptions", {"tenant": body.tenant}, limit=10000,
+            sort=("created_at", "desc"))
+        recent = [r for r in (rows or []) if int(r.get("created_at") or 0) >= body.since]
+        rep["redeemed_since"] = sum(int(r.get("cost") or 0) for r in recent)
+        rep["redemptions_since"] = len(recent)
+    return rep
+
+
 # ── the repair (playbook: a materialised total can drift from its ledger) ──────────────────────
 class ReconcileIn(BaseModel):
     tenant: str

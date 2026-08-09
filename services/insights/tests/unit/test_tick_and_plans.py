@@ -210,6 +210,15 @@ def test_a_temporal_pair_is_a_reminder_not_a_bundle():
 
 
 # ── the weekly message ─────────────────────────────────────────────────────────────────────────
+def snap(visits=120, **values):
+    base = {"new_vs_returning": {"new": 14, "returning": 106},
+            "at_risk": [{"subject_ref": f"a{i}"} for i in range(14)],
+            "service_popularity": [{"service_id": "wash", "count": 48}],
+            "service_names": {"wash": "غسيل شامل"}}
+    base.update(values)
+    return {"visits": visits, "values": base}
+
+
 def test_the_digest_is_silent_for_a_week_it_could_not_compute():
     """"0 visits, 0 customers" reads as "your shop is dead", and it is our failure wearing his
     numbers."""
@@ -217,19 +226,67 @@ def test_the_digest_is_silent_for_a_week_it_could_not_compute():
     assert build_digest(snapshot={"visits": 0, "values": {}}) is None
 
 
-def test_the_digest_carries_a_few_numbers_and_one_action():
-    snap = {"visits": 120, "values": {"at_risk": [{"subject_ref": "a"}] * 14}}
-    msg = build_digest(snapshot=snap, previous={"visits": 100})
-    assert "120" in msg["text"] and "20" in msg["text"] and "14" in msg["text"]
+def test_the_eight_lines():
+    msg = build_digest(snapshot=snap(associations={"pairs": [
+              {"a": "oil", "b": "filter", "verdict": "real", "customers": 340},
+              {"a": "wash", "b": "wax", "verdict": "temporal", "customers": 90}]}),
+              previous={"visits": 100}, messages_used=780, messages_limit=3000,
+              points_redeemed=9, shop="مغسلة النخيل")
+    text = msg["text"]
+    assert msg["lines"] == 8, text
+    assert "120 (+20)" in text          # the pulse WITH its difference
+    assert "عملاء جدد: 14" in text
+    assert "عادوا: 106" in text
+    assert "تأخّروا عن موعدهم: 14" in text
+    assert "غسيل شامل (48)" in text     # the NAME, not the id
+    assert "780 من 3000" in text
+    assert "نقاط استُبدلت: 9" in text
+    assert "وجدنا 2 ترابطات" in text and "340" in text
     assert msg["action"] == "send_winback"
-    # SERVICE, not marketing: it is the shop's own report about its own business.
+
+
+def test_the_finding_line_never_sells():
+    """THE LINE IS IN THE TEXT, NOT THE INTENTION. One word about a package and the whole
+    template becomes promotional — and a shop's own report sits behind quiet hours and a consent
+    its owner never thought to give himself."""
+    msg = build_digest(snapshot=snap(associations={"pairs": [
+        {"a": "a", "b": "b", "verdict": "real", "customers": 340}]}))
+    for word in ("باقة", "رقّ", "ريال", "اشترك", "ترقية"):
+        assert word not in msg["text"], word
     assert msg["cls"] == "service"
 
 
-def test_a_quiet_week_still_reports_and_says_the_direction():
-    msg = build_digest(snapshot={"visits": 80, "values": {}}, previous={"visits": 100})
-    assert "أقل" in msg["text"]
+def test_a_zero_line_is_dropped_rather_than_printed():
+    """"New customers: 0" is not information, it is a verdict on his week."""
+    msg = build_digest(snapshot=snap(new_vs_returning={"new": 0, "returning": 106},
+                                     at_risk=[]))
+    assert "عملاء جدد" not in msg["text"]
+    assert "تأخّروا" not in msg["text"]
     assert msg["action"] == ""          # nothing to do, so no button
+
+
+def test_a_shop_without_loyalty_sees_no_points_line():
+    """What a plan does not include is not rendered EMPTY — it is not rendered (spec §8.6.1)."""
+    assert "نقاط" not in build_digest(snapshot=snap(), points_redeemed=0)["text"]
+
+
+def test_a_shop_with_no_relationships_yet_gets_no_finding_line():
+    """"We found 0" is an advertisement and a lie in one sentence."""
+    assert "وجدنا" not in build_digest(snapshot=snap())["text"]
+
+
+def test_a_group_pair_is_never_counted_in_the_finding():
+    """It failed the contamination test — announcing it would sell the family receipt."""
+    msg = build_digest(snapshot=snap(associations={"pairs": [
+        {"a": "burger", "b": "kidsmeal", "verdict": "group", "customers": 500}]}))
+    assert "وجدنا" not in msg["text"]
+
+
+def test_the_action_link_carries_no_credential():
+    """An owner's panel holds every customer he has, so a forwarded message must never open it."""
+    msg = build_digest(snapshot=snap())
+    assert msg["action_path"] == "/campaigns/new?goal=win_back"
+    assert "token" not in msg["action_path"] and "?t=" not in msg["action_path"]
 
 
 def test_subscriptions_are_per_person_not_per_establishment():

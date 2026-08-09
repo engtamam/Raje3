@@ -43,6 +43,9 @@ class NullPeers:
         # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
         # every check must be correct about.
         self.entitlements: set[str] = set(entitlements or set())
+        # What the three optional digest reads would return. Empty means each of them failed or
+        # is not applicable — which is the state the digest must be correct about.
+        self.extras: dict[str, Any] = {}
         self.sent: list[dict] = []
 
     async def visits(self, tenant: str, *, since: int = 0, limit: int = 5000) -> list[dict]:
@@ -61,17 +64,26 @@ class NullPeers:
     async def entitled(self, tenant: str, key: str) -> bool:
         return key in self.entitlements
 
+    async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
+        return dict(self.extras)
+
 
 class HttpPeers:
     driver = "http"
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
                  reminders_url: str, send_path: str, billing_url: str, entitlement_path: str,
+                 usage_path: str, loyalty_url: str, loyalty_report_path: str,
+                 tenant_url: str, tenant_read_path: str,
                  token: str, timeout: int = 8) -> None:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
+        self._usage_url = billing_url.rstrip("/") + usage_path
+        self._loyalty_url = loyalty_url.rstrip("/") + loyalty_report_path
+        self._tenant_url = tenant_url.rstrip("/")
+        self._tenant_path = tenant_read_path
         self._token = token
         self._timeout = timeout
 
@@ -152,6 +164,57 @@ class HttpPeers:
             return False
 
 
+    async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
+        """The three things the weekly report needs and this service does not hold.
+
+        EACH FAILURE COSTS ONE LINE, NEVER THE MESSAGE. A digest that refuses to go out because
+        billing was slow is a report the owner does not get for a reason he will never learn —
+        and the seven other lines were correct. So every read is its own try, and an absent value
+        simply drops its line (see core/digest.py).
+        """
+        out: dict[str, Any] = {}
+
+        # The shop's own name. A message that opens "أسبوعك في" and stops is the blank-name defect
+        # this product already shipped once, so an empty answer drops the name rather than
+        # printing a gap.
+        try:
+            path = self._tenant_path.replace("{id}", urllib.parse.quote(tenant, safe=""))
+            req = urllib.request.Request(self._tenant_url + path,
+                                         headers={"X-Internal-Token": self._token})
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+                data = json.loads(resp.read() or b"{}")
+            out["shop"] = str(data.get("name") or data.get("display_name") or "")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            pass
+
+        # The message quota — the quietest outage this product has: the engine stops mid-month and
+        # nothing tells him until a customer mentions they stopped hearing from him.
+        try:
+            req = urllib.request.Request(
+                self._usage_url + "?" + urllib.parse.urlencode({"tenant": tenant}),
+                headers={"X-Internal-Token": self._token})
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+                usage = json.loads(resp.read() or b"{}")
+            for row in (usage.get("usage") or usage.get("items") or []):
+                if str(row.get("key")) == "messages.monthly":
+                    out["messages_used"] = int(row.get("current") or 0)
+                    out["messages_limit"] = int(row.get("limit") or 0)
+                    break
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            pass
+
+        # Points redeemed this week. AGGREGATES ONLY — the peer's route returns totals and never
+        # who, because a report builder has no business receiving a customer list.
+        try:
+            rep = _post(self._loyalty_url, {"tenant": tenant, "since": since},
+                        self._token, self._timeout)
+            out["points_redeemed"] = int(rep.get("redeemed_since") or 0)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            pass
+
+        return out
+
+
 def build_peers(settings) -> Any:
     if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
         return NullPeers()
@@ -162,5 +225,10 @@ def build_peers(settings) -> Any:
                      send_path=settings.REMINDERS_SEND_PATH,
                      billing_url=settings.BILLING_SERVICE_URL,
                      entitlement_path=settings.BILLING_ENTITLEMENT_PATH,
+                     usage_path=settings.BILLING_USAGE_PATH,
+                     loyalty_url=settings.LOYALTY_SERVICE_URL,
+                     loyalty_report_path=settings.LOYALTY_REPORT_PATH,
+                     tenant_url=settings.TENANT_SERVICE_URL,
+                     tenant_read_path=settings.TENANT_READ_PATH,
                      token=settings.INTERNAL_SERVICE_TOKEN,
                      timeout=settings.PEER_TIMEOUT_SECONDS)

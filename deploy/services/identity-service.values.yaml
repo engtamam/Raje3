@@ -69,8 +69,34 @@ env:
   # this: change it and every live session and refresh token is rejected at once.
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
-  ACCESS_TTL_SECONDS: "900"        # 15 min
-  REFRESH_TTL_SECONDS: "604800"    # 7 days
+  # ── how long a session lives, and why it is this long ─────────────────────────────────────
+  # ACCESS 15 MINUTES, unchanged. It is also what "instant suspension" (spec §11.1) actually
+  # means: a suspended person keeps their access token until it expires, and is then refused at
+  # refresh — because membership is re-read on EVERY refresh. So the real figure is "within
+  # fifteen minutes", and shortening it would multiply the refresh load on every field screen in
+  # the product to buy back minutes nobody is asking for.
+  ACCESS_TTL_SECONDS: "900"
+  # REFRESH 31 DAYS, raised from the upstream default of seven.
+  #
+  # Seven days means a shop owner logs in every week and a field employee logs in every week, and
+  # a login they perform that often is a login they will make easy for themselves — a shared
+  # account, a password on a sticky note, a browser they never sign out of on a device they lend.
+  # The security cost of a long refresh is smaller than the security cost of a habit like that.
+  #
+  # And it is long WITHOUT being loose, because of what upstream already does with it:
+  #
+  #   the refresh token ROTATES on every use — the old one is revoked, so the chain lives in one
+  #   browser and nowhere else, which is device binding in effect if not in name,
+  #
+  #   reusing a rotated token is treated as THEFT and revokes the whole family, so the thief and
+  #   the victim are both signed out at the first sign of it,
+  #
+  #   and membership is re-verified at every refresh, so a suspended employee stops refreshing
+  #   immediately rather than at the end of the window.
+  #
+  # 31 rather than 30: a calendar month is what an owner experiences, and a 30-day window drops
+  # him at the login screen once a year for a reason he cannot see.
+  REFRESH_TTL_SECONDS: "2678400"
 
   PASSWORD_HASHER_DRIVER: "argon2"
   PASSWORD_MIN_LENGTH: "12"        # this account can connect a WhatsApp number and message
