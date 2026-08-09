@@ -152,6 +152,14 @@ class Settings(BaseSettings):
     # production install: the first establishment would be created with a blank service grid.
     SECTORS_SEED_FILE: str = ""
 
+    # ── the message-template library — same pattern, same reason ──────────────
+    # 69 templates across 23 types and five regulatory classes. In the datastore, edited from the
+    # platform console at runtime; this file is the ONE-TIME seed applied to an empty table.
+    #
+    # The first version lived in a document, which meant changing a word cost a rebuild and a
+    # rollout. That is not a library, it is a constant.
+    TEMPLATES_SEED_FILE: str = ""
+
     # ── search — how a customer becomes findable ──────────────────────────────
     # `null` indexes nothing and SAYS so. Correct for tests; refused in production by the boot
     # guard below, because a screen that silently cannot find anybody is the single worst thing
@@ -352,6 +360,11 @@ class Settings(BaseSettings):
         and sees a blank screen does not record a first visit — they close the tab. Nothing errors,
         nothing is logged, and the failure looks like a product nobody wanted.
         """
+        if self.is_production and not self.TEMPLATES_SEED_FILE:
+            problems.append(
+                "TEMPLATES_SEED_FILE is empty in production: the template library would be empty, "
+                "and an establishment with no templates cannot send a single message — which is "
+                "the product")
         if self.is_production and not self.SECTORS_SEED_FILE:
             raise ValueError(
                 "SECTORS_SEED_FILE is empty in production: on a fresh install the sector table "

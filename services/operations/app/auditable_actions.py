@@ -229,4 +229,19 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "sector_fields",
         "why": "it changes which inputs the field screen renders in every sector at once",
     },
+    {
+        "action": "platform.template_changed",
+        "source": "admin",
+        "critical": True,
+        "resource": "template",
+        "why": "the text every establishment sends afterwards; a wrong edit reaches thousands of "
+               "customers under an establishment's name, not ours",
+    },
+    {
+        "action": "platform.template_deactivated",
+        "source": "admin",
+        "critical": True,
+        "resource": "template",
+        "why": "a retired template stops a message class going out, and the symptom is silence",
+    },
 ]

@@ -151,6 +151,7 @@ class Container:
     seams: Any = None
     search: Any = None
     sectors: Any = None
+    templates: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -224,6 +225,7 @@ def build_container(settings: Settings) -> Container:
     from app.core.operations import Operations
     from app.core.seams import Seams
     from app.core.sectors import SectorCatalogue
+    from app.core.templates import TemplateLibrary
 
     container.operations = Operations(store=container.datastore, pii_salt=settings.PII_SALT)
     container.search = build_search(settings)
@@ -234,4 +236,5 @@ def build_container(settings: Settings) -> Container:
     # platform console at runtime. The seed file is applied once at startup if the table is empty
     # (see main.py) — re-applying it on every boot would silently undo an operator's edits.
     container.sectors = SectorCatalogue(container.datastore)
+    container.templates = TemplateLibrary(container.datastore)
     return container

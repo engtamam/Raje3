@@ -25,6 +25,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.sectors import SectorCatalogue, SectorError
+from app.core.templates import TemplateError, TemplateLibrary
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -34,6 +35,10 @@ _PLATFORM = require_capability("platform.operations")
 
 def _cat(request: Request) -> SectorCatalogue:
     return SectorCatalogue(request.app.state.container.datastore)
+
+
+def _lib(request: Request) -> TemplateLibrary:
+    return TemplateLibrary(request.app.state.container.datastore)
 
 
 class ServiceDefault(BaseModel):
@@ -126,3 +131,68 @@ async def set_field_specs(request: Request, body: FieldSpecsIn,
         "platform.sector_fields_changed", actor=principal.subject, tenant="",
         resource="sector_fields", ip=request.client.host if request.client else "")
     return await _cat(request).set_field_specs(body.specs)
+
+
+# ── the message-template library ───────────────────────────────────────────────────────────────
+class TemplateIn(BaseModel):
+    name: str = Field(min_length=3, max_length=512, pattern=r"^[a-z][a-z0-9_]*$")
+    type: str = Field(default="", max_length=128)
+    tone: str = Field(default="", pattern="^(brief|warm|formal|)$")
+    label: str = Field(default="", max_length=200)
+    # The five regulatory classes (spec §8.4.1). Validated, not accepted: the class decides the
+    # rules, so a template filed under the wrong one carries the wrong constraints.
+    cls: str = Field(alias="class", pattern="^(service|personal|awareness|warning|marketing)$")
+    category: str = Field(pattern="^(UTILITY|MARKETING|AUTHENTICATION)$")
+    language: str = Field(default="ar", max_length=8)
+    body: str = Field(min_length=1, max_length=1024)
+    header: str = Field(default="", max_length=60)
+    button: str | None = Field(default=None, max_length=32)
+    active: bool = True
+
+    model_config = {"populate_by_name": True}
+
+
+@router.get("/templates", dependencies=[Depends(rate_limit)])
+async def list_templates(request: Request, cls: str = "", tone: str = "",
+                         principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The whole library, filterable by class or tone.
+
+    Inactive ones included: a console that shows only what is live cannot show an operator what
+    they retired last month, which is the first thing they look for when asked why a message
+    stopped going out.
+    """
+    return {"templates": await _lib(request).list(cls=cls, tone=tone)}
+
+
+@router.put("/templates/{name}", dependencies=[Depends(rate_limit)])
+async def upsert_template(request: Request, name: str, body: TemplateIn,
+                          principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Create or replace a template — at runtime, with no rebuild and no restart.
+
+    Takes effect for establishments onboarded AFTERWARDS. It does not rewrite what a tenant
+    already has registered with Meta: that copy is approved under its own name, and silently
+    diverging from an approved text is how a send starts failing for a reason nobody can see.
+    """
+    if name != body.name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "the name in the path and the body must match")
+    await request.app.state.auditor.record(
+        "platform.template_changed", actor=principal.subject, tenant="",
+        resource=f"template:{name}", ip=request.client.host if request.client else "")
+    try:
+        return await _lib(request).upsert(body.model_dump(by_alias=True))
+    except TemplateError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+
+
+@router.delete("/templates/{name}", dependencies=[Depends(rate_limit)])
+async def deactivate_template(request: Request, name: str,
+                              principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Deactivate, never delete. Establishments carry this name in their registry and Meta holds
+    an approved copy under it — deleting our row leaves both pointing at nothing we can explain."""
+    await request.app.state.auditor.record(
+        "platform.template_deactivated", actor=principal.subject, tenant="",
+        resource=f"template:{name}", ip=request.client.host if request.client else "")
+    if not await _lib(request).deactivate(name):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return {"name": name, "active": False}

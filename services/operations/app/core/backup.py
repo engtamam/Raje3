@@ -59,8 +59,15 @@ def _row_key(template: str, name: str, row: dict[str, Any]) -> str:
     try:
         key = template.format_map(row)
     except (KeyError, IndexError, ValueError) as exc:
+        # The overwhelmingly common case is the default template on a row that carries no id, and
+        # it deserves to say so plainly: "missing field 'id'" sends whoever reads it looking for a
+        # key template that was never customised.
+        if template == _DEFAULT_KEY:
+            raise BackupError(
+                f"{name}: a row in the archive has no id; restoring it would write a fresh key "
+                f"every time and duplicate the row on the second restore") from exc
         raise BackupError(
-            f"{name}: cannot build the restore key {template!r} from a row (missing/!bad field "
+            f"{name}: cannot build the restore key {template!r} from a row (missing/bad field "
             f"{exc}); the archive cannot be restored without a stable per-row key") from exc
     if not key:
         raise BackupError(f"{name}: a row produced an empty restore key from {template!r}; "

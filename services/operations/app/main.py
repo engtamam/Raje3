@@ -82,6 +82,9 @@ def create_app() -> FastAPI:
             seeded = await container.sectors.seed_from_file(settings.SECTORS_SEED_FILE)
             if seeded:
                 logger.info("sectors_seeded", extra={"count": seeded})
+            n = await container.templates.seed_from_file(settings.TEMPLATES_SEED_FILE)
+            if n:
+                logger.info("templates_seeded", extra={"count": n})
         except Exception as exc:                                            # noqa: BLE001
             logger.error("sector_seed_failed", extra={"error": str(exc)[:300]})
         yield

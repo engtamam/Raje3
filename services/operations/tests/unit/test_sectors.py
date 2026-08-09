@@ -184,3 +184,72 @@ def test_every_sector_ships_a_catch_all(cat, tmp_path):
     assert catch is not None and catch.name == "خدمة أخرى"
     # Cycle 0 necessarily: we do not know what was done, so we cannot say when it is due again.
     assert catch.cycle_days == 0
+
+
+# ── the template library: the same pattern, and the line that keeps a class honest ─────────────
+from app.core.templates import TemplateError, TemplateLibrary
+
+
+def _lib(store):
+    return TemplateLibrary(store)
+
+
+def _tpl(**over):
+    t = {"name": "svc_x_brief", "type": "svc_x", "tone": "brief", "class": "service",
+         "category": "UTILITY", "body": "أهلاً {{1}}، من {{2}}.", "label": "x"}
+    t.update(over)
+    return t
+
+
+def test_a_template_edit_needs_no_rebuild(cat):
+    """The point of the whole exercise: the library lives in the datastore, not in an image."""
+    _, store = cat
+    lib = _lib(store)
+    run(lib.upsert(_tpl()))
+    run(lib.upsert(_tpl(body="أهلاً {{1}}، رسالة معدّلة من {{2}}.")))
+    assert "معدّلة" in run(lib.get("svc_x_brief"))["body"]
+
+
+def test_a_gap_in_the_variable_numbering_is_refused(cat):
+    """Meta refuses it at submission and blames the wording, days later. Two of our own templates
+    had exactly this — caught by counting, not by reading."""
+    _, store = cat
+    with pytest.raises(TemplateError) as exc:
+        run(_lib(store).upsert(_tpl(body="من {{2}} إلى {{3}}.")))
+    assert "gap" in str(exc.value)
+
+
+def test_an_awareness_template_carrying_an_offer_is_refused(cat):
+    """This is the line that makes the five-class taxonomy honest (spec §8.4.1). The moment an
+    awareness template can contain a discount, we have built the loophole ourselves."""
+    _, store = cat
+    with pytest.raises(TemplateError) as exc:
+        run(_lib(store).upsert(_tpl(name="awr_y_brief", **{"class": "awareness"},
+                                    body="{{1}}، افحص إطاراتك — وعندنا خصم من {{2}}.")))
+    assert "promotional" in str(exc.value)
+
+
+def test_an_awareness_template_without_an_offer_is_fine(cat):
+    _, store = cat
+    row = run(_lib(store).upsert(_tpl(name="awr_y_brief", **{"class": "awareness"},
+                                      body="{{1}}، الحرارة ترفع ضغط الإطارات. من {{2}}.")))
+    assert row["class"] == "awareness" and row["category"] == "UTILITY"
+
+
+def test_one_tone_selects_the_whole_set(cat):
+    """The owner picks a tone once, not sixty-nine times — that is a form, not a feature."""
+    _, store = cat
+    lib = _lib(store)
+    run(lib.upsert(_tpl(name="svc_a_warm", tone="warm")))
+    run(lib.upsert(_tpl(name="svc_b_warm", tone="warm")))
+    run(lib.upsert(_tpl(name="svc_a_brief", tone="brief")))
+    assert len(run(lib.for_tone("warm"))) == 2
+
+
+def test_a_template_is_deactivated_not_deleted(cat):
+    """Establishments carry the name in their registry and Meta holds an approved copy under it."""
+    _, store = cat
+    lib = _lib(store)
+    run(lib.upsert(_tpl()))
+    assert run(lib.deactivate("svc_x_brief")) is True
+    assert run(lib.get("svc_x_brief"))["active"] is False
