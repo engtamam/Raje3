@@ -44,7 +44,7 @@ def _line(label: str, value: Any) -> str:
 
 
 def build(*, snapshot: dict, previous: dict | None = None,
-          messages_sent: int = 0,
+          messages_sent: int = 0, ceiling_missed: int = 0,
           points_redeemed: int = 0, consented: int = 0,
           can_campaign: bool = True, shop: str = "") -> dict[str, Any] | None:
     """The message, or None when there is nothing honest to send.
@@ -102,6 +102,18 @@ def build(*, snapshot: dict, previous: dict | None = None,
     #     without opening anything, and it is what makes his own bill explicable.
     if messages_sent:
         lines.append(_line("رسائل أرسلتها", messages_sent))
+
+    # 6b · WHAT HIS CEILING COST HIM, and it is a line rather than a message of its own.
+    #
+    #      A separate WhatsApp notice was designed and dropped: a notice to the owner is itself a
+    #      business-initiated message, out of the SAME ceiling and onto the SAME bill, and it would
+    #      be sent at exactly the moment there is none left. This report is already going out, so
+    #      the line costs nothing — no extra send, no extra unit, no extra riyal.
+    #
+    #      AND ONLY IN A WEEK IT ACTUALLY BIT. A shop that never touched its ceiling gets no line;
+    #      a limit that has cost him nothing is not news about his shop.
+    if ceiling_missed:
+        lines.append(_line("لم تصلهم رسائلك (حد واتساب)", ceiling_missed))
 
     # 7 · the loyalty programme, for shops that have one. Absent otherwise — a shop without points
     #     must not see an empty points line (spec §8.6.1).

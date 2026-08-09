@@ -286,6 +286,11 @@ class Settings(BaseSettings):
     # rather than a share, because "twenty customers" is a thing an owner can picture — and twenty
     # is a picture in a small shop and a rounding error in a large one.
     INSIGHTS_MIN_OPPORTUNITY: int = 20
+    # What each shop's WhatsApp ceiling cost it — from reminders, the only service that knows,
+    # because it is the one whose sends were stopped. It becomes a LINE in the weekly report that
+    # is already going out, so it costs no message: a notice of its own would come out of the very
+    # ceiling it reports on, at the moment there is none left.
+    REMINDERS_CEILING_PRESSURE_PATH: str = "/internal/reminders/ceiling-pressure"
 
     # ── the engine's share of the daily sending ceiling (spec §8.4.3) ─────────
     # How much of the day to hold back for messages nobody can predict — a visitor this evening,

@@ -18,6 +18,7 @@ from app.api.deps import get_guard
 from app.api.ratelimit import rate_limit
 from app.api.v1.field import router as field_router
 from app.api.v1.partner import router as partner_router
+from app.api.v1.subscription import router as subscription_router
 from app.api.v1.platform import router as platform_router
 from app.api.v1.staff import router as staff_router
 
@@ -48,3 +49,4 @@ router.include_router(staff_router)
 # Ours, not an establishment's: platform.operations gates every route on it.
 router.include_router(platform_router)
 router.include_router(partner_router)
+router.include_router(subscription_router)

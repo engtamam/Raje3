@@ -176,6 +176,31 @@ class ReceiptIn(BaseModel):
     event: str = Field(min_length=1, max_length=32)
 
 
+@router.get("/reminders/ceiling-pressure", dependencies=[Depends(require_internal_token)])
+async def ceiling_pressure(request: Request, limit: int = 200) -> dict:
+    """Establishments whose WhatsApp ceiling has cost them customers — who is worth a call.
+
+    THIS IS THE WHOLE REASON THE ROW EXISTS. We decided not to message the owner about it: a
+    notice to him is itself a business-initiated message, out of the same ceiling and onto the
+    same bill, sent at exactly the moment there is none left (core/ceiling_notice.py). So the fact
+    is recorded and READ — by his dashboard, and by us before we pick up the phone.
+
+    WE REACH OUT; WE DO NOT WAIT ON A BUTTON (spec §6.2.2). An owner losing customers to a ceiling
+    he does not know exists will not open a support form about it — he will conclude the product
+    is quiet and stop looking at it.
+
+    NEWEST FIRST, because pressure that started today is a call worth making today. And bounded,
+    because an operator panel that fetches every establishment gets slower every month until
+    somebody stops opening it.
+    """
+    from app.core.ceiling_notice import NOTICES
+
+    store = request.app.state.container.datastore
+    rows = await store.scan_all(NOTICES, max(1, min(1000, limit)))
+    rows = sorted(rows or [], key=lambda r: int(r.get("at") or 0), reverse=True)
+    return {"establishments": rows, "count": len(rows)}
+
+
 @router.post("/reminders/receipt", dependencies=[Depends(require_internal_token)])
 async def receipt(request: Request, body: ReceiptIn) -> dict:
     """Credit an engagement signal.

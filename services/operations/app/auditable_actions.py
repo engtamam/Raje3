@@ -130,6 +130,26 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "cannot be disputed, corrected, or attributed to whoever entered it",
     },
     {
+        "action": "subscription.created",
+        "source": "admin",
+        "critical": True,
+        "resource": "plan",
+        "why": "money changes hands and the establishment's entitlements change with it; an "
+               "unattributable subscription cannot be reconciled against an invoice, and 'who "
+               "moved this shop onto this plan' is the first question asked about a billing "
+               "dispute",
+    },
+    {
+        "action": "subscription.refused",
+        "source": "admin",
+        "critical": False,
+        "resource": "plan",
+        "why": "a refusal is a decision OF OURS about somebody's money — the shop tried to pay "
+               "and we declined. Without the record, support is told 'I tried to subscribe and "
+               "nothing happened' and has nothing to answer with; with it, the reason and the "
+               "moment are both there",
+    },
+    {
         "action": "operator.created",
         "source": "admin",
         "critical": True,

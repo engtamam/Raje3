@@ -394,3 +394,28 @@ def test_the_two_alternatives_are_never_both_shown():
     assert "وافقوا" in both["text"]
     # and the finding is still there — they are different facts, not two ways of saying one thing
     assert "وجدنا" in both["text"]
+
+
+# ── the ceiling's cost, as a line rather than a message ────────────────────────────────────────
+def test_the_ceiling_line_appears_only_when_it_bit():
+    """A SEPARATE NOTICE WAS DESIGNED AND DROPPED: a message to the owner is itself a
+    business-initiated message — same ceiling, same bill — sent at exactly the moment there is
+    none left. This report is already going out, so the line costs nothing."""
+    with_it = build_digest(snapshot=snap(), ceiling_missed=12, shop="م")["text"]
+    without = build_digest(snapshot=snap(), ceiling_missed=0, shop="م")["text"]
+    assert "12" in with_it and "حد واتساب" in with_it
+    assert "حد واتساب" not in without
+
+
+def test_the_ceiling_line_says_what_it_cost_not_that_a_limit_exists():
+    """'You have a limit' is not news. 'Twelve customers did not get your messages' is."""
+    t = build_digest(snapshot=snap(), ceiling_missed=12, shop="م")["text"]
+    assert "لم تصلهم رسائلك" in t
+
+
+def test_the_ceiling_line_names_no_price_and_no_upgrade():
+    """The digest is service class. One promotional word reclassifies the whole template and puts
+    a shop's own report behind quiet hours and a consent nobody gave (§8.4.1)."""
+    t = build_digest(snapshot=snap(), ceiling_missed=12, shop="م")["text"]
+    for word in ("ريال", "باقة", "رقِّ", "وثّق", "اشترك"):
+        assert word not in t

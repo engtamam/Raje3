@@ -34,6 +34,7 @@ from app.core import engagement as E
 from app.core import gate as G
 from app.core import quota as Q
 from app.core import ceiling as C
+from app.core import ceiling_notice as CN
 from app.core.reach import Reach
 
 # How long a message waits after WhatsApp refused it for the ceiling. A DEFAULT: the right delay
@@ -115,6 +116,8 @@ class Tick:
         # THE SHOP'S CEILING, read from Meta through notification-service. Absent answers unknown,
         # and unknown never blocks — see core/ceiling.py.
         self._ceiling = ceiling or C.NullCeiling()
+        # That we told this shop, once, that its ceiling cost it customers (spec §6.2.2).
+        self._notices = CN.NoticeStore(store)
         self._eng = EngagementStore(store)
         self._sender = sender
         # THE MESSAGE QUOTA. Defaults to the null counter so every existing test keeps working;
@@ -165,6 +168,8 @@ class Tick:
         #
         # None means unknown: `remaining` answers -1 and nothing below changes behaviour.
         room = Room()
+        ceiling = C.Ceiling()
+        reached = 0
         if due:
             ceiling = await self._ceiling.read(tenant)
             reached = await self._reach.count(tenant, now=now) if ceiling.known() else 0
@@ -197,7 +202,43 @@ class Tick:
                 if self._t is not None:
                     self._t.event("tick_row_failed", tenant=tenant,
                                   schedule=row.get("id", ""), error=str(exc)[:200])
+
+        # ── the ceiling cost him customers, and he should hear it once ────────────────────────
+        # AFTER the loop, because the number the sentence is about — how many were stopped — only
+        # exists once the pass is done. And `res.ceiling` counts exactly that, which is why it was
+        # kept apart from `failed` in the first place.
+        await self._maybe_notice(tenant, res=res, ceiling=ceiling, reached=reached,
+                                 establishment=establishment, now=now)
         return res
+
+    async def _maybe_notice(self, tenant: str, *, res: TickResult, ceiling: Any,
+                            reached: int, establishment: str, now: int) -> None:
+        """RECORD that the ceiling cost him customers today. Send nothing.
+
+        THE MESSAGE WAS DESIGNED AND THEN DROPPED, and the reason is worth keeping because it is
+        not obvious: a WhatsApp notice to the owner IS a business-initiated message. It comes out
+        of the same ceiling and is billed to the same account — so a "your ceiling is full" notice
+        is spent from the allowance it is reporting on, and sent at precisely the moment there is
+        none left. Meta would refuse it, every day, for as long as the condition lasted. We would
+        have built a notice that cannot be delivered by definition.
+
+        So what survives is the FACT: how many were missed, against what ceiling, on what day.
+        The dashboard reads it without costing him anything, and the operator panel reads it to
+        know who is worth a call — which is how we said this should work anyway (spec §6.2.2):
+        we reach out, rather than waiting on a button.
+
+        Failures are swallowed. This is a note about a condition that resolves itself, and failing
+        a tick over it would stop the very reminders it is describing.
+        """
+        try:
+            if not CN.should_notify(missed=res.ceiling, ceiling=ceiling.limit,
+                                    already_told=await self._notices.told(tenant)):
+                return
+            await self._notices.record(CN.Notice(
+                tenant=tenant, at=now, reached=reached,
+                ceiling=ceiling.limit, missed=res.ceiling))
+        except Exception:                                                   # noqa: BLE001
+            return
 
     async def send_one(self, tenant: str, row: dict[str, Any], *, now: int,
                        library: list[dict[str, Any]], service_names: dict[str, str],

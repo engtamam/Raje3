@@ -185,6 +185,21 @@ class Settings(BaseSettings):
     BILLING_SERVICE_URL: str = ""            # e.g. http://billing-service:8000
     BILLING_USAGE_SET_PATH: str = "/internal/billing/usage/set"
     BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
+
+    # ── our own subscribe path (§6.2.1) ───────────────────────────────────────
+    # The one product rule billing must never learn: no PAID subscription before WhatsApp is
+    # connected. The trial is exempt — it is for trying, and most of the product works without a
+    # connection at all. And it is the CONNECTION (minutes) rather than Meta's business
+    # VERIFICATION (days, and not required to send).
+    BILLING_PLANS_DRIVER: str = "null"       # null | http
+    BILLING_PLANS_PATH: str = "/api/v1/billing/plans"
+    BILLING_SUBSCRIBE_PATH: str = "/api/v1/billing/subscriptions"
+    # Whether a shop has a WhatsApp account, ASKED of notification-service rather than stored: a
+    # copy here is a second answer to the same question, and the first disagreement refuses a
+    # subscription from a shop that connected an hour ago.
+    CONNECTIONS_DRIVER: str = "null"         # null | http
+    NOTIFICATION_SERVICE_URL: str = ""       # e.g. http://notification-service:8000
+    NOTIFICATION_MESSAGING_LIMIT_PATH: str = "/internal/whatsapp/messaging-limit"
     PEER_TIMEOUT_SECONDS: int = 8
 
     # How far back a claimed visit time may be before it is a broken clock rather than a backlog.

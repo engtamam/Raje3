@@ -240,3 +240,80 @@ def test_a_created_employee_reports_the_new_total(client, monkeypatch):
     assert r.status_code == 201, r.text
     assert seen and seen[-1][0] == "staff.seats"
     assert seen[-1][1] >= 1
+
+
+# ── our own subscribe path ─────────────────────────────────────────────────────────────────────
+class FakePlans:
+    def __init__(self, trial: int = 0):
+        self.trial = trial
+        self.subscribed = []
+
+    async def trial_days(self, plan_id):
+        return self.trial
+
+    async def subscribe(self, *, tenant, plan_id, interval="month"):
+        self.subscribed.append((tenant, plan_id, interval))
+        return 201, {"id": "sub_1", "tenant": tenant, "plan_id": plan_id}
+
+
+class FakeConnections:
+    def __init__(self, connected: bool):
+        self._c = connected
+
+    async def connected(self, tenant):
+        return self._c
+
+
+def _wire(client, *, connected: bool, trial: int = 0):
+    plans = FakePlans(trial)
+    client.app.state.container.billing_plans = plans
+    client.app.state.container.connections = FakeConnections(connected)
+    return plans
+
+
+def test_a_paid_subscription_without_whatsapp_is_refused_with_a_usable_sentence(client,
+                                                                                monkeypatch):
+    """AND THE SENTENCE HAS TO SURVIVE. The platform's error handler strips an HTTPException's
+    detail, so a raised refusal arrives as a bare 402 and the only part that tells him what to do
+    is thrown away. It is RETURNED as a body instead."""
+    plans = _wire(client, connected=False, trial=0)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_x"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 402
+    body = r.json()
+    assert body["error"] == "WHATSAPP_NOT_CONNECTED"
+    assert "اربط" in body["message"] and "دقائق" in body["message"]
+    assert not plans.subscribed, "nothing may reach billing when we refused"
+
+
+def test_a_trial_subscribes_without_any_connection(client, monkeypatch):
+    """The trial is for TRYING. Gating the evaluation on a step whose purpose is only visible
+    afterwards is how an evaluation ends."""
+    plans = _wire(client, connected=False, trial=14)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_basic"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201
+    assert plans.subscribed == [("t1", "plan_basic", "month")]
+
+
+def test_a_connected_shop_subscribes_to_a_paid_plan(client, monkeypatch):
+    plans = _wire(client, connected=True, trial=0)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201
+
+
+def test_the_interval_is_passed_through_rather_than_inferred(client, monkeypatch):
+    """The plan's PRICE carries an interval but the SUBSCRIPTION takes its own — defaulting it
+    here would repeat the bug that made a one-time pack renew every month."""
+    plans = _wire(client, connected=True, trial=0)
+    client.post("/api/v1/subscription", json={"plan_id": "pack_500", "interval": "once"},
+                headers=_auth("billing.self", tenant="t1"))
+    assert plans.subscribed[-1][2] == "once"
+
+
+def test_a_token_without_a_tenant_cannot_subscribe_anybody(client, monkeypatch):
+    _wire(client, connected=True, trial=0)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_x"},
+                    headers=_auth("billing.self"))
+    assert r.status_code == 403

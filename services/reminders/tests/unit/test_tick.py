@@ -578,3 +578,54 @@ def test_no_room_defers_a_follow_up_and_drops_a_confirmation(st):
         "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
         establishment="ورشة النخبة", customer_names={}))
     assert res.suppressed == 1 and res.ceiling == 1
+
+
+# ── the ceiling's cost, recorded once ──────────────────────────────────────────────────────────
+def test_the_first_day_the_ceiling_bites_is_recorded(st):
+    """The input to 'twelve customers did not get your messages' — the sentence a dashboard or a
+    support call is built on."""
+    from app.core.ceiling_notice import NoticeStore
+
+    many(st, 4)
+    run(tick(st, FakeSender(), quota=FakeQuota(), ceiling=FakeCeiling(2)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    row = run(NoticeStore(st).last("t1"))
+    assert row and row["missed"] == 2 and row["ceiling"] == 2
+
+
+def test_a_shop_that_never_hits_its_ceiling_is_never_recorded(st):
+    """A limit that has cost him nothing is not a fact about his shop yet."""
+    from app.core.ceiling_notice import NoticeStore
+
+    many(st, 2)
+    run(tick(st, FakeSender(), quota=FakeQuota(), ceiling=FakeCeiling(50)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert run(NoticeStore(st).told("t1")) is False
+
+
+def test_it_is_recorded_once_not_once_a_day(st):
+    """A shop at its ceiling is there every day until it verifies. One row per establishment."""
+    from app.core.ceiling_notice import NoticeStore
+
+    many(st, 4)
+    for day in (15, 16):
+        many(st, 4)
+        run(tick(st, FakeSender(), quota=FakeQuota(), ceiling=FakeCeiling(1)).run(
+            "t1", now=at(10, day=day), library=LIB_POLICY, service_names=NAMES,
+            establishment="ورشة النخبة", customer_names={}))
+    first = run(NoticeStore(st).last("t1"))
+    assert first["ceiling"] == 1
+    assert len(run(st.scan_all("ceiling_notice", 100))) == 1
+
+
+def test_recording_it_never_sends_anything(st):
+    """A notice to the owner is itself a business-initiated message — same ceiling, same bill,
+    and refused at exactly the moment it would be sent."""
+    many(st, 4)
+    s = FakeSender()
+    run(tick(st, s, quota=FakeQuota(), ceiling=FakeCeiling(2)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(s.calls) == 2, "only the two customer messages; no notice to the owner"

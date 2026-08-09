@@ -240,6 +240,11 @@ def build_container(settings: Settings) -> Container:
     # production values file sets the http driver.
     from app.core.seats import build_gauges
     container.gauges = build_gauges(settings)
+    # The subscribe path's two reads: is this shop connected, and does this plan carry a trial.
+    from app.core.subscribe import build_connections, build_plans
+
+    container.connections = build_connections(settings)
+    container.billing_plans = build_plans(settings)
     container.sectors = SectorCatalogue(container.datastore)
     container.templates = TemplateLibrary(container.datastore)
     return container

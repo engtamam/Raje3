@@ -76,6 +76,7 @@ class HttpPeers:
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
                  reminders_url: str, send_path: str, consent_count_path: str,
+                 ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
                  billing_url: str, entitlement_path: str,
                  usage_path: str, loyalty_url: str, loyalty_report_path: str,
                  tenant_url: str, tenant_read_path: str,
@@ -86,6 +87,7 @@ class HttpPeers:
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
         self._consent_url = reminders_url.rstrip("/") + consent_count_path
         self._usage_url = billing_url.rstrip("/") + usage_path
+        self._pressure_url = reminders_url.rstrip("/") + ceiling_pressure_path
         self._loyalty_url = loyalty_url.rstrip("/") + loyalty_report_path
         self._tenant_url = tenant_url.rstrip("/")
         self._tenant_path = tenant_read_path
@@ -223,6 +225,23 @@ class HttpPeers:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass
 
+        # WHAT HIS CEILING COST HIM, from reminders — which is the only service that knows, because
+        # it is the one whose sends were stopped. A LINE in a report that is already going out, so
+        # it costs no message and no unit; a notice of its own would come out of the same ceiling
+        # it is reporting on, at the moment there is none left.
+        try:
+            req = urllib.request.Request(
+                self._pressure_url + "?" + urllib.parse.urlencode({"limit": 1000}),
+                headers={"X-Internal-Token": self._token})
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+                rows = json.loads(resp.read() or b"{}").get("establishments") or []
+            for row in rows:
+                if str(row.get("tenant")) == tenant:
+                    out["ceiling_missed"] = int(row.get("missed") or 0)
+                    break
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            pass
+
         # How many customers currently allow this shop's offers. A COUNT and never a list — the
         # peer's route has no shape that could return who (spec §8.5).
         try:
@@ -252,6 +271,7 @@ def build_peers(settings) -> Any:
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,
+                     ceiling_pressure_path=settings.REMINDERS_CEILING_PRESSURE_PATH,
                      billing_url=settings.BILLING_SERVICE_URL,
                      entitlement_path=settings.BILLING_ENTITLEMENT_PATH,
                      usage_path=settings.BILLING_USAGE_PATH,
