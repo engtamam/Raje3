@@ -230,3 +230,62 @@ def test_the_null_sender_records_what_it_would_have_sent(st):
     s = NullSender()
     go(st, s)
     assert s.sent[0]["template_name"] == "svc_service_reminder_brief"
+
+
+# ── the HTTP status is not the delivery status (spec §6.6.1) ───────────────────────────────────
+def test_a_two_hundred_carrying_a_failed_record_is_not_a_send():
+    """THE SILENT DEFECT THIS CLOSES. /internal/notify answers 200 and returns the delivery record,
+    including status:"failed" — most often because Meta has not approved the template yet, which is
+    unavoidable for a shop that connected this morning. Read only the HTTP code and the reminder is
+    written to the ledger as sent, the schedule is closed, and the customer is never reminded."""
+    import json as _json
+    from unittest.mock import patch
+    from app.adapters.message_sender import HttpSender, SendFailed
+
+    class Resp:
+        status = 200
+
+        def read(self):
+            return _json.dumps({"id": "d1", "status": "failed",
+                                "error": "whatsapp template not approved: pending"}).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    s = HttpSender(notify_url="http://n", notify_path="/internal/notify",
+                   operations_url="http://o", recipient_path="/r", token="t")
+    with patch.object(s, "_recipient", return_value="+966500000000"), \
+         patch("urllib.request.urlopen", return_value=Resp()):
+        with pytest.raises(SendFailed) as exc:
+            asyncio.run(s.send(tenant="t", subject_ref="ref_x", template_name="svc_x_brief",
+                               variables=["a"], cls="service", idempotency_key="k1"))
+    assert "not approved" in str(exc.value)
+
+
+def test_a_queued_delivery_counts_as_sent_and_is_not_retried():
+    """The peer has taken responsibility and will drain it. Treating it as a failure sends twice."""
+    import json as _json
+    from unittest.mock import patch
+    from app.adapters.message_sender import HttpSender
+
+    class Resp:
+        status = 200
+
+        def read(self):
+            return _json.dumps({"id": "d2", "status": "queued"}).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    s = HttpSender(notify_url="http://n", notify_path="/internal/notify",
+                   operations_url="http://o", recipient_path="/r", token="t")
+    with patch.object(s, "_recipient", return_value="+966500000000"), \
+         patch("urllib.request.urlopen", return_value=Resp()):
+        asyncio.run(s.send(tenant="t", subject_ref="ref_x", template_name="svc_x_brief",
+                           variables=["a"], cls="service", idempotency_key="k2"))

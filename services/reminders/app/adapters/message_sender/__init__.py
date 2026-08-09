@@ -101,6 +101,25 @@ class HttpSender:
         with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
             if not 200 <= resp.status < 300:
                 raise SendFailed(f"notification-service returned {resp.status}")
+            result = json.loads(resp.read() or b"{}")
+
+        # THE HTTP STATUS IS NOT THE DELIVERY STATUS, and reading only the first was a silent
+        # defect for as long as this file existed.
+        #
+        # `/internal/notify` answers 200 and returns the delivery RECORD — including
+        # `status: "failed"` with a reason. Its most common reason in this product is the one that
+        # cannot be avoided: a WhatsApp template Meta has not approved yet (spec §6.6.1), because
+        # the library is submitted per establishment and approval takes minutes to a day. So a
+        # reminder for a shop that connected this morning came back 200, was written to the ledger
+        # as `sent`, and the schedule was closed — a message that never went, recorded as one that
+        # did, with the customer never reminded and nothing anywhere to find.
+        #
+        # Raising SendFailed instead puts the schedule back to `pending` with a short delay (see
+        # tick._fail), so it goes out by itself once the template clears. Nothing is lost and
+        # nobody has to notice.
+        status = str(result.get("status") or "")
+        if status and status not in _DELIVERED:
+            raise SendFailed(f"{status}: {result.get('error') or 'no reason given'}")
 
     def _recipient(self, tenant: str, subject_ref: str) -> str:
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()
@@ -115,6 +134,11 @@ class HttpSender:
         except (urllib.error.URLError, OSError) as exc:
             raise SendFailed(f"recipient lookup unreachable: {exc}") from exc
         return str(data.get("recipient") or "")
+
+
+# What counts as "it went". `queued` is included deliberately: the peer has taken responsibility
+# and will drain it, so treating it as a failure would send twice.
+_DELIVERED = frozenset({"sent", "queued"})
 
 
 class SendFailed(Exception):

@@ -69,10 +69,6 @@ class Tick:
         self._t = telemetry
 
     async def run(self, tenant: str, *, now: int, library: list[dict[str, Any]],
-                  # Which template names Meta has APPROVED for this establishment. None means
-                  # not known and behaves as before — see rendering.choose for why that is not
-                  # an empty set.
-                  approved: set[str] | None = None,
                   service_names: dict[str, str], establishment: str,
                   customer_names: dict[str, str] | None = None,
                   tone: str = "brief") -> TickResult:
@@ -95,7 +91,6 @@ class Tick:
         for row in due:
             try:
                 await self._one(tenant, row, now=now, res=res, library=library,
-                                approved=approved,
                                 service_names=service_names, establishment=establishment,
                                 customer_name=names.get(row.get("subject_ref", ""), ""),
                                 tone=tone)
@@ -119,7 +114,6 @@ class Tick:
 
     async def send_one(self, tenant: str, row: dict[str, Any], *, now: int,
                        library: list[dict[str, Any]], service_names: dict[str, str],
-                       approved: set[str] | None = None,
                        establishment: str, tone: str = "brief") -> dict[str, Any]:
         """Send ONE message that is not on a schedule — the campaigns path.
 
@@ -158,7 +152,7 @@ class Tick:
 
         try:
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                                library=library, approved=approved)
+                                library=library)
             owner_text = row.get("owner_text", "")
             rendered = R.render(
                 template=template,
@@ -184,7 +178,6 @@ class Tick:
 
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
                    library: list[dict[str, Any]], service_names: dict[str, str],
-                   approved: set[str] | None = None,
                    establishment: str, customer_name: str, tone: str) -> None:
         subject = row.get("subject_ref", "")
         cls = row.get("cls", "service")
@@ -230,7 +223,7 @@ class Tick:
 
         # ── 3. render ─────────────────────────────────────────────────────────────────────────
         template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                            library=library, approved=approved)
+                            library=library)
         service_text = R.merged_service_text(
             [service_names.get(s, s) for s in
              [row.get("service_id", "")] + list(row.get("also_services") or [])])
