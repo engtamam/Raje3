@@ -28,7 +28,9 @@
         "platform.audit",
         "platform.compliance",
         "platform.backup",
-        "platform.support"
+        "platform.support",
+        "platform.loyalty",
+        "platform.insights"
       ]
     },
     {
@@ -40,7 +42,9 @@
         "platform.operations",
         "platform.reminders",
         "platform.campaigns",
-        "platform.support"
+        "platform.support",
+        "platform.loyalty",
+        "platform.insights"
       ]
     },
     {

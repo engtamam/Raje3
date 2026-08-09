@@ -498,6 +498,34 @@ if operator_roles.is_file():
                      f"operator role `{r.get('name')}` carries `{cap}`, which is a tenant "
                      f"capability — the operator lane is not the tenant lane")
 
+# ── 16. every platform capability is held by one of OUR roles ─────────────────────────────────
+# Guard 14 checks that the OWNER can reach every tenant capability. Nobody was checking the mirror
+# of that question about us — and `platform.loyalty` and `platform.insights` shipped declared,
+# enforced at their routes, and held by none of our five operator roles. Both surfaces were the
+# repair paths: fixing a balance that drifted from its ledger, and recomputing a dashboard a shop
+# is asking about. They were closed to the only people who would ever need them, and the first
+# symptom would have been a support engineer getting a 403 during an incident.
+if operator_roles.is_file():
+    import json as _json
+    _ops = _json.loads(read(operator_roles)).get("roles", [])
+    _held = set().union(*[set(r.get("capabilities") or []) for r in _ops]) if _ops else set()
+    _declared: set[str] = set()
+    for svc_dir in sorted((ROOT / "services").glob("*/app/manifest.py")):
+        tree = ast.parse(read(svc_dir))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            for k, v in zip(node.keys, node.values):
+                if (isinstance(k, ast.Constant) and k.value == "capabilities"
+                        and isinstance(v, ast.List)):
+                    _declared |= {e.value for e in v.elts
+                                  if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+    for cap in sorted({c for c in _declared if c.startswith("platform.")} - _held):
+        fail("deploy/seed/operator-roles.json",
+             f"`{cap}` is declared and enforced by a service but no operator role holds it — "
+             f"the surface behind it is closed to us, and the first symptom is a 403 during an "
+             f"incident")
+
 # ── 15. the custom-role builder can actually build a role ─────────────────────────────────────
 # AUTHZ_TENANT_ASSIGNABLE_CAPS is an ALLOWLIST, and an allowlist with a wrong name in it does not
 # fail — it silently refuses. Ours was written by hand in a vocabulary no service ever declared
