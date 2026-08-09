@@ -1,4 +1,4 @@
-"""<service> — end-user (self-service) actions for the platform app catalog (Phase 36).
+"""campaigns — end-user (self-service) actions for the platform app catalog (Phase 36).
 
 The end-user app (GET /api/v1/app/catalog) aggregates what every service declares HERE — the twin of
 `admin_actions`, but for a USER acting on their OWN data (their files, their profile, their
@@ -31,4 +31,11 @@ from __future__ import annotations
 from typing import Any
 
 
-USER_ACTIONS: list[dict[str, Any]] = []
+USER_ACTIONS: list[dict[str, Any]] = [
+    # NOTHING. A campaign is the establishment acting on its customers — never a customer acting
+    # on their own data. What a customer controls about campaigns is the marketing switch, and
+    # that lives in reminders where the preference is stored (spec 8.4.2 section 5).
+    #
+    # Declared empty and reviewed rather than left unwritten: an empty list a reader can see was
+    # decided is worth more than one they have to guess about.
+]

@@ -87,6 +87,10 @@ def build_manifest(
             {"path": "/internal/operations/recipient", "tier": "internal", "method": "POST"},
             # The read that makes the visit event self-healing. The bus is at-most-once, so a
             # consumer that misses an event must be able to catch up by reading — see the route.
+            # The template library and the customer list, for campaigns. Customers are
+            # PSEUDONYMS with a visit count — never a phone, never a name.
+            {"path": "/internal/operations/templates", "tier": "internal", "method": "GET"},
+            {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
             # that decides where commission goes (spec 16.6.3).

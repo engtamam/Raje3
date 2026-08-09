@@ -280,6 +280,106 @@ async def _establishment(c, tenant: str):
     return await c.identity.get(tenant)
 
 
+class EligibilityIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    cls: str = Field(default="marketing", alias="class", max_length=32)
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/reminders/eligibility", dependencies=[Depends(require_internal_token)])
+async def eligibility(request: Request, body: EligibilityIn) -> dict:
+    """Would the gate let this message through right now?
+
+    ASKED BEFORE A CAMPAIGN COUNTS SOMEBODY, so the preview's number is the number that goes out. A
+    campaign that counted 47 and delivered 31 would teach an owner that our figures are decoration.
+
+    IT IS AN OPINION, NOT A RESERVATION. Nothing is held: the same subject asked twice gets the
+    same answer, and the real decision is made again at send time by the same function. A
+    reservation would have to be released by something, and whatever releases it is the bug.
+    """
+    from app.core import engagement as E
+    from app.core import gate as G
+    from app.core.stores import EngagementStore, PrefsStore, SendLogStore
+    c = request.app.state.container
+    s = get_settings()
+    now = int(time.time())
+
+    prefs = await PrefsStore(c.datastore).get(body.tenant, body.subject_ref) or {}
+    eng = await EngagementStore(c.datastore).get(body.tenant, body.subject_ref) or {}
+    recent = await SendLogStore(c.datastore).since(body.tenant, body.subject_ref,
+                                                   since=now - 31 * 86400)
+    d = G.evaluate(
+        cls=body.cls, template_type="", now=now,
+        limits=G.Limits(window_start_hour=s.SEND_WINDOW_START_HOUR,
+                        window_end_hour=s.SEND_WINDOW_END_HOUR,
+                        daily_service_cap=s.DAILY_SERVICE_CAP,
+                        monthly_marketing_cap=s.MONTHLY_MARKETING_CAP,
+                        monthly_awareness_cap=s.MONTHLY_AWARENESS_CAP,
+                        marketing_cooldown_hours=s.MARKETING_COOLDOWN_HOURS,
+                        daily_total_cap=s.DAILY_TOTAL_CAP),
+        prefs_stopped=prefs.get("stopped") or {},
+        engagement_score=float(eng.get("score") or 0.0),
+        engagement_at=int(eng.get("scored_at") or 0),
+        recent_sends=recent,
+        eng_cfg=E.EngagementConfig(half_life_days=s.ENGAGEMENT_HALF_LIFE_DAYS,
+                                   full_threshold=s.ENGAGEMENT_FULL_THRESHOLD,
+                                   minimal_threshold=s.ENGAGEMENT_MINIMAL_THRESHOLD))
+    # THE WINDOW IS EXCLUDED FROM THIS ANSWER, deliberately. A campaign previewed at 11pm would
+    # otherwise report reaching nobody — when in truth everyone is reached, tomorrow morning. The
+    # preview says WHEN separately; this says WHETHER.
+    allowed = d.allowed or bool(d.retry_at)
+    return {"allowed": allowed, "reason": "" if allowed else d.reason, "tier": d.tier}
+
+
+class CampaignSendIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    template_type: str = Field(min_length=3, max_length=128)
+    cls: str = Field(default="marketing", alias="class", max_length=32)
+    # The owner's ONE free-text field. Sanitised by the caller AND here — a rule enforced on one
+    # side of a boundary is a rule the other side can bypass.
+    owner_text: str = Field(default="", max_length=200)
+    idempotency_key: str = Field(min_length=8, max_length=256)
+
+    model_config = {"populate_by_name": True}
+
+
+@router.post("/reminders/send", dependencies=[Depends(require_internal_token)])
+async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
+    """Send one campaign message — THE ONLY WAY campaigns sends anything.
+
+    It goes through the same gate, the same template selection, the same sanitiser and the same
+    ledger as a reminder. There is no campaign-shaped shortcut, because a second path is a second
+    set of rules and the second one is always the one missing a check.
+
+    Returns `{"sent": bool, "reason": str}` — and the reason is the gate's own sentence, carried
+    into the campaign's run report verbatim.
+    """
+    c = request.app.state.container
+    s = get_settings()
+    now = int(time.time())
+
+    shop = await c.identity.get(body.tenant)
+    if not shop.usable:
+        # A message with a blank shop name is worse than a late one: the customer reads it and the
+        # owner cannot explain it.
+        return {"sent": False, "reason": "تعذّر تحديد اسم المنشأة — لم تُرسَل."}
+
+    schedule = {
+        "tenant": body.tenant, "subject_ref": body.subject_ref, "cls": body.cls,
+        "template_type": body.template_type, "service_id": "_campaign",
+        "kind": "campaign", "owner_text": body.owner_text,
+        "idempotency_key": body.idempotency_key, "id": body.idempotency_key,
+        "also_services": [],
+    }
+    library = await _library(c, body.tenant)
+    res = await c.tick.send_one(body.tenant, schedule, now=now, library=library,
+                                service_names={}, establishment=shop.name, tone=shop.tone)
+    return res
+
+
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
     tenant: str = ""

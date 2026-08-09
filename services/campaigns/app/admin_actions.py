@@ -1,4 +1,4 @@
-"""<service> — admin actions declared for the platform admin panel (Phase 33).
+"""campaigns — admin actions declared for the platform admin panel (Phase 33).
 
 The panel aggregates what every service declares HERE (it is served on /internal/manifest, so the
 code is the source and the panel can never drift). Declaring nothing is fine — a service with an
@@ -29,4 +29,62 @@ from __future__ import annotations
 from typing import Any
 
 
-ADMIN_ACTIONS: list[dict[str, Any]] = []
+ADMIN_ACTIONS: list[dict[str, Any]] = [
+    # THE OWNER'S SCREENS (spec 10.9). Every one is a card or a button they actually press — the
+    # panel renders exactly what is declared here, so an action missing from this list is a
+    # feature that does not exist as far as the console is concerned.
+    {
+        "id": "campaigns.goals", "label": "أهداف الحملات", "method": "GET",
+        "path": "/api/v1/campaigns/goals", "capability": "campaigns.read", "group": "الحملات",
+        # The five cards, with their locks and their reasons. The screen renders what this returns
+        # rather than computing availability itself — two answers that disagree is worse than one.
+        "help": "ماذا تريد أن تحقّق؟ خمس بطاقات، وكل واحدة تقول متى تتاح.",
+    },
+    {
+        "id": "campaigns.preview", "label": "معاينة قبل الإرسال", "method": "POST",
+        "path": "/api/v1/campaigns/preview", "capability": "campaigns.read", "group": "الحملات",
+        # The middle screen and the one the whole feature rests on: the real message, and a count
+        # of PEOPLE.
+        "help": "الرسالة كما ستصل، وكم عميلاً تصلهم.",
+    },
+    {
+        "id": "campaigns.create", "label": "أطلق الحملة", "method": "POST",
+        "path": "/api/v1/campaigns", "capability": "campaigns.manage",
+        "confirm": True, "group": "الحملات",
+        "help": "يرسل الآن، أو يجدول، أو يشغّل قاعدة دائمة — بحسب الهدف.",
+    },
+    {
+        "id": "campaigns.list", "label": "حملاتي", "method": "GET",
+        "path": "/api/v1/campaigns", "capability": "campaigns.read", "group": "الحملات",
+        "help": "ما يعمل الآن، وما انتهى، وما هو متوقف.",
+    },
+    {
+        "id": "campaigns.runs", "label": "ماذا حدث", "method": "GET",
+        "path": "/api/v1/campaigns/{campaign_id}/runs", "capability": "campaigns.read",
+        "params": [{"name": "campaign_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحملات",
+        # THE MOST IMPORTANT ONE. "It didn't arrive" is the only complaint this product generates,
+        # and this is the only screen that answers it.
+        "help": "كل إرسالة: كم وصلت، وكم امتنعت، ولماذا.",
+    },
+    {
+        "id": "campaigns.pause", "label": "إيقاف حملة", "method": "POST",
+        "path": "/api/v1/campaigns/{campaign_id}/pause", "capability": "campaigns.manage",
+        "params": [{"name": "campaign_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "الحملات",
+        "help": "توقف القاعدة الدائمة. سجلّها يبقى.",
+    },
+    # OURS, NOT AN ESTABLISHMENT'S.
+    {
+        "id": "campaigns.get_audience_cap", "label": "سقف الجمهور", "method": "GET",
+        "path": "/api/v1/campaigns/platform/audience-cap", "capability": "platform.campaigns",
+        "group": "المنصة",
+        "help": "أقصى عدد يصله إرسال واحد — عالمياً أو لمنشأة.",
+    },
+    {
+        "id": "campaigns.set_audience_cap", "label": "تعديل سقف الجمهور", "method": "PUT",
+        "path": "/api/v1/campaigns/platform/audience-cap", "capability": "platform.campaigns",
+        "confirm": True, "danger": True, "group": "المنصة",
+        "help": "دفعة من عشرين ألفاً إشارة حجم تقرؤها ميتا على كل أرقامنا، لا على المحل وحده.",
+    },
+]

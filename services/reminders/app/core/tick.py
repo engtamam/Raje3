@@ -112,6 +112,70 @@ class Tick:
                                   schedule=row.get("id", ""), error=str(exc)[:200])
         return res
 
+    async def send_one(self, tenant: str, row: dict[str, Any], *, now: int,
+                       library: list[dict[str, Any]], service_names: dict[str, str],
+                       establishment: str, tone: str = "brief") -> dict[str, Any]:
+        """Send ONE message that is not on a schedule — the campaigns path.
+
+        THE SAME GATE, THE SAME TEMPLATE SELECTION, THE SAME SANITISER, THE SAME LEDGER. What it
+        skips is only the schedule bookkeeping, because a campaign message has no schedule to
+        close: it is decided, sent, and recorded, and nothing waits for it.
+
+        A campaign-shaped shortcut around the gate would be a second set of rules, and the second
+        one is always the one missing a check the day somebody adds one to the first. So this
+        reuses the decision rather than repeating it.
+
+        Returns `{"sent": bool, "reason": str}` — the gate's own sentence, carried verbatim into
+        the campaign's run report.
+        """
+        subject = row.get("subject_ref", "")
+        cls = row.get("cls", "marketing")
+
+        prefs = await self._prefs.get(tenant, subject) or {}
+        eng = await self._eng.get(tenant, subject) or {}
+        recent = await self._log.since(tenant, subject, since=now - 31 * 86400)
+        decision = G.evaluate(
+            cls=cls, template_type=row.get("template_type", ""), now=now, limits=self._limits,
+            prefs_stopped=prefs.get("stopped") or {},
+            engagement_score=float(eng.get("score") or 0.0),
+            engagement_at=int(eng.get("scored_at") or 0),
+            recent_sends=recent, eng_cfg=self._eng_cfg,
+            class_enabled=any(t.get("type") == row.get("template_type") for t in library))
+
+        if not decision.allowed:
+            # RECORDED AS A SUPPRESSION, exactly like a reminder's. The ledger is what every cap is
+            # counted against, and a refusal that leaves no row is a refusal nobody can explain.
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), outcome="suppressed", reason=decision.reason)))
+            return {"sent": False, "reason": decision.reason}
+
+        try:
+            template = R.choose(template_type=row.get("template_type", ""), tone=tone,
+                                library=library)
+            owner_text = row.get("owner_text", "")
+            rendered = R.render(
+                template=template,
+                system={"1": "", "2": establishment, "3": owner_text, "4": owner_text},
+                catalogue={"3": owner_text, "4": owner_text},
+                owner={"3": owner_text, "4": owner_text})
+        except R.RenderError as exc:
+            return {"sent": False, "reason": str(exc)}
+
+        key = row.get("idempotency_key") or f"cmp_{row.get('id','')}"
+        try:
+            await self._sender.send(
+                tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
+                variables=rendered.variables, cls=cls, idempotency_key=key)
+        except Unsendable as exc:
+            return {"sent": False, "reason": f"لا يوجد مستقبِل: {exc}"}
+
+        await self._log.append(tenant, as_row(SendLog(
+            tenant=tenant, subject_ref=subject, cls=cls, at=now,
+            schedule_id=row.get("id", ""), template_name=rendered.template_name,
+            outcome="sent", idempotency_key=key)))
+        return {"sent": True, "reason": ""}
+
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
                    library: list[dict[str, Any]], service_names: dict[str, str],
                    establishment: str, customer_name: str, tone: str) -> None:

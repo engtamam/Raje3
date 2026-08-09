@@ -423,6 +423,49 @@ async def read_stamp(request: Request, tenant: str) -> dict:
     return row
 
 
+@router.get("/operations/templates", dependencies=[Depends(require_internal_token)])
+async def internal_templates(request: Request) -> dict:
+    """The platform template library, for a peer that needs to know what it may send.
+
+    THE SAME LIBRARY THE CONSOLE EDITS, read-only and internal. `campaigns` needs to know which
+    template a goal maps to and whether it is active — and a peer that had to hold its own copy
+    would be a second place the wording lives, which is always the stale one.
+
+    Returns the whole library rather than one type: it is 66 rows, it is cached on the other side,
+    and one call per campaign creation beats one call per goal card.
+    """
+    lib = await request.app.state.container.templates.list()
+    return {"templates": lib, "count": len(lib)}
+
+
+class CustomersIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # Bounded, and the ceiling is a product decision: an establishment with more customers than
+    # this in one campaign is a case we want to look at before it goes out.
+    limit: int = Field(default=5000, ge=1, le=5000)
+
+
+@router.post("/operations/customers", dependencies=[Depends(require_internal_token)])
+async def internal_customers(request: Request, body: CustomersIn) -> dict:
+    """Every customer of one establishment, as PSEUDONYMS — for building a campaign audience.
+
+    NO PHONE AND NO NAME. The caller decides who receives a message; it never needs to know who
+    they are, and a field not sent is a field that cannot leak from a service that had no business
+    holding it.
+
+    What it does carry is what an audience rule reasons about: when they last visited, and how many
+    times. `campaigns` joins the learned interval from reminders — this service does not hold it.
+    """
+    c = request.app.state.container
+    rows, _ = await c.datastore.find(CUSTOMERS, {"tenant": body.tenant},
+                                     limit=body.limit, sort=("last_visit", "desc"))
+    return {"customers": [{"subject_ref": r.get("subject_ref", ""),
+                           "last_visit": int(r.get("last_visit") or 0),
+                           "visit_count": int(r.get("visit_count") or 0)}
+                          for r in rows if r.get("subject_ref")],
+            "count": len(rows)}
+
+
 class VisitsSinceIn(BaseModel):
     # EMPTY MEANS EVERY TENANT, and that is not a convenience — it is what makes the catch-up able
     # to BOOTSTRAP. A consumer that can only ask about tenants it already knows can never learn

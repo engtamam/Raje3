@@ -49,6 +49,7 @@
 # =============================================================================
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -334,6 +335,42 @@ for p in sorted((ROOT / "deploy").rglob("*.sh")):
                  f"line {line}: `{m.group(0)}` is a bare in-cluster name being carried across a "
                  f"namespace — it resolves only where it was written, and the consumer will go "
                  f"Ready and produce nothing")
+
+
+# ── 12. a service that declares actions is a service the gateway must ask ─────────────────────
+#
+# The gateway aggregates every service's `admin_actions` and `user_actions` into ONE catalog the
+# console calls — and it only asks the services named in ADMIN_SERVICES. Four of ours declared
+# forty actions between them and were not in that list: the services were healthy, the
+# declarations were correct, and the panel would have rendered EMPTY with nothing failing.
+#
+# "Declared but never aggregated" is the same species as the erasure endpoint nobody calls and the
+# capability no route enforces. Both halves right, the seam missing, and no error anywhere.
+gateway_values = ROOT / "deploy" / "services" / "api-gateway.values.yaml"
+if gateway_values.exists():
+    listed = set(re.findall(r"([a-z][a-z0-9-]*)=https?://", scalar(read(gateway_values),
+                                                                  "ADMIN_SERVICES")))
+    for p in values_files():
+        svc = p.name.replace(".values.yaml", "")
+        src = service_source(svc)
+        if not (src / "app").is_dir():
+            continue
+        declared = 0
+        for fname, var in (("admin_actions", "ADMIN_ACTIONS"), ("user_actions", "USER_ACTIONS")):
+            f_ = src / "app" / f"{fname}.py"
+            if not f_.is_file():
+                continue
+            try:
+                tree = ast.parse(read(f_))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == var:
+                    declared += len(getattr(node.value, "elts", []))
+        if declared and svc not in listed:
+            fail("api-gateway.values.yaml",
+                 f"{svc} declares {declared} action(s) but is not in ADMIN_SERVICES — the console "
+                 f"never asks for them, so the panel renders empty with nothing failing anywhere")
 
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:

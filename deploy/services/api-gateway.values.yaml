@@ -107,7 +107,16 @@ env:
   # ── Admin panel aggregator (spec §15) ─────────────────────────────────────────────────────
   # CONFIG ONLY — never a request value. An aggregator that fans out to a caller-named host is
   # an SSRF console. Each service appears the moment it answers /internal/manifest.
-  ADMIN_SERVICES: "tenant-service=http://tenant-service:8000,authz-service=http://authz-service:8000,identity-service=http://identity-service:8000,audit-service=http://audit-service:8000"
+  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,file-service=http://file-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000"
+  # OURS ADDED, AND THE OMISSION WAS INVISIBLE. The gateway aggregates every service's declared
+  # actions into ONE catalog the console calls — and it only asks the services named here. Our
+  # four declared forty actions between them and the gateway never asked for one of them, so the
+  # panel would have rendered empty with nothing failing anywhere: the services are healthy, the
+  # declarations are correct, and the console shows nothing.
+  #
+  # This is the "declared but never aggregated" shape, and it is now a guard in
+  # ci/check_deploy_wiring.py — a service that declares actions and is not in this list fails the
+  # build.
   ADMIN_CATALOG_CAP: "platform.admin"
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────

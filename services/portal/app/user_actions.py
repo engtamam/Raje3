@@ -1,4 +1,4 @@
-"""<service> — end-user (self-service) actions for the platform app catalog (Phase 36).
+"""portal — end-user (self-service) actions for the platform app catalog (Phase 36).
 
 The end-user app (GET /api/v1/app/catalog) aggregates what every service declares HERE — the twin of
 `admin_actions`, but for a USER acting on their OWN data (their files, their profile, their
@@ -31,4 +31,32 @@ from __future__ import annotations
 from typing import Any
 
 
-USER_ACTIONS: list[dict[str, Any]] = []
+USER_ACTIONS: list[dict[str, Any]] = [
+    # THE CUSTOMER'S OWN, and the only actions this service has. Reached from the link at the end
+    # of a message — no account, no session, and no capability, because the person taking them has
+    # none and never will (spec 8.6.1).
+    {
+        "id": "portal.view", "label": "صفحتي", "method": "GET",
+        "path": "/p/{ref}", "capability": "", "group": "صفحتي",
+        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
+        "help": "زياراتك وتفضيلات رسائلك، بهوية المحل.",
+    },
+    {
+        "id": "portal.set_prefs", "label": "تعديل إشعاراتي", "method": "POST",
+        "path": "/p/{ref}/prefs", "capability": "", "group": "صفحتي",
+        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
+        # Five switches, one per class — including the personal one. Somebody who switches
+        # everything off has said what they want (spec 8.4.2 section 5).
+        "help": "أوقف أي نوع من الرسائل على حدة، أو أوقفها كلها.",
+    },
+    {
+        "id": "portal.stop", "label": "إيقاف العروض", "method": "GET",
+        "path": "/p/{ref}/stop", "capability": "", "group": "صفحتي",
+        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
+        "danger": True,
+        # ONE TAP (spec 8.3). A customer who wants out is already annoyed, and making them navigate
+        # is how a stop becomes a block on the shop's number. It stops MARKETING only — someone
+        # unsubscribing from offers still wants to know their car is ready.
+        "help": "يوقف العروض فوراً. رسائل الخدمة تستمر.",
+    },
+]

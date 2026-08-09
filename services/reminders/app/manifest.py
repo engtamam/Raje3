@@ -76,6 +76,10 @@ def build_manifest(
             # THE HEARTBEAT. A cron in the values file drives this; without it the service holds
             # a perfect schedule and sends nothing, which is the quietest possible outage.
             {"path": "/internal/reminders/tick", "tier": "internal", "method": "POST"},
+            # For campaigns: would the gate allow this, and send this. The second is the ONLY
+            # way that service sends anything — there is no campaign-shaped shortcut.
+            {"path": "/internal/reminders/eligibility", "tier": "internal", "method": "POST"},
+            {"path": "/internal/reminders/send", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/receipt", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # Declared, because a data map built from manifests is how a DSAR fan-out finds who
