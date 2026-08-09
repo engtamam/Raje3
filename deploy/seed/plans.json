@@ -1,0 +1,128 @@
+{
+  "_": [
+    "THE PRICE LIST. Every number a customer pays lives in this file and nowhere else.",
+    "",
+    "Not in a constant, not in a values file, not in a service. A price in code is a price that",
+    "needs a deploy to change, and a price that needs a deploy is one nobody changes — so the real",
+    "price list becomes a spreadsheet somebody keeps beside it, and the two disagree within a month.",
+    "ci/check_no_prices.py fails the build if 148, 298 or 598 appears in any Python we wrote.",
+    "",
+    "AMOUNTS ARE IN HALALAS and include VAT, because that is what a Saudi customer is quoted: the",
+    "shop owner sees 148 and pays 148. amount_minor 14800 is 148.00 SAR.",
+    "",
+    "LIMITS ARE THE PRODUCT. The plan name sells; the limits dict is what actually happens. Three",
+    "kinds, and the difference decides who reports the number:",
+    "",
+    "  counter  consumed by whoever spends it, reset per period  — messages, custom templates",
+    "  gauge    the CURRENT value of something owned elsewhere    — seats, branches",
+    "  boolean  on or off                                          — the features",
+    "",
+    "AND 0 IS NOT ABSENCE. `0` means the key exists and the answer is DENY — which the console can",
+    "render as 'your plan does not include this, here is the one that does'. A key that is simply",
+    "missing means NOT ENTITLED with no reason to show. Every plan therefore carries every key,",
+    "including the zeros, so no surface ever has to guess which of the two it is looking at.",
+    "",
+    "NOTHING ABOUT BRANCHES BEYOND THE COUNT. There is no key for a unified balance and none for",
+    "comparing branches: a single balance across branches needs no code at all, and gating it would",
+    "mean writing some in order to make the product worse. He is charged for how many branches he",
+    "runs, not for them behaving like one shop."
+  ],
+
+  "currency": "SAR",
+
+  "limit_keys": {
+    "messages.monthly": "WhatsApp messages per billing period — the meter that is the product",
+    "staff.seats": "people who can sign in; operations owns the count and reports it",
+    "branches": "branches; operations owns the count and reports it",
+    "feature.campaigns": "the campaign builder (§10)",
+    "feature.loyalty": "the points programme (§9)",
+    "feature.insights.engine": "the association engine (§10.6) — the one thing nobody else has",
+    "feature.roles.custom": "building a role of his own, beyond the six we ship",
+    "templates.custom": "templates he writes himself and we submit to Meta, per month",
+    "feature.api": "off in every published plan; the key exists so the answer is DENY and not silence"
+  },
+
+  "plans": [
+    {
+      "name": "الأساسية",
+      "amount": 14800,
+      "trial_days": 0,
+      "limits": {
+        "messages.monthly": {"kind": "counter", "limit": 1000, "period": "billing_period",
+                             "overage": "block"},
+        "staff.seats": {"kind": "gauge", "limit": 5},
+        "branches": {"kind": "gauge", "limit": 1},
+        "feature.campaigns": {"kind": "boolean", "limit": 0},
+        "feature.loyalty": {"kind": "boolean", "limit": 0},
+        "feature.insights.engine": {"kind": "boolean", "limit": 0},
+        "feature.roles.custom": {"kind": "boolean", "limit": 0},
+        "templates.custom": {"kind": "counter", "limit": 0, "period": "month", "overage": "block"},
+        "feature.api": {"kind": "boolean", "limit": 0}
+      }
+    },
+    {
+      "name": "الذكية",
+      "amount": 29800,
+      "trial_days": 14,
+      "limits": {
+        "messages.monthly": {"kind": "counter", "limit": 3000, "period": "billing_period",
+                             "overage": "block"},
+        "staff.seats": {"kind": "gauge", "limit": 15},
+        "branches": {"kind": "gauge", "limit": 2},
+        "feature.campaigns": {"kind": "boolean", "limit": 1},
+        "feature.loyalty": {"kind": "boolean", "limit": 1},
+        "feature.insights.engine": {"kind": "boolean", "limit": 0},
+        "feature.roles.custom": {"kind": "boolean", "limit": 0},
+        "templates.custom": {"kind": "counter", "limit": 1, "period": "month", "overage": "block"},
+        "feature.api": {"kind": "boolean", "limit": 0}
+      }
+    },
+    {
+      "name": "الأعمال",
+      "amount": 59800,
+      "trial_days": 0,
+      "limits": {
+        "messages.monthly": {"kind": "counter", "limit": 8000, "period": "billing_period",
+                             "overage": "block"},
+        "staff.seats": {"kind": "gauge", "limit": -1},
+        "branches": {"kind": "gauge", "limit": 8},
+        "feature.campaigns": {"kind": "boolean", "limit": 1},
+        "feature.loyalty": {"kind": "boolean", "limit": 1},
+        "feature.insights.engine": {"kind": "boolean", "limit": 1},
+        "feature.roles.custom": {"kind": "boolean", "limit": 1},
+        "templates.custom": {"kind": "counter", "limit": -1, "period": "month",
+                             "overage": "block"},
+        "feature.api": {"kind": "boolean", "limit": 0}
+      }
+    },
+    {
+      "_": [
+        "THE ENTERPRISE SHAPE — priced per conversation, never on the pricing page.",
+        "",
+        "listed=false, so it is invisible to the public plan list and still subscribable. That is",
+        "the whole mechanism: a negotiated customer is moved onto this plan from our panel with an",
+        "amount agreed with him, and no code anywhere learns that a fourth tier exists.",
+        "",
+        "The amount here is a PLACEHOLDER, not a price. It is what the plan costs when nobody has",
+        "negotiated anything, and the panel overwrites it per subscription."
+      ],
+      "name": "منشآت",
+      "amount": 0,
+      "trial_days": 0,
+      "listed": false,
+      "limits": {
+        "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
+                             "overage": "allow_and_bill"},
+        "staff.seats": {"kind": "gauge", "limit": -1},
+        "branches": {"kind": "gauge", "limit": -1},
+        "feature.campaigns": {"kind": "boolean", "limit": 1},
+        "feature.loyalty": {"kind": "boolean", "limit": 1},
+        "feature.insights.engine": {"kind": "boolean", "limit": 1},
+        "feature.roles.custom": {"kind": "boolean", "limit": 1},
+        "templates.custom": {"kind": "counter", "limit": -1, "period": "month",
+                             "overage": "block"},
+        "feature.api": {"kind": "boolean", "limit": 1}
+      }
+    }
+  ]
+}

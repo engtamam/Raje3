@@ -42,7 +42,7 @@ AUTH=$(kubectl -n "$NS" get secret ghcr -o jsonpath='{.data.\.dockerconfigjson}'
 [[ -n "$AUTH" ]] || echo "  (no ghcr credential in the cluster — anonymous pulls only)"
 
 ACC='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
-changed=0; same=0; missing=0; moved_list=""
+changed=0; same=0; missing=0; unresolved=0; moved_list=""
 
 for f in "$VALUES_DIR"/*.values.yaml; do
   svc=$(basename "$f" .values.yaml)
@@ -50,9 +50,38 @@ for f in "$VALUES_DIR"/*.values.yaml; do
   tok=$(curl -s -H "Authorization: Basic $AUTH" \
         "https://ghcr.io/token?scope=repository:${repo}:pull&service=ghcr.io" \
         | sed -E 's/.*"token":"([^"]+)".*/\1/')
-  dig=$(curl -sI -H "Authorization: Bearer $tok" -H "Accept: $ACC" \
-        "https://ghcr.io/v2/${repo}/manifests/${TAG}" \
-        | tr -d '\r' | grep -i '^docker-content-digest:' | awk '{print $2}')
+  # READ THE STATUS, NOT THE ABSENCE OF A HEADER. An empty digest has two causes that mean opposite
+  # things: a 404, which is genuinely "not published at this tag", and a timeout or a throttled
+  # token request, which means we do not know. Both printed the same reassuring "no $TAG in the
+  # registry" — and on the v0.13.5 re-pin four services printed it while the tag was sitting in the
+  # registry the whole time. Reported as "15 moved, 10 not published", that run reads as a clean
+  # release and would have left four services a version behind, with the summary line agreeing.
+  #
+  # So: retry a transient failure, and when it still will not resolve, say we do not know.
+  # AND THE BACKOFF IS EXPONENTIAL, because the thing being retried is a rate limit. A flat two
+  # seconds retried into the same closed window three times and reported the same four services
+  # unresolved — every one of which resolves on the first try when asked alone. Twenty-five
+  # services means twenty-five token requests in a burst, and ghcr stops answering partway.
+  dig=""; code=""; backoff=3
+  for _try in 1 2 3 4; do
+    hdr=$(curl -sI -m 20 -w 'HTTPSTATUS:%{http_code}' \
+          -H "Authorization: Bearer $tok" -H "Accept: $ACC" \
+          "https://ghcr.io/v2/${repo}/manifests/${TAG}" | tr -d '\r')
+    code=$(printf '%s' "$hdr" | grep -o 'HTTPSTATUS:[0-9]*' | tail -1 | cut -d: -f2)
+    dig=$(printf '%s' "$hdr" | grep -i '^docker-content-digest:' | awk '{print $2}')
+    [[ -n "$dig" || "$code" == "404" ]] && break
+    sleep "$backoff"; backoff=$((backoff * 2))
+    # A throttled token is refused exactly like an expired one; take a fresh one before retrying.
+    tok=$(curl -s -m 20 -H "Authorization: Basic $AUTH" \
+          "https://ghcr.io/token?scope=repository:${repo}:pull&service=ghcr.io" \
+          | sed -E 's/.*"token":"([^"]+)".*/\1/')
+  done
+
+  if [[ -z "$dig" && "$code" != "404" ]]; then
+    echo -e "  ${C_R}? $svc — could not resolve $TAG (HTTP ${code:-no response}) after 3 tries."
+    echo -e "     This is NOT 'not published'. Nothing was written; re-run.${C_N}"
+    unresolved=$((unresolved+1)); continue
+  fi
 
   if [[ -z "$dig" ]]; then
     echo -e "  ${C_R}✗ $svc — no $TAG in the registry, LEFT ON ITS CURRENT DIGEST${C_N}"
@@ -81,6 +110,9 @@ done
 
 echo
 echo -e "  moved: $changed · unchanged: $same · not published at $TAG: $missing"
+if [[ $unresolved -gt 0 ]]; then
+  echo -e "  ${C_R}$unresolved service(s) UNRESOLVED — this run is incomplete, not a release.${C_N}"
+fi
 
 # The whole reason to know WHICH moved. Rolling nineteen services to change one restarts eighteen
 # pods for nothing, and on a modest node that is half an hour instead of two minutes.
@@ -93,4 +125,6 @@ if [[ -n "$moved_list" ]]; then
 elif [[ $missing -eq 0 ]]; then
   echo -e "  ${C_D}nothing moved — the fleet is already on $TAG, no rollout needed${C_N}"
 fi
-[[ $missing -eq 0 ]]
+# A service we could not resolve fails the run. "Not published" is a fact about the registry that a
+# human can act on; "we do not know" is not a state a release may exit successfully in.
+[[ $missing -eq 0 && $unresolved -eq 0 ]]

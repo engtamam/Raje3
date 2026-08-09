@@ -38,6 +38,13 @@ jobs:
       - name: the WhatsApp library matches the specification
         run: python3 ci/gen_templates.py --check
 
+      # The price list lives in deploy/seed/plans.json and nowhere else. A price copied into code
+      # is correct on the day it is written and silently wrong from the first time the list
+      # changes — and then what a customer is shown is not what he is charged, which in a country
+      # with a consumer protection authority is not a display bug.
+      - name: no price appears in code
+        run: python3 ci/check_no_prices.py
+
       - uses: azure/setup-helm@v4
 
       # A values file that cannot render is a failed deploy discovered on the cluster. Rendering
