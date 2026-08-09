@@ -11,21 +11,31 @@ P=$(kubectl -n $NS get pods --no-headers | awk '/^insights-/ && $3=="Running" {p
 [ -n "$P" ] || { echo "no insights pod"; exit 1; }
 TOKEN=$(kubectl -n $NS get secret insights-secrets -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' | base64 -d)
 kubectl -n $NS get secret identity-service-secrets -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' | base64 -d > /tmp/.k.pem
+# NO PLAN CLAIM ON THE TOKEN. What an establishment bought is asked of billing per request
+# (core/plans.py), so a token that says `pro` proves nothing at all — which is the point of the
+# change and is itself worth demonstrating below.
 mint() {
-  PLAN="$1" CAPS="$2" python3 -c '
+  CAPS="$1" python3 -c '
 import jwt, os, time
 n = int(time.time())
-print(jwt.encode({"sub": "owner-live", "tenant": "wired-shop", "plan": os.environ["PLAN"],
+print(jwt.encode({"sub": "owner-live", "tenant": "wired-shop",
                   "caps": os.environ["CAPS"].split(), "iss": "raje3", "aud": "raje3",
                   "iat": n, "exp": n + 900},
                  open("/tmp/.k.pem").read(), algorithm="RS256"), end="")'
 }
-SMART=$(mint smart "insights.read")
-PRO=$(mint pro "insights.read")
-OPS=$(mint pro "insights.read platform.insights")
+OWNER=$(mint "insights.read")
+# A token that CLAIMS a plan, to prove the claim is ignored.
+LIAR=$(CAPS="insights.read" python3 -c '
+import jwt, os, time
+n = int(time.time())
+print(jwt.encode({"sub": "liar", "tenant": "wired-shop", "plan": "chain", "tier": "chain",
+                  "caps": ["insights.read"], "iss": "raje3", "aud": "raje3",
+                  "iat": n, "exp": n + 900},
+                 open("/tmp/.k.pem").read(), algorithm="RS256"), end="")')
+OPS=$(mint "insights.read platform.insights")
 rm -f /tmp/.k.pem
 
-kubectl -n $NS exec -i "$P" -- python - "$TOKEN" "$SMART" "$PRO" "$OPS" <<'PY'
+kubectl -n $NS exec -i "$P" -- python - "$TOKEN" "$OWNER" "$LIAR" "$OPS" <<'PY'
 import json, sys, urllib.error, urllib.request
 INT, SMART, PRO, OPS = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 H = "http://localhost:8000"
@@ -101,16 +111,19 @@ check("the entry plan is refused, with a reason he can READ",
       s == 402 and d.get("reason"), str(d)[:110])
 s, d = call("/api/v1/insights/bundles", tok=SMART)
 check("the bundles page is gated too", s == 402, str(s))
+# THE CLAIM ON THE TOKEN IS IGNORED. This token says `plan: chain` and is refused exactly like
+# the one that says nothing, because the answer comes from billing and not from the caller.
 s, d = call("/api/v1/insights/associations", tok=PRO)
-check("a higher plan is served", s == 200, str(d)[:110])
-if s == 200 and not d.get("learning"):
-    check("no arithmetic ever leaves the service — the engine is ours",
-          all("lift_basket" not in p and "lift_customer" not in p for p in d.get("pairs", [])),
-          f"{len(d.get('pairs', []))} pairs")
-else:
-    check("the learning state is explicit, not a blank",
-          d.get("learning") is True and d.get("need", 0) > 0,
-          f"have={d.get('have')} need={d.get('need')}")
+check("a token that CLAIMS a plan is refused all the same", s == 402, str(d)[:110])
+
+# AND WITH NO SUBSCRIPTION IN BILLING, EVERY PAID SURFACE FAILS CLOSED. That is the correct
+# outcome today and the important half to prove: showing a paid surface to somebody who has not
+# bought it cannot be taken back, while refusing costs a minute. Serving the paid path cannot be
+# proved on the cluster until plans exist in billing — and this says so rather than passing
+# quietly on a token we minted ourselves.
+s, d = call("/api/v1/insights/dashboard", tok=SMART)
+check("no subscription means no entitlements, and it says so",
+      s == 200 and d.get("entitlements") == [], str(d.get("entitlements")))
 
 print()
 print("── coverage names who owns the fix ─────────────────────")

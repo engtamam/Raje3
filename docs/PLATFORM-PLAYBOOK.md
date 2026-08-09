@@ -706,6 +706,52 @@ can accuse anything.
 The fix when it happens is to re-ship, not to re-tag: a fresh import gives the name new content and
 forces a new pod.
 
+### 4.30 A plan carried on the token
+
+Reading a subscription tier from a claim the caller presents is a server-side decision enforced
+client-side (CWE-602), and it has a second failure that is worse because it looks like nothing:
+
+**a token minted before an upgrade keeps saying what it said.** A shop that pays at 10am is refused
+the thing it just bought until its session is reissued — for as long as the access TTL, or longer
+if the claim is only set at login. No error is raised anywhere, and support cannot reproduce it
+because *their* token is new.
+
+Ask the billing service per request instead. It is one call, it is cacheable for seconds, and it
+turns "did he pay?" into a question with one answer rather than a copy that ages.
+
+Two rules come with it:
+
+- **fail closed.** An unreachable billing denies. Showing a paid surface to somebody who has not
+  bought it cannot be taken back; refusing during an outage is a minute that fixes itself.
+- **never rank plan names.** No `TIERS` tuple, no `rank()`. A surface is keyed on an entitlement —
+  `feature.x.y` — so pricing can change without deploying the services, and a plan can be added
+  between two others without editing an ordering. It also lets a customer buy one feature without
+  the ladder underneath it, which an ordering cannot express at all.
+
+And the tell that this has gone wrong is silence: every test of the tier logic passes, because the
+bug is in READING the claim rather than in judging it. Ours read `principal.plan` on an object that
+keeps its extra claims in `principal.raw`, so every paying establishment was quietly served the
+entry-plan surface. Only a route test with a real token found it.
+
+### 4.31 An upsert that resets a status
+
+`register()` on a WhatsApp template registry preserves the id and the created date — and rebuilds
+the row with `status=PENDING`. Re-registering an identical, already-approved template therefore
+un-approves it, and the send path then correctly refuses to send anything.
+
+The dangerous part is that the natural operation is "make sure this tenant has the library". Anyone
+adding one new template runs it over the whole set, and every other template goes back to pending.
+Every business-initiated message that establishment sends stops, for hours, and the call returned
+201.
+
+**Look for this shape in any "create or update" that rebuilds a record from its inputs**: the
+fields the CALLER supplies are correct, and the fields the SYSTEM owns — status, approval, verified,
+last_seen — are silently reset to their defaults. A test that checks the row exists afterwards
+passes.
+
+Found by running our own seeder twice and reading its counters: `registered=72 existing=0` is not
+what "already registered" looks like.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced
