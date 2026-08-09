@@ -107,6 +107,39 @@ class PartnerRegistry:
         # a screenshot, or a support ticket.
         return [{k: v for k, v in r.items() if k != "key_hash"} for r in rows]
 
+    async def rotate(self, partner_id: str, *, overlap_seconds: int = 14 * 86400
+                     ) -> tuple[dict[str, Any], str]:
+        """Issue a new key while the old one keeps working for a window.
+
+        A HARD SWAP IS NOT AN OPTION HERE, and that is the whole reason this method exists. A
+        partner has the key compiled into a POS build that sits on hundreds of tills across a
+        country. Replacing it in one step means every one of those tills stops attributing shops
+        the moment we press the button, and stays broken until each is updated — which for a till
+        in a shop that opens on Thursdays is a fortnight later.
+
+        So both keys authenticate until `expires`, and the window closes BY ITSELF. That is the
+        part people get wrong: an overlap that ends when somebody remembers to end it is an
+        overlap that never ends, and a rotated credential that still works a year later was not a
+        rotation.
+
+        The old key's hash is kept, not the key — we never held the key in the first place.
+        """
+        row = await self.get(partner_id)
+        if row is None:
+            raise PartnerError("unknown partner")
+        key = f"rj3_{secrets.token_urlsafe(32)}"
+        now = int(time.time())
+        # If a rotation is already in flight, the PREVIOUS previous key is dropped rather than
+        # chained. Two overlapping windows is a credential nobody can reason about, and the second
+        # rotation is usually somebody reacting to a leak — the oldest key is the one to kill.
+        row["prev_key_hash"] = row.get("key_hash", "")
+        row["prev_key_expires"] = now + max(0, overlap_seconds)
+        row["key_hash"] = _hash_key(key, self._salt)
+        row["key_prefix"] = key[:12]
+        row["rotated_at"] = now
+        await self._s.put(PARTNERS, f"{PLATFORM}|{partner_id}", row)
+        return row, key
+
     async def deactivate(self, partner_id: str) -> bool:
         """Stop NEW stamps. Existing ones are untouched — see the module docstring."""
         row = await self.get(partner_id)
@@ -127,12 +160,24 @@ class PartnerRegistry:
         if not key:
             return None
         wanted = _hash_key(key, self._salt)
+        now = int(time.time())
         rows, _ = await self._s.find(PARTNERS, {"tenant": PLATFORM}, limit=500)
         for row in rows:
             # compare_digest, not ==. A short-circuiting comparison on a credential hash leaks its
             # prefix through timing, and the cost of doing it right is nothing.
             if hmac.compare_digest(row.get("key_hash", ""), wanted):
                 return row
+            # THE PREVIOUS KEY, WHILE ITS WINDOW IS OPEN. Checked second so the current key is the
+            # fast path, and compared with the same constant-time function — an expired key must
+            # fail for being expired, not for being compared differently.
+            prev = row.get("prev_key_hash") or ""
+            if prev and hmac.compare_digest(prev, wanted):
+                if now < int(row.get("prev_key_expires") or 0):
+                    return row
+                # EXPIRED, and it stays in the row rather than being cleaned up here. A read path
+                # that writes is a read path that fails under load, and the expiry check is the
+                # control — the leftover hash authenticates nothing.
+                return None
         return None
 
     # ── the stamp ─────────────────────────────────────────────────────────────────────────────
