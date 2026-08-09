@@ -141,11 +141,18 @@ async def tick(request: Request, body: TickIn) -> dict:
             # datastore are due regardless of whether operations is reachable right now.
             c.telemetry.event("catch_up_failed", tenant=tenant, error=str(exc)[:200])
 
+        shop = await _establishment(c, tenant)
+        if not shop.usable:
+            # DEFER, DO NOT SEND. A message with a blank shop name is worse than a late one: the
+            # customer reads it, and the owner cannot explain it. The next tick retries, and a
+            # stale cached name is accepted precisely so this is rare.
+            c.telemetry.event("tick_skipped_no_identity", tenant=tenant)
+            reasons["no establishment identity"] = reasons.get("no establishment identity", 0) + 1
+            continue
         res = await c.tick.run(
             tenant, now=now, library=await _library(c, tenant),
             service_names={k: v.get("name", k) for k, v in cfg.items()},
-            establishment=await _establishment(c, tenant),
-            customer_names={}, tone=await _tone(c, tenant))
+            establishment=shop.name, customer_names={}, tone=shop.tone)
         sent += res.sent
         suppressed += res.suppressed
         deferred += res.deferred
@@ -226,14 +233,14 @@ async def _library(c, tenant: str) -> list:
     return (row or {}).get("templates") or []
 
 
-async def _establishment(c, tenant: str) -> str:
-    row = await c.datastore.get("tenant_cache", f"{tenant}|profile")
-    return (row or {}).get("name") or ""
+async def _establishment(c, tenant: str):
+    """The shop, from tenant-service. Read once per tenant per tick and passed down.
 
-
-async def _tone(c, tenant: str) -> str:
-    row = await c.datastore.get("tenant_cache", f"{tenant}|profile")
-    return (row or {}).get("tone") or "brief"
+    Replaces a `tenant_cache` lookup that nothing ever wrote — so every rendered message carried a
+    blank where the establishment name belongs. Found by reading the code that reads it, not by a
+    test: an empty string is a valid string.
+    """
+    return await c.identity.get(tenant)
 
 
 class BackupExportIn(BaseModel):

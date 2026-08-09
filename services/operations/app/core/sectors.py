@@ -42,6 +42,10 @@ FIELD_SPECS = "sector_fields"
 # by tenant-service and never take this shape, so no establishment can ever collide with it.
 PLATFORM = "_platform"
 
+# What an unnamed catch-all is called when one has to be added. Arabic because every establishment
+# reading it is Arabic-speaking, and "خدمة أخرى" is what an owner would have typed themselves.
+DEFAULT_CATCHALL = "خدمة أخرى"
+
 
 class SectorError(Exception):
     """A refusal a console user can act on: an unknown sector, a duplicate key, a bad file."""
@@ -91,12 +95,31 @@ class SectorCatalogue:
             raise SectorError("a sector needs a `key` — without one it can never be selected")
         if key.startswith("_"):
             raise SectorError("a sector key must not start with '_' — that prefix is reserved")
+        services = list(sector.get("services", []))
+
+        # A SECTOR WITHOUT A CATCH-ALL IS A SECTOR THAT LOSES VISITS, and the loss is silent.
+        #
+        # Found on the cluster: the live `tyres` sector had seventeen services and not one of them
+        # flagged catchall — the flag was dropped when the sector was edited from the console
+        # months after it was seeded. The symptom is not an error. A technician does something the
+        # catalogue does not list, or a till sends a free-text line, and there is nowhere to put
+        # it: the operator cannot save, and a lost visit is a lost customer with no reminder, no
+        # points and no metric, for ever.
+        #
+        # APPENDED, NOT REFUSED. Refusing would be the tidier rule and the wrong one here: this
+        # runs on a console edit, and an operator fixing a service name at 11pm should not have
+        # their save rejected over a row they did not know existed. The default is added, named,
+        # and visible — they can rename it, and they cannot lose it.
+        if services and not any(x.get("catchall") for x in services):
+            services.append({"name": DEFAULT_CATCHALL, "cycle_days": 0,
+                             "sort": 9999, "catchall": True})
+
         row = {
             "id": key, "tenant": PLATFORM, "key": key,
             "name": (sector.get("name") or key).strip(),
             "asset": sector.get("asset", "none"),
             "fields": list(sector.get("fields", [])),
-            "services": list(sector.get("services", [])),
+            "services": services,
             "sort": int(sector.get("sort", 0)),
             "active": bool(sector.get("active", True)),
             "updated": int(time.time()),

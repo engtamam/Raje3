@@ -175,3 +175,33 @@ def test_the_catalogue_is_a_copy_so_one_shop_never_edits_anothers():
     svc.name = "تغيير الزيت"
     run(store.save(svc))
     assert any(s.name == "غيار زيت" for s in run(store.list("shopB", active_only=False)))
+
+
+def test_a_sector_saved_without_a_catch_all_gets_one():
+    """Found on the cluster: the live tyres sector had seventeen services and not one flagged
+    catchall — dropped by a console edit months after seeding. The symptom is not an error; it is
+    an operator who cannot save a visit, and a lost visit is a lost customer for ever."""
+    st = MemoryDataStore()
+    cat = _cat(st)
+    run(cat.upsert({"key": "barber", "name": "حلاق",
+                    "services": [{"name": "قص", "cycle_days": 30}]}))
+    services = run(cat.get("barber"))["services"]
+    assert any(x.get("catchall") for x in services)
+    assert len(services) == 2
+
+
+def test_an_existing_catch_all_is_not_duplicated():
+    st = MemoryDataStore()
+    cat = _cat(st)
+    run(cat.upsert(SECTOR))
+    run(cat.upsert(SECTOR))
+    assert sum(1 for x in run(cat.get("tyres"))["services"] if x.get("catchall")) == 1
+
+
+def test_an_empty_sector_is_left_empty():
+    """A sector with no services at all is a draft somebody is still writing — adding a lone
+    catch-all to it would put a service in a list the operator has not started."""
+    st = MemoryDataStore()
+    cat = _cat(st)
+    run(cat.upsert({"key": "draft", "name": "مسودة", "services": []}))
+    assert run(cat.get("draft"))["services"] == []

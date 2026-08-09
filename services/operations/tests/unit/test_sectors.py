@@ -72,7 +72,7 @@ def test_a_new_sector_needs_no_deploy(cat):
     run(c.upsert({"key": "vet", "name": "عيادة بيطرية", "asset": "none", "fields": [],
                   "services": [{"name": "تطعيم", "cycle_days": 365}]}))
     assert run(c.get("vet"))["name"] == "عيادة بيطرية"
-    assert run(c.seed_tenant(tenant=T, sector_key="vet")) == 1
+    assert run(c.seed_tenant(tenant=T, sector_key="vet")) == 2   # + the catch-all
 
 
 def test_a_reserved_key_is_refused(cat):
@@ -100,7 +100,7 @@ def test_a_new_establishment_gets_a_full_catalogue(cat, tmp_path):
     """An owner who signs up and meets a blank grid closes the tab. This is that, prevented."""
     c, store = cat
     run(c.seed_from_file(_seed_file(tmp_path)))
-    assert run(c.seed_tenant(tenant=T, sector_key="tyres")) == 2
+    assert run(c.seed_tenant(tenant=T, sector_key="tyres")) == 3   # + the catch-all
     names = {s.name for s in run(ServiceStore(store).list(T))}
     assert names == {"تبديل إطارات", "تصليح بنشر"}
 
@@ -112,7 +112,7 @@ def test_seeding_twice_does_not_duplicate_the_catalogue(cat, tmp_path):
     run(c.seed_from_file(_seed_file(tmp_path)))
     run(c.seed_tenant(tenant=T, sector_key="tyres"))
     assert run(c.seed_tenant(tenant=T, sector_key="tyres")) == 0
-    assert len(run(ServiceStore(store).list(T))) == 2
+    assert len(run(ServiceStore(store).list(T))) == 3   # + the catch-all
 
 
 def test_an_unknown_sector_names_the_valid_ones(cat, tmp_path):

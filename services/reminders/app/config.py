@@ -185,6 +185,19 @@ class Settings(BaseSettings):
     # The catch-up read. The event bus is at-most-once (see ports/event_bus.py), so a missed visit
     # is a reminder that never exists — for ever. This is the readable path that repairs it.
     OPERATIONS_VISITS_SINCE_PATH: str = "/internal/operations/visits/since"
+
+    # ── who the establishment is ──────────────────────────────────────────────
+    # Every message renders {{2}} as the shop's name. `null` answers nothing, which means every
+    # message would go out with a blank where the name belongs — accepted by Meta, read by the
+    # customer, and apologised for by the owner. Refused in production by the boot guard.
+    IDENTITY_DRIVER: str = "null"            # null | http
+    TENANT_SERVICE_URL: str = ""             # e.g. http://tenant-service:8000
+    # THEIRS, from tenant-service's manifest. The record carries `name` and a free-form `branding`
+    # dict; our `tone` lives inside that dict under a key we own rather than in a table we invent.
+    TENANT_READ_PATH: str = "/internal/tenants/{id}"
+    # Short, so a shop that fixes a typo sees it in the next message rather than next week. The
+    # FALLBACK to a stale value is unbounded on purpose — see adapters/identity.
+    IDENTITY_CACHE_TTL_SECONDS: int = 300
     MESSAGE_CHANNEL: str = "whatsapp"
     PEER_TIMEOUT_SECONDS: int = 8
 
@@ -436,6 +449,13 @@ class Settings(BaseSettings):
         """
         if not self.is_production:
             return
+        if self.IDENTITY_DRIVER == "null":
+            raise ValueError(
+                "IDENTITY_DRIVER=null in production: every message would render an empty "
+                "establishment name — accepted by Meta, read by the customer, and apologised for "
+                "by the owner. Set it to 'http' with TENANT_SERVICE_URL.")
+        if self.IDENTITY_DRIVER == "http" and not self.TENANT_SERVICE_URL:
+            raise ValueError("IDENTITY_DRIVER=http but TENANT_SERVICE_URL is empty.")
         if self.SENDER_DRIVER == "null":
             raise ValueError(
                 "SENDER_DRIVER=null in production: reminders would be scheduled, gated, rendered "

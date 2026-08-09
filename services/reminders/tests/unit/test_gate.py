@@ -165,7 +165,9 @@ from app.config import Settings
 def _s(**over):
     base = dict(ENV="production", INTERNAL_SERVICE_TOKEN="x" * 40,
                 SENDER_DRIVER="http", NOTIFICATION_SERVICE_URL="http://n:8000",
-                OPERATIONS_SERVICE_URL="http://o:8000")
+                OPERATIONS_SERVICE_URL="http://o:8000",
+                # Every message renders the shop's name; a null identity driver renders it blank.
+                IDENTITY_DRIVER="http", TENANT_SERVICE_URL="http://t:8000")
     base.update(over)
     return Settings(**base)
 

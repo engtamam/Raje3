@@ -146,6 +146,7 @@ class Container:
     consent_gate: Any = None
     # ── this service's own pieces, built after the ports they depend on ───────────────────────
     sender: Any = None
+    identity: Any = None
     scheduler: Any = None
     ingest: Any = None
     tick: Any = None
@@ -220,6 +221,7 @@ def build_container(settings: Settings) -> Container:
     # ── the domain, assembled from settings rather than from constants ────────────────────────
     # Local imports: these pull in this service's own core, and keeping them out of module scope
     # means the ports above stay importable by anything that only needs a driver.
+    from app.adapters.identity import build_identity
     from app.adapters.message_sender import build_sender
     from app.core.adaptive import AdaptiveConfig
     from app.core.engagement import EngagementConfig
@@ -246,6 +248,7 @@ def build_container(settings: Settings) -> Container:
         daily_total_cap=settings.DAILY_TOTAL_CAP)
 
     container.sender = build_sender(settings)
+    container.identity = build_identity(settings)
     container.scheduler = Scheduler(
         store=container.datastore, cfg=adaptive_cfg, eng_cfg=eng_cfg,
         default_interval_days=settings.DEFAULT_INTERVAL_DAYS,

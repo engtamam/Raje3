@@ -104,6 +104,18 @@ env:
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   OPERATIONS_RECIPIENT_PATH: "/internal/operations/recipient"
   OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+  # ── who the establishment is ──────────────────────────────────────────────────────────────
+  # Every message renders {{2}} as the shop's name. It lives in tenant-service and ONLY there — a
+  # copy here is a second version of the one string every customer of that shop reads in every
+  # message, and the first time the two disagree is a message under a name that is not on the sign.
+  IDENTITY_DRIVER: "http"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_READ_PATH: "/internal/tenants/{id}"
+  # Short so a fixed typo shows up in the next message. The fallback to a STALE value is unbounded
+  # by design: at 3am a reminder with yesterday's correct name is right, and one with a blank name
+  # is a message the owner has to apologise for.
+  IDENTITY_CACHE_TTL_SECONDS: "300"
+
   MESSAGE_CHANNEL: "whatsapp"
   PEER_TIMEOUT_SECONDS: "8"
 
