@@ -129,7 +129,8 @@ if [[ -n "${pending_list// /}" ]]; then
     svc=$(basename "$f" .values.yaml)
     repo=$(grep -m1 'repository:' "$f" | sed 's/.*repository:[[:space:]]*//' | tr -d '"' | sed 's#^ghcr.io/##')
     tok=$(curl -s -m 20 -H "Authorization: Basic $AUTH"           "https://ghcr.io/token?scope=repository:${repo}:pull&service=ghcr.io"           | sed -E 's/.*"token":"([^"]+)".*//')
-    hdr=$(curl -sI -m 20 -w 'HTTPSTATUS:%{http_code}'           -H "Authorization: Bearer $tok" -H "Accept: $ACC"           "https://ghcr.io/v2/${repo}/manifests/${TAG}" | tr -d '')
+    hdr=$(curl -sI -m 20 -w 'HTTPSTATUS:%{http_code}'           -H "Authorization: Bearer $tok" -H "Accept: $ACC"           "https://ghcr.io/v2/${repo}/manifests/${TAG}" | tr -d '
+')
     code=$(printf '%s' "$hdr" | grep -o 'HTTPSTATUS:[0-9]*' | tail -1 | cut -d: -f2)
     dig=$(printf '%s' "$hdr" | grep -i '^docker-content-digest:' | awk '{print $2}')
     if [[ -z "$dig" ]]; then
@@ -138,7 +139,23 @@ if [[ -n "${pending_list// /}" ]]; then
         missing=$((missing+1))
       else
         echo -e "  ${C_R}? $svc — still could not resolve $TAG (HTTP ${code:-no response})."
-        echo -e "     This is NOT 'not published'. Nothing was written; re-run.${C_N}"
+        echo -e "     This is NOT 'not published'. Nothing was written.${C_N}"
+        # WHAT TO DO ABOUT IT, rather than just "re-run" — because on the v0.13.7 release the
+        # same four services failed on every attempt, including a second pass of four after a
+        # 45-second wait, while the identical four resolved instantly from a fresh session. We
+        # never found the cause; what we found was that it did not matter.
+        #
+        # Ask the SOURCE instead of the registry: if the service is unchanged between the two
+        # tags upstream, its image is unchanged too, and the digest already pinned is already
+        # correct. That is a fact you can check in a second and act on with confidence:
+        #
+        #   git -C platform diff <old-tag>..<new-tag> --stat -- services/<svc>
+        #
+        # Empty output means this service does not need to move at all, and the release can go
+        # ahead without it. The run still FAILS, because that judgement belongs to a person.
+        echo -e "     ${C_D}check whether it needs to move at all:"
+        echo -e "       git -C platform diff <previous-tag>..$TAG --stat -- services/$svc"
+        echo -e "     no output means the service is unchanged and its current pin is correct.${C_N}"
         unresolved=$((unresolved+1))
       fi
       continue
