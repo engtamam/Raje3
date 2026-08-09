@@ -1,0 +1,218 @@
+"""May this message go out, right now, to this customer? — spec 8.4.2, in one place.
+
+EVERY RULE IS HERE, AND THAT IS THE DESIGN. A cap checked in the tick, a window checked in the
+sender, and an opt-out checked in the template layer is three places that will eventually disagree
+— and the disagreement is invisible, because each one is correct on its own. One function, one
+answer, and every caller must go through it.
+
+EVERY REFUSAL CARRIES A REASON, VERBATIM AND IN ARABIC. This is not politeness. The only question
+support ever gets about this service is "why didn't my customer get the message?", and "not sent"
+is unanswerable. The reason string is written into the send log, shown in the owner's screen, and
+is the difference between a rule and an outage.
+
+THE ORDER OF CHECKS IS NOT ARBITRARY. Cheapest and most absolute first:
+
+  1. The customer's own stop      — absolute, outranks everything, needs no I/O.
+  2. The class is even enabled    — a class with no templates cannot be sent.
+  3. Engagement tier              — one read, decides whether we may advertise at all.
+  4. The quiet-hours window       — pure arithmetic on the clock, with its exemptions.
+  5. The caps                     — the expensive one: it reads the ledger.
+  6. The cooldown                 — same read, so it is folded into step 5.
+
+Putting the ledger read first would mean paying for it on every message a customer has already
+switched off, which is the population that grows.
+"""
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from app.core import engagement as E
+
+DAY = 86400
+
+# Saudi Arabia has no daylight saving, so a fixed offset is correct and a timezone database is not
+# needed. Written as a constant rather than inlined because the day this product crosses a border
+# it becomes a per-tenant setting, and a constant is a place to change.
+RIYADH = timezone(timedelta(hours=3))
+
+# Message types that are a REPLY to something the customer just did, and are therefore exempt from
+# the quiet-hours window (spec 8.4.2 section 1). Someone who visits at 11pm is not served by a
+# confirmation that arrives after eight hours of silence — it stops being a confirmation and
+# becomes a message from a shop that is closed.
+#
+# BY TEMPLATE TYPE, NOT BY CLASS. Reminders and follow-ups are service-class too, and neither is a
+# reply to anything: they are ours, sent on our schedule, and they wait for the morning.
+WINDOW_EXEMPT_TYPES = frozenset({
+    "svc_visit_confirmation", "svc_booking_confirmation", "svc_ready_for_pickup", "svc_receipt",
+    "per_account_notice", "per_points_expiring",
+})
+
+# The priority ladder (spec 8.4.2 section 4). Lower number wins when two messages compete.
+PRIORITY = {"warning": 0, "personal": 1, "service": 2, "awareness": 3, "marketing": 4}
+
+
+@dataclass(frozen=True)
+class Limits:
+    """The caps. Platform-owned, overridable per tenant by US with a written reason — never by an
+    establishment, because a blocked number lowers the quality rating of every number we hold."""
+    window_start_hour: int = 7
+    window_end_hour: int = 22
+    daily_service_cap: int = 1
+    monthly_marketing_cap: int = 4
+    monthly_awareness_cap: int = 1
+    marketing_cooldown_hours: int = 72
+    # Absolute ceiling across every class except personal. Four separate caps can each be satisfied
+    # while their sum is five messages in a day — the cap that catches what the others let through.
+    daily_total_cap: int = 2
+
+    def as_dict(self) -> dict[str, Any]:
+        return {k: getattr(self, k) for k in self.__dataclass_fields__}
+
+
+@dataclass
+class Decision:
+    allowed: bool
+    reason: str = ""
+    # When it could go out instead. Set on a deferral; zero on an outright suppression. The
+    # distinction is the whole difference between "wait" and "never", and callers act on it:
+    # a deferred schedule moves, a suppressed one is closed with its reason.
+    retry_at: int = 0
+    tier: str = ""
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
+             prefs_stopped: dict[str, bool], engagement_score: float, engagement_at: int,
+             recent_sends: list[dict[str, Any]], eng_cfg: E.EngagementConfig,
+             class_enabled: bool = True) -> Decision:
+    """The one decision. Pure — every input is passed in, nothing is fetched.
+
+    Pure on purpose: this is the function whose behaviour we must be able to reason about at 2am,
+    and a function that reads a datastore cannot be tested through its whole space. The caller does
+    the I/O; this does the thinking.
+    """
+    # ── 1. the customer's own stop: absolute ──────────────────────────────────────────────────
+    # Outranks the priority ladder, every cap exemption, and every class INCLUDING personal. An
+    # earlier draft exempted personal because the customer started that conversation — true when
+    # they started it, and not true forever. Someone who switches everything off has said what they
+    # want, and keeping a channel open over their objection is not a service to them.
+    if prefs_stopped.get(cls, False):
+        return Decision(False, f"العميل أوقف الرسائل من نوع «{_ar(cls)}» — إيقافه مطلق ولا يُتجاوَز.")
+
+    # ── 2. is the class even sendable ─────────────────────────────────────────────────────────
+    # The warning class ships with no templates today (spec 8.4.1). A schedule that reaches here
+    # for a class with nothing to send would otherwise fail deep in the sender with a template
+    # lookup error — legible here, cryptic there.
+    if not class_enabled:
+        return Decision(False, f"الصنف «{_ar(cls)}» غير مفعّل على المنصة حالياً — لا قالب تحته.")
+
+    tier = E.tier(engagement_score, scored_at=engagement_at, now=now, cfg=eng_cfg)
+
+    # ── 3. engagement ─────────────────────────────────────────────────────────────────────────
+    ok, why = E.allows(cls, tier)
+    if not ok:
+        return Decision(False, _ar_engagement(cls), tier=tier, details={"en": why})
+
+    # ── 4. the window ─────────────────────────────────────────────────────────────────────────
+    if template_type not in WINDOW_EXEMPT_TYPES:
+        inside, next_open = _window(now, limits)
+        if not inside:
+            # DEFERRED, NOT DROPPED — except marketing, which is dropped, because a weekend offer
+            # arriving on Tuesday is worse than no offer (spec 5.8). That asymmetry is deliberate
+            # and is the one place a deferral would do harm.
+            if cls == "marketing":
+                return Decision(False, "خارج وقت الإرسال المسموح، والعرض المؤجَّل يفقد معناه — "
+                                       "فيُسقَط ولا يؤجَّل.", tier=tier)
+            return Decision(False, "خارج وقت الإرسال المسموح (7 صباحاً – 10 مساءً) — يؤجَّل.",
+                            retry_at=next_open, tier=tier)
+
+    # ── 5 & 6. caps and cooldown, from one read of the ledger ─────────────────────────────────
+    day_ago, month_ago = now - DAY, now - 30 * DAY
+
+    # Personal messages are not counted and not deferred: the customer started that exchange, and
+    # a points-expiry notice held back by a cap is a notice that arrives after the points expired.
+    if cls != "personal":
+        sent_today = [s for s in recent_sends
+                      if s.get("outcome") == "sent" and int(s.get("at", 0)) >= day_ago
+                      and s.get("cls") != "personal"]
+        if len(sent_today) >= limits.daily_total_cap:
+            return Decision(False,
+                            f"بلغ الحد اليومي ({limits.daily_total_cap} رسائل) لهذا العميل.",
+                            retry_at=_tomorrow_open(now, limits), tier=tier)
+
+        if cls == "service":
+            n = len([s for s in sent_today if s.get("cls") == "service"])
+            if n >= limits.daily_service_cap:
+                return Decision(False,
+                                f"بلغ الحد اليومي للرسائل الخدمية ({limits.daily_service_cap}).",
+                                retry_at=_tomorrow_open(now, limits), tier=tier)
+
+        if cls in ("marketing", "awareness"):
+            base = (limits.monthly_marketing_cap if cls == "marketing"
+                    else limits.monthly_awareness_cap)
+            cap = E.monthly_cap(cls, tier, base)
+            n = len([s for s in recent_sends
+                     if s.get("outcome") == "sent" and s.get("cls") == cls
+                     and int(s.get("at", 0)) >= month_ago])
+            if n >= cap:
+                extra = " (نصف الحد لأن تفاعله منخفض)" if cap != base else ""
+                return Decision(False, f"بلغ الحد الشهري لرسائل «{_ar(cls)}» ({cap}){extra}.",
+                                tier=tier)
+
+        if cls == "marketing":
+            last = max((int(s.get("at", 0)) for s in recent_sends
+                        if s.get("outcome") == "sent" and s.get("cls") == "marketing"),
+                       default=0)
+            cool = limits.marketing_cooldown_hours * 3600
+            if last and now - last < cool:
+                return Decision(False,
+                                f"لم تمضِ {limits.marketing_cooldown_hours} ساعة على آخر رسالة "
+                                f"دعائية.", retry_at=last + cool, tier=tier)
+
+    return Decision(True, tier=tier)
+
+
+def _window(now: int, limits: Limits) -> tuple[bool, int]:
+    """Is `now` inside the sending window, and if not, when does it next open?
+
+    Computed in Riyadh local time and returned as a UTC epoch. Doing this arithmetic in UTC would
+    put the quiet hours three hours out — the classic timezone bug, and here it means messages at
+    4am to real people.
+    """
+    local = datetime.fromtimestamp(now, RIYADH)
+    if limits.window_start_hour <= local.hour < limits.window_end_hour:
+        return True, 0
+    if local.hour < limits.window_start_hour:
+        opens = local.replace(hour=limits.window_start_hour, minute=0, second=0, microsecond=0)
+    else:
+        opens = (local + timedelta(days=1)).replace(
+            hour=limits.window_start_hour, minute=0, second=0, microsecond=0)
+    return False, int(opens.timestamp())
+
+
+def _tomorrow_open(now: int, limits: Limits) -> int:
+    local = datetime.fromtimestamp(now, RIYADH)
+    opens = (local + timedelta(days=1)).replace(
+        hour=limits.window_start_hour, minute=0, second=0, microsecond=0)
+    return int(opens.timestamp())
+
+
+def _ar(cls: str) -> str:
+    return {"service": "خدمية", "personal": "شخصية", "awareness": "توعوية",
+            "warning": "تحذيرية", "marketing": "دعائية"}.get(cls, cls)
+
+
+def _ar_engagement(cls: str) -> str:
+    return (f"رسائل «{_ar(cls)}» موقوفة مؤقتاً — لم يزر العميل ولم يتفاعل منذ أشهر. "
+            f"الرسائل الخدمية مستمرة، وزيارة واحدة تعيد كل شيء فوراً.")
+
+
+def priority(cls: str) -> int:
+    return PRIORITY.get(cls, 99)
+
+
+def now_epoch() -> int:
+    return int(time.time())
