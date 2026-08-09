@@ -42,6 +42,37 @@
     "feature.api": "off in every published plan; the key exists so the answer is DENY and not silence"
   },
 
+  "packs": [
+    {
+      "_": [
+        "MESSAGE PACKS — a subscription that does not renew, and nothing else.",
+        "",
+        "interval `once` is the whole mechanism. An entitlement is the UNION of every billable",
+        "subscription and an integer limit merges by SUM, so a pack's messages ADD to the plan's",
+        "with no arithmetic of ours, no second purchase path, and no branch in the sending code.",
+        "Proven against the running service by deploy/prove-packs.sh rather than trusted: if the",
+        "union did not add, the whole design would be wrong, and better found there than by an",
+        "owner who paid 50 riyals for messages that never arrived.",
+        "",
+        "A PACK EXTENDS THE MONTH, IT DOES NOT FORGIVE IT. What he already sent stays counted —",
+        "otherwise a 50-riyal pack becomes a way to reset the month, and the plan's number stops",
+        "meaning anything.",
+        "",
+        "OFFERED WHEN HE NEEDS IT: from the balance line in his weekly report and from the panel.",
+        "Never as an interstitial in the middle of doing something else — a shop owner blocked",
+        "mid-task by a purchase screen remembers the block, not the offer."
+      ],
+      "name": "رسائل إضافية · 500",
+      "amount": 5000,
+      "messages": 500
+    },
+    {
+      "name": "رسائل إضافية · 1000",
+      "amount": 9000,
+      "messages": 1000
+    }
+  ],
+
   "plans": [
     {
       "name": "الأساسية",

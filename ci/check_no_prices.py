@@ -29,6 +29,18 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 # In riyals, as a customer says them, and in halalas, as billing stores them. Both, because the
 # constant somebody writes is whichever unit they had in their head at the time.
+#
+# THE PACK PRICES ARE NOT GUARDED, and the reason is worth writing down so nobody "fixes" it.
+#
+# They are 50 and 90 riyals — 5000 and 9000 halalas — and every one of those four numbers is a
+# port, a row limit, a timeout or a batch size somewhere in this repo. Adding them turned a guard
+# with zero false positives into one with 41, including OBJECTSTORE_ENDPOINT_URL ending in :9000
+# and SNAPSHOT_VISIT_LIMIT: 5000. A guard that cries 41 times is a guard somebody switches off,
+# and then it catches nothing at all — including the plan prices it was working for.
+#
+# So the guard covers the three plan prices, which are distinctive, and the pack prices rely on
+# the same thing every other value in plans.json relies on: they are read from billing, and there
+# is no code path that would want them locally.
 PRICES = ("148", "298", "598", "14800", "29800", "59800")
 
 # The price list itself, and this guard, which has to name the numbers to look for them.
