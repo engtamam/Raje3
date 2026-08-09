@@ -40,7 +40,11 @@ DAY = 86400
 # The ceiling on one campaign's audience. Not a technical limit — a product one: an establishment
 # with more than this many customers in one send is a case we want to look at before it goes out,
 # and a silent truncation would be worse than a refusal.
-MAX_AUDIENCE = 5000
+#
+# A DEFAULT, because "how large is too large to send unreviewed" is a judgement that changes with
+# the size of the shops we serve, and the day it needs changing is the day a real customer is
+# blocked by it. CAMPAIGN_MAX_AUDIENCE overrides it.
+DEFAULT_MAX_AUDIENCE = 5000
 
 
 @dataclass
@@ -66,7 +70,8 @@ class Audience:
 
 async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=None,
                   already_reached: set[str] | None = None,
-                  window_days: int = 90, min_visits: int = 3) -> Audience:
+                  window_days: int = 90, min_visits: int = 3,
+                  max_audience: int = DEFAULT_MAX_AUDIENCE) -> Audience:
     """Who this campaign reaches, right now.
 
     `customers` is an async callable returning rows with `subject_ref`, `last_visit`,
@@ -99,7 +104,7 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
             continue
 
         out.candidates.append(Candidate(subject_ref=subject, why=why))
-        if len(out.candidates) >= MAX_AUDIENCE:
+        if len(out.candidates) >= max_audience:
             # REPORTED, never silent. A truncation nobody is told about reads as "everyone was
             # reached", which is the single most misleading thing a campaign screen can say.
             out.truncated = True

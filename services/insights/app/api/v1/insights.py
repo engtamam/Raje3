@@ -19,6 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.config import get_settings
+
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
@@ -190,7 +192,8 @@ async def suggested_bundles(request: Request, principal: Principal = Depends(_RE
         k = (m.get("has", ""), m.get("missing", ""))
         missing[k] = missing.get(k, 0) + 1
     cards = _bundles.build(pairs, names=values.get("service_names") or {},
-                           missing_counts=missing)
+                           missing_counts=missing,
+                           min_opportunity=get_settings().INSIGHTS_MIN_OPPORTUNITY)
     return {"bundles": cards, "count": len(cards)}
 
 

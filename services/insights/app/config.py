@@ -273,6 +273,22 @@ class Settings(BaseSettings):
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── the association engine's four judgements ──────────────────────────────
+    # Where evidence becomes advice, and every one of them a CHOICE rather than a derivation. They
+    # are also the numbers most likely to be wrong for a sector we have not met yet — a workshop's
+    # baskets are not a café's — and frozen into code, correcting one would need a release while a
+    # shop is being shown a recommendation we no longer believe.
+    ASSOC_STRONG_LIFT: float = 1.5          # above this, more than chance explains, by enough to act
+    ASSOC_WEAK_LIFT: float = 1.2            # below this, absent enough to call absent
+    ASSOC_MIN_BASKETS: int = 200            # under this we say we are still learning
+    ASSOC_MIN_PAIR_SUPPORT: int = 5         # a pair seen twice in a year is noise, not a rule
+    # The floor below which a real pair is not yet an opportunity worth naming. A count of PEOPLE
+    # rather than a share, because "twenty customers" is a thing an owner can picture — and twenty
+    # is a picture in a small shop and a rounding error in a large one.
+    INSIGHTS_MIN_OPPORTUNITY: int = 20
+
+
+
     # ── the sweep ─────────────────────────────────────────────────────────────
     # Tenants per pass. Bounded so the run does not grow with the product until it times out and
     # retries from the beginning forever — a failure that arrives months after the decision.

@@ -186,6 +186,15 @@ class Settings(BaseSettings):
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── two product judgements, not technical limits ──────────────────────────
+    # How large an audience may be before one send needs a human to look at it first. A silent
+    # truncation would be worse than a refusal, and the right number changes with the size of the
+    # shops we serve.
+    CAMPAIGN_MAX_AUDIENCE: int = 5000
+    # How long an awareness campaign locks its audience out of another. How often a shop may
+    # educate the same customer is a judgement, and a workshop is not a clinic.
+    AWARENESS_LOCK_DAYS: int = 30
+
     # ── the window, for the preview's sentence only ───────────────────────────
     # NOT a second gate: reminders decides whether a message goes. This decides which sentence the
     # preview shows, and getting it wrong costs a wrong sentence rather than a wrong send.

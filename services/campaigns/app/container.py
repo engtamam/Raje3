@@ -227,7 +227,8 @@ def build_container(settings: Settings) -> Container:
 
     peers = build_peers(settings)
     container.templates = peers["templates"]
-    container.audience = _AudienceFacade(peers["audience"], resolve_audience)
+    container.audience = _AudienceFacade(peers["audience"], resolve_audience,
+                                         max_audience=settings.CAMPAIGN_MAX_AUDIENCE)
     container.sender = peers["sender"]
     container.identity = peers["identity"]
     container.gate = peers["window"]
@@ -242,6 +243,7 @@ def build_container(settings: Settings) -> Container:
                                       batch=settings.DISPATCH_BATCH_SIZE,
                                       telemetry=container.telemetry)
     container.tick = Tick(store=container.datastore, dispatcher=container.dispatcher,
+                          awareness_lock_days=settings.AWARENESS_LOCK_DAYS,
                           telemetry=container.telemetry)
     return container
 
@@ -254,9 +256,12 @@ class _AudienceFacade:
     decides who receives a message untestable across its space.
     """
 
-    def __init__(self, client, resolve) -> None:
+    def __init__(self, client, resolve, *, max_audience: int) -> None:
         self._c = client
         self._resolve = resolve
+        # The ceiling on one send. A product judgement, not a technical limit, and one that
+        # changes with the size of the shops we serve — so it arrives from the deployment.
+        self._max_audience = int(max_audience)
 
     async def resolve_for(self, tenant: str, *, goal: str, now: int,
                           already_reached=None, cls: str = "marketing"):
@@ -268,4 +273,5 @@ class _AudienceFacade:
 
         return await self._resolve(goal=goal, tenant=tenant, now=now,
                                    customers=_customers, gate_check=_gate,
-                                   already_reached=already_reached or set())
+                                   already_reached=already_reached or set(),
+                                   max_audience=self._max_audience)

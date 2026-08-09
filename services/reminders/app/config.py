@@ -184,6 +184,22 @@ class Settings(BaseSettings):
     # discovering a template is still in review — correct, and wasteful for a shop that connected
     # this morning with its whole library pending.
     NOTIFICATION_TEMPLATES_PATH: str = "/internal/whatsapp/templates"
+
+    # ── WhatsApp's own ceiling — THEIR numbers, so none of them lives in code ──
+    # The rolling window a business-initiated conversation counts against. Meta's, and Meta has
+    # changed its messaging rules more than once.
+    REACH_WINDOW_SECONDS: int = 86_400
+    # The error codes that mean "not now" rather than "never" or "something broke" — from Meta's
+    # Cloud API error reference. Codes, never message text: the text is translated and reworded,
+    # and a branch matching a phrase stops matching with nothing failing.
+    WHATSAPP_CEILING_CODES: str = "130429,80007,131048,131056,131064,131049"
+    # How long a refused message waits. OURS, and the only certainly-wrong answer is an hour: the
+    # window is rolling, so an hour later is the same closed door and a tick spent finding out.
+    CEILING_DEFER_SECONDS: int = 43_200
+
+    @property
+    def whatsapp_ceiling_codes(self) -> tuple[str, ...]:
+        return tuple(c.strip() for c in self.WHATSAPP_CEILING_CODES.split(",") if c.strip())
     # OURS. Turns a subject_ref back into a destination at send time, so no phone number ever rests
     # in this service. See adapters/message_sender for why this is a route and not a column.
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000

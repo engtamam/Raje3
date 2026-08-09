@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.associations import (MIN_BASKETS, STRONG, build, classify, count_pairs,
-                                   is_group_basket, lift, missed_opportunities)
+from app.core.associations import (DEFAULTS, build, classify, count_pairs, is_group_basket, lift, missed_opportunities)
 from app.core.models import Pair
 
 T = "shop"
@@ -94,7 +93,7 @@ def test_a_slightly_large_basket_is_not_a_group():
 def test_below_the_threshold_it_says_it_is_learning_rather_than_guessing():
     res = build(baskets=baskets(10, "a", "b"), sequences=[["a", "b"]], tenant=T)
     assert res["learning"] is True and res["pairs"] == []
-    assert res["need"] == MIN_BASKETS and res["have"] == 10
+    assert res["need"] == DEFAULTS.min_baskets and res["have"] == 10
 
 
 def test_lift_is_bounded_by_how_common_the_pair_is():
@@ -120,7 +119,7 @@ def test_a_real_pair_is_found_on_both_axes():
     res = build(baskets=b, sequences=seqs, tenant=T)
     pair = next(p for p in res["pairs"] if {p.a, p.b} == {"oil", "filter"})
     assert pair.verdict == "real"
-    assert pair.lift_basket >= STRONG and pair.lift_customer >= STRONG
+    assert pair.lift_basket >= DEFAULTS.strong and pair.lift_customer >= DEFAULTS.strong
 
 
 def test_the_family_receipt_is_excluded_end_to_end():

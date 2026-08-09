@@ -33,6 +33,12 @@ from typing import Any
 from app.core import engagement as E
 from app.core import gate as G
 from app.core import quota as Q
+from app.core.reach import Reach
+
+# How long a message waits after WhatsApp refused it for the ceiling. A DEFAULT: the right delay
+# depends on when in the rolling window the refusal happened, and the only wrong answer is "an
+# hour", which walks back into the same closed door. Deployments set CEILING_DEFER_SECONDS.
+_DEFAULT_CEILING_DEFER = 12 * 3600
 from app.core import rendering as R
 from app.core.models import SendLog, as_row
 from app.adapters.message_sender import CeilingReached, Unsendable
@@ -63,7 +69,8 @@ class TickResult:
 
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
-                 batch: int = 100, telemetry=None, quota=None, approved=None) -> None:
+                 batch: int = 100, telemetry=None, quota=None, approved=None,
+                 reach_window: int = 0, ceiling_defer_seconds: int = 0) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
@@ -71,6 +78,12 @@ class Tick:
         # Marketing consent is a SEPARATE record from the send preferences, because
         # 'did not refuse' and 'agreed' are different facts (core/consent.py).
         self._consent = Consent(store)
+        # WHO WE HAVE ALREADY REACHED TODAY. WhatsApp's ceiling counts PEOPLE in a rolling 24
+        # hours, not messages, so this is the only counter that can answer "how close is he".
+        # The window is Meta's number and the delay is ours; neither belongs in this file. Zero
+        # means "take the module default", so a test constructs a Tick without knowing either.
+        self._reach = Reach(store, window=reach_window) if reach_window else Reach(store)
+        self._ceiling_defer = int(ceiling_defer_seconds or _DEFAULT_CEILING_DEFER)
         self._eng = EngagementStore(store)
         self._sender = sender
         # THE MESSAGE QUOTA. Defaults to the null counter so every existing test keeps working;
@@ -104,6 +117,10 @@ class Tick:
         # reminders would otherwise ask notification-service 300 times for an answer that cannot
         # change while this loop runs. None means NOT KNOWN — see ApprovedTemplates.
         approved = await self._approved.names(tenant) if due else None
+        # The reach window is only meaningful for a day, and a table nobody prunes turns a bounded
+        # read into an unbounded one — the exact failure the read exists to avoid.
+        if due:
+            await self._reach.prune(now=now)
 
         # PRIORITY ORDER (spec 8.4.2 section 4). Two messages competing for one daily slot must
         # resolve the same way every time, and the losing one must be the lower-priority one — not
@@ -224,6 +241,7 @@ class Tick:
             await self._quota.release(tenant=tenant, idempotency_key=key)
             raise
 
+        await self._reach.record(tenant, subject, now=now)
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
             schedule_id=row.get("id", ""), template_name=rendered.template_name,
@@ -350,6 +368,9 @@ class Tick:
             raise
 
         # ── 5. record ─────────────────────────────────────────────────────────────────────────
+        # RECORDED ONLY AFTER IT WENT. A message that failed reached nobody, and counting it would
+        # push the shop toward a ceiling it never touched.
+        await self._reach.record(tenant, subject, now=now)
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
             schedule_id=row.get("id", ""), template_name=rendered.template_name,
@@ -392,7 +413,7 @@ class Tick:
         must count it once however many days it waits.
         """
         row["state"] = "pending"
-        row["due_at"] = now + 12 * 3600
+        row["due_at"] = now + self._ceiling_defer
         row["reason"] = f"سقف واتساب اليومي ({code})"
         row["updated"] = now
         await self._sched.upsert(tenant, _key(row), row)

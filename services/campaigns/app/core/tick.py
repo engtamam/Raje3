@@ -27,7 +27,12 @@ from typing import Any
 # reminders' gate, and the same reason it is named rather than inlined.
 RIYADH = timezone(timedelta(hours=3))
 
-AWARENESS_LOCK_DAYS = 30
+# How long an awareness campaign locks its audience out of another one. A DEFAULT: it is a
+# judgement about how often a shop may educate the same customer, and the right answer differs
+# between a workshop and a clinic. DEFAULT_AWARENESS_LOCK_DAYS overrides it.
+DAY = 86400
+
+DEFAULT_AWARENESS_LOCK_DAYS = 30
 
 
 @dataclass
@@ -53,10 +58,14 @@ def same_day(a: int, b: int) -> bool:
 
 
 class Tick:
-    def __init__(self, *, store, dispatcher, telemetry=None) -> None:
+    def __init__(self, *, store, dispatcher, telemetry=None,
+                 awareness_lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS) -> None:
         self._s = store
         self._d = dispatcher
         self._t = telemetry
+        # How often a shop may educate the same customer. A judgement, and a workshop is not a
+        # clinic — so it comes from the deployment rather than from this file.
+        self._lock_days = int(awareness_lock_days)
 
     async def run(self, tenant: str, *, now: int) -> TickResult:
         res = TickResult()
@@ -125,7 +134,7 @@ class Tick:
         if campaign.get("cls") == "awareness" and out.run.sent:
             # LOCKED ONLY IF SOMETHING WENT OUT. Locking after a run that reached nobody would
             # cost the owner a month for a send that never happened.
-            campaign["locked_until"] = now + AWARENESS_LOCK_DAYS * 86400
+            campaign["locked_until"] = now + self._lock_days * DAY
             await self._save(campaign, now)
 
     async def _save(self, campaign: dict[str, Any], now: int) -> None:

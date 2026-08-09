@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from app.core.audience import DAY, MAX_AUDIENCE, resolve
+from app.core.audience import DAY, DEFAULT_MAX_AUDIENCE, resolve
 from app.core.models import GOAL_TEMPLATE, Campaign, Run
 
 NOW = 1_800_000_000
@@ -131,9 +131,9 @@ def test_a_standing_campaign_never_reaches_the_same_person_twice():
 def test_a_truncated_audience_says_so():
     """A truncation nobody is told about reads as 'everyone was reached', which is the most
     misleading thing a campaign screen can say."""
-    many = [cust(f"s{i}") for i in range(MAX_AUDIENCE + 10)]
+    many = [cust(f"s{i}") for i in range(DEFAULT_MAX_AUDIENCE + 10)]
     got = run(resolve(goal="announce", tenant="t1", now=NOW, customers=rows(*many)))
-    assert got.truncated and got.count == MAX_AUDIENCE
+    assert got.truncated and got.count == DEFAULT_MAX_AUDIENCE
 
 
 def test_a_row_with_no_subject_is_skipped_rather_than_crashing_the_run():

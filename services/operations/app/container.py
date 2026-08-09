@@ -227,7 +227,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.sectors import SectorCatalogue
     from app.core.templates import TemplateLibrary
 
-    container.operations = Operations(store=container.datastore, pii_salt=settings.PII_SALT)
+    container.operations = Operations(store=container.datastore, pii_salt=settings.PII_SALT,
+                                     max_backdate=settings.MAX_BACKDATE_SECONDS)
     container.search = build_search(settings)
     container.seams = Seams(search=container.search, events=container.event_bus,
                             telemetry=container.telemetry,

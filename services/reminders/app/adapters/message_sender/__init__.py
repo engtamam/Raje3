@@ -38,6 +38,13 @@ import urllib.request
 from typing import Any
 
 
+# A DEFAULT, NOT A CONSTANT. These are Meta's codes; they add and retire them, and a set of
+# somebody else's identifiers frozen into our code is a branch that stops matching without
+# anything failing. WHATSAPP_CEILING_CODES overrides it, and the day Meta publishes a new one it
+# is a values-file edit rather than a release.
+DEFAULT_CEILING_CODES = ("130429", "80007", "131048", "131056", "131064", "131049")
+
+
 class NullSender:
     """Sends nothing and records what it would have sent.
 
@@ -67,7 +74,8 @@ class HttpSender:
 
     def __init__(self, *, notify_url: str, notify_path: str, operations_url: str,
                  recipient_path: str, token: str, channel: str = "whatsapp",
-                 timeout: int = 8) -> None:
+                 timeout: int = 8, ceiling_codes: tuple[str, ...] = DEFAULT_CEILING_CODES) -> None:
+        self._ceiling = frozenset(ceiling_codes)
         self._notify = notify_url.rstrip("/") + notify_path
         self._resolve = operations_url.rstrip("/") + recipient_path
         self._token = token
@@ -122,7 +130,7 @@ class HttpSender:
             # THE CEILING FIRST, because it is the one refusal that must not be retried in an hour
             # and must not pollute the peer-failure counts.
             code = str(result.get("error_code") or result.get("code") or "")
-            if code in CEILING_CODES:
+            if code in self._ceiling:
                 raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
             raise SendFailed(f"{status}: {result.get('error') or 'no reason given'}")
 
@@ -161,7 +169,6 @@ _DELIVERED = frozenset({"sent", "queued"})
 #
 # All six mean "not now", which is why one exception carries them; the code travels with it so the
 # operator panel can tell an overdue shop apart from a suspected one.
-CEILING_CODES = frozenset({"130429", "80007", "131048", "131056", "131064", "131049"})
 
 
 class CeilingReached(Exception):
@@ -202,4 +209,5 @@ def build_sender(settings) -> Any:
         recipient_path=settings.OPERATIONS_RECIPIENT_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN,
         channel=settings.MESSAGE_CHANNEL,
-        timeout=settings.PEER_TIMEOUT_SECONDS)
+        timeout=settings.PEER_TIMEOUT_SECONDS,
+        ceiling_codes=settings.whatsapp_ceiling_codes)

@@ -28,11 +28,16 @@ from app.core.models import PAIRS, SEQUENCES, SNAPSHOTS, CustomerSequence, Snaps
 
 class Tick:
     def __init__(self, store: Any, peers: Any, *, batch: int = 50,
-                 telemetry: Any = None) -> None:
+                 telemetry: Any = None,
+                 thresholds: associations.Thresholds | None = None) -> None:
         self.store = store
         self.peers = peers
         self.batch = batch
         self.telemetry = telemetry
+        # WHERE EVIDENCE BECOMES ADVICE. A workshop's baskets are not a café's, and the lift that
+        # means something in one is noise in the other — so the four numbers are settings, and the
+        # defaults here are only what an unconfigured deployment gets.
+        self.thresholds = thresholds or associations.DEFAULTS
 
     async def run(self, *, now: int, tenants: list[str], since: int = 0) -> dict:
         done: list[str] = []
@@ -122,7 +127,7 @@ class Tick:
             # visit must not vouch for a relationship for ever.
             engine = associations.build(baskets=baskets,
                                         sequences=[s.repeated() for s in sequences],
-                                        tenant=tenant)
+                                        tenant=tenant, th=self.thresholds)
             values["associations"] = {"learning": engine["learning"],
                                       "have": engine["have"], "need": engine["need"],
                                       "pairs": [p.to_dict() for p in engine["pairs"]]}

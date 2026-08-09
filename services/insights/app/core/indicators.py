@@ -237,3 +237,94 @@ def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) ->
             if (now - ts) <= periodic[s] * DAY:
                 on_time += 1
     return round(on_time / total, 3) if total else 0.0
+
+
+def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
+                   percentile: float = 0.95, floor: int = 0, cap_share: float = 0.7,
+                   ceiling: int = 0, outlier_factor: float = 2.0,
+                   tz_offset_hours: int = 3) -> dict[str, Any]:
+    """How much of today's WhatsApp ceiling to hold back for the automatic engine.
+
+    WHY THE RESERVE EXISTS. The ceiling is shared between campaigns and the engine, and whoever
+    arrives first eats it (spec §8.4.3). A campaign launched in the afternoon can silence the shop
+    for the rest of the day — and the customer who walks in after Maghrib, the one person who
+    genuinely deserved a message, is the one who does not get it.
+
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    THE 95th PERCENTILE OF THE SAME WEEKDAY, AND WHY NOT THE OBVIOUS ANSWERS
+
+      the average   Thursday is twice Tuesday in most of these shops. Reserve the average and half
+                    of Thursday's visitors get nothing.
+      the maximum   one Eid peak steals the ceiling every ordinary day for two months, and no
+                    campaign ever launches.
+      a fixed number does not know the difference between a shop seeing 30 visitors a day and one
+                    seeing 400, which is most of the difference between our customers.
+
+    Same weekday, because it catches the shop's real cycle: a car wash fills on Thursday and a
+    workshop on Saturday, and neither pattern is visible in a daily average. The percentile rather
+    than the mean because it absorbs a busy day while ignoring a freak one. A rolling window of
+    weeks, because it then learns by itself — a shop that grew over two months gets a larger
+    reserve with nobody touching anything.
+
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    AND THREE GUARDS, each for a way the arithmetic fails on its own
+
+      `floor`      a shop with no history has no percentile, and its first fortnight is exactly
+                   when a dropped confirmation does the most damage. Below the floor we reserve
+                   the floor and campaigns wait.
+      `cap_share`  without it a busy shop reserves everything and can never run the campaign it
+                   is paying for.
+      and the CALLER releases what went unused late in the evening — a reserve held and never
+      spent is ceiling we wasted on his behalf. That is not this function's business; it only
+      says how much to hold at the start of the day.
+
+    Returns the reserve and the working, because a number an owner cannot question is a number he
+    does not trust — and because the day this is wrong, we will want to see which of the three
+    guards produced it.
+    """
+    weekday = ((now + tz_offset_hours * 3600) // DAY + 4) % 7
+    horizon = now - weeks * 7 * DAY
+
+    # Visits on THIS weekday, bucketed by which week they fell in.
+    per_week: Counter = Counter()
+    for v in visits:
+        ts = int(v.get("occurred_at") or v.get("created_at") or 0)
+        if not ts or ts < horizon or ts > now:
+            continue
+        local = ts + tz_offset_hours * 3600
+        if (local // DAY + 4) % 7 != weekday:
+            continue
+        per_week[(now - ts) // (7 * DAY)] += 1
+
+    counts = sorted(per_week.values())
+    if not counts:
+        # NO HISTORY IS NOT ZERO DEMAND. A new shop reserves the floor, and the campaign waits.
+        return {"reserve": floor, "basis": "floor", "weekday": weekday, "samples": 0}
+
+    # The percentile, by nearest rank — no interpolation, because a reserve of 12.4 visitors is a
+    # precision we do not have and cannot act on.
+    idx = min(len(counts) - 1, max(0, int(round(percentile * len(counts))) - 1))
+    picked = counts[idx]
+
+    # AND THE PERCENTILE ALONE DOES NOT REJECT THE OUTLIER, which was the whole reason for
+    # choosing it. With eight weekly samples the 95th percentile IS the maximum — the rank is the
+    # last one — so a single Eid Thursday would set the reserve for the next two months and no
+    # campaign would launch. Caught by the test written to prove the opposite.
+    #
+    # So the percentile is clamped to a multiple of the MEDIAN, which is what actually makes it
+    # robust: the median cannot be moved by one freak week, and a real trend moves both together.
+    median = counts[len(counts) // 2]
+    if median and picked > median * outlier_factor:
+        picked = int(median * outlier_factor)
+
+    want = max(picked, floor)
+    basis = "percentile" if picked >= floor else "floor"
+
+    if ceiling:
+        cap = int(ceiling * cap_share)
+        if want > cap:
+            # A busy shop that reserved everything could never run a campaign, which is a paid
+            # feature it bought.
+            return {"reserve": cap, "basis": "capped", "weekday": weekday,
+                    "samples": len(counts), "wanted": want}
+    return {"reserve": want, "basis": basis, "weekday": weekday, "samples": len(counts)}

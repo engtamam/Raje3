@@ -89,6 +89,16 @@ env:
   # from the beginning for ever.
   SNAPSHOT_BATCH: "50"
   SNAPSHOT_VISIT_LIMIT: "5000"
+
+  # ── the association engine's four judgements ─────────────────────────────────────────────
+  # Where evidence becomes advice. Every one is a CHOICE, not a derivation, and every one is most
+  # likely to be wrong for a sector we have not met — a workshop's baskets are not a café's. Here
+  # rather than in code so that correcting one is an edit, not a release, while a shop is being
+  # shown a recommendation we have stopped believing.
+  ASSOC_STRONG_LIFT: "1.5"
+  ASSOC_WEAK_LIFT: "1.2"
+  ASSOC_MIN_BASKETS: "200"
+  ASSOC_MIN_PAIR_SUPPORT: "5"
   # After this the panel LABELS the number stale. It is still served — a figure from this morning
   # beats a spinner — but the owner is told its age, because one who compares ours to his till at
   # 2pm must be able to see why they differ.
@@ -103,6 +113,11 @@ env:
   CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
+
+  # The floor below which a real pair is not yet an opportunity worth naming. A count of PEOPLE,
+  # because "twenty customers" is something an owner can picture — and twenty is a picture in a
+  # small shop and a rounding error in a large one.
+  INSIGHTS_MIN_OPPORTUNITY: "20"
 
 # THE HEARTBEAT. Without it every dashboard says "أحسب الآن" for ever while every probe stays
 # green and no error is raised anywhere (trap §4.1).

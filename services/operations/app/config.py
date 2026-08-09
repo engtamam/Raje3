@@ -187,6 +187,11 @@ class Settings(BaseSettings):
     BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # How far back a claimed visit time may be before it is a broken clock rather than a backlog.
+    # A shop migrating a year of its own history legitimately needs more than the default, and a
+    # release is the wrong way to give it to them.
+    MAX_BACKDATE_SECONDS: int = 7_776_000
+
     CONSENT_GATE_DRIVER: str = "null"        # null | http
     COMPLIANCE_SERVICE_URL: str = ""         # e.g. http://compliance-service:8000
     # THEIR path, so it is a default rather than an assumption about another platform's routing.

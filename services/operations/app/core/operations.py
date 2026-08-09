@@ -57,13 +57,23 @@ def _now() -> int:
     return int(time.time())
 
 
+# A DEFAULT: how far back a claimed visit time may be before we treat it as a broken clock rather
+# than a backlog. A shop migrating a year of history legitimately needs more, and a release is the
+# wrong way to give it to them. MAX_BACKDATE_SECONDS overrides it.
+_DEFAULT_MAX_BACKDATE_SECONDS = 90 * 24 * 3600
+
+
 class Operations:
-    def __init__(self, *, store, pii_salt: str) -> None:
+    def __init__(self, *, store, pii_salt: str,
+                 max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS) -> None:
         self._customers = CustomerStore(store)
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
         self._visits = VisitStore(store)
         self._salt = pii_salt
+        # How far back a claimed visit time may be before it is a broken clock. A shop migrating a
+        # year of its own history needs more, and that must not require a release.
+        self._max_backdate = int(max_backdate)
 
     # ── the write path ────────────────────────────────────────────────────────────────────────
     async def record_visit(self, *, tenant: str, phone: str, service_ids: list[str],
@@ -145,7 +155,8 @@ class Operations:
                       branch_id=branch_id, meter=meter, note=note.strip(),
                       custom_service=custom_service.strip()[:200],
                       idempotency_key=idempotency_key, created=now,
-                      occurred_at=_sane_occurred_at(occurred_at, now))
+                      occurred_at=_sane_occurred_at(occurred_at, now,
+                                                                    self._max_backdate))
 
         # last_visit follows the EVENT time, not the receive time: a batch drained two days late
         # describes a customer who was here two days ago, and the reminder must be scheduled from
@@ -206,10 +217,10 @@ class Operations:
 # A device clock may be wrong by days, and occasionally by years — a tablet that lost its battery
 # comes back at the epoch, and one set by hand can land in the future. Both are clamped rather than
 # trusted, because either would corrupt a reminder schedule silently.
-_MAX_BACKDATE_SECONDS = 90 * 24 * 3600      # older than a quarter is a broken clock, not a backlog
 
 
-def _sane_occurred_at(claimed: int, now: int) -> int:
+def _sane_occurred_at(claimed: int, now: int,
+                      max_backdate: int = _DEFAULT_MAX_BACKDATE_SECONDS) -> int:
     """Trust the device's clock only within a window we can defend.
 
     Not validation for its own sake: `occurred_at` is what reminders schedule from. A device set to
@@ -221,7 +232,7 @@ def _sane_occurred_at(claimed: int, now: int) -> int:
     if claimed > now:
         # A future timestamp is always wrong — we received it, so it has happened.
         return now
-    if now - claimed > _MAX_BACKDATE_SECONDS:
+    if now - claimed > max_backdate:
         return now
     return claimed
 

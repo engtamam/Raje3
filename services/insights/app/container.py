@@ -223,7 +223,14 @@ def build_container(settings: Settings) -> Container:
     from app.core.tick import Tick
 
     container.peers = build_peers(settings)
+    from app.core.associations import Thresholds
+
     container.tick = Tick(container.datastore, container.peers,
-                          batch=settings.SNAPSHOT_BATCH, telemetry=container.telemetry)
+                          batch=settings.SNAPSHOT_BATCH, telemetry=container.telemetry,
+                          thresholds=Thresholds(
+                              strong=settings.ASSOC_STRONG_LIFT,
+                              weak=settings.ASSOC_WEAK_LIFT,
+                              min_baskets=settings.ASSOC_MIN_BASKETS,
+                              min_pair_support=settings.ASSOC_MIN_PAIR_SUPPORT))
     container.subscriptions = Subscriptions(container.datastore)
     return container

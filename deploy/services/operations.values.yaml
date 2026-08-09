@@ -132,6 +132,11 @@ env:
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
+  # How far back a claimed visit time may be before we treat it as a broken clock rather than a
+  # backlog. A shop migrating a year of its own history legitimately needs more than 90 days, and
+  # a release is the wrong way to give it to them.
+  MAX_BACKDATE_SECONDS: "7776000"
+
 # NOT MOUNTED — baked into the image at /app/data. The chart mounts only /tmp and has no hook for
 # an extra volume, and the seed does not need one: it is applied once against an empty table, and
 # every edit after that goes through the platform console into the datastore. A ConfigMap here

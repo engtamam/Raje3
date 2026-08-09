@@ -33,7 +33,9 @@ from app.core.models import Pair
 # Below this the pair is real and the opportunity is not. Deliberately a count of PEOPLE rather
 # than a share: "twenty customers" is a thing an owner can picture, and a percentage of a base he
 # has not seen is not.
-MIN_OPPORTUNITY = 20
+# A DEFAULT. Twenty customers is a picture in a small shop and a rounding error in a large one,
+# so the floor below which we say nothing belongs at the boundary. INSIGHTS_MIN_OPPORTUNITY.
+DEFAULT_MIN_OPPORTUNITY = 20
 
 
 def _sentence(p: Pair) -> str:
@@ -49,7 +51,8 @@ def _sentence(p: Pair) -> str:
 
 def build(pairs: list[Pair], *, names: dict[str, str] | None = None,
           missing_counts: dict[tuple[str, str], int] | None = None,
-          limit: int = 10) -> list[dict[str, Any]]:
+          limit: int = 10,
+          min_opportunity: int = DEFAULT_MIN_OPPORTUNITY) -> list[dict[str, Any]]:
     """The cards, strongest first.
 
     `names` maps a service id to what the owner calls it — passed in rather than looked up here,
@@ -69,7 +72,7 @@ def build(pairs: list[Pair], *, names: dict[str, str] | None = None,
         if p.verdict not in ("real", "temporal"):
             continue
         size = missing_counts.get((p.a, p.b)) or missing_counts.get((p.b, p.a)) or p.customers
-        if size < MIN_OPPORTUNITY:
+        if size < min_opportunity:
             continue
         out.append({
             "a": p.a, "b": p.b,

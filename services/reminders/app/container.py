@@ -278,5 +278,7 @@ def build_container(settings: Settings) -> Container:
     container.tick = Tick(store=container.datastore, sender=container.sender, limits=limits,
                           eng_cfg=eng_cfg, batch=settings.TICK_BATCH_SIZE,
                           telemetry=container.telemetry, quota=container.quota,
-                          approved=container.approved_templates)
+                          approved=container.approved_templates,
+                          reach_window=settings.REACH_WINDOW_SECONDS,
+                          ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS)
     return container

@@ -470,3 +470,30 @@ def test_a_deferred_message_keeps_its_key_so_tomorrow_costs_one_unit(st):
                                       customer_names={"sub_a": "أحمد"}))
     assert sender.calls and sender.calls[0]["idempotency_key"] == first
     assert q.used == 1
+
+
+# ── the reach window, wired into the tick ──────────────────────────────────────────────────────
+def test_a_sent_reminder_records_the_person_reached(st):
+    from app.core.reach import Reach
+
+    sched(st)
+    go(st, FakeSender(), quota=FakeQuota())
+    assert run(Reach(st).count("t1", now=at(10))) == 1
+
+
+def test_a_message_that_failed_reaches_nobody_and_counts_as_nobody(st):
+    """Counting it would push the shop toward a ceiling it never touched, and then we would hold
+    back a send WhatsApp would have accepted."""
+    from app.core.reach import Reach
+
+    sched(st)
+    go(st, FakeSender(fail=True), quota=FakeQuota())
+    assert run(Reach(st).count("t1", now=at(10))) == 0
+
+
+def test_a_message_stopped_at_the_ceiling_reaches_nobody(st):
+    from app.core.reach import Reach
+
+    sched(st, template_type="svc_follow_up")
+    go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=FakeQuota())
+    assert run(Reach(st).count("t1", now=at(10))) == 0

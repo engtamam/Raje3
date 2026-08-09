@@ -106,6 +106,18 @@ env:
   # would silence every establishment we host the moment this path was wrong.
   NOTIFICATION_TEMPLATES_PATH: "/internal/whatsapp/templates"
 
+  # ── WhatsApp's ceiling — THEIR numbers, which is exactly why they are here ────────────────
+  # A business may START conversations with a limited number of UNIQUE customers per rolling 24
+  # hours: 250 before its business is verified, 2,000 after (spec §6.2.2). None of that is ours
+  # to decide and all of it can change by an announcement, so nothing about it sits in code.
+  REACH_WINDOW_SECONDS: "86400"
+  # The codes that mean "not now". From Meta's Cloud API error reference — numbers rather than
+  # message text, because the text is translated and reworded and a phrase match dies silently.
+  WHATSAPP_CEILING_CODES: "130429,80007,131048,131056,131064,131049"
+  # How long a refused message waits before trying again. Ours. An hour would be the one certainly
+  # wrong answer: the window is rolling, so an hour later is the same closed door.
+  CEILING_DEFER_SECONDS: "43200"
+
   # ── operations: the two reads this service cannot work without ────────────────────────────
   # RECIPIENT resolves a subject_ref to a phone number at send time, so no number ever rests here.
   # VISITS_SINCE is the catch-up read that makes the at-most-once event bus survivable.

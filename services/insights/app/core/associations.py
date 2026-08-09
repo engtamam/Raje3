@@ -70,27 +70,45 @@ importing machinery that buys nothing is complexity added because it looks serio
 from __future__ import annotations
 
 from itertools import combinations
+from dataclasses import dataclass
 from typing import Any, Iterable
 
 from app.core.models import Pair
 
-# Above this, a pair occurs more often than chance explains by enough to act on. 1.0 is exactly
-# chance; the conventional line for "worth acting on" is 1.5, and it is a CHOICE rather than a
-# derivation — said out loud so nobody later reads it as a mathematical constant.
-STRONG = 1.5
+# ── THE ENGINE'S FOUR JUDGEMENTS — defaults, not constants ─────────────────────────────────────
+#
+# Every one of these is a CHOICE about where evidence becomes advice, and none is derived from
+# anything. They are also the numbers most likely to be wrong for a sector we have not met: a
+# workshop's baskets are not a café's, and the lift that means something in one is noise in the
+# other. Frozen into code they would need a release to correct — for a shop that is already being
+# shown a wrong recommendation.
+#
+# So they are defaults here and settings at the boundary. What must NEVER happen is a caller
+# silently getting different thresholds from the ones the panel explains, which is why they travel
+# together in one object rather than as four loose arguments.
 
-# Below this a relationship is absent enough to call it absent. Deliberately not 1.5: a pair
-# between STRONG and this is genuinely ambiguous, and forcing it into a verdict would manufacture
-# certainty we do not have. Such pairs get `none` and are simply not shown.
-WEAK = 1.2
 
-# A rule needs the support of several hundred transactions before it means anything; below this we
-# say we are still learning rather than publish a number that will change next week.
-MIN_BASKETS = 200
+@dataclass(frozen=True)
+class Thresholds:
+    """Where evidence becomes advice."""
 
-# And a pair must appear in at least this many baskets on its own. Without it, two services bought
-# together exactly twice in a year produce a spectacular lift out of pure noise.
-MIN_PAIR_SUPPORT = 5
+    # Above this, a pair occurs more often than chance explains by enough to act on. 1.0 is exactly
+    # chance; the conventional line for "worth acting on" is 1.5, and it is a CHOICE rather than a
+    # derivation — said out loud so nobody later reads it as a mathematical constant.
+    strong: float = 1.5
+    # Below this a relationship is absent enough to call it absent. Deliberately not the same as
+    # `strong`: a pair between the two is genuinely ambiguous, and forcing it into a verdict would
+    # manufacture certainty we do not have. Such pairs get `none` and are simply not shown.
+    weak: float = 1.2
+    # A rule needs the support of several hundred transactions before it means anything; below this
+    # we say we are still learning rather than publish a number that changes next week.
+    min_baskets: int = 200
+    # And a pair must appear in at least this many baskets on its own. Without it, two services
+    # bought together exactly twice in a year produce a spectacular lift out of pure noise.
+    min_pair_support: int = 5
+
+
+DEFAULTS = Thresholds()
 
 
 def _pair_key(a: str, b: str) -> tuple[str, str]:
@@ -171,10 +189,11 @@ def is_group_basket(services: list[str], quantities: dict[str, int] | None = Non
     return False
 
 
-def classify(lift_basket: float, lift_customer: float) -> str:
+def classify(lift_basket: float, lift_customer: float,
+             th: Thresholds = DEFAULTS) -> str:
     """The 2x2. Reading either number alone is what this function exists to prevent."""
-    b_high, c_high = lift_basket >= STRONG, lift_customer >= STRONG
-    b_low, c_low = lift_basket < WEAK, lift_customer < WEAK
+    b_high, c_high = lift_basket >= th.strong, lift_customer >= th.strong
+    b_low, c_low = lift_basket < th.weak, lift_customer < th.weak
     if b_high and c_high:
         return "real"
     if b_high and c_low:
@@ -186,7 +205,8 @@ def classify(lift_basket: float, lift_customer: float) -> str:
 
 
 def build(*, baskets: list[list[str]], sequences: list[list[str]],
-          tenant: str, customers_with: dict[str, int] | None = None) -> dict[str, Any]:
+          tenant: str, customers_with: dict[str, int] | None = None,
+          th: Thresholds = DEFAULTS) -> dict[str, Any]:
     """Both axes, joined. Returns the pairs with their verdicts, or a learning state.
 
     `baskets`   one entry per VISIT — its services
@@ -197,8 +217,8 @@ def build(*, baskets: list[list[str]], sequences: list[list[str]],
     must never render is a blank with no explanation — which is what makes an owner conclude the
     feature is broken and stop looking at it.
     """
-    if len(baskets) < MIN_BASKETS:
-        return {"learning": True, "have": len(baskets), "need": MIN_BASKETS, "pairs": []}
+    if len(baskets) < th.min_baskets:
+        return {"learning": True, "have": len(baskets), "need": th.min_baskets, "pairs": []}
 
     b_singles, b_pairs, b_total = count_pairs(baskets)
     c_singles, c_pairs, c_total = count_pairs(sequences)
@@ -210,20 +230,20 @@ def build(*, baskets: list[list[str]], sequences: list[list[str]],
         a, b = key
         support = b_pairs.get(key, 0)
         cust_support = c_pairs.get(key, 0)
-        if support < MIN_PAIR_SUPPORT and cust_support < MIN_PAIR_SUPPORT:
+        if support < th.min_pair_support and cust_support < th.min_pair_support:
             # Noise. Two services bought together twice in a year produce a spectacular lift and
             # mean nothing at all.
             continue
         lb = lift(support, b_singles.get(a, 0), b_singles.get(b, 0), b_total)
         lc = lift(cust_support, c_singles.get(a, 0), c_singles.get(b, 0), c_total)
-        verdict = classify(lb, lc)
+        verdict = classify(lb, lc, th)
         if verdict == "none":
             continue
         out.append(Pair(tenant=tenant, a=a, b=b, lift_basket=lb, lift_customer=lc,
                         customers=cust_support, verdict=verdict))
 
     out.sort(key=lambda p: (-max(p.lift_basket, p.lift_customer), p.a, p.b))
-    return {"learning": False, "have": len(baskets), "need": MIN_BASKETS, "pairs": out}
+    return {"learning": False, "have": len(baskets), "need": th.min_baskets, "pairs": out}
 
 
 def missed_opportunities(pairs: list[Pair], sequences: dict[str, list[str]],
