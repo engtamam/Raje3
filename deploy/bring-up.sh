@@ -50,6 +50,44 @@ else
   warn "no preflight in the submodule — skipping (check it out: git -C platform sparse-checkout disable)"
 fi
 
+# ── 1b ────────────────────────────────────────────────────────────────────────────────────────
+# ENCRYPT THE SECRETS BEFORE ANY EXIST. This runs before the datastores and before gen-secrets,
+# and the order is the entire point: `secrets-encrypt enable` only covers what is written AFTER
+# it, so doing this first means nothing is ever written in the clear — and `reencrypt` becomes a
+# repair rather than the thing we depend on.
+#
+# WITHOUT IT, EVERY SECRET IN THE PLATFORM SITS IN etcd AS base64, which is an encoding anybody
+# reverses in one command. What is in there: the postgres password for every database, the token
+# that authenticates every internal call, the key that opens every backup, the private key that
+# mints a session for any tenant with any capability — and PII_SALT.
+#
+# PII_SALT IS THE ONE THAT CANNOT BE UNDONE. Every service but `operations` holds pseudonyms
+# instead of people; the salt turns all of them back into phone numbers. It is a FROZEN identifier
+# (config/product.identifiers.lock.json) — rotating it after a leak would orphan every immutable
+# record we have, so the only defence is that it was never readable.
+#
+# k3s installs WITHOUT this, and platform/deploy/server/provision-server.sh does not mention it —
+# escalated. Until it is theirs, it is ours, and it belongs in the install rather than in a runbook
+# somebody follows on a good day.
+step "secrets at rest"
+if ! command -v k3s >/dev/null 2>&1; then
+  warn "no k3s on this host — skipping (managed cluster? then encryption is the provider's setting)"
+elif sudo k3s secrets-encrypt status 2>/dev/null | grep -qi "Encryption Status.*Enabled"; then
+  ok "already enabled"
+else
+  sudo k3s secrets-encrypt enable >/dev/null 2>&1 || warn "could not enable — run it by hand"
+  # AND REWRITE WHAT ALREADY EXISTS. On a fresh host there is nothing; on a cluster that has been
+  # serving, everything already in etcd stays in the clear until this runs — while the status line
+  # says Enabled either way, which is exactly the shape of a control that looks applied and is not.
+  sudo k3s secrets-encrypt reencrypt >/dev/null 2>&1 || true
+  if sudo k3s secrets-encrypt status 2>/dev/null | grep -qi "Encryption Status.*Enabled"; then
+    ok "secrets are encrypted at rest"
+  else
+    warn "STILL NOT ENABLED — every secret is base64 in etcd. Fix before this host holds data:"
+    warn "  sudo k3s secrets-encrypt enable && sudo k3s secrets-encrypt reencrypt"
+  fi
+fi
+
 # ── 2 ─────────────────────────────────────────────────────────────────────────────────────────
 step "datastores"
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null

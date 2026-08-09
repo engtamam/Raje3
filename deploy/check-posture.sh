@@ -37,11 +37,27 @@ head(){ [[ $QUIET -eq 1 ]] || echo -e "\n${C_D}── $1 ───────�
 head "encryption at rest"
 enc=$(sudo k3s secrets-encrypt status 2>/dev/null | grep -i "Encryption Status" | awk '{print $NF}')
 if [[ "$enc" == "Enabled" ]]; then
-  # ENABLED IS NOT ENOUGH. `enable` covers what is written AFTER it; everything already in etcd
-  # stays in the clear until a reencrypt rewrites it — and the status line says Enabled either way.
-  stale=$(sudo k3s secrets-encrypt status 2>/dev/null | grep -ci "reencrypt" || true)
-  ok "k3s secrets are encrypted at rest"
-  [[ "$stale" -gt 0 ]] || note "confirm the EXISTING secrets were rewritten: k3s secrets-encrypt reencrypt"
+  # ENABLED IS NOT ENOUGH, AND THE STATUS LINE CANNOT TELL YOU. `enable` covers what is written
+  # AFTER it; everything already in etcd stays in the clear until a reencrypt rewrites it — and
+  # the status says Enabled either way. So the VALUE is read, the way an attacker with the disk
+  # would read it: a secret that comes back as plaintext is a secret that is plaintext, whatever
+  # any status claims.
+  probe=$(sudo k3s kubectl get secret -n "$NS" -o name 2>/dev/null | head -1)
+  raw=""
+  if [[ -n "$probe" ]]; then
+    name="${probe#secret/}"
+    raw=$(sudo /var/lib/rancher/k3s/data/current/bin/etcdctl get           "/registry/secrets/$NS/$name" --prefix 2>/dev/null | head -c 400)
+  fi
+  if [[ -z "$raw" ]]; then
+    ok "k3s secrets encryption is enabled"
+    note "could not read etcd directly to CONFIRM the stored bytes — if this host has been serving,
+       run: sudo k3s secrets-encrypt reencrypt"
+  elif [[ "$raw" == *"k8s:enc:"* ]]; then
+    ok "k3s secrets are encrypted at rest — confirmed by reading the stored bytes"
+  else
+    bad "encryption is ENABLED but the stored secret is still plaintext — enable only covers what
+       is written after it, and this cluster was serving before that"         "sudo k3s secrets-encrypt reencrypt"
+  fi
 else
   bad "k3s secrets are stored base64-only in etcd — the database passwords, PII_SALT (which
        un-pseudonymises every subject_ref in the platform and CANNOT be rotated), BACKUP_KEK,
