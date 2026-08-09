@@ -1,78 +1,143 @@
-"""Erasure — the contract every service in this platform answers.
+"""reminders — erasing a data subject.
 
-A new service is born connected to the DSAR fan-out because this file exists. Fill in the two
-methods and it is done; delete this file and the service silently becomes a place personal data
-goes to hide.
+THIS SERVICE HOLDS NO IDENTIFIERS, AND THE ERASURE IS STILL REAL. Every row here is keyed by
+`subject_ref`, the pseudonym operations publishes. There is no phone number to blank and no name to
+clear — which makes it tempting to answer 200 and do nothing, and that would be exactly wrong.
 
-WRITE THIS FILE HONESTLY. It is the one piece of code a regulator would read line by line, and the
-three rules below are what separate a compliant answer from a plausible one:
+What this service holds about a person is a PREDICTION: when they will next need each service, how
+engaged they are, and the record of every message we sent them. Attached to a pseudonym it
+identifies nobody — but it is still their data, it is still processed on their behalf, and once
+they ask us to stop, a schedule that survives the erasure will send them a message. **That is the
+failure mode: not a leak, a message to someone who asked us to go away.**
 
-  1. **Never report success for work that did not happen.** If you cannot reach the rows, cannot
-     identify the subject, or must keep the data, say so. A false "she was erased" is the worst
-     thing this platform can say. `already_absent` means you LOOKED and found nothing — it is not
-     a default.
+SO ROWS ARE DELETED HERE, NOT BLANKED — the opposite of operations, and for a reason:
 
-  2. **Say what you KEPT, and why, with a basis.** "We kept it" is always an answer with a reason
-     attached, never a silence. A tax invoice, an audit chain, a legal hold, a consent proof —
-     these survive erasure, and the person is entitled to be told which law keeps them.
+  Schedules   DELETED. A blanked schedule still has a due date. The tick would find it, fail to
+              resolve a destination, and log an error every day forever. And if the resolution
+              ever succeeded through some other path, it would send.
 
-  3. **Decide delete vs pseudonymise vs redact deliberately.** Look at how the platform's other
-     services chose, because the same walker leads to different answers:
-        billing   pseudonymises — the invoice must survive, the buyer's name must not
-        zatca     retains everything — a signed, hash-chained invoice cannot even be altered
-        webhook   redacts and keeps the row — the delivery history is operational record
-        connector deletes the row — a DLQ entry gets RETRIED, so a redacted one corrupts a CRM
-        job       redacts AND cancels — pending work would still contact the erased person
-        stream    refuses without identification — guessing would delete other people's video
+  Rules       DELETED. The learned interval is a statement about one person's habits. It has no
+              value without them and no defence for keeping it.
 
-  4. **Be idempotent.** A DSAR retries. Erasing an already-erased subject is a no-op that still
-     returns a receipt; it must never fail the second time.
+  Engagement  DELETED. Same.
 
-See docs/contracts/privacy-erase.schema.json for the wire format and
-docs/contracts/privacy-erase-guide.md for the three steps to connect a service.
+  Prefs       DELETED LAST, AND ONLY AFTER THE SCHEDULES. Order matters: if prefs went first and
+              the erasure then failed halfway, we would be left with schedules and no record of
+              what the customer had switched off — the one state where a partial erasure makes us
+              send MORE than before it started.
+
+  SendLog     RETAINED, WITH ITS IDENTIFIERS ALREADY ABSENT, under `communications_record`.
+
+The send log is the only judgement call here, so it is argued rather than asserted. It records that
+a message of a given class went to a given pseudonym at a given time. We keep it because it is the
+evidence for two obligations that outlive the relationship: proving to a regulator that we honoured
+the sending caps, and proving to an establishment that a message it is being blamed for was or was
+not sent. Deleting it would leave us unable to defend the customer's own complaint.
+
+But it is trimmed by AGE regardless — retention is a schedule, not a promise — and it holds no
+identifier at any point in its life.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from app.core.pii import subject_ref
+from app.core.stores import ENGAGEMENT, PREFS, RULES, SCHEDULES, SEND_LOG
 
 
-class TemplateErasure:
-    # Both appear in the DSAR's target list, so they must match the data-map row registered for
-    # this service. A mismatch means the DSAR waits for an ack that never arrives.
-    service = "CHANGE-ME-service"
-    category = "CHANGE-ME"
+class RemindersErasure:
+    """The privacy-erase contract for this service.
 
-    def __init__(self, *, store, pii_salt: str, max_scan: int = 100_000) -> None:
-        self._store = store
-        self._salt = pii_salt
-        self._max = max_scan          # a DSAR is rare, but must never be an unbounded read
+    IDEMPOTENT. A DSAR retries, and a fan-out that gets a 500 on the second call reports a failed
+    erasure for data that is already gone — which is investigated as a leak and is not one.
+    """
+
+    def __init__(self, *, store, max_scan: int = 5000) -> None:
+        self._s = store
+        self._max = max_scan
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
-        ref = subject_ref(self._salt, tenant, subject)
+        """Erase everything this service holds about one subject.
 
-        # ── TODO: erase this service's subject data ──────────────────────────
-        # Scope EVERY query to `tenant`: one customer's DSAR must never touch another's rows.
-        # Page with a cursor and stop at `self._max` rather than reading an unbounded set.
+        `subject` is already the subject_ref: unlike operations, this service never sees the raw
+        identifier, so there is nothing to hash. Accepting a raw value here would mean accepting
+        something we should not be able to receive.
+        """
+        if not tenant or not subject:
+            return {"service": "reminders", "erased": [], "retained": [],
+                    "already_absent": True, "truncated": False,
+                    "note": "tenant and subject are both required; nothing was scanned"}
+
         erased: list[str] = []
-        retained: list[dict[str, str]] = []
+        truncated = False
 
-        # Example of a retention that is legally required — copy the SHAPE, not the words:
-        # retained.append({
-        #     "what": "invoices:12",
-        #     "basis": "tax_retention",
-        #     "why": "a tax invoice must survive ~10 years by law; the buyer's name is "
-        #            "pseudonymised and the financial record is untouched",
-        # })
+        # ORDER IS DELIBERATE — schedules first. A half-finished erasure must never leave a
+        # sendable schedule behind, and every step after this one is safe to interrupt.
+        for collection in (SCHEDULES, RULES, ENGAGEMENT, PREFS):
+            n, hit_ceiling = await self._delete_where(collection, tenant, subject)
+            truncated = truncated or hit_ceiling
+            if n:
+                erased.append(f"{collection}:{n}")
 
         return {
-            "service": self.service,
-            "category": self.category,
-            "subject_ref": ref,          # the pseudonym — never echo the raw subject back
+            "service": "reminders",
+            "category": "messaging_schedule",
+            "subject_ref": subject,
             "erased": erased,
-            "retained": retained,
-            # Only true when you looked and there was nothing. Never a default, and never a way to
-            # avoid admitting that a lookup failed.
-            "already_absent": not erased and not retained,
+            "retained": [{
+                "what": "send log entries, pseudonymous",
+                "basis": "communications_record",
+                "why": "the evidence that the regulatory sending caps were honoured, and the "
+                       "answer when an establishment is blamed for a message. It carries a "
+                       "pseudonym and a timestamp, never an identifier, and is trimmed by age on "
+                       "a schedule regardless of any request.",
+            }],
+            "already_absent": not erased,
+            "truncated": truncated,
         }
+
+    async def _delete_where(self, collection: str, tenant: str, subject: str) -> tuple[int, bool]:
+        """Delete every row in one collection for one subject.
+
+        BOUNDED. A DSAR is rare and an unbounded read is an outage waiting for the one tenant large
+        enough to trigger it — so this pages with a ceiling and REPORTS hitting it rather than
+        silently erasing part of a person and answering success.
+        """
+        deleted = 0
+        after: str | None = None
+        scanned = 0
+        while True:
+            rows, after = await self._s.find(
+                collection, {"tenant": tenant, "subject_ref": subject},
+                limit=200, after=after, sort=("id", "asc"))
+            if not rows:
+                return deleted, False
+            for row in rows:
+                key = _key_for(collection, row)
+                if key:
+                    await self._s.delete(collection, key)
+                    deleted += 1
+            scanned += len(rows)
+            if scanned >= self._max:
+                # Truncated is surfaced in the ack, not swallowed. A partial erasure reported as
+                # complete is the false ack this whole contract exists to prevent.
+                return deleted, True
+            if not after:
+                return deleted, False
+
+
+def _key_for(collection: str, row: dict[str, Any]) -> str:
+    """The datastore key for a row, rebuilt from its own fields.
+
+    Rebuilt rather than read: the natural keys here are composite (see core/stores.py) and a `key`
+    field on the row would be a second source of truth that drifts from the first.
+    """
+    t, s = row.get("tenant", ""), row.get("subject_ref", "")
+    if collection == SCHEDULES:
+        return f"{t}|{s}|{row.get('service_id', '')}|{row.get('kind', '')}"
+    if collection == RULES:
+        return f"{t}|{s}|{row.get('service_id', '')}"
+    if collection in (PREFS, ENGAGEMENT):
+        return f"{t}|{s}"
+    if collection == SEND_LOG:
+        return f"{t}|{row.get('id', '')}"
+    return ""

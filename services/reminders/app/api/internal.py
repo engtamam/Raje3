@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
-from app.core.erasure import TemplateErasure
+from app.core.erasure import RemindersErasure
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -76,8 +76,15 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     """
     c = request.app.state.container
     s = get_settings()
-    eraser = TemplateErasure(store=c.datastore, pii_salt=s.PII_SALT,
-                             max_scan=s.ERASURE_MAX_SCAN)
+    # WRITE-AHEAD, and critical. Erasure is irreversible; recording afterwards would leave exactly
+    # the case that matters — the erasure that half-succeeded — with no record that it was tried.
+    await request.app.state.auditor.record(
+        "subject.erased", actor="", tenant=body.tenant, resource="subject",
+        ip=request.client.host if request.client else "")
+    # NO pii_salt. This service never receives a raw identifier, so it has nothing to hash — the
+    # `subject` it is handed is already the pseudonym operations published. Passing a salt here
+    # would imply a capability we deliberately do not have.
+    eraser = RemindersErasure(store=c.datastore, max_scan=s.ERASURE_MAX_SCAN)
     return await eraser.erase(body.tenant, body.subject)
 
 

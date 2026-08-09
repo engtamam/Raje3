@@ -20,11 +20,24 @@ from __future__ import annotations
 from typing import Any
 
 BACKUP: dict[str, Any] = {
-    "object_prefix": "",        # set if this service stores files in the object store
+    # No files. This service holds decisions and their evidence; it stores no blobs.
+    "object_prefix": "",
+    # ALL tenant-scoped, which is what makes a single-establishment restore possible. Restoring
+    # the whole service to recover one shop would be a second outage caused by the recovery.
     "collections": [
-        # {"name": "widgets", "tenant_scoped": True},
+        {"name": "schedules", "tenant_scoped": True},
+        {"name": "rules", "tenant_scoped": True},
+        # THE ONE PEOPLE WOULD BE TEMPTED TO SKIP, and the one that must not be. Every cap in
+        # spec 8.4.2 is counted against this ledger. Restore without it and the caps reset to
+        # zero: every customer becomes eligible for four fresh marketing messages on the day of
+        # the recovery, which is how a restore turns into a wave of complaints.
+        {"name": "send_log", "tenant_scoped": True},
+        # The customer's own instruction about what may be sent to them. Losing it silently
+        # re-enables what they switched off — the one data loss here we could not defend.
+        {"name": "prefs", "tenant_scoped": True},
+        {"name": "engagement", "tenant_scoped": True},
     ],
-    "excluded": [
-        # {"name": "idempo", "reason": "idempotency keys — regenerated, not data worth restoring"},
-    ],
+    # Nothing excluded. An exclusion is a judgement call, and the fewer of those a backup manifest
+    # carries the better.
+    "excluded": [],
 }
