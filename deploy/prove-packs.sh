@@ -146,6 +146,38 @@ if not out.get("allowed"):
 else:
     print("  ok the very next send goes through")
 
+# ── AND THE PACK MUST STILL BE THERE TOMORROW ────────────────────────────────────────────────
+#
+# The first version of this proof passed while the pack was broken. It bought, checked, and
+# finished — all within seconds — and a pack bought under v0.13.6 was dropped as period_lapsed the
+# next day, because interval "once" produced a period end of NOW and the resolver lapses a period
+# that has passed. A shop pays 50 riyals, sends for a day, and the balance quietly reverts.
+#
+# We cannot wait a day here. What we CAN do is assert the property that makes lapsing impossible,
+# which is what v0.13.7 changed: a one-time purchase carries a ZERO period end, so the resolver's
+# "no period end means nothing to lapse" rule applies and the renewal sweep skips it.
+#
+# Checking the STATE rather than the elapsed time is the general answer whenever a proof cannot
+# outlive the thing it is proving.
+s, subs = call("/api/v1/billing/subscriptions?tenant=" + tenant)
+rows = [r for r in (subs.get("subscriptions") or []) if r.get("plan_id") == pack["id"]]
+if not rows:
+    fails.append("the pack subscription cannot be read back")
+else:
+    row = rows[0]
+    end = float(row.get("current_period_end") or 0)
+    if end:
+        fails.append("THE PACK WILL EXPIRE. Its period end is " + str(end) + " rather than 0, so "
+                     "the resolver drops it once that time passes plus the tolerance — he paid "
+                     "for messages that stop arriving tomorrow.")
+    else:
+        print("  ok the pack carries no period end, so it cannot lapse")
+    if row.get("interval") != "once":
+        fails.append("the pack's interval is " + str(row.get("interval")) + ", not once — the "
+                     "renewal sweep would re-charge him every cycle")
+    else:
+        print("  ok its interval is once, so the sweep never re-charges it")
+
 for p in (plan, pack):
     call("/api/v1/billing/plans/" + p["id"] + "/availability", {"active": False})
 
