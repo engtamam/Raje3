@@ -42,7 +42,7 @@ AUTH=$(kubectl -n "$NS" get secret ghcr -o jsonpath='{.data.\.dockerconfigjson}'
 [[ -n "$AUTH" ]] || echo "  (no ghcr credential in the cluster — anonymous pulls only)"
 
 ACC='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
-changed=0; same=0; missing=0; unresolved=0; moved_list=""
+changed=0; same=0; missing=0; unresolved=0; moved_list=""; pending_list=""
 
 for f in "$VALUES_DIR"/*.values.yaml; do
   svc=$(basename "$f" .values.yaml)
@@ -78,9 +78,11 @@ for f in "$VALUES_DIR"/*.values.yaml; do
   done
 
   if [[ -z "$dig" && "$code" != "404" ]]; then
-    echo -e "  ${C_R}? $svc — could not resolve $TAG (HTTP ${code:-no response}) after 3 tries."
-    echo -e "     This is NOT 'not published'. Nothing was written; re-run.${C_N}"
-    unresolved=$((unresolved+1)); continue
+    # HELD FOR A SECOND PASS RATHER THAN GIVEN UP ON. See below: this is a burst problem, and the
+    # answer is to come back to the stragglers on their own after a real pause.
+    echo -e "  ${C_D}? $svc — no answer yet (HTTP ${code:-none}); held for the second pass${C_N}"
+    pending_list="$pending_list $f"
+    continue
   fi
 
   if [[ -z "$dig" ]]; then
@@ -107,6 +109,61 @@ PY
   echo -e "  ${C_G}✔ $svc -> ${dig:0:19}…${C_N}"
   changed=$((changed+1)); moved_list="$moved_list,$svc"
 done
+
+# ── THE SECOND PASS, over the stragglers only ─────────────────────────────────────────────────
+# Twenty-five digest lookups in a burst is twenty-five token requests, and ghcr stops answering
+# partway through. Four services failed every time — and every one of them resolved on the first
+# try when asked in a batch of four. So the failure is the BURST, not the repo.
+#
+# In-loop retries did not fix it, and the reason is worth writing down: 3, 6 and 12 seconds all
+# land inside the same closed window, so three retries are three identical failures with extra
+# waiting. What works is leaving the window entirely and coming back to a handful.
+#
+# If a service still will not answer after this, THE RUN FAILS. "Not published" is a fact about the
+# registry that a human can act on; "we could not tell" is not a state a release may exit in.
+if [[ -n "${pending_list// /}" ]]; then
+  echo
+  echo -e "  ${C_D}second pass: waiting out the rate limit, then retrying the stragglers${C_N}"
+  sleep 45
+  for f in $pending_list; do
+    svc=$(basename "$f" .values.yaml)
+    repo=$(grep -m1 'repository:' "$f" | sed 's/.*repository:[[:space:]]*//' | tr -d '"' | sed 's#^ghcr.io/##')
+    tok=$(curl -s -m 20 -H "Authorization: Basic $AUTH"           "https://ghcr.io/token?scope=repository:${repo}:pull&service=ghcr.io"           | sed -E 's/.*"token":"([^"]+)".*//')
+    hdr=$(curl -sI -m 20 -w 'HTTPSTATUS:%{http_code}'           -H "Authorization: Bearer $tok" -H "Accept: $ACC"           "https://ghcr.io/v2/${repo}/manifests/${TAG}" | tr -d '')
+    code=$(printf '%s' "$hdr" | grep -o 'HTTPSTATUS:[0-9]*' | tail -1 | cut -d: -f2)
+    dig=$(printf '%s' "$hdr" | grep -i '^docker-content-digest:' | awk '{print $2}')
+    if [[ -z "$dig" ]]; then
+      if [[ "$code" == "404" ]]; then
+        echo -e "  ${C_R}✗ $svc — no $TAG in the registry, LEFT ON ITS CURRENT DIGEST${C_N}"
+        missing=$((missing+1))
+      else
+        echo -e "  ${C_R}? $svc — still could not resolve $TAG (HTTP ${code:-no response})."
+        echo -e "     This is NOT 'not published'. Nothing was written; re-run.${C_N}"
+        unresolved=$((unresolved+1))
+      fi
+      continue
+    fi
+    cur=$(grep -m1 'digest:' "$f" | sed -E 's/.*digest:[[:space:]]*"([^"]*)".*//')
+    if [[ "$cur" == "$dig" ]]; then
+      echo -e "  ${C_D}= $svc already on this digest (unchanged between releases)${C_N}"
+      same=$((same+1)); continue
+    fi
+    if [[ $DRY -eq 1 ]]; then
+      echo -e "  ${C_D}~ $svc would move to ${dig:0:19}…${C_N}"; changed=$((changed+1)); continue
+    fi
+    python3 - "$f" "$dig" <<'PY'
+import io,re,sys
+f,dig=sys.argv[1],sys.argv[2]
+s=io.open(f,encoding="utf-8").read()
+s=re.sub(r'(
+\s*digest:\s*)"[^"]*"', lambda m: m.group(1)+'"'+dig+'"', s, count=1)
+io.open(f,"w",encoding="utf-8",newline="
+").write(s)
+PY
+    echo -e "  ${C_G}✔ $svc -> ${dig:0:19}… (second pass)${C_N}"
+    changed=$((changed+1)); moved_list="$moved_list,$svc"
+  done
+fi
 
 echo
 echo -e "  moved: $changed · unchanged: $same · not published at $TAG: $missing"

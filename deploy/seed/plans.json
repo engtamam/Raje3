@@ -94,7 +94,19 @@
     {
       "name": "الذكية",
       "amount": 29800,
-      "trial_days": 14,
+      "_trial": [
+        "NO TRIAL ON THIS PLAN, AND NONE ANYWHERE ELSE YET — both parts deliberate.",
+        "",
+        "The trial belongs on الأساسية (16.8): it shows the product, and the upgrade then comes",
+        "from a number in his own dashboard rather than from a feature he got used to and had",
+        "taken away. It sat here, on the middle plan, and that was wrong.",
+        "",
+        "And it is 0 everywhere until the billing escalation lands. trial_days is written into",
+        "the subscription and read by NOTHING: current_period_end is set to a full interval",
+        "regardless, so trial_days: 14 grants THIRTY days. Setting a number here would promise a",
+        "length we do not deliver, and the customer discovers it in our favour, which is worse."
+      ],
+      "trial_days": 0,
       "limits": {
         "messages.monthly": {"kind": "counter", "limit": 3000, "period": "billing_period",
                              "overage": "block"},
@@ -137,7 +149,7 @@
         "The amount here is a PLACEHOLDER, not a price. It is what the plan costs when nobody has",
         "negotiated anything, and the panel overwrites it per subscription."
       ],
-      "name": "منشآت",
+      "name": "المؤسسات",
       "amount": 0,
       "trial_days": 0,
       "listed": false,

@@ -6,7 +6,7 @@
 # THE WHOLE TEST OF THE DESIGN is that nothing learns anything. A negotiated customer — twenty
 # branches, an agreed message volume — gets a plan of his own, created from our panel, and every
 # service resolves his entitlements through the same path, with the same code, as a shop on the
-# 148 plan. No flag, no special case, and no tenant id in a conditional anywhere.
+# entry plan. No flag, no special case, and no tenant id in a conditional anywhere.
 #
 # So this script does not test a feature. It tests that there ISN'T one: it creates a bespoke
 # plan, subscribes a tenant, and reads the entitlements back — and they must be indistinguishable
