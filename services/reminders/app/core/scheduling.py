@@ -133,7 +133,12 @@ class Scheduler:
         # A service with no natural cycle (a puncture repair) contributes nothing to schedule, but
         # it must not suppress the reminder for the services that do.
         cyclic = {sid: due for sid, due in due_by_service.items()
-                  if float(cfgs.get(sid, {}).get("cycle_days", intervals[sid])) > 0}
+                  # A service switched off in the settings tree (spec §10.8.1) contributes no
+                  # reminder. Checked HERE rather than at send time: a schedule that exists and is
+                  # filtered later is a row the owner sees under "what is coming" for a service
+                  # they switched off, and they would reasonably call that a bug.
+                  if cfgs.get(sid, {}).get("enabled", True)
+                  and float(cfgs.get(sid, {}).get("cycle_days", intervals[sid])) > 0}
         if cyclic:
             lead_sid = min(cyclic, key=lambda s: cyclic[s])
             others = [s for s in cyclic if s != lead_sid]
@@ -147,6 +152,8 @@ class Scheduler:
 
         # ── schedule the follow-ups that are configured ────────────────────────────────────────
         for sid in services:
+            if not cfgs.get(sid, {}).get("enabled", True):
+                continue
             days = int(cfgs.get(sid, {}).get("follow_up_days", NO_FOLLOW_UP) or NO_FOLLOW_UP)
             if days <= 0:
                 continue

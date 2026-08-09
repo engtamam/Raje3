@@ -167,3 +167,33 @@ def test_one_tenant_never_schedules_into_another(st, sch):
     run(sch.on_visit(visit(), now=NOW, service_config=CFG))
     run(sch.on_visit(visit(tenant="t2", visit_id="v9"), now=NOW, service_config=CFG))
     assert len(run(ScheduleStore(st).pending_for_subject("t1", "sub_a"))) == 1
+
+
+# ── the settings tree reaches the scheduler (spec §10.8.1) ─────────────────────────────────────
+def test_a_service_switched_off_schedules_nothing(st, sch):
+    """Checked when the schedule is CREATED, not when it is sent: a row that exists and is
+    filtered later shows up under 'what is coming' for a service the owner switched off, and they
+    would reasonably call that a bug."""
+    cfg = dict(CFG, oil=dict(CFG["oil"], enabled=False))
+    out = run(sch.on_visit(visit(), now=NOW, service_config=cfg))
+    assert out.scheduled == []
+
+
+def test_switching_one_service_off_does_not_silence_the_others(st, sch):
+    cfg = dict(CFG, oil=dict(CFG["oil"], enabled=False))
+    run(sch.on_visit(visit(service_ids=["oil", "tyres"]), now=NOW, service_config=cfg))
+    rows = [r for r in run(ScheduleStore(st).pending_for_subject("t1", "sub_a"))
+            if r["kind"] == "reminder"]
+    assert len(rows) == 1 and rows[0]["service_id"] == "tyres"
+
+
+def test_a_switched_off_service_schedules_no_follow_up_either(st, sch):
+    cfg = dict(CFG, tyres=dict(CFG["tyres"], enabled=False))
+    run(sch.on_visit(visit(service_ids=["tyres"]), now=NOW, service_config=cfg))
+    assert run(ScheduleStore(st).pending_for_subject("t1", "sub_a")) == []
+
+
+def test_a_service_with_no_setting_at_all_still_schedules(st, sch):
+    """An absent entry and an empty one mean the same thing: the tree's defaults already applied."""
+    out = run(sch.on_visit(visit(service_ids=["unknown_service"]), now=NOW, service_config={}))
+    assert len(out.scheduled) == 1

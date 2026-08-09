@@ -223,9 +223,46 @@ async def _active_tenants(c) -> list[str]:
 
 
 async def _service_config(c, tenant: str) -> dict:
-    """The tenant's catalogue, cached. Absent peer = empty, and the defaults apply."""
-    row = await c.datastore.get("tenant_cache", f"{tenant}|services")
-    return (row or {}).get("services") or {}
+    """What each service's schedule should look like — resolved through the settings tree.
+
+    REPLACES a `tenant_cache` lookup that nothing ever wrote, so every service fell back to the
+    platform default and an owner who changed a cycle saw no effect. The tree answers per service:
+    the service's own value if it has one, else its group's, else the tenant's general setting,
+    else ours (spec §10.8.1).
+
+    Returns the shape the scheduler already expects, so nothing downstream changes: the settings
+    tree is a source of values, not a new concept for the engine to learn.
+    """
+    from app.config import get_settings
+    from app.core.settings_tree import SettingsStore
+    s = get_settings()
+    tree = await SettingsStore(c.datastore, defaults={
+        "interval_days": s.DEFAULT_INTERVAL_DAYS,
+        "lead_days": s.DEFAULT_LEAD_DAYS,
+        "follow_up_days": 0,
+        "enabled": True}).load(tenant)
+
+    # Every service the tenant has touched at any level, plus the ones with a live rule. A service
+    # nobody configured needs no entry — the scheduler falls back to the same defaults the tree
+    # would have returned, so an empty entry and a missing one mean the same thing.
+    known = set(tree.services) | set(tree.service_group)
+    rows, _ = await c.datastore.find("rules", {"tenant": tenant}, limit=500,
+                                     sort=("updated", "desc")) if tenant else ([], None)
+    known |= {r.get("service_id", "") for r in rows if r.get("service_id")}
+
+    out: dict[str, dict] = {}
+    for sid in sorted(x for x in known if x):
+        v = tree.effective(sid)
+        out[sid] = {
+            "cycle_days": v.get("interval_days") or 0,
+            "lead_days": v.get("lead_days") or 0,
+            "follow_up_days": v.get("follow_up_days") or 0,
+            # A service switched off schedules nothing NEW. Existing schedules are left alone: the
+            # owner turned off future reminders, not the one already promised to a customer this
+            # week, and silently cancelling those would be a decision they did not make.
+            "enabled": bool(v.get("enabled", True)),
+        }
+    return out
 
 
 async def _library(c, tenant: str) -> list:
