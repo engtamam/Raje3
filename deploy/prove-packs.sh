@@ -93,9 +93,13 @@ if s >= 400:
     print("  ! could not subscribe:", s, sub)
     sys.exit(1)
 
+# Run-unique, because the idempotency record is scoped globally rather than per tenant — a fixed
+# key tests a previous run's deduplication instead of this one's cap. Escalated; see prove-quota.sh.
+RUN = "p" + stamp + "_"
+
 def consume(k):
     return call("/internal/billing/usage/consume",
-                {"tenant": tenant, "key": KEY, "amount": 1, "idempotency_key": k},
+                {"tenant": tenant, "key": KEY, "amount": 1, "idempotency_key": RUN + k},
                 internal_call=True)
 
 def limit_now():
@@ -119,7 +123,15 @@ else:
     print("  ok the plan alone runs out at " + str(PLAN_LIMIT))
 
 # BUY THE PACK. Nothing else happens: no top-up, no counter reset, no arithmetic.
-s, psub = call("/api/v1/billing/subscriptions", {"plan_id": pack["id"], "tenant": tenant})
+# THE INTERVAL IS THE SUBSCRIPTION'S, NOT THE PLAN'S — and this is the finding that matters for
+# the purchase path. The plan's PRICE says once, but subscribe() takes its own interval and
+# defaults it to month. Sending nothing here produced a monthly pack: it carried a real period
+# end, so it would have lapsed, and the renewal sweep would have re-charged 50 riyals every month
+# for a one-time purchase.
+#
+# So whatever buys a pack must send interval="once" explicitly. The plan row does not carry it.
+s, psub = call("/api/v1/billing/subscriptions",
+               {"plan_id": pack["id"], "tenant": tenant, "interval": "once"})
 if s >= 400:
     fails.append("could not buy the pack: " + str(s) + " " + str(psub))
 

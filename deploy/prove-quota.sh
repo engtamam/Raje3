@@ -86,14 +86,25 @@ if s >= 400:
     print("  ! could not subscribe:", s, sub)
     sys.exit(1)
 
+# EVERY RUN USES KEYS NOBODY HAS USED BEFORE, and the reason is a finding rather than hygiene.
+#
+# This script used the literal keys "rem_1".."rem_5" and passed. Days later, against a fresh
+# tenant, every assertion about the cap failed while billing reported each consume as successful —
+# because the idempotency record is scoped GLOBALLY rather than per tenant, so the second shop to
+# use "rem_1" gets the first shop's replayed answer and its own counter never moves.
+#
+# Escalated. Until it is fixed, a proof that reuses a fixed key tests the deduplication of a
+# previous run, and a proof that reuses a fixed key ACROSS tenants tests nothing at all.
+RUN = "q" + stamp + "_"
+
 def consume(key):
     return call("/internal/billing/usage/consume",
-                {"tenant": tenant, "key": KEY, "amount": 1, "idempotency_key": key},
+                {"tenant": tenant, "key": KEY, "amount": 1, "idempotency_key": RUN + key},
                 internal_call=True)
 
 def release(key):
     return call("/internal/billing/usage/release",
-                {"tenant": tenant, "key": KEY, "amount": 1, "idempotency_key": key},
+                {"tenant": tenant, "key": KEY, "amount": 1, "idempotency_key": RUN + key},
                 internal_call=True)
 
 def used():
