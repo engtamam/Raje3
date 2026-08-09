@@ -19,7 +19,7 @@ already annoyed, and making them navigate is how a stop becomes a block.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse
 
 from app.api.ratelimit import rate_limit
@@ -68,8 +68,18 @@ async def page(request: Request, ref: str) -> Response:
 
 
 @router.post("/{ref}/prefs", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
-async def save_prefs(request: Request, ref: str, on: list[str] = Form(default=[])) -> Response:
+async def save_prefs(request: Request, ref: str) -> Response:
     """Save the five switches.
+
+    THE BODY IS PARSED BY HAND, and that is a dependency decision rather than a style one.
+    FastAPI's `Form(...)` requires `python-multipart` the moment it appears — even for a form that
+    sends nothing multipart. Ours is five checkboxes with no file input, so the browser sends
+    `application/x-www-form-urlencoded`, which the standard library already reads. Adding a
+    package to parse a format we do not use would be a third-party dependency in the only
+    internet-facing service on the product, for nothing.
+
+    Found by deploying: the import succeeded, the tests passed, and the pod crash-looped on
+    startup because FastAPI checks for the library when it builds the route, not when it is called.
 
     THE FORM SENDS WHAT IS ON, so what is off is everything else. That is how an HTML checkbox
     works — an unchecked box submits nothing — and it is why this takes the enabled list rather
@@ -87,8 +97,14 @@ async def save_prefs(request: Request, ref: str, on: list[str] = Form(default=[]
         return HTMLResponse(render_page(Page(reference=ref, tenant=""), build_theme(None)),
                             headers=NO_STORE)
 
+    import urllib.parse
+
     from app.core.compose import CLASS_ORDER
-    stopped = [cls for cls in CLASS_ORDER if cls not in set(on)]
+    # Bounded read: this is the only unauthenticated write on the product, and an unbounded body
+    # read is a way to make us hold memory for anyone with the URL.
+    raw = (await request.body())[:4096].decode("utf-8", "ignore")
+    on = set(urllib.parse.parse_qs(raw).get("on", []))
+    stopped = [cls for cls in CLASS_ORDER if cls not in on]
     saved = await c.reminders.set_prefs(r.tenant, r.subject_ref, stopped=stopped)
 
     built = await c.composer.build(r.tenant, r.subject_ref)
