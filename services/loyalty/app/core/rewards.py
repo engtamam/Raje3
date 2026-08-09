@@ -63,7 +63,7 @@ class Rewards:
                      service_id: str = "", discount_halalas: int = 0) -> Reward:
         clean = validate_name(name)
         if type not in REWARD_TYPES:
-            raise LoyaltyError(f"reward type must be one of {REWARD_TYPES}")
+            raise LoyaltyError("نوع المكافأة: خدمة أو منتج أو خصم")
         if cost <= 0:
             raise LoyaltyError("تكلفة المكافأة بالنقاط يجب أن تكون أكبر من صفر")
         if type == "service" and not service_id:

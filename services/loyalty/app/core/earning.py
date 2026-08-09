@@ -70,13 +70,15 @@ class EarnConfig:
 
     def validate(self) -> None:
         if self.mode not in EARN_MODES:
-            raise LoyaltyError(f"earn mode must be one of {EARN_MODES}, not {self.mode!r}")
+            raise LoyaltyError("طريقة الاحتساب إما بالخدمات أو بقيمة الفاتورة")
         if self.mode == "invoice" and not self.integrated:
+            # ARABIC, because this reaches the owner's screen. The platform is Arabic-only
+            # today (and structured so English can be added later) — an English sentence here is
+            # not a smaller bug than no sentence at all, it is the same one.
             raise LoyaltyError(
-                "invoice-value earning needs an integrated till — the manual field screen records "
-                "no amounts (spec §9.3)")
+                "الاحتساب بقيمة الفاتورة يحتاج ربطاً بالكاشير — الشاشة الميدانية لا تسجّل مبالغ")
         if self.points_per_riyal < 0:
-            raise LoyaltyError("points per riyal cannot be negative")
+            raise LoyaltyError("النقاط لكل ريال لا تكون سالبة")
 
     def to_dict(self) -> dict[str, Any]:
         return {"mode": self.mode, "points_per_riyal": self.points_per_riyal,
@@ -244,6 +246,6 @@ def _clean(values: dict[str, Any]) -> dict[str, Any]:
         if k == "points":
             v = int(v)
             if v < 0:
-                raise LoyaltyError("points cannot be negative — a visit never costs the customer")
+                raise LoyaltyError("النقاط لا تكون سالبة — الزيارة لا تكلّف العميل شيئاً")
         out[k] = v
     return out

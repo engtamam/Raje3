@@ -191,7 +191,9 @@ def test_invoice_mode_is_refused_for_a_shop_with_no_till_with_the_reason(client,
     r = client.put("/api/v1/loyalty/settings/mode",
                    json={"mode": "invoice", "points_per_riyal": 1}, headers=owner)
     assert r.status_code == 400
-    assert "9.3" in r.text or "till" in r.text
+    # ARABIC, and the reason NAMED — this reaches the owner's screen, and the platform is
+    # Arabic-only today. An English sentence here is the same bug as no sentence.
+    assert "الكاشير" in r.json()["reason"]
 
 
 # ── the till and the tick ──────────────────────────────────────────────────────────────────────
