@@ -313,6 +313,72 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
             "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
 
 
+class CustomerVisitsIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    # TEN by default and capped at 25. A customer's page is not a statement of account, and a
+    # public page that can ask for a thousand rows is a public page that can be made expensive.
+    limit: int = Field(default=10, ge=1, le=25)
+
+
+@router.post("/operations/customer-visits", dependencies=[Depends(require_internal_token)])
+async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
+    """One customer's own visit history, for their page.
+
+    SHAPED FOR DISPLAY, NOT FOR EXPORT. It returns the service names and a formatted date and
+    nothing else — no operator, no branch, no note, no amount. Everything omitted here is
+    something the portal would otherwise be able to show to whoever holds a forwarded link, and a
+    field is far easier not to send than to remember to hide.
+
+    NO PHONE AND NO NAME even though this service holds both: the caller identifies the customer
+    by pseudonym and gets back only what happened, never who it happened to.
+
+    Returns an empty list for an unknown subject rather than 404 — the portal renders the same
+    page either way, and a 404 here would travel through it as an oracle.
+    """
+    c = request.app.state.container
+    rows, _ = await c.datastore.find(
+        VISITS, {"tenant": body.tenant}, limit=200, sort=("created", "desc"))
+    cust = None
+    crows, _ = await c.datastore.find(
+        CUSTOMERS, {"tenant": body.tenant, "subject_ref": body.subject_ref}, limit=1)
+    cust = crows[0] if crows else None
+    if cust is None:
+        return {"visits": [], "count": 0}
+
+    names = {s.id: s.name for s in await ServiceStore(c.datastore).list(body.tenant,
+                                                                       active_only=False)}
+    out = []
+    for r in rows:
+        if r.get("customer_id") != cust.get("id"):
+            continue
+        labels = [names.get(sid, "") for sid in (r.get("service_ids") or [])]
+        labels = [x for x in labels if x] or [r.get("custom_service") or "زيارة"]
+        out.append({"services": "، ".join(labels[:3]),
+                    "date": _arabic_date(int(r.get("occurred_at") or r.get("created") or 0))})
+        if len(out) >= body.limit:
+            break
+    return {"visits": out, "count": len(out)}
+
+
+_AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+              "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
+
+
+def _arabic_date(epoch: int) -> str:
+    """A date a person reads, formatted HERE rather than in the portal.
+
+    Formatted on this side because this is where the timezone belongs: the visit happened in
+    Riyadh, and a page rendering a UTC epoch would show a late-evening visit on the wrong day.
+    Western digits throughout — Arabic-Indic numerals are not what a Saudi phone keyboard types.
+    """
+    if not epoch:
+        return ""
+    from datetime import datetime, timedelta, timezone
+    d = datetime.fromtimestamp(epoch, timezone(timedelta(hours=3)))
+    return f"{d.day} {_AR_MONTHS[d.month - 1]}"
+
+
 class StampIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     # Empty = a direct signup, which is a DECISION and not an absence. See core/partners.py.

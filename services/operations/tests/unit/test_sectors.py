@@ -102,7 +102,9 @@ def test_a_new_establishment_gets_a_full_catalogue(cat, tmp_path):
     run(c.seed_from_file(_seed_file(tmp_path)))
     assert run(c.seed_tenant(tenant=T, sector_key="tyres")) == 3   # + the catch-all
     names = {s.name for s in run(ServiceStore(store).list(T))}
-    assert names == {"تبديل إطارات", "تصليح بنشر"}
+    # The catch-all is part of every seeded catalogue now — a sector without one is a sector that
+    # loses visits, and the flag was silently dropped by a console edit on the live cluster.
+    assert names == {"تبديل إطارات", "تصليح بنشر", "خدمة أخرى"}
 
 
 def test_seeding_twice_does_not_duplicate_the_catalogue(cat, tmp_path):

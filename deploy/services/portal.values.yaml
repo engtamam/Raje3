@@ -1,0 +1,111 @@
+# portal — Raje3 deployment values.
+#
+# THE ONLY SERVICE ON THIS PRODUCT A CUSTOMER EVER TOUCHES, and the only one with a public route
+# that carries no token. Everything unusual below follows from that.
+#
+# IT STORES NOTHING. No database, no queue, no event bus. The shop's identity comes from
+# tenant-service, the visits from operations, the preferences from reminders — a datastore here
+# would be a fourth copy of the same truth, a fourth erasure target and a fourth thing to back up.
+#
+# AND IT CAN FAIL IN A WAY NOTHING ELSE CAN: a page that returns 200 with every section saying "not
+# available" is a shop looking broken to its own customer, with no error anywhere. The boot guard
+# refuses the null driver in production for exactly that reason.
+service:
+  name: portal
+  port: 8000
+
+image:
+  repository: docker.io/raje3/portal
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+# TWO REPLICAS, unlike every other service here. This is the one that is down when a customer is
+# looking at it — every other outage is discovered by us, and this one is discovered by a shop's
+# customer opening a link the shop sent them. It is also stateless by construction, so a second
+# replica costs nothing and needs no coordination.
+replicas: 2
+
+drivers:
+  # NO POSTGRES. Deliberate and load-bearing: there is nothing to store, and a datastore would
+  # invite somebody to start storing.
+  datastore: memory
+  # Redis for the rate limiter only. It is the one shared thing this service genuinely needs: a
+  # per-pod limit with two replicas is a limit that silently doubles.
+  cache: redis
+  eventbus: memory
+  queue: memory
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false   # two replicas is already the answer to the load this page has
+
+# INTERNAL_SERVICE_TOKEN, CACHE_URL, RATELIMIT_URL, TOKEN_PUBLIC_KEY, PII_SALT.
+#
+# NO BACKUP_KEK, and that is not an omission: this service exports nothing because it holds
+# nothing. It is the one service on the product where an empty backup manifest is the correct
+# answer rather than an unfinished one.
+existingSecret: portal-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet. It calls tenant-service, operations and reminders — all in-cluster. A page that
+    # renders somebody's visit history has no business reaching out.
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  # ── the three peers ───────────────────────────────────────────────────────────────────────
+  # `null` renders a shell: 200, the shop's colour, and every section saying it could not load —
+  # for ever, to every customer, under the shop's name, with nothing in a log to say so.
+  PEERS_DRIVER: "http"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_READ_PATH: "/internal/tenants/{id}"
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  OPERATIONS_VISITS_PATH: "/internal/operations/customer-visits"
+  REMINDERS_SERVICE_URL: "http://reminders:8000"
+  REMINDERS_PREFS_PATH: "/api/v1/prefs/{ref}"
+
+  # Three seconds each, and a three-second budget for the WHOLE page — the calls run concurrently,
+  # so the slowest peer sets the ceiling rather than the sum. A nine-second page is a page nobody
+  # sees, and the budget belongs to the person waiting rather than to us.
+  PEER_TIMEOUT_SECONDS: "3"
+  PAGE_DEADLINE_SECONDS: "3.0"
+  # The shop's name does not change between two customers opening their pages a second apart.
+  IDENTITY_CACHE_TTL_SECONDS: "300"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # FAIL-CLOSED like every other service. It changes nothing on the page path — a customer viewing
+  # or saving their own preferences performs no audited action here; reminders records that. What
+  # it protects is the operator surface this service inherits from the template.
+  AUDIT_FAIL_CLOSED: "true"
+
+  # NO CORS ORIGINS. This page is not called by a browser from another origin — it IS the browser's
+  # page. An allowed origin here would be a permission nothing uses and somebody later widens.
+  CORS_ALLOWED_ORIGINS: ""
+  EGRESS_ALLOWED_HOSTS: ""
+
+# No CronJobs. Nothing here is time-driven: the page renders when somebody opens it.
+
+# THE ONE SERVICE THAT MUST BE PUBLIC. Every other one is reached service-to-service behind the
+# gateway; this one is opened from a link in a WhatsApp message on a stranger's phone. Left
+# disabled until the TLS edge has a hostname (deploy/k3s/edge.production.yaml) — a page served over
+# plain http would put the reference in the clear on every network it crosses.
+ingress:
+  enabled: false

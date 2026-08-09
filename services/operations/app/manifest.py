@@ -90,6 +90,9 @@ def build_manifest(
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
             # that decides where commission goes (spec 16.6.3).
+            # One customer's own history, shaped for their page: service names and a date, and
+            # nothing else. Everything omitted is something a forwarded link could otherwise show.
+            {"path": "/internal/operations/customer-visits", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/partner-stamp", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/partner-stamp/{}", "tier": "internal", "method": "GET"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",

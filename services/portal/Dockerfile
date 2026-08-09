@@ -1,5 +1,5 @@
 # =============================================================================
-# portal — hardened production image
+# operations — hardened production image
 # Multi-stage · python:3.12-slim · non-root · runtime deps only · read-only-friendly
 # (CIS-aligned: minimal surface, unprivileged user, no build tools in final image)
 # =============================================================================
@@ -37,6 +37,8 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=app:app app ./app
 COPY --chown=app:app pyproject.toml README.md ./
+# NO data/. This service seeds nothing and stores nothing — the page is rendered from what three
+# other services hold. A copied empty directory would be a line that looks load-bearing and is not.
 
 USER app
 EXPOSE 8000
