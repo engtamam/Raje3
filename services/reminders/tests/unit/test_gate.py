@@ -202,9 +202,25 @@ def _s(**over):
                 SENDER_DRIVER="http", NOTIFICATION_SERVICE_URL="http://n:8000",
                 OPERATIONS_SERVICE_URL="http://o:8000",
                 # Every message renders the shop's name; a null identity driver renders it blank.
-                IDENTITY_DRIVER="http", TENANT_SERVICE_URL="http://t:8000")
+                IDENTITY_DRIVER="http", TENANT_SERVICE_URL="http://t:8000",
+                # The message quota. Production refuses the null counter: every plan sells a
+                # monthly allowance, and nothing decremented it until core/quota.py existed.
+                QUOTA_DRIVER="http", BILLING_SERVICE_URL="http://b:8000")
     base.update(over)
     return Settings(**base)
+
+
+def test_production_refuses_a_quota_that_counts_nothing():
+    """An establishment on 1000 messages sends 40000. Every graph is green — the messages ARE
+    going out — and the first evidence is the WhatsApp bill. A cap nothing decrements is a number
+    on an invoice."""
+    with pytest.raises(ValueError, match="QUOTA_DRIVER=null"):
+        _s(QUOTA_DRIVER="null").assert_sender_config_ok()
+
+
+def test_production_refuses_a_quota_with_nowhere_to_count():
+    with pytest.raises(ValueError, match="BILLING_SERVICE_URL"):
+        _s(BILLING_SERVICE_URL="").assert_sender_config_ok()
 
 
 def test_production_refuses_a_sender_that_sends_nothing():

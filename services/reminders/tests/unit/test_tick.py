@@ -289,3 +289,99 @@ def test_a_queued_delivery_counts_as_sent_and_is_not_retried():
          patch("urllib.request.urlopen", return_value=Resp()):
         asyncio.run(s.send(tenant="t", subject_ref="ref_x", template_name="svc_x_brief",
                            variables=["a"], cls="service", idempotency_key="k2"))
+
+
+# ── the message quota, where it meets the tick ─────────────────────────────────────────────────
+class FakeQuota:
+    """Counts, and can refuse. Idempotent, because the point of the key is that a retry is free."""
+
+    def __init__(self, limit: int = 100) -> None:
+        self.limit = limit
+        self.spent: dict[str, int] = {}
+        self.releases: list[str] = []
+
+    @property
+    def used(self) -> int:
+        return sum(self.spent.values())
+
+    async def consume(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
+        from app.core.quota import QuotaError
+
+        if idempotency_key in self.spent:
+            return
+        if self.used + amount > self.limit:
+            raise QuotaError("انتهى رصيد رسائل هذا الشهر — يمكنك شراء باقة رسائل إضافية.")
+        self.spent[idempotency_key] = amount
+
+    async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
+        self.releases.append(idempotency_key)
+        self.spent.pop(idempotency_key, None)
+
+
+def test_a_sent_reminder_spends_exactly_one_message(st):
+    sched(st)
+    q = FakeQuota()
+    go(st, FakeSender(), quota=q)
+    assert q.used == 1
+
+
+def test_a_suppressed_reminder_costs_nothing(st):
+    """CONSUME AT THE SEND, NOT AT THE SCHEDULE. A reminder the gate refuses — a stopped class, a
+    withdrawn consent, quiet hours — must not have been paid for. Counting earlier would make the
+    cap punish an owner for customers we never messaged."""
+    sched(st)
+    run(PrefsStore(st).put("t1", "sub_a", as_row(Preferences(
+        tenant="t1", subject_ref="sub_a", stopped={"service": True}))))
+    q = FakeQuota()
+    res = go(st, FakeSender(), quota=q)
+    assert res.suppressed == 1 and q.used == 0
+
+
+def test_a_deferred_reminder_costs_nothing(st):
+    """It has not been sent yet — it goes out tomorrow morning, and pays then."""
+    sched(st, due_at=at(23))
+    q = FakeQuota()
+    go(st, FakeSender(), now=at(23), quota=q)
+    assert q.used == 0
+
+
+def test_a_failed_send_gives_the_unit_back(st):
+    """The consume must come first to be atomic, so a send that then fails leaves a unit spent.
+    The commonest failure in this product is a template still in Meta's review — for a shop that
+    connected this morning, that is the entire library, and it would pay for every one."""
+    sched(st)
+    q = FakeQuota()
+    res = go(st, FakeSender(fail=True), quota=q)
+    assert res.failed == 1
+    assert q.used == 0 and len(q.releases) == 1
+
+
+def test_a_retry_after_a_failure_spends_one_unit_in_total(st):
+    """The key is stored on the row before the first attempt, so the retry consumes the same unit.
+    A fresh key per attempt burns quota per redelivery with no extra message to show for it."""
+    sched(st)
+    q = FakeQuota()
+    sender = FakeSender(fail=True)
+    go(st, sender, quota=q)
+    sender.fail = False
+    go(st, sender, now=at(11), quota=q)
+    assert q.used == 1 and len(sender.calls) == 1
+
+
+def test_an_exhausted_quota_refuses_the_send_rather_than_proceeding(st):
+    sched(st)
+    q = FakeQuota(limit=0)
+    res = go(st, FakeSender(), quota=q)
+    assert res.sent == 0 and res.suppressed == 1
+
+
+def test_an_exhausted_quota_is_recorded_as_suppressed_not_failed(st):
+    """A cap is a decision, not an outage. Retrying it hourly for the rest of the month would bury
+    the peer failures the reason counts exist to surface — and the ledger has to be able to tell
+    an owner why a message did not go."""
+    row_key = sched(st).key
+    q = FakeQuota(limit=0)
+    go(st, FakeSender(), quota=q)
+    row = run(SendLogStore(st).since("t1", "sub_a", since=0))[0]
+    assert row["outcome"] == "suppressed" and "رصيد" in row["reason"]
+    assert run(ScheduleStore(st).get(row_key))["state"] == "suppressed"

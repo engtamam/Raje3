@@ -104,6 +104,19 @@ env:
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   OPERATIONS_RECIPIENT_PATH: "/internal/operations/recipient"
   OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+
+  # THE MESSAGE QUOTA — the second most important line in this file, for the same reason as the
+  # first. Every plan sells a monthly WhatsApp allowance (§16.4.1) and nothing decremented it: an
+  # establishment on 1000 could send 40000, with every graph green because the messages really
+  # were going out. The only evidence would have been the WhatsApp bill.
+  #
+  # The consume is atomic — check-and-increment in one call — because an advisory check followed
+  # by a send is a cap two replicas walk straight through on the last unit.
+  QUOTA_DRIVER: "http"
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_CONSUME_PATH: "/internal/billing/usage/consume"
+  BILLING_RELEASE_PATH: "/internal/billing/usage/release"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
   # ── who the establishment is ──────────────────────────────────────────────────────────────
   # Every message renders {{2}} as the shop's name. It lives in tenant-service and ONLY there — a
   # copy here is a second version of the one string every customer of that shop reads in every

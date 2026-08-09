@@ -223,6 +223,7 @@ def build_container(settings: Settings) -> Container:
     # means the ports above stay importable by anything that only needs a driver.
     from app.adapters.identity import build_identity
     from app.adapters.message_sender import build_sender
+    from app.core.quota import build_quota
     from app.core.adaptive import AdaptiveConfig
     from app.core.engagement import EngagementConfig
     from app.core.gate import Limits
@@ -248,6 +249,9 @@ def build_container(settings: Settings) -> Container:
         daily_total_cap=settings.DAILY_TOTAL_CAP)
 
     container.sender = build_sender(settings)
+    # The message quota. Null in a local run, refused in production by assert_sender_config_ok —
+    # a service that sends without counting is a plan limit nothing enforces.
+    container.quota = build_quota(settings)
     container.identity = build_identity(settings)
     container.scheduler = Scheduler(
         store=container.datastore, cfg=adaptive_cfg, eng_cfg=eng_cfg,
@@ -265,5 +269,5 @@ def build_container(settings: Settings) -> Container:
                               visits_client=visits, telemetry=container.telemetry)
     container.tick = Tick(store=container.datastore, sender=container.sender, limits=limits,
                           eng_cfg=eng_cfg, batch=settings.TICK_BATCH_SIZE,
-                          telemetry=container.telemetry)
+                          telemetry=container.telemetry, quota=container.quota)
     return container

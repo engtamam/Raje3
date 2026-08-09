@@ -32,6 +32,7 @@ from typing import Any
 
 from app.core import engagement as E
 from app.core import gate as G
+from app.core import quota as Q
 from app.core import rendering as R
 from app.core.models import SendLog, as_row
 from app.adapters.message_sender import Unsendable
@@ -57,7 +58,7 @@ class TickResult:
 
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
-                 batch: int = 100, telemetry=None) -> None:
+                 batch: int = 100, telemetry=None, quota=None) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
@@ -67,6 +68,10 @@ class Tick:
         self._consent = Consent(store)
         self._eng = EngagementStore(store)
         self._sender = sender
+        # THE MESSAGE QUOTA. Defaults to the null counter so every existing test keeps working;
+        # production refuses that driver at boot (config.py), because a service that sends without
+        # counting is exactly the defect core/quota.py exists to fix.
+        self._quota = quota or Q.NullQuota()
         self._limits = limits
         self._eng_cfg = eng_cfg
         self._batch = batch
@@ -171,12 +176,34 @@ class Tick:
             return {"sent": False, "reason": str(exc)}
 
         key = row.get("idempotency_key") or f"cmp_{row.get('id','')}"
+
+        # THE QUOTA, IMMEDIATELY BEFORE THE SEND AND NOWHERE EARLIER. Everything above this line
+        # can still refuse — the gate, the render — and a message we decided not to send must not
+        # have cost the shop anything. Atomic check-and-increment, keyed by the SEND's own key so
+        # a redelivery spends nothing (core/quota.py).
+        try:
+            await self._quota.consume(tenant=tenant, idempotency_key=key)
+        except Q.QuotaError as exc:
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), outcome="suppressed", reason=str(exc))))
+            return {"sent": False, "reason": str(exc)}
+
         try:
             await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
                 variables=rendered.variables, cls=cls, idempotency_key=key)
         except Unsendable as exc:
+            # GIVE THE UNIT BACK. The consume had to come first to be atomic, so a send that did
+            # not happen leaves a unit spent — and an erased recipient is not something the shop
+            # should pay for.
+            await self._quota.release(tenant=tenant, idempotency_key=key)
             return {"sent": False, "reason": f"لا يوجد مستقبِل: {exc}"}
+        except Exception:
+            # Every other failure — a template still in Meta's review, a peer down — is transient
+            # and retried. It must not be charged either.
+            await self._quota.release(tenant=tenant, idempotency_key=key)
+            raise
 
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
@@ -254,9 +281,30 @@ class Tick:
             row["idempotency_key"] = key
             await self._sched.upsert(tenant, _key(row), row)
 
-        await self._sender.send(
-            tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
-            variables=rendered.variables, cls=cls, idempotency_key=key)
+        # The quota, immediately before the send — see the campaign path above and quota.py. The
+        # key here is the one already stored on the row, so a retry after a timeout consumes the
+        # same unit rather than a second one.
+        try:
+            await self._quota.consume(tenant=tenant, idempotency_key=key)
+        except Q.QuotaError as exc:
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), outcome="suppressed", reason=str(exc))))
+            # CLOSED AS SUPPRESSED, NOT FAILED. An exhausted quota is a decision, not an error:
+            # retrying it every hour for the rest of the month would fill the reason counts with
+            # noise and hide the peer failures they exist to surface. He buys a pack and the next
+            # reminders go out; this one is a message that was not sent, and it says so.
+            await self._close(tenant, row, "suppressed", str(exc), now)
+            res.suppressed += 1
+            return
+
+        try:
+            await self._sender.send(
+                tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
+                variables=rendered.variables, cls=cls, idempotency_key=key)
+        except Exception:
+            await self._quota.release(tenant=tenant, idempotency_key=key)
+            raise
 
         # ── 5. record ─────────────────────────────────────────────────────────────────────────
         await self._log.append(tenant, as_row(SendLog(
