@@ -428,6 +428,76 @@ for svc_dir in sorted((ROOT / "services").iterdir()) if (ROOT / "services").is_d
         fail(f"{svc}/app", f"{method} {path} is a user-facing route with no declared action — "
                            f"the console cannot render it, and nothing fails")
 
+
+# ── 14. the owner holds everything, and the two lanes never mix ───────────────────────────────
+#
+# THE OWNER'S SET IS WRITTEN OUT, NOT A WILDCARD. A wildcard grants every capability added in
+# future to somebody nobody asked; naming them means shipping a capability includes deciding who
+# gets it. The cost of that decision is this check: a capability our services declare that the
+# owner does not hold is a feature its own owner cannot reach — shipped, working, and invisible.
+#
+# AND NO platform.* IN A TENANT ROLE. authz strips them at mint, so this is the second defence
+# rather than the only one — but the first defence is that nobody wrote one down, and that is what
+# this reads.
+seed_dir = ROOT / "deploy" / "seed"
+tenant_roles = seed_dir / "roles.json"
+operator_roles = seed_dir / "operator-roles.json"
+if tenant_roles.is_file():
+    import json as _json
+    roles = _json.loads(read(tenant_roles)).get("roles", [])
+    owner = next((r for r in roles if r.get("name") == "owner"), None)
+    if owner is None:
+        fail("deploy/seed/roles.json", "no `owner` role — a tenant whose roles arrive without one "
+                                       "is a tenant nobody can administer")
+    else:
+        held = set(owner.get("capabilities", []))
+        # Only OUR capabilities: upstream's are theirs to enumerate, and a gap there is a report.
+        ours = set()
+        for svc_dir in sorted((ROOT / "services").iterdir()) if (ROOT / "services").is_dir() else []:
+            m = svc_dir / "app" / "manifest.py"
+            if not m.is_file():
+                continue
+            try:
+                tree = ast.parse(read(m))
+            except SyntaxError:
+                continue
+            # THE VALUE OF THE `capabilities` KEY, not the whole dict. `literal_eval` on the
+            # manifest fails — it contains `settings.SERVICE_NAME` — so the first version of this
+            # check silently collected NOTHING and passed by examining an empty set. A guard that
+            # passes because it read nothing is the exact species it was written to catch, and it
+            # was found by deliberately breaking the owner role and watching it stay green.
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Dict):
+                    continue
+                for k, v in zip(node.keys, node.values):
+                    if (isinstance(k, ast.Constant) and k.value == "capabilities"
+                            and isinstance(v, ast.List)):
+                        ours |= {e.value for e in v.elts
+                                 if isinstance(e, ast.Constant) and isinstance(e.value, str)}
+        # platform.* and the partner's are deliberately NOT the owner's: one is ours, the other
+        # belongs to a company that is not the establishment.
+        expected = {c for c in ours if not c.startswith("platform.") and c != "partner.read"}
+        for cap in sorted(expected - held):
+            fail("deploy/seed/roles.json",
+                 f"`{cap}` is declared by a service but the owner role does not hold it — a "
+                 f"feature its own owner cannot reach")
+
+    for r in roles:
+        for cap in r.get("capabilities", []):
+            if str(cap).startswith("platform."):
+                fail("deploy/seed/roles.json",
+                     f"tenant role `{r.get('name')}` carries `{cap}` — platform capabilities are "
+                     f"ours, and an establishment must never be able to hold one")
+
+if operator_roles.is_file():
+    import json as _json
+    for r in _json.loads(read(operator_roles)).get("roles", []):
+        for cap in r.get("capabilities", []):
+            if not str(cap).startswith("platform."):
+                fail("deploy/seed/operator-roles.json",
+                     f"operator role `{r.get('name')}` carries `{cap}`, which is a tenant "
+                     f"capability — the operator lane is not the tenant lane")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
@@ -439,4 +509,5 @@ if problems:
 print(f"{C_G}  ✔ deploy wiring is consistent — digests pinned, databases provisioned, "
       f"erasure fan-out complete, cron paths real, env keys declared, egress matches use, "
       f"security posture held, shared secrets named, digits western, capabilities "
-      f"enforced, cross-boundary values qualified, actions aggregated and complete{C_N}")
+      f"enforced, cross-boundary values qualified, actions aggregated and complete, "
+      f"roles whole and separate{C_N}")

@@ -1,0 +1,117 @@
+{
+  "_comment": [
+    "An establishment's roles. Seeded into authz-service when a tenant is created, and edited from",
+    "there — a role somebody wants on a Tuesday afternoon must not need a deploy.",
+    "",
+    "EVERY CAPABILITY IS WRITTEN OUT. There is no wildcard, and that is the point: a wildcard grants",
+    "every capability added in future to somebody nobody asked. When we ship a new one, this file is",
+    "part of shipping it — and a guard fails the build if a capability exists that the owner does not",
+    "hold, because a feature its own owner cannot reach is a feature that shipped by accident.",
+    "",
+    "NO platform.* APPEARS HERE, EVER. Those are ours (see operator-roles.json). authz strips them at",
+    "mint as well, so even a corrupted row cannot carry one — but the first defence is that nobody",
+    "wrote one down."
+  ],
+  "roles": [
+    {
+      "name": "owner",
+      "label": "المالك",
+      "description": "صاحب المنشأة. يملك كل شيء داخل مستأجره، دائماً — ولا يستطيع أحد أن ينزع منه صلاحية ولا أن يحذف حسابه (3.2). ونقل الملكية بيده وحده.",
+      "protected": true,
+      "capabilities": [
+        "operations.record",
+        "operations.read",
+        "operations.manage",
+        "reminders.read",
+        "reminders.manage",
+        "campaigns.read",
+        "campaigns.manage",
+        "billing.read",
+        "billing.manage",
+        "tenant.read",
+        "tenant.manage",
+        "identity.read",
+        "identity.manage",
+        "authz.manage",
+        "file.read",
+        "file.write",
+        "ticket.read",
+        "ticket.write",
+        "analytics.read",
+        "wallet.read",
+        "notification.read"
+      ]
+    },
+    {
+      "name": "manager",
+      "label": "المدير",
+      "description": "يدير التشغيل اليومي كله. كل ما يملكه المالك عدا الفوترة وحذف الحساب — والفوترة مفتاح يمنحه المالك، لا دوراً ثانياً: محلٌّ بمديرٍ واحد لا يحتاج حسابين ليدفع أحدهم الفاتورة.",
+      "protected": false,
+      "grantable_extras": ["billing.read", "billing.manage"],
+      "capabilities": [
+        "operations.record",
+        "operations.read",
+        "operations.manage",
+        "reminders.read",
+        "reminders.manage",
+        "campaigns.read",
+        "campaigns.manage",
+        "tenant.read",
+        "identity.read",
+        "identity.manage",
+        "authz.manage",
+        "file.read",
+        "file.write",
+        "ticket.read",
+        "ticket.write",
+        "analytics.read"
+      ]
+    },
+    {
+      "name": "marketer",
+      "label": "مسؤول التسويق",
+      "description": "الحملات والقوالب والتقارير. لا يعدّل كتالوج الخدمات ولا يضيف موظفاً — من يكتب رسالة لألف عميل لا يحتاج أن يغيّر أسعار المحل.",
+      "protected": false,
+      "capabilities": [
+        "campaigns.read",
+        "campaigns.manage",
+        "reminders.read",
+        "reminders.manage",
+        "operations.read",
+        "analytics.read",
+        "file.read"
+      ]
+    },
+    {
+      "name": "supervisor",
+      "label": "مشرف وردية",
+      "description": "الميدان وعمّال ورديته وقراءة التقارير. لا حملات ولا فوترة ولا ربط واتساب — مسؤوليته الوردية التي يقف فيها.",
+      "protected": false,
+      "capabilities": [
+        "operations.record",
+        "operations.read",
+        "operations.manage",
+        "reminders.read",
+        "analytics.read"
+      ]
+    },
+    {
+      "name": "operator",
+      "label": "الموظف الميداني",
+      "description": "تسجيل الزيارات فقط. صلاحية واحدة، وهي التصميم لا اختصاراً: شاشته شاشة واحدة (4.1)، وكل صلاحية زائدة عنصرُ قائمة يمرّ عليه مئة مرة في اليوم.",
+      "protected": false,
+      "capabilities": [
+        "operations.record"
+      ]
+    },
+    {
+      "name": "partner",
+      "label": "شريك",
+      "description": "شركة الكاشير: محلاتها التي جلبتها وكشوف عمولتها. لا ترى عملاء محل ولا أرقامهم ولا رسائلهم — المحل لم يوافق على مشاركتها مع من باعه الجهاز.",
+      "protected": false,
+      "capabilities": [
+        "partner.read"
+      ]
+    }
+  ]
+}

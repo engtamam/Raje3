@@ -1,0 +1,77 @@
+{
+  "_comment": [
+    "OUR roles — the platform lane, and it is not the tenant lane.",
+    "",
+    "These carry platform.* capabilities, which no establishment role ever does. They are seeded",
+    "once, under the reserved platform tenant, and they must not appear in an establishment's role",
+    "list at all: not greyed out, not filtered in the console, absent from the response.",
+    "",
+    "SPLIT BY JOB, NOT BY RANK. Finance has two capabilities and support has none that write. An",
+    "operator who works on commission cannot edit a template, and an incident stays inside the job",
+    "it belongs to. A single 'staff' role with everything would be one compromised laptop away from",
+    "every establishment on the product."
+  ],
+  "roles": [
+    {
+      "name": "platform-owner",
+      "label": "مالك المنصة",
+      "description": "كل صلاحيات المنصة، ومنح الأدوار. مكتوبة صراحةً لا بنجمة — والنجمة تمنح كل صلاحية تُضاف مستقبلاً لمن لم يوافق عليه أحد.",
+      "protected": true,
+      "capabilities": [
+        "platform.operations",
+        "platform.reminders",
+        "platform.campaigns",
+        "platform.tenants",
+        "platform.billing",
+        "platform.identity",
+        "platform.authz",
+        "platform.audit",
+        "platform.compliance",
+        "platform.backup",
+        "platform.support"
+      ]
+    },
+    {
+      "name": "platform-operator",
+      "label": "مشغّل المنصة",
+      "description": "المحتوى والحدود: القطاعات، ومكتبة القوالب، وسقوف الإرسال، والشركاء. لا فوترة ولا حذف مستأجر.",
+      "protected": false,
+      "capabilities": [
+        "platform.operations",
+        "platform.reminders",
+        "platform.campaigns",
+        "platform.support"
+      ]
+    },
+    {
+      "name": "platform-support",
+      "label": "الدعم الفني",
+      "description": "قراءة في كل مكان، وكتابة في لا مكان. يقرأ سجلّ محل ليجيب «لماذا لم تصل الرسالة؟» — وهو السؤال الوحيد الذي يولّده هذا المنتج — ولا يستطيع تغيير سقفٍ ولا قالبٍ ولا حملة وهو هناك. ودعمٌ يستطيع الكتابة خرقٌ ينتظر مساءً مرهقاً.",
+      "protected": false,
+      "read_only": true,
+      "capabilities": [
+        "platform.support"
+      ]
+    },
+    {
+      "name": "platform-finance",
+      "label": "المالية",
+      "description": "كشوف الشركاء والعمولات والفواتير. لا قوالب ولا قطاعات — من يسوّي عمولةً لا يعدّل نصّ رسالة.",
+      "protected": false,
+      "capabilities": [
+        "platform.billing",
+        "platform.support"
+      ]
+    },
+    {
+      "name": "platform-backup",
+      "label": "مشغّل النسخ",
+      "description": "تشغيل النسخ الاحتياطي ومراقبته واستعادته. صلاحيتان، وهو الدور الذي يجب أن يُستدعى في أسوأ يوم — فلا يحمل شيئاً يمكن أن يُخطئ فيه في الأيام العادية.",
+      "protected": false,
+      "capabilities": [
+        "platform.backup",
+        "platform.support"
+      ]
+    }
+  ]
+}
