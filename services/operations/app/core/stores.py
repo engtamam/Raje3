@@ -115,6 +115,16 @@ class ServiceStore(_Base):
                                    limit=200, sort=("sort", "asc"))
         return [Service(**r) for r in rows]
 
+    async def catchall(self, tenant: str) -> Service | None:
+        """The tenant's "خدمة أخرى" entry, if it has one.
+
+        Looked up rather than assumed: a tenant provisioned before the catch-all existed does not
+        have one, and an integration sending an unknown service to such a tenant must get a clean
+        rejection rather than a crash.
+        """
+        rows, _ = await self._find(tenant, {"catchall": True}, limit=1)
+        return Service(**rows[0]) if rows else None
+
     async def save(self, s: Service) -> Service:
         await self._put(s.tenant, s.id, s.__dict__.copy())
         return s

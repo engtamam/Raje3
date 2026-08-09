@@ -127,6 +127,16 @@ env:
   # That is not noise: the fan-out derives completion from ACKS, so a service that answers "nothing
   # of theirs here" is what lets us state the request was fully served. Silence is not an answer.
   #
+  # AND `operations` — OURS, and the one target where an erasure is not symbolic. Every service
+  # above holds a pseudonym; operations holds the PHONE NUMBER ITSELF, the name, the visit history
+  # and the vehicle plate. It is the only place in the platform where "delete my data" removes a
+  # real identifier rather than acknowledging a hash, which makes it the one target whose failure
+  # would make the whole fan-out a formality.
+  #
+  # Note the URL has no `-service` suffix: our own services are named plainly, and copying the
+  # pattern of the row above it would produce a host that does not resolve — a target that errors
+  # on every request while the list looks complete.
+  #
   # NOT LISTED, deliberately: api-gateway. It serves the endpoint but holds no store of its own —
   # it routes. Adding it would add an ack that asserts nothing.
   #
@@ -134,7 +144,7 @@ env:
   # subject rows — the sealed ARCHIVES still contain the person until retention expires them. That
   # is a retention answer, not an erasure answer, and it is the one place "deleted everywhere" is
   # not literally true. Bounded by BACKUP_RETENTION_MAX_AGE_SECONDS (90 days).
-  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,file-service=http://file-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,search-service=http://search-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,billing-service=http://billing-service:8000,onboarding-service=http://onboarding-service:8000,analytics-service=http://analytics-service:8000,webhook-service=http://webhook-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,backup-service=http://backup-service:8000"
+  PRIVACY_TARGETS: "tenant-service=http://tenant-service:8000,identity-service=http://identity-service:8000,authz-service=http://authz-service:8000,audit-service=http://audit-service:8000,file-service=http://file-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,search-service=http://search-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,billing-service=http://billing-service:8000,onboarding-service=http://onboarding-service:8000,analytics-service=http://analytics-service:8000,webhook-service=http://webhook-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,backup-service=http://backup-service:8000,operations=http://operations:8000"
   PRIVACY_MAX_ATTEMPTS: "8"          # then FAILED and VISIBLE — never silently abandoned
   PRIVACY_CONCURRENCY: "5"
   PRIVACY_PENDING_TIMEOUT_SECONDS: "21600"

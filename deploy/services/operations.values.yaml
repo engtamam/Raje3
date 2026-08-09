@@ -18,8 +18,15 @@ service:
   port: 8000
 
 image:
-  repository: ghcr.io/engtamam/operations
-  digest: ""   # set by deploy/repin.sh from the registry once the image is published
+  # LOCAL for now: the image is built here and imported into the node's containerd, because this
+  # service is not published to a registry yet. `docker.io/` prefixed because that is the name
+  # containerd stores it under, and the chart resolves repository@digest verbatim.
+  #
+  # It is still pinned BY DIGEST, not by the `:local` tag — the same rule as every other service,
+  # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
+  # over the moment this is published.
+  repository: docker.io/raje3/operations
+  digest: "sha256:72babb9b4d3013609af1ff02efd16407bd09854b065ebb9587460cd3b1c73b60"
 
 replicas: 1
 
@@ -49,6 +56,11 @@ autoscaling:
 # peer service sees INSTEAD of a phone number, and it salts the operator PIN hash. It is a SHARED
 # secret — the same value in every service — because two different salts fold one person into two
 # pseudonyms and an erasure request would then miss half their data.
+# BACKUP_KEK IS ALSO REQUIRED HERE, and it is SHARED — the same value every export-capable service
+# and backup-service itself holds. This service serves /internal/backup/export, and without the key
+# that endpoint answers a bare 503: correct behaviour, far better than writing an archive in the
+# clear, but nothing in the response names the cause. And what it protects here is the heaviest
+# archive in the platform — the customers, their visits and their vehicles.
 existingSecret: operations-secrets
 
 networkPolicy:
@@ -66,8 +78,6 @@ metrics:
   serviceMonitor: false   # flipped on with the rest of the fleet; the flip restarts every pod
 
 env:
-  DEFAULT_LOCALE: "ar"
-
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"

@@ -58,6 +58,10 @@ class VisitIn(BaseModel):
     branch_id: str = Field(default="", max_length=64)
     meter: int = Field(default=0, ge=0, le=10_000_000)
     note: str = Field(default="", max_length=1000)
+    # Only meaningful with the catch-all: what the technician actually did. Optional, because a
+    # required box here would be one more thing to type with a customer waiting — and "خدمة أخرى"
+    # with no label still records the visit, which is the point.
+    custom_service: str = Field(default="", max_length=200)
     # CLIENT-generated, one per entry on the screen. See core/operations.py for why this cannot be
     # server-side: a server cannot tell a double tap from a customer who genuinely came back.
     idempotency_key: str = Field(default="", max_length=128)
@@ -78,7 +82,8 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
         result = await _svc(request).record_visit(
             tenant=tenant, phone=body.phone, service_ids=body.service_ids, name=body.name,
             plate=body.plate, operator_id=body.operator_id, branch_id=body.branch_id,
-            meter=body.meter, note=body.note, idempotency_key=body.idempotency_key)
+            meter=body.meter, note=body.note, custom_service=body.custom_service,
+            idempotency_key=body.idempotency_key)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 

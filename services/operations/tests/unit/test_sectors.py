@@ -167,3 +167,20 @@ def test_sectors_are_platform_scoped_not_tenant_scoped(cat, tmp_path):
     # And nothing lands under a real tenant's id.
     rows, _ = run(store.find("sectors", {"tenant": T}, limit=10))
     assert rows == []
+
+
+# ── the catch-all: never lose a visit because a service is not in the list ────────────────────
+def test_every_sector_ships_a_catch_all(cat, tmp_path):
+    """Without it the operator cannot save, and a lost visit loses the CUSTOMER from the product
+    entirely — no reminder, no points, no metric, permanently."""
+    c, store = cat
+    SEED["sectors"][0]["services"].append({"name": "خدمة أخرى", "cycle_days": 0, "sort": 999,
+                                           "catchall": True})
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps(SEED, ensure_ascii=False), encoding="utf-8")
+    run(c.seed_from_file(str(p)))
+    run(c.seed_tenant(tenant=T, sector_key="tyres"))
+    catch = run(ServiceStore(store).catchall(T))
+    assert catch is not None and catch.name == "خدمة أخرى"
+    # Cycle 0 necessarily: we do not know what was done, so we cannot say when it is due again.
+    assert catch.cycle_days == 0

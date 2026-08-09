@@ -124,12 +124,20 @@ class Service:
     active: bool = True
     sort: int = 0                    # the field screen's grid order; the adaptive re-sort (§4.4)
                                      # overlays this rather than rewriting it
+    # THE CATCH-ALL. Exactly one per tenant, seeded with the sector, and the reason it exists is
+    # that the alternative is losing the visit. A technician does something the catalogue does not
+    # list, or a POS sends a service the owner never added — without this the operator cannot save,
+    # and a lost visit is a lost customer: no reminder, no points, no metric, forever.
+    #
+    # Its cycle is necessarily 0. We do not know what was done, so we cannot say when it is due.
+    catchall: bool = False
     created: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "cycle_days": self.cycle_days, "price_minor": self.price_minor,
-                "active": self.active, "sort": self.sort, "created": self.created}
+                "active": self.active, "sort": self.sort, "catchall": self.catchall,
+                "created": self.created}
 
 
 @dataclass
@@ -149,6 +157,11 @@ class Visit:
     branch_id: str = ""
     meter: int = 0                   # odometer where the sector has one; 0 = not captured
     note: str = ""
+    # What it actually was, when the catch-all was used. Free text, typed by the operator or sent
+    # by an integration. Kept because "خدمة أخرى" alone tells the owner nothing six months later,
+    # and because a name appearing here repeatedly is exactly the signal that it should become a
+    # real catalogue entry.
+    custom_service: str = ""
     idempotency_key: str = ""
     # TWO CLOCKS, kept separately and on purpose.
     #
@@ -166,7 +179,8 @@ class Visit:
         return {"id": self.id, "tenant": self.tenant, "customer_id": self.customer_id,
                 "service_ids": list(self.service_ids), "asset_id": self.asset_id,
                 "operator_id": self.operator_id, "branch_id": self.branch_id,
-                "meter": self.meter, "note": self.note, "created": self.created,
+                "meter": self.meter, "note": self.note, "custom_service": self.custom_service,
+                "created": self.created,
                 "occurred_at": self.occurred_at or self.created}
 
 

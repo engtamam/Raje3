@@ -91,19 +91,34 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
 
 class BatchVisitIn(BaseModel):
     """One visit inside a drained batch, as an integration SDK sends it."""
-    tenant: str = Field(min_length=1, max_length=128)
-    phone: str = Field(min_length=3, max_length=32)
-    service_ids: list[str] = Field(min_length=1, max_length=20)
+    # PERMISSIVE ON PURPOSE, and this is the whole point of the endpoint rather than a relaxation
+    # of it. The interactive route validates hard, because a person is looking at the response and
+    # can fix it. Here nobody is looking: a drained queue may contain an entry that was valid when
+    # the till recorded it and is not valid now.
+    #
+    # If the MODEL rejects that entry, pydantic fails the whole request — and the all-or-nothing
+    # batch is back, one layer above the per-item results that were built to prevent it. The item
+    # would be retried, fail identically, and block everything behind it forever. So the shape is
+    # accepted here and the BUSINESS rule decides, per item, in the loop below, where a rejection
+    # is reported rather than fatal.
+    #
+    # Found by calling the endpoint. Reading the code, both layers looked correct.
+    tenant: str = Field(default="", max_length=128)
+    phone: str = Field(default="", max_length=32)
+    service_ids: list[str] = Field(default_factory=list, max_length=20)
     name: str = Field(default="", max_length=128)
     plate: str = Field(default="", max_length=32)
     operator_id: str = Field(default="", max_length=64)
     branch_id: str = Field(default="", max_length=64)
     meter: int = Field(default=0, ge=0, le=10_000_000)
     note: str = Field(default="", max_length=1000)
+    # What the till called it, when the service is not in our catalogue. Preserved on the visit so
+    # the owner can read it — and a name that keeps recurring is the signal to add it properly.
+    custom_service: str = Field(default="", max_length=200)
     # REQUIRED here, unlike the interactive route. A batch is by definition a replay, and a replay
     # without a stable key is how one lost reply becomes two visits, two reminders and doubled
     # revenue. The device cannot know whether we saved the first attempt — only we can.
-    idempotency_key: str = Field(min_length=8, max_length=128)
+    idempotency_key: str = Field(default="", max_length=128)
     # The device's clock, which may be days out. Kept ALONGSIDE our own receive time rather than
     # instead of it: reminders schedule from the visit time, so a device running two days fast
     # would otherwise produce a reminder that arrives before it should.
@@ -140,6 +155,12 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
     accepted = 0
 
     for item in body.visits:
+        # The tenant is per item and must be present. Checked here rather than by the model, so a
+        # single item missing it is REJECTED while the rest of the batch still lands.
+        if not item.tenant or not item.idempotency_key:
+            results.append({"idempotency_key": item.idempotency_key, "status": "rejected",
+                            "reason": "tenant and idempotency_key are required on a batch item"})
+            continue
         # Audited per item, write-ahead, exactly as the interactive route is. A visit arriving
         # through an integration is not a lesser visit — the same reminders, points and revenue
         # derive from it.
@@ -151,7 +172,13 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 tenant=item.tenant, phone=item.phone, service_ids=item.service_ids,
                 name=item.name, plate=item.plate, operator_id=item.operator_id,
                 branch_id=item.branch_id, meter=item.meter, note=item.note,
-                idempotency_key=item.idempotency_key, occurred_at=item.occurred_at)
+                custom_service=item.custom_service,
+                idempotency_key=item.idempotency_key, occurred_at=item.occurred_at,
+                # ONLY on this path. A till cannot know our catalogue, and refusing a service it
+                # sent would lose the visit — which loses the customer from the product. On the
+                # field screen the operator picks from the grid, so an unknown id there is a bug
+                # and must fail loudly.
+                allow_unknown_services=True)
         except OperationError as exc:
             # REJECTED, not retryable. The reason travels back so the SDK can dead-letter it with
             # something a support engineer can read, instead of retrying it into eternity.
@@ -164,8 +191,14 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                             "visit_id": res.visit.id})
             continue
 
-        results.append({"idempotency_key": item.idempotency_key, "status": "accepted",
-                        "visit_id": res.visit.id})
+        entry = {"idempotency_key": item.idempotency_key, "status": "accepted",
+                 "visit_id": res.visit.id}
+        if res.unknown_services:
+            # Accepted AND flagged. The visit is safe; the integration still learns that it sent
+            # something we do not have, which is how a vendor finds their mapping bug instead of
+            # discovering months later that a third of their visits say "خدمة أخرى".
+            entry["unknown_services"] = res.unknown_services
+        results.append(entry)
         accepted += 1
         # The seams run per accepted visit, after it is durable — same rule as the interactive
         # path. Inline here rather than as a background task: a batch is not on anybody's screen,

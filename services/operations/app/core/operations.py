@@ -28,7 +28,7 @@ milliseconds.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.models import Asset, Customer, Visit
@@ -47,6 +47,10 @@ class RecordedVisit:
     customer: Customer
     created_customer: bool
     duplicate: bool          # True when the idempotency key had already been used
+    # Service ids the catalogue did not recognise, folded into the catch-all. REPORTED rather than
+    # swallowed: an integration sending a service that does not exist is a bug worth seeing, even
+    # though the visit was rightly kept.
+    unknown_services: list[str] = field(default_factory=list)
 
 
 def _now() -> int:
@@ -65,8 +69,9 @@ class Operations:
     async def record_visit(self, *, tenant: str, phone: str, service_ids: list[str],
                            operator_id: str = "", branch_id: str = "", name: str = "",
                            plate: str = "", meter: int = 0, note: str = "",
-                           idempotency_key: str = "",
-                           occurred_at: int = 0) -> RecordedVisit:
+                           idempotency_key: str = "", custom_service: str = "",
+                           occurred_at: int = 0,
+                           allow_unknown_services: bool = False) -> RecordedVisit:
         if not tenant:
             raise OperationError("no establishment on the request")
         phone = _normalise_phone(phone)
@@ -74,6 +79,8 @@ class Operations:
             raise OperationError("a phone number is required")
         if not service_ids:
             raise OperationError("select at least one service")
+        if any(not str(s).strip() for s in service_ids):
+            raise OperationError("a service id is blank")
 
         # The double-tap guard, first, before anything is created. Cheapest possible check: one
         # indexed read. If it hits, nothing else in this method runs — including customer creation,
@@ -99,6 +106,36 @@ class Operations:
             # older value was entered with the customer present just as this one is.
             customer.name = name.strip()
 
+        # UNKNOWN SERVICES ARE ABSORBED, NOT REFUSED — and only on the integration path, where
+        # `allow_unknown_services` is set. A till sends a service the owner never added to our
+        # catalogue: refusing it would lose the visit, and a lost visit loses the CUSTOMER from
+        # the product entirely — no reminder, no points, no metric, permanently. Losing the
+        # service NAME is a small cost; losing the visit costs the product its premise.
+        #
+        # So the unknown ids are folded into the tenant's catch-all and their labels preserved on
+        # the visit, where an owner can read them and where a name that keeps appearing is exactly
+        # the signal that it should become a real catalogue entry.
+        #
+        # Never silent: the caller is told which ids were unknown, so an integration bug is
+        # visible rather than absorbed into a shrug.
+        unknown: list[str] = []
+        if allow_unknown_services:
+            known = {s.id for s in await self._services.list(tenant, active_only=False)}
+            unknown = [sid for sid in service_ids if sid not in known]
+            if unknown:
+                catch = await self._services.catchall(tenant)
+                if catch is None:
+                    # A tenant provisioned before the catch-all existed. A clean refusal that names
+                    # the fix, rather than a crash or a silently dropped service.
+                    raise OperationError(
+                        "this establishment has no 'خدمة أخرى' entry, so an unrecognised service "
+                        "cannot be recorded — re-seed its catalogue")
+                service_ids = [sid for sid in service_ids if sid in known] or []
+                if catch.id not in service_ids:
+                    service_ids = service_ids + [catch.id]
+                if not custom_service:
+                    custom_service = ", ".join(unknown)[:200]
+
         asset_id = ""
         if plate.strip():
             asset_id = await self._resolve_asset(tenant, customer.id, plate.strip())
@@ -106,6 +143,7 @@ class Operations:
         visit = Visit(id=new_id("vis"), tenant=tenant, customer_id=customer.id,
                       service_ids=list(service_ids), asset_id=asset_id, operator_id=operator_id,
                       branch_id=branch_id, meter=meter, note=note.strip(),
+                      custom_service=custom_service.strip()[:200],
                       idempotency_key=idempotency_key, created=now,
                       occurred_at=_sane_occurred_at(occurred_at, now))
 
@@ -124,7 +162,8 @@ class Operations:
         await self._customers.save(customer)
         await self._visits.save(visit)
         return RecordedVisit(visit=visit, customer=customer,
-                             created_customer=created_customer, duplicate=False)
+                             created_customer=created_customer, duplicate=False,
+                             unknown_services=unknown)
 
     async def _resolve_asset(self, tenant: str, customer_id: str, plate: str) -> str:
         """Find this customer's vehicle by plate, or create it.

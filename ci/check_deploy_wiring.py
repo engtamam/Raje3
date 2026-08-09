@@ -96,8 +96,15 @@ def scalar(text: str, key: str) -> str:
 
 
 def service_source(svc: str) -> Path:
-    """deploy/services/foo-service.values.yaml -> platform/services/foo-service"""
-    return PLATFORM / svc
+    """Where a service's source lives — theirs or OURS.
+
+    Our own services sit in `services/`, not in the read-only submodule. Checking only the
+    submodule made every guard silently degrade to "unchecked" for exactly the services we wrote
+    ourselves — which is the wrong way round: their code is reviewed upstream and gated by
+    thirty-nine of their own gates, ours is only gated by these.
+    """
+    ours = ROOT / "services" / svc
+    return ours if ours.is_dir() else PLATFORM / svc
 
 
 def serves(svc: str, path_fragment: str) -> bool:
@@ -277,6 +284,57 @@ for p in sorted(ROOT.rglob("*")):
              f"Arabic-Indic digits {''.join(hits)} — every number in this product is 0-9, including "
              f"in Arabic text")
 
+# ── 10. every advertised capability is actually enforced by a route ──────────────────────────
+for f in values_files():
+    svc = f.name.removesuffix(".values.yaml")
+    src = service_source(svc)
+    # OURS ONLY. Upstream's manifests are gated by thirty-nine of their own gates and platform/ is
+    # read-only, so a finding there is noise we cannot act on. And their manifests legitimately
+    # advertise capabilities a route cannot REQUIRE — `identity.login` is granted by logging in,
+    # and a login route obviously cannot demand it of a caller who has not logged in yet. Scoped
+    # to our services, where every capability we advertise is one we enforce.
+    if not (ROOT / "services" / svc).is_dir():
+        continue
+    mani = src / "app" / "manifest.py"
+    if not mani.exists():
+        continue
+    text = read(mani)
+    m = re.search(r'"capabilities":\s*\[(.*?)\]', text, re.S)
+    if not m:
+        continue
+    advertised = set(re.findall(r'"([a-z][a-z0-9_.]*)"', m.group(1)))
+    api = src / "app" / "api"
+    enforced = ""
+    if api.is_dir():
+        enforced = "".join(read(p) for p in api.rglob("*.py"))
+    for cap in sorted(advertised):
+        if f'"{cap}"' not in enforced:
+            fail(f"{svc}/app/manifest.py",
+                 f"capability {cap!r} is advertised but no route requires it — an operator can "
+                 f"grant it, believe it opened something, and it opened nothing")
+
+# ── 11. a value another namespace will read must be fully qualified ──────────────────────────
+# Scoped to what we author and to the shape that actually bit us: a bare in-cluster hostname in a
+# value that is copied across a namespace. Inside base-services the short name is correct, so this
+# only looks at OUR scripts, which are where the copying happens.
+for p in sorted((ROOT / "deploy").rglob("*.sh")):
+    text = read(p)
+    if "monitoring" not in text and "NS_MON" not in text:
+        continue                                   # nothing here crosses a namespace
+    for m in re.finditer(r"@(postgres|redis|objectstore):\d+", text):
+        line = text[:m.start()].count(chr(10)) + 1
+        # Skip comments. These files argue their own choices at length, so the very passage
+        # explaining this trap contains the string it warns about — the fifth time today that
+        # reading a file as text answered a question that was about structure.
+        line_text = text.split(chr(10))[line - 1].lstrip()
+        if line_text.startswith("#"):
+            continue
+        if "svc.cluster.local" not in text[max(0, m.start() - 200):m.end() + 200]:
+            fail(str(p.relative_to(ROOT)),
+                 f"line {line}: `{m.group(0)}` is a bare in-cluster name being carried across a "
+                 f"namespace — it resolves only where it was written, and the consumer will go "
+                 f"Ready and produce nothing")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
@@ -287,4 +345,5 @@ if problems:
     sys.exit(1)
 print(f"{C_G}  ✔ deploy wiring is consistent — digests pinned, databases provisioned, "
       f"erasure fan-out complete, cron paths real, env keys declared, egress matches use, "
-      f"security posture held, shared secrets named, digits western{C_N}")
+      f"security posture held, shared secrets named, digits western, capabilities "
+      f"enforced, cross-boundary values qualified{C_N}")

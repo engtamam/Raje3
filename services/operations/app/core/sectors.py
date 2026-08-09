@@ -179,6 +179,7 @@ class SectorCatalogue:
                 # No price. It varies by city, by shop and by the day — shipping a number ships a
                 # wrong one to almost everybody, and a wrong price on a screen is worse than none.
                 price_minor=0,
-                sort=int(entry.get("sort", 0)), created=now))
+                sort=int(entry.get("sort", 0)),
+                catchall=bool(entry.get("catchall", False)), created=now))
             created += 1
         return created

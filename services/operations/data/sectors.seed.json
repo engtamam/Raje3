@@ -6,53 +6,174 @@
     "restart. Re-applying this on every boot would silently undo an operator's edits, which is the",
     "worst kind of bug — the console appears to work, and the change is gone by morning.",
     "",
-    "FIVE SECTORS. Three were chosen for us: tyres, car wash, women's salon. The other two are:",
-    "  auto_repair — the largest vehicle market by spend, and the one with the longest, most",
-    "                valuable service cycles. If retention works anywhere, it works here.",
-    "  barber      — the highest-FREQUENCY sector in the set, at roughly three weeks. Frequency is",
-    "                what makes a retention product visible: a customer who returns monthly",
-    "                produces a measurable result in weeks, not a year.",
-    "Between them the five span both asset models (vehicle and none) and cycles from two weeks to",
-    "two years, which is the range the reminder engine has to survive.",
+    "FOUR SECTORS, and the first one is wider than its name suggests. A Saudi بنشر is not a tyre",
+    "shop in the western sense: it is the neighbourhood quick-service centre. The same man who",
+    "patches a puncture also changes the oil, flushes the gearbox, washes the engine, swaps the",
+    "battery, replaces the cabin filter and tops up the aircon. Modelling it as tyres-only would",
+    "have produced a service grid that its own owner could not use — and he would have concluded,",
+    "correctly, that this product was not built for his trade.",
     "",
-    "`cycle_days` is what reminders schedules from. 0 means NO natural cycle — a puncture repair,",
-    "a one-off makeup booking — and generates no reminder. Explicitly a value rather than a missing",
-    "one: defaulting it to 30 would schedule a reminder for a puncture and teach a customer that",
-    "our messages are noise.",
+    "`cycle_days` is what reminders schedules from. 0 means NO natural cycle — a puncture repair, a",
+    "one-off makeup booking — and generates no reminder. Explicitly a value rather than a missing",
+    "one: defaulting it to 30 would schedule a reminder for a puncture and teach a customer that our",
+    "messages are noise.",
     "",
     "No prices. They vary by city, by shop and by the day; shipping a number ships a wrong one to",
-    "almost everybody, and a wrong price on a screen is worse than a blank one."
+    "almost everybody, and a wrong price on a screen is worse than a blank one.",
+    "",
+    "EVERY SECTOR ENDS WITH `خدمة أخرى`, and it is not filler. A technician does something the",
+    "catalogue does not list; a POS sends a service the owner never added. Without a catch-all the",
+    "operator CANNOT SAVE — and the visit is lost, which loses the customer from the system",
+    "entirely: no reminder, no points, no metric. Losing the service name is a small cost; losing",
+    "the visit costs the product its premise.",
+    "",
+    "cycle_days is 0 on it, necessarily: we do not know what was done, so we cannot say when it is",
+    "due again. It records the visit and generates no reminder."
   ],
-
   "sectors": [
     {
       "key": "tyres",
-      "name": "بنشر وإطارات",
+      "name": "بنشر ومركز خدمة سريعة",
       "asset": "vehicle",
-      "fields": ["plate", "meter"],
+      "fields": [
+        "plate",
+        "meter"
+      ],
       "sort": 10,
       "services": [
-        {"name": "تبديل إطارات", "cycle_days": 730, "sort": 10},
-        {"name": "ترصيص وموازنة", "cycle_days": 180, "sort": 20},
-        {"name": "ضبط زوايا", "cycle_days": 180, "sort": 30},
-        {"name": "تصليح بنشر", "cycle_days": 0, "sort": 40},
-        {"name": "تعبئة نيتروجين", "cycle_days": 90, "sort": 50},
-        {"name": "فحص ضغط الإطارات", "cycle_days": 60, "sort": 60}
+        {
+          "name": "تبديل إطارات",
+          "cycle_days": 1095,
+          "sort": 10
+        },
+        {
+          "name": "ترصيص وموازنة",
+          "cycle_days": 180,
+          "sort": 20
+        },
+        {
+          "name": "ضبط زوايا",
+          "cycle_days": 365,
+          "sort": 30
+        },
+        {
+          "name": "تصليح بنشر",
+          "cycle_days": 0,
+          "sort": 40
+        },
+        {
+          "name": "تعبئة نيتروجين",
+          "cycle_days": 90,
+          "sort": 50
+        },
+        {
+          "name": "فحص ضغط الإطارات",
+          "cycle_days": 60,
+          "sort": 60
+        },
+        {
+          "name": "تغيير زيت وفلتر",
+          "cycle_days": 120,
+          "sort": 70
+        },
+        {
+          "name": "تغيير زيت الجربوكس",
+          "cycle_days": 730,
+          "sort": 80
+        },
+        {
+          "name": "غسيل الجربوكس",
+          "cycle_days": 730,
+          "sort": 90
+        },
+        {
+          "name": "غسيل المكينة",
+          "cycle_days": 365,
+          "sort": 100
+        },
+        {
+          "name": "تغيير فلتر هواء",
+          "cycle_days": 180,
+          "sort": 110
+        },
+        {
+          "name": "تغيير فلتر مكيف",
+          "cycle_days": 180,
+          "sort": 120
+        },
+        {
+          "name": "تغيير بطارية",
+          "cycle_days": 730,
+          "sort": 130
+        },
+        {
+          "name": "تعبئة فريون المكيف",
+          "cycle_days": 365,
+          "sort": 140
+        },
+        {
+          "name": "تغيير مساحات",
+          "cycle_days": 180,
+          "sort": 150
+        },
+        {
+          "name": "تعبئة سوائل",
+          "cycle_days": 120,
+          "sort": 160
+        },
+        {
+          "name": "خدمة أخرى",
+          "cycle_days": 0,
+          "sort": 999,
+          "catchall": true
+        }
       ]
     },
     {
       "key": "car_wash",
       "name": "مغسلة سيارات",
       "asset": "vehicle",
-      "fields": ["plate"],
+      "fields": [
+        "plate"
+      ],
       "sort": 20,
       "services": [
-        {"name": "غسيل خارجي", "cycle_days": 14, "sort": 10},
-        {"name": "غسيل شامل", "cycle_days": 21, "sort": 20},
-        {"name": "تنظيف داخلي عميق", "cycle_days": 90, "sort": 30},
-        {"name": "تلميع وتشميع", "cycle_days": 120, "sort": 40},
-        {"name": "تنظيف المحرك", "cycle_days": 180, "sort": 50},
-        {"name": "معالجة سيراميك", "cycle_days": 365, "sort": 60}
+        {
+          "name": "غسيل خارجي",
+          "cycle_days": 10,
+          "sort": 10
+        },
+        {
+          "name": "غسيل شامل",
+          "cycle_days": 21,
+          "sort": 20
+        },
+        {
+          "name": "تنظيف داخلي عميق",
+          "cycle_days": 90,
+          "sort": 30
+        },
+        {
+          "name": "تلميع وتشميع",
+          "cycle_days": 120,
+          "sort": 40
+        },
+        {
+          "name": "تنظيف المحرك",
+          "cycle_days": 365,
+          "sort": 50
+        },
+        {
+          "name": "معالجة سيراميك",
+          "cycle_days": 730,
+          "sort": 60
+        },
+        {
+          "name": "خدمة أخرى",
+          "cycle_days": 0,
+          "sort": 999,
+          "catchall": true
+        }
       ]
     },
     {
@@ -62,50 +183,137 @@
       "fields": [],
       "sort": 30,
       "services": [
-        {"name": "قص شعر", "cycle_days": 60, "sort": 10},
-        {"name": "صبغة", "cycle_days": 45, "sort": 20},
-        {"name": "كيراتين", "cycle_days": 120, "sort": 30},
-        {"name": "عناية بالأظافر", "cycle_days": 21, "sort": 40},
-        {"name": "عناية بالبشرة", "cycle_days": 30, "sort": 50},
-        {"name": "مكياج", "cycle_days": 0, "sort": 60},
-        {"name": "تسريحة", "cycle_days": 0, "sort": 70}
+        {
+          "name": "قص شعر",
+          "cycle_days": 60,
+          "sort": 10
+        },
+        {
+          "name": "صبغة",
+          "cycle_days": 45,
+          "sort": 20
+        },
+        {
+          "name": "سشوار وتصفيف",
+          "cycle_days": 14,
+          "sort": 30
+        },
+        {
+          "name": "تسريحة مناسبات",
+          "cycle_days": 0,
+          "sort": 40
+        },
+        {
+          "name": "بروتين",
+          "cycle_days": 150,
+          "sort": 50
+        },
+        {
+          "name": "كيراتين",
+          "cycle_days": 150,
+          "sort": 60
+        },
+        {
+          "name": "علاج وحمام زيت",
+          "cycle_days": 30,
+          "sort": 70
+        },
+        {
+          "name": "اكستنشن شعر",
+          "cycle_days": 180,
+          "sort": 80
+        },
+        {
+          "name": "مكياج",
+          "cycle_days": 0,
+          "sort": 90
+        },
+        {
+          "name": "تشقير وتحديد حواجب",
+          "cycle_days": 30,
+          "sort": 100
+        },
+        {
+          "name": "إزالة شعر بالشمع",
+          "cycle_days": 30,
+          "sort": 110
+        },
+        {
+          "name": "مانيكير",
+          "cycle_days": 21,
+          "sort": 120
+        },
+        {
+          "name": "باديكير",
+          "cycle_days": 30,
+          "sort": 130
+        },
+        {
+          "name": "حمام مغربي",
+          "cycle_days": 45,
+          "sort": 140
+        },
+        {
+          "name": "تنظيف بشرة",
+          "cycle_days": 30,
+          "sort": 150
+        },
+        {
+          "name": "خدمة أخرى",
+          "cycle_days": 0,
+          "sort": 999,
+          "catchall": true
+        }
       ]
     },
     {
-      "key": "auto_repair",
-      "name": "ورشة صيانة سيارات",
+      "key": "upholstery",
+      "name": "تنجيد وحماية سيارات",
       "asset": "vehicle",
-      "fields": ["plate", "meter"],
+      "fields": [
+        "plate"
+      ],
       "sort": 40,
       "services": [
-        {"name": "تغيير زيت وفلتر", "cycle_days": 120, "sort": 10},
-        {"name": "صيانة دورية", "cycle_days": 180, "sort": 20},
-        {"name": "فحص شامل", "cycle_days": 365, "sort": 30},
-        {"name": "فرامل", "cycle_days": 365, "sort": 40},
-        {"name": "بطارية", "cycle_days": 730, "sort": 50},
-        {"name": "مكيف", "cycle_days": 365, "sort": 60},
-        {"name": "فلتر هواء", "cycle_days": 180, "sort": 70},
-        {"name": "كهرباء", "cycle_days": 0, "sort": 80},
-        {"name": "تصليح عام", "cycle_days": 0, "sort": 90}
-      ]
-    },
-    {
-      "key": "barber",
-      "name": "حلاقة رجالية",
-      "asset": "none",
-      "fields": [],
-      "sort": 50,
-      "services": [
-        {"name": "قص شعر", "cycle_days": 21, "sort": 10},
-        {"name": "حلاقة ذقن", "cycle_days": 14, "sort": 20},
-        {"name": "قص وحلاقة", "cycle_days": 21, "sort": 30},
-        {"name": "صبغة", "cycle_days": 45, "sort": 40},
-        {"name": "عناية بالبشرة", "cycle_days": 30, "sort": 50},
-        {"name": "حلاقة أطفال", "cycle_days": 30, "sort": 60}
+        {
+          "name": "تظليل",
+          "cycle_days": 1460,
+          "sort": 10
+        },
+        {
+          "name": "حماية شفافة",
+          "cycle_days": 1460,
+          "sort": 20
+        },
+        {
+          "name": "عزل حراري",
+          "cycle_days": 1460,
+          "sort": 30
+        },
+        {
+          "name": "تنجيد مقاعد",
+          "cycle_days": 1825,
+          "sort": 40
+        },
+        {
+          "name": "فرش أرضيات",
+          "cycle_days": 730,
+          "sort": 50
+        },
+        {
+          "name": "تعقيم وتنظيف داخلي",
+          "cycle_days": 180,
+          "sort": 60
+        },
+        {
+          "name": "خدمة أخرى",
+          "cycle_days": 0,
+          "sort": 999,
+          "catchall": true
+        }
       ]
     }
   ],
-
   "fields": {
     "plate": {
       "label": "رقم اللوحة",

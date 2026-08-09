@@ -219,3 +219,50 @@ def test_a_late_replay_cannot_drag_last_visit_backwards(ops):
     c = run(svc.customer_by_phone(A, "0501234567"))
     assert c.last_visit == now - 3600
     assert c.visit_count == 2          # both are real visits; only the DATE refuses to go back
+
+
+# ── unknown services from a till: absorbed, never refused ─────────────────────────────────────
+from app.core.models import Service as _Service
+from app.core.stores import ServiceStore as _SS, new_id as _nid
+
+
+def _with_catalogue(store):
+    run(_SS(store).save(_Service(id="srv_oil", tenant=A, name="تغيير زيت", cycle_days=120)))
+    run(_SS(store).save(_Service(id="srv_other", tenant=A, name="خدمة أخرى", catchall=True)))
+
+
+def test_a_till_sending_an_unknown_service_keeps_the_visit(ops):
+    """The alternative loses the visit — and a lost visit loses the customer from the product.
+    Losing the service NAME is the small cost; losing the visit costs the premise."""
+    svc, store = ops
+    _with_catalogue(store)
+    res = run(svc.record_visit(tenant=A, phone="0501234567",
+                               service_ids=["srv_oil", "pos_sku_9931"],
+                               idempotency_key="k1", allow_unknown_services=True))
+    assert res.visit.id
+    assert "srv_other" in res.visit.service_ids          # folded into the catch-all
+    assert "srv_oil" in res.visit.service_ids            # the known one survives
+    assert res.unknown_services == ["pos_sku_9931"]      # and it is REPORTED, not swallowed
+    assert "pos_sku_9931" in res.visit.custom_service    # the label is preserved
+
+
+def test_the_field_screen_still_fails_loudly_on_an_unknown_service(ops):
+    """On our own screen the operator picks from the grid, so an unknown id is a bug — absorbing
+    it there would hide a broken client instead of surfacing it."""
+    svc, store = ops
+    _with_catalogue(store)
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["not_a_service"],
+                               idempotency_key="k2"))
+    # No absorption without the flag: the id is recorded as sent, and nothing is silently rewritten.
+    assert res.unknown_services == []
+    assert res.visit.service_ids == ["not_a_service"]
+
+
+def test_a_tenant_without_a_catch_all_gets_a_clean_refusal(ops):
+    """Named and actionable, rather than a crash or a silently dropped service."""
+    svc, store = ops
+    run(_SS(store).save(_Service(id="srv_oil", tenant=A, name="تغيير زيت")))
+    with pytest.raises(OperationError) as exc:
+        run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["unknown"],
+                             idempotency_key="k3", allow_unknown_services=True))
+    assert "أخرى" in str(exc.value)
