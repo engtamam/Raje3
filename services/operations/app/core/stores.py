@@ -129,6 +129,25 @@ class ServiceStore(_Base):
         await self._put(s.tenant, s.id, s.__dict__.copy())
         return s
 
+    async def save_new(self, **fields: Any) -> Service:
+        """Create a service from an invoice line (core/invoices.py).
+
+        A thin wrapper rather than making the caller build a Service: the invoice path is the one
+        place a service is created by a machine rather than by a person, and a constructor call
+        spread across two modules is a field somebody forgets on one side.
+        """
+        svc = Service(**fields)
+        await self.save(svc)
+        return svc
+
+    async def by_external_id(self, tenant: str, external_id: str) -> Service | None:
+        if not external_id:
+            return None
+        for s in await self.list(tenant, active_only=False):
+            if s.external_id == external_id:
+                return s
+        return None
+
 
 class VisitStore(_Base):
     collection = VISITS

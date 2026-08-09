@@ -131,13 +131,20 @@ class Service:
     #
     # Its cycle is necessarily 0. We do not know what was done, so we cannot say when it is due.
     catchall: bool = False
+    # THE TILL'S OWN ID FOR THIS PRODUCT. Empty for anything the owner typed by hand; set when the
+    # service came from — or was matched to — a POS line (core/invoices.py).
+    #
+    # It is what lets a renamed product stay ONE service instead of forking into two every time a
+    # shop tidies its wording, and what lets a shop that went manual first ADOPT its till's id
+    # rather than ending up with two identical rows and a visit history split across them.
+    external_id: str = ""
     created: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "cycle_days": self.cycle_days, "price_minor": self.price_minor,
                 "active": self.active, "sort": self.sort, "catchall": self.catchall,
-                "created": self.created}
+                "external_id": self.external_id, "created": self.created}
 
 
 @dataclass
