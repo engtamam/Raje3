@@ -38,6 +38,13 @@ jobs:
       - name: the WhatsApp library matches the specification
         run: python3 ci/gen_templates.py --check
 
+      # And the library against META's rules, before anything is submitted. A rejection does not
+      # cost a retry — a template name cannot be reused with different content and cannot be
+      # renamed after approval, so a bad rule burns 24 names per tone. This found 11 of them in a
+      # library that had passed every check we owned.
+      - name: the library passes Meta's documented template rules
+        run: python3 ci/check_meta_rules.py
+
       # The price list lives in deploy/seed/plans.json and nowhere else. A price copied into code
       # is correct on the day it is written and silently wrong from the first time the list
       # changes — and then what a customer is shown is not what he is charged, which in a country
