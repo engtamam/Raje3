@@ -78,6 +78,9 @@ def build_manifest(
             {"path": "/internal/operations/visits/batch", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/seed-tenant", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/sectors", "tier": "internal", "method": "GET"},
+            # The most sensitive surface this service has: it turns a pseudonym back into a phone
+            # number for a peer that is about to send. One subject per call, never a list.
+            {"path": "/internal/operations/recipient", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # DECLARED, because a data map built from manifests is how a DSAR fan-out
              # finds who holds a person. An undeclared holder is never asked, never acks,

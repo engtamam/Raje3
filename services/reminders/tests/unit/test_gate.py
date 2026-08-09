@@ -154,3 +154,48 @@ def test_every_refusal_carries_a_reason():
                dict(recent_sends=[sent("service", at(9))]), dict(class_enabled=False)):
         d = ev(**kw)
         assert not d.allowed and len(d.reason) > 20
+
+
+# ── the boot guards: a setting that silently disables the control it looks like it sets ─────────
+import pytest
+
+from app.config import Settings
+
+
+def _s(**over):
+    base = dict(ENV="production", INTERNAL_SERVICE_TOKEN="x" * 40,
+                SENDER_DRIVER="http", NOTIFICATION_SERVICE_URL="http://n:8000",
+                OPERATIONS_SERVICE_URL="http://o:8000")
+    base.update(over)
+    return Settings(**base)
+
+
+def test_production_refuses_a_sender_that_sends_nothing():
+    """Visits record, schedules are created, the tick runs green, the log fills with rows marked
+    sent — and no customer receives anything. Every dashboard says the product works."""
+    with pytest.raises(ValueError, match="not one message"):
+        _s(SENDER_DRIVER="null").assert_sender_config_ok()
+
+
+def test_production_refuses_http_without_the_recipient_resolver():
+    """This service holds no phone numbers by design; without the resolver every send fails with
+    no destination, and it looks like a notification-service outage."""
+    with pytest.raises(ValueError, match="OPERATIONS_SERVICE_URL"):
+        _s(OPERATIONS_SERVICE_URL="").assert_sender_config_ok()
+
+
+def test_a_window_that_is_not_a_window_is_refused():
+    """0-24 is not a generous setting — it is the absence of the control in the shape of one."""
+    with pytest.raises(ValueError):
+        _s(SEND_WINDOW_START_HOUR=0, SEND_WINDOW_END_HOUR=24).assert_caps_sane()
+
+
+def test_an_absurd_cap_is_refused():
+    with pytest.raises(ValueError, match="absence of a cap"):
+        _s(MONTHLY_MARKETING_CAP=999).assert_caps_sane()
+
+
+def test_the_real_defaults_pass_their_own_guards():
+    s = _s()
+    s.assert_sender_config_ok()
+    s.assert_caps_sane()

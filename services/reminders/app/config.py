@@ -167,6 +167,57 @@ class Settings(BaseSettings):
     # CAN make it during an audit outage, and it is documented so nobody makes it by accident.
     AUDIT_FAIL_CLOSED: bool = True
 
+    # ── sending: the peers this service cannot work without ───────────────────
+    # `null` records what it WOULD have sent and delivers nothing. Correct for tests and a local
+    # run; refused in production by the boot guard below, where it would mean a service that
+    # schedules perfectly and messages nobody — the quietest outage this platform can produce.
+    SENDER_DRIVER: str = "null"              # null | http
+    NOTIFICATION_SERVICE_URL: str = ""       # e.g. http://notification-service:8000
+    # THEIR path, read from notification-service's manifest rather than assumed. An earlier service
+    # on this platform shipped /internal/notifications/send against a peer serving /internal/notify,
+    # and every notification went to a silent 404 for weeks — a failed notification is not a failed
+    # ticket, so nothing looked wrong.
+    NOTIFICATION_SEND_PATH: str = "/internal/notify"
+    # OURS. Turns a subject_ref back into a destination at send time, so no phone number ever rests
+    # in this service. See adapters/message_sender for why this is a route and not a column.
+    OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
+    OPERATIONS_RECIPIENT_PATH: str = "/internal/operations/recipient"
+    MESSAGE_CHANNEL: str = "whatsapp"
+    PEER_TIMEOUT_SECONDS: int = 8
+
+    # ── the engines, as settings rather than constants ────────────────────────
+    # The right smoothing factor for a car wash is not the right one for a workshop, and we do not
+    # know either yet. What we know is the shape — freezing a guess into code is how a tunable
+    # becomes a rewrite.
+    ADAPTIVE_ALPHA: float = 0.3
+    ADAPTIVE_ANOMALY_FACTOR: float = 2.5
+    ADAPTIVE_MIN_DAYS: float = 7.0
+    ADAPTIVE_MAX_DAYS: float = 730.0
+    ADAPTIVE_WARMUP_OBSERVATIONS: int = 2
+    DEFAULT_INTERVAL_DAYS: float = 90.0
+    DEFAULT_LEAD_DAYS: float = 7.0
+
+    ENGAGEMENT_HALF_LIFE_DAYS: float = 60.0
+    # Derived from the half-life, not chosen to look round: with a visit worth 10 points, a
+    # threshold of 10 is reachable only on the DAY of the visit. See core/engagement.py.
+    ENGAGEMENT_FULL_THRESHOLD: float = 5.0
+    ENGAGEMENT_MINIMAL_THRESHOLD: float = 1.5
+
+    # ── the caps (spec 8.4.2) ─────────────────────────────────────────────────
+    # Platform-owned. An establishment cannot raise these from its own screen: a blocked number
+    # lowers the quality rating of every number we hold, so the cost of one shop's decision lands
+    # on shops that did not make it.
+    SEND_WINDOW_START_HOUR: int = 7
+    SEND_WINDOW_END_HOUR: int = 22
+    DAILY_SERVICE_CAP: int = 1
+    DAILY_TOTAL_CAP: int = 2
+    MONTHLY_MARKETING_CAP: int = 4
+    MONTHLY_AWARENESS_CAP: int = 1
+    MARKETING_COOLDOWN_HOURS: int = 72
+    # Bounded per tenant per tick. An unbounded sweep is how a slow query becomes a missed batch
+    # becomes a day of reminders that never went out.
+    TICK_BATCH_SIZE: int = 100
+
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.
     DATASTORE_DRIVER: str = "memory"
@@ -367,6 +418,50 @@ class Settings(BaseSettings):
             raise ValueError("INTERNAL_SERVICE_TOKEN is a placeholder — set a real secret")
         return v
 
+
+    def assert_sender_config_ok(self) -> None:
+        """Boot guard. Refuse production with a sender that sends nothing.
+
+        The symptom is not an error anywhere: visits record, schedules are created, the tick runs
+        green, the log fills with rows marked sent — and no customer ever receives a message. Every
+        dashboard on the platform says the product works. This is the single most important guard
+        in this service.
+        """
+        if not self.is_production:
+            return
+        if self.SENDER_DRIVER == "null":
+            raise ValueError(
+                "SENDER_DRIVER=null in production: reminders would be scheduled, gated, rendered "
+                "and logged as sent, and not one message would reach a customer. Set it to 'http' "
+                "with NOTIFICATION_SERVICE_URL and OPERATIONS_SERVICE_URL.")
+        if not self.NOTIFICATION_SERVICE_URL:
+            raise ValueError("SENDER_DRIVER=http but NOTIFICATION_SERVICE_URL is empty — nothing "
+                             "to send through.")
+        if not self.OPERATIONS_SERVICE_URL:
+            raise ValueError(
+                "SENDER_DRIVER=http but OPERATIONS_SERVICE_URL is empty. This service holds no "
+                "phone numbers by design; without the recipient resolver every send fails with no "
+                "destination, and the failure looks like a notification-service outage.")
+
+    def assert_caps_sane(self) -> None:
+        """Boot guard. Refuse a configuration that disables the protection it looks like it sets.
+
+        A window of 0-24 and a cap of 999 are not 'generous settings' — they are the absence of the
+        control, expressed in the same shape as the control. Someone widening a limit for one noisy
+        establishment must not be able to switch the whole regime off by rounding.
+        """
+        if not (0 <= self.SEND_WINDOW_START_HOUR < self.SEND_WINDOW_END_HOUR <= 24):
+            raise ValueError("the sending window must be a real interval inside one day.")
+        if self.is_production and self.SEND_WINDOW_END_HOUR - self.SEND_WINDOW_START_HOUR > 17:
+            raise ValueError(
+                "a sending window wider than 17 hours is not a window: promotional messages are "
+                "barred 10pm-7am by regulation, and a configuration that permits them is a "
+                "compliance failure expressed as a setting.")
+        for name, value, ceiling in (("DAILY_TOTAL_CAP", self.DAILY_TOTAL_CAP, 5),
+                                     ("MONTHLY_MARKETING_CAP", self.MONTHLY_MARKETING_CAP, 12)):
+            if value < 1 or value > ceiling:
+                raise ValueError(f"{name}={value} is outside the defensible range (1..{ceiling}). "
+                                 f"A cap that high is the absence of a cap.")
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

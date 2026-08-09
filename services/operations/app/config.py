@@ -361,10 +361,10 @@ class Settings(BaseSettings):
         nothing is logged, and the failure looks like a product nobody wanted.
         """
         if self.is_production and not self.TEMPLATES_SEED_FILE:
-            problems.append(
+            raise ValueError(
                 "TEMPLATES_SEED_FILE is empty in production: the template library would be empty, "
                 "and an establishment with no templates cannot send a single message — which is "
-                "the product")
+                "the product.")
         if self.is_production and not self.SECTORS_SEED_FILE:
             raise ValueError(
                 "SECTORS_SEED_FILE is empty in production: on a fresh install the sector table "

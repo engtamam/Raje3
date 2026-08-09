@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import OperationsErasure
+from app.core.models import CUSTOMERS
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -237,6 +238,56 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
     return {"tenant": body.tenant, "sector": body.sector, "services_created": created,
             "fields": await sectors.fields_for(body.sector),
             "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
+
+
+class RecipientIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # The pseudonym we published on the visit event. Peers hold this and nothing else.
+    subject_ref: str = Field(min_length=8, max_length=128)
+
+
+@router.post("/operations/recipient", dependencies=[Depends(require_internal_token)])
+async def resolve_recipient(request: Request, body: RecipientIn) -> dict:
+    """Turn a subject_ref back into a destination, for a peer that is about to send.
+
+    THIS ROUTE EXISTS BECAUSE THE ALTERNATIVE WAS WORSE. `reminders` decides whether and when to
+    message a customer, and it deliberately holds no phone number — what it holds is a prediction
+    of when each person next needs a service, across every shop they use, and attached to a phone
+    number that is a marketing list. But notification-service takes a real recipient. Something has
+    to bridge the two.
+
+    Three ways to bridge it, and this is the least bad:
+
+      Store the number in reminders     — undoes the whole reason it holds a pseudonym.
+      Have notification-service resolve — it would need our salt and our customer table, which is
+                                          a bigger blast radius than this route.
+      Resolve here, at send time        — the number never rests anywhere new. It exists in this
+                                          response, in the peer's memory for the length of one
+                                          call, and nowhere else.
+
+    So: internal-token only, one subject at a time, no listing, and NOTHING LOGGED. A route that
+    turns a pseudonym into a phone number is the single most sensitive surface this service has,
+    and a bulk version of it would be a customer list export wearing a different name.
+
+    Returns an EMPTY recipient rather than 404 for an unknown or erased subject. A 404 here is an
+    oracle: it answers "does this establishment have a customer with this pseudonym?" to anyone
+    holding the internal token, and the caller's behaviour is identical either way — it cannot
+    send, and it must not retry.
+    """
+    c = request.app.state.container
+    rows, _ = await c.datastore.find(
+        CUSTOMERS, {"tenant": body.tenant, "subject_ref": body.subject_ref}, limit=1)
+    row = rows[0] if rows else None
+    phone = (row or {}).get("phone") or ""
+    return {
+        "tenant": body.tenant,
+        "subject_ref": body.subject_ref,
+        # Empty after an erasure: the row survives with its phone blanked (see core/erasure.py),
+        # which is exactly right — the peer learns "cannot send" without learning "never existed".
+        "recipient": phone,
+        "name": (row or {}).get("name") or "",
+        "found": bool(phone),
+    }
 
 
 @router.get("/operations/sectors", dependencies=[Depends(require_internal_token)])
