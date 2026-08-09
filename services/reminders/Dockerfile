@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — hardened production image
+# operations — hardened production image
 # Multi-stage · python:3.12-slim · non-root · runtime deps only · read-only-friendly
 # (CIS-aligned: minimal surface, unprivileged user, no build tools in final image)
 # =============================================================================
@@ -37,6 +37,9 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=app:app app ./app
 COPY --chown=app:app pyproject.toml README.md ./
+# NO data/ DIRECTORY. This service seeds nothing: its content — the templates and the service
+# catalogue — is owned by operations and read across the boundary. Copying an empty directory here
+# would be a line that looks load-bearing and is not, which is worse than no line at all.
 
 USER app
 EXPOSE 8000

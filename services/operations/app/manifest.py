@@ -84,6 +84,10 @@ def build_manifest(
             # The read that makes the visit event self-healing. The bus is at-most-once, so a
             # consumer that misses an event must be able to catch up by reading — see the route.
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
+            # Attribution: who brought this establishment. First key wins, permanently — the rule
+            # that decides where commission goes (spec 16.6.3).
+            {"path": "/internal/operations/partner-stamp", "tier": "internal", "method": "POST"},
+            {"path": "/internal/operations/partner-stamp/{}", "tier": "internal", "method": "GET"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # DECLARED, because a data map built from manifests is how a DSAR fan-out
              # finds who holds a person. An undeclared holder is never asked, never acks,

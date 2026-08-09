@@ -32,9 +32,18 @@ BACKUP: dict[str, Any] = {
         {"name": "visits", "tenant_scoped": True},
         {"name": "operators", "tenant_scoped": True},
         {"name": "branches", "tenant_scoped": True},
+        # WHO BROUGHT EACH SHOP. Losing this loses the commission history, and there is no way to
+        # reconstruct it: the stamp is the only record that a partner ever introduced a customer.
+        {"name": "partner_stamps", "tenant_scoped": True},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a
     # judgement call, and the fewer of those a backup manifest carries the better.
-    "excluded": [],
+    "excluded": [
+        # The partner REGISTRY is platform-scoped, not tenant-scoped, and it holds hashed bearer
+        # credentials. It is excluded from the per-tenant archive deliberately: a tenant restore
+        # must never be able to write into it, and a tenant export must never carry it.
+        {"name": "partners", "why": "platform-scoped credential registry; backed up with the "
+                                    "platform, never inside a tenant archive"},
+    ],
 }

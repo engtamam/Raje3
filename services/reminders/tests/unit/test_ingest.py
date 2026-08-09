@@ -30,7 +30,10 @@ class FakeVisits:
 
     async def since(self, *, tenant, since):
         self.calls.append(since)
-        fresh = [v for v in self.visits if v["created"] > since and v["tenant"] == tenant]
+        # An empty tenant means EVERY tenant — the same contract as the real route, which is what
+        # makes discovery able to bootstrap.
+        fresh = [v for v in self.visits
+                 if v["created"] > since and (not tenant or v["tenant"] == tenant)]
         batch = fresh[:self.page]
         return {"visits": batch, "count": len(batch),
                 "watermark": max([v["created"] for v in batch] + [since]),
@@ -121,3 +124,19 @@ def test_catch_up_never_crosses_a_tenant(st, ing):
     ing._visits = FakeVisits([visit(1, "t1"), visit(2, "t2")])
     run(ing.catch_up("t1", now=NOW, service_config=CFG))
     assert run(ScheduleStore(st).pending_for_subject("t2", "sub_2")) == []
+
+
+def test_discovery_bootstraps_a_tenant_we_have_never_heard_of(st, ing):
+    """The per-tenant catch-up cannot start: the tick derives its tenant list from pending
+    schedules, so an establishment whose FIRST event was missed has no schedule, is never in the
+    list, and is never caught up — for ever. Found on a live cluster, not by a test: every test
+    here hands the ingest a tenant name."""
+    out = run(ing.discover(now=NOW, service_config=CFG))
+    assert out["read"] == 5 and out["scheduled"] == 5
+    assert ing._visits.calls[0] == 0
+
+
+def test_the_global_cursor_does_not_collide_with_a_tenants_own(st, ing):
+    run(ing.discover(now=NOW, service_config=CFG))
+    assert run(ing._watermark("_all")) == NOW + 5
+    assert run(ing._watermark("t1")) == 0

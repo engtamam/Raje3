@@ -112,8 +112,21 @@ async def tick(request: Request, body: TickIn) -> dict:
     c = request.app.state.container
     s = get_settings()
     now = int(time.time())
-    tenants = [body.tenant] if body.tenant else await _active_tenants(c)
     caught = {"read": 0, "scheduled": 0}
+
+    # DISCOVERY FIRST, and before the tenant list is computed. An establishment whose first visit
+    # event was missed has no pending schedule, so it would not be in that list — and would never
+    # be caught up, for ever. Running discovery first means the schedule it creates is in the list
+    # by the time the list is read.
+    if not body.tenant:
+        try:
+            got = await c.ingest.discover(now=now, service_config={})
+            caught["read"] += got.get("read", 0)
+            caught["scheduled"] += got.get("scheduled", 0)
+        except Exception as exc:                                            # noqa: BLE001
+            c.telemetry.event("discover_failed", error=str(exc)[:200])
+
+    tenants = [body.tenant] if body.tenant else await _active_tenants(c)
     sent = suppressed = deferred = failed = 0
     reasons: dict[str, int] = {}
 

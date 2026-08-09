@@ -55,6 +55,24 @@ class Ingest:
                 self._t.event("visit_event_failed", error=str(exc)[:200],
                               visit=payload.get("visit_id", ""))
 
+    async def discover(self, *, now: int,
+                       service_config: dict[str, Any] | None = None,
+                       max_batches: int = 5) -> dict[str, int]:
+        """Catch up across EVERY tenant, from a single global watermark.
+
+        THIS IS THE BOOTSTRAP, and it exists because the per-tenant catch-up cannot start.
+        `catch_up` is asked about a tenant we already know, and the tick derives that list from
+        tenants with pending schedules — so an establishment whose very FIRST visit event was
+        missed has no schedule, is never in the list, is never caught up, and never receives a
+        reminder. For ever.
+
+        Found by running the tick on a live cluster with a real visit sitting in operations and
+        getting `tenants: 0` back. No unit test could have seen it: every test hands the ingest a
+        tenant name.
+        """
+        return await self.catch_up("", now=now, service_config=service_config,
+                                   max_batches=max_batches)
+
     async def catch_up(self, tenant: str, *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None,
                        max_batches: int = 5) -> dict[str, int]:
@@ -66,7 +84,9 @@ class Ingest:
         """
         if self._visits is None:
             return {"read": 0, "scheduled": 0, "batches": 0}
-        mark = await self._watermark(tenant)
+        # An empty tenant is the global cursor — see discover(). Held under a reserved key so it
+        # cannot collide with a real tenant's.
+        mark = await self._watermark(tenant or "_all")
         read = scheduled = batches = 0
         for _ in range(max_batches):
             page = await self._visits.since(tenant=tenant, since=mark)
@@ -83,7 +103,7 @@ class Ingest:
             # mean a crash mid-batch skips those visits permanently — the exact failure this whole
             # file exists to prevent.
             mark = int(page.get("watermark") or mark)
-            await self._advance(tenant, mark)
+            await self._advance(tenant or "_all", mark)
             batches += 1
             if not page.get("more"):
                 break

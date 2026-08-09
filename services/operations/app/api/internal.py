@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.config import Settings, get_settings
 from app.core.erasure import OperationsErasure
 from app.core.models import CUSTOMERS, VISITS
+from app.core.partners import PartnerError, PartnerRegistry
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -240,8 +241,56 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
             "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
 
 
-class VisitsSinceIn(BaseModel):
+class StampIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
+    # Empty = a direct signup, which is a DECISION and not an absence. See core/partners.py.
+    partner_key: str = Field(default="", max_length=128)
+
+
+@router.post("/operations/partner-stamp", dependencies=[Depends(require_internal_token)])
+async def partner_stamp(request: Request, body: StampIn) -> dict:
+    """Attribute an establishment to whoever brought it. FIRST WINS, ALWAYS.
+
+    Called by the provisioning path at tenant creation, and again by the first integration call
+    that carries a partner key. Both are safe: the second one cannot change the answer.
+
+    Internal-tier because the key is a bearer credential that directs money — a route that accepts
+    it must not be reachable with a user token, and must never appear in a URL where a proxy would
+    log it. Hence POST with a body rather than a query parameter.
+    """
+    c = request.app.state.container
+    s = get_settings()
+    await request.app.state.auditor.record(
+        "partner.stamped", actor="", tenant=body.tenant, resource="partner_stamp",
+        ip=request.client.host if request.client else "")
+    reg = PartnerRegistry(c.datastore, salt=s.PII_SALT)
+    try:
+        row = await reg.stamp(body.tenant, key=body.partner_key)
+    except PartnerError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    # The key never comes back, not even a prefix of it. A response that echoes a credential is a
+    # credential in whatever logged the response.
+    return {"tenant": row["tenant"], "partner_id": row["partner_id"],
+            "partner_name": row["partner_name"], "stamped_at": row["stamped_at"]}
+
+
+@router.get("/operations/partner-stamp/{tenant}", dependencies=[Depends(require_internal_token)])
+async def read_stamp(request: Request, tenant: str) -> dict:
+    """Who brought this establishment — the input to a commission statement."""
+    c = request.app.state.container
+    s = get_settings()
+    row = await PartnerRegistry(c.datastore, salt=s.PII_SALT).stamp_of(tenant)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return row
+
+
+class VisitsSinceIn(BaseModel):
+    # EMPTY MEANS EVERY TENANT, and that is not a convenience — it is what makes the catch-up able
+    # to BOOTSTRAP. A consumer that can only ask about tenants it already knows can never learn
+    # about the one whose very first event it missed, which is precisely the case the catch-up
+    # exists to repair. Found by running the tick on a live cluster and getting "tenants: 0".
+    tenant: str = Field(default="", max_length=128)
     # Exclusive watermark. The caller stores the highest `created` it has processed and asks for
     # what came after — a cursor it owns, not a subscription we owe it.
     since: int = Field(ge=0)
@@ -269,17 +318,18 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
     reader had moved on. `created` is ours and only ever increases.
     """
     c = request.app.state.container
-    rows, _ = await c.datastore.find(
-        VISITS, {"tenant": body.tenant}, limit=body.limit, sort=("created", "asc"))
+    where = {"tenant": body.tenant} if body.tenant else {}
+    rows, _ = await c.datastore.find(VISITS, where, limit=body.limit, sort=("created", "asc"))
     fresh = [r for r in rows if int(r.get("created") or 0) > body.since]
     # The same payload shape as the event, so a consumer has ONE code path for both. Two shapes
     # would mean the recovery path is the one nobody exercises and therefore the one that is
     # broken when it is finally needed.
     out = []
     for r in fresh:
-        cust = await c.datastore.get(CUSTOMERS, f"{body.tenant}|{r.get('customer_id','')}")
+        tenant = r.get("tenant") or body.tenant
+        cust = await c.datastore.get(CUSTOMERS, f"{tenant}|{r.get('customer_id','')}")
         out.append({
-            "tenant": body.tenant,
+            "tenant": tenant,
             "visit_id": r.get("id", ""),
             "customer_id": r.get("customer_id", ""),
             "subject_ref": (cust or {}).get("subject_ref", ""),

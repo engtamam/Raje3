@@ -244,4 +244,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "template",
         "why": "a retired template stops a message class going out, and the symptom is silence",
     },
+    {
+        "action": "partner.stamped",
+        "source": "admin",
+        "critical": True,
+        "resource": "partner_stamp",
+        "why": "the record of who brought an establishment, and therefore of who gets paid for it "
+               "every month it stays subscribed. It is written once and never rewritten, so the "
+               "log is the only place a disputed attribution can be examined",
+    },
 ]

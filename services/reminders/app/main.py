@@ -13,6 +13,8 @@
 # =============================================================================
 from __future__ import annotations
 
+import time
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -74,6 +76,29 @@ def create_app() -> FastAPI:
                 "ports": container.describe(),
             },
         )
+
+        # ── the visit event: the FAST path in ─────────────────────────────────────────────────
+        # Subscribed here rather than at import time, because a subscription registered before the
+        # container exists is a handler that fires into a half-built service.
+        #
+        # AND IT IS NOT THE RELIABLE PATH. The bus is at-most-once by contract (ports/event_bus.py
+        # says so in capitals): a pod that is restarting or rolling out simply does not receive the
+        # event, and nothing records that it missed one. That is why the tick also runs a catch-up
+        # READ against operations. If this subscription silently failed, the product would still
+        # work — five minutes slower. If the catch-up failed, customers would silently never be
+        # reminded.
+        async def _on_visit(event) -> None:
+            await container.ingest.on_event(event, now=int(time.time()),
+                                            service_config={})
+
+        try:
+            await container.event_bus.subscribe("operations.visit.recorded", _on_visit)
+            logger.info("subscribed", extra={"topic": "operations.visit.recorded"})
+        except Exception as exc:                                            # noqa: BLE001
+            # NOT fatal. The catch-up read covers this, and refusing to start over a subscription
+            # would turn a degraded fast path into a total outage.
+            logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
+
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})
