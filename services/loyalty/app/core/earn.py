@@ -34,7 +34,8 @@ class Earner:
 
     async def from_visit(self, tenant: str, *, visit_id: str, subject_ref: str,
                          service_ids: list[str], amount_halalas: int = 0,
-                         actor: str = "", tree: EarnTree | None = None) -> dict:
+                         actor: str = "", branch_id: str = "",
+                         tree: EarnTree | None = None) -> dict:
         """Award points for one visit. Returns what happened, and never raises for a redelivery.
 
         `amount_halalas` is used ONLY in invoice mode and ONLY when the establishment is integrated
@@ -64,7 +65,7 @@ class Earner:
 
         entry = await self.ledger.post(
             tenant=tenant, subject_ref=subject_ref, delta=points, reason="earn",
-            source=visit_id, actor=actor, rule_level=level)
+            source=visit_id, actor=actor, rule_level=level, branch_id=branch_id)
         if entry is None:
             return {"earned": 0, "duplicate": True, "reason": "already awarded for this visit"}
         return {"earned": points, "rule_level": level, "balance": entry.balance_after,
@@ -86,7 +87,8 @@ class Earner:
                 subject_ref=str(v.get("subject_ref") or ""),
                 service_ids=list(v.get("service_ids") or []),
                 amount_halalas=int(v.get("amount_halalas") or 0),
-                actor=str(v.get("operator_id") or ""), tree=t)
+                actor=str(v.get("operator_id") or ""),
+                branch_id=str(v.get("branch_id") or ""), tree=t)
             if res.get("earned"):
                 awarded += 1
             else:

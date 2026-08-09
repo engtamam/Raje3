@@ -229,6 +229,10 @@ class EarnIn(BaseModel):
     # touches money.
     amount_halalas: int = 0
     actor: str = ""
+    # Optional, like everything else the till sends about itself. A chain's balance is one across
+    # its branches (§12.2) — this does not change that; it answers WHERE, which the owner asks
+    # immediately after WHO.
+    branch_id: str = ""
 
 
 @router.post("/loyalty/earn", dependencies=[Depends(require_internal_token)])
@@ -242,7 +246,8 @@ async def earn(request: Request, body: EarnIn) -> dict:
     c = request.app.state.container
     return await c.earner.from_visit(
         body.tenant, visit_id=body.visit_id, subject_ref=body.subject_ref,
-        service_ids=body.service_ids, amount_halalas=body.amount_halalas, actor=body.actor)
+        service_ids=body.service_ids, amount_halalas=body.amount_halalas, actor=body.actor,
+        branch_id=body.branch_id)
 
 
 # ── the till (spec §9.8) ───────────────────────────────────────────────────────────────────────
@@ -257,6 +262,11 @@ class TillRedeemIn(BaseModel):
     # The cashier's account, as their system holds it. Recorded AS GIVEN: their system is the
     # account system, and building a second one here would be a login nobody asked for (spec §3.5).
     actor: str = ""
+    # WHICH BRANCH handed the reward over. A shop with three branches that knows who spent a
+    # customer's points and not where knows half of what it asked. Optional: a till that does not
+    # send it records a redemption with no branch rather than failing — the same rule visits
+    # already follow on /internal/operations/visits/batch.
+    branch_id: str = ""
 
 
 @router.post("/loyalty/redeem", dependencies=[Depends(require_internal_token)])
@@ -272,7 +282,7 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
     try:
         rec, is_new = await c.redeemer.redeem(
             body.tenant, body.subject_ref, body.reward_id, actor=body.actor,
-            idem_key=body.idempotency_key, channel="till")
+            idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id)
     except Overdraft as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except LoyaltyError as exc:

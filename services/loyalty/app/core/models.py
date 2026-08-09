@@ -83,6 +83,11 @@ class LedgerEntry:
     # owner can be answered when he asks "why 30?" — a number with no provenance is a number he
     # will not trust, and a loyalty programme the owner does not trust he switches off.
     rule_level: str = ""
+    # WHERE it happened, when the caller knows it. Carried on the MOVEMENT as well as on the
+    # redemption, because the ledger is the truth: a fact that lives only on the receipt is a fact
+    # the truth does not have, and a branch report built from receipts would silently omit every
+    # movement that has no receipt — every earn, and every expiry.
+    branch_id: str = ""
     # The balance AFTER this entry. Redundant with the sum, and deliberately so: it is what makes
     # a drift locatable rather than merely detectable. Without it, a mismatch tells you the total
     # is wrong; with it, a scan tells you the exact entry where the two diverged.
@@ -95,6 +100,7 @@ class LedgerEntry:
             "id": self.id, "tenant": self.tenant, "subject_ref": self.subject_ref,
             "delta": self.delta, "reason": self.reason, "source": self.source,
             "actor": self.actor, "rule_level": self.rule_level,
+            "branch_id": self.branch_id,
             "balance_after": self.balance_after, "note": self.note,
             "created_at": self.created_at,
         }
@@ -183,6 +189,12 @@ class Redemption:
     # nicety, it is the difference between a receipt and a complaint.
     idem_key: str = ""
     channel: str = "field"          # field | panel | till — see spec §9.8
+    # WHERE. A chain shares one balance across its branches (§12.2) — that is the design and it
+    # stays — but the shop still needs to know which branch handed the reward over. Without it an
+    # owner reading his own report can see WHO spent a customer's points and not WHERE, which is
+    # exactly half of the question he asks. Optional: a till that does not send it records a
+    # redemption with no branch rather than failing, the same rule visits already follow.
+    branch_id: str = ""
     discount_halalas: int = 0
     approved_by: str = ""           # set when the reward was above the manager threshold
     created_at: int = field(default_factory=_now)
@@ -193,6 +205,7 @@ class Redemption:
             "reward_id": self.reward_id, "reward_name": self.reward_name,
             "reward_type": self.reward_type, "cost": self.cost, "actor": self.actor,
             "idem_key": self.idem_key, "channel": self.channel,
+            "branch_id": self.branch_id,
             "discount_halalas": self.discount_halalas, "approved_by": self.approved_by,
             "created_at": self.created_at,
         }

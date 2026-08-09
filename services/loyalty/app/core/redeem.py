@@ -47,7 +47,7 @@ class Redeemer:
     async def redeem(self, tenant: str, subject_ref: str, reward_id: str, *,
                      actor: str = "", idem_key: str = "", channel: str = "field",
                      approved_by: str = "", manager_threshold: int = 0,
-                     source: str = "") -> tuple[Redemption, bool]:
+                     branch_id: str = "", source: str = "") -> tuple[Redemption, bool]:
         """Spend points. Returns (redemption, is_new).
 
         `is_new` is False when the idempotency key had already been used — and the caller must NOT
@@ -78,7 +78,7 @@ class Redeemer:
             # THE SNAPSHOT, not a reference. A receipt that restates itself when the menu changes
             # is not a receipt (see models.Redemption).
             reward_name=reward.name, reward_type=reward.type, cost=reward.cost,
-            actor=actor, idem_key=idem_key, channel=channel,
+            actor=actor, idem_key=idem_key, channel=channel, branch_id=branch_id,
             discount_halalas=reward.discount_halalas, approved_by=approved_by)
 
         # The ledger movement is what makes it real; the redemption row is the receipt. The
@@ -87,7 +87,7 @@ class Redeemer:
         # the account, which reads to the customer as us taking his reward back.
         entry = await self.ledger.post(
             tenant=tenant, subject_ref=subject_ref, delta=-reward.cost, reason="redeem",
-            source=source or rec.id, actor=actor)
+            source=source or rec.id, actor=actor, branch_id=branch_id)
         if entry is None:
             # The same source already produced a redeem movement. Not an error — a retry that
             # arrived without its idempotency key, which is exactly what a NAT'd mobile does.
@@ -111,6 +111,7 @@ def _row_to_redemption(row: dict) -> Redemption:
                    reward_type=row["reward_type"], cost=int(row["cost"]),
                    actor=row.get("actor") or "", idem_key=row.get("idem_key") or "",
                    channel=row.get("channel") or "field",
+                   branch_id=row.get("branch_id") or "",
                    discount_halalas=int(row.get("discount_halalas") or 0),
                    approved_by=row.get("approved_by") or "")
     r.id = row["id"]

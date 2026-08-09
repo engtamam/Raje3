@@ -97,6 +97,10 @@ class RedeemIn(BaseModel):
     # Set by a manager approving a reward above the threshold (spec §9.5). Empty otherwise, and
     # the core decides whether that is allowed — not this model.
     approved_by: str = Field(default="", max_length=128)
+    # WHERE. Sent by the field screen, which knows which branch it is standing in. NOT taken from
+    # the token: an employee can work at more than one branch of the same establishment, so the
+    # token says which SHOP and only the screen knows which BRANCH.
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.post("/redeem", dependencies=[Depends(rate_limit)])
@@ -120,7 +124,7 @@ async def redeem(request: Request, body: RedeemIn,
         rec, is_new = await c.redeemer.redeem(
             tenant, body.subject_ref, body.reward_id, actor=actor,
             idem_key=body.idempotency_key, channel="field",
-            approved_by=body.approved_by,
+            approved_by=body.approved_by, branch_id=body.branch_id,
             manager_threshold=await _threshold(c, tenant))
     except Overdraft as exc:
         return _refuse(str(exc), status.HTTP_409_CONFLICT)

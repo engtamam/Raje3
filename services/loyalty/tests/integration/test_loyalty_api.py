@@ -264,3 +264,48 @@ def test_a_token_with_no_establishment_is_refused(client):
     r = client.get(f"/api/v1/loyalty/balance/{S}",
                    headers={"Authorization": f"Bearer {tok}"})
     assert r.status_code == 403
+
+
+# ── which branch (spec §12.2: one balance, and still a place it happened) ──────────────────────
+def test_a_redemption_records_which_branch_handed_it_over(client, owner, operator):
+    rid = _reward(client, owner, name="بسكويت", cost=15)
+    _earn(client, points=100, visit="v-branch", subject="ref_branchcust01")
+    r = client.post("/api/v1/loyalty/redeem",
+                    json={"subject_ref": "ref_branchcust01", "reward_id": rid,
+                          "idempotency_key": "k-branch", "branch_id": "riyadh-north"},
+                    headers=operator)
+    assert r.status_code == 200, r.text
+    assert r.json()["redemption"]["branch_id"] == "riyadh-north"
+    # ON THE MOVEMENT TOO, because the ledger is the truth. A branch report built from receipts
+    # alone would silently omit every earn and every expiry — neither of which has a receipt.
+    hist = client.get("/api/v1/loyalty/history/ref_branchcust01", headers=operator).json()
+    spend = next(e for e in hist["entries"] if e["reason"] == "redeem")
+    assert spend["branch_id"] == "riyadh-north"
+
+
+def test_a_till_that_sends_no_branch_still_records_the_redemption(client, owner):
+    """Optional, like everything else the till says about itself — never a reason to lose a sale."""
+    rid = _reward(client, owner, name="علكة", cost=5)
+    _earn(client, points=50, visit="v-nobranch", subject="ref_nobranchcus1")
+    r = client.post("/internal/loyalty/redeem",
+                    json={"tenant": TENANT, "subject_ref": "ref_nobranchcus1",
+                          "reward_id": rid, "idempotency_key": "inv-nobranch"},
+                    headers=INTERNAL)
+    assert r.status_code == 200, r.text
+
+
+def test_the_branch_a_visit_was_recorded_at_rides_onto_the_earn(client, owner):
+    client.put("/api/v1/loyalty/settings/general", json={"points": 12},
+               headers=_auth("loyalty.manage"))
+    r = client.post("/internal/loyalty/earn",
+                    json={"tenant": TENANT, "visit_id": "v-earnbranch",
+                          "subject_ref": "ref_earnbranch01", "service_ids": ["wash"],
+                          "actor": "emp-3", "branch_id": "jeddah-south"}, headers=INTERNAL)
+    assert r.status_code == 200 and r.json()["earned"] == 12, r.text
+    hist = client.get("/api/v1/loyalty/history/ref_earnbranch01",
+                      headers=_auth("loyalty.read")).json()
+    assert hist["entries"][0]["branch_id"] == "jeddah-south"
+    # And the balance is still ONE across branches — that is the design, and this proves the
+    # branch is a label on the movement rather than a partition of the account.
+    assert client.get("/api/v1/loyalty/balance/ref_earnbranch01",
+                      headers=_auth("loyalty.read")).json()["points"] == 12

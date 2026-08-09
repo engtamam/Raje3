@@ -68,7 +68,8 @@ class Ledger:
     # ── the write ────────────────────────────────────────────────────────────────────────────
     async def post(self, *, tenant: str, subject_ref: str, delta: int, reason: str,
                    source: str = "", actor: str = "", rule_level: str = "",
-                   note: str = "", now: int | None = None) -> LedgerEntry | None:
+                   note: str = "", branch_id: str = "",
+                   now: int | None = None) -> LedgerEntry | None:
         """Move a balance. Returns the entry, or None if this cause was already posted.
 
         None rather than an exception for the idempotent case: a redelivered event is not an
@@ -94,7 +95,7 @@ class Ledger:
         ts = now if now is not None else None
         entry = LedgerEntry(tenant=tenant, subject_ref=subject_ref, delta=delta, reason=reason,
                             source=source, actor=actor, rule_level=rule_level, note=note,
-                            balance_after=after)
+                            branch_id=branch_id, balance_after=after)
         if ts is not None:
             entry.created_at = ts
         # THE ENTRY FIRST. See the module docstring: this order is recoverable and the other is not.
