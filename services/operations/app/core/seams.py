@@ -78,7 +78,13 @@ class Seams:
             return
         v, c = result.visit, result.customer
         try:
-            await self._events.publish("operations.visit.recorded", {
+            # An Event, not a bare dict. The port takes a typed envelope — reading the method NAME
+            # and guessing its argument is how a seam fails silently in production while every
+            # test that mocked it passed.
+            from app.ports.event_bus import Event
+            await self._events.publish("operations.visit.recorded", Event(
+                type="operations.visit.recorded",
+                payload={
                 "tenant": v.tenant,
                 "visit_id": v.id,
                 "customer_id": c.id,
@@ -88,8 +94,9 @@ class Seams:
                 "operator_id": v.operator_id,
                 "branch_id": v.branch_id,
                 "visit_count": c.visit_count,
+                "occurred_at": v.occurred_at or v.created,
                 "created": v.created,
-            })
+            }))
         except Exception as exc:                                            # noqa: BLE001
             self._note("visit_event_failed", error=str(exc)[:200], visit=v.id)
 
