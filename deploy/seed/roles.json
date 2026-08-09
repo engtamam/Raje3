@@ -45,9 +45,12 @@
     {
       "name": "manager",
       "label": "المدير",
-      "description": "يدير التشغيل اليومي كله. كل ما يملكه المالك عدا الفوترة وحذف الحساب — والفوترة مفتاح يمنحه المالك، لا دوراً ثانياً: محلٌّ بمديرٍ واحد لا يحتاج حسابين ليدفع أحدهم الفاتورة.",
+      "description": "يدير التشغيل اليومي كله: الميدان، والخدمات، والرسائل، والحملات، والموظفين. ولا يملك الفوترة ولا حذف الحساب — والفوترة مفتاح يمنحه المالك، لا دوراً ثانياً: محلٌّ بمديرٍ واحد لا يحتاج حسابين ليدفع أحدهم الفاتورة.",
       "protected": false,
-      "grantable_extras": ["billing.read", "billing.manage"],
+      "grantable_extras": [
+        "billing.read",
+        "billing.manage"
+      ],
       "capabilities": [
         "operations.record",
         "operations.read",
@@ -59,13 +62,13 @@
         "tenant.read",
         "identity.read",
         "identity.manage",
-        "authz.manage",
         "file.read",
         "file.write",
         "ticket.read",
         "ticket.write",
         "analytics.read"
-      ]
+      ],
+      "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
     },
     {
       "name": "marketer",
