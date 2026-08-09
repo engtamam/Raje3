@@ -142,6 +142,11 @@ class TemplateIn(BaseModel):
     # The five regulatory classes (spec §8.4.1). Validated, not accepted: the class decides the
     # rules, so a template filed under the wrong one carries the wrong constraints.
     cls: str = Field(alias="class", pattern="^(service|personal|awareness|warning|marketing)$")
+    # Which kind of business this template is FOR (spec 16.6.5). Declared on the model, not only in
+    # the core: pydantic drops an undeclared key silently and with a 200, which is exactly how the
+    # `fills` rule was enforced in the core and bypassed at the door an hour after it was written.
+    model: str = Field(default="both", pattern="^(cycle|loyalty|both)$")
+    model_why: str = Field(default="", max_length=300)
     category: str = Field(pattern="^(UTILITY|MARKETING|AUTHENTICATION)$")
     language: str = Field(default="ar", max_length=8)
     body: str = Field(min_length=1, max_length=1024)
@@ -159,7 +164,7 @@ class TemplateIn(BaseModel):
 
 
 @router.get("/templates", dependencies=[Depends(rate_limit)])
-async def list_templates(request: Request, cls: str = "", tone: str = "",
+async def list_templates(request: Request, cls: str = "", tone: str = "", model: str = "",
                          principal: Principal = Depends(_PLATFORM)) -> dict:
     """The whole library, filterable by class or tone.
 
@@ -167,7 +172,21 @@ async def list_templates(request: Request, cls: str = "", tone: str = "",
     they retired last month, which is the first thing they look for when asked why a message
     stopped going out.
     """
-    return {"templates": await _lib(request).list(cls=cls, tone=tone)}
+    lib = _lib(request)
+    if model:
+        # Filtered by model rather than by class: this is the query a console makes when it wants
+        # "what should a cafe be offered?", and answering it with a class filter would return the
+        # cycle templates a cafe has no use for.
+        try:
+            rows = await lib.for_model(model)
+        except TemplateError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        if cls:
+            rows = [r for r in rows if r.get("class") == cls]
+        if tone:
+            rows = [r for r in rows if r.get("tone") == tone]
+        return {"templates": rows}
+    return {"templates": await lib.list(cls=cls, tone=tone)}
 
 
 @router.put("/templates/{name}", dependencies=[Depends(rate_limit)])

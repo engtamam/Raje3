@@ -40,6 +40,11 @@ TONES = ("brief", "warm", "formal")
 CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
 # Where a variable's value comes from. Only `owner` is a blank page — see upsert().
 FILLS = ("system", "catalogue", "owner")
+# WHICH REMINDER MODEL A TEMPLATE SERVES (spec 16.6.5). Not a second taxonomy competing with the
+# five classes: the class says what a message IS to the regulator, the model says which kind of
+# business it is FOR. A cafe customer returns in days and there is no such thing as "time for your
+# coffee"; a workshop customer returns in months and the cycle is the entire product.
+MODELS = ("cycle", "loyalty", "both")
 
 
 class TemplateError(Exception):
@@ -62,6 +67,18 @@ class TemplateLibrary:
 
     async def get(self, name: str) -> dict[str, Any] | None:
         return await self._s.get(TEMPLATES, f"{PLATFORM}|{name}")
+
+    async def for_model(self, model: str) -> list[dict[str, Any]]:
+        """The set an establishment of this kind should have switched on at signup.
+
+        `both` is always included: a confirmation and a receipt are the same message in any
+        business. The rest is the sector's own half — and the other half is NOT hidden from the
+        console, only left off with its reason attached, because a shop that is genuinely both a
+        workshop and a cafe exists and must be able to say so.
+        """
+        if model not in MODELS:
+            raise TemplateError(f"unknown model {model!r} — one of {list(MODELS)}")
+        return [t for t in await self.list() if t.get("model", "both") in (model, "both")]
 
     async def for_tone(self, tone: str) -> list[dict[str, Any]]:
         """The set an establishment gets when it picks a tone.
@@ -135,8 +152,13 @@ class TemplateLibrary:
                     f"{name} asks the owner to write {fills.count('owner')} fields. One at most — "
                     f"anything more is a form, and an owner who abandons a form sends nothing.")
 
+        model = t.get("model", "both")
+        if model not in MODELS:
+            raise TemplateError(f"model must be one of {list(MODELS)}, got {model!r}")
+
         row = {
             "id": name, "tenant": PLATFORM, "name": name,
+            "model": model, "model_why": t.get("model_why", ""),
             "type": t.get("type", name.rsplit("_", 1)[0]),
             "tone": t.get("tone", ""), "label": t.get("label", ""),
             "class": cls, "category": cat, "language": t.get("language", "ar"),

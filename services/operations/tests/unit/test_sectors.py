@@ -272,3 +272,48 @@ def test_the_declared_fills_must_cover_every_variable(cat):
     with pytest.raises(TemplateError):
         run(_lib(store).upsert(_tpl(body="{{1}} من {{2}} — {{3}}",
                                     fills=["system", "system"])))
+
+
+# ── the reminder model: which kind of business a template is for (spec 16.6.5) ─────────────────
+def test_every_template_ships_switched_off(cat):
+    """Sixty-six switches on day one is not a choice, it is an abandonment. The sector's set is
+    enabled for the owner at signup."""
+    _, store = cat
+    row = run(_lib(store).upsert(_tpl(active=False)))
+    assert row["active"] is False
+
+
+def test_a_cafe_is_offered_loyalty_templates_and_not_cycle_ones(cat):
+    """Nobody is reminded that their coffee is due."""
+    _, store = cat
+    lib = _lib(store)
+    run(lib.upsert(_tpl(name="svc_service_reminder_brief", type="svc_service_reminder",
+                        model="cycle")))
+    run(lib.upsert(_tpl(name="mkt_winback_brief", type="mkt_winback", model="loyalty",
+                        **{"class": "marketing"}, category="MARKETING")))
+    run(lib.upsert(_tpl(name="svc_receipt_brief", type="svc_receipt", model="both")))
+    got = {t["name"] for t in run(lib.for_model("loyalty"))}
+    assert got == {"mkt_winback_brief", "svc_receipt_brief"}
+
+
+def test_a_workshop_gets_the_cycle_set_plus_the_shared_one(cat):
+    _, store = cat
+    lib = _lib(store)
+    run(lib.upsert(_tpl(name="svc_service_reminder_brief", type="svc_service_reminder",
+                        model="cycle")))
+    run(lib.upsert(_tpl(name="svc_receipt_brief", type="svc_receipt", model="both")))
+    assert len(run(lib.for_model("cycle"))) == 2
+
+
+def test_an_unknown_model_is_refused(cat):
+    _, store = cat
+    with pytest.raises(TemplateError, match="model must be"):
+        run(_lib(store).upsert(_tpl(model="seasonal")))
+
+
+def test_the_default_model_is_both_so_an_old_template_is_never_hidden(cat):
+    """A template written before this field existed must not silently disappear from every
+    console."""
+    _, store = cat
+    row = run(_lib(store).upsert(_tpl()))
+    assert row["model"] == "both"
