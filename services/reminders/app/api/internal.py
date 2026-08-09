@@ -380,6 +380,30 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
     return res
 
 
+class ConsentCountIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/reminders/consent/count", dependencies=[Depends(require_internal_token)])
+async def consent_count(request: Request, body: ConsentCountIn) -> dict:
+    """How many customers currently allow this establishment's offers (spec §8.5).
+
+    A COUNT, AND DELIBERATELY NOTHING ELSE. The owner is shown a number — "340 عميلاً وافقوا على
+    استقبال عروضك" — and a route that returned WHO consented would be a customer list export
+    wearing a different name. There is no `limit`, no cursor and no shape here that could grow
+    into one.
+
+    Counted from the NEWEST record per person, not by counting grants: somebody who granted and
+    later withdrew has two rows and must not be counted, and somebody who granted twice is one
+    person.
+    """
+    from app.core.consent import Consent
+
+    c = request.app.state.container
+    return {"tenant": body.tenant,
+            "granted": await Consent(c.datastore).count_granted(body.tenant)}
+
+
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
     tenant: str = ""

@@ -35,6 +35,11 @@ BACKUP: dict[str, Any] = {
         # The customer's own instruction about what may be sent to them. Losing it silently
         # re-enables what they switched off — the one data loss here we could not defend.
         {"name": "prefs", "tenant_scoped": True},
+        # THE CONSENT HISTORY, and losing it is worse than losing a schedule. A restore without it
+        # leaves every customer reading `never_asked`, so no marketing goes out at all — which is
+        # the safe direction and still a shop silently unable to reach anybody who had agreed. And
+        # it is the record we would be asked to produce, so a gap in it is a gap in the evidence.
+        {"name": "marketing_consent", "tenant_scoped": True},
         {"name": "engagement", "tenant_scoped": True},
         # The owner's own configuration. Losing it silently reverts every service to the platform
         # default — messages keep going out, at the wrong intervals, and nothing says why.

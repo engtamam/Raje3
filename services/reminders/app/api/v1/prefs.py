@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.api.ratelimit import rate_limit
+from app.core.consent import Consent, GRANTED, WITHDRAWN
 from app.core.models import CLASSES, Preferences, as_row
 from app.core.stores import PrefsStore
 
@@ -93,13 +94,60 @@ async def set_prefs(request: Request, ref: str, body: PrefsIn) -> dict:
         # of answer as a valid one that changed nothing.
         return {"saved": False}
     stopped = {c: True for c in body.stopped if c in CLASSES}
-    store = PrefsStore(request.app.state.container.datastore)
+    ds = request.app.state.container.datastore
+    store = PrefsStore(ds)
     row = await store.get(tenant, subject) or as_row(Preferences(tenant=tenant,
                                                                 subject_ref=subject))
+    was_stopped = dict((row or {}).get("stopped") or {})
     row["stopped"] = stopped
     await store.put(tenant, subject, row)
     await request.app.state.auditor.record(
         "reminders.preferences_changed", actor=subject, tenant=tenant,
         resource="notification_prefs", ip=request.client.host if request.client else "")
+
+    # ── the marketing switch is ALSO a consent decision ────────────────────────────────────────
+    # Ticking the box used to do one thing: clear a refusal. But "no longer refusing" is not
+    # agreeing, and the difference is the whole of §8.5 and of PDPL's prior-consent requirement —
+    # so the same tap now writes a consent RECORD, with the sentence they were shown and its
+    # version (core/consent.py).
+    #
+    # ONLY ON A CHANGE. Saving the page without touching the box must not append a row: a history
+    # of identical grants is not evidence of anything, and it would inflate the owner's count.
+    consent = Consent(ds)
+    now_on = "marketing" not in stopped
+    was_on = "marketing" not in was_stopped
+    state = await consent.state(tenant, subject)
+    shop = await _shop_name(request, tenant)
+    if now_on and (state != GRANTED):
+        # AUDITED SEPARATELY from the preference change, and write-ahead. A consent we cannot
+        # prove is a consent we did not have, and the message that followed it is then unlawful
+        # rather than merely unrecorded.
+        await request.app.state.auditor.record(
+            "reminders.marketing_consent", actor=subject, tenant=tenant,
+            resource="marketing_consent", ip=request.client.host if request.client else "")
+        await consent.record(tenant, subject, state=GRANTED, source="customer_page", shop=shop)
+    elif not now_on and was_on and state == GRANTED:
+        # THE ONE-TAP WITHDRAWAL WRITES A ROW, not only a gate flag. Otherwise the message stops
+        # and the record still says they agreed — which is the worst of the two failures, because
+        # it is the one we would be asked to produce.
+        await request.app.state.auditor.record(
+            "reminders.marketing_consent", actor=subject, tenant=tenant,
+            resource="marketing_consent", ip=request.client.host if request.client else "")
+        await consent.record(tenant, subject, state=WITHDRAWN, source="customer_page")
+
     return {"saved": True, "preferences": [
         {"class": c, "label": LABELS[c], "enabled": not stopped.get(c, False)} for c in CLASSES]}
+
+
+async def _shop_name(request: Request, tenant: str) -> str:
+    """The establishment's own name, for the sentence stored with the grant.
+
+    Empty on failure rather than raising: a consent that cannot be recorded because a peer was
+    slow is a consent lost, and the statement degrades to "the establishment" — which the customer
+    page itself does in the same situation (spec §8.6.1).
+    """
+    try:
+        shop = await request.app.state.container.identity.get(tenant)
+        return getattr(shop, "name", "") or ""
+    except Exception:                                                   # noqa: BLE001
+        return ""

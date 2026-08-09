@@ -81,6 +81,8 @@ def build_manifest(
             {"path": "/internal/reminders/eligibility", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/send", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/receipt", "tier": "internal", "method": "POST"},
+            # A COUNT of who consents, never who. The owner sees a number (§8.5).
+            {"path": "/internal/reminders/consent/count", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # Declared, because a data map built from manifests is how a DSAR fan-out finds who
              # holds a person. An undeclared holder is never asked and therefore never missed.

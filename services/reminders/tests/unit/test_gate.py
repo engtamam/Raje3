@@ -16,15 +16,50 @@ def at(hour: int, minute: int = 0, day: int = 15) -> int:
 
 
 def ev(**over):
+    # GRANTED BY DEFAULT IN THESE FIXTURES, and that is a testing choice worth naming: every test
+    # below is about a DIFFERENT rule — a cap, a cooldown, a window, an engagement tier — and each
+    # would otherwise stop at the consent check and prove nothing. The consent rule has its own
+    # tests, immediately below the customer's stop.
     d = dict(cls="service", template_type="svc_service_reminder", now=at(10), limits=LIM,
              prefs_stopped={}, engagement_score=20.0, engagement_at=at(10), recent_sends=[],
-             eng_cfg=ECFG)
+             eng_cfg=ECFG, marketing_consent="granted")
     d.update(over)
     return G.evaluate(**d)
 
 
 def sent(cls, when, outcome="sent"):
     return {"cls": cls, "at": when, "outcome": outcome}
+
+
+# ── marketing needs an explicit grant (PDPL) ───────────────────────────────────────────────────
+def test_marketing_without_an_explicit_grant_is_refused():
+    """"Did not refuse" is not consent, in any reading — and the absence of a stop is enough for
+    every other class precisely because they are not direct marketing."""
+    d = ev(cls="marketing", template_type="mkt_offer", marketing_consent="never_asked")
+    assert d.allowed is False
+    assert "موافقة" in d.reason
+
+
+def test_a_withdrawal_reads_differently_from_never_having_been_asked():
+    """One is somebody we have not asked, and asking is reasonable; the other said no, and asking
+    again is not. A single "no consent" would have merged them."""
+    never = ev(cls="marketing", template_type="mkt_offer", marketing_consent="never_asked")
+    gone = ev(cls="marketing", template_type="mkt_offer", marketing_consent="withdrawn")
+    assert never.allowed is gone.allowed is False
+    assert never.reason != gone.reason
+    assert "سحب" in gone.reason
+
+
+def test_a_granted_customer_passes_the_consent_check():
+    assert ev(cls="marketing", template_type="mkt_offer",
+              marketing_consent="granted").allowed is True
+
+
+def test_the_other_four_classes_never_need_a_grant():
+    """A shop that cannot confirm a visit to a new customer has no product (§8.4.2)."""
+    for cls, tt in (("service", "svc_service_reminder"), ("personal", "per_account_notice"),
+                    ("awareness", "awr_care_tip")):
+        assert ev(cls=cls, template_type=tt, marketing_consent="never_asked").allowed is True
 
 
 # ── 1. the customer's own stop ─────────────────────────────────────────────────────────────────

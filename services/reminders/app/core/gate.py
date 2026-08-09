@@ -87,7 +87,7 @@ class Decision:
 def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
              prefs_stopped: dict[str, bool], engagement_score: float, engagement_at: int,
              recent_sends: list[dict[str, Any]], eng_cfg: E.EngagementConfig,
-             class_enabled: bool = True) -> Decision:
+             class_enabled: bool = True, marketing_consent: str = "never_asked") -> Decision:
     """The one decision. Pure — every input is passed in, nothing is fetched.
 
     Pure on purpose: this is the function whose behaviour we must be able to reason about at 2am,
@@ -101,6 +101,22 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
     # want, and keeping a channel open over their objection is not a service to them.
     if prefs_stopped.get(cls, False):
         return Decision(False, f"العميل أوقف الرسائل من نوع «{_ar(cls)}» — إيقافه مطلق ولا يُتجاوَز.")
+
+    # ── 1b. marketing needs an EXPLICIT grant ────────────────────────────────────────────────
+    # And this is the one rule here that is not ours to soften. PDPL requires prior consent for
+    # direct marketing, and "did not refuse" is not consent — so the absence of a stop, which is
+    # enough for every other class, is not enough for this one.
+    #
+    # THE TWO REFUSALS READ DIFFERENTLY ON PURPOSE. `never_asked` is somebody we have not asked,
+    # and asking them is reasonable; `withdrawn` is somebody who said no, and asking again is not.
+    # A single "no consent" would have merged them and invited exactly that.
+    #
+    # Marketing alone. Service, personal, awareness and warning keep the absent-means-allowed rule
+    # (§8.4.2), because a shop that cannot confirm a visit to a new customer has no product.
+    if cls == "marketing" and marketing_consent != "granted":
+        if marketing_consent == "withdrawn":
+            return Decision(False, "العميل سحب موافقته على العروض — لا تُرسَل ولا يُعاد سؤاله.")
+        return Decision(False, "لا توجد موافقة صريحة على العروض — «لم يرفض» ليست موافقة.")
 
     # ── 2. is the class even sendable ─────────────────────────────────────────────────────────
     # The warning class ships with no templates today (spec 8.4.1). A schedule that reaches here

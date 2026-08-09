@@ -41,6 +41,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.consent import CONSENT
 from app.core.stores import ENGAGEMENT, PREFS, RULES, SCHEDULES, SEND_LOG
 
 
@@ -72,7 +73,18 @@ class RemindersErasure:
 
         # ORDER IS DELIBERATE — schedules first. A half-finished erasure must never leave a
         # sendable schedule behind, and every step after this one is safe to interrupt.
-        for collection in (SCHEDULES, RULES, ENGAGEMENT, PREFS):
+        # CONSENT GOES WITH THEM, and the argument for keeping it does not survive.
+        #
+        # "It is our evidence that we were allowed to market to them" is true, and it is evidence
+        # about a person who has asked to be forgotten — kept to defend sends that will never
+        # happen again, because after this there are none. The send log stays and carries the
+        # pseudonym and the timestamp, which is what answers "was a cap honoured"; the consent row
+        # is the person's own decision, and it leaves with them.
+        #
+        # ERASING IT IS ALSO THE SAFER STATE: with no record the gate reads `never_asked` and
+        # refuses marketing (core/gate.py). A grant that outlived the person who gave it would be
+        # a permission nobody can withdraw.
+        for collection in (SCHEDULES, RULES, ENGAGEMENT, PREFS, CONSENT):
             n, hit_ceiling = await self._delete_where(collection, tenant, subject)
             truncated = truncated or hit_ceiling
             if n:

@@ -192,6 +192,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "cost lands on people who did not make it",
     },
     {
+        "action": "reminders.marketing_consent",
+        "source": "user",
+        "critical": True,
+        "resource": "marketing_consent",
+        "why": "the record that PDPL asks for when it asks whether this establishment had "
+               "permission to market to this person. It is critical rather than ordinary because "
+               "a consent we cannot prove is a consent we did not have — and the send that "
+               "followed it is then unlawful, not merely unrecorded",
+    },
+    {
         "action": "reminders.preferences_changed",
         "source": "user",
         "critical": True,

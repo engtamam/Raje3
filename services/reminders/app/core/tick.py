@@ -35,6 +35,7 @@ from app.core import gate as G
 from app.core import rendering as R
 from app.core.models import SendLog, as_row
 from app.adapters.message_sender import Unsendable
+from app.core.consent import Consent
 from app.core.stores import EngagementStore, PrefsStore, ScheduleStore, SendLogStore
 
 
@@ -61,6 +62,9 @@ class Tick:
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
         self._prefs = PrefsStore(store)
+        # Marketing consent is a SEPARATE record from the send preferences, because
+        # 'did not refuse' and 'agreed' are different facts (core/consent.py).
+        self._consent = Consent(store)
         self._eng = EngagementStore(store)
         self._sender = sender
         self._limits = limits
@@ -134,12 +138,16 @@ class Tick:
         prefs = await self._prefs.get(tenant, subject) or {}
         eng = await self._eng.get(tenant, subject) or {}
         recent = await self._log.since(tenant, subject, since=now - 31 * 86400)
+        # READ ONLY FOR MARKETING. Every other class is allowed without a grant, so asking the
+        # store on every service reminder would be a read per message for an answer nobody uses.
+        consent = (await self._consent.state(tenant, subject)) if cls == "marketing"             else "never_asked"
         decision = G.evaluate(
             cls=cls, template_type=row.get("template_type", ""), now=now, limits=self._limits,
             prefs_stopped=prefs.get("stopped") or {},
             engagement_score=float(eng.get("score") or 0.0),
             engagement_at=int(eng.get("scored_at") or 0),
             recent_sends=recent, eng_cfg=self._eng_cfg,
+            marketing_consent=consent,
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))
 
         if not decision.allowed:
@@ -192,12 +200,16 @@ class Tick:
         prefs = await self._prefs.get(tenant, subject) or {}
         eng = await self._eng.get(tenant, subject) or {}
         recent = await self._log.since(tenant, subject, since=now - 31 * 86400)
+        # READ ONLY FOR MARKETING. Every other class is allowed without a grant, so asking the
+        # store on every service reminder would be a read per message for an answer nobody uses.
+        consent = (await self._consent.state(tenant, subject)) if cls == "marketing"             else "never_asked"
         decision = G.evaluate(
             cls=cls, template_type=row.get("template_type", ""), now=now, limits=self._limits,
             prefs_stopped=prefs.get("stopped") or {},
             engagement_score=float(eng.get("score") or 0.0),
             engagement_at=int(eng.get("scored_at") or 0),
             recent_sends=recent, eng_cfg=self._eng_cfg,
+            marketing_consent=consent,
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))
 
         if not decision.allowed:
