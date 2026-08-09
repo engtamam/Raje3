@@ -25,6 +25,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.sectors import SectorCatalogue, SectorError
+from app.core.partners import PartnerError, PartnerRegistry
 from app.core.templates import TemplateError, TemplateLibrary
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -221,3 +222,85 @@ async def deactivate_template(request: Request, name: str,
     if not await _lib(request).deactivate(name):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     return {"name": name, "active": False}
+
+# ── partners: who resells us, and what we owe them ────────────────────────────────────────────
+class PartnerIn(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    # A FRACTION, and the bound is why. 30 instead of 0.3 would pay a partner thirty times the
+    # subscription — and the mistake is invisible until the first statement, by which time it has
+    # been agreed in writing with somebody.
+    commission_rate: float = Field(gt=0, lt=1)
+    contact: str = Field(default="", max_length=200)
+
+
+@router.get("/partners", dependencies=[Depends(rate_limit)])
+async def list_partners(request: Request, principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Every partner. The key hash never appears — see core/partners.py."""
+    from app.config import get_settings
+    reg = PartnerRegistry(request.app.state.container.datastore, salt=get_settings().PII_SALT)
+    return {"partners": await reg.list()}
+
+
+@router.post("/partners", dependencies=[Depends(rate_limit)])
+async def create_partner(request: Request, body: PartnerIn,
+                         principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Register a partner and mint its key.
+
+    THE KEY IS RETURNED ONCE AND NEVER AGAIN. It is a bearer credential that directs money, and a
+    console that can re-read it is a console whose screenshot is a payout.
+    """
+    from app.config import get_settings
+    await request.app.state.auditor.record(
+        "partner.created", actor=principal.subject, tenant="", resource="partner",
+        ip=request.client.host if request.client else "")
+    reg = PartnerRegistry(request.app.state.container.datastore, salt=get_settings().PII_SALT)
+    try:
+        row, key = await reg.create(name=body.name, commission_rate=body.commission_rate,
+                                    contact=body.contact)
+    except PartnerError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    return {"partner": {k: v for k, v in row.items() if k != "key_hash"},
+            "key": key,
+            "note": "المفتاح يظهر مرة واحدة فقط. احفظه الآن — لا يمكن استرجاعه."}
+
+
+class RotateIn(BaseModel):
+    # DAYS, not seconds, because a human sets this and thinks in days. Bounded at 90: an overlap
+    # longer than a quarter is not a migration window, it is two live credentials nobody is
+    # tracking.
+    overlap_days: int = Field(default=14, ge=0, le=90)
+
+
+@router.post("/partners/{partner_id}/rotate", dependencies=[Depends(rate_limit)])
+async def rotate_partner(request: Request, partner_id: str, body: RotateIn,
+                         principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Issue a new key while the old one keeps working for a window that closes itself."""
+    from app.config import get_settings
+    await request.app.state.auditor.record(
+        "partner.key_rotated", actor=principal.subject, tenant="",
+        resource=f"partner:{partner_id}", ip=request.client.host if request.client else "")
+    reg = PartnerRegistry(request.app.state.container.datastore, salt=get_settings().PII_SALT)
+    try:
+        row, key = await reg.rotate(partner_id, overlap_seconds=body.overlap_days * 86400)
+    except PartnerError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc))
+    return {"partner_id": partner_id, "key": key,
+            "old_key_valid_until": row["prev_key_expires"],
+            "note": "المفتاح القديم يعمل حتى التاريخ أعلاه ثم يتوقف تلقائياً."}
+
+
+@router.delete("/partners/{partner_id}", dependencies=[Depends(rate_limit)])
+async def deactivate_partner(request: Request, partner_id: str,
+                             principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Stop NEW attributions. Existing shops keep their stamp — they came through this partner
+    once, and a falling-out does not rewrite history or stop what is already owed."""
+    from app.config import get_settings
+    await request.app.state.auditor.record(
+        "partner.deactivated", actor=principal.subject, tenant="",
+        resource=f"partner:{partner_id}", ip=request.client.host if request.client else "")
+    reg = PartnerRegistry(request.app.state.container.datastore, salt=get_settings().PII_SALT)
+    if not await reg.deactivate(partner_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return {"partner_id": partner_id, "active": False,
+            "note": "المحلات المختومة به تبقى مختومة، ومستحقاته القائمة لا تسقط."}
+

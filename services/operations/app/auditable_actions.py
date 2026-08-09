@@ -253,4 +253,28 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "every month it stays subscribed. It is written once and never rewritten, so the "
                "log is the only place a disputed attribution can be examined",
     },
+    {
+        "action": "partner.created",
+        "source": "admin",
+        "critical": True,
+        "resource": "partner",
+        "why": "mints a bearer credential that directs commission. The key itself is never logged "
+               "— what is logged is that one was issued, by whom, and when",
+    },
+    {
+        "action": "partner.key_rotated",
+        "source": "admin",
+        "critical": True,
+        "resource": "partner",
+        "why": "a rotation is usually somebody reacting to a leak, and the window during which "
+               "two keys authenticate is exactly the period anyone investigating will ask about",
+    },
+    {
+        "action": "partner.deactivated",
+        "source": "admin",
+        "critical": True,
+        "resource": "partner",
+        "why": "stops new attributions and is often the first act of a commercial dispute — the "
+               "log is where the date is settled",
+    },
 ]

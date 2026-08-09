@@ -122,6 +122,10 @@ def build_manifest(
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},
             # ── the partner console: their shops and their money, never a shop's customers ──
+            {"path": "/api/v1/platform/partners", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/partners", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/platform/partners/{}/rotate", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/platform/partners/{}", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/partner/shops", "tier": "user", "method": "GET"},
             {"path": "/api/v1/partner/statements", "tier": "user", "method": "GET"},
             {"path": "/api/v1/partner/statements/{}", "tier": "user", "method": "GET"},
