@@ -65,7 +65,8 @@ class Operations:
     async def record_visit(self, *, tenant: str, phone: str, service_ids: list[str],
                            operator_id: str = "", branch_id: str = "", name: str = "",
                            plate: str = "", meter: int = 0, note: str = "",
-                           idempotency_key: str = "") -> RecordedVisit:
+                           idempotency_key: str = "",
+                           occurred_at: int = 0) -> RecordedVisit:
         if not tenant:
             raise OperationError("no establishment on the request")
         phone = _normalise_phone(phone)
@@ -105,11 +106,19 @@ class Operations:
         visit = Visit(id=new_id("vis"), tenant=tenant, customer_id=customer.id,
                       service_ids=list(service_ids), asset_id=asset_id, operator_id=operator_id,
                       branch_id=branch_id, meter=meter, note=note.strip(),
-                      idempotency_key=idempotency_key, created=now)
+                      idempotency_key=idempotency_key, created=now,
+                      occurred_at=_sane_occurred_at(occurred_at, now))
 
+        # last_visit follows the EVENT time, not the receive time: a batch drained two days late
+        # describes a customer who was here two days ago, and the reminder must be scheduled from
+        # when they were actually here.
+        #
+        # It only moves FORWARD. A replayed old visit arriving after a newer one must not drag the
+        # customer's last-visit date backwards, which would schedule a reminder that has already
+        # passed and mark a returning customer as absent.
         # The counters live on the customer so the recent-customers strip is one read. Updated
         # here rather than derived, because deriving them would put a scan on every keystroke.
-        customer.last_visit = now
+        customer.last_visit = max(customer.last_visit, visit.occurred_at)
         customer.visit_count += 1
 
         await self._customers.save(customer)
@@ -153,6 +162,29 @@ class Operations:
 
     async def catalogue(self, tenant: str) -> list[dict[str, Any]]:
         return [s.public() for s in await self._services.list(tenant)]
+
+
+# A device clock may be wrong by days, and occasionally by years — a tablet that lost its battery
+# comes back at the epoch, and one set by hand can land in the future. Both are clamped rather than
+# trusted, because either would corrupt a reminder schedule silently.
+_MAX_BACKDATE_SECONDS = 90 * 24 * 3600      # older than a quarter is a broken clock, not a backlog
+
+
+def _sane_occurred_at(claimed: int, now: int) -> int:
+    """Trust the device's clock only within a window we can defend.
+
+    Not validation for its own sake: `occurred_at` is what reminders schedule from. A device set to
+    next month would schedule a reminder into next month; one at the epoch would mark every
+    customer permanently absent and trigger a win-back to somebody who was here this morning.
+    """
+    if claimed <= 0:
+        return now
+    if claimed > now:
+        # A future timestamp is always wrong — we received it, so it has happened.
+        return now
+    if now - claimed > _MAX_BACKDATE_SECONDS:
+        return now
+    return claimed
 
 
 def _normalise_phone(phone: str) -> str:

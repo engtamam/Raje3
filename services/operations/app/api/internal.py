@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import OperationsErasure
+from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
@@ -86,6 +87,93 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     eraser = OperationsErasure(store=c.datastore, pii_salt=s.PII_SALT,
                                max_scan=s.ERASURE_MAX_SCAN)
     return await eraser.erase(body.tenant, body.subject)
+
+
+class BatchVisitIn(BaseModel):
+    """One visit inside a drained batch, as an integration SDK sends it."""
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=3, max_length=32)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    name: str = Field(default="", max_length=128)
+    plate: str = Field(default="", max_length=32)
+    operator_id: str = Field(default="", max_length=64)
+    branch_id: str = Field(default="", max_length=64)
+    meter: int = Field(default=0, ge=0, le=10_000_000)
+    note: str = Field(default="", max_length=1000)
+    # REQUIRED here, unlike the interactive route. A batch is by definition a replay, and a replay
+    # without a stable key is how one lost reply becomes two visits, two reminders and doubled
+    # revenue. The device cannot know whether we saved the first attempt — only we can.
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    # The device's clock, which may be days out. Kept ALONGSIDE our own receive time rather than
+    # instead of it: reminders schedule from the visit time, so a device running two days fast
+    # would otherwise produce a reminder that arrives before it should.
+    occurred_at: int = Field(default=0, ge=0)
+
+
+class BatchIn(BaseModel):
+    # Small on purpose. The SDK drains oldest-first in modest batches with a randomised gap, so a
+    # city's network returning does not put a thousand devices on us in the same second.
+    visits: list[BatchVisitIn] = Field(min_length=1, max_length=50)
+
+
+@router.post("/operations/visits/batch", dependencies=[Depends(require_internal_token)])
+async def record_visits_batch(request: Request, body: BatchIn) -> dict:
+    """Accept a drained batch from an integration, and report the outcome PER ITEM.
+
+    THE FAILURE THIS EXISTS TO PREVENT — and it is the one everybody who writes an offline queue by
+    hand walks into. An all-or-nothing batch containing a single permanently-invalid visit (a
+    service id that was deleted, say) fails, is retried, fails again, forever. Everything behind it
+    stops moving, and the shop believes its data is syncing while the queue has not advanced in a
+    week. Nothing errors anywhere a human is looking.
+
+    So each element gets its own verdict: `accepted`, `duplicate`, or `rejected` with a reason the
+    SDK can act on. A rejected item is the client's to dead-letter locally after a bounded number
+    of attempts; it must never block the queue behind it.
+
+    THE TENANT IS ON EACH ITEM here, unlike the user-tier route where it comes off the token. This
+    is the internal tier, called by a service that already authenticated the establishment, and one
+    batch could in principle carry more than one — so it is per item rather than per request, and
+    every item is scoped to its own.
+    """
+    svc = request.app.state.container.operations
+    results: list[dict] = []
+    accepted = 0
+
+    for item in body.visits:
+        # Audited per item, write-ahead, exactly as the interactive route is. A visit arriving
+        # through an integration is not a lesser visit — the same reminders, points and revenue
+        # derive from it.
+        await request.app.state.auditor.record(
+            "visit.recorded", actor="integration", tenant=item.tenant, resource="visit",
+            ip=request.client.host if request.client else "")
+        try:
+            res = await svc.record_visit(
+                tenant=item.tenant, phone=item.phone, service_ids=item.service_ids,
+                name=item.name, plate=item.plate, operator_id=item.operator_id,
+                branch_id=item.branch_id, meter=item.meter, note=item.note,
+                idempotency_key=item.idempotency_key, occurred_at=item.occurred_at)
+        except OperationError as exc:
+            # REJECTED, not retryable. The reason travels back so the SDK can dead-letter it with
+            # something a support engineer can read, instead of retrying it into eternity.
+            results.append({"idempotency_key": item.idempotency_key, "status": "rejected",
+                            "reason": str(exc)})
+            continue
+
+        if res.duplicate:
+            results.append({"idempotency_key": item.idempotency_key, "status": "duplicate",
+                            "visit_id": res.visit.id})
+            continue
+
+        results.append({"idempotency_key": item.idempotency_key, "status": "accepted",
+                        "visit_id": res.visit.id})
+        accepted += 1
+        # The seams run per accepted visit, after it is durable — same rule as the interactive
+        # path. Inline here rather than as a background task: a batch is not on anybody's screen,
+        # so there is no five-second budget to protect, and doing it inline means the caller's
+        # 200 genuinely reflects the work being done.
+        await request.app.state.container.seams.after_visit(res)
+
+    return {"accepted": accepted, "total": len(body.visits), "results": results}
 
 
 class SeedTenantIn(BaseModel):

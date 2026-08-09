@@ -164,3 +164,58 @@ def test_an_unusual_number_is_kept_rather_than_refused():
     enforce a format nobody promised."""
     assert _normalise_phone("0112345678") == "112345678"
     assert _normalise_phone("") == ""
+
+
+# ── two clocks: the device's and ours ─────────────────────────────────────────────────────────
+# These exist because an integration replays visits after an outage, and a cashier's clock is not
+# something we can trust. `occurred_at` is what reminders schedule from, so every one of these is a
+# wrong reminder prevented.
+import time as _time
+
+
+def test_a_visit_recorded_here_has_both_clocks_agreeing(ops):
+    svc, _ = ops
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+    assert res.visit.occurred_at == res.visit.created
+
+
+def test_a_replayed_visit_keeps_the_time_it_happened(ops):
+    """A batch drained two days late describes a customer who was here two days ago. Stamping it
+    with the receive time would push their whole reminder schedule two days out."""
+    svc, _ = ops
+    two_days_ago = int(_time.time()) - 2 * 24 * 3600
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               idempotency_key="e1", occurred_at=two_days_ago))
+    assert res.visit.occurred_at == two_days_ago
+    assert res.visit.created > res.visit.occurred_at        # ours is when we received it
+
+
+def test_a_device_clock_in_the_future_is_clamped(ops):
+    """A future timestamp is always wrong: we received it, so it has happened. Trusting one would
+    schedule a reminder from a date that has not arrived."""
+    svc, _ = ops
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               occurred_at=int(_time.time()) + 90 * 24 * 3600))
+    assert res.visit.occurred_at <= res.visit.created
+
+
+def test_a_dead_battery_clock_is_clamped(ops):
+    """A tablet that lost its battery comes back at the epoch. Left alone it would mark every
+    customer permanently absent and fire a win-back at somebody who was here this morning."""
+    svc, _ = ops
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], occurred_at=1))
+    assert res.visit.occurred_at == res.visit.created
+
+
+def test_a_late_replay_cannot_drag_last_visit_backwards(ops):
+    """An old visit arriving after a newer one must not rewind the customer's last-visit date —
+    that would schedule a reminder that has already passed and mark a returning customer absent."""
+    svc, _ = ops
+    now = int(_time.time())
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], idempotency_key="new",
+                         occurred_at=now - 3600))
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], idempotency_key="old",
+                         occurred_at=now - 5 * 24 * 3600))
+    c = run(svc.customer_by_phone(A, "0501234567"))
+    assert c.last_visit == now - 3600
+    assert c.visit_count == 2          # both are real visits; only the DATE refuses to go back

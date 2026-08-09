@@ -192,6 +192,52 @@ content under `data/`, edited and loaded without a deploy.
 python scripts/create_service.py my-service --desc "..."
 ```
 
+## 6.1 The integration SDK — and what it forces on the server
+
+A separate, MIT-licensed repository on GitHub: a client library a POS vendor drops into their code
+instead of building an integration from scratch. Spec §16.6.2 is the product argument. What matters
+here is that **the SDK is not only a client — it dictates three things the server must already do**,
+and two of them are load-bearing enough that building the SDK later would mean changing `operations`.
+
+**1. The idempotency key must be CLIENT-generated and stable.** Already true, and it was designed
+for the double tap on our own field screen. It turns out to be the same mechanism an offline queue
+needs, for a reason worth stating precisely: when a device sends a visit and the reply is lost, the
+device CANNOT know whether we saved it. Only the server can recognise "I have seen this entry
+before". The queue is the device's problem; the duplicate is ours; the key is the language between
+them. One key per ENTRY, not per customer — so a customer who genuinely returns in the evening
+carries a different key from the one they carried in the morning.
+
+**2. A batch endpoint that reports PER ITEM, never all-or-nothing.** This does not exist yet and
+must, before the SDK ships. The failure it prevents is the one everybody who writes an offline
+queue by hand walks into: an all-or-nothing batch containing one permanently-invalid visit — a
+service id that was deleted, say — fails, is retried, fails again, forever. Everything behind it
+stops moving, and the shop believes its data is syncing while the queue has not advanced in a week.
+So `POST /internal/operations/visits/batch` returns a result per element: accepted, duplicate, or
+rejected with a reason. The SDK drops a permanently-rejected item into a LOCAL dead-letter after a
+bounded number of attempts and reports it, rather than blocking the queue behind it.
+
+**3. Two timestamps, kept separately.** A cashier's clock can be days out. The SDK sends
+`occurred_at` as the device saw it; we stamp `received_at` ourselves and store both. Not cosmetic:
+reminders schedule from the visit time, so a device running two days fast produces a reminder that
+arrives before it should. `operations` currently stores one `created` and this needs revisiting
+when the batch endpoint lands.
+
+**Pacing is the SDK's job, and the server should not have to care — but it will.** On reconnect the
+drain sends small batches, oldest first, with a randomised gap between them. Ordering matters
+because `visit_count` and `last_visit` are computed in sequence. The randomised gap matters more:
+when a city's network comes back, a thousand devices reconnect in the same second, and even spacing
+produces an orderly wave rather than dispersing one. Expect the server to see this pattern anyway
+and honour `Retry-After` when we send it.
+
+**What the SDK must NOT be able to do, by construction rather than by policy:** grant marketing
+consent. No external system may consent on a customer's behalf (spec §8.5), and the library simply
+has no such call — a vendor cannot get it wrong.
+
+**And the boundary:** the SDK is a client, not an authority. It runs on a device we do not own, and
+anyone who can edit it can send whatever they like. Every control stays server-side — validation,
+tenant isolation, message classification, consent, quiet hours. Being our code buys it no
+privilege.
+
 ## 7. The deploy pipeline — theirs, not ours
 
 `base-services` ships the whole pipeline in `platform/deploy/server/`: `provision-server.sh`,

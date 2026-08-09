@@ -1,0 +1,119 @@
+# operations — Raje3 deployment values.
+#
+# OURS. The first service in the product that base-services does not provide, because no general
+# platform knows what a "visit" is, what a "service cycle" means, or when a customer counts as
+# absent. Everything under it — identity, isolation, audit, consent, messaging, backup — is theirs
+# and proven; this is the layer that makes it Raje3.
+#
+# WHAT IT OWNS: the customer, the vehicle, the service catalogue, the visit, the operator, the
+# branch. And the sector table, which is platform-wide content our own console edits at runtime.
+#
+# THE ONE THING TO KNOW BEFORE CHANGING ANYTHING HERE: this service holds the phone number in the
+# clear. It is the only one that does, deliberately (core/models.py explains why — the field screen
+# searches by prefix and a salted hash cannot be prefix-searched). Every peer receives a
+# subject_ref instead. So a leak here is a leak of phone numbers, and the isolation is enforced at
+# the store rather than in a handler.
+service:
+  name: operations
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/operations
+  digest: ""   # set by deploy/repin.sh from the registry once the image is published
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis      # the visit event is the spine: reminders, loyalty and insights all read it
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # Higher than a typical service, and for a specific reason: this is the hot path. Every visit
+    # in every establishment lands here, and the five-second field-entry budget (spec §17.3) is a
+    # promise to an operator with a customer standing in front of them.
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false   # single replica until there is real load to size against
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT.
+#
+# PII_SALT does double duty here and both uses are load-bearing: it produces the subject_ref every
+# peer service sees INSTEAD of a phone number, and it salts the operator PIN hash. It is a SHARED
+# secret — the same value in every service — because two different salts fold one person into two
+# pseudonyms and an erasure request would then miss half their data.
+existingSecret: operations-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet. It calls search-service and audit-service, both in-cluster, and the chart's
+    # peer-service rule covers those. A service that holds phone numbers has no business reaching
+    # the open internet, and saying so here is cheaper than discovering otherwise.
+    internet: false
+
+metrics:
+  serviceMonitor: false   # flipped on with the rest of the fleet; the flip restarts every pod
+
+env:
+  DEFAULT_LOCALE: "ar"
+
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── search: how a customer becomes findable ───────────────────────────────────────────────
+  # `null` indexes nothing and says so — and the boot guard refuses it in production, because the
+  # symptom is not an error anywhere. Visits record perfectly, the API is green, and the screen
+  # simply never finds a returning customer: the operator concludes they are new, records them
+  # again, and the product's entire premise quietly disappears.
+  SEARCH_DRIVER: "http"
+  SEARCH_SERVICE_URL: "http://search-service:8000"
+  SEARCH_INDEX_PATH: "/internal/search/index"
+  SEARCH_INDEX_NAME: "customers"
+  # Short, and it runs after the response anyway. A slow index must never hold a worker.
+  SEARCH_TIMEOUT_SECONDS: "5"
+
+  # ── sectors: the ONE-TIME seed ────────────────────────────────────────────────────────────
+  # Applied only when the sector table is empty. After that the table is the source of truth and
+  # our platform console edits it at runtime — no rebuild, no restart. Re-applying this on every
+  # boot would silently undo an operator's edits, which is the worst kind of bug: the console
+  # appears to work and the change is gone by morning.
+  SECTORS_SEED_FILE: "/app/data/sectors.seed.json"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # Fail-closed, and it costs something: an audit outage stops the shop floor. Accepted, because
+  # every reminder, loyalty point and revenue figure derives from a visit record — an
+  # unattributable one lets work be recorded that was never done, or the evidence that it was to
+  # be removed.
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# NOT MOUNTED — baked into the image at /app/data. The chart mounts only /tmp and has no hook for
+# an extra volume, and the seed does not need one: it is applied once against an empty table, and
+# every edit after that goes through the platform console into the datastore. A ConfigMap here
+# would add a moving part to carry content that never moves.
+#
+# Reported as a chart gap rather than worked around by editing platform/: a chart with no way to
+# mount a ConfigMap limits any product that ships content.
+
+# No CronJobs. Checked against the manifest rather than assumed: nothing in this service is
+# time-driven. Reminders are scheduled by `reminders` from the visit event, which is where that
+# work belongs — a service that owns the record should not also own the clock.
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door

@@ -37,6 +37,11 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=app:app app ./app
 COPY --chown=app:app pyproject.toml README.md ./
+# The sector SEED. Baked in rather than mounted, deliberately: it is applied once, on a fresh
+# install, and after that the datastore is the source of truth and our platform console edits
+# sectors at runtime. Content that changes at runtime does not belong in an image; content that
+# only ever seeds an empty table does, and it removes a ConfigMap from the deployment.
+COPY --chown=app:app data ./data
 
 USER app
 EXPOSE 8000

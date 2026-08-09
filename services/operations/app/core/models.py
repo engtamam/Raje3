@@ -150,13 +150,24 @@ class Visit:
     meter: int = 0                   # odometer where the sector has one; 0 = not captured
     note: str = ""
     idempotency_key: str = ""
+    # TWO CLOCKS, kept separately and on purpose.
+    #
+    # `created` is OURS — when we received it. `occurred_at` is the device's — when it says the
+    # visit happened. They are the same number for anything recorded on our own screen, and they
+    # diverge for anything replayed by an integration after an outage.
+    #
+    # Not cosmetic: reminders schedule from when the visit HAPPENED, so a batch drained two days
+    # late must not push every reminder two days out. And a cashier's clock can simply be wrong —
+    # keeping ours means a device set to next month cannot schedule a reminder into next month.
     created: int = 0
+    occurred_at: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "customer_id": self.customer_id,
                 "service_ids": list(self.service_ids), "asset_id": self.asset_id,
                 "operator_id": self.operator_id, "branch_id": self.branch_id,
-                "meter": self.meter, "note": self.note, "created": self.created}
+                "meter": self.meter, "note": self.note, "created": self.created,
+                "occurred_at": self.occurred_at or self.created}
 
 
 @dataclass
