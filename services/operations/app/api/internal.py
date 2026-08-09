@@ -378,9 +378,23 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
     reader had moved on. `created` is ours and only ever increases.
     """
     c = request.app.state.container
-    where = {"tenant": body.tenant} if body.tenant else {}
-    rows, _ = await c.datastore.find(VISITS, where, limit=body.limit, sort=("created", "asc"))
+    if body.tenant:
+        rows, _ = await c.datastore.find(VISITS, {"tenant": body.tenant},
+                                         limit=body.limit, sort=("created", "asc"))
+    else:
+        # sweeper: reading EVERY tenant's visits IS the operation here, not a forgotten filter.
+        # This is the bootstrap path — a consumer that can only ask about tenants it already knows
+        # can never learn about the one whose first event it missed, and the event bus is
+        # at-most-once. `find` correctly refuses an empty `where`; this says out loud that the
+        # absence of a filter is the point.
+        #
+        # It is internal-token only, bounded by `limit`, and driven by a five-minute cron, so the
+        # cost is a bounded read every five minutes rather than anything on a request path.
+        rows = await c.datastore.scan_all(VISITS, limit=body.limit)
     fresh = [r for r in rows if int(r.get("created") or 0) > body.since]
+    # scan_all does not sort. The watermark depends on `created` ascending, and a page returned in
+    # storage order would advance the cursor past visits it never returned.
+    fresh.sort(key=lambda r: int(r.get("created") or 0))
     # The same payload shape as the event, so a consumer has ONE code path for both. Two shapes
     # would mean the recovery path is the one nobody exercises and therefore the one that is
     # broken when it is finally needed.
