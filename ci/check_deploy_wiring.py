@@ -372,6 +372,62 @@ if gateway_values.exists():
                  f"{svc} declares {declared} action(s) but is not in ADMIN_SERVICES — the console "
                  f"never asks for them, so the panel renders empty with nothing failing anywhere")
 
+
+# ── 13. every user-facing route is an action the console can show ─────────────────────────────
+#
+# A route an owner uses that declares no action is a feature the console cannot render. It is not
+# broken — it is invisible, which is worse: the service works, the tests pass, and the owner never
+# finds the screen.
+#
+# Found by counting: forty-two routes across four services had no action. Seven were the template
+# library and the partner registry that our OWN console edits; six were the settings tree built
+# that same day; three were the partner's console, which would have rendered empty for a company
+# we had just promised a dashboard to.
+#
+# Ours only. Upstream's services are theirs to declare, and a gap there is a report, not a build
+# failure on our side.
+for svc_dir in sorted((ROOT / "services").iterdir()) if (ROOT / "services").is_dir() else []:
+    if not (svc_dir / "app" / "manifest.py").is_file():
+        continue
+    svc = svc_dir.name
+    try:
+        tree = ast.parse(read(svc_dir / "app" / "manifest.py"))
+    except SyntaxError:
+        continue
+    routes = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            try:
+                d = ast.literal_eval(node)
+            except Exception:                                   # noqa: BLE001
+                continue
+            if isinstance(d, dict) and d.get("tier") in ("user", "public") and "path" in d:
+                p = re.sub(r"\{[^}]*\}", "{}", d["path"])
+                if p in ("/healthz", "/readyz", "/metrics") or p.startswith("/api/v1/whoami"):
+                    continue
+                routes.add((p, d.get("method", "GET")))
+    declared = set()
+    for fname, var in (("admin_actions", "ADMIN_ACTIONS"), ("user_actions", "USER_ACTIONS")):
+        f_ = svc_dir / "app" / f"{fname}.py"
+        if not f_.is_file():
+            continue
+        try:
+            atree = ast.parse(read(f_))
+        except SyntaxError:
+            continue
+        for node in ast.walk(atree):
+            if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == var:
+                for el in getattr(node.value, "elts", []):
+                    try:
+                        a = ast.literal_eval(el)
+                    except Exception:                           # noqa: BLE001
+                        continue
+                    declared.add((re.sub(r"\{[^}]*\}", "{}", a.get("path", "")),
+                                  a.get("method", "GET")))
+    for path, method in sorted(routes - declared):
+        fail(f"{svc}/app", f"{method} {path} is a user-facing route with no declared action — "
+                           f"the console cannot render it, and nothing fails")
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
@@ -383,4 +439,4 @@ if problems:
 print(f"{C_G}  ✔ deploy wiring is consistent — digests pinned, databases provisioned, "
       f"erasure fan-out complete, cron paths real, env keys declared, egress matches use, "
       f"security posture held, shared secrets named, digits western, capabilities "
-      f"enforced, cross-boundary values qualified{C_N}")
+      f"enforced, cross-boundary values qualified, actions aggregated and complete{C_N}")

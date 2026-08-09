@@ -87,4 +87,44 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "danger": True, "group": "المنصة",
         "help": "دفعة من عشرين ألفاً إشارة حجم تقرؤها ميتا على كل أرقامنا، لا على المحل وحده.",
     },
+    # ── the operator surface, and it is declared in every service or in none ──────────────
+    {
+        "id": "campaigns.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
+        "path": "/api/v1/operator/secrets", "capability": "platform.campaigns", "group": "المنصة",
+        # The NAMES only — a route that returned a value would put a credential in a screenshot.
+        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
+    },
+    {
+        "id": "campaigns.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
+        "path": "/api/v1/operator/secrets", "capability": "platform.campaigns",
+        "confirm": True, "danger": True, "group": "المنصة",
+        # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
+        # reconstructed and an unattributable one is indistinguishable from an attacker's.
+        "help": "القيمة السابقة تختفي فوراً — لا رجعة ولا نسخة.",
+    },
+    {
+        "id": "campaigns.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
+        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.campaigns",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
+    },
+    {
+        "id": "campaigns.operator_config", "label": "إعدادات التشغيل", "method": "GET",
+        "path": "/api/v1/operator/config", "capability": "platform.campaigns", "group": "المنصة",
+        "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
+    },
+    {
+        "id": "campaigns.set_operator_config", "label": "تعديل إعداد تشغيل", "method": "PUT",
+        "path": "/api/v1/operator/config", "capability": "platform.campaigns",
+        "confirm": True, "group": "المنصة",
+        "help": "يغيّر سلوك الخدمة من الآن فصاعداً.",
+    },
+    {
+        "id": "campaigns.clear_operator_config", "label": "حذف إعداد تشغيل", "method": "DELETE",
+        "path": "/api/v1/operator/config/{key}", "capability": "platform.campaigns",
+        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "المنصة",
+        "help": "يعود للافتراضي المبنيّ في الخدمة.",
+    },
 ]

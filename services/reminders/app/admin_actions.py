@@ -82,4 +82,100 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "danger": True, "group": "المنصة",
         "help": "يُوسَّع بسبب مكتوب فقط. رفعُه لمنشأة واحدة يُحمّل الجميع ثمنَ رقمٍ محظور.",
     },
+    # ── settings, three levels deep, and the owner never picks one (spec 10.8.1) ──────────
+    {
+        "id": "reminders.get_settings", "label": "إعدادات التذكير", "method": "GET",
+        "path": "/api/v1/reminders/settings", "capability": "reminders.read",
+        "group": "الإعدادات",
+        # Carries WHERE each value came from — the screen cannot say "this one is customised, tap
+        # to go back" unless the API says which level answered.
+        "help": "القيم السارية، ومن أين جاءت: عام، أم مجموعة، أم خاصة بالخدمة.",
+    },
+    {
+        "id": "reminders.set_general", "label": "الإعداد العام", "method": "PUT",
+        "path": "/api/v1/reminders/settings", "capability": "reminders.manage",
+        "confirm": True, "group": "الإعدادات",
+        # Reaches every follower and leaves every customisation alone. An owner who spent a minute
+        # setting the oil change to 60 days has not asked us to undo that minute.
+        "help": "يسري على كل خدمة تتبعه. المخصّصة تبقى كما هي.",
+    },
+    {
+        "id": "reminders.set_service_settings", "label": "تخصيص خدمة", "method": "PUT",
+        "path": "/api/v1/reminders/settings/service/{service_id}",
+        "capability": "reminders.manage",
+        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات",
+        "help": "تعطي هذه الخدمة إعدادها الخاص، فتتوقّف عن اتّباع العام.",
+    },
+    {
+        "id": "reminders.follow_general", "label": "العودة للعام", "method": "DELETE",
+        "path": "/api/v1/reminders/settings/service/{service_id}",
+        "capability": "reminders.manage",
+        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات",
+        # Deletes rather than copying the general value in — copying looks identical today and
+        # diverges tomorrow, when the next general edit skips this service.
+        "help": "تحذف تخصيصها فتعود تتبع الإعداد العام.",
+    },
+    {
+        "id": "reminders.set_group", "label": "مجموعة خدمات", "method": "PUT",
+        "path": "/api/v1/reminders/settings/group/{name}", "capability": "reminders.manage",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات",
+        "help": "إعداد واحد لعدة خدمات متشابهة.",
+    },
+    {
+        "id": "reminders.suggest_group", "label": "اقتراح مجموعة", "method": "GET",
+        "path": "/api/v1/reminders/settings/suggest-group", "capability": "reminders.read",
+        "group": "الإعدادات",
+        # Proposes only. A system rearranging an owner's settings without being asked is the
+        # fastest way to lose their trust in a screen.
+        "help": "هل تكرّر المالك؟ نقترح، ولا نغيّر شيئاً بأنفسنا.",
+    },
+    {
+        "id": "reminders.clear_limits", "label": "إلغاء استثناء الحدود", "method": "DELETE",
+        "path": "/api/v1/platform/limits", "capability": "platform.reminders",
+        "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يعيد المنشأة إلى حدود المنصة الافتراضية.",
+    },
+    # ── the operator surface, and it is declared in every service or in none ──────────────
+    {
+        "id": "reminders.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
+        "path": "/api/v1/operator/secrets", "capability": "platform.reminders", "group": "المنصة",
+        # The NAMES only — a route that returned a value would put a credential in a screenshot.
+        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
+    },
+    {
+        "id": "reminders.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
+        "path": "/api/v1/operator/secrets", "capability": "platform.reminders",
+        "confirm": True, "danger": True, "group": "المنصة",
+        # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
+        # reconstructed and an unattributable one is indistinguishable from an attacker's.
+        "help": "القيمة السابقة تختفي فوراً — لا رجعة ولا نسخة.",
+    },
+    {
+        "id": "reminders.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
+        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.reminders",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
+    },
+    {
+        "id": "reminders.operator_config", "label": "إعدادات التشغيل", "method": "GET",
+        "path": "/api/v1/operator/config", "capability": "platform.reminders", "group": "المنصة",
+        "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
+    },
+    {
+        "id": "reminders.set_operator_config", "label": "تعديل إعداد تشغيل", "method": "PUT",
+        "path": "/api/v1/operator/config", "capability": "platform.reminders",
+        "confirm": True, "group": "المنصة",
+        "help": "يغيّر سلوك الخدمة من الآن فصاعداً.",
+    },
+    {
+        "id": "reminders.clear_operator_config", "label": "حذف إعداد تشغيل", "method": "DELETE",
+        "path": "/api/v1/operator/config/{key}", "capability": "platform.reminders",
+        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "المنصة",
+        "help": "يعود للافتراضي المبنيّ في الخدمة.",
+    },
 ]

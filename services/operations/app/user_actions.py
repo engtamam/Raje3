@@ -74,4 +74,29 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "الشاشة",
         "help": "نسبة لا تسجيل دخول: يُسأل عند الحفظ فقط، والشاشة تبقى مفتوحة طوال الوردية.",
     },
+    # ── the partner's own console — neither a tenant nor us (see api/v1/partner.py) ───────
+    # DECLARED AS USER ACTIONS, not admin: a partner acts on its OWN data, exactly like a customer
+    # does. Putting them in admin_actions would render them in OUR panel, which is the one place
+    # they must never appear.
+    {
+        "id": "partner.my_shops", "label": "محلاتي", "method": "GET",
+        "path": "/api/v1/partner/shops", "capability": "partner.read", "group": "شراكتي",
+        # Tenant ids and dates. Not a shop's name, not its owner, not its customers — every field
+        # added here is one somebody later argues should include "just a bit more".
+        "help": "المحلات التي جلبتها، وتاريخ كل واحد.",
+    },
+    {
+        "id": "partner.my_statements", "label": "كشوفي", "method": "GET",
+        "path": "/api/v1/partner/statements", "capability": "partner.read", "group": "شراكتي",
+        "help": "عمولتك شهراً بشهر، محسوبة على ما دفعه المحل فعلاً.",
+    },
+    {
+        "id": "partner.one_statement", "label": "كشف شهر", "method": "GET",
+        "path": "/api/v1/partner/statements/{period_start}", "capability": "partner.read",
+        "params": [{"name": "period_start", "in": "path", "type": "string", "required": True}],
+        "group": "شراكتي",
+        # Read-only by design: a partner who could recompute a disputed month is a partner who
+        # re-runs it until they like the number.
+        "help": "تفصيل الشهر بكل محل. للقراءة فقط.",
+    },
 ]

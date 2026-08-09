@@ -101,4 +101,100 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "group": "المنصة — القطاعات", "confirm": True,
         "help": "تعريف كل حقل مرة واحدة يُشار إليه بالاسم — فـplate يعني الشيء نفسه في كل قطاع مركبات.",
     },
+    # ── the message library, edited by US at runtime (spec 8.4.1) ─────────────────────────
+    {
+        "id": "operations.list_templates", "label": "مكتبة الرسائل", "method": "GET",
+        "path": "/api/v1/platform/templates", "capability": "platform.operations",
+        "group": "المنصة",
+        # 66 templates across five classes. Content our own people revise, which is why it lives
+        # in the datastore and not in an image.
+        "help": "كل القوالب بأصنافها ونبراتها، المفعّل منها والمتوقف.",
+    },
+    {
+        "id": "operations.set_template", "label": "تعديل قالب", "method": "PUT",
+        "path": "/api/v1/platform/templates/{name}", "capability": "platform.operations",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+        # The text every establishment sends afterwards. A wrong edit reaches thousands of
+        # customers under an establishment's name, not ours.
+        "help": "يسري على المنشآت التي تُربط بعده. ونصٌّ فيه سعر داخل قالب توعوي يُرفض.",
+    },
+    {
+        "id": "operations.deactivate_template", "label": "إيقاف قالب", "method": "DELETE",
+        "path": "/api/v1/platform/templates/{name}", "capability": "platform.operations",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يوقف صنف رسائل، وعَرَضه صمت لا خطأ.",
+    },
+    # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
+    {
+        "id": "operations.list_partners", "label": "الشركاء", "method": "GET",
+        "path": "/api/v1/platform/partners", "capability": "platform.operations",
+        "group": "الشركاء",
+        "help": "شركات الكاشير، ونسبة كل واحدة، ومفتاحها بمقدّمته لا بقيمته.",
+    },
+    {
+        "id": "operations.create_partner", "label": "إضافة شريك", "method": "POST",
+        "path": "/api/v1/platform/partners", "capability": "platform.operations",
+        "confirm": True, "group": "الشركاء",
+        # The key is shown once. A console that could re-read it is a console whose screenshot is
+        # a payout.
+        "help": "المفتاح يظهر مرة واحدة فقط — احفظه ساعتها.",
+    },
+    {
+        "id": "operations.rotate_partner_key", "label": "تدوير مفتاح شريك", "method": "POST",
+        "path": "/api/v1/platform/partners/{partner_id}/rotate",
+        "capability": "platform.operations",
+        "params": [{"name": "partner_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "الشركاء",
+        # An overlap an operator must end by hand is an overlap nobody ends.
+        "help": "المفتاح القديم يعمل حتى تنتهي النافذة ثم يتوقف تلقائياً. وللتسرّب: صفر.",
+    },
+    {
+        "id": "operations.deactivate_partner", "label": "إيقاف شريك", "method": "DELETE",
+        "path": "/api/v1/platform/partners/{partner_id}", "capability": "platform.operations",
+        "params": [{"name": "partner_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "الشركاء",
+        "help": "يوقف الأختام الجديدة. محلاته تبقى مختومة ومستحقاته قائمة.",
+    },
+    # ── the operator surface, and it is declared in every service or in none ──────────────
+    {
+        "id": "operations.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
+        "path": "/api/v1/operator/secrets", "capability": "platform.operations", "group": "المنصة",
+        # The NAMES only — a route that returned a value would put a credential in a screenshot.
+        "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
+    },
+    {
+        "id": "operations.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
+        "path": "/api/v1/operator/secrets", "capability": "platform.operations",
+        "confirm": True, "danger": True, "group": "المنصة",
+        # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
+        # reconstructed and an unattributable one is indistinguishable from an attacker's.
+        "help": "القيمة السابقة تختفي فوراً — لا رجعة ولا نسخة.",
+    },
+    {
+        "id": "operations.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
+        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.operations",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "danger": True, "group": "المنصة",
+        "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
+    },
+    {
+        "id": "operations.operator_config", "label": "إعدادات التشغيل", "method": "GET",
+        "path": "/api/v1/operator/config", "capability": "platform.operations", "group": "المنصة",
+        "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
+    },
+    {
+        "id": "operations.set_operator_config", "label": "تعديل إعداد تشغيل", "method": "PUT",
+        "path": "/api/v1/operator/config", "capability": "platform.operations",
+        "confirm": True, "group": "المنصة",
+        "help": "يغيّر سلوك الخدمة من الآن فصاعداً.",
+    },
+    {
+        "id": "operations.clear_operator_config", "label": "حذف إعداد تشغيل", "method": "DELETE",
+        "path": "/api/v1/operator/config/{key}", "capability": "platform.operations",
+        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "المنصة",
+        "help": "يعود للافتراضي المبنيّ في الخدمة.",
+    },
 ]
