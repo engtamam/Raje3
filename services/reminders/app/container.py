@@ -282,5 +282,6 @@ def build_container(settings: Settings) -> Container:
                           telemetry=container.telemetry, quota=container.quota,
                           approved=container.approved_templates,
                           reach_window=settings.REACH_WINDOW_SECONDS,
-                          ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS)
+                          ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS,
+                          ceiling=container.ceiling)
     return container

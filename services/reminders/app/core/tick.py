@@ -33,6 +33,7 @@ from typing import Any
 from app.core import engagement as E
 from app.core import gate as G
 from app.core import quota as Q
+from app.core import ceiling as C
 from app.core.reach import Reach
 
 # How long a message waits after WhatsApp refused it for the ceiling. A DEFAULT: the right delay
@@ -44,6 +45,33 @@ from app.core.models import SendLog, as_row
 from app.adapters.message_sender import CeilingReached, Unsendable
 from app.core.consent import Consent
 from app.core.stores import EngagementStore, PrefsStore, ScheduleStore, SendLogStore
+
+
+@dataclass
+class Room:
+    """Today's remaining allowance, shared across one tenant's pass.
+
+    A MUTABLE HOLDER RATHER THAN AN INT, and the reason is a bug this had for exactly one commit:
+    `room` was passed as an integer and decremented inside the per-row call, where the decrement
+    went nowhere. Four hundred due messages with fifty left would every one of them have seen
+    fifty, passed the check, and been refused by Meta one at a time.
+
+    `left < 0` means unknown, which never blocks.
+    """
+
+    left: int = -1
+
+    def known(self) -> bool:
+        return self.left >= 0
+
+    def take(self) -> bool:
+        """Spend one slot. False when there is none left."""
+        if not self.known():
+            return True
+        if self.left <= 0:
+            return False
+        self.left -= 1
+        return True
 
 
 @dataclass
@@ -70,7 +98,7 @@ class TickResult:
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
                  batch: int = 100, telemetry=None, quota=None, approved=None,
-                 reach_window: int = 0, ceiling_defer_seconds: int = 0) -> None:
+                 reach_window: int = 0, ceiling_defer_seconds: int = 0, ceiling=None) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
@@ -84,6 +112,9 @@ class Tick:
         # means "take the module default", so a test constructs a Tick without knowing either.
         self._reach = Reach(store, window=reach_window) if reach_window else Reach(store)
         self._ceiling_defer = int(ceiling_defer_seconds or _DEFAULT_CEILING_DEFER)
+        # THE SHOP'S CEILING, read from Meta through notification-service. Absent answers unknown,
+        # and unknown never blocks — see core/ceiling.py.
+        self._ceiling = ceiling or C.NullCeiling()
         self._eng = EngagementStore(store)
         self._sender = sender
         # THE MESSAGE QUOTA. Defaults to the null counter so every existing test keeps working;
@@ -122,6 +153,23 @@ class Tick:
         if due:
             await self._reach.prune(now=now)
 
+        # HOW MANY NEW PEOPLE MAY STILL BE STARTED WITH TODAY. Read once per tenant, like the
+        # library and the approved set — it cannot change meaningfully while this loop runs, and
+        # asking per message would be 300 calls for one answer.
+        #
+        # KNOWING IT BEFORE THE SEND IS THE WHOLE POINT. Without it every message past the ceiling
+        # is a round trip to notification-service, a resolve of the customer's phone number from
+        # operations, and a rejection from Meta — for a shop that has 400 due reminders and 50
+        # left, that is 350 pointless resolutions of a phone number, which is the one read this
+        # product tries hardest not to make.
+        #
+        # None means unknown: `remaining` answers -1 and nothing below changes behaviour.
+        room = Room()
+        if due:
+            ceiling = await self._ceiling.read(tenant)
+            reached = await self._reach.count(tenant, now=now) if ceiling.known() else 0
+            room = Room(left=ceiling.remaining(reached))
+
         # PRIORITY ORDER (spec 8.4.2 section 4). Two messages competing for one daily slot must
         # resolve the same way every time, and the losing one must be the lower-priority one — not
         # whichever the datastore happened to return first.
@@ -132,7 +180,7 @@ class Tick:
                 await self._one(tenant, row, now=now, res=res, library=library,
                                 service_names=service_names, establishment=establishment,
                                 customer_name=names.get(row.get("subject_ref", ""), ""),
-                                tone=tone, approved=approved)
+                                tone=tone, approved=approved, room=room)
             except Unsendable as exc:
                 # PERMANENT, not transient. There is nobody to send to — erased, or never there.
                 # Retrying would ask operations about a forgotten customer on every tick forever,
@@ -251,7 +299,7 @@ class Tick:
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
                    library: list[dict[str, Any]], service_names: dict[str, str],
                    establishment: str, customer_name: str, tone: str,
-                   approved: set[str] | None = None) -> None:
+                   approved: set[str] | None = None, room: Room | None = None) -> None:
         subject = row.get("subject_ref", "")
         cls = row.get("cls", "service")
 
@@ -298,6 +346,35 @@ class Tick:
             res.note(decision.reason)
             return
 
+        # ── 2b. the shop's remaining room for TODAY ───────────────────────────────────────────
+        # AFTER the gate, because a message the gate refuses costs no ceiling either — and before
+        # the render and the send, which is where the expensive part starts.
+        #
+        # ONLY SOMEBODY NEW COSTS ANYTHING. The ceiling counts unique customers, so a second
+        # message to a person already reached in this window is free and must not be blocked by a
+        # count of people. Checking this the naive way — "is there room" without asking whether
+        # this person is new — would silence a shop's follow-ups the moment it hit its ceiling,
+        # for customers it had already paid to reach.
+        room = room or Room()
+        if room.known() and await self._reach.would_be_new(tenant, subject, now=now):
+            if not room.take():
+                policy = ""
+                for t in library:
+                    if t.get("type") == row.get("template_type"):
+                        policy = str(t.get("deferral") or "defer")
+                        break
+                res.ceiling += 1
+                if policy == "drop":
+                    await self._log.append(tenant, as_row(SendLog(
+                        tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                        schedule_id=row.get("id", ""), outcome="suppressed",
+                        reason="سقف واتساب اليومي")))
+                    await self._close(tenant, row, "suppressed", "سقف واتساب اليومي", now)
+                    res.suppressed += 1
+                else:
+                    await self._defer_to_tomorrow(tenant, row, now, "known")
+                    res.deferred += 1
+                return
         # ── 3. render ─────────────────────────────────────────────────────────────────────────
         template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                             library=library, approved=approved)

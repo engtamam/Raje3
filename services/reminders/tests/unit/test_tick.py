@@ -497,3 +497,84 @@ def test_a_message_stopped_at_the_ceiling_reaches_nobody(st):
     sched(st, template_type="svc_follow_up")
     go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=FakeQuota())
     assert run(Reach(st).count("t1", now=at(10))) == 0
+
+
+# ── the ceiling, known BEFORE the send ─────────────────────────────────────────────────────────
+class FakeCeiling:
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.reads = 0
+
+    async def read(self, tenant):
+        from app.core.ceiling import Ceiling
+
+        self.reads += 1
+        return Ceiling(limit=self.limit)
+
+
+def many(st, n, *, template_type="svc_follow_up"):
+    for i in range(n):
+        sched(st, subject_ref=f"sub_{i}", service_id="oil", template_type=template_type)
+
+
+def test_the_allowance_is_shared_across_the_whole_pass(st):
+    """THE BUG THIS EXISTS FOR. `room` was an int decremented inside the per-row call, where the
+    decrement went nowhere — so five due messages with two left would all have passed the check
+    and been refused by Meta one at a time. Every existing test still passed."""
+    many(st, 5)
+    s = FakeSender()
+    res = run(tick(st, s, quota=FakeQuota(), ceiling=FakeCeiling(2)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(s.calls) == 2, f"sent {len(s.calls)} with room for 2"
+    assert res.deferred == 3
+
+
+def test_the_ceiling_is_read_once_per_tenant_not_once_per_message(st):
+    """A shop with 300 due reminders must not ask notification-service 300 times for an answer
+    that cannot change while the loop runs."""
+    many(st, 6)
+    c = FakeCeiling(10)
+    run(tick(st, FakeSender(), quota=FakeQuota(), ceiling=c).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert c.reads == 1
+
+
+def test_a_second_message_to_someone_already_reached_is_free(st):
+    """The ceiling counts PEOPLE. Blocking a follow-up to a customer we already reached today
+    would silence a shop for customers it had already paid to reach."""
+    from app.core.reach import Reach
+
+    run(Reach(st).record("t1", "sub_a", now=at(9)))
+    sched(st, subject_ref="sub_a", template_type="svc_follow_up")
+    s = FakeSender()
+    run(tick(st, s, quota=FakeQuota(), ceiling=FakeCeiling(0)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(s.calls) == 1, "an already-reached customer costs no ceiling"
+
+
+def test_an_unknown_ceiling_blocks_nothing(st):
+    many(st, 4)
+    s = FakeSender()
+    run(tick(st, s, quota=FakeQuota(), ceiling=FakeCeiling(0)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(s.calls) == 4
+
+
+def test_no_room_defers_a_follow_up_and_drops_a_confirmation(st):
+    """The template decides, exactly as it does when Meta refuses (§8.4.3) — the only difference
+    is that we found out before spending the send."""
+    from app.core.reach import Reach
+
+    # The ceiling is 1 and somebody else already used it — a real exhausted day. NOT a negative
+    # limit: any negative reads as UNLIMITED (-1 is Meta's sentinel), so FakeCeiling(-2) said
+    # "no ceiling" and the message went. My test, not the code.
+    run(Reach(st).record("t1", "sub_other", now=at(9)))
+    sched(st, subject_ref="sub_x", template_type="svc_visit_confirmation")
+    res = run(tick(st, FakeSender(), quota=FakeQuota(), ceiling=FakeCeiling(1)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert res.suppressed == 1 and res.ceiling == 1
