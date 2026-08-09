@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import hmac
+import time
 
 from pydantic import BaseModel, Field
 
@@ -186,8 +187,19 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 # actually sold. Joined rather than dropped: a recurring label is the signal to
                 # offer it as a real service.
                 extra_custom = "، ".join(res.free_text[:5])
+            except (NameError, AttributeError, TypeError, ImportError):
+                # A PROGRAMMING ERROR, NOT A PEER FAILURE — and it must not be swallowed.
+                #
+                # The first version caught bare Exception here so a catalogue problem could never
+                # cost a recorded sale. It then swallowed `name 'time' is not defined` — a missing
+                # import — and the item came back "rejected: select at least one service". The
+                # catch protected the sale and lied about the cause, and the caller was told to fix
+                # something that was not wrong. Found on the cluster; no test saw it, because a
+                # test importing the module would have failed at import.
+                raise
             except Exception as exc:                                        # noqa: BLE001
-                # The visit still lands. A catalogue failure must never cost a recorded sale.
+                # Anything else — a datastore hiccup, a peer timeout — and the visit still lands.
+                # A catalogue failure must never cost a recorded sale.
                 c.telemetry.event("invoice_resolve_failed", tenant=item.tenant,
                                   error=str(exc)[:200])
         if extra_custom and not item.custom_service:
