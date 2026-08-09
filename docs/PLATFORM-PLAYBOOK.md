@@ -786,10 +786,16 @@ Our re-pin script resolved twenty-five image digests from the registry, reported
 published at this tag"*, and exited clean. Four of those ten were sitting in the registry the whole
 time; every one of them resolved on the first try when asked alone.
 
-The cause was ordinary — twenty-five token requests in a burst, and the registry stops answering
-partway. The damage was not: the script printed a **reassuring sentence about the registry** for a
-condition that was actually *"we do not know"*, and the release would have left four services a
-version behind with the summary line agreeing that everything was fine.
+We called it rate limiting. It was **DNS** — and how that was learned matters more than the
+answer. The registry theory fitted every symptom and survived two rounds of fixes built on top of
+it. What disproved it came from somewhere else entirely: a kubelet on the same node failing to pull
+an image with `dial tcp: lookup pkg-containers.githubusercontent.com: Try again`. That is a
+resolver refusing a query, not a registry refusing a request. `curl` reports a failed lookup as
+HTTP 000, which is indistinguishable from a throttled API unless you go looking.
+
+The damage was never the cause, though: the script printed a **reassuring sentence about the
+registry** for a condition that was actually *"we do not know"*, and the release would have left
+four services a version behind with the summary line agreeing that everything was fine.
 
 An empty result has two causes that mean opposite things. A 404 is a fact you can act on. A timeout
 is the absence of a fact. Code that collapses them into one message picks the comforting reading.

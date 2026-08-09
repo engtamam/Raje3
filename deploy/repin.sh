@@ -58,10 +58,20 @@ for f in "$VALUES_DIR"/*.values.yaml; do
   # release and would have left four services a version behind, with the summary line agreeing.
   #
   # So: retry a transient failure, and when it still will not resolve, say we do not know.
-  # AND THE BACKOFF IS EXPONENTIAL, because the thing being retried is a rate limit. A flat two
-  # seconds retried into the same closed window three times and reported the same four services
-  # unresolved — every one of which resolves on the first try when asked alone. Twenty-five
-  # services means twenty-five token requests in a burst, and ghcr stops answering partway.
+  # AND THE BACKOFF IS EXPONENTIAL, because what is being retried is a NAME LOOKUP THAT FAILS
+  # UNDER LOAD. This was first written down as "ghcr rate-limits the burst", which was a guess
+  # that fitted the symptom. The real evidence arrived from a completely different direction — a
+  # kubelet on the same node failing to pull an image with
+  #
+  #     dial tcp: lookup pkg-containers.githubusercontent.com: Try again
+  #
+  # "Try again" is a resolver refusing a query, not a registry refusing a request. Twenty-five
+  # lookups in a burst overwhelm the local stub resolver; asked one at a time, or four at a time
+  # from a fresh session, every single one succeeds. curl reports that as HTTP 000, which looks
+  # exactly like a throttled API and is not one.
+  #
+  # The retry is still right, and so is the backoff. The DIAGNOSIS was wrong, and a wrong
+  # diagnosis in a comment outlives the bug.
   dig=""; code=""; backoff=3
   for _try in 1 2 3 4; do
     hdr=$(curl -sI -m 20 -w 'HTTPSTATUS:%{http_code}' \
