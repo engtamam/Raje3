@@ -253,3 +253,22 @@ def test_a_template_is_deactivated_not_deleted(cat):
     run(lib.upsert(_tpl()))
     assert run(lib.deactivate("svc_x_brief")) is True
     assert run(lib.get("svc_x_brief"))["active"] is False
+
+
+def test_a_template_may_ask_the_owner_for_one_field_at_most(cat):
+    """Two blank pages is a form, and an owner who abandons a form sends nothing at all."""
+    _, store = cat
+    with pytest.raises(TemplateError) as exc:
+        run(_lib(store).upsert(_tpl(**{"class": "marketing"}, category="MARKETING",
+                                    body="أهلاً {{1}}، من {{2}}: {{3}} — {{4}}.",
+                                    fills=["system", "system", "owner", "owner"])))
+    assert "One at most" in str(exc.value)
+
+
+def test_the_declared_fills_must_cover_every_variable(cat):
+    """A short fills list means the console asks for the wrong field and the message goes out
+    with somebody else's value in it."""
+    _, store = cat
+    with pytest.raises(TemplateError):
+        run(_lib(store).upsert(_tpl(body="{{1}} من {{2}} — {{3}}",
+                                    fills=["system", "system"])))

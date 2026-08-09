@@ -38,6 +38,8 @@ TONES = ("brief", "warm", "formal")
 # Meta's categories. Ours map onto these, and getting it wrong means Meta re-categorises and
 # bills at the marketing rate.
 CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
+# Where a variable's value comes from. Only `owner` is a blank page — see upsert().
+FILLS = ("system", "catalogue", "owner")
 
 
 class TemplateError(Exception):
@@ -108,13 +110,38 @@ class TemplateLibrary:
                 f"to visit). That makes it advertising by its text, not by its label — file it as "
                 f"marketing or remove the offer.")
 
+        # WHO FILLS EACH VARIABLE — and the one-blank-page rule.
+        #
+        # The count of variables was never the problem. Who TYPES them is. `system` comes from the
+        # record we already hold (the name, the establishment, a date, an amount, a points
+        # balance); `catalogue` is a tap on a list the owner already maintains; `owner` is a blank
+        # page, and it is the only one that costs them anything.
+        #
+        # AT MOST ONE OWNER FIELD PER TEMPLATE. A template with two is a form, and a form is what
+        # makes an owner stop sending — they abandon it halfway and the customer never comes back.
+        # It is checked here rather than written in a document, because a rule nobody enforces is
+        # re-broken by the next person who adds a template in a hurry.
+        fills = list(t.get("fills") or [])
+        if fills:
+            unknown = [f for f in fills if f not in FILLS]
+            if unknown:
+                raise TemplateError(f"unknown fill source {unknown[0]!r} — one of {list(FILLS)}")
+            if len(fills) != len(variables):
+                raise TemplateError(
+                    f"{name} declares {len(fills)} fill sources for {len(variables)} variables; "
+                    f"a mismatch means the console asks for the wrong field")
+            if fills.count("owner") > 1:
+                raise TemplateError(
+                    f"{name} asks the owner to write {fills.count('owner')} fields. One at most — "
+                    f"anything more is a form, and an owner who abandons a form sends nothing.")
+
         row = {
             "id": name, "tenant": PLATFORM, "name": name,
             "type": t.get("type", name.rsplit("_", 1)[0]),
             "tone": t.get("tone", ""), "label": t.get("label", ""),
             "class": cls, "category": cat, "language": t.get("language", "ar"),
             "body": body, "header": t.get("header", ""), "button": t.get("button"),
-            "variables": variables,
+            "variables": variables, "fills": fills,
             "active": bool(t.get("active", True)),
             "updated": int(time.time()),
         }
