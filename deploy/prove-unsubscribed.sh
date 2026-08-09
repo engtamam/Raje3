@@ -145,8 +145,10 @@ if not back.get("allowed"):
     fails.append("he could not resume by subscribing again — coming back must be one payment, "
                  "not a support ticket")
 else:
-    print("  ok he resumes by paying, and his usage is still where he left it ("
-          + str(back.get("current")) + ")")
+    # A NEW PERIOD, not a restored one — see the note above. He paid for another month and gets
+    # another month's allowance, which is the correct answer and not a loophole.
+    print("  ok he resumes by paying, on a fresh period ("
+          + str(back.get("current")) + " used)")
 
 call("/api/v1/billing/plans/" + plan["id"] + "/availability", {"active": False})
 
