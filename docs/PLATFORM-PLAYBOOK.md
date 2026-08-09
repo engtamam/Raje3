@@ -577,6 +577,24 @@ warns about exactly this shape, and it still reads as a pass at a glance.
 its result as evidence about a service in `services/`. And on any suite that can skip: read the
 skip list before reading the verdict.
 
+### 4.22 "Rolled successfully" does not mean "rolled what you built"
+
+`update.sh` reported **every service on its pinned digest**, and it was telling the truth. The pod
+was running exactly the digest written in the values file — ON THE SERVER. That file was two
+versions old, because the sync that carried the new one had timed out before it finished extracting
+the archive, and the timeout scrolled past under a load spike.
+
+So the deploy verified an old artifact against an old declaration and found them consistent. Every
+signal was green. The only way to see it was to read the running pod's `imageID` and compare it to
+the digest **in the working tree**, not to the digest the deploy was reading.
+
+The tell was that the proof did not change: the tick returned the same numbers it had before the
+fix that was supposed to change them. **A proof that produces the identical result before and after
+a fix is not a passing proof — it is evidence the fix is not there.**
+
+Verify the artifact, not the report: read `imageID` off the pod and diff it against the local
+values file, every time.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced

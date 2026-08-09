@@ -65,7 +65,11 @@ def build_manifest(
         "capabilities": ["operations.record", "operations.read", "operations.manage",
                          # OURS. No tenant token carries it: a tyre shop must not be able to
                          # rename "بنشر" for every other tyre shop on the product.
-                         "platform.operations"],
+                         "platform.operations",
+                         # THE FIRST ROLE ON THIS PRODUCT THAT IS NEITHER A TENANT NOR US. A
+                         # partner has a real claim on some rows of a tenant it does not own, and
+                         # none at all on the rest — see api/v1/partner.py.
+                         "partner.read"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -117,6 +121,10 @@ def build_manifest(
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},
+            # ── the partner console: their shops and their money, never a shop's customers ──
+            {"path": "/api/v1/partner/shops", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/partner/statements", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/partner/statements/{}", "tier": "user", "method": "GET"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

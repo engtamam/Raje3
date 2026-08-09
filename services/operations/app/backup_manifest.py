@@ -35,6 +35,9 @@ BACKUP: dict[str, Any] = {
         # WHO BROUGHT EACH SHOP. Losing this loses the commission history, and there is no way to
         # reconstruct it: the stamp is the only record that a partner ever introduced a customer.
         {"name": "partner_stamps", "tenant_scoped": True},
+        # Platform-scoped: one row per partner per month, under the reserved tenant. A per-tenant
+        # restore must not be able to rewrite what we owe somebody.
+        {"name": "commission_statements", "tenant_scoped": False},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a
