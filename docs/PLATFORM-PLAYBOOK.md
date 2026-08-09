@@ -864,6 +864,35 @@ exactly `{feature.insights.engine}`. One key, one paid feature, everything else 
 are checking is not a property of lines. Find the set-level invariant — what may EXIST, not what
 may appear on a line — and check that instead.
 
+### 4.37 When the feedback loop destroys inventory, buy the rules instead of learning them
+
+Seventy-two WhatsApp templates, ready to submit. They had passed everything we owned: generated
+from the specification, four content checks, variable numbering, tone coverage, the
+examples-are-not-names rule. Then we wrote Meta's own documented rules down as a check and ran it
+once.
+
+**Eleven failures, in nine templates.** Six bodies that begin with a variable, three that end with
+one, two with two variables side by side. Every one is a documented rejection.
+
+None of them would have failed at submission. The API accepts the payload; a human rejects it hours
+later. And a template name **cannot be reused with different content and cannot be renamed after
+approval** — so each rejection permanently burns a name, and the replacement is `_v2`, then `_v3`,
+for the life of the product.
+
+That combination is what makes this different from an ordinary integration:
+
+- the feedback arrives **hours** after the action, so the loop is a day wide;
+- each turn of the loop **destroys inventory** rather than costing a retry;
+- and the local mock approves everything, so nothing before it can fail.
+
+**The rule:** when a third party's feedback is slow AND its failures are irreversible, do not learn
+its rules by submitting. Transcribe them from the documentation into a check and run it against
+exactly the payload you will send — expanded, not as stored. Ours expands 24 texts into the 72 rows
+Meta receives, because checking the stored shape checks something nobody submits.
+
+An hour of reading bought back nine names. There is no rate at which trial-and-error competes with
+that.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced
