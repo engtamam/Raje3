@@ -235,6 +235,10 @@ def build_container(settings: Settings) -> Container:
     # The CATALOGUE, not a parsed file: sectors live in the datastore and are edited from the
     # platform console at runtime. The seed file is applied once at startup if the table is empty
     # (see main.py) — re-applying it on every boot would silently undo an operator's edits.
+    # Seats and branches, reported to billing after every change. Null in a local run; the
+    # production values file sets the http driver.
+    from app.core.seats import build_gauges
+    container.gauges = build_gauges(settings)
     container.sectors = SectorCatalogue(container.datastore)
     container.templates = TemplateLibrary(container.datastore)
     return container

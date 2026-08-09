@@ -42,9 +42,12 @@ def _make_app(**env_over) -> TestClient:
     return TestClient(create_app(), raise_server_exceptions=False)
 
 
-def _auth(*caps: str) -> dict:
+def _auth(*caps: str, tenant: str = "") -> dict:
     now = dt.datetime.now(dt.timezone.utc)
+    # `tenant`, never `tenant_id` — the claim name the platform reads. A route that needs one
+    # answers 403 NO_TENANT without it, which reads exactly like a missing capability.
     tok = jwt.encode({"sub": "op1", "iss": ISS, "aud": AUD, "caps": list(caps),
+                      **({"tenant": tenant} if tenant else {}),
                       "exp": now + dt.timedelta(minutes=5), "iat": now},
                      TOKEN_SECRET, algorithm="HS256")
     return {"Authorization": f"Bearer {tok}"}
@@ -186,3 +189,54 @@ def test_without_a_kek_the_surface_refuses_rather_than_storing_in_the_clear(env_
     # And the read side refuses identically, rather than reporting an empty credential set —
     # "no secrets configured" and "secrets unreadable" must not look the same to an operator.
     assert c.get("/api/v1/operator/secrets", headers=_auth("platform.secrets")).status_code == 503
+
+
+# ── the seat limit, at the door ────────────────────────────────────────────────────────────────
+def test_the_employee_past_the_limit_is_refused_with_his_limit_named(client, monkeypatch):
+    """A nightly sweep that finds sixteen employees on a plan of fifteen and does nothing is a
+    limit that does not exist; one that deactivates somebody fires days after the mistake at a
+    person who did not make it. So it is refused here, in the screen he is being added in.
+
+    AND THE SENTENCE HAS TO SURVIVE THE ERROR HANDLER. The platform's handler strips an
+    HTTPException's detail, so a raised refusal reaches the owner as a bare 402 and the only part
+    that tells him what to do is thrown away. It is RETURNED as a response body instead.
+    """
+    from app.core import seats as S
+
+    class Full:
+        async def report(self, tenant, key, value):
+            pass
+
+        async def allows_one_more(self, tenant, key, current):
+            return False, 15
+
+    monkeypatch.setattr(client.app.state.container, "gauges", Full())
+    r = client.post("/api/v1/staff/operators",
+                    json={"name": "موظف", "pin": "1234"},
+                    headers=_auth("operations.manage", tenant="t1"))
+    assert r.status_code == 402
+    body = r.json()
+    assert body["error"] == "SEAT_LIMIT"
+    assert "15" in body["message"]
+    assert S.SEATS == "staff.seats"
+
+
+def test_a_created_employee_reports_the_new_total(client, monkeypatch):
+    """The whole count, after the write. Before it, the number is a lie for as long as the write
+    takes; as a delta, a failed report never heals."""
+    seen = []
+
+    class Counting:
+        async def report(self, tenant, key, value):
+            seen.append((key, value))
+
+        async def allows_one_more(self, tenant, key, current):
+            return True, 15
+
+    monkeypatch.setattr(client.app.state.container, "gauges", Counting())
+    r = client.post("/api/v1/staff/operators",
+                    json={"name": "موظف جديد", "pin": "4321"},
+                    headers=_auth("operations.manage", tenant="t1"))
+    assert r.status_code == 201, r.text
+    assert seen and seen[-1][0] == "staff.seats"
+    assert seen[-1][1] >= 1

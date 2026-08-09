@@ -176,6 +176,17 @@ class Settings(BaseSettings):
     # compliance-service served consent-check with ZERO callers for four phases: the control was
     # built and nothing consulted it. `null` answers UNKNOWN (never ALLOWED — a gate that invented
     # permission would be worse than no gate), and each call site declares what to do with that.
+    # ── seats and branches, as gauges ─────────────────────────────────────────
+    # A GAUGE IS REPORTED, NEVER INCREMENTED. It is the current value of something owned HERE —
+    # how many employees exist right now — and it goes down as well as up. Increment it and a
+    # deleted employee never gives the seat back, and the drift is invisible until somebody
+    # cannot add a person they can see they have room for.
+    GAUGE_DRIVER: str = "null"               # null | http
+    BILLING_SERVICE_URL: str = ""            # e.g. http://billing-service:8000
+    BILLING_USAGE_SET_PATH: str = "/internal/billing/usage/set"
+    BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
+    PEER_TIMEOUT_SECONDS: int = 8
+
     CONSENT_GATE_DRIVER: str = "null"        # null | http
     COMPLIANCE_SERVICE_URL: str = ""         # e.g. http://compliance-service:8000
     # THEIR path, so it is a default rather than an assumption about another platform's routing.

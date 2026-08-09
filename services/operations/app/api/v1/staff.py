@@ -27,12 +27,14 @@ import hmac
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.models import Branch, Operator, Service
+from app.core import seats as S
 from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -76,6 +78,23 @@ class OperatorIn(BaseModel):
 async def create_operator(request: Request, body: OperatorIn,
                           principal: Principal = Depends(_MANAGE)) -> dict:
     tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    gauges = request.app.state.container.gauges
+
+    # AT THE DOOR, NOT IN A SWEEP. The sixteenth employee on a plan of fifteen is refused here, in
+    # the screen where he is being added, with the limit named. A nightly job that finds sixteen
+    # and does nothing is a limit that does not exist; one that deactivates somebody fires days
+    # later at a person who did not make the mistake (core/seats.py).
+    current = len(await store.list(tenant))
+    try:
+        await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
+    except S.SeatLimitReached as exc:
+        # RETURNED, NOT RAISED. The platform's error handler strips an HTTPException's detail, so
+        # a raised refusal reaches the owner as a bare 403 and the sentence naming his limit —
+        # the only part that tells him what to do — is thrown away.
+        return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            content={"error": "SEAT_LIMIT", "message": str(exc)})
+
     await request.app.state.auditor.record(
         "operator.created", actor=principal.subject, tenant=tenant, resource="operator",
         ip=request.client.host if request.client else "")
@@ -84,7 +103,12 @@ async def create_operator(request: Request, body: OperatorIn,
     op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
                   branch_id=body.branch_id, created=int(time.time()))
     op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
-    await OperatorStore(request.app.state.container.datastore).save(op)
+    await store.save(op)
+    # REPORTED AFTER THE WRITE, and as the whole count rather than a delta. Before the write it
+    # would be a lie for as long as the write takes, and a failed write would leave billing
+    # believing in an employee who does not exist. Reporting the total means a failed report
+    # heals itself on the next change.
+    await gauges.report(tenant, S.SEATS, current + 1)
     # public() omits pin_hash — a hash that is never returned cannot be attacked offline by
     # somebody who reached a read endpoint.
     return op.public()
@@ -142,11 +166,22 @@ class BranchIn(BaseModel):
 async def create_branch(request: Request, body: BranchIn,
                         principal: Principal = Depends(_MANAGE)) -> dict:
     tenant = _tenant(principal)
+    store = BranchStore(request.app.state.container.datastore)
+    gauges = request.app.state.container.gauges
+
+    current = len(await store.list(tenant))
+    try:
+        await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=current)
+    except S.SeatLimitReached as exc:
+        return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            content={"error": "BRANCH_LIMIT", "message": str(exc)})
+
     await request.app.state.auditor.record(
         "branch.created", actor=principal.subject, tenant=tenant, resource="branch",
         ip=request.client.host if request.client else "")
     b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(), created=int(time.time()))
-    await BranchStore(request.app.state.container.datastore).save(b)
+    await store.save(b)
+    await gauges.report(tenant, S.BRANCHES, current + 1)
     return b.public()
 
 

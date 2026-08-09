@@ -94,6 +94,21 @@ env:
   # Short, and it runs after the response anyway. A slow index must never hold a worker.
   SEARCH_TIMEOUT_SECONDS: "5"
 
+  # SEATS AND BRANCHES, AS GAUGES. This service owns both counts, so this service reports them —
+  # billing holds the limit and no list. Reported as the whole number after every change, never
+  # incremented: a gauge that is incremented only ever rises, so a deleted employee never gives
+  # the seat back and a shop that hired and fired the same position four times is told it has
+  # four employees.
+  #
+  # The refusal is at the door, in the screen the employee is being added in, with the limit in
+  # the sentence. A nightly sweep that finds sixteen on a plan of fifteen either does nothing —
+  # a limit that does not exist — or deactivates somebody days later who did not make the
+  # mistake.
+  GAUGE_DRIVER: "http"
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_USAGE_SET_PATH: "/internal/billing/usage/set"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
+
   # ── sectors: the ONE-TIME seed ────────────────────────────────────────────────────────────
   # Applied only when the sector table is empty. After that the table is the source of truth and
   # our platform console edits it at runtime — no rebuild, no restart. Re-applying this on every
