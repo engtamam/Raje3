@@ -780,6 +780,90 @@ The tell that this hour is worth spending: the adapter's docstring describes the
 ("we shape them into Meta's component format and forward") without quoting the requirement it is
 shaping toward. A description of the code is not a description of the contract.
 
+### 4.33 "Not published" and "we could not tell" are different answers
+
+Our re-pin script resolved twenty-five image digests from the registry, reported *"15 moved, 10 not
+published at this tag"*, and exited clean. Four of those ten were sitting in the registry the whole
+time; every one of them resolved on the first try when asked alone.
+
+The cause was ordinary — twenty-five token requests in a burst, and the registry stops answering
+partway. The damage was not: the script printed a **reassuring sentence about the registry** for a
+condition that was actually *"we do not know"*, and the release would have left four services a
+version behind with the summary line agreeing that everything was fine.
+
+An empty result has two causes that mean opposite things. A 404 is a fact you can act on. A timeout
+is the absence of a fact. Code that collapses them into one message picks the comforting reading.
+
+**The rule:** read the STATUS, not the absence of a value. Retry what is transient, with real
+backoff — a flat two seconds retried into the same closed rate-limit window three times and
+reported the same four services missing. And when it still will not resolve, **fail**: "we could not
+tell" is not a state a release may exit successfully in.
+
+### 4.34 A proof that only looks at the first minute
+
+We proved message packs against the running service: a plan of 2 plus a pack of 3 answers 5, and
+buying does not reset what was already spent. All true. The task was marked done.
+
+Then, reading the resolver for a different reason, we found `_INTERVAL = {"month": …, "once": 0}` —
+so a `once` subscription is created with `current_period_end = now + 0`, and the newly added
+period-lapse check drops any row whose period has passed. Running the service's own resolver
+confirmed it: kept at `now + 60`, `period_lapsed` at `now + 2 days`.
+
+A customer pays 50 riyals for 500 messages, sends for one day, and the balance silently reverts to
+his plan's. **Our proof passed because it ran seconds after the purchase.**
+
+**The rule:** a proof that exercises only `now` proves only `now`. When behaviour depends on time —
+a period, an expiry, a grace, a trial — the test must run the code at a time on the other side of
+the boundary. You cannot wait a day, and you do not need to: import the service's own logic and
+call it with a forged clock. That is a five-line script and it is decisive, where a live smoke test
+against a real cluster is neither.
+
+The related tell: `trial_end` in the same service is written at signup and read by **nothing**. A
+field that is only ever written is not a feature — it is a promise the code never keeps, and
+`grep -c` finds it in a second.
+
+### 4.35 A guard that cries too much gets switched off
+
+Adding the message-pack prices to the "no price in code" guard took it from zero false positives to
+forty-one. The pack prices are 50 and 90 riyals — 5000 and 9000 halalas — and every one of those is
+a port, a row limit or a batch size somewhere in the repo. `OBJECTSTORE_ENDPOINT_URL` ends in
+`:9000`.
+
+The first version of the same guard failed on twenty-six "prices" that were all CWE identifiers in
+a generated security catalogue (CWE-148, CWE-298 and CWE-598 — all three) and colour tuples inside
+a vendored dependency.
+
+A guard nobody can satisfy is a guard somebody disables, and it takes the cases it was working for
+with it.
+
+**The rule:** narrow the SCOPE before loosening the PATTERN. Skip vendored trees and generated
+files; exempt a genuinely-not-a-price number by name with the reason written down. And when a value
+is simply not distinctive enough to guard — two-digit prices are not — say so in the file and rely
+on the other control, rather than shipping a check that fires on everything.
+
+### 4.36 A line rule cannot tell a gate from the gate it is looking for
+
+Three attempts at one guard, and the failures are more instructive than the result.
+
+The rule wanted: the dashboard must keep rendering for an establishment that stopped paying, so
+`insights` must not gate what it serves on a subscription — except for the association engine,
+which is genuinely a paid feature.
+
+*Attempt 1: ban any mention of billing in insights.* It failed on six legitimate places, including
+the weekly report's balance line — a number about HIS shop that must keep being shown precisely
+when he has stopped paying.
+
+*Attempt 2: flag lines that look like gating.* It flagged `allowed_keys()` and
+`peers.entitled(...)`, which **are** the engine gate. A per-line heuristic cannot distinguish the
+gate from the one gate that is allowed, because they are the same lines.
+
+*Attempt 3, which works:* the SET of entitlement keys named anywhere in `insights/app/core` must be
+exactly `{feature.insights.engine}`. One key, one paid feature, everything else served to everybody.
+
+**The rule:** when a per-line check keeps flagging the thing you meant to allow, the property you
+are checking is not a property of lines. Find the set-level invariant — what may EXIST, not what
+may appear on a line — and check that instead.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced
