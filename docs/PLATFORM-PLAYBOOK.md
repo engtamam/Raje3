@@ -595,6 +595,36 @@ a fix is not a passing proof — it is evidence the fix is not there.**
 Verify the artifact, not the report: read `imageID` off the pod and diff it against the local
 values file, every time.
 
+### 4.23 Deleting "not Running" pods deletes the rollout you are waiting for
+
+A node was thrashing — load 44 on eight cores, containerd returning `context deadline exceeded` on
+every container create — so a cleanup ran:
+
+```
+kubectl -n base-services delete pods --field-selector=status.phase!=Running
+```
+
+It read as "clear the wreckage". What it actually matched included **Pending**, and the pod pending
+at that moment was the new version trying to start. The rollout was deleted by the command meant to
+unblock it, and the deployment sat on the old image looking healthy.
+
+`status.phase!=Running` is not "broken". It is Pending, Succeeded, Failed and Unknown — three of
+which are normal states a healthy cluster passes through constantly.
+
+Delete by the state you actually mean: `--field-selector=status.phase==Failed`, or
+`status.phase==Succeeded` for finished job pods. And when a rollout is in flight, delete nothing
+that belongs to it.
+
+### 4.24 `rollout restart` does not pick up a new image
+
+After the pod above was deleted, `kubectl rollout restart` looked like the way to get the new
+version running. It is not: restart re-creates pods from the SAME pod spec, so it restarted the old
+image, cleanly, and reported success.
+
+A restart changes nothing about what is deployed. Only re-applying the chart with the new values
+does — which on a loaded node is exactly the operation that keeps timing out, which is why the
+temptation to reach for restart appears in the first place.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced
