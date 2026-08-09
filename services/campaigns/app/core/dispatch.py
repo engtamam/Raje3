@@ -1,0 +1,133 @@
+"""Firing a campaign — and the rule that this service never sends anything itself.
+
+CAMPAIGNS DOES NOT SEND. It resolves an audience and hands each recipient to `reminders`, which
+applies spec §8.4.2: the window, the per-class caps, the marketing cooldown, the engagement tier,
+and the customer's own stop. Every one of those already exists there, tested, and a second send
+path here would be a second set of rules — and the second one is always the one missing a check
+the day somebody adds one to the first.
+
+THE STANDING CAMPAIGN IS WHY THIS MATTERS. A manual send is watched by the owner who pressed it; if
+it misbehaves they see it and stop. A standing rule runs unattended, every day, for a year, and
+could wake a thousand customers at dawn. Nobody is watching it but the gate.
+
+IDEMPOTENT ON (campaign, run, subject). A retried run must not double-send, and a run interrupted
+halfway must resume rather than start over — a campaign that re-sends its first four hundred
+recipients because the pod was evicted is worse than one that sends nothing.
+
+BOUNDED PER PASS, AND RESUMABLE. The run records what it reached; the next pass continues from
+there. Progress that survives an interruption beats completeness that does not.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from app.core.models import Run, as_row
+
+
+@dataclass
+class DispatchResult:
+    run: Run
+    finished: bool = True
+
+
+class Dispatcher:
+    def __init__(self, *, store, sender, audience_resolver, batch: int = 200,
+                 telemetry=None) -> None:
+        self._s = store
+        self._sender = sender
+        self._resolve = audience_resolver
+        self._batch = batch
+        self._t = telemetry
+
+    async def fire(self, campaign: dict[str, Any], *, now: int,
+                   fired_by: str = "system") -> DispatchResult:
+        """One pass over one campaign.
+
+        Returns the run — written whether or not anything was sent, because a run that matched
+        nobody is information and its absence looks like a broken cron.
+        """
+        tenant = campaign.get("tenant", "")
+        cid = campaign.get("id", "")
+        run = Run(tenant=tenant, campaign_id=cid, at=now, fired_by=fired_by)
+
+        reached = await self._already_reached(tenant, cid)
+        audience = await self._resolve(campaign, already_reached=reached, now=now)
+        run.matched = audience.count
+        # Everyone the rule matched and the gate would refuse. Counted into the run so the report
+        # explains the difference between "matched" and "sent" instead of leaving a gap.
+        run.suppressed += audience.excluded
+        if audience.excluded:
+            run.reasons["البوابة رفضتها قبل الإرسال"] = audience.excluded
+
+        sent_this_pass = 0
+        for candidate in audience.candidates:
+            if sent_this_pass >= self._batch:
+                # BOUNDED. The run is saved with what it reached and the next pass continues —
+                # a campaign that re-sends its first four hundred recipients because the pod was
+                # evicted is worse than one that sends nothing.
+                await self._save(run)
+                return DispatchResult(run=run, finished=False)
+
+            # THE KEY IS (campaign, run, subject) AND IT IS GENERATED BEFORE THE CALL. A timeout is
+            # not evidence that nothing was sent, and the customer must not pay for our uncertainty
+            # with a duplicate.
+            key = f"cmp:{cid}:{run.id}:{candidate.subject_ref}"
+            try:
+                outcome = await self._sender.send(
+                    tenant=tenant,
+                    subject_ref=candidate.subject_ref,
+                    template_type=campaign.get("template_type", ""),
+                    cls=campaign.get("cls", "marketing"),
+                    owner_text=campaign.get("owner_text", ""),
+                    idempotency_key=key)
+            except Exception as exc:                                        # noqa: BLE001
+                # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
+                # stopping a campaign for every other customer, indefinitely, and the symptom is
+                # "the campaign does not work" rather than "one recipient failed".
+                run.failed += 1
+                _count(run.reasons, f"تعذّر الإرسال: {str(exc)[:60]}")
+                if self._t is not None:
+                    self._t.event("campaign_send_failed", tenant=tenant, campaign=cid,
+                                  error=str(exc)[:200])
+                continue
+
+            if outcome.get("sent"):
+                run.sent += 1
+                await self._remember(tenant, cid, candidate.subject_ref, now)
+            else:
+                # THE GATE'S OWN REASON, VERBATIM. Rewriting it here would mean two vocabularies
+                # for the same refusal, and the owner reading the report would be told something
+                # subtly different from what actually happened.
+                run.suppressed += 1
+                _count(run.reasons, outcome.get("reason") or "امتنعت بلا سبب مذكور")
+            sent_this_pass += 1
+
+        await self._save(run)
+        return DispatchResult(run=run, finished=True)
+
+    # ── the dedup ledger ──────────────────────────────────────────────────────────────────────
+    # WHO THIS CAMPAIGN HAS ALREADY REACHED, kept per (campaign, subject) rather than as a flag on
+    # the customer. A flag would have to be cleared by something, and whatever clears it is the
+    # bug — this needs no cleanup and is correct after a restore.
+    async def _already_reached(self, tenant: str, campaign_id: str) -> set[str]:
+        rows, _ = await self._s.find("campaign_reached",
+                                     {"tenant": tenant, "campaign_id": campaign_id},
+                                     limit=10000, sort=("at", "asc"))
+        return {r.get("subject_ref", "") for r in rows if r.get("subject_ref")}
+
+    async def _remember(self, tenant: str, campaign_id: str, subject: str, now: int) -> None:
+        key = f"{tenant}|{campaign_id}|{subject}"
+        await self._s.put("campaign_reached", key, {
+            "id": key, "tenant": tenant, "campaign_id": campaign_id,
+            "subject_ref": subject, "at": now})
+
+    async def _save(self, run: Run) -> None:
+        await self._s.put("campaign_runs", run.key, as_row(run))
+
+
+def _count(reasons: dict[str, int], reason: str) -> None:
+    # Truncated so one long peer error cannot make a report unreadable, and counted rather than
+    # listed: an owner needs "3 deferred for the daily cap", not three identical lines.
+    k = reason[:80]
+    reasons[k] = reasons.get(k, 0) + 1
