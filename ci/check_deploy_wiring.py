@@ -526,6 +526,73 @@ if operator_roles.is_file():
              f"the surface behind it is closed to us, and the first symptom is a 403 during an "
              f"incident")
 
+# ── 17. every declared action points at a route that exists ───────────────────────────────────
+# Guard 13 asks whether every user-facing ROUTE has an action, so the console can render it.
+# Nobody was asking the reverse — whether every declared ACTION has a route — and `portal` carried
+# eight actions copied from another service's scaffold: operator config and secrets paths it does
+# not serve, under a capability it does not advertise, with one id declared twice. The console
+# would have rendered five buttons that 404, and the panel is the only place that would have
+# shown it.
+for _svc_dir in sorted((ROOT / "services").glob("*/app/manifest.py")):
+    _svc = _svc_dir.parent.parent.name
+    _tree = ast.parse(read(_svc_dir))
+    _caps: set[str] = set()
+    _routes: set[tuple[str, str]] = set()
+    for node in ast.walk(_tree):
+        if not isinstance(node, ast.Dict):
+            continue
+        for k, v in zip(node.keys, node.values):
+            if not isinstance(k, ast.Constant):
+                continue
+            if k.value == "capabilities" and isinstance(v, ast.List):
+                _caps |= {e.value for e in v.elts if isinstance(e, ast.Constant)}
+            if k.value == "endpoints" and isinstance(v, ast.List):
+                for e in v.elts:
+                    if not isinstance(e, ast.Dict):
+                        continue
+                    d = {kk.value: vv.value for kk, vv in zip(e.keys, e.values)
+                         if isinstance(kk, ast.Constant) and isinstance(vv, ast.Constant)}
+                    if d.get("path"):
+                        _routes.add((re.sub(r"\{[^}]*\}", "{}", d["path"]),
+                                     d.get("method", "GET")))
+
+    for _file, _var in (("admin_actions.py", "ADMIN_ACTIONS"),
+                        ("user_actions.py", "USER_ACTIONS")):
+        _path = _svc_dir.parent / _file
+        if not _path.is_file():
+            continue
+        _mod = ast.parse(read(_path))
+        _actions = []
+        for _n in _mod.body:
+            _target = (getattr(getattr(_n, "target", None), "id", "")
+                       or "".join(getattr(_t, "id", "") for _t in getattr(_n, "targets", [])))
+            if _target == _var:
+                try:
+                    _actions = ast.literal_eval(_n.value)
+                except (ValueError, SyntaxError):
+                    _actions = []
+        _seen: set[str] = set()
+        for _a in _actions:
+            if not isinstance(_a, dict):
+                continue
+            _id = str(_a.get("id", ""))
+            if _id in _seen:
+                fail(f"{_svc}/app/{_file}",
+                     f"action `{_id}` is declared twice — the console keys on the id, so one of "
+                     f"the two is unreachable and nobody can tell which")
+            _seen.add(_id)
+            _key = (re.sub(r"\{[^}]*\}", "{}", str(_a.get("path", ""))),
+                    _a.get("method", "GET"))
+            if _key not in _routes:
+                fail(f"{_svc}/app/{_file}",
+                     f"action `{_id}` points at {_key[1]} {_key[0]}, which this service's manifest "
+                     f"does not declare — the console renders a button that 404s")
+            _cap = _a.get("capability")
+            if _cap and _cap not in _caps:
+                fail(f"{_svc}/app/{_file}",
+                     f"action `{_id}` requires `{_cap}`, which this service does not advertise — "
+                     f"nobody can ever be granted it here")
+
 # ── 15. the custom-role builder can actually build a role ─────────────────────────────────────
 # AUTHZ_TENANT_ASSIGNABLE_CAPS is an ALLOWLIST, and an allowlist with a wrong name in it does not
 # fail — it silently refuses. Ours was written by hand in a vocabulary no service ever declared

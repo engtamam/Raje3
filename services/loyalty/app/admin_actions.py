@@ -127,13 +127,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/loyalty/platform/reconcile", "capability": "platform.loyalty",
         "confirm": True, "group": "المنصة",
         # The answer to "where did my points go?" — the only question this programme generates.
-        # Recomputes the total from the ledger, which is the truth, and repairs it if they disagree.
-    },
-    {
-        "id": "loyalty.platform_reconcile", "label": "إصلاح رصيد عميل", "method": "POST",
-        "path": "/api/v1/loyalty/platform/reconcile", "capability": "platform.loyalty",
-        "confirm": True, "group": "المنصة",
-        # The answer to "where did my points go?" — the only question this programme generates.
         # Recomputes the total from the ledger, which is the truth, and repairs a disagreement.
     },
 ]
