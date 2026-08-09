@@ -593,6 +593,58 @@ async def resolve_recipient(request: Request, body: RecipientIn) -> dict:
     }
 
 
+class FreeVisitIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # THE PSEUDONYM, because the caller is `loyalty`, which holds no phone number and must not.
+    # Every other write path here takes a phone; this one exists precisely so that one does not
+    # have to be handed to a service that was built to not have it.
+    subject_ref: str = Field(min_length=8, max_length=128)
+    service_id: str = Field(min_length=1, max_length=64)
+    actor: str = Field(default="", max_length=128)
+    # The redemption's id. Also the idempotency key, because the redemption is the only thing that
+    # knows whether two calls are the same free wash.
+    source: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/visits/by-ref", dependencies=[Depends(require_internal_token)])
+async def record_visit_by_ref(request: Request, body: FreeVisitIn) -> dict:
+    """Record a visit for a customer identified by pseudonym — the free service a reward bought.
+
+    WHY THIS ROUTE EXISTS. A reward of type `service` (spec §9.4) is a real wash performed for no
+    money. If it is not recorded as a visit, two things go wrong and neither shows up as an error:
+    the reminder cycle is never restarted, so the customer is reminded to come in for the service
+    he just received; and the shop's own history says he did not come.
+
+    AND WHY NOT `visits/batch`. That route identifies the customer by phone. `loyalty` deliberately
+    holds only the pseudonym, and handing it a phone number to make one call would undo the reason
+    it was built that way. The mapping lives here, where the number already is.
+
+    Returns `recorded: false` for an unknown or erased subject rather than 404 — the caller has
+    already handed the customer his reward and must not treat this as a failure, and a 404 here
+    would answer "does this establishment have this customer?" to anyone holding the token.
+    """
+    c = request.app.state.container
+    rows, _ = await c.datastore.find(
+        CUSTOMERS, {"tenant": body.tenant, "subject_ref": body.subject_ref}, limit=1)
+    phone = (rows[0] if rows else {}).get("phone") or ""
+    if not phone:
+        return {"recorded": False, "reason": "unknown or erased subject"}
+
+    await request.app.state.auditor.record(
+        "visit.recorded", actor=body.actor or "loyalty", tenant=body.tenant, resource="visit",
+        ip=request.client.host if request.client else "")
+    try:
+        res = await c.operations.record_visit(
+            tenant=body.tenant, phone=phone, service_ids=[body.service_id],
+            operator_id=body.actor,
+            # Namespaced on the redemption, so a retry of the same redemption records one visit.
+            idempotency_key=f"loyalty:{body.source}",
+            note="مكافأة ولاء")
+    except OperationError as exc:
+        return {"recorded": False, "reason": str(exc)}
+    return {"recorded": True, "visit_id": res.visit.id, "duplicate": res.duplicate}
+
+
 @router.get("/operations/sectors", dependencies=[Depends(require_internal_token)])
 async def list_sectors(request: Request) -> dict:
     """The sectors this deployment knows, with the fields each one renders.

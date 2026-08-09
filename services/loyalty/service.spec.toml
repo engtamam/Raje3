@@ -1,0 +1,9 @@
+# service.spec.toml — the record of how this service was generated.
+name = "loyalty"
+description = "Points, rewards, redemption and expiry"
+port = 8024
+
+[drivers]
+datastore = "postgres"
+cache = "redis"
+event_bus = "redis"

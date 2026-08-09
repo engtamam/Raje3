@@ -26,6 +26,9 @@
         "reminders.manage",
         "campaigns.read",
         "campaigns.manage",
+        "loyalty.read",
+        "loyalty.redeem",
+        "loyalty.manage",
         "billing.read",
         "billing.manage",
         "tenant.read",
@@ -66,7 +69,10 @@
         "file.write",
         "ticket.read",
         "ticket.write",
-        "analytics.read"
+        "analytics.read",
+        "loyalty.read",
+        "loyalty.redeem",
+        "loyalty.manage"
       ],
       "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
     },
@@ -82,7 +88,8 @@
         "reminders.manage",
         "operations.read",
         "analytics.read",
-        "file.read"
+        "file.read",
+        "loyalty.read"
       ]
     },
     {
@@ -95,7 +102,9 @@
         "operations.read",
         "operations.manage",
         "reminders.read",
-        "analytics.read"
+        "analytics.read",
+        "loyalty.read",
+        "loyalty.redeem"
       ]
     },
     {
@@ -104,7 +113,9 @@
       "description": "تسجيل الزيارات فقط. صلاحية واحدة، وهي التصميم لا اختصاراً: شاشته شاشة واحدة (4.1)، وكل صلاحية زائدة عنصرُ قائمة يمرّ عليه مئة مرة في اليوم.",
       "protected": false,
       "capabilities": [
-        "operations.record"
+        "operations.record",
+        "loyalty.read",
+        "loyalty.redeem"
       ]
     },
     {

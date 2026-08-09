@@ -80,6 +80,9 @@ def build_manifest(
             {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/batch", "tier": "internal", "method": "POST"},
+            # A visit performed for no money, bought with points. Identified by PSEUDONYM because
+            # the caller (`loyalty`) holds no phone number and must not be handed one.
+            {"path": "/internal/operations/visits/by-ref", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/seed-tenant", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/sectors", "tier": "internal", "method": "GET"},
             # The most sensitive surface this service has: it turns a pseudonym back into a phone

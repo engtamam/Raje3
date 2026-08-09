@@ -1,0 +1,184 @@
+"""The peers this service talks to, and the one it never bypasses.
+
+EVERY MESSAGE GOES THROUGH REMINDERS' GATE. There is no loyalty-shaped shortcut to
+notification-service, for the same reason campaigns has none: a second send path is a second set of
+rules, and the second one is always the one missing a check the day somebody adds one to the first.
+
+The redemption receipt is EXEMPT from the quiet hours and from the message cap — but the exemption
+is a property the gate already knows about the `per_account_notice` type (spec §8.4.1), not a
+bypass we implement here. That distinction is the whole design: we ask, and it decides.
+
+The shop's name comes from tenant-service, never a second copy, and a stale name beats an empty one
+— the same rule the other services landed on after a message went out with a blank establishment.
+"""
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
+
+
+def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), method="POST",
+        headers={"Content-Type": "application/json", "X-Internal-Token": token})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310
+        return json.loads(resp.read() or b"{}")
+
+
+def _get(url: str, token: str, timeout: int) -> dict[str, Any]:
+    req = urllib.request.Request(
+        url, headers={"X-Internal-Token": token})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310
+        return json.loads(resp.read() or b"{}")
+
+
+# ── sending, through the gate ──────────────────────────────────────────────────────────────────
+class NullSender:
+    """Records what it would have sent. Correct in tests; refused in production by config.py,
+    where it would mean a programme that deducts points and never tells anybody."""
+    driver = "null"
+
+    def __init__(self) -> None:
+        self.sent: list[dict[str, Any]] = []
+
+    async def send(self, **kw: Any) -> dict[str, Any]:
+        self.sent.append(kw)
+        return {"sent": True}
+
+
+class HttpSender:
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 8) -> None:
+        self._url = url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+
+    async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
+                   owner_text: str, idempotency_key: str) -> dict[str, Any]:
+        """Hand one message to reminders. It decides whether it goes.
+
+        Returns `{"sent": bool, "reason": str}`, and the reason is theirs verbatim — two
+        vocabularies for one refusal is how an owner comes to believe there are two problems.
+        """
+        try:
+            return _post(self._url, {
+                "tenant": tenant, "subject_ref": subject_ref,
+                "template_type": template_type, "class": cls,
+                "owner_text": owner_text, "idempotency_key": idempotency_key,
+            }, self._token, self._timeout)
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode()[:200]
+            return {"sent": False, "reason": f"رفض الإرسال ({exc.code}): {body}"}
+        except (urllib.error.URLError, OSError) as exc:
+            return {"sent": False, "reason": f"تعذّر الوصول لخدمة التذكيرات: {exc}"}
+
+
+# ── the shop's name ────────────────────────────────────────────────────────────────────────────
+class NullIdentity:
+    driver = "null"
+
+    def __init__(self, name: str = "المنشأة") -> None:
+        self._name = name
+
+    async def name(self, tenant: str) -> str:
+        return self._name
+
+
+class HttpIdentity:
+    """Reads the establishment's name from tenant-service, and caches it.
+
+    STALE BEATS EMPTY. When tenant-service is unreachable we serve the last name we saw rather than
+    an empty string, because an empty establishment name in a customer's message is the one failure
+    the owner cannot explain to the person who received it.
+    """
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 5,
+                 ttl: int = 300) -> None:
+        self._url = url.rstrip("/")
+        self._path = path
+        self._token = token
+        self._timeout = timeout
+        self._ttl = ttl
+        self._cache: dict[str, tuple[float, str]] = {}
+
+    async def name(self, tenant: str) -> str:
+        import time
+        hit = self._cache.get(tenant)
+        now = time.time()
+        if hit and now - hit[0] < self._ttl:
+            return hit[1]
+        path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
+        try:
+            data = _get(f"{self._url}{path}", self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return hit[1] if hit else ""
+        name = str(data.get("name") or data.get("display_name") or "")
+        if name:
+            self._cache[tenant] = (now, name)
+            return name
+        return hit[1] if hit else ""
+
+
+# ── recording a visit, when a service reward is redeemed ───────────────────────────────────────
+class NullVisits:
+    driver = "null"
+
+    def __init__(self) -> None:
+        self.recorded: list[dict[str, Any]] = []
+
+    async def record(self, **kw: Any) -> dict[str, Any]:
+        self.recorded.append(kw)
+        return {"ok": True}
+
+
+class HttpVisits:
+    """Tells operations that a free service was performed (spec §9.4, reward type `service`).
+
+    Without this, a free wash is points deducted and nothing else: no visit, so the reminder cycle
+    is not restarted and the customer is reminded to come for a wash he just had. It is the join
+    everybody forgets, which is why it has its own adapter rather than living inline.
+    """
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 8) -> None:
+        self._url = url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+
+    async def record(self, *, tenant: str, subject_ref: str, service_id: str,
+                     actor: str, source: str) -> dict[str, Any]:
+        try:
+            return _post(self._url, {
+                "tenant": tenant, "subject_ref": subject_ref, "service_id": service_id,
+                "actor": actor, "source": source, "free": True,
+            }, self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+            # NOT fatal to the redemption. The points are already spent and the customer has his
+            # reward; failing here would mean refusing a reward that was handed over. Reported so
+            # the gap is visible rather than silent.
+            return {"ok": False, "reason": str(exc)[:200]}
+
+
+def build_peers(settings) -> dict[str, Any]:
+    driver = (getattr(settings, "PEERS_DRIVER", "") or "null").lower()
+    if driver == "null":
+        return {"sender": NullSender(), "identity": NullIdentity(), "visits": NullVisits()}
+    return {
+        "sender": HttpSender(url=settings.REMINDERS_SERVICE_URL,
+                             path=settings.REMINDERS_SEND_PATH,
+                             token=settings.INTERNAL_SERVICE_TOKEN,
+                             timeout=settings.PEER_TIMEOUT_SECONDS),
+        "identity": HttpIdentity(url=settings.TENANT_SERVICE_URL,
+                                 path=settings.TENANT_LOOKUP_PATH,
+                                 token=settings.INTERNAL_SERVICE_TOKEN,
+                                 timeout=settings.PEER_TIMEOUT_SECONDS),
+        "visits": HttpVisits(url=settings.OPERATIONS_SERVICE_URL,
+                             path=settings.OPERATIONS_VISIT_PATH,
+                             token=settings.INTERNAL_SERVICE_TOKEN,
+                             timeout=settings.PEER_TIMEOUT_SECONDS),
+    }

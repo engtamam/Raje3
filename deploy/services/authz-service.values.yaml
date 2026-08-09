@@ -111,6 +111,7 @@ env:
     operations.record,operations.read,operations.manage,
     reminders.read,reminders.manage,
     campaigns.read,campaigns.manage,
+    loyalty.read,loyalty.redeem,loyalty.manage,
     billing.read,billing.manage,
     tenant.read,identity.read,identity.manage,
     file.read,file.write,ticket.read,ticket.write,
