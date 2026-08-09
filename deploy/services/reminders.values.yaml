@@ -1,0 +1,179 @@
+# reminders — Raje3 deployment values.
+#
+# OURS, and it is the product. `operations` records that a customer came; this is the service that
+# brings them back. Everything before it was infrastructure for this.
+#
+# THE ONE THING TO KNOW BEFORE CHANGING ANYTHING HERE: this service can fail completely while
+# looking perfectly healthy. Visits arrive, schedules are created, the tick returns 200, the log
+# fills with rows — and no customer receives anything. Every value below that carries a warning
+# carries it for that reason.
+#
+# WHAT IT HOLDS: schedules, learned intervals, engagement scores, the send ledger, and the
+# customer's own switches. NOT a single phone number or name — every row is keyed by the
+# subject_ref pseudonym operations publishes. What lives here is a prediction of when each person
+# next needs a service, across every shop they use; attached to a phone number that is a marketing
+# list, attached to a pseudonym it is arithmetic.
+service:
+  name: reminders
+  port: 8000
+
+image:
+  # LOCAL, like operations: built here and imported into the node's containerd, `docker.io/`
+  # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
+  # can be moved, so a tag-pinned rollback is a hope.
+  repository: docker.io/raje3/reminders
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  # THE VISIT EVENT IS THIS SERVICE'S ONLY LIVE INPUT — and the bus is at-most-once by contract
+  # (platform/services/_template/app/ports/event_bus.py says so in capitals). A missed event here
+  # is not a delay, it is a customer who never gets a reminder, for ever, because nothing will ever
+  # mention that visit again. That is why the tick also runs a catch-up READ against operations;
+  # this driver is the fast path, not the reliable one.
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # Lower than operations: nothing here is on a human's critical path. The tick runs on a cron
+    # and an owner reading their schedule can wait 200ms.
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 384Mi
+
+autoscaling:
+  enabled: false
+  # AND IT MUST STAY OFF UNTIL THE CLAIM IS ATOMIC. The tick claims a row by read-then-write
+  # because the DataStore port has no compare-and-set; with one replica the race cannot happen,
+  # and with two it is rare and bounded by the idempotency key at the sender. Scaling this without
+  # a real claim would turn a rare duplicate into a routine one — and a duplicate here is a message
+  # a customer receives twice.
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, BACKUP_KEK.
+#
+# PII_SALT is SHARED — the same value in every service. This one never hashes anything with it, but
+# it must hold the same value: two different salts fold one person into two pseudonyms, and an
+# erasure request would then miss half their data.
+#
+# BACKUP_KEK is REQUIRED and SHARED. What it protects here is the send ledger, and losing that is
+# worse than it sounds: every cap in spec 8.4.2 is counted against it, so a restore without it
+# resets every customer to zero and makes them all eligible for four fresh marketing messages on
+# the day of the recovery.
+existingSecret: reminders-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet. It calls notification-service, operations and audit-service — all in-cluster,
+    # all covered by the chart's peer rule. A service holding every customer's messaging history
+    # has no business reaching the open internet.
+    internet: false
+
+metrics:
+  serviceMonitor: false   # flipped on with the rest of the fleet; the flip restarts every pod
+
+env:
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── sending: the setting whose failure has no symptom ─────────────────────────────────────
+  # `null` schedules, gates, renders and logs "sent", and delivers nothing. Every dashboard on the
+  # platform would say the product works. The boot guard refuses it in production, and this is the
+  # single most important line in this file.
+  SENDER_DRIVER: "http"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  # THEIRS, read from notification-service's manifest rather than assumed. A service on this
+  # platform once shipped /internal/notifications/send against a peer serving /internal/notify, and
+  # every notification went to a silent 404 for weeks — a failed notification is not a failed
+  # ticket, so nothing looked wrong until a customer said "you never replied".
+  NOTIFICATION_SEND_PATH: "/internal/notify"
+
+  # ── operations: the two reads this service cannot work without ────────────────────────────
+  # RECIPIENT resolves a subject_ref to a phone number at send time, so no number ever rests here.
+  # VISITS_SINCE is the catch-up read that makes the at-most-once event bus survivable.
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  OPERATIONS_RECIPIENT_PATH: "/internal/operations/recipient"
+  OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+  MESSAGE_CHANNEL: "whatsapp"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  # ── the caps (spec 8.4.2) ─────────────────────────────────────────────────────────────────
+  # PLATFORM-OWNED. An establishment cannot raise these from its own screen, and that is not
+  # paternalism: a blocked number lowers the quality rating of every number we hold at Meta, so one
+  # shop's decision is paid for by shops that did not make it.
+  #
+  # The window is 7am-10pm Riyadh. Promotional messages are barred 10pm-7am by regulation; we
+  # apply the same window to every class, conservatively, and messages that are a REPLY to
+  # something the customer just did (a visit confirmation, a receipt) are exempt by template type.
+  SEND_WINDOW_START_HOUR: "7"
+  SEND_WINDOW_END_HOUR: "22"
+  DAILY_SERVICE_CAP: "1"
+  # The ceiling above the per-class caps. Four separate caps can each be satisfied while their sum
+  # is five messages in one day, which is the arithmetic nobody notices until a customer blocks.
+  DAILY_TOTAL_CAP: "2"
+  MONTHLY_MARKETING_CAP: "4"
+  MONTHLY_AWARENESS_CAP: "1"
+  MARKETING_COOLDOWN_HOURS: "72"
+
+  # ── the engines ───────────────────────────────────────────────────────────────────────────
+  # Tunable because the right smoothing factor for a car wash is not the right one for a workshop,
+  # and we do not know either yet. What we know is the shape.
+  ADAPTIVE_ALPHA: "0.3"
+  ADAPTIVE_ANOMALY_FACTOR: "2.5"
+  ADAPTIVE_WARMUP_OBSERVATIONS: "2"
+  DEFAULT_INTERVAL_DAYS: "90"
+  DEFAULT_LEAD_DAYS: "7"
+  # Thresholds derived from the half-life, NOT chosen to look round. With a visit worth 10 points
+  # and a 60-day half-life, a threshold of 10 is reachable only on the day of the visit — a
+  # customer from three weeks ago scores 7.9 and would have been demoted. See core/engagement.py.
+  ENGAGEMENT_HALF_LIFE_DAYS: "60"
+  ENGAGEMENT_FULL_THRESHOLD: "5.0"
+  ENGAGEMENT_MINIMAL_THRESHOLD: "1.5"
+
+  TICK_BATCH_SIZE: "100"
+  TICK_MAX_TENANTS: "200"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # FAIL-CLOSED, after the guard refused my first answer and was right.
+  #
+  # I set this to false reasoning that refusing to SEND a reminder because the audit log is down
+  # protects nobody. That reasoning confused two different things. AUDIT_FAIL_CLOSED governs the
+  # PRIVILEGED ACTIONS — raising a sending cap, changing a rule, a customer switching off a class
+  # — and every one of those is exactly what we would need the log for. A cap raised while the log
+  # was down is a cap nobody can attribute, and a customer's stop we cannot prove is a customer we
+  # cannot defend having messaged.
+  #
+  # The tick does not perform an audited action, so it is unaffected: reminders keep going out
+  # during an audit outage. Nothing is traded away here — I had simply imagined a cost that the
+  # setting does not have.
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# THE HEARTBEAT. Without this the service is inert and looks healthy: visits arrive, schedules are
+# created, every probe is green, and not one message is ever sent. There is no symptom until an
+# owner asks why nobody is coming back.
+#
+# Every five minutes, not every minute: a reminder is scheduled days in advance, so five minutes of
+# latency is invisible to a customer — and the dev node has already been brought down once by
+# every-minute crons across the fleet.
+cronJobs:
+  - name: tick
+    schedule: "*/5 * * * *"
+    path: /internal/reminders/tick
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door

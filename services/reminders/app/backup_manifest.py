@@ -36,6 +36,18 @@ BACKUP: dict[str, Any] = {
         # re-enables what they switched off — the one data loss here we could not defend.
         {"name": "prefs", "tenant_scoped": True},
         {"name": "engagement", "tenant_scoped": True},
+        # Platform-scoped, not tenant-scoped: one row per establishment under a reserved tenant,
+        # plus the global default. A per-tenant restore must not bring back an override that was
+        # deliberately removed, which is why this is declared whole rather than scoped.
+        {"name": "limits", "tenant_scoped": False},
+        # The catch-up cursor. Losing it is not data loss but it is an outage: the next tick would
+        # re-read every visit an establishment ever had, which is bounded but slow enough to miss
+        # its window on a large tenant.
+        {"name": "watermarks", "tenant_scoped": True},
+        # The tenant cache — catalogue, templates and profile, all copies of another service's
+        # truth. EXCLUDED would be defensible; included because it is small and a cold cache after
+        # a restore means the first tick renders every message with an empty establishment name.
+        {"name": "tenant_cache", "tenant_scoped": True},
     ],
     # Nothing excluded. An exclusion is a judgement call, and the fewer of those a backup manifest
     # carries the better.

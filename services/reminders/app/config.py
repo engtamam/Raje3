@@ -182,6 +182,9 @@ class Settings(BaseSettings):
     # in this service. See adapters/message_sender for why this is a route and not a column.
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
     OPERATIONS_RECIPIENT_PATH: str = "/internal/operations/recipient"
+    # The catch-up read. The event bus is at-most-once (see ports/event_bus.py), so a missed visit
+    # is a reminder that never exists — for ever. This is the readable path that repairs it.
+    OPERATIONS_VISITS_SINCE_PATH: str = "/internal/operations/visits/since"
     MESSAGE_CHANNEL: str = "whatsapp"
     PEER_TIMEOUT_SECONDS: int = 8
 
@@ -217,6 +220,10 @@ class Settings(BaseSettings):
     # Bounded per tenant per tick. An unbounded sweep is how a slow query becomes a missed batch
     # becomes a day of reminders that never went out.
     TICK_BATCH_SIZE: int = 100
+    # Tenants per tick. The cron runs every five minutes; a run that tries to serve ten thousand
+    # establishments in one request holds a worker until it is killed, and the next run starts over
+    # from the same place. Bounded work that finishes beats complete work that never does.
+    TICK_MAX_TENANTS: int = 200
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.

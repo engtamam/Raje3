@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import OperationsErasure
-from app.core.models import CUSTOMERS
+from app.core.models import CUSTOMERS, VISITS
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -238,6 +238,64 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
     return {"tenant": body.tenant, "sector": body.sector, "services_created": created,
             "fields": await sectors.fields_for(body.sector),
             "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
+
+
+class VisitsSinceIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # Exclusive watermark. The caller stores the highest `created` it has processed and asks for
+    # what came after — a cursor it owns, not a subscription we owe it.
+    since: int = Field(ge=0)
+    limit: int = Field(default=200, ge=1, le=1000)
+
+
+@router.post("/operations/visits/since", dependencies=[Depends(require_internal_token)])
+async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
+    """Visits recorded after a watermark — the READ that makes the visit event self-healing.
+
+    THIS EXISTS BECAUSE THE EVENT BUS IS AT-MOST-ONCE, and its port says so in capitals: a
+    subscriber that is restarting, disconnected, or not yet deployed does not receive the event,
+    and nothing anywhere records that it missed one. For `reminders` that is not a delay, it is a
+    customer who never gets a reminder — for ever, because nothing will ever mention that visit
+    again.
+
+    The rule the port imposes on every consumer is that an event may be a HINT that makes
+    reconciliation faster, and never the only way a fact can be learned. So this is the other way:
+    a bounded, ordered read that a consumer can catch up from after any outage, restart, or
+    deployment gap.
+
+    ORDERED BY `created`, NOT `occurred_at`. The watermark must advance monotonically, and
+    `occurred_at` is the DEVICE clock — an offline till draining a week of records emits visits
+    whose occurred_at is in the past, and a cursor on it would skip everything drained after the
+    reader had moved on. `created` is ours and only ever increases.
+    """
+    c = request.app.state.container
+    rows, _ = await c.datastore.find(
+        VISITS, {"tenant": body.tenant}, limit=body.limit, sort=("created", "asc"))
+    fresh = [r for r in rows if int(r.get("created") or 0) > body.since]
+    # The same payload shape as the event, so a consumer has ONE code path for both. Two shapes
+    # would mean the recovery path is the one nobody exercises and therefore the one that is
+    # broken when it is finally needed.
+    out = []
+    for r in fresh:
+        cust = await c.datastore.get(CUSTOMERS, f"{body.tenant}|{r.get('customer_id','')}")
+        out.append({
+            "tenant": body.tenant,
+            "visit_id": r.get("id", ""),
+            "customer_id": r.get("customer_id", ""),
+            "subject_ref": (cust or {}).get("subject_ref", ""),
+            "service_ids": list(r.get("service_ids") or []),
+            "asset_id": r.get("asset_id", ""),
+            "operator_id": r.get("operator_id", ""),
+            "branch_id": r.get("branch_id", ""),
+            "visit_count": (cust or {}).get("visit_count", 0),
+            "occurred_at": r.get("occurred_at") or r.get("created"),
+            "created": r.get("created"),
+        })
+    return {"visits": out, "count": len(out),
+            # The next watermark, computed here rather than by the caller: deriving it from the
+            # last row is a one-line mistake that either replays everything or skips a visit.
+            "watermark": max([int(v["created"]) for v in out] + [body.since]),
+            "more": len(fresh) == body.limit}
 
 
 class RecipientIn(BaseModel):

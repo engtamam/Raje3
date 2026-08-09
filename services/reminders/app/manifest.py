@@ -94,6 +94,7 @@ def build_manifest(
             # ── the platform console: the caps themselves ─────────────────────────────────
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/platform/limits", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},

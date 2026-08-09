@@ -30,7 +30,7 @@ ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }
 
 # Every service that needs its own database. One database per service is not tidiness: it is what
 # stops a migration in one service from locking a table in another.
-SERVICES="tenant authz identity audit gateway job file compliance notification featureflag analytics wallet billing ticket onboarding backup search webhook connector operations"
+SERVICES="tenant authz identity audit gateway job file compliance notification featureflag analytics wallet billing ticket onboarding backup search webhook connector operations reminders"
 
 info "provisioning databases"
 for db in $SERVICES; do

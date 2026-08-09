@@ -144,6 +144,11 @@ class Container:
     telemetry: Telemetry
     audit_sink: Any = None
     consent_gate: Any = None
+    # ── this service's own pieces, built after the ports they depend on ───────────────────────
+    sender: Any = None
+    scheduler: Any = None
+    ingest: Any = None
+    tick: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -198,7 +203,7 @@ def _build_audit_sink(settings: Settings, event_bus) -> Any:
 def build_container(settings: Settings) -> Container:
     """Resolve every port from config. Fail-fast on any unknown driver."""
     event_bus = _pick(_EVENTBUS, settings.EVENTBUS_DRIVER, "event_bus", settings)
-    return Container(
+    container = Container(
         datastore=_pick(_DATASTORE, settings.DATASTORE_DRIVER, "datastore", settings),
         cache=_pick(_CACHE, settings.CACHE_DRIVER, "cache", settings),
         event_bus=event_bus,
@@ -211,3 +216,51 @@ def build_container(settings: Settings) -> Container:
         audit_sink=_build_audit_sink(settings, event_bus),
         consent_gate=_pick(_CONSENT_GATE, settings.CONSENT_GATE_DRIVER, "consent_gate", settings),
     )
+
+    # ── the domain, assembled from settings rather than from constants ────────────────────────
+    # Local imports: these pull in this service's own core, and keeping them out of module scope
+    # means the ports above stay importable by anything that only needs a driver.
+    from app.adapters.message_sender import build_sender
+    from app.core.adaptive import AdaptiveConfig
+    from app.core.engagement import EngagementConfig
+    from app.core.gate import Limits
+    from app.core.ingest import HttpVisits, Ingest
+    from app.core.scheduling import Scheduler
+    from app.core.tick import Tick
+
+    adaptive_cfg = AdaptiveConfig(
+        alpha=settings.ADAPTIVE_ALPHA, anomaly_factor=settings.ADAPTIVE_ANOMALY_FACTOR,
+        min_days=settings.ADAPTIVE_MIN_DAYS, max_days=settings.ADAPTIVE_MAX_DAYS,
+        warmup=settings.ADAPTIVE_WARMUP_OBSERVATIONS)
+    eng_cfg = EngagementConfig(
+        half_life_days=settings.ENGAGEMENT_HALF_LIFE_DAYS,
+        full_threshold=settings.ENGAGEMENT_FULL_THRESHOLD,
+        minimal_threshold=settings.ENGAGEMENT_MINIMAL_THRESHOLD)
+    limits = Limits(
+        window_start_hour=settings.SEND_WINDOW_START_HOUR,
+        window_end_hour=settings.SEND_WINDOW_END_HOUR,
+        daily_service_cap=settings.DAILY_SERVICE_CAP,
+        monthly_marketing_cap=settings.MONTHLY_MARKETING_CAP,
+        monthly_awareness_cap=settings.MONTHLY_AWARENESS_CAP,
+        marketing_cooldown_hours=settings.MARKETING_COOLDOWN_HOURS,
+        daily_total_cap=settings.DAILY_TOTAL_CAP)
+
+    container.sender = build_sender(settings)
+    container.scheduler = Scheduler(
+        store=container.datastore, cfg=adaptive_cfg, eng_cfg=eng_cfg,
+        default_interval_days=settings.DEFAULT_INTERVAL_DAYS,
+        lead_days=settings.DEFAULT_LEAD_DAYS)
+    # The catch-up client is absent when operations is not configured — and `Ingest` degrades to
+    # the event path alone rather than failing at boot. A local run with no peers must still work;
+    # production is covered by assert_sender_config_ok, which requires the same URL.
+    visits = (HttpVisits(url=settings.OPERATIONS_SERVICE_URL,
+                         path=settings.OPERATIONS_VISITS_SINCE_PATH,
+                         token=settings.INTERNAL_SERVICE_TOKEN,
+                         timeout=settings.PEER_TIMEOUT_SECONDS)
+              if settings.OPERATIONS_SERVICE_URL else None)
+    container.ingest = Ingest(store=container.datastore, scheduler=container.scheduler,
+                              visits_client=visits, telemetry=container.telemetry)
+    container.tick = Tick(store=container.datastore, sender=container.sender, limits=limits,
+                          eng_cfg=eng_cfg, batch=settings.TICK_BATCH_SIZE,
+                          telemetry=container.telemetry)
+    return container

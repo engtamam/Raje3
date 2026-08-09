@@ -6,9 +6,11 @@
 # =============================================================================
 from __future__ import annotations
 
+import time
+
 import hmac
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
@@ -86,6 +88,139 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     # would imply a capability we deliberately do not have.
     eraser = RemindersErasure(store=c.datastore, max_scan=s.ERASURE_MAX_SCAN)
     return await eraser.erase(body.tenant, body.subject)
+
+
+class TickIn(BaseModel):
+    # Empty = every tenant with pending work. A value = just that one, which is what an operator
+    # uses to unstick a single establishment without re-running the fleet.
+    tenant: str = Field(default="", max_length=128)
+
+
+@router.post("/reminders/tick", dependencies=[Depends(require_internal_token)])
+async def tick(request: Request, body: TickIn) -> dict:
+    """The heartbeat. A CronJob in the values file drives this.
+
+    WITHOUT THE CRON THIS SERVICE IS INERT AND LOOKS HEALTHY: visits arrive, schedules are created,
+    every probe is green, and not one message is ever sent. That is why the cron is declared in the
+    values file and why a guard checks that this path exists — the failure has no symptom until an
+    owner asks why nobody is coming back.
+
+    Runs the catch-up read FIRST, then the send pass. In that order because the bus is
+    at-most-once: a visit the event missed should be scheduled and sent in the same tick, not in
+    the next one.
+    """
+    c = request.app.state.container
+    s = get_settings()
+    now = int(time.time())
+    tenants = [body.tenant] if body.tenant else await _active_tenants(c)
+    caught = {"read": 0, "scheduled": 0}
+    sent = suppressed = deferred = failed = 0
+    reasons: dict[str, int] = {}
+
+    for tenant in tenants[:s.TICK_MAX_TENANTS]:
+        cfg = await _service_config(c, tenant)
+        try:
+            got = await c.ingest.catch_up(tenant, now=now, service_config=cfg)
+            caught["read"] += got.get("read", 0)
+            caught["scheduled"] += got.get("scheduled", 0)
+        except Exception as exc:                                            # noqa: BLE001
+            # A catch-up failure must not skip the send pass: the schedules already in the
+            # datastore are due regardless of whether operations is reachable right now.
+            c.telemetry.event("catch_up_failed", tenant=tenant, error=str(exc)[:200])
+
+        res = await c.tick.run(
+            tenant, now=now, library=await _library(c, tenant),
+            service_names={k: v.get("name", k) for k, v in cfg.items()},
+            establishment=await _establishment(c, tenant),
+            customer_names={}, tone=await _tone(c, tenant))
+        sent += res.sent
+        suppressed += res.suppressed
+        deferred += res.deferred
+        failed += res.failed
+        for k, v in res.reasons.items():
+            reasons[k] = reasons.get(k, 0) + v
+
+    return {"tenants": len(tenants), "caught_up": caught, "sent": sent,
+            "suppressed": suppressed, "deferred": deferred, "failed": failed,
+            # The reason counts, not just the totals. "312 suppressed" is an alarm; "312
+            # suppressed, all outside the window" is a working system doing its job.
+            "reasons": reasons}
+
+
+class ReceiptIn(BaseModel):
+    """A delivery fact from notification-service: the customer read it, or tapped the button."""
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    # "read" or "click". Anything else is ignored rather than rejected — a peer that grows a new
+    # receipt type must not start failing against us.
+    event: str = Field(min_length=1, max_length=32)
+
+
+@router.post("/reminders/receipt", dependencies=[Depends(require_internal_token)])
+async def receipt(request: Request, body: ReceiptIn) -> dict:
+    """Credit an engagement signal.
+
+    THE ABSENCE OF A RECEIPT IS NOT A ZERO — it means we have not heard, which is different from
+    ignored, and the score treats it that way by simply decaying. So there is no "unread" event and
+    nothing to call here when a message goes unopened.
+    """
+    from app.core.engagement import EngagementConfig, add, points_for
+    from app.core.stores import EngagementStore
+    c = request.app.state.container
+    s = get_settings()
+    cfg = EngagementConfig(half_life_days=s.ENGAGEMENT_HALF_LIFE_DAYS,
+                           full_threshold=s.ENGAGEMENT_FULL_THRESHOLD,
+                           minimal_threshold=s.ENGAGEMENT_MINIMAL_THRESHOLD)
+    points = points_for(body.event, cfg)
+    if points <= 0:
+        return {"credited": 0.0, "ignored": body.event}
+    now = int(time.time())
+    store = EngagementStore(c.datastore)
+    row = await store.get(body.tenant, body.subject_ref) or {
+        "id": f"eng_{body.subject_ref}", "tenant": body.tenant,
+        "subject_ref": body.subject_ref, "score": 0.0, "scored_at": now}
+    score, at = add(float(row.get("score") or 0.0), scored_at=int(row.get("scored_at") or now),
+                    points=points, now=now, cfg=cfg)
+    row["score"], row["scored_at"], row["updated"] = score, at, now
+    await store.put(body.tenant, body.subject_ref, row)
+    return {"credited": points, "score": score}
+
+
+async def _active_tenants(c) -> list[str]:
+    """Tenants with pending schedules.
+
+    Derived from our own rows rather than asked of tenant-service: this must keep working when a
+    peer is down, and a tenant with no pending schedule has nothing for the tick to do anyway.
+    """
+    rows, _ = await c.datastore.find("schedules", {"state": "pending"}, limit=2000,
+                                     sort=("due_at", "asc"))
+    seen: list[str] = []
+    for r in rows:
+        t = r.get("tenant") or ""
+        if t and t not in seen:
+            seen.append(t)
+    return seen
+
+
+async def _service_config(c, tenant: str) -> dict:
+    """The tenant's catalogue, cached. Absent peer = empty, and the defaults apply."""
+    row = await c.datastore.get("tenant_cache", f"{tenant}|services")
+    return (row or {}).get("services") or {}
+
+
+async def _library(c, tenant: str) -> list:
+    row = await c.datastore.get("tenant_cache", f"{tenant}|templates")
+    return (row or {}).get("templates") or []
+
+
+async def _establishment(c, tenant: str) -> str:
+    row = await c.datastore.get("tenant_cache", f"{tenant}|profile")
+    return (row or {}).get("name") or ""
+
+
+async def _tone(c, tenant: str) -> str:
+    row = await c.datastore.get("tenant_cache", f"{tenant}|profile")
+    return (row or {}).get("tone") or "brief"
 
 
 class BackupExportIn(BaseModel):
