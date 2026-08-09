@@ -150,7 +150,10 @@ for plan in PRODUCTS:
     # nothing says so. A seeder that reports "4 updated" every time it runs is a seeder whose
     # output nobody reads.
     drift = []
-    if (cur.get("limits") or {}) != plan["limits"]:
+    # AGAINST want, NOT AGAINST plan["limits"]. A pack has no limits key of its own — it is
+    # built by pack_limits() — and reading the raw product here raised a KeyError on the first
+    # pack, after cleanly reporting all four plans as matching.
+    if (cur.get("limits") or {}) != want["limits"]:
         drift.append("limits")
     if (cur.get("prices") or []) != want["prices"]:
         drift.append("price")
