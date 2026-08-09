@@ -58,7 +58,9 @@ def build_manifest(
         # adopter's client app reads as fact and renders nothing from. A blank app is the usual
         # symptom of a service that shipped this untouched. If a service genuinely grants none,
         # leaving it empty is correct; the point is that it must be a decision, not a leftover.
-        "capabilities": [],  # e.g. ["files.upload", "files.read"] — atomic capability keys
+        # Three, split by who is harmed. Reading answers "what did I send?"; managing decides
+        # who receives a message under the shop's name; and the caps behind a campaign are ours.
+        "capabilities": ["campaigns.read", "campaigns.manage", "platform.campaigns"],  # e.g. ["files.upload", "files.read"] — atomic capability keys
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -68,18 +70,23 @@ def build_manifest(
             {"path": "/internal/backup/export", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
+            # THE HEARTBEAT. Without the cron this service is inert and looks healthy: campaigns
+            # exist, every probe passes, and nothing ever fires.
+            {"path": "/internal/campaigns/tick", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
-             # DECLARED, because a data map built from manifests is how a DSAR fan-out
-             # finds who holds a person. An undeclared holder is never asked, never acks,
-             # and is therefore never MISSED — the request closes green on an erasure
-             # that did not happen.
              "erasure_category": "subject"},
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
-            # The operator surface: credentials and policy an operator changes after launch.
-            # Declared like anything else — a route table built from manifests that omits the
-            # place credentials are set is a route table that hides the highest-privilege
-            # surface the service has.
+            # ── the owner's three screens ─────────────────────────────────────────────────
+            {"path": "/api/v1/campaigns/goals", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/preview", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/campaigns", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/campaigns", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/{}/runs", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/{}/pause", "tier": "user", "method": "POST"},
+            # OURS. The audience ceiling is not an establishment's to raise: a twenty-thousand
+            # recipient burst is a volume signal Meta reads against every number we hold.
+            {"path": "/api/v1/campaigns/platform/audience-cap", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/campaigns/platform/audience-cap", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
@@ -91,7 +98,9 @@ def build_manifest(
         # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty
         # `emitted` reads as "this service publishes nothing", so a consumer wiring against it
         # subscribes to nothing and fails silently rather than at boot.
-        "events": {"emitted": [], "consumed": []},  # e.g. {"emitted": ["wallet.credited"], ...}
+        # Emitted so insights can count what a campaign achieved without this service knowing
+        # who counts it. Consumed: nothing — a campaign is started by a person or a clock.
+        "events": {"emitted": ["campaigns.run.completed"], "consumed": []},  # e.g. {"emitted": ["wallet.credited"], ...}
         "admin_actions": _admin_actions(),
         "backup": _backup(),
         "user_actions": _user_actions(),

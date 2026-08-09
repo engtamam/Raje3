@@ -1,5 +1,5 @@
 # =============================================================================
-# campaigns — hardened production image
+# operations — hardened production image
 # Multi-stage · python:3.12-slim · non-root · runtime deps only · read-only-friendly
 # (CIS-aligned: minimal surface, unprivileged user, no build tools in final image)
 # =============================================================================
@@ -37,6 +37,7 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=app:app app ./app
 COPY --chown=app:app pyproject.toml README.md ./
+# NO data/. Campaigns seeds nothing: the goals are code and the templates are operations'.
 
 USER app
 EXPOSE 8000

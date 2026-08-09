@@ -17,6 +17,12 @@ from app.api.ratelimit import rate_limit
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
+# The child carries its own prefix and this one carries /api/v1. Both carrying it produced
+# /api/v1/api/v1/... once already — a 404 on every route, found only by calling one.
+from app.api.v1 import campaigns as _campaigns   # noqa: E402
+
+router.include_router(_campaigns.router)
+
 
 @router.get("/whoami", dependencies=[Depends(rate_limit)])
 async def whoami(

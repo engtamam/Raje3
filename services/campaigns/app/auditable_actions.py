@@ -164,4 +164,31 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "erasure is irreversible; without a record we cannot prove we honoured the DSAR, "
                "and the data itself is gone so nothing else can show it",
     },
+    {
+        "action": "campaign.created",
+        "source": "admin",
+        "critical": True,
+        "resource": "campaign",
+        "why": "decides that hundreds of customers receive a message under the establishment's "
+               "name. When one of them complains, the log is where the decision and its author "
+               "are found",
+    },
+    {
+        "action": "campaign.paused",
+        "source": "admin",
+        "critical": False,
+        "resource": "campaign",
+        "why": "a standing campaign that stopped is a question somebody asks weeks later, and "
+               "the only record of when and by whom. Not critical: refusing to pause because the "
+               "log is down keeps sending what the owner just asked us to stop",
+    },
+    {
+        "action": "campaign.audience_cap_changed",
+        "source": "admin",
+        "critical": True,
+        "resource": "audience_cap",
+        "why": "raising one establishment's ceiling risks a volume spike that lowers the quality "
+               "rating of every number on the product — an edit whose cost lands on shops that "
+               "did not make it",
+    },
 ]

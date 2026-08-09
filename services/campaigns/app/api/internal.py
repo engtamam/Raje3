@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hmac
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
@@ -76,9 +76,61 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     """
     c = request.app.state.container
     s = get_settings()
-    eraser = CampaignsErasure(store=c.datastore, pii_salt=s.PII_SALT,
-                             max_scan=s.ERASURE_MAX_SCAN)
+    # No salt: this service never receives a raw identifier — the subject it is handed is already
+    # the pseudonym operations published.
+    eraser = CampaignsErasure(store=c.datastore, max_scan=s.ERASURE_MAX_SCAN)
     return await eraser.erase(body.tenant, body.subject)
+
+
+class TickIn(BaseModel):
+    tenant: str = Field(default="", max_length=128)
+
+
+@router.post("/campaigns/tick", dependencies=[Depends(require_internal_token)])
+async def tick(request: Request, body: TickIn) -> dict:
+    """The heartbeat. A CronJob in the values file drives this.
+
+    WITHOUT IT THIS SERVICE IS INERT AND LOOKS HEALTHY: campaigns exist, every probe passes, and
+    nothing ever fires. There is no symptom until an owner asks why the win-back campaign they set
+    up in March has never sent anything.
+    """
+    import time
+    c = request.app.state.container
+    s = get_settings()
+    now = int(time.time())
+    tenants = [body.tenant] if body.tenant else await _active_tenants(c)
+    fired = evaluated = sent = suppressed = skipped = 0
+    reasons: dict = {}
+    for tenant in tenants[:s.TICK_MAX_TENANTS]:
+        res = await c.tick.run(tenant, now=now)
+        fired += res.fired
+        evaluated += res.evaluated
+        sent += res.sent
+        suppressed += res.suppressed
+        skipped += res.skipped
+        for k, v in res.reasons.items():
+            reasons[k] = reasons.get(k, 0) + v
+    return {"tenants": len(tenants), "evaluated": evaluated, "fired": fired,
+            "sent": sent, "suppressed": suppressed, "skipped": skipped,
+            # The reason counts, not just the totals: "312 suppressed" is an alarm, "312
+            # suppressed, all outside the window" is a working system doing its job.
+            "reasons": reasons}
+
+
+async def _active_tenants(c) -> list:
+    """Tenants with an active campaign.
+
+    Derived from our own rows rather than asked of tenant-service: this must keep working when a
+    peer is down, and a tenant with no active campaign has nothing for the tick to do.
+    """
+    rows, _ = await c.datastore.find("campaigns", {"state": "active"}, limit=2000,
+                                     sort=("created", "asc"))
+    seen = []
+    for r in rows:
+        t = r.get("tenant") or ""
+        if t and t not in seen:
+            seen.append(t)
+    return seen
 
 
 class BackupExportIn(BaseModel):

@@ -144,6 +144,14 @@ class Container:
     telemetry: Telemetry
     audit_sink: Any = None
     consent_gate: Any = None
+    # ── this service's own pieces ─────────────────────────────────────────────────────────────
+    templates: Any = None
+    audience: Any = None
+    sender: Any = None
+    identity: Any = None
+    gate: Any = None
+    dispatcher: Any = None
+    tick: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -198,7 +206,7 @@ def _build_audit_sink(settings: Settings, event_bus) -> Any:
 def build_container(settings: Settings) -> Container:
     """Resolve every port from config. Fail-fast on any unknown driver."""
     event_bus = _pick(_EVENTBUS, settings.EVENTBUS_DRIVER, "event_bus", settings)
-    return Container(
+    container = Container(
         datastore=_pick(_DATASTORE, settings.DATASTORE_DRIVER, "datastore", settings),
         cache=_pick(_CACHE, settings.CACHE_DRIVER, "cache", settings),
         event_bus=event_bus,
@@ -211,3 +219,53 @@ def build_container(settings: Settings) -> Container:
         audit_sink=_build_audit_sink(settings, event_bus),
         consent_gate=_pick(_CONSENT_GATE, settings.CONSENT_GATE_DRIVER, "consent_gate", settings),
     )
+
+    from app.adapters.peers import build_peers
+    from app.core.audience import resolve as resolve_audience
+    from app.core.dispatch import Dispatcher
+    from app.core.tick import Tick
+
+    peers = build_peers(settings)
+    container.templates = peers["templates"]
+    container.audience = _AudienceFacade(peers["audience"], resolve_audience)
+    container.sender = peers["sender"]
+    container.identity = peers["identity"]
+    container.gate = peers["window"]
+
+    async def _resolver(campaign, *, already_reached, now):
+        return await container.audience.resolve_for(
+            campaign.get("tenant", ""), goal=campaign.get("goal", ""), now=now,
+            already_reached=already_reached, cls=campaign.get("cls", "marketing"))
+
+    container.dispatcher = Dispatcher(store=container.datastore, sender=container.sender,
+                                      audience_resolver=_resolver,
+                                      batch=settings.DISPATCH_BATCH_SIZE,
+                                      telemetry=container.telemetry)
+    container.tick = Tick(store=container.datastore, dispatcher=container.dispatcher,
+                          telemetry=container.telemetry)
+    return container
+
+
+class _AudienceFacade:
+    """Binds the peer client to the pure resolver.
+
+    The resolver stays pure — every input passed in — and this is the one place that knows both
+    it and the network. Putting the peer call inside the resolver would make the function that
+    decides who receives a message untestable across its space.
+    """
+
+    def __init__(self, client, resolve) -> None:
+        self._c = client
+        self._resolve = resolve
+
+    async def resolve_for(self, tenant: str, *, goal: str, now: int,
+                          already_reached=None, cls: str = "marketing"):
+        async def _customers(t):
+            return await self._c.customers(t)
+
+        async def _gate(subject: str) -> bool:
+            return await self._c.allows(tenant, subject, cls)
+
+        return await self._resolve(goal=goal, tenant=tenant, now=now,
+                                   customers=_customers, gate_check=_gate,
+                                   already_reached=already_reached or set())

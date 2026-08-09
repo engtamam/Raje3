@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: docker.io/raje3/reminders
-  digest: "sha256:b680bc63f1835408717aec54db534c265a2b75a8603e8756abd83ed6ff466297"
+  digest: "sha256:7aa5184de5b8611d52703134b4b69efd35cda9488f1e17bc035e1bffc7cc1512"
 
 replicas: 1
 

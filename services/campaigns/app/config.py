@@ -167,6 +167,36 @@ class Settings(BaseSettings):
     # CAN make it during an audit outage, and it is documented so nobody makes it by accident.
     AUDIT_FAIL_CLOSED: bool = True
 
+    # ── the peers a campaign reads and hands work to ──────────────────────────
+    # `null` resolves an empty audience and sends nothing. Correct for tests; refused in
+    # production by the boot guard, where it would mean a campaign the owner pressed that
+    # reached nobody, with a run report saying so and nothing explaining why.
+    PEERS_DRIVER: str = "null"               # null | http
+    OPERATIONS_SERVICE_URL: str = ""
+    # THEIRS. The template library and the customer list, both verified against operations'
+    # manifest rather than assumed.
+    TEMPLATES_PATH: str = "/internal/operations/templates"
+    CUSTOMERS_PATH: str = "/internal/operations/customers"
+    REMINDERS_SERVICE_URL: str = ""
+    # THEIRS. Would the gate allow this, and send this — the second is the ONLY way this service
+    # sends anything.
+    ELIGIBILITY_PATH: str = "/internal/reminders/eligibility"
+    SEND_PATH: str = "/internal/reminders/send"
+    TENANT_SERVICE_URL: str = ""
+    TENANT_READ_PATH: str = "/internal/tenants/{id}"
+    PEER_TIMEOUT_SECONDS: int = 8
+
+    # ── the window, for the preview's sentence only ───────────────────────────
+    # NOT a second gate: reminders decides whether a message goes. This decides which sentence the
+    # preview shows, and getting it wrong costs a wrong sentence rather than a wrong send.
+    SEND_WINDOW_START_HOUR: int = 7
+    SEND_WINDOW_END_HOUR: int = 22
+
+    # Recipients per pass. The rest are finished by the next tick — progress that survives an
+    # interruption beats completeness that does not.
+    DISPATCH_BATCH_SIZE: int = 200
+    TICK_MAX_TENANTS: int = 200
+
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.
     DATASTORE_DRIVER: str = "memory"
@@ -367,6 +397,24 @@ class Settings(BaseSettings):
             raise ValueError("INTERNAL_SERVICE_TOKEN is a placeholder — set a real secret")
         return v
 
+
+    def assert_peers_config_ok(self) -> None:
+        """Boot guard. Refuse production with a service that cannot reach anybody.
+
+        The symptom is not an error: campaigns are created, runs are written, every probe is
+        green, and every run reports reaching nobody — for ever, with nothing saying why.
+        """
+        if not self.is_production:
+            return
+        if self.PEERS_DRIVER == "null":
+            raise ValueError(
+                "PEERS_DRIVER=null in production: every campaign would resolve an empty audience "
+                "and send nothing, and the run report would say so with no cause. Set it to "
+                "'http'.")
+        missing = [n for n in ("OPERATIONS_SERVICE_URL", "REMINDERS_SERVICE_URL",
+                               "TENANT_SERVICE_URL") if not getattr(self, n)]
+        if missing:
+            raise ValueError(f"PEERS_DRIVER=http but {', '.join(missing)} empty.")
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

@@ -1,0 +1,128 @@
+# campaigns — Raje3 deployment values.
+#
+# OURS. The first service where the OWNER decides who receives a message — everything before it was
+# the system deciding. That is what they are buying, and it is also the largest single risk on the
+# product.
+#
+# THE ONE THING TO KNOW BEFORE CHANGING ANYTHING HERE: this service does not send. It resolves an
+# audience and hands each recipient to `reminders`, which applies every rule in spec §8.4.2. If a
+# change here ever looks like it needs its own send path, it does not — it needs a change there.
+#
+# AND THE STANDING CAMPAIGN IS WHY THE CAPS MATTER. A manual send is watched by the owner who
+# pressed it. A standing rule runs unattended, every day, for a year, and could wake a thousand
+# customers at dawn with nothing between it and them but the gate.
+service:
+  name: campaigns
+  port: 8000
+
+image:
+  repository: docker.io/raje3/campaigns
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis      # it emits campaigns.run.completed; insights will count from it
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # Higher than the portal, lower than operations: a dispatch pass walks an audience and calls a
+    # peer per recipient, but nothing here is on a human's critical path except the preview.
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  # AND IT MUST STAY OFF. The dispatcher's dedup is the reached-ledger, which is read at the start
+  # of a pass — two replicas firing the same standing campaign in the same minute would both read
+  # it before either wrote, and both would send. One replica makes that impossible; scaling it
+  # needs a claim on the campaign first.
+
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, BACKUP_KEK.
+#
+# BACKUP_KEK protects the reached-ledger, and losing that is worse than it sounds: a restore
+# without it makes every standing campaign eligible to re-send to everyone it has ever reached, on
+# the day of the recovery.
+existingSecret: campaigns-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet. It calls operations, reminders, tenant-service and audit-service — all
+    # in-cluster. A service that decides who receives a marketing message has no business reaching
+    # the open internet.
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── the peers ─────────────────────────────────────────────────────────────────────────────
+  # `null` resolves an empty audience and sends nothing: campaigns are created, runs are written,
+  # every probe is green, and every run reports reaching nobody with no cause. The boot guard
+  # refuses it in production.
+  PEERS_DRIVER: "http"
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  TEMPLATES_PATH: "/internal/operations/templates"
+  CUSTOMERS_PATH: "/internal/operations/customers"
+  REMINDERS_SERVICE_URL: "http://reminders:8000"
+  ELIGIBILITY_PATH: "/internal/reminders/eligibility"
+  # THE ONLY WAY THIS SERVICE SENDS ANYTHING. There is no WhatsApp client here and no channel
+  # config — reminders owns the gate and the send, and a second path would be a second set of
+  # rules with the second one always missing a check.
+  SEND_PATH: "/internal/reminders/send"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  TENANT_READ_PATH: "/internal/tenants/{id}"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  # ── the window, for the preview's sentence ONLY ───────────────────────────────────────────
+  # Not a second gate. reminders decides whether a message goes out; this decides whether the
+  # preview says "sends now" or "sends tomorrow at 7am". Getting it wrong costs a wrong sentence
+  # rather than a wrong send — which is why a local copy is acceptable here and nowhere else.
+  SEND_WINDOW_START_HOUR: "7"
+  SEND_WINDOW_END_HOUR: "22"
+
+  # Recipients per pass; the rest are finished by the next tick. Progress that survives an
+  # interruption beats completeness that does not — a campaign that re-sends its first four
+  # hundred recipients after a pod eviction is worse than one that sends nothing.
+  DISPATCH_BATCH_SIZE: "200"
+  TICK_MAX_TENANTS: "200"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  # FAIL-CLOSED. Creating a campaign decides that hundreds of customers receive a message under an
+  # establishment's name, and when one complains the log is where the decision and its author are
+  # found. An unattributable campaign is the one case here that cannot be defended at all.
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+# THE HEARTBEAT. Without it, campaigns exist and never fire: scheduled ones sit past their time and
+# standing rules are never evaluated, with every probe green and no symptom until an owner asks why
+# the campaign they set up in March has never sent anything.
+#
+# Every fifteen minutes, not every five. A standing rule evaluates once a CALENDAR DAY (its own
+# guard), and a scheduled campaign fifteen minutes late is invisible to a customer — while a
+# five-minute cron across the fleet is what put this node into a load spiral once already.
+cronJobs:
+  - name: tick
+    schedule: "*/15 * * * *"
+    path: /internal/campaigns/tick
+
+ingress:
+  enabled: false   # reached service-to-service; api-gateway is the only public door
