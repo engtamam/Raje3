@@ -90,12 +90,9 @@ token, submit = sys.argv[1], sys.argv[2] == "1"
 name, category, body = sys.argv[3], sys.argv[4].upper(), sys.argv[5]
 H = "http://localhost:8000"
 
-MEANING = {
-    1: "the customer's name or its substitute — never empty; Meta rejects an empty variable",
-    2: "the establishment's name — its identity, never ours",
-    3: "the service or the content",
-    4: "a second detail: a date, an amount, a transaction reference",
-}
+# THE EXAMPLE VALUE FOR EACH VARIABLE. Meta requires one for every parameter at creation time
+# and refuses a template with a placeholder and no example — so these are values, not descriptions.
+EXAMPLE = {1: "محمد", 2: "مغسلة النخيل", 3: "غيار الزيت", 4: "1234"}
 
 def call(path, payload=None):
     d = json.dumps(payload).encode() if payload is not None else None
@@ -131,7 +128,7 @@ if name in have:
 
 s, out = call("/api/v1/whatsapp/templates", {
     "name": name, "language": "ar", "category": category, "body": body,
-    "variables": [MEANING[i] for i in used],
+    "variables": [EXAMPLE[i] for i in used],
 })
 if s != 201:
     print("  x register " + str(s) + " " + str(out))

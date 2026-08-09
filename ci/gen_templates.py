@@ -121,11 +121,23 @@ def build(types: list[dict]) -> dict:
             "cannot change after approval, so submitting a single tone makes a later change a",
             "second review the owner waits through. Submitting all makes it a switch.",
         ],
+        # WHAT EACH NUMBER MEANS, AND AN EXAMPLE OF IT — and the example is not decoration.
+        #
+        # Meta's template documentation requires an example value for EVERY parameter at creation
+        # time; a component whose text contains a placeholder is refused without one. Every text in
+        # this library has at least one, so without examples not a single template can be created.
+        # Learned from their documentation rather than from a rejection, which would have arrived
+        # hours later against names that cannot then be reused or renamed.
         "variables": {
-            "1": "the customer's name or its substitute — never empty; Meta rejects an empty variable",
-            "2": "the establishment's name — its identity, never ours",
-            "3": "the service or the content",
-            "4": "a second detail: a date, an amount, a transaction reference",
+            "1": {"means": "the customer's name or its substitute — never empty; Meta rejects an "
+                           "empty variable",
+                  "example": "محمد"},
+            "2": {"means": "the establishment's name — its identity, never ours",
+                  "example": "مغسلة النخيل"},
+            "3": {"means": "the service or the content",
+                  "example": "غيار الزيت"},
+            "4": {"means": "a second detail: a date, an amount, a transaction reference",
+                  "example": "1234"},
         },
         "tones": list(TONES),
         "types": types,

@@ -752,6 +752,34 @@ passes.
 Found by running our own seeder twice and reading its counters: `registered=72 existing=0` is not
 what "already registered" looks like.
 
+### 4.32 Read the third party's documentation before you build against their adapter
+
+We were one command away from submitting seventy-two WhatsApp templates through the platform's Meta
+driver. Reading Meta's own documentation first, instead, found four things — and the first meant
+**not one of them could have been created**:
+
+- Meta requires an **example value for every parameter**, and the adapter sent none. Every template
+  in the library has a placeholder, so every submission would have been refused.
+- Two documented statuses, `PAUSED` and `DISABLED`, were unmapped and fell through a `.get(...,
+  "pending")` default — so a template Meta paused would read as "still under review" for ever. And
+  those two states come from customer behaviour, not from a reviewer: low read rates and repeated
+  complaints. They are the states a messaging product most needs to see.
+- The manager is built once from configuration, so the whole deployment submits into ONE business
+  account — while a product whose customers message under their own name has one per tenant.
+- The Graph version was four releases behind the current documentation.
+
+Each would have surfaced as a rejection hours after the submission, against template names that
+**cannot be reused with different content and cannot be renamed after approval**. The cost of
+learning by trying was not a retry; it was burning twenty-four names per tone.
+
+**The rule:** when an adapter wraps somebody else's API, the adapter is not the contract — their
+documentation is. Read it before the first call, and diff it against what the adapter actually
+sends. That is an hour, and it is the cheapest hour available.
+
+The tell that this hour is worth spending: the adapter's docstring describes the SHAPE it builds
+("we shape them into Meta's component format and forward") without quoting the requirement it is
+shaping toward. A description of the code is not a description of the contract.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced

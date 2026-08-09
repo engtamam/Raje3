@@ -121,7 +121,9 @@ for ty in LIB["types"]:
         # variables and does not name them, so a variable that moves between two templates is a
         # send error waiting for its day.
         used = sorted({int(n) for n in __import__("re").findall(r"\\{\\{(\\d+)\\}\\}", text)})
-        variables = [LIB["variables"][str(i)] for i in used]
+        # THE EXAMPLE VALUE, not the description. Meta requires an example for every
+        # parameter at creation; a template with a placeholder is refused without one.
+        variables = [LIB["variables"][str(i)]["example"] for i in used]
 
         if name in have:
             existing += 1
