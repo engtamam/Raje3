@@ -83,19 +83,44 @@ def sanitise_owner_text(value: str) -> str:
     return v
 
 
-def choose(*, template_type: str, tone: str, library: list[dict[str, Any]]) -> dict[str, Any]:
-    """Pick the template for this type in this tenant's tone.
+def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
+           approved: set[str] | None = None) -> dict[str, Any]:
+    """Pick the template for this type in this tenant's tone, and only one Meta has APPROVED.
 
     FALLS BACK TO ANY ACTIVE TONE rather than failing. A tenant whose tone was set to one we later
     retired would otherwise stop sending entirely — a configuration mismatch becoming a silent
     outage, which is the shape this codebase keeps finding.
+
+    AND APPROVAL IS CHECKED HERE, BEFORE THE SEND, not discovered at Meta afterwards. Approval is
+    per (tenant, name): the library is authored once and submitted to every establishment's own
+    WhatsApp account, so the same text is approved for one shop and pending for another (spec
+    §6.6.1). `notification-service` does refuse an unapproved template at send time — correctly —
+    but by then the send is spent, the reminder has taken its slot in the daily cap, and the
+    failure reads as an error nobody can act on. Choosing an approved one instead costs nothing.
+    
+    `approved=None` means "not known" and skips the filter entirely. That is deliberate rather
+    than defaulting to empty: an empty set would mean NOTHING may be sent, so a caller that forgot
+    to pass the statuses would silence the whole product rather than behave as it did before.
     """
     active = [t for t in library if t.get("type") == template_type and t.get("active", True)]
     if not active:
         raise RenderError(f"لا يوجد قالب فعّال من نوع {template_type}.")
+
+    if approved is not None:
+        eligible = [t for t in active if t.get("name") in approved]
+        if not eligible:
+            # NAMED FOR WHAT IT IS. "No approved template" and "no template at all" are different
+            # problems with different owners — the first is Meta still reviewing and needs
+            # patience, the second is a library that was never seeded and needs us.
+            raise RenderError(
+                f"قوالب النوع {template_type} لم تُعتمد بعد لدى واتساب — الرسالة تنتظر الاعتماد.")
+        active = eligible
+
     for t in active:
         if t.get("tone") == tone:
             return t
+    # THE TONE IS THE THING GIVEN UP, never the send. A shop whose chosen tone is still pending
+    # and whose other two are approved sends in a different voice rather than not at all.
     return active[0]
 
 

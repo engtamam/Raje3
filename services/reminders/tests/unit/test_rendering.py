@@ -128,3 +128,45 @@ def test_seven_services_are_summarised_not_listed():
     reminder."""
     out = merged_service_text([f"خدمة {i}" for i in range(1, 8)])
     assert out.endswith("و4 غيرها")
+
+
+# ── approval, checked before the send rather than discovered at Meta (spec §6.6.1) ─────────────
+def _lib():
+    return [{"name": "svc_service_reminder_brief", "type": "svc_service_reminder",
+             "tone": "brief", "active": True},
+            {"name": "svc_service_reminder_warm", "type": "svc_service_reminder",
+             "tone": "warm", "active": True},
+            {"name": "svc_service_reminder_formal", "type": "svc_service_reminder",
+             "tone": "formal", "active": True}]
+
+
+def test_an_unapproved_template_is_never_chosen():
+    """notification-service refuses it at send time — correctly — but by then the send is spent
+    and the reminder has taken its slot in the daily cap."""
+    got = choose(template_type="svc_service_reminder", tone="warm", library=_lib(),
+                           approved={"svc_service_reminder_brief"})
+    assert got["name"] == "svc_service_reminder_brief"
+
+
+def test_the_tone_is_what_is_given_up_never_the_send():
+    """A shop whose chosen tone is still pending and whose others are approved sends in a
+    different voice rather than not at all."""
+    got = choose(template_type="svc_service_reminder", tone="formal", library=_lib(),
+                           approved={"svc_service_reminder_warm"})
+    assert got["tone"] == "warm"
+
+
+def test_nothing_approved_yet_says_so_rather_than_saying_nothing_exists():
+    """Two different problems with two different owners: Meta still reviewing needs patience, a
+    library never seeded needs us."""
+    with pytest.raises(RenderError) as exc:
+        choose(template_type="svc_service_reminder", tone="warm", library=_lib(),
+                         approved=set())
+    assert "الاعتماد" in str(exc.value)
+
+
+def test_not_knowing_the_statuses_sends_as_before_rather_than_silencing_everything():
+    """`approved=None` is "not known" and skips the filter. Defaulting to an empty set instead
+    would mean a caller that forgot to pass the statuses silences the entire product."""
+    got = choose(template_type="svc_service_reminder", tone="warm", library=_lib())
+    assert got["tone"] == "warm"
