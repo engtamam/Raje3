@@ -1,0 +1,166 @@
+"""The four tests the definition of done requires, plus the phone normalisation they rest on.
+
+Not coverage for its own sake. Each maps to a failure that has actually happened on this platform
+or would end the product on its first day in a workshop:
+
+  1. cross-tenant refusal, on READ and on WRITE
+  2. the idempotent path, called twice
+  3. the deny-by-default path, asserted refused
+  4. the failure mode, asserting a LEGIBLE error rather than merely a non-200
+"""
+from __future__ import annotations
+
+import asyncio
+
+import pytest
+
+from app.adapters.datastore.memory import MemoryDataStore
+from app.core.operations import OperationError, Operations, _normalise_phone
+from app.core.stores import CustomerStore, VisitStore
+
+SALT = "s" * 32
+A = "tnt_alpha"
+B = "tnt_beta"
+
+
+def run(coro):
+    # asyncio.run, not get_event_loop: the latter was removed in 3.14, and a test helper that
+    # depends on a deprecated global is a test suite with an expiry date.
+    return asyncio.run(coro)
+
+
+@pytest.fixture()
+def ops():
+    store = MemoryDataStore()
+    return Operations(store=store, pii_salt=SALT), store
+
+
+# ── 1. cross-tenant isolation, read AND write ─────────────────────────────────────────────────
+def test_a_tenant_cannot_read_another_tenants_customer(ops):
+    svc, store = ops
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+
+    # Read-only proof is HALF a proof, so both halves are here. First: B cannot see A's customer.
+    assert run(svc.customer_by_phone(B, "0501234567")) is None
+    assert run(svc.recent_customers(B)) == []
+    assert len(run(svc.recent_customers(A))) == 1
+
+
+def test_a_tenant_cannot_write_into_another_tenants_row(ops):
+    """The half that is usually missing, and the one where damage is permanent.
+
+    B records the SAME phone number. That must produce B's own separate customer, not an update to
+    A's row — otherwise one workshop's entry silently rewrites another's record of the same person.
+    """
+    svc, store = ops
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], name="A's name"))
+    run(svc.record_visit(tenant=B, phone="0501234567", service_ids=["srv_9"], name="B's name"))
+
+    a = run(svc.customer_by_phone(A, "0501234567"))
+    b = run(svc.customer_by_phone(B, "0501234567"))
+    assert a.id != b.id
+    assert a.name == "A's name"          # untouched by B's write
+    assert b.name == "B's name"
+    # The pseudonyms differ too: the same person at two establishments must not be correlatable
+    # across them by comparing refs.
+    assert a.subject_ref != b.subject_ref
+
+
+def test_a_customer_id_from_another_tenant_is_not_readable(ops):
+    svc, _ = ops
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+    # Holding a valid id is not enough. This is what makes the 404 in the route honest rather than
+    # a handler that forgot its filter.
+    assert run(svc.customer_record(B, res.customer.id)) is None
+    assert run(svc.customer_record(A, res.customer.id)) is not None
+
+
+# ── 2. the idempotent path, called twice ──────────────────────────────────────────────────────
+def test_a_double_tap_records_one_visit(ops):
+    svc, store = ops
+    key = "entry-abc-123"
+    first = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                                 idempotency_key=key))
+    second = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                                  idempotency_key=key))
+
+    assert first.duplicate is False
+    assert second.duplicate is True
+    assert first.visit.id == second.visit.id
+    # And exactly one customer: the guard runs BEFORE customer creation, which is what stops a
+    # double tap from also producing a second customer record.
+    assert len(run(svc.recent_customers(A))) == 1
+    assert run(svc.customer_by_phone(A, "0501234567")).visit_count == 1
+
+
+def test_two_genuine_visits_are_two_visits(ops):
+    """The other side of the same coin, and the reason the key is client-generated.
+
+    The same customer really does come back. Without a per-entry key from the screen, a
+    server-side guard would have to guess whether two identical requests are a double tap or a
+    returning customer — and in a tyre shop it is routinely the latter.
+    """
+    svc, _ = ops
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], idempotency_key="e1"))
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"], idempotency_key="e2"))
+    assert run(svc.customer_by_phone(A, "0501234567")).visit_count == 2
+
+
+# ── 3. deny by default ────────────────────────────────────────────────────────────────────────
+def test_a_visit_without_a_tenant_is_refused(ops):
+    svc, _ = ops
+    with pytest.raises(OperationError):
+        run(svc.record_visit(tenant="", phone="0501234567", service_ids=["srv_1"]))
+
+
+def test_a_visit_without_a_service_is_refused(ops):
+    """A visit with no service is a tap on the save button by mistake. Recording it would put a
+    meaningless row into the data every reminder and metric is derived from."""
+    svc, _ = ops
+    with pytest.raises(OperationError):
+        run(svc.record_visit(tenant=A, phone="0501234567", service_ids=[]))
+
+
+# ── 4. the failure mode, with a LEGIBLE error ─────────────────────────────────────────────────
+def test_a_missing_phone_says_what_to_do(ops):
+    svc, _ = ops
+    with pytest.raises(OperationError) as exc:
+        run(svc.record_visit(tenant=A, phone="", service_ids=["srv_1"]))
+    # The message reaches an operator's screen. "a phone number is required" is actionable;
+    # "ValidationError" is not, and an unactionable error trains people to ignore errors.
+    assert "phone" in str(exc.value).lower()
+
+
+def test_a_seam_failure_does_not_lose_the_visit(ops):
+    """The visit is durable before any seam runs, so a broken search must not surface as a failed
+    save. The operator's work is safe; the index catches up."""
+    from app.core.seams import Seams
+
+    class Exploding:
+        driver = "boom"
+
+        async def index(self, **kw):
+            raise RuntimeError("search is down")
+
+    svc, store = ops
+    res = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+    seams = Seams(search=Exploding(), events=None, telemetry=None)
+    run(seams.after_visit(res))                      # must not raise
+    assert run(svc.customer_by_phone(A, "0501234567")) is not None
+
+
+# ── the normalisation everything above rests on ───────────────────────────────────────────────
+@pytest.mark.parametrize("typed", ["0501234567", "501234567", "+966501234567", "966501234567",
+                                   "00966501234567", "05 01 23 45 67"])
+def test_every_way_a_saudi_number_is_typed_is_one_customer(typed):
+    """Six spellings of one number. Stored differently they become six customers with one visit
+    each instead of one customer with six — and the entire product is recognising the customer
+    who came back."""
+    assert _normalise_phone(typed) == "966501234567"
+
+
+def test_an_unusual_number_is_kept_rather_than_refused():
+    """A landline, a foreign number, a genuine oddity. Refusing it would block a real visit to
+    enforce a format nobody promised."""
+    assert _normalise_phone("0112345678") == "112345678"
+    assert _normalise_phone("") == ""

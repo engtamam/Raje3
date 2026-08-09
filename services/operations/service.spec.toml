@@ -1,0 +1,12 @@
+# service.spec.toml — the record of how this service was generated.
+name = "operations"
+description = "Raje3 field operations: visits, customers, assets, service catalogue, operators"
+port = 8024
+
+[drivers]
+datastore = "postgres"
+cache = "redis"
+event_bus = "redis"
+queue = "redis"
+token_verifier = "rs256"
+rate_limiter = "redis"

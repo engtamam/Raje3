@@ -1,0 +1,123 @@
+{
+  "_readme": [
+    "SEED ONLY. Applied once, when the sector table is empty — a fresh install must not be a",
+    "blank product. After that the table is the source of truth and this file is history: the",
+    "platform console edits sectors at RUNTIME (/api/v1/platform/sectors), with no rebuild and no",
+    "restart. Re-applying this on every boot would silently undo an operator's edits, which is the",
+    "worst kind of bug — the console appears to work, and the change is gone by morning.",
+    "",
+    "FIVE SECTORS. Three were chosen for us: tyres, car wash, women's salon. The other two are:",
+    "  auto_repair — the largest vehicle market by spend, and the one with the longest, most",
+    "                valuable service cycles. If retention works anywhere, it works here.",
+    "  barber      — the highest-FREQUENCY sector in the set, at roughly three weeks. Frequency is",
+    "                what makes a retention product visible: a customer who returns monthly",
+    "                produces a measurable result in weeks, not a year.",
+    "Between them the five span both asset models (vehicle and none) and cycles from two weeks to",
+    "two years, which is the range the reminder engine has to survive.",
+    "",
+    "`cycle_days` is what reminders schedules from. 0 means NO natural cycle — a puncture repair,",
+    "a one-off makeup booking — and generates no reminder. Explicitly a value rather than a missing",
+    "one: defaulting it to 30 would schedule a reminder for a puncture and teach a customer that",
+    "our messages are noise.",
+    "",
+    "No prices. They vary by city, by shop and by the day; shipping a number ships a wrong one to",
+    "almost everybody, and a wrong price on a screen is worse than a blank one."
+  ],
+
+  "sectors": [
+    {
+      "key": "tyres",
+      "name": "بنشر وإطارات",
+      "asset": "vehicle",
+      "fields": ["plate", "meter"],
+      "sort": 10,
+      "services": [
+        {"name": "تبديل إطارات", "cycle_days": 730, "sort": 10},
+        {"name": "ترصيص وموازنة", "cycle_days": 180, "sort": 20},
+        {"name": "ضبط زوايا", "cycle_days": 180, "sort": 30},
+        {"name": "تصليح بنشر", "cycle_days": 0, "sort": 40},
+        {"name": "تعبئة نيتروجين", "cycle_days": 90, "sort": 50},
+        {"name": "فحص ضغط الإطارات", "cycle_days": 60, "sort": 60}
+      ]
+    },
+    {
+      "key": "car_wash",
+      "name": "مغسلة سيارات",
+      "asset": "vehicle",
+      "fields": ["plate"],
+      "sort": 20,
+      "services": [
+        {"name": "غسيل خارجي", "cycle_days": 14, "sort": 10},
+        {"name": "غسيل شامل", "cycle_days": 21, "sort": 20},
+        {"name": "تنظيف داخلي عميق", "cycle_days": 90, "sort": 30},
+        {"name": "تلميع وتشميع", "cycle_days": 120, "sort": 40},
+        {"name": "تنظيف المحرك", "cycle_days": 180, "sort": 50},
+        {"name": "معالجة سيراميك", "cycle_days": 365, "sort": 60}
+      ]
+    },
+    {
+      "key": "salon",
+      "name": "صالون نسائي",
+      "asset": "none",
+      "fields": [],
+      "sort": 30,
+      "services": [
+        {"name": "قص شعر", "cycle_days": 60, "sort": 10},
+        {"name": "صبغة", "cycle_days": 45, "sort": 20},
+        {"name": "كيراتين", "cycle_days": 120, "sort": 30},
+        {"name": "عناية بالأظافر", "cycle_days": 21, "sort": 40},
+        {"name": "عناية بالبشرة", "cycle_days": 30, "sort": 50},
+        {"name": "مكياج", "cycle_days": 0, "sort": 60},
+        {"name": "تسريحة", "cycle_days": 0, "sort": 70}
+      ]
+    },
+    {
+      "key": "auto_repair",
+      "name": "ورشة صيانة سيارات",
+      "asset": "vehicle",
+      "fields": ["plate", "meter"],
+      "sort": 40,
+      "services": [
+        {"name": "تغيير زيت وفلتر", "cycle_days": 120, "sort": 10},
+        {"name": "صيانة دورية", "cycle_days": 180, "sort": 20},
+        {"name": "فحص شامل", "cycle_days": 365, "sort": 30},
+        {"name": "فرامل", "cycle_days": 365, "sort": 40},
+        {"name": "بطارية", "cycle_days": 730, "sort": 50},
+        {"name": "مكيف", "cycle_days": 365, "sort": 60},
+        {"name": "فلتر هواء", "cycle_days": 180, "sort": 70},
+        {"name": "كهرباء", "cycle_days": 0, "sort": 80},
+        {"name": "تصليح عام", "cycle_days": 0, "sort": 90}
+      ]
+    },
+    {
+      "key": "barber",
+      "name": "حلاقة رجالية",
+      "asset": "none",
+      "fields": [],
+      "sort": 50,
+      "services": [
+        {"name": "قص شعر", "cycle_days": 21, "sort": 10},
+        {"name": "حلاقة ذقن", "cycle_days": 14, "sort": 20},
+        {"name": "قص وحلاقة", "cycle_days": 21, "sort": 30},
+        {"name": "صبغة", "cycle_days": 45, "sort": 40},
+        {"name": "عناية بالبشرة", "cycle_days": 30, "sort": 50},
+        {"name": "حلاقة أطفال", "cycle_days": 30, "sort": 60}
+      ]
+    }
+  ],
+
+  "fields": {
+    "plate": {
+      "label": "رقم اللوحة",
+      "type": "text",
+      "required": false,
+      "help": "المركبة هي الأصل الوحيد في المنتج (§13.2). واللوحة لا تُفرض فرادتها: تُكتب بيد مستعجلة، ورفض المكرر يمنع زيارة حقيقية حمايةً لقيدٍ لم يطلبه أحد."
+    },
+    "meter": {
+      "label": "قراءة العداد",
+      "type": "number",
+      "required": false,
+      "help": "اختياري دائماً. إلزامه يوقف التسجيل حين لا يقدر العامل على قراءته — والزيارة أهم من الرقم."
+    }
+  }
+}

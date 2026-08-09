@@ -1,34 +1,30 @@
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
 
-# Node
-node_modules/
-dist/
-.vite/
-*.tsbuildinfo
-
+!.env.example
 # Build artifacts — compiled from data/, never committed
-build/
-
 # Env / secrets — never commit real values
+# Generated + secret-bearing cluster manifests — never commit
+# Node
+# OS / editor
+# Python
+# test harness output
+*.py[cod]
+*.tsbuildinfo
+.DS_Store
 .env
 .env.*
-!.env.example
-
-# Generated + secret-bearing cluster manifests — never commit
-deploy/server/manifests/**/*secrets*.json
-
-# OS / editor
-.DS_Store
-Thumbs.db
 .idea/
-.vscode/
-
-# test harness output
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 .test-logs/
+.venv/
+.vite/
+.vscode/
+Thumbs.db
+__pycache__/
+build/
+deploy/server/manifests/**/*secrets*.json
+dist/
+node_modules/
+services/operations/.venv/
+venv/
