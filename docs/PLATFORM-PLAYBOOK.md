@@ -686,6 +686,26 @@ operator reads to decide the sweep is healthy.
 
 If a function can legitimately return "already done", the caller must count its RESULT.
 
+### 4.29 A digest reference is a NAME, and names can be re-pointed
+
+`ctr images import` stores an image under its TAG, so shipping to a digest-pinned deployment needs
+`ctr images tag repo:tag repo@sha256:…`. That command creates a *name*. It does not verify that the
+content behind the name matches the digest in it, and nothing later does either.
+
+So a pod can be admitted against `repo@sha256:914…`, run whatever that name pointed at THAT day, and
+keep running it after the name is re-pointed. `kubectl get pod -o jsonpath '{.spec…image}'` then
+reports the pinned digest — because the spec is what was asked for — while `imageID` reports the
+content actually running. Portal ran three hours on an image two versions old with both the values
+file and the deployment spec showing the correct pin.
+
+**The only reliable check is `imageID`, and only for single-platform images we build ourselves.**
+Multi-arch images from a registry pin by index digest and report the platform manifest digest, so
+they mismatch legitimately — which is why the fleet check must know which images are ours before it
+can accuse anything.
+
+The fix when it happens is to re-ship, not to re-tag: a fresh import gives the name new content and
+forces a new pod.
+
 ## 5. Automate the deployment on day one
 
 Do not deploy by hand-typed loops. The first real use of one had the repository replaced
