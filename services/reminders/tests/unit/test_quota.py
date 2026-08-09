@@ -1,8 +1,10 @@
-"""The message quota — the counter money depends on.
+"""The message meter — what we record about sends we do not sell.
 
-Every test here is a way of getting this wrong that leaves the product looking healthy: messages
-go out, graphs are green, and the only evidence is a WhatsApp bill or a balance that drains faster
-than the ledger explains.
+We stopped selling messages: Meta bills the establishment directly (spec §16.7). So these tests
+changed shape with the product. What they guard now is the MEASUREMENT — that a retry does not
+inflate it, that a failed send does not count, and that losing it never costs a customer his
+message — plus the one refusal that survives, which is a subscription decision rather than a
+ceiling.
 """
 from __future__ import annotations
 
@@ -92,29 +94,41 @@ def test_two_different_sends_spend_two():
     assert f.used == 2
 
 
-# ── the limit is a wall, not a suggestion ──────────────────────────────────────────────────────
-def test_the_send_is_refused_when_the_month_is_exhausted():
-    f = FakeBilling(limit=2)
+# ── there is no wall of ours any more ──────────────────────────────────────────────────────────
+def test_a_send_is_never_refused_for_a_ceiling_of_ours():
+    """The plans stopped selling messages: Meta bills the establishment directly. Every plan
+    carries the key at -1, and unlimited still increments — so this measures and never blocks."""
+    f = FakeBilling(limit=0)          # the peer would refuse if we still asked it to enforce
     q = quota(f)
-    run(q.consume(tenant=T, idempotency_key="a"))
+    run(q.consume(tenant=T, idempotency_key="a"))     # must not raise
     run(q.consume(tenant=T, idempotency_key="b"))
-    with pytest.raises(Q.QuotaError):
-        run(q.consume(tenant=T, idempotency_key="c"))
-    assert f.used == 2
 
 
-def test_being_out_says_something_different_from_never_having_any():
-    """Telling an owner he has used this month's messages when his plan never included any is how
-    a support call starts — and the plans carry the key with a 0 precisely so the two are
-    distinguishable."""
-    out = FakeBilling(limit=0)
-    never = FakeBilling(entitled=False)
-    with pytest.raises(Q.QuotaError) as e1:
-        run(quota(out).consume(tenant=T, idempotency_key="a"))
-    with pytest.raises(Q.QuotaError) as e2:
-        run(quota(never).consume(tenant=T, idempotency_key="a"))
-    assert str(e1.value) != str(e2.value)
-    assert "باقتك" in str(e2.value)
+def test_but_an_establishment_with_no_subscription_is_still_stopped():
+    """NOT_ENTITLED is a SUBSCRIPTION decision, not a message allowance — the unsubscribed
+    establishment (spec §16.4.2), whose sending stops because it is not paying for the service."""
+    f = FakeBilling(entitled=False)
+    with pytest.raises(Q.QuotaError) as e:
+        run(quota(f).consume(tenant=T, idempotency_key="a"))
+    assert "اشتراك" in str(e.value)
+
+
+def test_the_refusal_says_what_to_do_about_it():
+    f = FakeBilling(entitled=False)
+    with pytest.raises(Q.QuotaError) as e:
+        run(quota(f).consume(tenant=T, idempotency_key="a"))
+    assert "فعّل" in str(e.value)
+
+
+def test_no_message_mentions_a_balance_or_a_package():
+    """A support line answering for a limit that does not exist is worse than no message. The old
+    refusals said 'this month's message balance has run out' and 'your plan does not include
+    sending'; neither has been true since we stopped selling messages."""
+    f = FakeBilling(entitled=False)
+    with pytest.raises(Q.QuotaError) as e:
+        run(quota(f).consume(tenant=T, idempotency_key="a"))
+    for word in ("رصيد", "باقة رسائل", "انتهى"):
+        assert word not in str(e.value)
 
 
 # ── failure gives it back ──────────────────────────────────────────────────────────────────────
@@ -149,21 +163,21 @@ def test_a_release_that_itself_fails_does_not_raise():
 
 
 # ── unreachable ────────────────────────────────────────────────────────────────────────────────
-def test_an_unreachable_billing_refuses_the_send():
-    """FAILS CLOSED, and this is the uncomfortable one. Sending anyway is the generous choice: an
-    unreachable peer lasts hours, WhatsApp messages cost money each, and 'we could not check so we
-    sent everything' has no bottom. The tick retries; nothing is lost."""
+def test_an_unreachable_billing_does_not_stop_the_shop():
+    """FAILS OPEN, and this is the reversal. While it metered a paid allowance it had to refuse —
+    sending unmetered gave away messages we were paying for. We are not paying for them. Now the
+    cost of an unmeasured send is a gap in a report, and the cost of a blocked one is a customer
+    who never heard from his shop."""
     f = FakeBilling(limit=100)
     f.unreachable = True
-    with pytest.raises(Q.QuotaError):
-        run(quota(f).consume(tenant=T, idempotency_key="a"))
+    run(quota(f).consume(tenant=T, idempotency_key="a"))     # must not raise
 
 
-def test_the_refusal_is_in_arabic_and_says_what_to_do():
-    f = FakeBilling(limit=0)
-    with pytest.raises(Q.QuotaError) as e:
-        run(quota(f).consume(tenant=T, idempotency_key="a"))
-    assert "رصيد" in str(e.value) and "باقة" in str(e.value)
+def test_an_unreachable_billing_loses_the_measurement_and_says_nothing_else():
+    f = FakeBilling(limit=100)
+    f.unreachable = True
+    run(quota(f).consume(tenant=T, idempotency_key="a"))
+    assert f.used == 0
 
 
 def test_the_key_is_one_name_defined_once():

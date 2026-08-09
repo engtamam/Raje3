@@ -81,17 +81,6 @@ def call(path, body=None, method=None):
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode()[:300]
 
-def pack_limits(pack):
-    """A pack carries ONE key and nothing else.
-
-    Everything the plan grants — seats, branches, features — must come from the plan alone. A pack
-    that also carried feature.campaigns would silently grant it for as long as the pack existed,
-    which is a 50-riyal upgrade to a plan he did not buy.
-    """
-    return {"messages.monthly": {"kind": "counter", "limit": int(pack["messages"]),
-                                 "period": "billing_period", "overage": "block"}}
-
-
 def price_of(plan, interval="month"):
     # ONE PRICE PER PRODUCT, VAT-INCLUSIVE. No yearly interval exists anywhere in this file
     # and that is a decision, not an omission: annual billing was deferred until we want to sell
@@ -107,25 +96,10 @@ if s >= 400:
 have = {p.get("name"): p for p in (out.get("plans") or [])}
 
 created = corrected = same = failed = 0
-# PLANS AND PACKS ARE THE SAME KIND OF ROW, which is the point of the design rather than a
-# shortcut. A pack is a subscription with interval once carrying only messages.monthly, and
-# billing's entitlement is the union of every billable subscription — so the pack's messages add
-# to the plan's with no arithmetic of ours and no branch in the sending code. Proven against the
-# running service by deploy/prove-packs.sh: a plan of 2 plus a pack of 3 answers 5, and what he
-# already sent stays counted.
-#
-# The panel tells them apart by the price's interval, not by a flag we invent: month is a plan,
-# once is a pack. A flag would be a second source of truth for something the price already says.
-PRODUCTS = ([dict(p, _kind="plan") for p in LIB["plans"]]
-            + [dict(p, _kind="pack") for p in LIB.get("packs") or []])
-
-for plan in PRODUCTS:
+for plan in LIB["plans"]:
     name = plan["name"]
-    is_pack = plan["_kind"] == "pack"
-    want = {"name": name,
-            "prices": price_of(plan, interval="once" if is_pack else "month"),
-            "limits": pack_limits(plan) if is_pack else plan["limits"],
-            "trial_days": 0 if is_pack else plan.get("trial_days", 0)}
+    want = {"name": name, "prices": price_of(plan), "limits": plan["limits"],
+            "trial_days": plan.get("trial_days", 0)}
     cur = have.get(name)
     if cur is None:
         if dry:
@@ -138,10 +112,7 @@ for plan in PRODUCTS:
             created += 1
             # A hidden plan is hidden in a SECOND call: create takes no availability, by design —
             # listed is an operator decision rather than a property of the price list.
-            # A PACK IS NEVER ON THE PRICING PAGE. It is offered from the balance line in his
-            # weekly report and from the panel, at the moment he needs it — beside the three
-            # plans it reads as a fourth one.
-            if is_pack or plan.get("listed") is False:
+            if plan.get("listed") is False:
                 s2, _ = call("/api/v1/billing/plans/" + res["id"] + "/availability", {"listed": False})
                 print("    " + ("unlisted" if s2 < 400 else "COULD NOT UNLIST: " + str(s2)))
         else:
@@ -153,9 +124,6 @@ for plan in PRODUCTS:
     # nothing says so. A seeder that reports "4 updated" every time it runs is a seeder whose
     # output nobody reads.
     drift = []
-    # AGAINST want, NOT AGAINST plan["limits"]. A pack has no limits key of its own — it is
-    # built by pack_limits() — and reading the raw product here raised a KeyError on the first
-    # pack, after cleanly reporting all four plans as matching.
     if (cur.get("limits") or {}) != want["limits"]:
         drift.append("limits")
     if (cur.get("prices") or []) != want["prices"]:
@@ -191,8 +159,8 @@ for plan in PRODUCTS:
 #                this only looks at listed ones.
 #
 # It is a report because retiring a plan somebody is subscribed to is not a thing a seed script
-# may decide. A pack is exempt: it is sold from inside the product, never from the pricing page.
-KNOWN = {p["name"] for p in PRODUCTS}
+# may decide.
+KNOWN = {p["name"] for p in LIB["plans"]}
 stray = [p for p in have.values()
          if p.get("active") and p.get("listed") and p.get("name") not in KNOWN]
 if stray:

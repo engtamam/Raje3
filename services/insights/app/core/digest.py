@@ -44,7 +44,7 @@ def _line(label: str, value: Any) -> str:
 
 
 def build(*, snapshot: dict, previous: dict | None = None,
-          messages_used: int = 0, messages_limit: int = 0,
+          messages_sent: int = 0,
           points_redeemed: int = 0, consented: int = 0,
           can_campaign: bool = True, shop: str = "") -> dict[str, Any] | None:
     """The message, or None when there is nothing honest to send.
@@ -94,10 +94,14 @@ def build(*, snapshot: dict, previous: dict | None = None,
         if label:
             lines.append(_line("أكثر خدمة", f"{label} ({top.get('count', 0)})"))
 
-    # 6 · THE QUIETEST OUTAGE THIS PRODUCT HAS. Messages run out mid-month, the return engine
-    #     stops, and nothing tells him until a customer mentions they stopped hearing from him.
-    if messages_limit:
-        lines.append(_line("رصيد رسائلك", f"{messages_used} من {messages_limit}"))
+    # 6 · WHAT HE SENT, not what he has left. We do not sell messages — Meta bills him directly
+    #     (spec §16.7) — so a "balance" here would be a balance of nothing, and the first time he
+    #     compared it to his Meta invoice he would stop trusting both numbers.
+    #
+    #     It is still worth a line: it is the only place he sees the volume his shop generates
+    #     without opening anything, and it is what makes his own bill explicable.
+    if messages_sent:
+        lines.append(_line("رسائل أرسلتها", messages_sent))
 
     # 7 · the loyalty programme, for shops that have one. Absent otherwise — a shop without points
     #     must not see an empty points line (spec §8.6.1).

@@ -231,7 +231,7 @@ def test_the_eight_lines():
     msg = build_digest(snapshot=snap(associations={"pairs": [
               {"a": "oil", "b": "filter", "verdict": "real", "customers": 340},
               {"a": "wash", "b": "wax", "verdict": "temporal", "customers": 90}]}),
-              previous={"visits": 100}, messages_used=780, messages_limit=3000,
+              previous={"visits": 100}, messages_sent=780,
               points_redeemed=9, shop="مغسلة النخيل")
     text = msg["text"]
     assert msg["lines"] == 8, text
@@ -240,7 +240,7 @@ def test_the_eight_lines():
     assert "عادوا: 106" in text
     assert "تأخّروا عن موعدهم: 14" in text
     assert "غسيل شامل (48)" in text     # the NAME, not the id
-    assert "780 من 3000" in text
+    assert "رسائل أرسلتها: 780" in text     # what he SENT — we do not sell him an allowance
     assert "نقاط استُبدلت: 9" in text
     assert "وجدنا 2 ترابطات" in text and "340" in text
     assert msg["action"] == "send_winback"

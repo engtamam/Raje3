@@ -207,10 +207,11 @@ class Settings(BaseSettings):
     MESSAGE_CHANNEL: str = "whatsapp"
     PEER_TIMEOUT_SECONDS: int = 8
 
-    # ── the message quota ─────────────────────────────────────────────────────
-    # Every plan sells a monthly number of WhatsApp messages, and nothing decremented it until
-    # core/quota.py existed. The enforcing call is atomic check-and-increment: an advisory check
-    # followed by a send is a cap two replicas can walk straight through.
+    # ── the message meter ─────────────────────────────────────────────────────
+    # We do not sell messages — Meta bills the establishment directly (spec §16.7). This measures
+    # what we send on its behalf, so a runaway loop of ours is caught here rather than on its bill.
+    # The call is still the atomic one: an advisory check followed by a send measures nothing
+    # reliable when two replicas run the same tick.
     QUOTA_DRIVER: str = "null"               # null | http
     BILLING_SERVICE_URL: str = ""            # e.g. http://billing-service:8000
     # THEIRS, from billing-service's internal API. Written as settings rather than constants for
@@ -488,17 +489,18 @@ class Settings(BaseSettings):
                 "SENDER_DRIVER=http but OPERATIONS_SERVICE_URL is empty. This service holds no "
                 "phone numbers by design; without the recipient resolver every send fails with no "
                 "destination, and the failure looks like a notification-service outage.")
-        # THE QUOTA IS NOT OPTIONAL IN PRODUCTION, and this guard is the only thing that says so.
-        # QUOTA_DRIVER=null sends every message and counts none: an establishment on 1000 sends
-        # 40000, every graph looks healthy because the messages ARE going out, and the first
-        # evidence is the WhatsApp bill. A cap nothing decrements is a number on an invoice.
+        # THE METER IS NOT OPTIONAL IN PRODUCTION, even though it no longer caps anything.
+        # QUOTA_DRIVER=null sends every message and records none, so a runaway loop in our own code
+        # is invisible here and surfaces as a bill the OWNER pays to Meta. We do not sell messages
+        # (spec §16.7); we are still responsible for not generating them by accident.
         if self.QUOTA_DRIVER == "null":
             raise ValueError(
-                "QUOTA_DRIVER=null in production: every plan sells a monthly message allowance and "
-                "nothing would decrement it. Set it to 'http' with BILLING_SERVICE_URL.")
+                "QUOTA_DRIVER=null in production: every send would go unmeasured, so a runaway "
+                "loop of ours would first appear on the owner's bill from Meta. Set it to 'http' "
+                "with BILLING_SERVICE_URL.")
         if not self.BILLING_SERVICE_URL:
             raise ValueError("QUOTA_DRIVER=http but BILLING_SERVICE_URL is empty — there is "
-                             "nothing to consume the allowance from.")
+                             "nothing to record the sends against.")
 
     def assert_caps_sane(self) -> None:
         """Boot guard. Refuse a configuration that disables the protection it looks like it sets.

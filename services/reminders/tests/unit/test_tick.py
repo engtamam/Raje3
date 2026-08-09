@@ -309,8 +309,10 @@ class FakeQuota:
 
         if idempotency_key in self.spent:
             return
+        # The one refusal that survives: no live subscription. `limit` here stands in for that,
+        # since the real meter no longer has a ceiling of its own.
         if self.used + amount > self.limit:
-            raise QuotaError("انتهى رصيد رسائل هذا الشهر — يمكنك شراء باقة رسائل إضافية.")
+            raise QuotaError("لا يوجد اشتراك فعّال — فعّل اشتراكك لاستئناف الإرسال.")
         self.spent[idempotency_key] = amount
 
     async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
@@ -368,20 +370,103 @@ def test_a_retry_after_a_failure_spends_one_unit_in_total(st):
     assert q.used == 1 and len(sender.calls) == 1
 
 
-def test_an_exhausted_quota_refuses_the_send_rather_than_proceeding(st):
+def test_a_tenant_billing_refuses_does_not_send(st):
     sched(st)
     q = FakeQuota(limit=0)
     res = go(st, FakeSender(), quota=q)
     assert res.sent == 0 and res.suppressed == 1
 
 
-def test_an_exhausted_quota_is_recorded_as_suppressed_not_failed(st):
-    """A cap is a decision, not an outage. Retrying it hourly for the rest of the month would bury
-    the peer failures the reason counts exist to surface — and the ledger has to be able to tell
-    an owner why a message did not go."""
+def test_a_billing_refusal_is_recorded_as_suppressed_not_failed(st):
+    """It is a decision, not an outage — an establishment with no live subscription. Retrying it
+    hourly for the rest of the month would bury the peer failures the reason counts exist to
+    surface, and the ledger has to be able to tell an owner why a message did not go."""
     row_key = sched(st).key
     q = FakeQuota(limit=0)
     go(st, FakeSender(), quota=q)
     row = run(SendLogStore(st).since("t1", "sub_a", since=0))[0]
-    assert row["outcome"] == "suppressed" and "رصيد" in row["reason"]
+    assert row["outcome"] == "suppressed" and "اشتراك" in row["reason"]
     assert run(ScheduleStore(st).get(row_key))["state"] == "suppressed"
+
+
+# ── the WhatsApp ceiling, and the three answers to it ──────────────────────────────────────────
+class CeilingSender:
+    """Refuses with a real Meta code, the way notification-service surfaces one."""
+
+    def __init__(self, code: str = "131064"):
+        self.code = code
+        self.calls = []
+
+    async def send(self, **kw):
+        from app.adapters.message_sender import CeilingReached
+
+        self.calls.append(kw)
+        raise CeilingReached(self.code, f"{self.code}: messaging limit reached")
+
+
+LIB_POLICY = [
+    {"name": "svc_visit_confirmation_brief", "type": "svc_visit_confirmation", "tone": "brief",
+     "class": "service", "variables": [1, 2, 3], "fills": ["system", "system", "catalogue"],
+     "active": True, "deferral": "drop"},
+    {"name": "svc_follow_up_brief", "type": "svc_follow_up", "tone": "brief", "class": "service",
+     "variables": [1, 2, 3], "fills": ["system", "system", "catalogue"], "active": True,
+     "deferral": "defer"},
+]
+
+
+def go_policy(st, sender, *, template_type, **kw):
+    return run(tick(st, sender, **kw).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}))
+
+
+def test_a_visit_confirmation_is_dropped_when_the_ceiling_is_hit(st):
+    """'We recorded your visit' arriving 18 hours later is not a late message, it is a STRANGE
+    one. The shop is better served by silence than by tomorrow."""
+    row = sched(st, template_type="svc_visit_confirmation")
+    q = FakeQuota()
+    res = go_policy(st, CeilingSender(), template_type="svc_visit_confirmation", quota=q)
+    assert res.suppressed == 1 and res.ceiling == 1
+    assert run(ScheduleStore(st).get(row.key))["state"] == "suppressed"
+
+
+def test_a_follow_up_is_deferred_rather_than_dropped(st):
+    """Nothing spoils overnight and the customer notices no difference."""
+    row = sched(st, template_type="svc_follow_up")
+    res = go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=FakeQuota())
+    assert res.deferred == 1 and res.ceiling == 1
+    fresh = run(ScheduleStore(st).get(row.key))
+    assert fresh["state"] == "pending" and fresh["due_at"] > at(10)
+
+
+def test_the_ceiling_costs_the_shop_nothing(st):
+    """It never left. Counting it would make his own report disagree with his Meta bill."""
+    sched(st, template_type="svc_follow_up")
+    q = FakeQuota()
+    go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=q)
+    assert q.used == 0 and len(q.releases) == 1
+
+
+def test_the_ceiling_is_counted_apart_from_a_peer_failure(st):
+    """The reason counts are how an operator sees a real notification-service outage. Burying a
+    daily, expected, self-resolving condition in them destroys the signal they carry — and this is
+    also the number that moves an owner to verify his business."""
+    sched(st, template_type="svc_follow_up")
+    res = go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=FakeQuota())
+    assert res.ceiling == 1 and res.failed == 0
+
+
+def test_a_deferred_message_keeps_its_key_so_tomorrow_costs_one_unit(st):
+    """Tomorrow's attempt is the SAME message. Billing must count it once however many days it
+    waits for the ceiling to open."""
+    row = sched(st, template_type="svc_follow_up")
+    go_policy(st, CeilingSender(), template_type="svc_follow_up", quota=FakeQuota())
+    first = run(ScheduleStore(st).get(row.key))["idempotency_key"]
+    assert first
+    q = FakeQuota()
+    sender = FakeSender()
+    run(tick(st, sender, quota=q).run("t1", now=at(10, day=16), library=LIB_POLICY,
+                                      service_names=NAMES, establishment="ورشة النخبة",
+                                      customer_names={"sub_a": "أحمد"}))
+    assert sender.calls and sender.calls[0]["idempotency_key"] == first
+    assert q.used == 1

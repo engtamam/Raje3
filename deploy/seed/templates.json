@@ -43,6 +43,7 @@
   "types": [
     {
       "name": "svc_visit_confirmation",
+      "deferral": "drop",
       "title": "تأكيد الزيارة، بعد 10 دقائق",
       "cls": "service",
       "category": "UTILITY",
@@ -55,6 +56,7 @@
     },
     {
       "name": "svc_follow_up",
+      "deferral": "defer",
       "title": "اطمئنان بعد الخدمة",
       "cls": "service",
       "category": "UTILITY",
@@ -67,6 +69,7 @@
     },
     {
       "name": "svc_service_reminder",
+      "deferral": "defer",
       "title": "حلول الدورة الخدمية",
       "cls": "service",
       "category": "UTILITY",
@@ -79,6 +82,7 @@
     },
     {
       "name": "svc_appointment_reminder",
+      "deferral": "priority",
       "title": "موعد محجوز يقترب",
       "cls": "service",
       "category": "UTILITY",
@@ -91,6 +95,7 @@
     },
     {
       "name": "svc_booking_confirmation",
+      "deferral": "priority",
       "title": "تأكيد حجز أو تعديله",
       "cls": "service",
       "category": "UTILITY",
@@ -103,6 +108,7 @@
     },
     {
       "name": "svc_ready_for_pickup",
+      "deferral": "drop",
       "title": "جاهز للاستلام",
       "cls": "service",
       "category": "UTILITY",
@@ -115,6 +121,7 @@
     },
     {
       "name": "svc_review_request",
+      "deferral": "defer",
       "title": "طلب رأي بعد زيارة بعينها",
       "cls": "service",
       "category": "UTILITY",
@@ -127,6 +134,7 @@
     },
     {
       "name": "svc_receipt",
+      "deferral": "drop",
       "title": "إيصال بمبلغ",
       "cls": "service",
       "category": "UTILITY",
@@ -139,6 +147,7 @@
     },
     {
       "name": "per_account_notice",
+      "deferral": "priority",
       "title": "إشعار حساب (لا يُوقَف)",
       "cls": "personal",
       "category": "UTILITY",
@@ -151,6 +160,7 @@
     },
     {
       "name": "per_points_expiring",
+      "deferral": "defer",
       "title": "رصيد يوشك أن ينتهي (لا يُوقَف)",
       "cls": "personal",
       "category": "UTILITY",
@@ -163,6 +173,7 @@
     },
     {
       "name": "awr_seasonal_care",
+      "deferral": "defer",
       "title": "نصيحة موسمية",
       "cls": "awareness",
       "category": "UTILITY",
@@ -175,6 +186,7 @@
     },
     {
       "name": "awr_care_tip",
+      "deferral": "defer",
       "title": "إرشاد يخصّ ما يملكه",
       "cls": "awareness",
       "category": "UTILITY",
@@ -187,6 +199,7 @@
     },
     {
       "name": "per_weekly_digest",
+      "deferral": "defer",
       "title": "تقرير الأسبوع للمالك",
       "cls": "personal",
       "category": "UTILITY",
@@ -199,6 +212,7 @@
     },
     {
       "name": "wrn_safety_notice",
+      "deferral": "priority",
       "title": "تحذير سلامة",
       "cls": "warning",
       "category": "UTILITY",
@@ -211,6 +225,7 @@
     },
     {
       "name": "mkt_offer",
+      "deferral": "defer",
       "title": "عرض أو خصم",
       "cls": "marketing",
       "category": "MARKETING",
@@ -223,6 +238,7 @@
     },
     {
       "name": "mkt_winback",
+      "deferral": "defer",
       "title": "استعادة غائب",
       "cls": "marketing",
       "category": "MARKETING",
@@ -235,6 +251,7 @@
     },
     {
       "name": "mkt_loyalty_activation",
+      "deferral": "defer",
       "title": "رصيد اقترب من الاستبدال",
       "cls": "marketing",
       "category": "MARKETING",
@@ -247,6 +264,7 @@
     },
     {
       "name": "mkt_cross_sell",
+      "deferral": "defer",
       "title": "خدمة مكمّلة",
       "cls": "marketing",
       "category": "MARKETING",
@@ -259,6 +277,7 @@
     },
     {
       "name": "mkt_package",
+      "deferral": "defer",
       "title": "باقة أو اشتراك",
       "cls": "marketing",
       "category": "MARKETING",
@@ -271,6 +290,7 @@
     },
     {
       "name": "mkt_referral",
+      "deferral": "defer",
       "title": "إحالة صديق",
       "cls": "marketing",
       "category": "MARKETING",
@@ -283,6 +303,7 @@
     },
     {
       "name": "mkt_announcement",
+      "deferral": "defer",
       "title": "جديد",
       "cls": "marketing",
       "category": "MARKETING",
@@ -295,6 +316,7 @@
     },
     {
       "name": "mkt_personal_occasion",
+      "deferral": "defer",
       "title": "مناسبة شخصية",
       "cls": "marketing",
       "category": "MARKETING",
@@ -307,6 +329,7 @@
     },
     {
       "name": "mkt_seasonal",
+      "deferral": "defer",
       "title": "مناسبة عامة",
       "cls": "marketing",
       "category": "MARKETING",
@@ -319,6 +342,7 @@
     },
     {
       "name": "mkt_slot_available",
+      "deferral": "defer",
       "title": "موعد شاغر",
       "cls": "marketing",
       "category": "MARKETING",

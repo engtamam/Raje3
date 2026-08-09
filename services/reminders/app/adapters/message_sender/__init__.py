@@ -119,6 +119,11 @@ class HttpSender:
         # nobody has to notice.
         status = str(result.get("status") or "")
         if status and status not in _DELIVERED:
+            # THE CEILING FIRST, because it is the one refusal that must not be retried in an hour
+            # and must not pollute the peer-failure counts.
+            code = str(result.get("error_code") or result.get("code") or "")
+            if code in CEILING_CODES:
+                raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
             raise SendFailed(f"{status}: {result.get('error') or 'no reason given'}")
 
     def _recipient(self, tenant: str, subject_ref: str) -> str:
@@ -139,6 +144,42 @@ class HttpSender:
 # What counts as "it went". `queued` is included deliberately: the peer has taken responsibility
 # and will drain it, so treating it as a failure would send twice.
 _DELIVERED = frozenset({"sent", "queued"})
+
+
+# THE CODES META RETURNS WHEN THE SHOP HAS SENT ENOUGH FOR NOW, from its Cloud API error
+# reference. Numbers, never message text: the text is translated, reworded and localised, and a
+# branch that matches on a phrase stops matching without anything failing.
+#
+# They are NOT all the same thing, and the difference is the shop's to know:
+#   130429  the API's own throughput ceiling — ours to back off from
+#   80007   the WhatsApp Business Account hit its rate limit
+#   131048  sending blocked because earlier messages were flagged as spam — a quality problem,
+#           not a volume one, and the only one here that needs a human
+#   131056  too many messages to the SAME recipient in a short time
+#   131064  the account reached its messaging limit
+#   131049  blocked to maintain healthy engagement — the per-user marketing limit
+#
+# All six mean "not now", which is why one exception carries them; the code travels with it so the
+# operator panel can tell an overdue shop apart from a suspected one.
+CEILING_CODES = frozenset({"130429", "80007", "131048", "131056", "131064", "131049"})
+
+
+class CeilingReached(Exception):
+    """WhatsApp will not take another message from this shop right now.
+
+    NEITHER TRANSIENT NOR PERMANENT, which is why it is its own class. Retrying in an hour walks
+    into the same closed door; giving up loses a message that would go tomorrow. What happens next
+    depends on the TEMPLATE — a visit confirmation is worthless tomorrow, an offer is not — and
+    that decision is data, not code (spec §8.4.3).
+
+    IT MUST NOT BE COUNTED AS A PEER FAILURE. The reason counts are how an operator sees a real
+    notification-service outage; burying a daily, expected, self-resolving condition in them
+    destroys the signal they exist to carry.
+    """
+
+    def __init__(self, code: str = "", detail: str = "") -> None:
+        super().__init__(detail or code or "ceiling reached")
+        self.code = code
 
 
 class SendFailed(Exception):

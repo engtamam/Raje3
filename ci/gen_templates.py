@@ -47,12 +47,54 @@ def _vars(text: str) -> list[int]:
     return sorted({int(n) for n in re.findall(r"\{\{(\d+)\}\}", text)})
 
 
+DEFERRALS = ("drop", "defer", "priority")
+
+
+def deferral_map(doc: str) -> dict[str, str]:
+    """The policy per type, read from the table in the specification (§8.4.3).
+
+    WHY IT IS PARSED AND NOT LISTED HERE. A policy in this file is a policy nobody reviewing the
+    product ever sees, and the question it answers — "does this message still make sense tomorrow?"
+    — is about the TEXT, not about the engine. It belongs where the texts are argued over.
+
+    THE ROWS ARE PATTERNS, not only names, because ten marketing templates share one answer and
+    ten identical rows is ten chances to get one wrong.
+    """
+    out: dict[str, str] = {}
+    block = doc.split("## 8.4.3", 1)
+    if len(block) < 2:
+        return out
+    block = block[1].split("## 8.5", 1)[0]
+    for line in block.splitlines():
+        if not line.startswith("|") or "`" not in line:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        policy = cells[1].strip(" `*")
+        if policy not in DEFERRALS:
+            continue
+        for name in re.findall(r"`([a-z_*]+)`", cells[0]):
+            out[name] = policy
+    return out
+
+
+def deferral_for(name: str, policies: dict[str, str]) -> str | None:
+    if name in policies:
+        return policies[name]
+    for pattern, policy in policies.items():
+        if pattern.endswith("*") and name.startswith(pattern[:-1]):
+            return policy
+    return None
+
+
 def parse() -> tuple[list[dict], list[str]]:
     doc = SPEC.read_text(encoding="utf-8").replace("\r\n", "\n")
     blocks = re.findall(
         r"\*\*`((?:svc|per|awr|wrn|mkt)_[a-z_]+)`\s*—\s*([^*\n]+)\*\*\n(.*?)(?=\n\*\*`|\n---|\n## )",
         doc, re.S)
 
+    policies = deferral_map(doc)
     types: list[dict] = []
     problems: list[str] = []
     seen: set[str] = set()
@@ -92,8 +134,20 @@ def parse() -> tuple[list[dict], list[str]]:
                                     f"a price or an invitation is MARKETING by its text (§8.4.1), "
                                     f"and Meta will re-categorise and bill it as such")
 
+        # NO TEMPLATE WITHOUT A POLICY. When the day's WhatsApp ceiling is exhausted the engine
+        # has to decide whether this message is worth sending tomorrow, and there is no safe
+        # default: deferring a visit confirmation sends something strange, dropping a follow-up
+        # loses a message that cost nothing to delay. So whoever adds a text answers the question.
+        deferral = deferral_for(name, policies)
+        if deferral is None:
+            problems.append(f"{name}: no deferral policy in the 8.4.3 table — when the ceiling "
+                            f"runs out, is this message still worth sending tomorrow? There is no "
+                            f"default that is right for both a visit confirmation and an offer")
+            continue
+
         types.append({
             "name": name,
+            "deferral": deferral,
             "title": title.strip(),
             "cls": cls,
             "category": CATEGORY[cls],

@@ -216,8 +216,9 @@ class HttpPeers:
                 usage = json.loads(resp.read() or b"{}")
             for row in (usage.get("usage") or usage.get("items") or []):
                 if str(row.get("key")) == "messages.monthly":
-                    out["messages_used"] = int(row.get("current") or 0)
-                    out["messages_limit"] = int(row.get("limit") or 0)
+                    # The COUNT only. The limit is -1 on every plan — we do not sell messages, so
+                    # there is no allowance to compare it against (spec §16.7).
+                    out["messages_sent"] = int(row.get("current") or 0)
                     break
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass

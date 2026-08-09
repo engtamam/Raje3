@@ -25,13 +25,27 @@
     "NOTHING ABOUT BRANCHES BEYOND THE COUNT. There is no key for a unified balance and none for",
     "comparing branches: a single balance across branches needs no code at all, and gating it would",
     "mean writing some in order to make the product worse. He is charged for how many branches he",
-    "runs, not for them behaving like one shop."
+    "runs, not for them behaving like one shop.",
+    "",
+    "AND WE DO NOT SELL MESSAGES. The establishment contracts with Meta directly and Meta bills it",
+    "per delivered message, on a card in its own account — we neither buy them nor resell them, so",
+    "selling '1,000 a month' was selling what we do not own. Top-up packs went with it.",
+    "",
+    "messages.monthly SURVIVES AT -1, and the -1 is the whole point: unlimited still INCREMENTS the",
+    "counter in billing, so every send is measured and nothing is ever refused for a ceiling of",
+    "ours. It is a protection meter — it catches our own runaway loop before the owner's bill does",
+    "— and if we ever become a Solution Partner and messages are billed to us, a real number goes",
+    "back in this one field and the packs return unchanged.",
+    "",
+    "His actual limit is what WhatsApp allows: 250 unique customers a day before verification,",
+    "2,000 after (spec 6.2.2). A second ceiling from us on top of theirs is a number he explains",
+    "twice and understands once."
   ],
 
   "currency": "SAR",
 
   "limit_keys": {
-    "messages.monthly": "WhatsApp messages per billing period — the meter that is the product",
+    "messages.monthly": "measured, never sold — see the note above. Uncapped (-1) on every plan",
     "staff.seats": "people who can sign in; operations owns the count and reports it",
     "branches": "branches; operations owns the count and reports it",
     "feature.campaigns": "the campaign builder (§10)",
@@ -41,37 +55,6 @@
     "templates.custom": "templates he writes himself and we submit to Meta, per month",
     "feature.api": "off in every published plan; the key exists so the answer is DENY and not silence"
   },
-
-  "packs": [
-    {
-      "_": [
-        "MESSAGE PACKS — a subscription that does not renew, and nothing else.",
-        "",
-        "interval `once` is the whole mechanism. An entitlement is the UNION of every billable",
-        "subscription and an integer limit merges by SUM, so a pack's messages ADD to the plan's",
-        "with no arithmetic of ours, no second purchase path, and no branch in the sending code.",
-        "Proven against the running service by deploy/prove-packs.sh rather than trusted: if the",
-        "union did not add, the whole design would be wrong, and better found there than by an",
-        "owner who paid 50 riyals for messages that never arrived.",
-        "",
-        "A PACK EXTENDS THE MONTH, IT DOES NOT FORGIVE IT. What he already sent stays counted —",
-        "otherwise a 50-riyal pack becomes a way to reset the month, and the plan's number stops",
-        "meaning anything.",
-        "",
-        "OFFERED WHEN HE NEEDS IT: from the balance line in his weekly report and from the panel.",
-        "Never as an interstitial in the middle of doing something else — a shop owner blocked",
-        "mid-task by a purchase screen remembers the block, not the offer."
-      ],
-      "name": "رسائل إضافية · 500",
-      "amount": 5000,
-      "messages": 500
-    },
-    {
-      "name": "رسائل إضافية · 1000",
-      "amount": 9000,
-      "messages": 1000
-    }
-  ],
 
   "plans": [
     {
@@ -96,8 +79,8 @@
       ],
       "trial_days": 14,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": 1000, "period": "billing_period",
-                             "overage": "block"},
+        "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
+                             "overage": "allow_and_bill"},
         "staff.seats": {"kind": "gauge", "limit": 5},
         "branches": {"kind": "gauge", "limit": 1},
         "feature.campaigns": {"kind": "boolean", "limit": 0},
@@ -113,8 +96,8 @@
       "amount": 29800,
       "trial_days": 0,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": 3000, "period": "billing_period",
-                             "overage": "block"},
+        "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
+                             "overage": "allow_and_bill"},
         "staff.seats": {"kind": "gauge", "limit": 15},
         "branches": {"kind": "gauge", "limit": 2},
         "feature.campaigns": {"kind": "boolean", "limit": 1},
@@ -130,8 +113,8 @@
       "amount": 59800,
       "trial_days": 0,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": 8000, "period": "billing_period",
-                             "overage": "block"},
+        "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
+                             "overage": "allow_and_bill"},
         "staff.seats": {"kind": "gauge", "limit": -1},
         "branches": {"kind": "gauge", "limit": 8},
         "feature.campaigns": {"kind": "boolean", "limit": 1},

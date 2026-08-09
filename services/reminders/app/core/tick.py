@@ -35,7 +35,7 @@ from app.core import gate as G
 from app.core import quota as Q
 from app.core import rendering as R
 from app.core.models import SendLog, as_row
-from app.adapters.message_sender import Unsendable
+from app.adapters.message_sender import CeilingReached, Unsendable
 from app.core.consent import Consent
 from app.core.stores import EngagementStore, PrefsStore, ScheduleStore, SendLogStore
 
@@ -44,6 +44,11 @@ from app.core.stores import EngagementStore, PrefsStore, ScheduleStore, SendLogS
 class TickResult:
     sent: int = 0
     suppressed: int = 0
+    # COUNTED SEPARATELY FROM `failed`, and that separation is the whole point: the reason counts
+    # are how an operator sees a real peer outage, and a daily, expected, self-resolving ceiling
+    # would drown it. It is also the number that moves an owner to verify his business (§6.2.2):
+    # "twelve customers did not get your messages" cannot be said unless these are counted alone.
+    ceiling: int = 0
     deferred: int = 0
     failed: int = 0
     scanned: int = 0
@@ -208,6 +213,11 @@ class Tick:
             # should pay for.
             await self._quota.release(tenant=tenant, idempotency_key=key)
             return {"sent": False, "reason": f"لا يوجد مستقبِل: {exc}"}
+        except CeilingReached as exc:
+            # A campaign message is always deferrable — see the 8.4.3 table, where every mkt_* is
+            # `defer`. It goes when the ceiling opens; nobody is waiting for an offer.
+            await self._quota.release(tenant=tenant, idempotency_key=key)
+            return {"sent": False, "reason": f"سقف واتساب اليومي ({exc.code}) — سترسل تلقائياً"}
         except Exception:
             # Every other failure — a template still in Meta's review, a peer down — is transient
             # and retried. It must not be charged either.
@@ -312,6 +322,29 @@ class Tick:
             await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
                 variables=rendered.variables, cls=cls, idempotency_key=key)
+        except CeilingReached as exc:
+            # WHATSAPP WILL NOT TAKE ANOTHER MESSAGE FROM THIS SHOP RIGHT NOW (spec §8.4.3).
+            # Nothing left, so nothing is counted — and what happens next is the TEMPLATE's
+            # decision, carried on the template itself rather than decided here.
+            await self._quota.release(tenant=tenant, idempotency_key=key)
+            policy = str(template.get("deferral") or "defer")
+            res.ceiling += 1
+            if policy == "drop":
+                # Worthless tomorrow. "We recorded your visit" arriving 18 hours late is not a
+                # late message, it is a strange one — and the shop is better served by silence.
+                await self._log.append(tenant, as_row(SendLog(
+                    tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                    schedule_id=row.get("id", ""), template_name=rendered.template_name,
+                    outcome="suppressed", reason=f"سقف واتساب اليومي ({exc.code})")))
+                await self._close(tenant, row, "suppressed",
+                                  f"سقف واتساب اليومي ({exc.code})", now)
+                res.suppressed += 1
+                return
+            # `defer` and `priority` both come back — priority is about ORDER within a day, and
+            # once the day is closed there is no order left to win.
+            await self._defer_to_tomorrow(tenant, row, now, exc.code)
+            res.deferred += 1
+            return
         except Exception:
             await self._quota.release(tenant=tenant, idempotency_key=key)
             raise
@@ -344,6 +377,23 @@ class Tick:
                      now: int) -> None:
         row["state"] = state
         row["reason"] = reason
+        row["updated"] = now
+        await self._sched.upsert(tenant, _key(row), row)
+
+    async def _defer_to_tomorrow(self, tenant: str, row: dict[str, Any], now: int,
+                                 code: str) -> None:
+        """Back to pending, tomorrow — not in an hour.
+
+        The ceiling is a rolling 24-hour window, so a retry an hour from now walks into the same
+        closed door and spends a tick doing it. The next morning is the first moment the answer
+        can differ.
+
+        THE IDEMPOTENCY KEY STAYS ON THE ROW. Tomorrow's attempt is the same message, and billing
+        must count it once however many days it waits.
+        """
+        row["state"] = "pending"
+        row["due_at"] = now + 12 * 3600
+        row["reason"] = f"سقف واتساب اليومي ({code})"
         row["updated"] = now
         await self._sched.upsert(tenant, _key(row), row)
 

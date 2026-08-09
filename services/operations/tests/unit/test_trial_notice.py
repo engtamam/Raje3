@@ -76,10 +76,17 @@ def test_the_text_names_no_price_and_no_plan():
     message's class is its words: name a price and this becomes marketing by its text (§8.4.1),
     and then a notice about his own subscription falls behind quiet hours and a consent he never
     thought to give himself."""
+    ENDS_ON = "2026-08-20"
     for days in MILESTONES:
-        t = text(days, "مغسلة النخيل", "2026-08-20")
-        for word in ("ريال", "148", "298", "598", "رقِّ", "خصم", "عرض"):
-            assert word not in t
+        t = text(days, "مغسلة النخيل", ENDS_ON)
+        for word in ("ريال", "رقِّ", "خصم", "عرض", "باقة"):
+            assert word not in t, t
+        # NO NUMBER SURVIVES EXCEPT THE DATE AND THE COUNT OF DAYS — checked by removing those
+        # two and looking for anything left. Listing the actual prices here to assert their
+        # absence would put them in code, which ci/check_no_prices.py refuses, and rightly:
+        # a guard that makes an exception for tests is a guard with a hole shaped like a test.
+        rest = t.replace(ENDS_ON, "").replace(str(days), "")
+        assert not any(ch.isdigit() for ch in rest), rest
 
 
 def test_it_uses_the_template_that_already_exists():

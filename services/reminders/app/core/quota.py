@@ -1,71 +1,73 @@
-"""The message quota — the only counter in this product that money depends on.
+"""The message meter — measured on every send, and never a wall of ours.
 
-Every plan sells a number of WhatsApp messages a month, and until this file existed nothing
-decremented it. An establishment on 1000 could send 40000: the number was printed on an invoice and
-enforced by nobody. That is not a leak that shows up in a graph — the graph looks healthy, because
-the messages are going out.
+WHAT THIS WAS, AND WHY IT CHANGED. This file was built to enforce a monthly message allowance the
+plans sold. They no longer sell one: the establishment contracts with Meta directly and Meta bills
+it per delivered message, on a card in its own account. We neither buy the messages nor resell
+them, so selling "1,000 a month" was selling what we do not own.
+
+THE CODE SURVIVED THE DECISION INTACT; only its purpose moved. Every plan now carries
+`messages.monthly` at -1, and unlimited still INCREMENTS the counter in billing — so every send is
+measured and none is refused for a ceiling of ours. What it buys:
+
+  * a runaway loop in our own code shows up here, in a number that climbs, before it shows up in
+    an owner's bill from Meta;
+  * the weekly report can tell him how many messages he actually sent;
+  * and if we ever become a Solution Partner and messages are billed to US, a real number goes
+    into that one field and this file enforces again with nothing rewritten.
+
+HIS ACTUAL LIMIT IS WHATSAPP'S — 250 unique customers a day before verification, 2,000 after (spec
+§6.2.2), counted in PEOPLE rather than messages. That ceiling is enforced by Meta at the send, and
+handled where the send happens; it is not this file's business.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 CONSUME AT THE SEND, NEVER AT THE SCHEDULE
 
 A reminder is scheduled days before it goes, and between the two the gate can refuse it: quiet
-hours, a withdrawn consent, a monthly cap on that customer, an erased subject. Counting at schedule
-time charges the shop for messages we then decided not to send — the cap would punish him for
-customers he never reached, and his own report would disagree with his bill.
-
-So the consume sits immediately before the send call and nowhere else.
+hours, a withdrawn consent, a per-customer cap, an erased subject. Counting at schedule time
+measures messages we then decided not to send, which makes the number a lie in his own report.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 THE IDEMPOTENCY KEY IS THE SEND'S OWN
 
 The tick retries, the bus redelivers, and two replicas run the same cron. The send already carries
 a key that makes a repeat safe at notification-service; this passes THAT SAME KEY to billing, so a
-redelivery that sends nothing also spends nothing.
+redelivery that sends nothing also counts nothing.
 
-A fresh key here would be the worst kind of correct-looking code: every retry burns another unit of
-somebody's quota, the messages are not duplicated because the sender de-duplicates them, and the
-only evidence is a balance that drains faster than the ledger explains.
+A fresh key here would inflate the measurement on every retry — and a meter that over-reports is
+one nobody believes the day it reports something real.
+
+Billing scopes that key per tenant. It did not always: two tenants presenting the same key
+collided, the second was told it consumed while nothing was recorded for it, and its meter stayed
+at zero. We found it, escalated it, and it was fixed in base-services v0.13.9 — worth remembering
+because the symptom was a proof that had passed for days.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 AND IT IS GIVEN BACK WHEN THE SEND DID NOT HAPPEN
 
-`consume` runs first because it must be atomic — check-and-increment in one call, since between an
-advisory "yes" and the send another replica can take the last unit. That ordering means a unit is
-spent before we know the send worked, so a failure has to return it: a template still pending
-Meta's approval, notification-service down, a recipient lookup that fails. Those are common — a
-shop that connected this morning has an entire library in review — and without the release he pays
-for every one of them.
+`consume` runs before the send because it must be atomic, so a unit is counted before we know the
+send worked. A failure returns it: a template still in Meta's review, notification-service down, a
+recipient lookup that failed. Those are common — a shop that connected this morning has an entire
+library in review — and without the release his own report would count messages nobody received.
 
-RELEASE IS BEST-EFFORT AND SAYS SO. If the release call itself fails, the send has still failed and
-the customer must not be charged twice by our error handling — but we do not fail the send a second
-time over an accounting call. It is logged, and the drift it can cause is one unit.
+RELEASE IS BEST-EFFORT AND SAYS SO. If the release itself fails the send has still failed, and we
+do not fail it twice over an accounting call. The drift it can cause is one unit.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
-WHAT HAPPENS AT ZERO IS A DECISION, WRITTEN DOWN HERE
+AND IT FAILS OPEN, WHICH IS THE OPPOSITE OF WHAT IT USED TO DO
 
-`block`, not `allow_and_bill`. An establishment that runs out stops sending; it is not billed for
-messages it never agreed to buy. That is only defensible because packs are bought from inside the
-product (spec §16.5) and because the warning arrives long before zero — the sixth line of the
-weekly report is his remaining balance, which is the entire reason that line exists.
-
-The alternative — keep sending and invoice the overage — produces the support conversation nobody
-wins: a shop owner with a bill he never approved for messages he did not know he was sending.
-
-────────────────────────────────────────────────────────────────────────────────────────────────
-AND IT FAILS CLOSED, WHICH IS THE UNCOMFORTABLE ONE
-
-If billing cannot be reached, the send is refused. Sending anyway would be the generous choice and
-the wrong one: WhatsApp messages cost real money per message, an unreachable peer can last hours,
-and "we could not check, so we sent 200000 messages" is not a failure mode with a bottom. A refused
-send is rescheduled by the tick and goes out when billing answers again — nothing is lost.
+When this metered a paid allowance, an unreachable billing had to refuse the send: sending
+unmetered would have given away messages we were paying for. That reasoning is gone with the
+allowance. Now an unreachable billing must NOT stop a shop's reminders — the cost of an
+unmeasured send is a gap in a report; the cost of a blocked one is a customer who never heard
+from his shop. The measurement is the thing we are willing to lose.
 """
 from __future__ import annotations
 
 from typing import Any
 
-# The key the plans carry (spec §16.4.1). One name, defined once, so a typo cannot silently create
-# a second counter that nobody has a limit for — an unknown key resolves deny-by-default, which
-# would look exactly like an exhausted quota.
+# The key the plans carry at -1 (spec §16.4.1). One name, defined once: a typo would create a
+# second counter with no entitlement behind it, which resolves deny-by-default and would refuse
+# every send — the one way this file can still stop a shop.
 KEY = "messages.monthly"
 
 
@@ -76,8 +78,8 @@ class QuotaError(Exception):
 class NullQuota:
     """Counts nothing and allows everything — tests and local runs.
 
-    Refused in production by the boot guard in config.py, because a service that sends without
-    counting is the defect this module exists to fix.
+    Refused in production by the boot guard in config.py: sending unmeasured means a runaway loop
+    of ours reaches the owner's bill before it reaches any dashboard of ours.
     """
 
     driver = "null"
@@ -129,24 +131,29 @@ class HttpQuota:
             raise QuotaError(f"unreachable: {exc}") from exc
 
     async def consume(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
-        """Atomic check-and-increment. Raises QuotaError when the send must not happen."""
+        """Record one send. Never refuses for a limit of ours — there is no longer one.
+
+        It still RAISES on a refusal, because billing can refuse for a reason that is not a
+        ceiling: a tenant with no billable subscription at all resolves NOT_ENTITLED, which is the
+        unsubscribed establishment (spec §16.4.2) and must stop the send. That is a subscription
+        decision, not a message allowance.
+        """
         try:
             status, out = self._post(self._consume, {"tenant": tenant, "key": KEY,
                                                      "amount": amount,
                                                      "idempotency_key": idempotency_key})
         except QuotaError:
-            # FAIL CLOSED — see the module docstring. The tick reschedules.
-            raise QuotaError("تعذّر التحقق من رصيد الرسائل — سنحاول مرة أخرى.")
+            # UNREACHABLE FAILS OPEN — see the module docstring. We lose the measurement, not the
+            # message.
+            return
         if status >= 400:
-            raise QuotaError("تعذّر التحقق من رصيد الرسائل — سنحاول مرة أخرى.")
+            return
         if not out.get("allowed"):
-            # THE REASON MATTERS AND IT IS NOT ALWAYS THE SAME ONE. `NOT_ENTITLED` means the plan
-            # carries no message allowance at all, which is a different sentence from "you have
-            # used this month's" — and telling an owner he is out when he never had any is how a
-            # support call starts.
             if str(out.get("error") or "") == "NOT_ENTITLED":
-                raise QuotaError("باقتك الحالية لا تشمل إرسال الرسائل.")
-            raise QuotaError("انتهى رصيد رسائل هذا الشهر — يمكنك شراء باقة رسائل إضافية.")
+                raise QuotaError("لا يوجد اشتراك فعّال — فعّل اشتراكك لاستئناف الإرسال.")
+            # Anything else is billing declining for a reason we did not ask about. Refusing the
+            # send on an answer we cannot explain to the owner would be worse than not counting it.
+            return
 
     async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
         """Give the unit back after a send that did not happen. Best-effort, never raises."""
