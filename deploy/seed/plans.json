@@ -77,7 +77,24 @@
     {
       "name": "الأساسية",
       "amount": 14800,
-      "trial_days": 0,
+      "_trial": [
+        "THE TRIAL LIVES HERE, ON THE ENTRY PLAN — not on the middle one, where it started.",
+        "",
+        "A trial on الذكية hands him campaigns and loyalty for two weeks and then takes them away.",
+        "The upgrade that follows is bought to stop a loss, and the shop that does not buy feels",
+        "downgraded on day 15. On الأساسية the product simply works, and the upgrade comes from a",
+        "number in his own dashboard — 340 customers agreed to receive your offers — which is his",
+        "fact about his shop rather than a feature we withdrew.",
+        "",
+        "AND THE NUMBER MEANS WHAT IT SAYS AGAIN. Until base-services v0.13.7, trial_days was",
+        "written into the subscription and read by nothing: the period end was a full interval",
+        "regardless, so 14 days granted 30. It was 0 everywhere while that was true, because a",
+        "trial running twice as long as promised is a promise broken in our favour.",
+        "",
+        "0 MEANS NO TRIAL, and the length is set from our panel by editing this row. No service",
+        "knows the number, and a shop that signed up under 14 days keeps 14 whatever we change."
+      ],
+      "trial_days": 14,
       "limits": {
         "messages.monthly": {"kind": "counter", "limit": 1000, "period": "billing_period",
                              "overage": "block"},
@@ -94,18 +111,6 @@
     {
       "name": "الذكية",
       "amount": 29800,
-      "_trial": [
-        "NO TRIAL ON THIS PLAN, AND NONE ANYWHERE ELSE YET — both parts deliberate.",
-        "",
-        "The trial belongs on الأساسية (16.8): it shows the product, and the upgrade then comes",
-        "from a number in his own dashboard rather than from a feature he got used to and had",
-        "taken away. It sat here, on the middle plan, and that was wrong.",
-        "",
-        "And it is 0 everywhere until the billing escalation lands. trial_days is written into",
-        "the subscription and read by NOTHING: current_period_end is set to a full interval",
-        "regardless, so trial_days: 14 grants THIRTY days. Setting a number here would promise a",
-        "length we do not deliver, and the customer discovers it in our favour, which is worse."
-      ],
       "trial_days": 0,
       "limits": {
         "messages.monthly": {"kind": "counter", "limit": 3000, "period": "billing_period",
