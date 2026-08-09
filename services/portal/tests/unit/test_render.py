@@ -119,3 +119,50 @@ def test_the_whole_document_stays_small():
     """Every kilobyte is a fraction of a second on one bar of signal."""
     html = render_page(page(), THEME)
     assert len(html.encode()) < 12_000, f"{len(html.encode())} bytes"
+
+
+# ── the routes: what a stranger with a forwarded link can learn, and what the page must not cache
+from app.api.page import NO_STORE
+
+
+def test_the_page_is_never_stored_by_a_proxy_or_a_shared_phone():
+    """`private` alone permits a browser to keep it, and a phone shared between a father and his
+    son shows the second one the first one's visits after a back button."""
+    cc = NO_STORE["Cache-Control"]
+    assert "no-store" in cc and "no-cache" in cc and "private" in cc
+
+
+def test_the_unsubscribe_stops_marketing_only():
+    """Someone unsubscribing from offers still wants to know their car is ready — taking that away
+    is not what they pressed."""
+    import inspect
+    from app.api import page as mod
+    src = inspect.getsource(mod.stop)
+    assert 'stopped=["marketing"]' in src and "merge=True" in src
+
+
+def test_the_unsubscribe_merges_rather_than_replacing():
+    """A stop that turns four other things back on is the opposite of what the customer pressed."""
+    import inspect
+    from app.adapters.peers import HttpReminders
+    src = inspect.getsource(HttpReminders.set_prefs)
+    assert "existing" in src and "set(existing) | set(stopped)" in src
+
+
+def test_a_failed_save_shows_no_confirmation():
+    """A customer told their choice was saved who keeps receiving messages does not try again —
+    they block the number."""
+    import inspect
+    from app.adapters.peers import HttpReminders
+    assert "return False" in inspect.getsource(HttpReminders.set_prefs)
+    from app.api import page as mod
+    assert "saved=saved" in inspect.getsource(mod.save_prefs)
+
+
+def test_an_invalid_reference_makes_no_peer_calls():
+    """Otherwise the route is a way to make three services do work on behalf of anyone with a
+    URL."""
+    import inspect
+    src = inspect.getsource(__import__("app.api.page", fromlist=["x"]).page)
+    before = src.split("if not r.valid:", 1)[1].split("return", 1)[0]
+    assert "composer" not in before

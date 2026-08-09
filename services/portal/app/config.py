@@ -167,6 +167,25 @@ class Settings(BaseSettings):
     # CAN make it during an audit outage, and it is documented so nobody makes it by accident.
     AUDIT_FAIL_CLOSED: bool = True
 
+    # ── the three services this page reads ────────────────────────────────────
+    # `null` renders a shell with no shop name and no data. Correct for a local run; refused in
+    # production by the boot guard, where it would mean every customer opening a link sees an
+    # empty page under a shop's name.
+    PEERS_DRIVER: str = "null"               # null | http
+    TENANT_SERVICE_URL: str = ""
+    TENANT_READ_PATH: str = "/internal/tenants/{id}"
+    OPERATIONS_SERVICE_URL: str = ""
+    OPERATIONS_VISITS_PATH: str = "/internal/operations/customer-visits"
+    REMINDERS_SERVICE_URL: str = ""
+    # THEIRS, and the reference goes in the path exactly as reminders parses it.
+    REMINDERS_PREFS_PATH: str = "/api/v1/prefs/{ref}"
+    # Short: three of these run under ONE page deadline, and a customer is waiting.
+    PEER_TIMEOUT_SECONDS: int = 3
+    IDENTITY_CACHE_TTL_SECONDS: int = 300
+    # The whole page, not per call. Three calls at three seconds each is a nine-second page, which
+    # is a page nobody sees.
+    PAGE_DEADLINE_SECONDS: float = 3.0
+
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.
     DATASTORE_DRIVER: str = "memory"
@@ -367,6 +386,25 @@ class Settings(BaseSettings):
             raise ValueError("INTERNAL_SERVICE_TOKEN is a placeholder — set a real secret")
         return v
 
+
+    def assert_peers_config_ok(self) -> None:
+        """Boot guard. Refuse production with a page that can render nothing.
+
+        The symptom is not an error: the page returns 200, the shop's colour is right, and every
+        section says the data could not be loaded — for ever, to every customer, under the shop's
+        name.
+        """
+        if not self.is_production:
+            return
+        if self.PEERS_DRIVER == "null":
+            raise ValueError(
+                "PEERS_DRIVER=null in production: every customer opening a link would see an "
+                "empty page under their shop's name, with no error anywhere. Set it to 'http'.")
+        missing = [n for n in ("TENANT_SERVICE_URL", "OPERATIONS_SERVICE_URL",
+                               "REMINDERS_SERVICE_URL") if not getattr(self, n)]
+        if missing:
+            raise ValueError(f"PEERS_DRIVER=http but {', '.join(missing)} empty — the page would "
+                             f"render a permanent 'could not load' for those sections.")
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

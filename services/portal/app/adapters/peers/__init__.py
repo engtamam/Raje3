@@ -1,0 +1,192 @@
+"""The three services this page reads, and the one thing it writes.
+
+EVERY CLIENT HERE IS A THIN, BOUNDED READ. The page is public and unauthenticated, so each of these
+runs on behalf of somebody we cannot identify — which makes every one of them a way to make us do
+work if it is not bounded. Timeouts are short, page sizes are small, and nothing retries: the
+composer has one deadline for the whole page, and a client that retried inside it would spend the
+budget three times.
+
+THE INTERNAL TOKEN IS OURS, NOT THE CUSTOMER'S. These calls are service-to-service; the customer
+proves nothing and carries nothing. What limits them is that the reference in the URL already
+determines exactly one tenant and one subject, and no client here accepts anything else.
+"""
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
+
+
+def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), method="POST",
+        headers={"Content-Type": "application/json", "X-Internal-Token": token})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:              # nosec B310
+        return json.loads(resp.read() or b"{}")
+
+
+def _get(url: str, token: str, timeout: int) -> dict[str, Any]:
+    req = urllib.request.Request(url, headers={"X-Internal-Token": token})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:              # nosec B310
+        return json.loads(resp.read() or b"{}")
+
+
+# ── tenant-service: who the shop is ────────────────────────────────────────────────────────────
+class NullIdentity:
+    driver = "null"
+
+    async def get(self, tenant: str):
+        from app.core.compose import Page  # noqa: F401  (kept for symmetry with the http client)
+        return None
+
+    async def logo_url(self, tenant: str) -> str:
+        return ""
+
+
+class HttpIdentity:
+    """Reads tenant-service. Cached, because the shop's name does not change between two customers
+    opening their pages a second apart — and an uncached read makes every page view a peer call."""
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 3,
+                 ttl_seconds: int = 300) -> None:
+        self._url = url.rstrip("/")
+        self._path = path
+        self._token = token
+        self._timeout = timeout
+        self._ttl = ttl_seconds
+        self._cache: dict[str, tuple[float, Any]] = {}
+
+    async def get(self, tenant: str):
+        import time
+        now = time.time()
+        hit = self._cache.get(tenant)
+        if hit and now - hit[0] < self._ttl:
+            return hit[1]
+        path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
+        data = _get(f"{self._url}{path}", self._token, self._timeout)
+        shop = _Shop(name=str(data.get("name") or ""), branding=data.get("branding") or {})
+        # The shop's own display name wins over the provisioned one: the first is what they call
+        # themselves, the second is what whoever signed them up typed.
+        shop.name = str(shop.branding.get("display_name") or shop.name)
+        self._cache[tenant] = (now, shop)
+        return shop
+
+    async def logo_url(self, tenant: str) -> str:
+        shop = await self.get(tenant)
+        return str((getattr(shop, "branding", {}) or {}).get("logo_url") or "")
+
+
+class _Shop:
+    def __init__(self, name: str = "", branding: dict[str, Any] | None = None) -> None:
+        self.name = name
+        self.branding = branding or {}
+
+
+# ── operations: the visits ─────────────────────────────────────────────────────────────────────
+class NullOperations:
+    driver = "null"
+
+    async def visits_for(self, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
+        return []
+
+
+class HttpOperations:
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 3,
+                 limit: int = 10) -> None:
+        self._url = url.rstrip("/") + path
+        self._token = token
+        self._timeout = timeout
+        # TEN, and the page shows ten. A customer's page is not a statement of account, and asking
+        # for a hundred to display ten is a hundred rows crossing a network for nothing.
+        self._limit = limit
+
+    async def visits_for(self, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
+        data = _post(self._url, {"tenant": tenant, "subject_ref": subject_ref,
+                                 "limit": self._limit}, self._token, self._timeout)
+        return list(data.get("visits") or [])
+
+
+# ── reminders: the switches ────────────────────────────────────────────────────────────────────
+class NullReminders:
+    driver = "null"
+
+    async def prefs_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        return {"stopped": {}}
+
+    async def set_prefs(self, tenant: str, subject_ref: str, *, stopped: list[str],
+                        merge: bool = False) -> bool:
+        return False
+
+
+class HttpReminders:
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 3) -> None:
+        self._url = url.rstrip("/")
+        self._path = path
+        self._token = token
+        self._timeout = timeout
+
+    def _ref_path(self, tenant: str, subject_ref: str) -> str:
+        ref = urllib.parse.quote(f"{tenant}.{subject_ref}", safe="")
+        return self._path.replace("{ref}", ref).replace("{}", ref)
+
+    async def prefs_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        return _get(f"{self._url}{self._ref_path(tenant, subject_ref)}",
+                    self._token, self._timeout)
+
+    async def set_prefs(self, tenant: str, subject_ref: str, *, stopped: list[str],
+                        merge: bool = False) -> bool:
+        """Write the switches. Returns whether the PEER said it saved.
+
+        `merge` exists for the one-tap unsubscribe: /stop adds marketing to whatever is already
+        stopped rather than replacing the set. Replacing would silently re-enable everything else
+        the customer had switched off — a stop that turns four things back on is the opposite of
+        what they pressed.
+        """
+        if merge:
+            current = {}
+            try:
+                current = await self.prefs_for(tenant, subject_ref)
+            except Exception:                                               # noqa: BLE001
+                # A read that fails must not make the stop replace their other choices. Falling
+                # back to "stop only what was asked" is the safe direction: it under-stops rather
+                # than re-enabling.
+                current = {}
+            existing = [p["class"] for p in (current.get("preferences") or [])
+                        if isinstance(p, dict) and not p.get("enabled", True)]
+            stopped = sorted(set(existing) | set(stopped))
+        url = f"{self._url}{self._ref_path(tenant, subject_ref)}"
+        req = urllib.request.Request(
+            url, data=json.dumps({"stopped": stopped}).encode(), method="PUT",
+            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
+                body = json.loads(resp.read() or b"{}")
+            return bool(body.get("saved"))
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            # FALSE, NOT AN EXCEPTION. The caller renders the page without a confirmation, which is
+            # the honest outcome: a customer told their choice was saved who keeps receiving
+            # messages does not try again — they block the number.
+            return False
+
+
+def build_peers(settings) -> tuple[Any, Any, Any]:
+    if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
+        return NullIdentity(), NullOperations(), NullReminders()
+    t = settings.PEER_TIMEOUT_SECONDS
+    return (
+        HttpIdentity(url=settings.TENANT_SERVICE_URL, path=settings.TENANT_READ_PATH,
+                     token=settings.INTERNAL_SERVICE_TOKEN, timeout=t,
+                     ttl_seconds=settings.IDENTITY_CACHE_TTL_SECONDS),
+        HttpOperations(url=settings.OPERATIONS_SERVICE_URL,
+                       path=settings.OPERATIONS_VISITS_PATH,
+                       token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+        HttpReminders(url=settings.REMINDERS_SERVICE_URL, path=settings.REMINDERS_PREFS_PATH,
+                      token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+    )

@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import health, internal, metrics
+from app.api import health, internal, metrics, page
 from app.api.errors import register_error_handlers
 from app.api.health import register_readiness_check
 from app.api.v1 import router as v1_router
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     # A service that cannot witness its own privileged actions must not serve traffic as if it can.
     settings.assert_audit_config_ok()
     settings.assert_pii_config_ok()
+    settings.assert_peers_config_ok()
     settings.assert_cors_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
@@ -128,6 +129,8 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router)
     app.include_router(internal.router)
     app.include_router(v1_router)
+    # THE PAGE. Mounted at /p, public, and the only routes a customer ever reaches.
+    app.include_router(page.router)
     # Operator controls: credentials and policy an operator changes after launch.
     app.include_router(operator_router)
 

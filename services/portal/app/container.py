@@ -144,6 +144,11 @@ class Container:
     telemetry: Telemetry
     audit_sink: Any = None
     consent_gate: Any = None
+    # ── the page's own pieces ─────────────────────────────────────────────────────────────────
+    identity: Any = None
+    operations: Any = None
+    reminders: Any = None
+    composer: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -198,7 +203,7 @@ def _build_audit_sink(settings: Settings, event_bus) -> Any:
 def build_container(settings: Settings) -> Container:
     """Resolve every port from config. Fail-fast on any unknown driver."""
     event_bus = _pick(_EVENTBUS, settings.EVENTBUS_DRIVER, "event_bus", settings)
-    return Container(
+    container = Container(
         datastore=_pick(_DATASTORE, settings.DATASTORE_DRIVER, "datastore", settings),
         cache=_pick(_CACHE, settings.CACHE_DRIVER, "cache", settings),
         event_bus=event_bus,
@@ -211,3 +216,13 @@ def build_container(settings: Settings) -> Container:
         audit_sink=_build_audit_sink(settings, event_bus),
         consent_gate=_pick(_CONSENT_GATE, settings.CONSENT_GATE_DRIVER, "consent_gate", settings),
     )
+
+    from app.adapters.peers import build_peers
+    from app.core.compose import Composer
+
+    container.identity, container.operations, container.reminders = build_peers(settings)
+    container.composer = Composer(identity=container.identity,
+                                  operations=container.operations,
+                                  reminders=container.reminders,
+                                  deadline_seconds=settings.PAGE_DEADLINE_SECONDS)
+    return container
