@@ -69,7 +69,12 @@ def build_manifest(
                          # THE FIRST ROLE ON THIS PRODUCT THAT IS NEITHER A TENANT NOR US. A
                          # partner has a real claim on some rows of a tenant it does not own, and
                          # none at all on the rest — see api/v1/partner.py.
-                         "partner.read"],
+                         "partner.read",
+                         # THE OWNER ACTING ON HIS OWN ACCOUNT — subscribing, and connecting his
+                         # WhatsApp. Not an operator capability and not one of ours: a route that
+                         # needed either would mean no shop could buy or connect without us on the
+                         # call, which is the opposite of a self-service product.
+                         "billing.self"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -141,6 +146,13 @@ def build_manifest(
             {"path": "/api/v1/partner/shops", "tier": "user", "method": "GET"},
             {"path": "/api/v1/partner/statements", "tier": "user", "method": "GET"},
             {"path": "/api/v1/partner/statements/{}", "tier": "user", "method": "GET"},
+            # ── the owner's own account: buying, and connecting the channel he sends on ──
+            # Undeclared until now, and the gap was invisible because the completeness gate reads
+            # DECLARED ACTIONS: a route with no action behind it is a route nothing checks. The
+            # subscribe path had been live and unlisted since it was written.
+            {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

@@ -316,4 +316,31 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "out. If it ever returns asking where its history went, this record is the only "
                "answer — including the date we first observed it had no subscription",
     },
+    {
+        "action": "whatsapp.connected",
+        "source": "user",
+        "critical": True,
+        "resource": "whatsapp_connection",
+        "why": "the moment an establishment's WhatsApp becomes ours to send from. Every message "
+               "that follows is sent in its name and billed to it by Meta, so when it is charged "
+               "for a message it does not recognise, this row is where the relationship began",
+    },
+    {
+        "action": "whatsapp.connect_failed",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_connection",
+        "why": "a failed exchange is the support call we will receive, and the only place the "
+               "reason survives — Meta refusing a 30-second code and our own credential being "
+               "wrong look identical to an owner and are entirely different problems",
+    },
+    {
+        "action": "whatsapp.connect_stopped",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_connection",
+        "why": "where an owner gave up tells us which step of Meta's flow is losing people, and "
+               "one of those steps is not a cancellation at all — closing on the final screen "
+               "means the signup completed",
+    },
 ]

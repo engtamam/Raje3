@@ -99,4 +99,27 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # re-runs it until they like the number.
         "help": "تفصيل الشهر بكل محل. للقراءة فقط.",
     },
+    {
+        "id": "whatsapp.connect", "label": "ربط واتساب", "method": "POST",
+        "path": "/api/v1/whatsapp/connect", "capability": "billing.self", "group": "حسابي",
+        # The owner's own action, and it is here rather than in admin_actions because nobody at
+        # Raje3 takes part in it: Embedded Signup is a conversation between him and Meta, and we
+        # receive its result. An action rendered in OUR panel would suggest otherwise.
+        "help": "اربط حساب واتساب الأعمال الخاص بك لتبدأ الإرسال باسم محلك.",
+    },
+    {
+        "id": "whatsapp.connect_status", "label": "حالة الربط", "method": "GET",
+        "path": "/api/v1/whatsapp/connect", "capability": "billing.self", "group": "حسابي",
+        # Read separately from the connect call because the popup can close without us hearing
+        # anything — and then this is the only way he learns where he stands.
+        "help": "أين وصل ربط واتساب، وما الخطوة الباقية إن توقّف.",
+    },
+    {
+        "id": "billing.subscribe", "label": "تفعيل الاشتراك", "method": "POST",
+        "path": "/api/v1/subscription", "capability": "billing.self", "group": "حسابي",
+        # It had been live and undeclared since it was written — invisible because the
+        # completeness gate reads declared actions, so a route with no action behind it is a route
+        # nothing checks. Found by adding the two beside it.
+        "help": "اختر باقتك وفعّلها. يشترط ربط واتساب قبل الاشتراك المدفوع، والتجربة معفاة.",
+    },
 ]

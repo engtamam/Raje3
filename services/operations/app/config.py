@@ -202,6 +202,18 @@ class Settings(BaseSettings):
     NOTIFICATION_MESSAGING_LIMIT_PATH: str = "/internal/whatsapp/messaging-limit"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # WhatsApp connection (Embedded Signup). The exchange itself belongs to notification-service,
+    # which holds the Tech Provider secret and never lets the shop's token reach a route. What is
+    # named here is only how we hand the code over.
+    #
+    # `null` UNTIL THERE IS A ROUTE WE CAN REACH. The exchange endpoint that exists requires a
+    # platform capability the shop owner does not and must not hold, and no internal variant exists;
+    # escalated. Null answers "not configured" honestly rather than reporting a connection that did
+    # not happen — the failure that would have a shop recording visits all week and wondering where
+    # its messages went.
+    WHATSAPP_ONBOARDING_DRIVER: str = "null"     # null | http
+    WHATSAPP_ONBOARDING_PATH: str = "/internal/whatsapp/embedded-signup"
+
     # ── retention (§14.5) ─────────────────────────────────────────────────────
     # HOW LONG A PERSON'S NUMBER IS KEPT. Two clocks, and neither is a constant in code:
     # the customer's is the ESTABLISHMENT'S to shorten (core/retention.py reads it per tenant
