@@ -43,6 +43,11 @@ def call(path, body=None, method=None, headers=None):
             return e.code, {"_raw": raw}
 
 fails = []
+# THE FIELD IS `username`, WHATEVER THE LOGIN FIELD IS CONFIGURED TO HOLD. Sending `identifier`
+# produced a bare 422 that read exactly like the number being rejected — and it made the email
+# assertion below pass for the wrong reason, which is worse than failing: a proof that reports a
+# green line it did not earn is a proof nobody should trust the rest of.
+#
 # A SAUDI MOBILE IS TEN DIGITS: 05 then eight more. The first version of this built nine and the
 # service refused it with a bare 422 — which is the adapter being correct and the proof being
 # wrong, and exactly the kind of failure that gets blamed on the service.
@@ -52,14 +57,14 @@ intl = "+966" + national[1:]
 bare = "966" + national[1:]
 
 # ── one human, three spellings ────────────────────────────────────────────────────────────────
-s1, r1 = call("/api/v1/auth/register", {"identifier": national, "password": "Pr0veIdent!ty"})
+s1, r1 = call("/api/v1/auth/register", {"username": national, "password": "Pr0veIdent!ty"})
 if s1 >= 400:
     fails.append("could not register the national form " + national + ": " + str(s1) + " " + json.dumps(r1)[:160])
 else:
     print("  ok a national number registers: " + national)
 
     for label, spelling in (("international", intl), ("bare country code", bare)):
-        s2, r2 = call("/api/v1/auth/register", {"identifier": spelling, "password": "Pr0veIdent!ty"})
+        s2, r2 = call("/api/v1/auth/register", {"username": spelling, "password": "Pr0veIdent!ty"})
         if s2 < 400:
             fails.append("THE " + label.upper() + " SPELLING " + spelling +
                          " CREATED A SECOND ACCOUNT for the same person — uniqueness is keyed on "
@@ -70,7 +75,7 @@ else:
 # ── an email is not an identifier here ────────────────────────────────────────────────────────
 # Not pedantry: if the field accepts anything, then "identity is the phone" is a description of
 # what we hope users type rather than a property of the system.
-s, r = call("/api/v1/auth/register", {"identifier": "someone@example.com", "password": "Pr0veIdent!ty"})
+s, r = call("/api/v1/auth/register", {"username": "someone@example.com", "password": "Pr0veIdent!ty"})
 if s < 400:
     fails.append("an EMAIL registered while the login field is `phone` — the adapter is not enforcing")
 else:
