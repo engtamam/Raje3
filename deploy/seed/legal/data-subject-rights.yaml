@@ -1,3 +1,9 @@
+# ── النشر: إشعار حقوق أصحاب البيانات — صفحة عامة يصل إليها العميل من صفحته.
+# PUBLICATION: The data-subject rights notice — a public page a customer reaches from his own page.
+#
+# PUBLIC, AND REACHABLE BY SOMEONE WHO HAS NO ACCOUNT. The person most likely to need it is a
+# customer of a shop who has never signed in anywhere — so it cannot sit behind a login.
+#
 # حقوق أصحاب البيانات — كيف يُمارَس الحق عندنا فعلاً، لا كيف يُوصَف.
 #
 # THE DOCUMENT IN THE PACK IS ALREADY WRITTEN — the rights, the articles, the thirty days, the
@@ -14,6 +20,8 @@
 # own page (core/erasure.py) — the establishment is notified, not asked. That was a product
 # decision before it was a legal one, and it happens to be the strongest possible answer here: the
 # fastest request is the one nobody has to process.
+
+publication: public
 
 values:
   COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري

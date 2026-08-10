@@ -1,3 +1,11 @@
+# ── النشر: تقييم أثر حماية البيانات — داخلي، يُتاح لجهة التحكم وللجهة المختصة عند الطلب.
+# PUBLICATION: The data protection impact assessment — internal, available to the controller and the authority on request.
+#
+# NOT PUBLISHED, FOR THE SAME REASON AND ONE MORE. A DPIA is an honest list of how this product
+# could hurt someone and how well our defences hold. That candour is what makes it useful and is
+# exactly what must not be a public page. Its usefulness depends on being written for a
+# regulator, not for a reader we are trying to reassure.
+#
 # تقييم أثر حماية البيانات — للمعالجة الجوهرية في المنصة.
 #
 # THE FIRST QUESTION IS WHETHER WE NEED ONE AT ALL, and the honest answer is yes.
@@ -26,6 +34,8 @@
 #
 # THE THREE THAT DO NOT APPLY ARE STATED TOO, because a checklist with only ticks looks like one
 # nobody read.
+
+publication: internal
 
 values:
   COMPANY_NAME: ""

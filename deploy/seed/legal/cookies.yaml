@@ -1,3 +1,9 @@
+# ── النشر: سياسة ملفات الارتباط — صفحة عامة، ومعها شاشة تفضيلات تعمل.
+# PUBLICATION: The cookie policy — a public page, with a preferences screen that actually works.
+#
+# PUBLIC. The consent it describes is for the functional category alone and is asked in the banner,
+# not by accepting this page.
+#
 # سياسة ملفات الارتباط والتخزين على الجهاز.
 #
 # THE SHORTEST DOCUMENT IN THE PACK, AND THE EASIEST ONE TO PUBLISH DISHONESTLY.
@@ -17,6 +23,8 @@
 # it is not sent to any server by itself, and it holds an establishment's data rather than the
 # device owner's — but it IS storage on a device, which is what the rules here are about. Omitting
 # it because it escapes the word "cookie" is exactly the reasoning these policies exist to prevent.
+
+publication: public
 
 values:
   COMPANY_NAME: ""

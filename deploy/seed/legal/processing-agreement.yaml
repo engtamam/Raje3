@@ -1,3 +1,11 @@
+# ── النشر: النصّ المقابل من جهة المتحكّم — مرجع لا يُنشر ولا يُقبَل.
+# PUBLICATION: The controller-side mirror text — reference only; neither published nor accepted.
+#
+# SUPERSEDED BY processor-dpa.yaml, WHICH NOW CARRIES ITS TWO SUBSTANTIVE CLAUSES. Kept because the
+# controller-side wording is what a shop's own counsel will ask to see, and deleting it would
+# mean rewriting it from the pack the first time that happens. It is NOT published: two documents
+# for one engagement drift, and the drift is what a dispute turns on.
+#
 # اتفاقية معالجة البيانات — من جهة المنشأة، والمعالِج فيها نحن.
 #
 # THE MIRROR OF processor-dpa.yaml, AND THAT IS THE WHOLE POINT OF WRITING IT NOW.
@@ -16,6 +24,8 @@
 # WHAT DIFFERS BETWEEN THE TWO IS ONLY VOICE AND PARTY. Here the establishment is named by the same
 # acceptance-record reference, and WE are named in full — because the party the controller is
 # engaging must be identifiable to it without looking anything up.
+
+publication: reference
 
 values:
   # جهة التحكم: نفس الإحالة المستعملة في doc14. One published document for every establishment; the

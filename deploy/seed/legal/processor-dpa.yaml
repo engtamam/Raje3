@@ -1,3 +1,11 @@
+# ── النشر: اتفاقية معالجة البيانات — تُعرض ويُشترط قبولها قبل تفعيل أي اشتراك.
+# PUBLICATION: The data processing agreement — shown and required to be accepted before any subscription is activated.
+#
+# THE ONLY DOCUMENT THAT GATES ANYTHING. Acceptance is the signature, and it is required before a
+# subscription activates because Art. 17-5-c needs the controller's PRIOR acceptance of a
+# sub-processor — and Meta is named in Annex C. Accepting after the first message would be
+# acceptance of something already done.
+#
 # اتفاقية معالجة البيانات — التزامات راجِع تجاه المنشأة.
 #
 # THE ONE FACT THIS WHOLE DOCUMENT TURNS ON: the ESTABLISHMENT is the controller of its customers'
@@ -5,10 +13,21 @@
 # We hold them to do the job it asked for. That settles who instructs whom, who may decide to
 # delete, and who answers to the regulator for what.
 #
-# THIS FILE IS OUR HALF. The document body — the articles, the citations, the bilingual clauses —
-# comes from the PDPL pack in platform/, which is read-only and stays untouched. What is here is
-# everything the pack deliberately left to the signer: the four blanks, the annexes, and the three
-# places we narrow an open term. ci/gen_legal.py merges the two.
+# THIS IS THE ONLY AGREEMENT THAT IS PUBLISHED AND ACCEPTED, and that is a decision worth stating.
+#
+# The pack ships two: doc14 (the processor's commitments — this one) and doc13 (the controller-side
+# mirror). They describe ONE engagement from two sides. Publishing both would put two documents in
+# front of a shop for one signature, and the moment one is edited and the other is not, a shop is
+# bound to two different sets of instructions — which is the failure Art. 17-1 exists to prevent,
+# arrived at by being thorough.
+#
+# So we publish this one and fold in the only thing doc13 held that this did not: what the
+# CONTROLLER undertakes. See `controller_obligations` below. deploy/seed/legal/processing-agreement
+# .yaml is kept as the mirror text for reference and is NOT published.
+#
+# The document body — the articles, the citations, the bilingual clauses — comes from the PDPL pack
+# in platform/, which is read-only and stays untouched. What is here is everything the pack
+# deliberately left to the signer: the blanks, the annexes, and the places we narrow an open term.
 #
 # WHY THE ANNEXES ARE THE POINT AND NOT AN APPENDIX. Article 17-1 puts the purpose (a), the
 # categories (b), the duration (c) and the sub-processors (g) IN the agreement — so a signed
@@ -19,6 +38,8 @@
 #
 # So the engine, the indicators and the campaigns are named below explicitly. Not because a
 # regulator would fail to imagine them — because if they are not in the annex, they are ours.
+
+publication: accept
 
 values:
   # ── who we are ────────────────────────────────────────────────────────────────────────────
@@ -202,6 +223,50 @@ amendments:
       breach, the categories of data and, so far as possible, the number of Data Subjects affected;
       the containment measures taken; and the Processor's contact point — to the extent available at
       the time, supplemented as more is known, without waiting for the investigation to conclude.
+  # WHAT THE CONTROLLER UNDERTAKES — carried over from doc13, which we no longer publish.
+  #
+  # Article 17-2 requires the controller to issue clear instructions, and the rest follows from a
+  # fact about this product: the establishment collects the numbers, at its own counter, from its
+  # own customers. We never meet them. So the lawful basis for holding them, and the truthfulness
+  # of what its staff type, are its side of the arrangement — and if that is not written down, the
+  # first customer who says "I never gave anyone my number" is a question aimed at us.
+  #
+  # THIS IS NOT US SHIFTING RISK. It is where the law already puts it: the controller determines the
+  # purpose and the means, and a processor cannot verify a consent it never witnessed.
+  controller_obligations:
+    ar: >-
+      تُقرّ جهة التحكم بأنها تجمع بيانات عملائها بنفسها ولغرضها، وتلتزم بأن يكون لجمعها ومعالجتها
+      أساسٌ نظامي صحيح، وبإبلاغ أصحاب البيانات بما يوجبه النظام قبل الجمع، وبأن تكون البيانات التي
+      تُدخلها أو يُدخلها منسوبوها في المنصة صحيحة وحديثة. وتلتزم كذلك بألّا تستخدم المنصة في إرسال
+      رسائل إلى من سحب موافقته، وبأن تُصدر تعليماتها للمعالِج بوضوح وعبر قنوات المنصة المتاحة لها.
+      ولا يتحقّق المعالِج من صحة الأساس النظامي لجمعٍ لم يشهده، ولا يعالج البيانات إلا وفق الملحق (أ).
+    en: >-
+      The Controller acknowledges that it collects its customers' data itself and for its own
+      purpose, and undertakes that such collection and processing rest on a valid legal basis; that
+      Data Subjects are informed as the Law requires before collection; and that the data it or its
+      personnel enter into the platform is accurate and current. It further undertakes not to use
+      the platform to message anyone who has withdrawn consent, and to issue its instructions to the
+      Processor clearly through the platform channels available to it. The Processor does not verify
+      the legal basis for a collection it did not witness, and processes data only in accordance
+      with Annex A.
+
+  # HOW THIS AGREEMENT SITS BESIDE THE SERVICE CONTRACT — also carried over from doc13. Two failure
+  # modes it closes: an incident where each side points at the other paper, and a shop concluding
+  # this agreement is the whole relationship and then meeting the subscription terms elsewhere.
+  precedence:
+    ar: >-
+      تُعدّ هذه الاتفاقية جزءاً لا يتجزأ من عقد الخدمة (الشروط والأحكام) بين الطرفين ولا تحلّ محلّه.
+      وعند التعارض في شأن حماية البيانات الشخصية وحدها تسود هذه الاتفاقية. وفيما عدا ذلك — من مقابل
+      مالي ومدد اشتراك وإنهاء ومستوى خدمة ومسؤولية — يسري عقد الخدمة. ويظلّ سريانها مرتبطاً بسريانه،
+      وتنتهي بانتهائه مع بقاء ما يمتدّ بطبيعته كالسرّية والإتلاف والإشعار بالانتهاك.
+    en: >-
+      This Agreement forms an integral part of, and does not replace, the service contract (the
+      Terms) between the parties. In the event of conflict on matters of personal data protection
+      alone, this Agreement prevails. In all other respects — fees, subscription term, termination,
+      service levels and liability — the service contract governs. It runs with the service contract
+      and ends with it, save for obligations that by their nature survive, such as confidentiality,
+      destruction and breach notification.
+
   # Article 29 and the Transfer Regulation. Our data is hosted inside the Kingdom (§14.1), but
   # SENDING A WHATSAPP MESSAGE IS A DISCLOSURE OUTSIDE IT — the recipient's number and the message
   # leave the Kingdom to reach Meta. That cannot be engineered away while the product is WhatsApp,

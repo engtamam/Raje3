@@ -20,9 +20,12 @@ WHAT IT CHECKS, IN THE ORDER A FAILURE MATTERS:
   1. every {{TOKEN}} the document uses has a value in our file, and no value is an empty string
      that would render as a blank where a party's name belongs;
   2. no [SQUARE_BRACKET] placeholder survives anywhere in what we supply;
-  3. the two mirrored agreements carry the same VERSION, because they describe one engagement and a
-     shop bound to v1.0 of one and v1.1 of the other is bound to two different sets of instructions;
-  4. the annexes are sourced from one file rather than written twice.
+  3. exactly ONE document gates a subscription — two would make a shop sign twice for one
+     engagement, none would leave nothing signed, and every document says which of the four it is:
+     public (read, never signed) · accept (gates) · internal (produced on request) · reference;
+  4. the two agreements carry the same VERSION, because they describe one engagement and a shop
+     bound to v1.0 of one and v1.1 of the other is bound to two different sets of instructions;
+  5. the annexes are sourced from one file rather than written twice.
 
 DELIBERATELY BLANK VALUES ARE ALLOWED TO STAY BLANK — and are reported as WAITING rather than as
 failing. The registered company name and the effective date are facts we do not yet hold, and
@@ -128,7 +131,30 @@ for ours_name, pack_name in sorted(DOCS.items()):
     for stray in sorted(set(BRACKET.findall(body))):
         problems.append(f"{ours_name}: [{stray}] left unfilled — the publish guard does not see it")
 
-# 3 — the two faces of one engagement move together.
+# 3 — exactly one document is the one that gates a subscription.
+#
+# WHY THIS IS A CHECK AND NOT A CONVENTION. Acceptance is what makes the agreement binding, and the
+# gate is default-deny: every document marked for acceptance must be accepted before a shop may
+# proceed. Mark a second one and every establishment is stopped at a screen asking it to accept two
+# papers for one engagement — which is the drift we merged doc13 away to avoid, arriving by a
+# different road. Mark none and nothing is ever signed.
+modes: dict[str, str] = {}
+for name in DOCS:
+    f = OURS / name
+    if f.exists():
+        m = re.search(r"^publication:\s*(\w+)", f.read_text(encoding="utf-8"), re.M)
+        modes[name] = m.group(1) if m else ""
+missing_mode = [n for n, m in modes.items() if not m]
+if missing_mode:
+    problems.append(f"no publication mode declared for {', '.join(sorted(missing_mode))} — "
+                    f"whether a document is published, gated or internal is not a detail to infer")
+gated = [n for n, m in modes.items() if m == "accept"]
+if len(gated) != 1:
+    problems.append(f"{len(gated)} document(s) marked `accept` ({', '.join(sorted(gated)) or 'none'}) "
+                    f"— exactly one agreement gates a subscription; two would make a shop sign twice "
+                    f"for one engagement, and none would leave nothing signed at all")
+
+# 4 — the two faces of one engagement move together.
 try:
     a = values_of((OURS / "processor-dpa.yaml").read_text(encoding="utf-8")).get("VERSION")
     b = values_of((OURS / "processing-agreement.yaml").read_text(encoding="utf-8")).get("VERSION")
@@ -139,7 +165,7 @@ try:
 except OSError:
     pass
 
-# 4 — the annexes have one source.
+# 5 — the annexes have one source.
 try:
     mirror = (OURS / "processing-agreement.yaml").read_text(encoding="utf-8")
     if "annexes_from:" not in mirror:

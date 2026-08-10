@@ -1,3 +1,9 @@
+# ── النشر: سياسة الخصوصية — صفحة عامة على الموقع، تُقرأ ولا تُوقَّع.
+# PUBLICATION: The privacy policy — a public page on the site, read rather than signed.
+#
+# PUBLIC AND UNGATED. A policy is a disclosure, not a bargain: gating access on accepting it would
+# turn information a person is entitled to into a price he pays for entry.
+#
 # سياسة الخصوصية — سياستنا نحن، تجاه أصحاب المنشآت وزوّار موقعنا.
 #
 # THE FIRST THING TO SETTLE, BECAUSE EVERYTHING ELSE IS WRONG IF IT IS WRONG: whose policy is this?
@@ -16,6 +22,8 @@
 # business collects — national ID, card number, geolocation. We collect none of those, and a policy
 # that lists data we do not hold is not "safely broad": it is inaccurate about the most sensitive
 # thing in the document, and it invites a question whose honest answer is "we made that up".
+
+publication: public
 
 values:
   COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري

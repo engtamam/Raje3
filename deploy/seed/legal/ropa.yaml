@@ -1,3 +1,12 @@
+# ── النشر: سجلّ أنشطة المعالجة — سجلّ داخلي، يُقدَّم عند الطلب ولا يُنشر.
+# PUBLICATION: The record of processing activities — an internal record, produced on request and never published.
+#
+# NOT PUBLISHED, AND THE REASON IS NOT SECRECY FOR ITS OWN SAKE. Art. 31 requires the record to be
+# KEPT and produced to the competent authority on request; it is not a public disclosure. It also
+# names every store, every retention period and every control we rely on — a map of the system
+# that helps an attacker more than it helps a reader. Available in full to the establishment and
+# to the authority on request.
+#
 # سجلّ أنشطة معالجة البيانات الشخصية — راجِع.
 #
 # TWO REGISTERS IN ONE FILE, AND KEEPING THEM APART IS THE WHOLE DISCIPLINE.
@@ -19,6 +28,8 @@
 # AND THE BLANKS HERE ARE [BRACKETS], WHICH THE PUBLISH GUARD DOES NOT SEE. It refuses a document
 # with an unfilled {{TOKEN}} and scans nothing else — so an EMPTY ROPA publishes cleanly. Our own
 # check is the one that has to catch it; see ci/check_legal.py.
+
+publication: internal
 
 values:
   COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
