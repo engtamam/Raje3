@@ -10,7 +10,7 @@ service:
 
 image:
   repository: docker.io/raje3/insights
-  digest: "sha256:4293cf955745eb15ab3c37a966df31254c2154a3106ff6cc13ab2b80a7f30ce9"   # CI rewrites this at publish; never a :latest tag
+  digest: "sha256:ddd46d343880296ae44c3793f3f0eed72ec5f39e64ec5df392272238d0390cca"   # CI rewrites this at publish; never a :latest tag
 
 replicas: 1
 

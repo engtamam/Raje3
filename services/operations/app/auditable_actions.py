@@ -297,4 +297,23 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "stops new attributions and is often the first act of a commercial dispute — the "
                "log is where the date is settled",
     },
+    {
+        "action": "retention.swept",
+        "source": "system",
+        "critical": True,
+        "resource": "subject",
+        "why": "the one deletion nobody asked for. A DSAR leaves a request behind it and a manual "
+               "deletion leaves an operator; a retention sweep leaves nothing at all — absence is "
+               "not evidence, so 'what did we delete, for which establishment, and on what date' "
+               "exists only if it is written here as it happens",
+    },
+    {
+        "action": "retention.establishment_erased",
+        "source": "system",
+        "critical": True,
+        "resource": "tenant",
+        "why": "a whole establishment's customer data, erased because its grace after leaving ran "
+               "out. If it ever returns asking where its history went, this record is the only "
+               "answer — including the date we first observed it had no subscription",
+    },
 ]

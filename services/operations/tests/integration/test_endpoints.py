@@ -38,3 +38,17 @@ def test_internal_manifest_with_token(client):
 def test_internal_rejects_wrong_token(client):
     r = client.get("/internal/health", headers={"X-Internal-Token": "wrong"})
     assert r.status_code == 401
+
+
+def test_the_retention_sweep_runs_and_takes_no_tenant(client):
+    """The route exists, is internal-only, and accepts NO argument.
+
+    A sweep that took a tenant would be a deletion endpoint with a filter on it, and every service
+    in the mesh holds the internal token. This one only ever does what the clock already decided —
+    on an empty store, that is nothing, and it must say so rather than fail.
+    """
+    r = client.post("/internal/operations/retention/sweep",
+                    headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 200, r.text
+    assert r.json()["customers"] == 0
+    assert client.post("/internal/operations/retention/sweep").status_code == 401

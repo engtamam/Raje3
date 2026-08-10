@@ -11,4 +11,10 @@ the read, never before: unavailable is honest, inert is not.
 """
 from __future__ import annotations
 
-RUNTIME_POLICY: frozenset[str] = frozenset()
+RUNTIME_POLICY: frozenset[str] = frozenset({
+    # How long an establishment keeps a customer whose last visit has passed. ITS decision, not
+    # ours — it is the controller of that data — and core/retention.py reads it here per tenant on
+    # every sweep. Our configured value is the ceiling and the default: a shop may shorten it and
+    # may not extend it past what we hold.
+    "RETENTION_CUSTOMER_YEARS",
+})

@@ -161,18 +161,29 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
         assert banned not in view
 
 
-def test_the_scaffold_declares_no_runtime_policy_so_it_offers_none(client, operator_auth):
-    """The template deliberately declares nothing, and the surface must reflect that rather than
-    advertising every settable field.
+def test_the_config_surface_offers_exactly_what_something_reads(client, operator_auth):
+    """One knob, because exactly one is wired.
 
-    A generated service adds a key to RUNTIME_POLICY in the same change that wires the read. Until
-    then the knob is unavailable, which is honest — an advertised knob nothing consults reports a
-    change that never happened, with an audit entry to prove it.
+    A key enters RUNTIME_POLICY in the same change that wires the read — the retention horizon is
+    read per tenant by core/retention.py on every sweep. Everything else stays unavailable, which
+    is honest: an advertised knob nothing consults reports a change that never happened, with an
+    audit entry to prove it.
     """
     h = {"headers": operator_auth}
-    assert client.get("/api/v1/operator/config", **h).json()["config"] == {}
+    assert list(client.get("/api/v1/operator/config", **h).json()["config"]) == [
+        "RETENTION_CUSTOMER_YEARS"]
     r = client.put("/api/v1/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"
+
+
+def test_a_shop_may_shorten_its_own_retention(client, operator_auth):
+    """It is the controller of its customers' data — the horizon is its decision to tighten."""
+    h = {"headers": operator_auth}
+    r = client.put("/api/v1/operator/config",
+                   json={"key": "RETENTION_CUSTOMER_YEARS", "value": 2}, **h)
+    assert r.status_code == 200, r.text
+    assert client.get("/api/v1/operator/config", **h).json()["config"][
+        "RETENTION_CUSTOMER_YEARS"] == 2
 
 
 # ── availability ──────────────────────────────────────────────────────────────

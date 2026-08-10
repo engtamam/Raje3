@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: docker.io/raje3/operations
-  digest: "sha256:e656eda6cd884c39bbc6fd636bcd3e2f9752566e3fd157fe8ccc7b3b924755ff"
+  digest: "sha256:e2a64f15f6c8b8afa7a657a98db5826c6613921fa9cdaef7e826475e70c3c765"
 
 replicas: 1
 
@@ -132,6 +132,27 @@ env:
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
+  # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
+  # THE ENTITLEMENT KEY IS WHAT MAKES THE SECOND CLOCK RUN. Billing publishes no subscription-end
+  # date internally (the same gap as trial_end), so the sweep OBSERVES instead: the first night it
+  # finds an establishment with no entitlement, it writes that date down and the grace runs from
+  # there. Leave this empty and no lapse clock starts at all — which is the safe direction, and
+  # the reason it is empty by default in config rather than guessed.
+  # `messages.monthly` because it is on EVERY plan, including الأساسية — a feature key would read
+  # "left" for a shop that merely subscribes below the tier that carries it. And the test is
+  # NOT_ENTITLED (no subscription at all), never "denied": an exhausted quota is a live customer.
+  RETENTION_ENTITLEMENT_KEY: "messages.monthly"
+  # The ceiling and the default. A shop may SHORTEN its own retention from the console; it may not
+  # extend it past this, because "keep everything for fifty years" is not a preference we may
+  # honour. Five years without a visit is far longer than any cycle in our sectors — and a
+  # customer away three years is exactly what the return engine exists to bring back.
+  RETENTION_CUSTOMER_YEARS: "5"
+  RETENTION_LAPSED_YEARS: "2"
+  # Bounded, because this is the one place in the service that reads a whole collection. It is a
+  # cron and not a request path, but the cap is still the difference between a slow night and an
+  # outage on the first tenant large enough to cause one.
+  RETENTION_SCAN_CAP: "20000"
+
   # How far back a claimed visit time may be before we treat it as a broken clock rather than a
   # backlog. A shop migrating a year of its own history legitimately needs more than 90 days, and
   # a release is the wrong way to give it to them.
@@ -145,9 +166,19 @@ env:
 # Reported as a chart gap rather than worked around by editing platform/: a chart with no way to
 # mount a ConfigMap limits any product that ships content.
 
-# No CronJobs. Checked against the manifest rather than assumed: nothing in this service is
-# time-driven. Reminders are scheduled by `reminders` from the visit event, which is where that
-# work belongs — a service that owns the record should not also own the clock.
+# ONE CronJob, and it is the exception that proves the rule above: reminders are still scheduled by
+# `reminders` from the visit event, because a service that owns the record should not also own the
+# clock. But RETENTION is not a schedule over the record — it is the record's own expiry, and the
+# only service that can carry it out is the one holding the phone number in the clear.
+#
+# NIGHTLY AND OFF-HOUR. It reads every customer row, so it runs when no operator has a customer
+# standing in front of them. Daily rather than hourly: the horizon it enforces is measured in
+# years, and twelve hours of latency on a five-year line is not a compliance difference — while an
+# hourly whole-collection read is a real cost every hour of every day.
+cronJobs:
+  - name: retention
+    schedule: "17 1 * * *"
+    path: /internal/operations/retention/sweep
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import OperationsErasure
+from app.core import retention as retention_core
 from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.partners import PartnerError, PartnerRegistry
@@ -774,3 +775,48 @@ async def backup_import(request: Request, body: BackupImportIn,
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+@router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])
+async def retention_sweep(request: Request) -> dict:
+    """The nightly retention pass (§14.5). Driven by a CronJob, never by a person.
+
+    NO BODY AND NO TENANT ARGUMENT, deliberately. A sweep that took a tenant would be a deletion
+    endpoint with a filter on it, and the internal token is held by every service in the mesh.
+    This one only ever does what the clock already decided.
+
+    It decides WHO is past the line; core/erasure.py decides what erasing means — the same code a
+    DSAR runs, so there is exactly one definition of "erased" in this service.
+    """
+    from app.core.runtime_config import RuntimeConfig
+    from app.runtime_policy import RUNTIME_POLICY
+
+    c = request.app.state.container
+    s = get_settings()
+    default = retention_core.Policy(customer_years=s.RETENTION_CUSTOMER_YEARS,
+                                    lapsed_years=s.RETENTION_LAPSED_YEARS)
+    # NAMED KEY OR NO CLOCK. Without the entitlement key we cannot tell "left" from "here", and
+    # guessing would start a two-year countdown on establishments that never went anywhere.
+    subs: object = retention_core.NullSubscriptions()
+    if s.RETENTION_ENTITLEMENT_KEY and s.BILLING_SERVICE_URL:
+        subs = retention_core.HttpSubscriptions(
+            billing_url=s.BILLING_SERVICE_URL, check_path=s.BILLING_CHECK_PATH,
+            key=s.RETENTION_ENTITLEMENT_KEY, token=s.INTERNAL_SERVICE_TOKEN,
+            timeout=s.PEER_TIMEOUT_SECONDS)
+    eraser = OperationsErasure(store=c.datastore, pii_salt=s.PII_SALT,
+                               max_scan=s.ERASURE_MAX_SCAN)
+    sweeper = retention_core.Sweeper(
+        store=c.datastore, eraser=eraser,
+        runtime_config=RuntimeConfig(c.datastore, Settings, policy=RUNTIME_POLICY),
+        subscriptions=subs, default=default, scan_cap=s.RETENTION_SCAN_CAP)
+    out = await sweeper.sweep()
+
+    # RECORDED AFTER, AND ONLY IF IT DID SOMETHING — the opposite of the DSAR route above, on
+    # purpose. There the write-ahead exists because a half-finished erasure would otherwise leave
+    # no trace; here the counts ARE the record, and a nightly write-ahead on 364 quiet nights
+    # would bury the one night that mattered.
+    if out.customers or out.establishments_erased:
+        await request.app.state.auditor.record(
+            "retention.swept", actor="", tenant="", resource="subject",
+            ip=request.client.host if request.client else "")
+    return out.to_dict()

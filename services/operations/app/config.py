@@ -202,6 +202,26 @@ class Settings(BaseSettings):
     NOTIFICATION_MESSAGING_LIMIT_PATH: str = "/internal/whatsapp/messaging-limit"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── retention (§14.5) ─────────────────────────────────────────────────────
+    # HOW LONG A PERSON'S NUMBER IS KEPT. Two clocks, and neither is a constant in code:
+    # the customer's is the ESTABLISHMENT'S to shorten (core/retention.py reads it per tenant
+    # through RuntimeConfig); these are the ceiling and the default it starts from.
+    #
+    # Generous on purpose. A customer away three years is exactly what the return engine exists
+    # to bring back — deleting him for being absent would delete the product's raw material.
+    RETENTION_CUSTOMER_YEARS: int = 5
+    # OURS: how long a departed establishment's data waits for it. Deleting a shop's history is
+    # exactly what a competitor needs in order to take it (§16.4.2), and a shop that finds its
+    # data waiting comes back.
+    RETENTION_LAPSED_YEARS: int = 2
+    # The entitlement the sweep asks about to tell "still with us" from "left". Named here rather
+    # than in code because it is billing's key, not ours, and a rename there is a config change.
+    RETENTION_ENTITLEMENT_KEY: str = ""      # empty → the sweep starts no lapse clock at all
+    # How many customer rows one nightly pass may read. A whole-collection read is deliberate here
+    # (it is a cron, not a request path) but it is still bounded: the cap is the difference
+    # between a slow night and an outage on the one tenant large enough to cause it.
+    RETENTION_SCAN_CAP: int = 20_000
+
     # How far back a claimed visit time may be before it is a broken clock rather than a backlog.
     # A shop migrating a year of its own history legitimately needs more than the default, and a
     # release is the wrong way to give it to them.
