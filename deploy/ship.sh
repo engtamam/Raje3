@@ -92,13 +92,17 @@ ship_one() {
   # In that order, always. A rollout reads the values file on the SERVER; syncing afterwards means
   # helm renders the previous pin and reports success about it.
   say "$svc · 5/6 sync + roll"
-  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks 2>/dev/null \
+  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks deploy/server 2>/dev/null \
        | "${SSH[@]}" "cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh \
          && grep -q '$digest' deploy/services/$svc.values.yaml"; then
     red "$svc: the values file on the server does not carry the new digest"; return 1
   fi
+  # OURS, NOT THEIRS. deploy/server/update.sh is our copy of the platform's rollout, and the one
+  # thing it adds is fetching the images in parallel before the sequential loop needs them — a single
+  # image took 3m50s on this link, and nineteen in single file took over an hour. The rollout logic
+  # underneath is unchanged, so a diff against theirs stays short.
   "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart \
-     VALUES_DIR=deploy/services bash platform/deploy/server/update.sh --only $svc 2>&1 | tail -2"
+     VALUES_DIR=deploy/services bash deploy/server/update.sh --only $svc 2>&1 | tail -2"
 
   # ── 6. verify the ARTIFACT, not the report ───────────────────────────────────────────────────
   say "$svc · 6/6 verify"

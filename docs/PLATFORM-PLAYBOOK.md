@@ -1042,3 +1042,37 @@ secret that was never created so every grep for it returned a meaningless zero (
 script whose two dead files answered 127 in a place nobody read (4.33 and the CRLF fix); a
 completeness gate that reads declared actions, so a route declared nowhere is a route it never
 considers. The pattern outranks all of them: **before trusting a check that passes, make it fail.**
+
+### 4.39 Editing a shell script while it is running corrupts it mid-execution
+
+`ship.sh` completed successfully — "operations is running the image this command built" — and then
+died with two errors that made no sense against the file on disk:
+
+    ./deploy/ship.sh: line 134: -o: command not found
+    ./deploy/ship.sh: line 135: live: unbound variable
+
+`bash -n` said the file was fine. It was fine. The script had been edited **while it was running**.
+
+Bash does not load a script into memory. It reads it incrementally, remembering a BYTE OFFSET. Add
+four lines near the top of a running script and every offset after that point now lands in the
+middle of a different line — so a continuation like
+
+    live="$(... kubectl get pod $running \
+        -o jsonpath='…')"
+
+is re-entered after the backslash, and `-o` is read as a command. The variable that line was meant
+to set is then unset, and the next line fails on it. Both messages are true and neither describes
+the cause.
+
+**The tell is that the errors do not match the file.** If `bash -n` passes on the exact file the
+error names, stop reading the script and ask what changed underneath it.
+
+**What to do instead:** finish the run, or copy the script and edit the copy. A script that must be
+edited during a long run is a script to launch from a snapshot — `cp x.sh /tmp/x.$$.sh && bash
+/tmp/x.$$.sh` — which is one line and removes the whole class.
+
+It belongs beside 4.38 for the same reason: the failure was reported at a place with nothing wrong
+with it, and time went into the wrong file. There, a check found nothing and printed the same line
+as a system with nothing wrong; here, a correct file printed errors from a version that no longer
+existed. **Both are cases where the message and the cause are in different places — and the first
+question in that situation is not "what is wrong here" but "am I looking at what actually ran".**

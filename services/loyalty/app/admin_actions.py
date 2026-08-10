@@ -55,73 +55,10 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "group": "المنصة",
     },
     # ── the programme's settings (spec §9.2, §9.3) ─────────────────────────────────────────────
-    {
-        "id": "loyalty.settings.read", "label": "إعدادات النقاط", "method": "GET",
-        "path": "/api/v1/loyalty/settings", "capability": "loyalty.read", "group": "الولاء",
-        # Returns every level AND the source of each number, because the screen cannot say
-        # "customised — tap to follow again" unless the API says where the value came from.
-    },
-    {
-        "id": "loyalty.settings.general", "label": "نقاط لكل زيارة (عام)", "method": "PUT",
-        "path": "/api/v1/loyalty/settings/general", "capability": "loyalty.manage",
-        "group": "الولاء",
-        # The one number a shop needs to start. Reaches every service that follows it and leaves
-        # every service the owner customised exactly as he left it.
-    },
-    {
-        "id": "loyalty.settings.group", "label": "نقاط لمجموعة خدمات", "method": "PUT",
-        "path": "/api/v1/loyalty/settings/group", "capability": "loyalty.manage",
-        "group": "الولاء",
-    },
-    {
-        "id": "loyalty.settings.service", "label": "نقاط خدمة بعينها", "method": "PUT",
-        "path": "/api/v1/loyalty/settings/service/{service_id}", "capability": "loyalty.manage",
-        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
-        "group": "الولاء",
-    },
-    {
-        "id": "loyalty.settings.follow", "label": "إرجاعها للإعداد العام", "method": "DELETE",
-        "path": "/api/v1/loyalty/settings/service/{service_id}", "capability": "loyalty.manage",
-        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "group": "الولاء",
-        # DELETE and not "set to the general value": writing today's general number would look
-        # identical now and silently stop following the next time the general one changes.
-    },
-    {
-        "id": "loyalty.settings.mode", "label": "طريقة الاحتساب", "method": "PUT",
-        "path": "/api/v1/loyalty/settings/mode", "capability": "loyalty.manage",
-        "confirm": True, "group": "الولاء",
-        # A SWITCH: by invoice value or by services, never both (spec §9.3). Confirmed because
-        # changing it changes what every future visit is worth.
-    },
 
     # ── the rewards catalogue (spec §9.4) ──────────────────────────────────────────────────────
-    {
-        "id": "loyalty.rewards.list", "label": "المكافآت", "method": "GET",
-        "path": "/api/v1/loyalty/rewards", "capability": "loyalty.read", "group": "المكافآت",
-    },
-    {
-        "id": "loyalty.rewards.create", "label": "إضافة مكافأة", "method": "POST",
-        "path": "/api/v1/loyalty/rewards", "capability": "loyalty.manage", "group": "المكافآت",
-        # The name reaches a customer's WhatsApp message, so it is bounded at save with the actual
-        # limit named — an owner told only "invalid" tries again, fails again, and calls support.
-    },
-    {
-        "id": "loyalty.rewards.update", "label": "تعديل مكافأة", "method": "PATCH",
-        "path": "/api/v1/loyalty/rewards/{reward_id}", "capability": "loyalty.manage",
-        "params": [{"name": "reward_id", "in": "path", "type": "string", "required": True}],
-        "group": "المكافآت",
-        # Retiring is `active: false` — there is no delete, because every redemption in history
-        # references a reward and a receipt must not restate itself when the menu changes.
-    },
 
     # ── what the owner reads (spec §9.10) ──────────────────────────────────────────────────────
-    {
-        "id": "loyalty.report", "label": "تقرير البرنامج", "method": "GET",
-        "path": "/api/v1/loyalty/report", "capability": "loyalty.read", "group": "الولاء",
-        # Carries the outstanding obligation and the share of points that expired unredeemed —
-        # the second is the warning indicator, and no other number reveals it.
-    },
     {
         "id": "loyalty.platform_reconcile", "label": "إصلاح رصيد عميل", "method": "POST",
         "path": "/api/v1/loyalty/platform/reconcile", "capability": "platform.loyalty",

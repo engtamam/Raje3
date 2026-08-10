@@ -32,42 +32,6 @@ from typing import Any
 ADMIN_ACTIONS: list[dict[str, Any]] = [
     # THE OWNER'S SURFACE. Not "settings" — these are the four questions an owner actually asks
     # about reminders, and every one of them has a wrong answer that costs a customer.
-    {
-        "id": "reminders.list_schedule", "label": "التذكيرات القادمة", "method": "GET",
-        "path": "/api/v1/reminders/schedule", "capability": "reminders.read",
-        "group": "التذكيرات",
-        # SEEING COMES BEFORE ACTING. An owner asked "why did my customer get this?" cannot be
-        # answered by a button; it is answered by a list. A panel that can only act is half a panel.
-        "help": "من سيصله تذكير، ومتى، وعن أي خدمة.",
-    },
-    {
-        "id": "reminders.cancel", "label": "إلغاء تذكير", "method": "DELETE",
-        "path": "/api/v1/reminders/schedule/{id}", "capability": "reminders.manage",
-        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "danger": True, "group": "التذكيرات",
-        "help": "يلغي تذكيراً واحداً. لا يوقف الخدمة، ولا يمنع تذكيراً قادماً عن زيارة جديدة.",
-    },
-    {
-        "id": "reminders.list_rules", "label": "قواعد الخدمات", "method": "GET",
-        "path": "/api/v1/reminders/rules", "capability": "reminders.read", "group": "القواعد",
-        "help": "الفترة الحالية لكل خدمة، وكم تعلّمها النظام من سلوك العملاء.",
-    },
-    {
-        "id": "reminders.set_rule", "label": "تعديل قاعدة خدمة", "method": "PUT",
-        "path": "/api/v1/reminders/rules/{service_id}", "capability": "reminders.manage",
-        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
-        "confirm": True, "group": "القواعد",
-        # Changing a rule changes what EVERY future customer of that service receives. It is the
-        # highest-leverage edit an owner can make here, and the reason this one is confirmed.
-        "help": "يغيّر الفترة الافتراضية وأيام الإشعار المسبق لخدمة واحدة.",
-    },
-    {
-        "id": "reminders.log", "label": "سجل الإرسال", "method": "GET",
-        "path": "/api/v1/reminders/log", "capability": "reminders.read", "group": "التذكيرات",
-        # Suppressions are in this log too, WITH THEIR REASON. A message that was not sent and
-        # cannot be explained is indistinguishable from a broken service (spec 8.4.2).
-        "help": "ما أُرسل وما امتنع، ولماذا امتنع.",
-    },
     # OURS, NOT AN ESTABLISHMENT'S. The caps in spec 8.4.2 protect every number on the product,
     # so a shop cannot raise its own — the damage from a blocked number is not the shop's alone.
     {
@@ -83,55 +47,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "يُوسَّع بسبب مكتوب فقط. رفعُه لمنشأة واحدة يُحمّل الجميع ثمنَ رقمٍ محظور.",
     },
     # ── settings, three levels deep, and the owner never picks one (spec 10.8.1) ──────────
-    {
-        "id": "reminders.get_settings", "label": "إعدادات التذكير", "method": "GET",
-        "path": "/api/v1/reminders/settings", "capability": "reminders.read",
-        "group": "الإعدادات",
-        # Carries WHERE each value came from — the screen cannot say "this one is customised, tap
-        # to go back" unless the API says which level answered.
-        "help": "القيم السارية، ومن أين جاءت: عام، أم مجموعة، أم خاصة بالخدمة.",
-    },
-    {
-        "id": "reminders.set_general", "label": "الإعداد العام", "method": "PUT",
-        "path": "/api/v1/reminders/settings", "capability": "reminders.manage",
-        "confirm": True, "group": "الإعدادات",
-        # Reaches every follower and leaves every customisation alone. An owner who spent a minute
-        # setting the oil change to 60 days has not asked us to undo that minute.
-        "help": "يسري على كل خدمة تتبعه. المخصّصة تبقى كما هي.",
-    },
-    {
-        "id": "reminders.set_service_settings", "label": "تخصيص خدمة", "method": "PUT",
-        "path": "/api/v1/reminders/settings/service/{service_id}",
-        "capability": "reminders.manage",
-        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
-        "group": "الإعدادات",
-        "help": "تعطي هذه الخدمة إعدادها الخاص، فتتوقّف عن اتّباع العام.",
-    },
-    {
-        "id": "reminders.follow_general", "label": "العودة للعام", "method": "DELETE",
-        "path": "/api/v1/reminders/settings/service/{service_id}",
-        "capability": "reminders.manage",
-        "params": [{"name": "service_id", "in": "path", "type": "string", "required": True}],
-        "group": "الإعدادات",
-        # Deletes rather than copying the general value in — copying looks identical today and
-        # diverges tomorrow, when the next general edit skips this service.
-        "help": "تحذف تخصيصها فتعود تتبع الإعداد العام.",
-    },
-    {
-        "id": "reminders.set_group", "label": "مجموعة خدمات", "method": "PUT",
-        "path": "/api/v1/reminders/settings/group/{name}", "capability": "reminders.manage",
-        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
-        "group": "الإعدادات",
-        "help": "إعداد واحد لعدة خدمات متشابهة.",
-    },
-    {
-        "id": "reminders.suggest_group", "label": "اقتراح مجموعة", "method": "GET",
-        "path": "/api/v1/reminders/settings/suggest-group", "capability": "reminders.read",
-        "group": "الإعدادات",
-        # Proposes only. A system rearranging an owner's settings without being asked is the
-        # fastest way to lose their trust in a screen.
-        "help": "هل تكرّر المالك؟ نقترح، ولا نغيّر شيئاً بأنفسنا.",
-    },
     {
         "id": "reminders.clear_limits", "label": "إلغاء استثناء الحدود", "method": "DELETE",
         "path": "/api/v1/platform/limits", "capability": "platform.reminders",

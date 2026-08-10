@@ -45,32 +45,6 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     # ── the owner's dashboard (spec §10) ──────────────────────────────────────────────────────
     {
-        "id": "insights.dashboard", "label": "لوحة المؤشرات", "method": "GET",
-        "path": "/api/v1/insights/dashboard", "capability": "insights.read", "group": "المؤشرات",
-        # Everything in one read: eleven indicators fetched separately is eleven round trips on a
-        # phone, and the screen would paint itself in pieces.
-    },
-    {
-        "id": "insights.associations", "label": "الترابطات", "method": "GET",
-        "path": "/api/v1/insights/associations", "capability": "insights.read",
-        "group": "المؤشرات",
-        # Returns the verdict and the count, never the arithmetic — the engine is ours.
-    },
-    {
-        "id": "insights.bundles", "label": "الباقات المقترحة", "method": "GET",
-        "path": "/api/v1/insights/bundles", "capability": "insights.read", "group": "المؤشرات",
-        # We say where the relationship is and how many customers it covers. He sets the price.
-    },
-    {
-        "id": "insights.branches", "label": "مقارنة الفروع", "method": "GET",
-        "path": "/api/v1/insights/branches", "capability": "insights.read", "group": "المؤشرات",
-    },
-    {
-        "id": "insights.digest", "label": "التقرير الأسبوعي", "method": "PUT",
-        "path": "/api/v1/insights/digest", "capability": "insights.read", "group": "المؤشرات",
-        # Per person, not per establishment: a manager may want it and the owner may not.
-    },
-    {
         "id": "insights.platform_recompute", "label": "إعادة حساب لوحة منشأة", "method": "POST",
         "path": "/api/v1/insights/platform/recompute", "capability": "platform.insights",
         "confirm": True, "group": "المنصة",

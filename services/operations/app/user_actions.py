@@ -122,4 +122,47 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # nothing checks. Found by adding the two beside it.
         "help": "اختر باقتك وفعّلها. يشترط ربط واتساب قبل الاشتراك المدفوع، والتجربة معفاة.",
     },
+    # ── the owner's own surface, moved here from admin_actions ─────────────────────────
+    # api-gateway builds the establishment's app from THIS file and no other
+    # (app_catalog.py, field="user_actions"). These sat in the platform console's catalogue,
+    # so the owner's app would have rendered a nav with almost nothing in it — and the reflex
+    # fix is to call the paths directly, which is exactly the rule the UI is built on. The
+    # test for which file a route belongs in is whose data it is: `platform.*` is ours;
+    # everything else belongs to the establishment.
+    {
+        "id": "operations.list_services", "label": "كتالوج الخدمات", "method": "GET",
+        "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "الكتالوج",
+        # A panel that can only ACT is half a panel: an owner needs to SEE a price before being
+        # offered a button that changes it.
+        "help": "الخدمات ومددها وأسعارها.",
+    },
+    {
+        "id": "operations.create_service", "label": "إضافة خدمة", "method": "POST",
+        "path": "/api/v1/staff/services", "capability": "operations.manage", "group": "الكتالوج",
+        "help": "مدة الدورة 0 تعني خدمة بلا دورة طبيعية — فلا تُنتج تذكيراً.",
+    },
+    {
+        "id": "operations.update_service", "label": "تعديل خدمة", "method": "PATCH",
+        "path": "/api/v1/staff/services/{id}", "capability": "operations.manage",
+        "group": "الكتالوج", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "الإيقاف بـ active=false لا بالحذف — الحذف ييتّم كل زيارة تشير إليها.",
+    },
+    {
+        "id": "operations.list_operators", "label": "العاملون", "method": "GET",
+        "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
+    },
+    {
+        "id": "operations.create_operator", "label": "إضافة عامل", "method": "POST",
+        "path": "/api/v1/staff/operators", "capability": "operations.manage", "group": "الفريق",
+        "help": "الرمز نسبة لا تسجيل دخول: يُسأل عند الحفظ لينسب العمل لصاحبه.",
+    },
+    {
+        "id": "operations.list_branches", "label": "الفروع", "method": "GET",
+        "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
+    },
+    {
+        "id": "operations.create_branch", "label": "إضافة فرع", "method": "POST",
+        "path": "/api/v1/staff/branches", "capability": "operations.manage", "group": "الفروع",
+    },
 ]

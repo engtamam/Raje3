@@ -38,4 +38,52 @@ USER_ACTIONS: list[dict[str, Any]] = [
     #
     # Declared empty and reviewed rather than left unwritten: an empty list a reader can see was
     # decided is worth more than one they have to guess about.
+    # ── the owner's own surface, moved here from admin_actions ─────────────────────────
+    # api-gateway builds the establishment's app from THIS file and no other
+    # (app_catalog.py, field="user_actions"). These sat in the platform console's catalogue,
+    # so the owner's app would have rendered a nav with almost nothing in it — and the reflex
+    # fix is to call the paths directly, which is exactly the rule the UI is built on. The
+    # test for which file a route belongs in is whose data it is: `platform.*` is ours;
+    # everything else belongs to the establishment.
+    {
+        "id": "campaigns.goals", "label": "أهداف الحملات", "method": "GET",
+        "path": "/api/v1/campaigns/goals", "capability": "campaigns.read", "group": "الحملات",
+        # The five cards, with their locks and their reasons. The screen renders what this returns
+        # rather than computing availability itself — two answers that disagree is worse than one.
+        "help": "ماذا تريد أن تحقّق؟ خمس بطاقات، وكل واحدة تقول متى تتاح.",
+    },
+    {
+        "id": "campaigns.preview", "label": "معاينة قبل الإرسال", "method": "POST",
+        "path": "/api/v1/campaigns/preview", "capability": "campaigns.read", "group": "الحملات",
+        # The middle screen and the one the whole feature rests on: the real message, and a count
+        # of PEOPLE.
+        "help": "الرسالة كما ستصل، وكم عميلاً تصلهم.",
+    },
+    {
+        "id": "campaigns.create", "label": "أطلق الحملة", "method": "POST",
+        "path": "/api/v1/campaigns", "capability": "campaigns.manage",
+        "confirm": True, "group": "الحملات",
+        "help": "يرسل الآن، أو يجدول، أو يشغّل قاعدة دائمة — بحسب الهدف.",
+    },
+    {
+        "id": "campaigns.list", "label": "حملاتي", "method": "GET",
+        "path": "/api/v1/campaigns", "capability": "campaigns.read", "group": "الحملات",
+        "help": "ما يعمل الآن، وما انتهى، وما هو متوقف.",
+    },
+    {
+        "id": "campaigns.runs", "label": "ماذا حدث", "method": "GET",
+        "path": "/api/v1/campaigns/{campaign_id}/runs", "capability": "campaigns.read",
+        "params": [{"name": "campaign_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحملات",
+        # THE MOST IMPORTANT ONE. "It didn't arrive" is the only complaint this product generates,
+        # and this is the only screen that answers it.
+        "help": "كل إرسالة: كم وصلت، وكم امتنعت، ولماذا.",
+    },
+    {
+        "id": "campaigns.pause", "label": "إيقاف حملة", "method": "POST",
+        "path": "/api/v1/campaigns/{campaign_id}/pause", "capability": "campaigns.manage",
+        "params": [{"name": "campaign_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "الحملات",
+        "help": "توقف القاعدة الدائمة. سجلّها يبقى.",
+    },
 ]
