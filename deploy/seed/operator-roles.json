@@ -18,6 +18,8 @@
       "description": "كل صلاحيات المنصة، ومنح الأدوار. مكتوبة صراحةً لا بنجمة — والنجمة تمنح كل صلاحية تُضاف مستقبلاً لمن لم يوافق عليه أحد.",
       "protected": true,
       "capabilities": [
+        "platform.secrets",
+        "platform.config",
         "platform.operations",
         "platform.reminders",
         "platform.campaigns",

@@ -62,8 +62,19 @@ def build_manifest(
         # the customer owns, which is why it is its own capability rather than folded into
         # `manage` — the field operator must be able to spend and must not be able to reprice the
         # rewards he is spending against. And `platform.loyalty` is ours.
-        "capabilities": ["loyalty.read", "loyalty.redeem", "loyalty.manage", "platform.loyalty"],
+        "capabilities": ["loyalty.read", "loyalty.redeem", "loyalty.manage", "platform.loyalty",
+                         # WHAT api/v1/operator.py ACTUALLY ENFORCES. Advertised because they are
+                         # enforced here — not because we grant them to a tenant: platform.* is
+                         # ours, and authz denies the whole prefix to every establishment. The
+                         # actions used to name platform.<service> instead, so the console rendered
+                         # the credentials buttons for whoever held that and the service answered
+                         # 403 to every one of them.
+                         "platform.secrets", "platform.config"],
         "endpoints": [
+            # From the generated scaffold, and kept: what a client calls to confirm its token is
+            # accepted at all, which is the first question asked when something else is failing.
+            # Undeclared in every service until a guard compared the manifest with the app itself.
+            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},

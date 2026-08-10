@@ -1000,3 +1000,45 @@ the same failure as the inert setting in §4.2.
 ---
 
 *The platform is not the product. Configure the platform; build the product; prove both.*
+
+### 4.38 A resolver that finds nothing prints the same line as a system with nothing wrong
+
+A gate was written to assert that the capability an action DECLARES is the one its handler
+ENFORCES. It parsed the routers, resolved `require_capability(...)` bindings, matched them against
+the declared actions, and reported: **49 actions checked, no mismatch**.
+
+Sixteen were wrong at that moment.
+
+The resolver built each route's path as `/api/v1` + the router prefix + the decorator path. Most of
+our routers carry a relative prefix (`/subscription`), so that is right. `operator.py` carries the
+absolute one (`/api/v1/operator`) — so its routes resolved to `/api/v1/api/v1/operator/secrets`,
+matched nothing, and every operator action fell into the "no capability dependency on that route"
+branch, which is deliberately silent because public and internal routes land there too.
+
+**The shape of the bug is the lesson, not the prefix.** A check that filters before it compares has
+two silences that look identical from the outside:
+
+- *nothing matched the filter* — the check learned nothing;
+- *everything matched and agreed* — the check learned something.
+
+Both print the green line. And the more thorough the filtering, the more places this can hide: the
+`continue` that skips unparseable files, the `if not bound` that skips routers with no capability,
+the `if actual is None` that skips unmatched routes. Every one is correct in isolation.
+
+**What to do about it, in order of how much it costs:**
+
+- **Print the denominator.** The green line says "49 action(s) checked against the routers". That
+  number is what exposed the bug: 49 was implausibly low for six services, and it was the only
+  visible symptom.
+- **Assert the denominator is not zero** when the input is not empty. A gate over six services that
+  resolves zero routes should fail loudly, not pass quietly.
+- **Break it on purpose once.** Change one declaration to a wrong value and confirm the gate goes
+  red. This is the only method that distinguishes the two silences with certainty, and it costs one
+  minute. Every gate in `ci/` that was written today was proven this way; the one that was not is
+  the one that lied.
+
+The same failure has three earlier entries in this playbook wearing different clothes: a canary
+secret that was never created so every grep for it returned a meaningless zero (4.28); a proof
+script whose two dead files answered 127 in a place nobody read (4.33 and the CRLF fix); a
+completeness gate that reads declared actions, so a route declared nowhere is a route it never
+considers. The pattern outranks all of them: **before trusting a check that passes, make it fail.**

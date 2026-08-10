@@ -26,31 +26,31 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # cannot render — and nothing anywhere fails to say so.
     {
         "id": "loyalty.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/secrets", "capability": "platform.loyalty", "group": "المنصة",
+        "path": "/api/v1/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
     },
     {
         "id": "loyalty.operator_secret_set", "label": "تعيين اعتماد", "method": "PUT",
-        "path": "/api/v1/operator/secrets", "capability": "platform.loyalty",
+        "path": "/api/v1/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "group": "المنصة",
     },
     {
         "id": "loyalty.operator_secret_clear", "label": "مسح اعتماد", "method": "DELETE",
-        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.loyalty",
+        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
     },
     {
         "id": "loyalty.operator_config", "label": "إعدادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/config", "capability": "platform.loyalty", "group": "المنصة",
+        "path": "/api/v1/operator/config", "capability": "platform.config", "group": "المنصة",
     },
     {
         "id": "loyalty.operator_config_set", "label": "تعديل إعداد تشغيلي", "method": "PUT",
-        "path": "/api/v1/operator/config", "capability": "platform.loyalty",
+        "path": "/api/v1/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
     },
     {
         "id": "loyalty.operator_config_clear", "label": "إرجاع إعداد لقيمته", "method": "DELETE",
-        "path": "/api/v1/operator/config/{key}", "capability": "platform.loyalty",
+        "path": "/api/v1/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "المنصة",
     },
@@ -128,5 +128,13 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "group": "المنصة",
         # The answer to "where did my points go?" — the only question this programme generates.
         # Recomputes the total from the ledger, which is the truth, and repairs a disagreement.
+    },
+    {
+        "id": "loyalty.ping", "label": "فحص الاتصال", "method": "GET",
+        "path": "/api/v1/admin/ping", "capability": "platform.secrets", "group": "المنصة",
+        # From the generated scaffold and kept: what a client calls to confirm its token is accepted
+        # at all, which is the first question asked when something else is failing. Undeclared in
+        # every service until a guard compared the manifest with the app.
+        "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
     },
 ]

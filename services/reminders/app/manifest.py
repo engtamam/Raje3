@@ -63,8 +63,19 @@ def build_manifest(
         # every future customer receives, so it is the owner's alone. And `platform.reminders` is
         # OURS: the sending caps in spec 8.4.2 are not an establishment's to raise, because a
         # blocked number lowers the quality rating of every number on the product.
-        "capabilities": ["reminders.read", "reminders.manage", "platform.reminders"],  # e.g. ["files.upload", "files.read"] — atomic capability keys
+        "capabilities": ["reminders.read", "reminders.manage", "platform.reminders",
+                         # WHAT api/v1/operator.py ACTUALLY ENFORCES. Advertised because they are
+                         # enforced here — not because we grant them to a tenant: platform.* is
+                         # ours, and authz denies the whole prefix to every establishment. The
+                         # actions used to name platform.<service> instead, so the console rendered
+                         # the credentials buttons for whoever held that and the service answered
+                         # 403 to every one of them.
+                         "platform.secrets", "platform.config"],  # e.g. ["files.upload", "files.read"] — atomic capability keys
         "endpoints": [
+            # From the generated scaffold, and kept: what a client calls to confirm its token is
+            # accepted at all, which is the first question asked when something else is failing.
+            # Undeclared in every service until a guard compared the manifest with the app itself.
+            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},

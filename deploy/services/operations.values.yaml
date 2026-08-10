@@ -132,6 +132,17 @@ env:
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 
+  # ── WhatsApp connection: the Embedded Signup exchange ─────────────────────────────────────
+  # `http` NOW THAT THERE IS A ROUTE WE CAN REACH. Our escalation was answered in v0.16.2 with
+  # exactly the internal twin we asked for: X-Internal-Token, the tenant in the body, the same
+  # WhatsAppOnboarding.exchange behind it. The shop's token still never leaves notification's core,
+  # and the owner still never needs a platform capability.
+  #
+  # Until that landed this was `null`, and null ANSWERED "not configured" rather than reporting a
+  # connection that had not happened — the failure that would have a shop recording visits all week
+  # and wondering where its messages went.
+  WHATSAPP_ONBOARDING_DRIVER: "http"
+
   # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
   # THE ENTITLEMENT KEY IS WHAT MAKES THE SECOND CLOCK RUN. Billing publishes no subscription-end
   # date internally (the same gap as trial_end), so the sweep OBSERVES instead: the first night it

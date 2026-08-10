@@ -74,8 +74,15 @@ def build_manifest(
                          # WhatsApp. Not an operator capability and not one of ours: a route that
                          # needed either would mean no shop could buy or connect without us on the
                          # call, which is the opposite of a self-service product.
-                         "billing.self"],
+                         "billing.self",
+                         # WHAT THE OPERATOR ROUTES ACTUALLY ENFORCE. Advertised because they are
+                         # enforced here, not because we grant them to anyone: platform.* is ours,
+                         # and authz denies the whole prefix to every tenant.
+                         "platform.secrets", "platform.config"],
         "endpoints": [
+            # From the generated scaffold and kept: what a client calls to confirm its token is
+            # accepted at all, which is the first question asked when something else is failing.
+            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},

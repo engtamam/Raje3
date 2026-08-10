@@ -61,8 +61,19 @@ def build_manifest(
         # Two. Reading indicators is one thing an establishment does; recomputing another shop's
         # snapshot is support work and belongs to us. There is no `insights.manage`, deliberately:
         # nothing here is configurable, because everything that looked like a setting is learned.
-        "capabilities": ["insights.read", "platform.insights"],
+        "capabilities": ["insights.read", "platform.insights",
+                         # WHAT api/v1/operator.py ACTUALLY ENFORCES. Advertised because they are
+                         # enforced here — not because we grant them to a tenant: platform.* is
+                         # ours, and authz denies the whole prefix to every establishment. The
+                         # actions used to name platform.<service> instead, so the console rendered
+                         # the credentials buttons for whoever held that and the service answered
+                         # 403 to every one of them.
+                         "platform.secrets", "platform.config"],
         "endpoints": [
+            # From the generated scaffold, and kept: what a client calls to confirm its token is
+            # accepted at all, which is the first question asked when something else is failing.
+            # Undeclared in every service until a guard compared the manifest with the app itself.
+            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},

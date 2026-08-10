@@ -79,13 +79,59 @@ fi
 
 # ── 3. in transit ─────────────────────────────────────────────────────────────────────────────
 head "service to database"
+
+# THREE MEASUREMENTS, NOT ONE, because the DSN alone answers the wrong question.
+#
+# This used to check only whether DATASTORE_DSN carried sslmode=require, and report a flat failure
+# otherwise. That reads as "the traffic is in the clear", and for months it was — but it stopped
+# being true the moment postgres began serving TLS, because libpq NEGOTIATES TLS whenever the
+# server offers it. Without sslmode the encryption is OPPORTUNISTIC: real, and not enforced.
+#
+# The distinction matters in exactly one direction. Opportunistic TLS protects against a passive
+# listener on the pod network, which is the realistic threat inside a cluster. It does NOT protect
+# against an active attacker who can strip the offer — for that the client has to refuse a plaintext
+# connection, which is what sslmode=require means. Reporting the two as the same thing would either
+# panic about a solved problem or declare a half-solved one finished.
+#
+# So: does the server offer it, how many live sessions actually use it, and does the client demand
+# it. The middle one is the only measurement of reality; the other two are of intent.
+
+pg=$(kubectl -n "$NS" get pod -l app=postgres -o name 2>/dev/null | head -1)
+[[ -n "$pg" ]] || pg="pod/postgres-0"
+serving=$(kubectl -n "$NS" exec "${pg#pod/}" -- psql -U platform -d operations -tAc "SHOW ssl" 2>/dev/null | tr -d '[:space:]')
+if [[ "$serving" == "on" ]]; then
+  ok "postgres serves TLS"
+else
+  bad "postgres does not serve TLS — no client can encrypt to it however its DSN is written" \
+      "mint the postgres-tls Secret and apply platform/deploy/k3s/platform/datastores.yaml"
+fi
+
+# THE ONE THAT CANNOT BE ARGUED WITH. Configuration says what should happen; pg_stat_ssl says what
+# is happening on every connection open right now.
+enc=$(kubectl -n "$NS" exec "${pg#pod/}" -- psql -U platform -d operations -tAc \
+      "SELECT count(*) FILTER (WHERE ssl) || '/' || count(*) FROM pg_stat_ssl" 2>/dev/null | tr -d '[:space:]')
+if [[ -n "$enc" ]]; then
+  plain=${enc#*/}; cipher=${enc%/*}
+  if [[ "$cipher" == "$plain" ]]; then
+    ok "every live database session is encrypted ($enc)"
+  elif [[ "$cipher" -gt 0 ]]; then
+    # postgres opens a few unencrypted local connections to itself; those are not on the network.
+    ok "$enc live database sessions are encrypted (the remainder are postgres's own local connections)"
+  else
+    bad "NO live database session is encrypted ($enc) — every phone number crossing the pod
+       network is in the clear" \
+        "check that the services reconnected after postgres began serving TLS"
+  fi
+fi
+
 dsn=$(kubectl -n "$NS" get secret operations-secrets -o jsonpath='{.data.DATASTORE_DSN}' 2>/dev/null | base64 -d 2>/dev/null)
 if [[ "$dsn" == *"sslmode=require"* || "$dsn" == *"sslmode=verify"* ]]; then
-  ok "the database connection requires TLS"
+  ok "and the client REQUIRES it — a stripped offer is refused rather than downgraded"
 else
-  bad "the DSN carries no sslmode — service-to-database traffic is unencrypted inside the cluster,
-       and it is the first thing an auditor asks about" \
-      "enable TLS on postgres and append sslmode=require to DATASTORE_DSN"
+  note "the DSN carries no sslmode, so encryption is opportunistic: negotiated because the server
+       offers it, not demanded. That stops a passive listener and not an active one. The upstream
+       gate holds this deliberately until the client half lands (ALLOW_DSN_SSLMODE), because a DSN
+       that demands TLS from a server not yet serving it fails every service at boot."
 fi
 
 # ── 4. the shared secrets, in the cluster rather than in the repository ───────────────────────

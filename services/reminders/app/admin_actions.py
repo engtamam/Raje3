@@ -141,13 +141,13 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # ── the operator surface, and it is declared in every service or in none ──────────────
     {
         "id": "reminders.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/secrets", "capability": "platform.reminders", "group": "المنصة",
+        "path": "/api/v1/operator/secrets", "capability": "platform.secrets", "group": "المنصة",
         # The NAMES only — a route that returned a value would put a credential in a screenshot.
         "help": "أي اعتمادات مضبوطة لهذه الخدمة، بأسمائها لا بقيمها.",
     },
     {
         "id": "reminders.set_operator_secret", "label": "تعديل اعتماد", "method": "PUT",
-        "path": "/api/v1/operator/secrets", "capability": "platform.reminders",
+        "path": "/api/v1/operator/secrets", "capability": "platform.secrets",
         "confirm": True, "danger": True, "group": "المنصة",
         # The previous value is gone the moment this runs, so an unrecorded rotation cannot be
         # reconstructed and an unattributable one is indistinguishable from an attacker's.
@@ -155,27 +155,35 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     {
         "id": "reminders.clear_operator_secret", "label": "حذف اعتماد", "method": "DELETE",
-        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.reminders",
+        "path": "/api/v1/operator/secrets/{name}", "capability": "platform.secrets",
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
         "confirm": True, "danger": True, "group": "المنصة",
         "help": "يعيد الخدمة صامتاً إلى ما تحمله البيئة — تغيّر سلوك لا يراه أحد.",
     },
     {
         "id": "reminders.operator_config", "label": "إعدادات التشغيل", "method": "GET",
-        "path": "/api/v1/operator/config", "capability": "platform.reminders", "group": "المنصة",
+        "path": "/api/v1/operator/config", "capability": "platform.config", "group": "المنصة",
         "help": "السياسات التي تشرح سلوك الخدمة لاحقاً.",
     },
     {
         "id": "reminders.set_operator_config", "label": "تعديل إعداد تشغيل", "method": "PUT",
-        "path": "/api/v1/operator/config", "capability": "platform.reminders",
+        "path": "/api/v1/operator/config", "capability": "platform.config",
         "confirm": True, "group": "المنصة",
         "help": "يغيّر سلوك الخدمة من الآن فصاعداً.",
     },
     {
         "id": "reminders.clear_operator_config", "label": "حذف إعداد تشغيل", "method": "DELETE",
-        "path": "/api/v1/operator/config/{key}", "capability": "platform.reminders",
+        "path": "/api/v1/operator/config/{key}", "capability": "platform.config",
         "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "المنصة",
         "help": "يعود للافتراضي المبنيّ في الخدمة.",
+    },
+    {
+        "id": "reminders.ping", "label": "فحص الاتصال", "method": "GET",
+        "path": "/api/v1/admin/ping", "capability": "platform.secrets", "group": "المنصة",
+        # From the generated scaffold and kept: what a client calls to confirm its token is accepted
+        # at all, which is the first question asked when something else is failing. Undeclared in
+        # every service until a guard compared the manifest with the app.
+        "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
     },
 ]

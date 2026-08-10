@@ -64,8 +64,33 @@ def build_manifest(
         #
         # Left empty explicitly rather than left untouched — an empty list a reviewer can see was
         # decided is worth more than one they have to guess about.
-        "capabilities": [],  # e.g. ["files.upload", "files.read"] — atomic capability keys
+        "capabilities": [
+                         # WHAT api/v1/operator.py ACTUALLY ENFORCES. Advertised because they are
+                         # enforced here — not because we grant them to a tenant: platform.* is
+                         # ours, and authz denies the whole prefix to every establishment. The
+                         # actions used to name platform.<service> instead, so the console rendered
+                         # the credentials buttons for whoever held that and the service answered
+                         # 403 to every one of them.
+                         "platform.secrets", "platform.config"],  # e.g. ["files.upload", "files.read"] — atomic capability keys
         "endpoints": [
+            # ── the operator surface: credentials and policy, changed after launch ────────
+            # UNDECLARED UNTIL A GUARD COMPARED THE MANIFEST WITH THE APP. The route table this
+            # feeds is where a reviewer looks for the highest-privilege surface a service has, and
+            # secrets management was missing from it — not hidden, absent, which reads the same to
+            # anyone consulting the table.
+            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/operator/secrets", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/operator/secrets/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+            # What a client calls to learn who it is talking as. Declared rather than deleted: a
+            # route table that omits it describes a service that answers a question it does not.
+            {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            # From the generated scaffold, and kept: what a client calls to confirm its token is
+            # accepted at all, which is the first question asked when something else is failing.
+            # Undeclared in every service until a guard compared the manifest with the app itself.
+            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},
