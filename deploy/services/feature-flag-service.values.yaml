@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/feature-flag-service
-  digest: "sha256:fd8577d26bd088d4f1d196626d582e8105a647f8d051a37cd73db46a72b674eb"
+  digest: "sha256:9b6759a8c3c3fb8a64958564d82948fabb64538e6d8db0b8bf684a0115e516cd"
 
 replicas: 1
 

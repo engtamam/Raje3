@@ -16,7 +16,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/notification-service
-  digest: "sha256:8a224a3a89e1cb446599f21badf900af36b3233834e32a93f67beecd55e69c19"
+  digest: "sha256:5483bb781934ec936a54a1c218acdb953a918227ec30e60b467847b9ddc140e6"
 
 replicas: 1
 
@@ -39,6 +39,11 @@ autoscaling:
   enabled: false
 
 # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, SECRETS_KEK.
+# AND META_APP_ID / META_APP_SECRET once we hold them — OUR Tech Provider credentials, the pair
+# that lets a shop hand us its WhatsApp in one browser flow instead of a support call. They are
+# platform-wide rather than per-tenant (they identify us, not the shop), so they belong in this
+# sealed secret and in no panel anywhere. Until they exist, Embedded Signup is disabled and the
+# endpoint refuses with a reason rather than half-working.
 # Provider credentials are NOT here: they are per-tenant, set through the operator surface and
 # sealed with SECRETS_KEK, because every establishment sends under its own WhatsApp identity.
 # BACKUP_KEK IS ALSO REQUIRED HERE, and it is SHARED — the same value every export-capable
@@ -84,6 +89,20 @@ env:
                                 # `webhook` (the fast QR relay). Both need real credentials.
   EMAIL_FROM: "no-reply@raje3.sa"
   HTTP_TIMEOUT_SECONDS: "15"
+
+  # ── Embedded Signup: how a shop's WhatsApp becomes ours to send from ───────────────────────
+  # v0.15.0 — and it closes our escalation. The browser hands back an authorization code that
+  # lives about 30 SECONDS; nothing queues it, nothing retries it. The exchange happens inside the
+  # request that carries it or the code dies and the owner starts the whole flow again.
+  #
+  # META_APP_ID and META_APP_SECRET identify US as the Tech Provider — not the shop — so they are
+  # platform-wide, come from the sealed secret, and are never settable through any panel. They are
+  # read in core and never in a route, so the shop's freshly minted token does not transit the API
+  # layer at all. Empty means Embedded Signup is simply disabled and the endpoint refuses cleanly.
+  #
+  # SEPARATE GRAPH VERSION FROM THE SEND PATH, deliberately: upgrading how we onboard must not
+  # quietly change how every message goes out.
+  WHATSAPP_ONBOARDING_GRAPH_BASE: "https://graph.facebook.com/v21.0"
 
   # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────
   # http, not null. The null gate answers UNKNOWN forever and the production boot guard REFUSES

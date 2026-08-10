@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:72e9eed551784b67bf5c20d261f2bb6f95f954cd30a1530a7dc03930a6102b1e"
+  digest: "sha256:8df88a52431466687dea49fd5c97d9930f11e91e8e06838ecbeee98b81fb6fae"
 
 replicas: 1
 
@@ -119,13 +119,45 @@ env:
   # ── Signup ────────────────────────────────────────────────────────────────────────────────
   # Open registration: spec §16.5 is a 14-day self-serve trial with no card and no operator step.
   REGISTRATION_ENABLED: "true"
-  # NOTE (accepted limitation, not an oversight): the knob offers `username | email` only, and
-  # Saudi SMB owners are reached by mobile far more naturally than by email. Email is the login
-  # field because verification, invites and recovery all hang off it here. Phone identity for
-  # owners, if we want it, is verification-service (Wave 5) — not a patch to this one.
-  IDENTITY_LOGIN_FIELD: "email"
-  EMAIL_VERIFICATION_ENABLED: "true"
-  LOGIN_REQUIRES_VERIFIED_EMAIL: "true"
+  # THE PHONE IS THE IDENTITY (v0.15.0 — closes our escalation).
+  #
+  # A Saudi shop owner has a mobile number the way he has a name; he may or may not have an email
+  # he reads. Until v0.15.0 the knob offered `username | email` only, and this file carried that
+  # as an accepted limitation — email as the login field because verification, invites and
+  # recovery all hung off it. That is now a real choice rather than the only one.
+  #
+  # AND THE CONCERN WE RAISED IS THE ONE THEY BUILT AGAINST: `0501234567`, `+966501234567` and
+  # `966501234567` are ONE human. The adapter folds all three to canonical E.164, and BOTH
+  # uniqueness and lookup key on that value — so three spellings can never become three accounts,
+  # which is the failure that is impossible to unpick after it happens.
+  IDENTITY_LOGIN_FIELD: "phone"
+  # Saudi Arabia. CONFIG rather than a constant in their adapter, deliberately — and ours to set,
+  # because the market is our decision and not the platform's.
+  IDENTITY_PHONE_DEFAULT_CC: "966"
+
+  # EMAIL VERIFICATION IS OFF, because there is no longer an email to verify. Leaving it on with a
+  # phone login field would refuse to mint a token for an account that has no address at all —
+  # the check runs at issue, so every owner would sign up successfully and then fail to log in.
+  EMAIL_VERIFICATION_ENABLED: "false"
+  LOGIN_REQUIRES_VERIFIED_EMAIL: "false"
+
+  # ── OTP: proving the number is his ────────────────────────────────────────────────────────
+  # The phone replaces the email as the identity, so it inherits the job the verification mail
+  # was doing: an unproven identifier is not an identity. The code NEVER appears in a response —
+  # the only way to learn it is to receive the message, which is the whole point.
+  #
+  # DELIVERED OVER WHATSAPP, because that is the channel this product already owns and the one
+  # the owner is about to connect anyway. No SMS contract, no second vendor.
+  OTP_TEMPLATE: "auth.otp"
+  OTP_DELIVERY_CHANNEL: "whatsapp"
+  # Five minutes is long enough for a message to arrive on a slow network and short enough that a
+  # code read over somebody's shoulder is worthless by the time it is used.
+  OTP_TTL_SECONDS: "300"
+  OTP_MAX_ATTEMPTS: "5"
+  # The caps that stop this becoming a way to make our platform bombard a stranger's phone at our
+  # expense — every one of those messages is billed to somebody.
+  OTP_RESEND_COOLDOWN_SECONDS: "60"
+  OTP_MAX_PER_HOUR: "5"
   EMAIL_VERIFICATION_URL: "https://app.raje3.sa/verify?token="
   # Sends through notification-service, which arrives in Wave 3. Until then verification mail is
   # not delivered and this is the first thing to re-check when Wave 3 lands.
