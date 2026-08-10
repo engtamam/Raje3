@@ -38,6 +38,16 @@ from app.core.stores import ServiceStore, new_id
 SECTORS = "sectors"
 FIELD_SPECS = "sector_fields"
 
+# WHICH SECTOR THIS ESTABLISHMENT IS. One row per tenant, written when its catalogue is seeded.
+#
+# It did not exist until the field screen needed it, and its absence was a real gap rather than a
+# missing convenience: the sector decides which INPUTS render (spec 13.2 - a plate exists in a
+# tyre shop and does not exist at all in a salon), yet seeding copied the services and forgot
+# which sector they came from. The screen was therefore left to decide for itself, and the only
+# way to do that is to write the sector keys into the front-end - a hard-coded list that silently
+# stops matching the moment our console adds a fifth sector.
+TENANT_SECTOR = "tenant_sector"
+
 # The reserved owner of platform-wide rows. Underscore-prefixed on purpose: tenant ids are issued
 # by tenant-service and never take this shape, so no establishment can ever collide with it.
 PLATFORM = "_platform"
@@ -220,4 +230,18 @@ class SectorCatalogue:
                 sort=int(entry.get("sort", 0)),
                 catchall=bool(entry.get("catchall", False)), created=now))
             created += 1
+
+        # RECORDED EVEN WHEN NOTHING WAS CREATED. A re-run adds no services (it is idempotent by
+        # name) but must still leave the sector written down, or a retried provisioning step ends
+        # with a full catalogue and a screen that does not know whether to render a plate.
+        await self._s.put(TENANT_SECTOR, tenant,
+                          {"id": tenant, "tenant": tenant, "sector": sector_key,
+                           "integrated": bool(integrated), "updated": now})
         return created
+
+    async def sector_of(self, tenant: str) -> str:
+        """Which sector this establishment is, or empty if it was provisioned before we recorded
+        it. Empty is answered honestly and never guessed - a guess here renders a plate field in a
+        salon, or hides one in a workshop."""
+        row = await self._s.get(TENANT_SECTOR, tenant)
+        return str((row or {}).get("sector") or "")

@@ -139,4 +139,20 @@ async def catalogue(request: Request, principal: Principal = Depends(_READ)) -> 
     """The service grid. Seeded full from the sector defaults at tenant creation — an
     establishment that must build its own list before recording a first visit will not record a
     first visit."""
-    return {"services": await _svc(request).catalogue(_tenant(principal))}
+    tenant = _tenant(principal)
+    sectors = request.app.state.container.sectors
+    key = await sectors.sector_of(tenant)
+    # THE FIELDS COME WITH THE GRID, and this is the point of answering them here at all.
+    #
+    # Which inputs a screen renders is a property of the SECTOR (spec 13.2): the plate exists in a
+    # tyre shop and does not exist in a salon - not disabled, not empty, absent. The front end
+    # cannot work that out for itself without carrying its own list of sector keys, which is a
+    # copy of our data living where we cannot change it: our console adds a fifth sector at
+    # runtime and the screen keeps rendering the four it was built with.
+    #
+    # `fields` is the full descriptor rather than names, so the screen never needs its own idea of
+    # what "meter" means either. An establishment provisioned before we recorded sectors answers
+    # an empty list - honest, and it renders the phone and nothing else, which is always valid.
+    return {"services": await _svc(request).catalogue(tenant),
+            "sector": key,
+            "fields": await sectors.fields_for(key) if key else []}

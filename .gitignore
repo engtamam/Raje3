@@ -30,3 +30,5 @@ services/*/.pytest_cache/
 services/*/.venv/
 services/operations/.venv/
 venv/
+node_modules/
+apps/*/dist/

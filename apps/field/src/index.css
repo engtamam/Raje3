@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* THE FIELD IS NOT A DESKTOP. Three rules that only matter on a tablet on a workbench: no text
+   selection when a big button is held a moment too long, no tap highlight flashing over an
+   already-confirmed choice, and no rubber-band scroll on a screen that does not scroll. */
+html, body, #root { height: 100%; overscroll-behavior: none; }
+body { -webkit-tap-highlight-color: transparent; }
+button { user-select: none; -webkit-user-select: none; touch-action: manipulation; }

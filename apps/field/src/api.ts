@@ -1,0 +1,175 @@
+/**
+ * The only place in this app that speaks HTTP.
+ *
+ * Every screen calls a named function here — `recordVisit`, `suggestByPrefix` — and none of them
+ * knows a URL, a header or a token. That is not tidiness: a token that appears in two places
+ * eventually appears in a log, a query string, or an error report, and this app runs on a shared
+ * tablet in a workshop.
+ *
+ * THE BASE URL IS CONFIGURATION, NOT A CONSTANT. It differs between a developer's machine, a
+ * staging cluster and production, and a literal here would be a value we could not change without
+ * a rebuild.
+ *
+ * EVERY SHAPE BELOW WAS READ OUT OF THE SERVICE, NOT ASSUMED. Three of them would have been wrong
+ * if guessed, and each is noted where it matters: the idempotency key is a body field and not a
+ * header; the services array is `service_ids`; and prefix search is NOT served by operations at
+ * all.
+ */
+import type { Session } from './session';
+
+const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+
+export class ApiError extends Error {
+  constructor(readonly status: number, readonly body: unknown, message: string) {
+    super(message);
+  }
+}
+
+/** The sentence an operator reads. NEVER a status code and never an English exception: he cannot
+ *  act on either, and the customer is standing in front of him while he reads it. */
+export function sentenceFor(e: unknown): string {
+  if (e instanceof ApiError) {
+    const body = e.body as { message?: string; detail?: string } | null;
+    const said = body?.message || body?.detail;
+    if (said) return String(said);
+    if (e.status === 401 || e.status === 403) return 'انتهت الجلسة — أعد فتح الشاشة.';
+    if (e.status >= 500) return 'الخدمة لا تستجيب الآن. الزيارة محفوظة وستُرسل تلقائياً.';
+    return 'تعذّر الحفظ. حاول مرة أخرى.';
+  }
+  // A network failure is the NORMAL case in a workshop, not an exception — and it is the one
+  // message that must not alarm, because the queue has already taken the visit.
+  return 'لا يوجد اتصال — الزيارة محفوظة وستُرسل حين تعود الشبكة.';
+}
+
+async function call<T>(session: Session, path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set('Authorization', `Bearer ${session.token}`);
+  if (init.body) headers.set('Content-Type', 'application/json');
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  const text = await res.text();
+  let body: unknown = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = { raw: text }; }
+  if (!res.ok) throw new ApiError(res.status, body, `${init.method ?? 'GET'} ${path} → ${res.status}`);
+  return body as T;
+}
+
+// ── the catalogue: what the buttons are ────────────────────────────────────────────────────────
+
+export interface CatalogueService {
+  id: string;
+  name: string;
+  icon?: string;
+  colour?: string;
+  cycle_days?: number;
+}
+
+/** A field the sector renders — the full descriptor, so this app never carries its own idea of
+ *  what "plate" or "meter" means. */
+export interface SectorField {
+  name: string;
+  label?: string;
+  type?: string;
+  required?: boolean;
+}
+
+/**
+ * The grid AND the inputs, in one answer.
+ *
+ * WHICH FIELDS RENDER IS THE SERVER'S TO SAY, not this app's. The plate exists in a tyre shop and
+ * does not exist at all in a salon (spec 13.2) — and a list of sector keys written into this file
+ * would be a copy of our own data living where the console cannot reach it: an operator adds a
+ * fifth sector at runtime and the screen keeps rendering the four it was built with.
+ *
+ * An establishment provisioned before we recorded sectors answers an empty list — which renders
+ * the phone and nothing else, and is always valid.
+ */
+export function fetchCatalogue(
+  session: Session,
+): Promise<{ services: CatalogueService[]; sector: string; fields: SectorField[] }> {
+  return call(session, '/api/v1/field/catalogue');
+}
+
+// ── the customer ───────────────────────────────────────────────────────────────────────────────
+
+export interface CustomerHit {
+  id: string;
+  phone: string;
+  name?: string;
+  visits?: number;
+  points?: number;
+  /** Whether marketing messages reach him. Shown as a hint so the operator can say the balance out
+   *  loud (spec 4.7) — a customer who opted out earns points and is never told he has them. */
+  marketing?: boolean;
+}
+
+/**
+ * PREFIX SEARCH IS SEARCH-SERVICE'S, NOT OPERATIONS'.
+ *
+ * operations serves /customers/by-phone for an EXACT number and says so in its own docstring: a
+ * prefix scan over the datastore is a table scan, and this sits inside a five-second budget. And
+ * POST /search matches whole tokens, so `96650` finds nothing against a stored `966501234567` —
+ * only /suggest answers a partial number.
+ *
+ * Getting this wrong is the failure the spec calls out by name: the operator types four digits,
+ * sees nothing, concludes the customer is new, and registers him a second time — and the product's
+ * entire premise disappears quietly.
+ */
+export async function suggestByPrefix(session: Session, prefix: string): Promise<CustomerHit[]> {
+  const q = new URLSearchParams({ index: 'customers', prefix });
+  const out = await call<{ results?: unknown[]; suggestions?: unknown[] }>(
+    session, `/api/v1/search/suggest?${q.toString()}`);
+  const rows = (out.results ?? out.suggestions ?? []) as Record<string, unknown>[];
+  return rows
+    .map((r) => ({
+      id: String(r.id ?? r.doc_id ?? ''),
+      phone: String(r.phone ?? r.title ?? ''),
+      name: r.name ? String(r.name) : undefined,
+    }))
+    .filter((c) => c.phone);
+}
+
+/** The full number has been typed. Answers `{customer: {...} | null}`. */
+export function customerByPhone(session: Session, phone: string): Promise<{ customer: CustomerHit | null }> {
+  return call(session, `/api/v1/field/customers/by-phone?phone=${encodeURIComponent(phone)}`);
+}
+
+/** The strip along the top — today's customers, one tap away. */
+export function recentCustomers(session: Session, limit = 10): Promise<{ customers: CustomerHit[] }> {
+  return call(session, `/api/v1/field/customers/recent?limit=${limit}`);
+}
+
+// ── the visit ──────────────────────────────────────────────────────────────────────────────────
+
+export interface VisitDraft {
+  phone: string;
+  service_ids: string[];
+  name?: string;
+  plate?: string;
+  meter?: number;
+  custom_service?: string;
+  /**
+   * MINTED ON THE DEVICE, ONE PER ENTRY ON THE SCREEN — and it is a BODY FIELD, not a header.
+   *
+   * Two taps on a slow button, a retry after a timeout, and a queued visit replayed when the
+   * network returns are all the same visit; without this they become two records, two reminders
+   * and two messages somebody pays for. It cannot be server-side, because a server cannot tell a
+   * double tap from a customer who genuinely came back an hour later.
+   */
+  idempotency_key: string;
+}
+
+export interface VisitAck {
+  visit: { id: string; [k: string]: unknown };
+  customer: CustomerHit;
+  created_customer: boolean;
+  /** A repeat of the same key answers 201 with this true — a SUCCESS, not a conflict. The operator
+   *  wanted one visit and there is one visit; a 409 on a double tap teaches him the screen lies. */
+  duplicate: boolean;
+}
+
+export function recordVisit(session: Session, draft: VisitDraft): Promise<VisitAck> {
+  return call<VisitAck>(session, '/api/v1/field/visits', {
+    method: 'POST',
+    body: JSON.stringify(draft),
+  });
+}

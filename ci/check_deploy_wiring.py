@@ -273,7 +273,11 @@ for p in sorted(ROOT.rglob("*")):
     if not p.is_file():
         continue
     parts = p.relative_to(ROOT).parts
-    if parts and parts[0] in (".git", "platform", "node_modules"):
+    # node_modules AT ANY DEPTH, not only at the root. The rule was written when every directory
+    # here was ours; an app that installs dependencies puts them under apps/<name>/node_modules,
+    # and a scanner that reads those reports a character-encoding table inside iconv-lite as if it
+    # were a number on one of our screens. Vendored code is not ours to hold to our house style.
+    if parts and (parts[0] in (".git", "platform") or "node_modules" in parts or "dist" in parts):
         continue
     try:
         text = p.read_text(encoding="utf-8")
