@@ -52,14 +52,23 @@ H = "http://localhost:8000"
 # THE TABLE, WRITTEN OUT INDEPENDENTLY OF THE SEED FILE. Reading the expectations out of
 # plans.json would prove the seeder agrees with itself, which it does by construction. These
 # numbers are transcribed from the specification, so a seeder that writes the wrong ones fails.
+#
+# AND messages.monthly IS -1 ON EVERY PLAN, INCLUDING THE ENTRY ONE. That is not an oversight in
+# this table, it is section 16.7: we do not sell messages. The establishment contracts with Meta
+# and Meta bills it directly, so a message cap here would be us rationing something we neither
+# buy nor resell. The counter stays because it MEASURES; the limit is what was removed.
+#
+# This table lagged the pricing change by weeks and the proof reported three failing plans every
+# run against a cluster that was correct. A stale expectation is not a harmless one: it trains
+# whoever reads the output to ignore it.
 EXPECT = {
-  "الأساسية": {"messages.monthly": 1000, "staff.seats": 5, "branches": 1,
+  "الأساسية": {"messages.monthly": -1, "staff.seats": 5, "branches": 1,
                "feature.campaigns": 0, "feature.loyalty": 0, "feature.insights.engine": 0,
                "feature.roles.custom": 0, "templates.custom": 0, "feature.api": 0},
-  "الذكية":   {"messages.monthly": 3000, "staff.seats": 15, "branches": 2,
+  "الذكية":   {"messages.monthly": -1, "staff.seats": 15, "branches": 2,
                "feature.campaigns": 1, "feature.loyalty": 1, "feature.insights.engine": 0,
                "feature.roles.custom": 0, "templates.custom": 1, "feature.api": 0},
-  "الأعمال":  {"messages.monthly": 8000, "staff.seats": -1, "branches": 8,
+  "الأعمال":  {"messages.monthly": -1, "staff.seats": -1, "branches": 8,
                "feature.campaigns": 1, "feature.loyalty": 1, "feature.insights.engine": 1,
                "feature.roles.custom": 1, "templates.custom": -1, "feature.api": 0},
   "المؤسسات":    {"messages.monthly": -1, "staff.seats": -1, "branches": -1,

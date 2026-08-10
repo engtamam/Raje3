@@ -625,6 +625,23 @@ if _az.is_file() and tenant_roles.is_file():
                  f"`{cap}` is assignable in a custom role but the owner does not hold it — "
                  f"nobody can grant a capability they do not have (§3.2)")
 
+# ── 18. a script we SHIP must not carry Windows line endings ───────────────────────────────────────────
+# THE FAILURE IS INVISIBLE AND TOTAL. ship.sh tars the WORKING COPY, not the git index -- so
+# a file checked out before .gitattributes existed travels to the server with CRLF, the
+# kernel reads the shebang as "/usr/bin/env bash" plus a carriage return, and the answer is
+# "No such file or directory" about an interpreter that is plainly there.
+#
+# FOUND BY RUNNING THE PROOFS RATHER THAN BY READING THEM. Two prove-*.sh had been on the
+# box for weeks answering 127 in a place nobody was reading -- and a guard that never runs
+# looks exactly like a guard that always passes.
+for _sh in sorted(ROOT.glob("deploy/**/*.sh")) + sorted(ROOT.glob("scripts/*.sh")):
+    if bytes([13, 10]) in _sh.read_bytes():
+        fail(_sh.relative_to(ROOT).as_posix(),
+             "CRLF line endings - the shebang fails on the server with 'No such file or "
+             "directory' about bash itself. Fix: git config core.autocrlf false, then "
+             "re-checkout the file")
+
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
