@@ -1,0 +1,240 @@
+# سياسة الخصوصية — سياستنا نحن، تجاه أصحاب المنشآت وزوّار موقعنا.
+#
+# THE FIRST THING TO SETTLE, BECAUSE EVERYTHING ELSE IS WRONG IF IT IS WRONG: whose policy is this?
+#
+# It is OURS, and its data subjects are the shop OWNERS — our customers — plus anyone who visits
+# our site. It is NOT the policy a shop's customer reads. His data belongs to the shop; the shop is
+# its controller and publishes its own policy, from this same template, filled with its own answers
+# (that is exactly what the per-tenant instantiate path is for).
+#
+# GETTING THIS BACKWARDS IS THE CLASSIC PLATFORM MISTAKE, and it fails in both directions at once:
+# a customer reads our policy and believes it governs his data (it does not), while the shop
+# publishes nothing and is left with no policy at all — and it, not us, is the one with the duty.
+# So this file says who it covers, in its first clause, before it says anything else.
+#
+# THE TEMPLATE'S CATEGORY TABLE IS EDITED, NOT ACCEPTED. It ships the categories a general Saudi
+# business collects — national ID, card number, geolocation. We collect none of those, and a policy
+# that lists data we do not hold is not "safely broad": it is inaccurate about the most sensitive
+# thing in the document, and it invites a question whose honest answer is "we made that up".
+
+values:
+  COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
+  COMPANY_ACTIVITY:
+    ar: "منصة سحابية تمكّن المنشآت الخدمية من متابعة عملائها وإعادتهم عبر رسائل واتساب"
+    en: "A cloud platform that lets service businesses follow up with their customers and bring them back over WhatsApp"
+  COMPANY_ADDRESS: ""         # العنوان الوطني للشركة
+  COMPANY_PHONE: ""
+  COMPANY_WEBSITE: "raje3.sa"
+  PRIVACY_EMAIL: ""           # بريد طلبات الخصوصية — منفصل عن الدعم عمداً
+  DPO_EMAIL: ""
+  DPO_PHONE: ""
+  COMPLAINT_CONTACT: ""       # نفس بريد الخصوصية ما لم تُنشأ جهة مستقلة
+  COMPLAINT_DEPARTMENT:
+    ar: "مسؤول حماية البيانات"
+    en: "The Data Protection Officer"
+  COMPLAINT_PERIOD:
+    ar: "ثلاثين يوماً من تاريخ تقديم الشكوى"
+    en: "thirty days from the date the complaint is submitted"
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""
+
+  # ── الغايات: تُذكر بالاسم لا بالعموم ────────────────────────────────────────────────────────
+  # "To improve our services" is the phrase that covers everything and therefore permits nothing —
+  # a purpose a data subject cannot picture is a purpose he cannot object to. Each of these is a
+  # thing we actually do, traceable to a row in the ROPA.
+  PURPOSES:
+    ar: >-
+      إنشاء حسابك وتمكينك من الدخول إليه وحمايته؛ وتشغيل اشتراكك وتحديد ما تستحقّه من قدرات
+      المنصة؛ وإصدار فواتيرك وحفظ سجلاتها كما توجب الأنظمة؛ والردّ على طلبات دعمك ومتابعتها؛
+      وإشعارك بما يخصّ حسابك وخدمتك؛ وحفظ سجلّ تدقيقي يُثبت من قام بأي إجراء ومتى؛ واحتساب
+      استحقاق الشريك الذي جلب منشأتك إن وُجد.
+    en: >-
+      Creating your account, letting you sign in to it and protecting it; running your subscription
+      and determining your entitlements on the platform; issuing your invoices and keeping their
+      records as the regulations require; answering and tracking your support requests; notifying
+      you about your account and service; keeping an audit log evidencing who performed which action
+      and when; and computing the commission of the partner who introduced your establishment, if
+      any.
+
+  # ── ما نجمعه: مباشرةً منك، لا من غيرك ───────────────────────────────────────────────────────
+  DIRECT_METHODS:
+    ar: >-
+      مما تُدخله بنفسك عند التسجيل وأثناء استخدام المنصة، ومما تكتبه في رسائل الدعم، ومما يُنتجه
+      استخدامك للمنصة تلقائياً كأوقات الدخول.
+    en: >-
+      From what you enter yourself at sign-up and while using the platform, from what you write in
+      support messages, and from what your use of the platform generates automatically, such as
+      sign-in times.
+  # THE STRONGEST LINE IN THE POLICY, AND IT IS SHORT. We buy no lists and enrich from no broker.
+  # Saying so is worth more than a paragraph of assurances, because it is checkable and specific.
+  INDIRECT_METHODS:
+    ar: >-
+      لا نشتري بيانات ولا نجمعها من وسطاء بيانات ولا من مصادر تجارية. والمصدر غير المباشر الوحيد هو
+      ختم الإحالة من الشريك الذي عرّفك بالمنصة إن جئت عن طريقه، ويشمل اسم منشأتك وتاريخ الإحالة
+      فقط.
+    en: >-
+      We buy no data and collect none from data brokers or commercial sources. The only indirect
+      source is the referral stamp of the partner who introduced you to the platform, if you came
+      through one, covering your establishment's name and the referral date alone.
+  DISCLOSURE_FREQUENCY:
+    ar: "عند وقوع الحدث الذي يستدعيه فقط — لا إفصاح دوري ولا مجدول."
+    en: "Only when the event requiring it occurs — there is no periodic or scheduled disclosure."
+
+  # ── المستقبِلون: من يستلم، ولماذا، وأين ─────────────────────────────────────────────────────
+  RECIPIENTS:
+    ar: >-
+      Meta Platforms — لتسليم رسائل واتساب التي تُرسلها المنصة، بما فيها رمز التحقق عند دخولك؛
+      ومزوّد البنية السحابية داخل المملكة الذي تُستضاف عليه الأنظمة؛ ومحاسبنا القانوني للسجلات
+      المالية؛ وبوابة الدفع عند إتمامك عملية دفع؛ والجهات المختصة عند طلب نظامي. ولا نبيع بياناتك
+      ولا نؤجّرها ولا نتيحها لأي معلن.
+    en: >-
+      Meta Platforms — to deliver the WhatsApp messages the platform sends, including your sign-in
+      verification code; the in-Kingdom cloud infrastructure provider hosting the systems; our
+      external accountant for the financial records; the payment gateway when you complete a
+      payment; and the competent authorities on lawful request. We do not sell your data, do not
+      rent it, and make it available to no advertiser.
+  STORAGE_LOCATION:
+    ar: >-
+      داخل المملكة العربية السعودية. ويُستثنى من ذلك ما يستلزمه تسليم رسالة واتساب بطبيعته: يصل رقم
+      المستقبِل ونص الرسالة إلى Meta خارج المملكة، وهو نقلٌ يجري وفق المادة (29) ولا يمكن تجنّبه مع
+      الإبقاء على القناة نفسها.
+    en: >-
+      Inside the Kingdom of Saudi Arabia. The exception is what delivering a WhatsApp message
+      inherently requires: the recipient's number and the message content reach Meta outside the
+      Kingdom, a transfer made under Article 29 and unavoidable while the channel itself is retained.
+
+  # ── الاحتفاظ: مدد مختلفة لأشياء مختلفة، ولا مدّة واحدة تغطّي الكل ──────────────────────────
+  # One number here would be a lie about at least one row of the ROPA. The three that differ are
+  # named, and the invoice — the longest — is named with the reason it is longest.
+  RETENTION_PERIOD:
+    ar: >-
+      بيانات حسابك واشتراكك: طوال اشتراكك ثم مدّة سماح لا تتجاوز سنتين بعد انتهائه، ثم تُحذف —
+      وتنتهي المدّة فوراً متى طلبت أنت الحذف. تذاكر الدعم: سنتان من إغلاق التذكرة. الفواتير
+      والسجلات المحاسبية: المدّة التي توجبها الأنظمة المالية والضريبية، وهي أطول ولا يشملها الحذف
+      لأن الاحتفاظ بها التزام نظامي لا اختيار. رموز التحقق: دقائق. سجلّ التدقيق: يحمل معرّفاً
+      مستعاراً لا هويتك، ويُحفظ لغرض التدقيق.
+    en: >-
+      Your account and subscription data: for your subscription then a grace period of no more than
+      two years, after which it is deleted — and the period ends at once if you ask for deletion.
+      Support tickets: two years from closure. Invoices and accounting records: the period the
+      financial and tax regulations require, which is longer and is not covered by deletion because
+      retaining them is a statutory duty and not a choice. Verification codes: minutes. The audit
+      log: it carries a pseudonym rather than your identity, and is kept for the audit purpose.
+  RESPONSE_TIME:
+    ar: "ثلاثين يوماً، قابلة للتمديد ثلاثين يوماً أخرى عند الجهد غير المتناسب مع إشعارك بالسبب مسبقاً"
+    en: "thirty days, extendable by a further thirty for disproportionate effort, with prior notice of the reason"
+
+  SECURITY_MEASURES:
+    ar: >-
+      تشفير البيانات أثناء النقل وفي التخزين؛ وعزل كامل بين المنشآت مطبَّق في طبقة التخزين لا في
+      الواجهة؛ وضبط وصول بالأدوار وبأقل صلاحية؛ وحفظ كلمات المرور ببصمة أحادية الاتجاه لا يمكن
+      عكسها؛ واستخدام معرّف مستعار بدل الرقم في كل خدمة عدا الخدمة التي يلزمها البحث بالرقم؛ وسجلّ
+      تدقيق لا يقبل التعديل بأثر رجعي؛ ونسخ احتياطي مختوم بمفتاح؛ وفحوص أمنية آلية تمنع نشر تغيير
+      يخالف هذه الضوابط.
+    en: >-
+      Encryption in transit and at rest; full isolation between establishments enforced in the
+      storage layer rather than in the interface; role-based, least-privilege access control;
+      passwords stored as an irreversible one-way hash; a pseudonymous identifier used in place of
+      the number in every service but the one that must search by number; an audit log that cannot
+      be altered retroactively; key-sealed backups; and automated security checks that block the
+      release of a change violating these controls.
+  RELATED_LINKS:
+    ar: "اتفاقية معالجة البيانات · إشعار حقوق أصحاب البيانات · سياسة ملفات الارتباط"
+    en: "The data processing agreement · The data-subject rights notice · The cookie policy"
+
+# ── جدول الفئات: نستبدله بالكامل ────────────────────────────────────────────────────────────
+#
+# The pack's five rows are replaced by these. Two of its rows are DELETED outright and the deletion
+# is the point: no national ID and no geolocation are collected anywhere in this product, and a
+# policy listing them would describe a more invasive system than the one we built.
+categories:
+  - name: { ar: "بيانات حسابك", en: "Your account data" }
+    examples:
+      ar: "رقم جوالك (وهو مُعرِّف دخولك)، واسم منشأتك، وبصمة كلمة مرورك غير القابلة للعكس"
+      en: "Your mobile number (which is your login identifier), your establishment's name, and an irreversible hash of your password"
+    required: { ar: "إلزامي", en: "Mandatory" }
+  - name: { ar: "بيانات الاشتراك", en: "Subscription data" }
+    examples:
+      ar: "باقتك وتواريخ بدايتها وتجديدها وما استهلكته من مقاعد وفروع"
+      en: "Your plan, its start and renewal dates, and the seats and branches you have used"
+    required: { ar: "إلزامي", en: "Mandatory" }
+  # THE ROW THE TEMPLATE CALLS "PAYMENT DATA", REWRITTEN TO SAY WHAT IS TRUE. We never see a card:
+  # the payment is completed at the gateway and what returns to us is an outcome and a reference.
+  # This is a fact about the architecture, not a promise about behaviour — which is why it can be
+  # stated this plainly.
+  - name: { ar: "بيانات الدفع", en: "Payment data" }
+    examples:
+      ar: >-
+        نتيجة عملية الدفع ومرجعها ومبلغها وتاريخها فقط. ولا نستقبل رقم بطاقتك ولا نخزّنه ولا يمرّ
+        بأنظمتنا إطلاقاً — تُدخله لدى بوابة الدفع مباشرةً وهي وحدها من يراه.
+      en: >-
+        The payment outcome, its reference, amount and date only. We never receive your card number,
+        never store it, and it does not pass through our systems at all — you enter it with the
+        payment gateway, which alone sees it.
+    required: { ar: "إلزامي للاشتراك المدفوع", en: "Mandatory for a paid subscription" }
+  - name: { ar: "بيانات الدعم", en: "Support data" }
+    examples:
+      ar: "ما تكتبه في رسائل الدعم وما ترفقه بها"
+      en: "What you write in support messages and what you attach to them"
+    required: { ar: "اختياري — بقدر ما تختار كتابته", en: "Optional — only what you choose to write" }
+  - name: { ar: "بيانات تقنية", en: "Technical data" }
+    examples:
+      ar: "أوقات الدخول وعناوين IP وملفات ارتباط الجلسة اللازمة لتشغيل الموقع"
+      en: "Sign-in times, IP addresses, and the session cookies necessary to operate the site"
+    required: { ar: "إلزامي", en: "Mandatory" }
+  # NOT A CATEGORY WE COLLECT — a category we are ENTRUSTED with, and the distinction changes who
+  # decides its fate. Naming it here stops the reader concluding we hold nothing at all about the
+  # people his shop serves, which would be its own kind of untruth.
+  - name: { ar: "بيانات عملاء منشأتك", en: "Your establishment's customers' data" }
+    examples:
+      ar: >-
+        نحفظها بصفتنا معالِجاً بالنيابة عنك وبتعليماتك، وأنت جهة التحكم فيها. تفاصيلها في اتفاقية
+        معالجة البيانات، ولا تحكمها هذه السياسة.
+      en: >-
+        We hold it as your processor, on your behalf and on your instructions, and you are its
+        controller. Its details are in the data processing agreement, and this policy does not
+        govern it.
+    required: { ar: "بحسب استخدامك للمنصة", en: "According to your use of the platform" }
+
+additions:
+  # THE OPENING CLAUSE. It goes first because every later sentence is read against it.
+  scope:
+    ar: >-
+      تنطبق هذه السياسة على البيانات الشخصية التي نعالجها بصفتنا جهة تحكم: بيانات أصحاب المنشآت
+      المشتركة في المنصة ومن يفوّضونهم، وزوّار موقعنا. ولا تنطبق على بيانات عملاء المنشأة نفسها —
+      فتلك المنشأة جهة التحكم فيها، وهي من يقرّر غرض معالجتها ووسيلتها ويُصدر سياسة الخصوصية
+      الخاصة بعملائه، ونحن فيها معالِج ننفّذ تعليماته وحدها وفق اتفاقية معالجة البيانات.
+    en: >-
+      This policy applies to the Personal Data we process as a controller: the data of the
+      establishment owners subscribed to the platform and their delegates, and of visitors to our
+      site. It does not apply to an establishment's own customers' data — for that, the
+      establishment is the controller, it decides the purpose and means and publishes its own
+      customer-facing privacy policy, and we are its processor acting on its instructions alone
+      under the data processing agreement.
+
+  # AUTOMATED DECISION-MAKING, ANSWERED BEFORE IT IS ASKED. The product computes indicators and
+  # picks send times, which reads like profiling to anyone who has met the word. It is not, and the
+  # distinction is real: nothing here produces a decision with a legal or similarly significant
+  # effect on a person. Saying so plainly is cheaper than being asked.
+  automated_decisions:
+    ar: >-
+      لا نتخذ قرارات آلية تُنتج أثراً نظامياً أو أثراً مماثلاً في شأنك. وما تحسبه المنصة من مؤشرات
+      وأنماط يخصّ أداء المنشأة لا الأفراد، ويجري على معرّفات مستعارة وتجميعات، ولا يُنتج تصنيفاً
+      لشخص مُعيَّن ولا يمنع أحداً من خدمة.
+    en: >-
+      We take no automated decisions producing a legal or similarly significant effect concerning
+      you. The indicators and patterns the platform computes concern the establishment's performance
+      rather than individuals, run on pseudonyms and aggregates, produce no classification of an
+      identified person, and deny nobody a service.
+
+  # WHERE TO COMPLAIN AFTER US. A policy that names only its own complaints desk implies it is the
+  # end of the road. It is not, and pointing at the regulator costs us nothing while omitting it
+  # looks exactly like what it would be.
+  escalation:
+    ar: >-
+      إن لم تقتنع بردّنا على شكواك، فلك التقدّم بشكوى إلى الجهة المختصة بحماية البيانات الشخصية في
+      المملكة. ولا يشترط الرجوع إلينا أولاً، وإن كنّا نفضّل أن نصحّح ما يمكن تصحيحه.
+    en: >-
+      If our answer to your complaint does not satisfy you, you may complain to the competent
+      personal-data protection authority in the Kingdom. You are not required to come to us first,
+      though we would rather fix what can be fixed.

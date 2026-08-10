@@ -1,0 +1,222 @@
+# اتفاقية معالجة البيانات — التزامات راجِع تجاه المنشأة.
+#
+# THE ONE FACT THIS WHOLE DOCUMENT TURNS ON: the ESTABLISHMENT is the controller of its customers'
+# data and we are the processor. It collected the numbers, for its purpose, from its own customers.
+# We hold them to do the job it asked for. That settles who instructs whom, who may decide to
+# delete, and who answers to the regulator for what.
+#
+# THIS FILE IS OUR HALF. The document body — the articles, the citations, the bilingual clauses —
+# comes from the PDPL pack in platform/, which is read-only and stays untouched. What is here is
+# everything the pack deliberately left to the signer: the four blanks, the annexes, and the three
+# places we narrow an open term. ci/gen_legal.py merges the two.
+#
+# WHY THE ANNEXES ARE THE POINT AND NOT AN APPENDIX. Article 17-1 puts the purpose (a), the
+# categories (b), the duration (c) and the sub-processors (g) IN the agreement — so a signed
+# agreement with an empty Annex A satisfies none of them. It is also our own protection: Article
+# 17-4 says a processor that exceeds the controller's instructions IS TREATED AS A CONTROLLER and
+# carries direct liability. Annex A is the list of what we were instructed to do. Anything we do
+# with a shop's data that is not written here is, by that article, our own purpose.
+#
+# So the engine, the indicators and the campaigns are named below explicitly. Not because a
+# regulator would fail to imagine them — because if they are not in the annex, they are ours.
+
+values:
+  # ── who we are ────────────────────────────────────────────────────────────────────────────
+  # DELIBERATELY BLANK, and the publish path refuses a document with an unfilled token — which is
+  # the correct behaviour, not an obstacle. A registered legal name and a registered address are
+  # facts about a company on a commercial register; inventing plausible ones would produce a
+  # document that looks executed and binds nobody, which is worse than one that will not publish.
+  COMPANY_NAME: ""            # الاسم النظامي للشركة كما في السجل التجاري
+
+  # THE CONTROLLER IS IDENTIFIED BY REFERENCE, NOT BY A NAME TYPED INTO THE BODY.
+  #
+  # One published document for every establishment, and the acceptance IS the signature. Who
+  # accepted is not missing from the agreement — it is in the acceptance record: the tenant, the
+  # person, the moment, the address, and the exact version accepted. That record is a consent grant
+  # in an append-only store; it cannot be edited after the fact.
+  #
+  # This is stronger than a name in the text, not weaker. A typed name goes stale the day a shop
+  # re-registers under a new entity, and a document naming the wrong party is worse than one naming
+  # none. The record carries identity AND time AND version together, which is exactly what a
+  # dispute turns on. Naming a party by an external, verifiable reference is ordinary contract
+  # practice; what would not be acceptable is a reference nobody can resolve — and this one
+  # resolves to a row we must produce on demand anyway.
+  CONTROLLER_NAME:
+    ar: "المنشأة التي قبِلت هذه الاتفاقية عبر حسابها على المنصة، وفق سجلّ القبول المشار إليه أدناه"
+    en: "The Establishment that accepted this Agreement through its account on the platform, per the acceptance record referred to below"
+
+  # VERSION AND DATE ARE NOT DECORATION. Acceptance is recorded against the version in force, so a
+  # bump makes every prior acceptance stale automatically and the gate asks again. Change the text
+  # without changing the version and every shop is bound to a document it never saw.
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""          # يُملأ يوم الإصدار الفعلي، لا قبله
+
+# ── الملحق (أ) — تفاصيل المعالجة ─────────────────────────────────────────────────────────────
+annex_a:
+  purpose:
+    ar: >-
+      تشغيل منصة راجِع للمنشأة: تسجيل زيارات عملائها، وجدولة رسائل المتابعة والتذكير وإرسالها عبر
+      واتساب باسم المنشأة، وإدارة برنامج الولاء ونقاطه، واحتساب مؤشرات أداء المنشأة وتقاريرها،
+      وتنفيذ الحملات التسويقية التي تُطلقها المنشأة بنفسها، وصفحة العميل التي يدير منها موافقته
+      ويطلب حذف بياناته.
+    en: >-
+      Operating the Raje3 platform for the Establishment: recording its customers' visits;
+      scheduling and sending follow-up and reminder messages over WhatsApp in the Establishment's
+      name; running its loyalty programme and points; computing its performance indicators and
+      reports; executing marketing campaigns the Establishment itself launches; and the customer
+      page on which a customer manages consent and requests erasure.
+  categories:
+    ar: >-
+      رقم جوال العميل واسمه إن سجّله الموظف، وسجلّ زياراته والخدمات المؤداة وتواريخها، ورصيد نقاطه
+      واستبدالاته، وحالة موافقته على الرسائل التسويقية. وفي قطاعات السيارات وحدها: رقم اللوحة
+      وبيانات المركبة وقراءة العدّاد. ولا تُعالَج أي بيانات شخصية حسّاسة.
+    en: >-
+      The customer's mobile number and his name where the operator recorded one; his visit history,
+      the services performed and their dates; his loyalty balance and redemptions; and his marketing
+      consent state. In vehicle sectors only: the plate, vehicle details and odometer reading. No
+      sensitive personal data is processed.
+  data_subjects:
+    ar: عملاء المنشأة، وموظفوها الذين يُنشئون حسابات تشغيل على المنصة.
+    en: The Establishment's customers, and its employees who hold operating accounts on the platform.
+  duration:
+    # THE CLAUSE THAT RECONCILES THIS AGREEMENT WITH §14.5 OF THE SPECIFICATION, and it is here
+    # rather than in our policy for a reason.
+    #
+    # Article 18 has the processor return or destroy the data when processing ends. Our retention
+    # keeps a departed establishment's data for two years — because deleting a shop's history is
+    # exactly what a competitor needs in order to take it, and a shop that finds its data waiting
+    # comes back. Left unsaid, those two are in direct conflict and we would be in breach of our
+    # own agreement.
+    #
+    # Said HERE, they are not in conflict at all: the grace period becomes part of the duration the
+    # CONTROLLER instructed, which is precisely what Annex A is for (Art. 17-1-c). We are not
+    # keeping data on our own initiative; we are holding it for the period the Establishment
+    # agreed, and it may end that period at any time by instructing deletion — which the
+    # Establishment can do from its own console, immediately, without asking us.
+    ar: >-
+      طوال سريان اشتراك المنشأة في المنصة، ثم مدّة سماح لا تتجاوز سنتين بعد انتهائه يُحتفظ فيها
+      بالبيانات لتمكين المنشأة من استئناف عملها أو استخراج بياناتها. وللمنشأة أن تُنهي هذه المدّة
+      في أي وقت بتعليمة حذف تصدرها من لوحتها، فتُتلَف البيانات فور تنفيذها. وتُتلَف البيانات
+      تلقائياً بانقضاء مدّة السماح دون إرجاع. ويحقّ لعميل المنشأة في كل وقت طلب حذف بياناته مباشرةً
+      من صفحته، ويُنفَّذ فوراً وتُخطَر به المنشأة.
+    en: >-
+      For the term of the Establishment's subscription, followed by a grace period of no more than
+      two years during which the data is retained so the Establishment may resume operations or
+      export its data. The Establishment may end that period at any time by issuing a deletion
+      instruction from its console, upon which the data is destroyed. At the end of the grace period
+      the data is destroyed automatically without further notice. A customer of the Establishment
+      may at any time request erasure of his own data directly from his page; it is carried out
+      immediately and the Establishment is notified.
+
+# ── الملحق (ج) — المعالِجون الفرعيون ─────────────────────────────────────────────────────────
+#
+# NAMED, NOT SUMMARISED. Article 17-5-c requires the controller's PRIOR acceptance of a
+# sub-processor — it must be told before we engage one and be able to object. That is only possible
+# against a list with names on it, and this document is where the list lives. Accepting this
+# agreement before subscribing IS that prior acceptance.
+#
+# AND THE FOREIGN-REGULATION LINE IS STATED RATHER THAN OMITTED (Art. 17-1-e). Meta is subject to
+# the laws of the United States and Ireland. Saying so is a disclosure requirement; not saying so
+# is the failure. It cannot be avoided by choosing a different provider either — WhatsApp is Meta.
+annex_c:
+  - name:
+      ar: "Meta Platforms Ireland Ltd. — واتساب"
+      en: "Meta Platforms Ireland Ltd. — WhatsApp"
+    purpose:
+      ar: >-
+        تسليم رسائل واتساب التي تُرسلها المنصة باسم المنشأة إلى عملائها. ويُلاحظ أن المنشأة تتعاقد
+        مع Meta مباشرة وتُحاسَب منها على الرسائل.
+      en: >-
+        Delivery of the WhatsApp messages the platform sends in the Establishment's name to its
+        customers. The Establishment contracts with Meta directly and is billed by Meta for them.
+    location:
+      ar: "خارج المملكة — أيرلندا والولايات المتحدة، وتخضع لأنظمتهما"
+      en: "Outside the Kingdom — Ireland and the United States, and subject to their regulations"
+  - name:
+      ar: "مزوّد البنية السحابية داخل المملكة"
+      en: "Cloud infrastructure provider inside the Kingdom"
+    purpose:
+      ar: استضافة قواعد البيانات والتطبيقات وتشغيلها.
+      en: Hosting and operating the databases and applications.
+    location:
+      ar: "داخل المملكة العربية السعودية"
+      en: "Inside the Kingdom of Saudi Arabia"
+
+  # WHAT MAKES THE REFERENCE ABOVE ENFORCEABLE. Without this clause the reader is left to guess how
+  # a nameless party is identified; with it, the method is part of the agreement itself.
+  parties:
+    ar: >-
+      تُبرَم هذه الاتفاقية بين المعالِج المسمّى أعلاه وبين المنشأة التي قبِلتها عبر حسابها على
+      المنصة. ويقوم سجلّ القبول لدى المعالِج مقام التوقيع، ويتضمّن مُعرِّف المنشأة وهوية من قبِل
+      نيابةً عنها وتاريخ القبول وساعته ورقم نسخة الاتفاقية المقبولة. ويُتاح هذا السجلّ للمنشأة عند
+      طلبها. وكل تعديل جوهري يصدر برقم نسخة جديد ويستوجب قبولاً جديداً، ولا يسري القبول السابق
+      عليه.
+    en: >-
+      This Agreement is made between the Processor named above and the Establishment that accepted
+      it through its account on the platform. The Processor's acceptance record stands in place of
+      signature and contains the Establishment's identifier, the identity of the person who accepted
+      on its behalf, the date and time of acceptance, and the version number accepted. That record
+      is made available to the Establishment on request. Any material amendment is issued under a
+      new version number and requires fresh acceptance; a prior acceptance does not carry over to
+      it.
+
+# ── ثلاثة مواضع نضيّق فيها بنداً مفتوحاً ──────────────────────────────────────────────────────
+# The pack leaves these open because a template must. Left open in a SIGNED agreement they are
+# obligations without a shape, and the first dispute is about what the shape was.
+amendments:
+  # Article 17-3 gives the controller the right to assess our compliance and to appoint an
+  # independent third party to do it. That right is statutory and we do not attempt to remove it —
+  # a clause purporting to waive it would simply be void and would signal exactly the wrong thing.
+  # What we set is its shape. And the last limb is not a reservation in our favour: it is an
+  # obligation we owe every OTHER establishment on this platform, which is why it cannot be waived
+  # by the one doing the auditing.
+  assessment:
+    ar: >-
+      لجهة التحكم تقييم التزام المعالِج مرةً كل اثني عشر شهراً، بإشعار كتابي مسبق لا يقل عن ثلاثين
+      يوماً، وعلى نفقتها، في أوقات العمل الرسمية وبما لا يعطّل التشغيل. ولها تعيين طرف ثالث مستقل
+      لا يكون منافساً للمعالِج ويلتزم بالسرّية. ولا يشمل التقييم في أي حال الاطّلاع على بيانات أي
+      منشأة أخرى أو على أسرار المعالِج التجارية، ولا يُعدّ هذا القيد تنازلاً من جهة التحكم بل
+      التزاماً على المعالِج تجاه غيرها. وتتحمّل جهة التحكم تكلفة أي تقييم إضافي تطلبه في السنة
+      نفسها ما لم يكشف التقييم السابق مخالفةً جوهرية، فتكون على المعالِج.
+    en: >-
+      The Controller may assess the Processor's compliance once every twelve months, on no less
+      than thirty days' prior written notice, at its own cost, during business hours and without
+      disrupting operations. It may appoint an independent third party that is not a competitor of
+      the Processor and is bound by confidentiality. No assessment extends to the data of any other
+      establishment or to the Processor's trade secrets; that limit is not a waiver by the
+      Controller but an obligation the Processor owes to others. Any further assessment in the same
+      year is at the Controller's cost, unless a prior assessment revealed a material breach, in
+      which case it is at the Processor's.
+  # Art. 17-1-d requires notification of a breach without undue delay. "Without undue delay" is the
+  # statutory phrase and we keep it — but an unquantified phrase is useless to a controller who has
+  # 72 hours of its own to work with, so we state the outer bound we hold ourselves to.
+  breach_notice:
+    ar: >-
+      يُشعِر المعالِج جهة التحكم بأي انتهاك للبيانات الشخصية دون تأخير غير مبرر، وفي كل الأحوال
+      خلال اثنتين وسبعين ساعة من علمه به، بما يشمل وصف الانتهاك وفئات البيانات وأعداد أصحاب
+      البيانات المتأثرين قدر المستطاع، والتدابير المتخذة للاحتواء، وجهة الاتصال لدى المعالِج —
+      بالقدر المتاح وقت الإشعار، ويُستكمل تباعاً دون انتظار اكتمال التحقيق.
+    en: >-
+      The Processor notifies the Controller of any Personal Data Breach without undue delay and in
+      any event within seventy-two hours of becoming aware of it, including a description of the
+      breach, the categories of data and, so far as possible, the number of Data Subjects affected;
+      the containment measures taken; and the Processor's contact point — to the extent available at
+      the time, supplemented as more is known, without waiting for the investigation to conclude.
+  # Article 29 and the Transfer Regulation. Our data is hosted inside the Kingdom (§14.1), but
+  # SENDING A WHATSAPP MESSAGE IS A DISCLOSURE OUTSIDE IT — the recipient's number and the message
+  # leave the Kingdom to reach Meta. That cannot be engineered away while the product is WhatsApp,
+  # and it must not be passed over in silence. So it is stated as what it actually is: a transfer
+  # made on the Controller's instruction, because the Controller chose the channel.
+  cross_border:
+    ar: >-
+      تُستضاف البيانات الشخصية وتُعالَج داخل المملكة العربية السعودية. ويقرّ الطرفان بأن إرسال رسالة
+      عبر واتساب — وهي القناة التي اختارتها جهة التحكم وطلبت التشغيل عليها — يستلزم بالضرورة إتاحة
+      رقم المستقبِل ونص الرسالة لـ Meta خارج المملكة. ويتم هذا النقل بتعليمة جهة التحكم ولغرض
+      الملحق (أ) وحده، ولا ينقل المعالِج البيانات خارج المملكة لأي غرض آخر.
+    en: >-
+      Personal Data is hosted and processed inside the Kingdom of Saudi Arabia. The parties
+      acknowledge that sending a message over WhatsApp — the channel the Controller chose and
+      instructed operation on — necessarily makes the recipient's number and the message content
+      available to Meta outside the Kingdom. That transfer is made on the Controller's instruction
+      and for the purpose in Annex A alone; the Processor transfers no data outside the Kingdom for
+      any other purpose.

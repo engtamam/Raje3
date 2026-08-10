@@ -1,0 +1,263 @@
+# تقييم أثر حماية البيانات — للمعالجة الجوهرية في المنصة.
+#
+# THE FIRST QUESTION IS WHETHER WE NEED ONE AT ALL, and the honest answer is yes.
+#
+# The template lists eight triggers. It would be easy to tick none of them — nothing here is
+# sensitive data, no minors are targeted, the technology is ordinary. That reading would be
+# comfortable and wrong, because three of the eight fit this product exactly:
+#
+#   CONTINUOUS OBSERVATION. The engine's entire job is to watch when a person stops coming. It
+#   computes, for every customer, how long since he was last seen and whether he is drifting away.
+#   That is sustained observation of an individual's behaviour, however benign the motive — and the
+#   trigger is written about the nature of the processing, not about its intent.
+#
+#   DECISIONS TAKEN BY AUTOMATED PROCESSING. Nobody chooses who receives a message. The system
+#   decides, from a person's own behaviour, that he should be contacted and when. It carries no
+#   legal effect, which is why the privacy policy can say what it says — but it is still an
+#   automated decision about an identified individual, and pretending otherwise here would
+#   contradict our own description of the product.
+#
+#   A PRODUCT WHOSE PROCESSING COULD SERIOUSLY HARM PRIVACY IF IT WENT WRONG. Not because of what
+#   it does, but because of what it holds: the mobile number and the visit history of a large
+#   population, and one service that holds numbers in the clear by design.
+#
+# A DPIA WHEN IT IS ARGUABLE COSTS A DAY. Skipping one and being wrong costs the argument that we
+# assessed anything at all — and it is the first document a regulator asks for after an incident.
+#
+# THE THREE THAT DO NOT APPLY ARE STATED TOO, because a checklist with only ticks looks like one
+# nobody read.
+
+values:
+  COMPANY_NAME: ""
+  DPO_EMAIL: ""
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""
+
+triggers:
+  applies:
+    - ar: "معالجة تتطلب بطبيعتها مراقبة مستمرة لأصحاب البيانات — المحرّك يقيس غياب كل عميل باستمرار."
+      en: "Processing that by its nature requires continuous monitoring of data subjects — the engine continuously measures each customer's absence."
+    - ar: "اتخاذ قرارات بناءً على المعالجة الآلية — النظام يقرّر من تصله رسالة ومتى، من سلوكه هو."
+      en: "Decisions taken on the basis of automated processing — the system decides who is messaged and when, from his own behaviour."
+    - ar: "خدمة قد تنطوي معالجتها على ضرر جسيم بالخصوصية إن أُسيء استخدامها أو تسرّبت — أرقام وسجلّ زيارات لعدد كبير من الأفراد."
+      en: "A service whose processing could seriously harm privacy if misused or leaked — the numbers and visit histories of a large number of individuals."
+  does_not_apply:
+    - ar: "لا تُعالَج بيانات حسّاسة — لا صحية ولا عقائدية ولا بيومترية ولا مالية للأفراد."
+      en: "No sensitive data is processed — no health, belief, biometric or individual financial data."
+    - ar: "لا تُستهدف بيانات ناقصي الأهلية ولا تُعالَج على نطاق واسع؛ والعميل المسجَّل هو من قدّم رقمه بنفسه."
+      en: "Data of persons lacking legal capacity is neither targeted nor processed at scale; the registered customer is the person who gave his own number."
+    - ar: "لا تُستخدم تقنيات حديثة الاستخدام؛ البنية ويب وقاعدة بيانات تقليدية."
+      en: "No newly-adopted technologies are used; the architecture is an ordinary web stack and database."
+
+assessment:
+  activity: { ar: "محرّك الإرجاع والمؤشرات — DPIA-01", en: "The return engine and indicators — DPIA-01" }
+  owner: { ar: "مسؤول حماية البيانات، بمشاركة التشغيل والهندسة", en: "The Data Protection Officer, with Operations and Engineering" }
+  purpose_and_basis:
+    ar: >-
+      الغرض: تمكين المنشأة من متابعة عملائها وإعادة الغائب منهم برسالة في وقتها، واحتساب مؤشرات
+      أدائها. والأساس: تعليمات جهة التحكم (المنشأة) وفق الملحق (أ) من اتفاقية المعالجة؛ وأساس
+      الجمع نفسه تملكه المنشأة، وأساس الرسالة التسويقية موافقة العميل الصريحة.
+    en: >-
+      Purpose: enabling the establishment to follow up with its customers, bring back those who have
+      drifted away with a timely message, and compute its performance indicators. Basis: the
+      controller's (the establishment's) instructions under Annex A of the processing agreement; the
+      basis for the collection itself rests with the establishment, and the basis for a marketing
+      message is the customer's express consent.
+  data_details:
+    ar: >-
+      رقم الجوال (صريحاً في خدمة العمليات وحدها، ومُستعاراً في كل ما عداها)، والاسم إن سُجِّل،
+      وسجلّ الزيارات والخدمات وتواريخها، وحالة الموافقة، ورصيد النقاط. المصدر: إدخال موظف المنشأة
+      عند الزيارة. المستقبِلون: Meta لتسليم الرسالة، ولا أحد غيره.
+    en: >-
+      The mobile number (in the clear in the operations service alone, pseudonymous everywhere
+      else), the name where recorded, the visit and service history with dates, the consent state
+      and the points balance. Source: entry by the establishment's operator at the visit.
+      Recipients: Meta to deliver the message, and nobody else.
+  scope:
+    ar: >-
+      كل عميل تسجّل له المنشأة زيارة، وهو ما يجعل النطاق واسعاً بطبيعته لدى المحلات النشطة. النطاق
+      الجغرافي: المملكة العربية السعودية؛ والتخزين داخلها، ويخرج منها ما يلزم تسليم الرسالة فقط.
+    en: >-
+      Every customer for whom the establishment records a visit, which makes the scope inherently
+      broad at an active shop. Geographic scope: the Kingdom of Saudi Arabia; storage is inside it,
+      and only what delivering the message requires leaves it.
+  context:
+    ar: >-
+      العميل لا تربطه بنا علاقة مباشرة ولا يعرفنا؛ علاقته بالمحل، والرسالة تصله باسم المحل. وهذا
+      هو أهم عنصر في السياق كلّه: توقّعه المشروع أن المحل يتواصل معه، لا أن طرفاً ثالثاً يحفظ
+      سجلّه. ولذلك تحمل كل رسالة اسم المحل، ولذلك صفحة العميل تُظهر له من يحتفظ ببياناته.
+    en: >-
+      The customer has no direct relationship with us and does not know us; his relationship is with
+      the shop, and the message reaches him in the shop's name. That is the single most important
+      element of the context: his reasonable expectation is that the shop is contacting him, not
+      that a third party holds his record. Hence every message carries the shop's name, and hence
+      the customer page shows him who holds his data.
+  necessity:
+    ar: >-
+      لا يمكن تحقيق الغرض بأقل من رقم الجوال وسجلّ الزيارات: الرقم هو قناة الوصول والمُعرِّف معاً،
+      والتاريخ هو ما يحدّد وقت الرسالة. والاسم اختياري ولا تتوقف عليه الخدمة. ولا يُجمع تاريخ ميلاد
+      ولا هوية ولا موقع جغرافي ولا أي حقل لا يخدم الغرض مباشرةً. ويُستبدل الرقم بمعرّف مستعار في كل
+      خدمة لا يلزمها الرقم نفسه — وهي كل الخدمات عدا واحدة.
+    en: >-
+      The purpose cannot be achieved with less than the mobile number and the visit history: the
+      number is both the channel and the identifier, and the dates are what determine the timing.
+      The name is optional and the service does not depend on it. No date of birth, national ID,
+      geolocation or any field not directly serving the purpose is collected. The number is replaced
+      by a pseudonym in every service that does not need the number itself — which is all of them
+      but one.
+  next_review:
+    ar: "يُعاد التقييم سنوياً، وعند أي تغيير جوهري في الغرض أو القناة أو المعالِجين الفرعيين، وبعد أي حادث."
+    en: "Reviewed annually, on any material change to the purpose, the channel or the sub-processors, and after any incident."
+
+# ── الأخطار على الأفراد ──────────────────────────────────────────────────────────────────────
+#
+# A RISK REGISTER IS ONLY WORTH READING IF IT CONTAINS THE ONE THAT WOULD ACTUALLY HAPPEN. Generic
+# entries ("unauthorised access") are what make these documents ignored. R1 below is specific to
+# this product in this country, and it is the one we would be asked about.
+risks:
+  - id: R1
+    risk:
+      # THE RISK NOBODY LISTS AND EVERYONE MEETS. Mobile numbers in Saudi Arabia are recycled: a
+      # number disconnected long enough is reassigned to a different person. Our record does not
+      # know that. A reminder addressed to the previous holder then reaches a stranger — and it
+      # tells him, by name, which shop the previous holder frequents. The harm is small per event
+      # and certain at scale, which is exactly the profile that gets missed.
+      ar: >-
+        وصول رسالة إلى شخص غير المقصود بسبب إعادة تدوير رقم الجوال أو خطأ رقم عند الإدخال — فيَعلم
+        غريبٌ باسم المحل الذي كان يتردّد عليه صاحب الرقم السابق.
+      en: >-
+        A message reaching the wrong person because the mobile number was recycled or mistyped at
+        entry — disclosing to a stranger the name of the shop the previous holder frequented.
+    likelihood: { ar: "مرتفع على المدى الطويل — إعادة التدوير أمر واقع لا احتمال", en: "High over time — recycling is a fact, not a possibility" }
+    # RAISED AFTER CHECKING THE TEMPLATE LIBRARY RATHER THAN ASSUMING IT. The messages name both
+    # the shop AND the service — "حان وقت تغيير الزيت لدى ..." — so a misdirected message discloses
+    # more than the relationship: it discloses what was done. The first draft of this row said the
+    # content named no service, which the library disproves in its first four templates.
+    severity: { ar: "متوسطة — يُفصح للغريب عن المحل والخدمة معاً، ويزداد بحسب نوع النشاط", en: "Medium — it discloses to a stranger both the shop and the service, and more for some trades" }
+    mitigation:
+      ar: >-
+        الرسالة تحمل اسم المحل والخدمة، ولا سبيل إلى إخفائهما: بدونهما لا يفهم العميل المقصود
+        رسالةً هي أصلاً من أجله. فالتخفيف ينصبّ على تقصير عمر الخطأ لا على إخفاء محتواه: لا مبالغ
+        ولا تفاصيل تتجاوز اسم الخدمة؛ ورابط إيقاف في كل رسالة تسويقية يعمل بنقرة واحدة بلا تسجيل
+        دخول؛ وتوقّف الإرسال نهائياً عند أول سحب موافقة؛ وحذف تلقائي لمن انقطع مدّة طويلة (سياسة
+        الاحتفاظ) فتقلّ فرصة مخاطبة رقم أُعيد تدويره؛ ومعالجة كل شكوى «ليست لي» بالحذف الفوري لا
+        بالتحقق المطوّل.
+      en: >-
+        The message carries the shop's name and the service, and neither can be hidden: without them
+        the intended customer cannot understand a message that exists for his benefit. Mitigation
+        therefore aims at shortening the error's life rather than concealing its content: no amounts
+        and no detail beyond the service name; a one-tap unsubscribe link in every marketing message
+        requiring no sign-in; sending stops permanently at the first withdrawal; automatic deletion
+        of long-absent customers (the retention policy), which shrinks the window for messaging a
+        recycled number; and every "this isn't me" complaint answered by immediate deletion rather
+        than by lengthy verification.
+    residual: { ar: "متوسطة-منخفضة — لا يمكن إزالته ما دام الرقم هو المُعرِّف", en: "Medium-low — it cannot be eliminated while the number is the identifier" }
+
+  - id: R2
+    risk:
+      ar: "تسرّب مخزن الأرقام الصريحة في خدمة العمليات — وهي الخدمة الوحيدة التي تحمل الرقم كذلك."
+      en: "A leak of the clear-number store in the operations service — the only service holding the number in that form."
+    likelihood: { ar: "منخفض", en: "Low" }
+    severity: { ar: "عالية — أرقام وسجلّ زيارات لعدد كبير", en: "High — numbers and visit histories at volume" }
+    mitigation:
+      ar: >-
+        حصر الصراحة في خدمة واحدة لسبب تقني معلن (البحث ببادئة الرقم في شاشة الميدان)، ومعرّف
+        مستعار لدى كل خدمة أخرى فلا يتضاعف الانكشاف؛ وتشفير النقل والتخزين؛ وعزل بين المنشآت مطبَّق
+        في طبقة التخزين؛ وحظر خروج هذه الخدمة إلى الإنترنت أصلاً؛ وسجلّ تدقيقي لكل اطّلاع؛ وفحص
+        أمني آلي يمنع نشر تغيير يخالف ذلك.
+      en: >-
+        The clear form is confined to one service for a stated technical reason (prefix search on the
+        field screen), with a pseudonym in every other service so exposure does not multiply;
+        encryption in transit and at rest; isolation between establishments enforced in the storage
+        layer; that service is denied egress to the internet at all; an audit entry on every access;
+        and an automated check that blocks releasing a change violating this.
+    residual: { ar: "منخفضة", en: "Low" }
+
+  - id: R3
+    risk:
+      ar: "اطّلاع منشأة على بيانات عملاء منشأة أخرى."
+      en: "One establishment seeing another establishment's customers."
+    likelihood: { ar: "منخفض جداً", en: "Very low" }
+    severity: { ar: "عالية جداً — انهيار الفصل الذي تقوم عليه المنصة كلها", en: "Very high — collapse of the separation the whole platform rests on" }
+    mitigation:
+      ar: >-
+        العزل مفروض عند المخزن لا في المعالج، فلا يكفي خطأ في واجهة واحدة لكسره؛ ومُعرِّف المنشأة
+        يُؤخذ من الرمز الموثَّق لا من جسم الطلب أبداً؛ وفحوص آلية ترفض أي مسار يقرأ دون تحديد
+        المنشأة؛ والرد على مُعرِّف من منشأة أخرى «غير موجود» لا «ممنوع» حتى لا يصير الرد كاشفاً.
+      en: >-
+        Isolation is enforced at the store rather than in the handler, so a single interface mistake
+        does not break it; the establishment identifier is taken from the verified token and never
+        from the request body; automated checks reject any path that reads without scoping to an
+        establishment; and an identifier belonging to another establishment answers "not found"
+        rather than "forbidden", so the answer itself reveals nothing.
+    residual: { ar: "منخفضة جداً", en: "Very low" }
+
+  - id: R4
+    risk:
+      ar: "إزعاج العميل برسائل لا يريدها، أو استمرار الإرسال بعد سحب موافقته."
+      en: "Bothering the customer with messages he does not want, or continuing to send after he withdraws consent."
+    likelihood: { ar: "متوسط", en: "Medium" }
+    severity: { ar: "منخفضة-متوسطة، وترتفع بالتكرار", en: "Low-medium, rising with repetition" }
+    mitigation:
+      ar: >-
+        الموافقة ثلاث حالات لا اثنتان، فالمجهول ليس موافقة؛ والرسالة التسويقية لا تُرسل إلا
+        بموافقة صريحة، أما رسالة الخدمة (تأكيد أو تذكير بموعد) فطبيعتها مختلفة وتُميَّز عنها؛
+        وسحب الموافقة يوقف الإرسال فوراً وبلا مراجعة؛ وسقف يومي يمنع الإغراق؛ وسياسة تأجيل لكل
+        قالب تمنع وصول رسالة في وقتٍ يجعلها غريبة.
+      en: >-
+        Consent has three states rather than two, so unknown is not consent; a marketing message is
+        sent only on express consent, while a service message (a confirmation, an appointment
+        reminder) is of a different nature and kept distinct from it; withdrawal stops sending
+        immediately and without review; a daily ceiling prevents flooding; and a per-template
+        deferral policy stops a message arriving at a time that would make it strange.
+    residual: { ar: "منخفضة", en: "Low" }
+
+  - id: R5
+    risk:
+      ar: "انكشاف رقم العميل ونص الرسالة لدى Meta خارج المملكة."
+      en: "Exposure of the customer's number and message content to Meta outside the Kingdom."
+    likelihood: { ar: "مؤكد — هو جوهر القناة نفسها لا عطل فيها", en: "Certain — it is inherent to the channel, not a failure of it" }
+    severity: { ar: "متوسطة", en: "Medium" }
+    mitigation:
+      ar: >-
+        لا يمكن تجنّبه مع الإبقاء على واتساب قناةً، فيُدار بدل أن يُنكَر: يُذكر صراحةً في الاتفاقية
+        والسجلّ والسياسة؛ ويجري بتعليمة المتحكّم الذي اختار القناة؛ ويقتصر المرسَل على ما يلزم
+        التسليم؛ ولا تُرسل بيانات إلى Meta لأي غرض آخر.
+      en: >-
+        It cannot be avoided while WhatsApp is the channel, so it is managed rather than denied: it
+        is stated plainly in the agreement, the record and the policy; it is made on the instruction
+        of the controller that chose the channel; only what delivery requires is sent; and no data
+        goes to Meta for any other purpose.
+    residual: { ar: "متوسطة — مقبولة بقرار معلن لا بإغفال", en: "Medium — accepted by a stated decision rather than by omission" }
+
+  - id: R6
+    risk:
+      # THE ONE THAT REVERSES A DELETION SILENTLY, and it belongs in a DPIA because a data subject
+      # told "your data is erased" has no way to discover otherwise.
+      ar: "عودة بيانات نُفِّذ حذفها من نسخة احتياطية، فيَبطل الحذف بصمت."
+      en: "Data whose deletion was executed returning from a backup, silently undoing the erasure."
+    likelihood: { ar: "منخفض — لا يقع إلا مع استعادة", en: "Low — it can only occur with a restore" }
+    severity: { ar: "عالية — لأن صاحب البيانات أُبلغ بالحذف ولا وسيلة لديه لاكتشاف خلافه", en: "High — because the data subject was told it was erased and has no way to discover otherwise" }
+    mitigation:
+      ar: >-
+        النسخ محدودة المدّة وتُتلَف؛ ولا تُستعمل نسخة لإحياء بيانات محذوفة؛ ويُعاد تنفيذ الحذف على
+        أي بيانات تعود من استعادة؛ وسجلّ التدقيق يحفظ ما نُفِّذ فيبقى الأثر قابلاً لإعادة التطبيق.
+      en: >-
+        Backups are time-limited and destroyed; a backup is never used to revive deleted data; the
+        deletion is re-applied to anything returning from a restore; and the audit log preserves what
+        was executed, so the record remains re-appliable.
+    residual: { ar: "منخفضة", en: "Low" }
+
+conclusion:
+  ar: >-
+    المخاطر المتبقية مقبولة ولا يبلغ أيٌّ منها حدّ الخطورة المرتفعة التي تستوجب الرجوع إلى الجهة
+    المختصة قبل المعالجة. والخطران اللذان لا يمكن إزالتهما — إعادة تدوير الأرقام، وانكشاف الرسالة
+    لدى مزوّد القناة — مُدارَان بتدابير معلنة ومكتوبة، ومقبولان بقرار صريح لا بإغفال. ويُعاد هذا
+    التقييم سنوياً وعند أي تغيير جوهري وبعد أي حادث. وتُتاح نسخة منه لجهة التحكم عند طلبها.
+  en: >-
+    The residual risks are acceptable and none reaches the level of high risk requiring consultation
+    with the competent authority before processing. The two that cannot be eliminated — number
+    recycling, and exposure of the message at the channel provider — are managed by stated, written
+    measures and accepted by an explicit decision rather than by omission. This assessment is
+    reviewed annually, on any material change, and after any incident. A copy is made available to
+    the controller on request.

@@ -1,0 +1,125 @@
+# سياسة ملفات الارتباط والتخزين على الجهاز.
+#
+# THE SHORTEST DOCUMENT IN THE PACK, AND THE EASIEST ONE TO PUBLISH DISHONESTLY.
+#
+# The template ships four categories — necessary, functional, analytics, marketing — with blanks for
+# the tool names. The path of least effort is to fill in an analytics tool and an advertising tool
+# because everyone has them, and to leave a consent banner asking permission for both.
+#
+# WE HAVE NEITHER, SO TWO OF THE FOUR ROWS ARE DELETED. That is not a boast; it is the only accurate
+# answer, and this is the document where inaccuracy is most easily proved: anyone can open the
+# developer tools and count what the site actually sets. A cookie policy that lists trackers the
+# site does not set is caught in a minute, and it makes every other claim in every other document
+# look like the same kind of writing.
+#
+# AND WE STATE WHAT IS NOT A COOKIE BUT BEHAVES LIKE ONE. The field app writes an unsent visit to
+# the browser's local storage so a lost network cannot lose a customer's visit. It is not a cookie,
+# it is not sent to any server by itself, and it holds an establishment's data rather than the
+# device owner's — but it IS storage on a device, which is what the rules here are about. Omitting
+# it because it escapes the word "cookie" is exactly the reasoning these policies exist to prevent.
+
+values:
+  COMPANY_NAME: ""
+  COMPANY_WEBSITE: "raje3.sa"
+  PRIVACY_EMAIL: ""
+  DPO_EMAIL: ""
+  # WHERE THE READER CHANGES HIS MIND. A policy that describes a preferences screen without linking
+  # to it is describing something the reader cannot reach — and "manage your preferences" with no
+  # destination is the most common empty promise in this whole family of documents.
+  PREFERENCE_LINK: "raje3.sa/cookies"
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""
+
+# ── الفئات: اثنتان لا أربع ───────────────────────────────────────────────────────────────────
+categories:
+  - name: { ar: "ضرورية", en: "Strictly necessary" }
+    purpose:
+      ar: >-
+        إبقاء جلستك مفتوحة بعد تسجيل الدخول، وحماية الحساب من إساءة الاستخدام، وتذكّر لغة العرض.
+        وبدونها لا تعمل المنصة: كل صفحة ستطلب منك الدخول من جديد.
+      en: >-
+        Keeping your session open after sign-in, protecting the account from abuse, and remembering
+        the display language. Without them the platform does not work: every page would ask you to
+        sign in again.
+    consent: { ar: "غير مطلوبة — لا يمكن تقديم الخدمة بدونها", en: "Not required — the service cannot be provided without them" }
+    retention:
+      ar: "الجلسة، وتنتهي بخروجك أو بانتهاء مدّتها؛ وتفضيل اللغة سنة واحدة."
+      en: "The session, ending when you sign out or when it expires; the language preference for one year."
+  - name: { ar: "وظيفية", en: "Functional" }
+    purpose:
+      ar: "تذكّر خيارات العرض التي تختارها بنفسك داخل لوحتك."
+      en: "Remembering the display choices you make yourself inside your console."
+    consent: { ar: "مطلوبة", en: "Required" }
+    retention: { ar: "سنة واحدة، أو حتى تمسحها من متصفحك.", en: "One year, or until you clear them from your browser." }
+
+# ── ما حُذف، ولماذا يُذكر حذفه ───────────────────────────────────────────────────────────────
+#
+# Stated rather than silently dropped. A reader comparing our policy with any other will notice two
+# familiar rows missing; the useful thing is to say why, once, plainly.
+removed:
+  - ar: >-
+      **تحليلية / أداء — لا نستخدمها.** لا أداة تحليل من طرف ثالث على المنصة ولا على الموقع. وما
+      نقيس به الأداء هو سجلاتنا الخاصة على خوادمنا، لا ملفات على جهازك.
+    en: >-
+      **Analytics / performance — we do not use them.** There is no third-party analytics tool on the
+      platform or the site. What we measure performance with is our own server-side logs, not files
+      on your device.
+  - ar: >-
+      **تسويقية / إعلانية — لا نستخدمها إطلاقاً.** لا نعرض إعلانات، ولا نبيع بياناتك ولا نتيحها
+      لأي معلن، ولا توجد على المنصة أي أداة تتبّع عبر المواقع. وهذا ليس وعداً بسلوك بل وصفٌ لما هو
+      قائم، ويمكنك التحقق منه بنفسك من أدوات المطوّر في متصفحك.
+    en: >-
+      **Marketing / advertising — we use none at all.** We display no advertising, sell your data to
+      nobody and make it available to no advertiser, and there is no cross-site tracking tool on the
+      platform. That is not a promise about behaviour but a description of what is there, and you can
+      verify it yourself from your browser's developer tools.
+
+additions:
+  # ── التخزين المحلي في شاشة الميدان ─────────────────────────────────────────────────────────
+  #
+  # THE ROW THAT WOULD HAVE BEEN LEFT OUT. It is not a cookie, so the template does not ask about it
+  # — and the rules are about storing on a device, not about the file format. Leaving it unstated
+  # would have been a technically defensible omission and a bad one.
+  local_storage:
+    ar: >-
+      تستخدم شاشة الإدخال الميداني «التخزين المحلي» في المتصفح لغرض واحد: حفظ الزيارة التي سجّلها
+      الموظف قبل إرسالها، حتى لا تضيع إن انقطعت الشبكة — وهو ما يحدث كثيراً في ورشة أو محل. وهي
+      ليست ملف ارتباط ولا تُرسَل تلقائياً إلى أي خادم، وتُمحى بمجرد وصول الزيارة إلينا. والبيانات
+      فيها بيانات المنشأة عن زيارة عميلها، لا بيانات عن مالك الجهاز.
+    en: >-
+      The field-entry screen uses the browser's local storage for one purpose: holding a visit the
+      operator has recorded before it is sent, so it is not lost if the network drops — which happens
+      often in a workshop or a shop. It is not a cookie, is not sent automatically to any server, and
+      is cleared the moment the visit reaches us. What it holds is the establishment's data about its
+      customer's visit, not data about the device's owner.
+
+  # ── الموافقة: تُطلب لما يحتاجها فقط ────────────────────────────────────────────────────────
+  #
+  # Since only one category needs consent, the banner does not need to be a wall. Saying so protects
+  # the reader from the pattern everyone hates, and protects us from the accusation that a
+  # take-it-or-leave-it banner was our idea of a choice.
+  consent_mechanism:
+    ar: >-
+      لأن الفئة الوحيدة التي تحتاج موافقتك هي الوظيفية، فلا نضع حاجزاً يمنعك من تصفّح الموقع حتى
+      توافق. تُطلب الموافقة مرة، ورفضها لا يعطّل شيئاً جوهرياً، ويمكنك تغييرها في أي وقت من
+      {{PREFERENCE_LINK}} — وسحبها بالسهولة نفسها التي مُنحت بها. ولا نعدّ التصفّح المستمر موافقة
+      ضمنية.
+    en: >-
+      Because the only category needing your consent is the functional one, we place no wall between
+      you and the site until you agree. Consent is asked once, refusing it disables nothing
+      essential, and you may change it at any time at {{PREFERENCE_LINK}} — withdrawing it as easily
+      as it was given. We do not treat continued browsing as implied consent.
+
+  # ── ملفات الغير والنقل ─────────────────────────────────────────────────────────────────────
+  #
+  # The template has a section for third-party cookies and cross-border transfer. Ours is empty, and
+  # an empty section reads as an oversight — so it is answered instead of left blank.
+  third_party:
+    ar: >-
+      لا يضع أي طرف ثالث ملفات ارتباط على موقعنا أو منصتنا، فلا يوجد نقل لبياناتك خارج المملكة عبر
+      هذه الملفات. أما ما يخرج من المملكة فهو تسليم رسالة واتساب وحده، وهو موصوف في سياسة الخصوصية
+      ولا علاقة له بملفات الارتباط.
+    en: >-
+      No third party sets cookies on our site or platform, so there is no cross-border transfer of
+      your data through them. What does leave the Kingdom is the delivery of a WhatsApp message
+      alone, described in the privacy policy and unrelated to cookies.

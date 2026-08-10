@@ -1,0 +1,137 @@
+# حقوق أصحاب البيانات — كيف يُمارَس الحق عندنا فعلاً، لا كيف يُوصَف.
+#
+# THE DOCUMENT IN THE PACK IS ALREADY WRITTEN — the rights, the articles, the thirty days, the
+# guardian, the verification discipline. It needs five values. What it CANNOT know is our shape,
+# and our shape changes the answer to the first question a data subject asks: who do I ask?
+#
+# BECAUSE THERE ARE TWO OF US. A customer's data is held by the ESTABLISHMENT as controller and by
+# us as its processor. The establishment answers for it. But the customer has never heard of us,
+# and the message that reached him carries the shop's name — so a request will arrive at whichever
+# door he finds, and "wrong door" is not an answer a regulator accepts. The additions below say
+# which door does what, and make sure no door is a dead end.
+#
+# AND ONE RIGHT IS ALREADY OURS TO EXECUTE DIRECTLY. Erasure is self-service from the customer's
+# own page (core/erasure.py) — the establishment is notified, not asked. That was a product
+# decision before it was a legal one, and it happens to be the strongest possible answer here: the
+# fastest request is the one nobody has to process.
+
+values:
+  COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
+  COMPANY_WEBSITE: "raje3.sa"
+  PRIVACY_EMAIL: ""           # بريد مخصّص لطلبات أصحاب البيانات، منفصل عن الدعم
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""
+
+additions:
+  # ── من يُسأل، ولماذا لا يوجد باب مسدود ─────────────────────────────────────────────────────
+  #
+  # This is the addition that matters most, and it is written from the data subject's side rather
+  # than from the org chart: he does not know the word "processor" and should not have to.
+  who_answers:
+    ar: >-
+      لبيانات عملاء المنشآت: المنشأة هي جهة التحكم وهي المسؤولة عن الرد على طلب عميلها، ونحن
+      معالِج ننفّذ تعليماتها. ومع ذلك، فأي طلب يصلنا مباشرةً من عميل منشأة لا يُردّ ولا يُحال إلى
+      مجهول: نؤكّد استلامه، ونحيله إلى المنشأة المعنية خلال يومَي عمل، ونُعلم صاحب الطلب بأننا
+      فعلنا وباسم المنشأة التي تحتفظ ببياناته — إلا حقّ الحذف، فننفّذه نحن مباشرةً وفوراً من صفحة
+      العميل ونُخطر المنشأة به. ولطلبات بياناتنا نحن — حساب المنشأة وفواتيرها وتذاكر دعمها —
+      فنحن جهة التحكم ونردّ عليها بأنفسنا.
+    en: >-
+      For an establishment's customers: the establishment is the controller and answers its own
+      customer's request; we are its processor and act on its instructions. Even so, a request that
+      reaches us directly from a customer is neither refused nor sent into the void: we acknowledge
+      it, forward it to the establishment concerned within two business days, and tell the requester
+      that we have done so and which establishment holds his data — except the right of erasure,
+      which we execute ourselves, immediately, from the customer's own page, notifying the
+      establishment. For requests about OUR data — the establishment's account, invoices and support
+      tickets — we are the controller and answer directly.
+
+  # ── التحقق من الهوية: الرقم نفسه هو الإثبات ────────────────────────────────────────────────
+  #
+  # The template warns twice about verification: ask for no more than necessary, and never let the
+  # step become a way to delay. Our product answers both by accident of design — the identifier IS
+  # the phone number, so proving control of the number IS the verification. No ID copy is collected,
+  # which means there is nothing to destroy afterwards and nothing to leak.
+  verification:
+    ar: >-
+      مُعرِّف العميل في المنصة هو رقم جواله. فالتحقق من هويته يتم بإثبات سيطرته على الرقم نفسه عبر
+      رمز تحقّق يُرسَل إليه، ولا نطلب صورة هوية ولا أي مستند إضافي. وهذا أقلّ ما يثبت الهوية وأسرعه
+      — ولا يُنتج مستنداً داعماً يحتاج إلى إتلاف لاحق. أما طلبات صاحب حساب المنشأة فيتحقق منها
+      بدخوله إلى حسابه.
+    en: >-
+      A customer's identifier on the platform is his mobile number. Verifying him therefore means
+      proving control of that same number by a code sent to it; we ask for no identity document and
+      no additional paperwork. That is the least that establishes identity and the fastest — and it
+      produces no supporting evidence needing later destruction. A request from an establishment's
+      account holder is verified by his signing in.
+
+  # ── الطلب الشفهي: يُقبَل، وعندنا يصل عبر المنشأة ───────────────────────────────────────────
+  #
+  # THE GAP THIS CLAUSE ADMITS RATHER THAN PAPERS OVER. The template accepts oral requests, and the
+  # likeliest oral request in this trade is a customer at the counter saying "take my number off
+  # your list" — to an operator, on our screen, with no field to record it. Our field app has no
+  # such control today. Two ways forward: build one, or state that the establishment records it. We
+  # state the second, because it is TRUE — the operator works for the establishment, which is the
+  # controller — and note the first as work, not as a footnote here.
+  oral_requests:
+    ar: >-
+      تُقبل الطلبات بأي وسيلة بما فيها الشفهية. والطلب الشفهي في المحل يُوجَّه إلى المنشأة بصفتها
+      جهة التحكم، وعليها توثيقه وتنفيذه — ولها في لوحتها ما يمكّنها من إيقاف الرسائل التسويقية عن
+      عميل أو حذف بياناته. وللعميل في كل حال أن يمارس حقّه بنفسه من صفحته دون وسيط.
+    en: >-
+      Requests are accepted by any means, including orally. An oral request made in the shop is
+      addressed to the establishment as controller, which documents and executes it — its console
+      provides the means to stop marketing messages to a customer or to erase his data. In every
+      case the customer may exercise the right himself, from his own page, without an intermediary.
+
+  # ── سجلّ الطلبات: قائم لا يُنشأ ────────────────────────────────────────────────────────────
+  #
+  # The template ships an empty three-row log to be filled by hand. A hand-kept log of automated
+  # events is a log that is behind by the time it is read; ours is written by the system that
+  # executes the request, which is also what makes it evidence rather than a claim.
+  request_log:
+    ar: >-
+      يُسجَّل كل طلب وتنفيذه آلياً في سجلّ التدقيق لحظة حدوثه — نوع الطلب، ومعرّف مستعار لصاحبه،
+      ووقته، وما نُفِّذ، وما أُبقي وأساس إبقائه. ولا يُمسك هذا السجلّ يدوياً، ولا يُمكن تعديله بأثر
+      رجعي، ويُتاح للمنشأة وللجهة المختصة عند الطلب.
+    en: >-
+      Every request and its execution is recorded automatically in the audit log at the moment it
+      happens — the request type, a pseudonymous identifier for the requester, the time, what was
+      executed, and what was retained with the basis for retaining it. The log is not kept by hand,
+      cannot be altered retroactively, and is made available to the establishment and to the
+      competent authority on request.
+
+  # ── ما يبقى بعد الحذف، وسببه ───────────────────────────────────────────────────────────────
+  #
+  # Said here as well as in the erasure acknowledgement itself, because this is the document the
+  # data subject actually reads. "We deleted everything" would be false, and a false reassurance is
+  # the one that ends badly: what remains is a visit history with no identifier in it, which is the
+  # establishment's record of work it performed and identifies nobody.
+  after_erasure:
+    ar: >-
+      عند تنفيذ الحذف يُمحى الرقم والاسم — وفي قطاعات السيارات رقم اللوحة — ويبقى سجلّ الزيارات
+      بلا أي مُعرِّف: عددها وتواريخها والخدمات المؤداة. وهذا سجلّ المنشأة عن عملٍ أدّته، لا يدلّ على
+      شخص، وليس من البيانات الشخصية التي يشملها الحذف. ويبقى كذلك إثبات سحب الموافقة، لأنه الدليل
+      على أننا امتنعنا عن الإرسال.
+    en: >-
+      When erasure is executed the number and the name are cleared — and in vehicle sectors the
+      plate — while the visit history remains with no identifier in it: its count, its dates and the
+      services performed. That is the establishment's record of work it carried out; it points to no
+      person and is not personal data within the scope of the erasure. Evidence of a consent
+      withdrawal likewise remains, because it is the proof that we stopped sending.
+
+  # ── الأهلية والولاية: نقول ما نفعله، لا ما نتمناه ──────────────────────────────────────────
+  #
+  # The pack covers guardianship in full and we keep every word of it. What we add is the operational
+  # truth: the platform has no guardian flow — a guardian cannot prove guardianship over a phone
+  # number by holding the phone. So the request comes to a human, and saying so is more honest than
+  # implying a self-service path that does not exist.
+  guardianship:
+    ar: >-
+      لا تحمل المنصة إجراءً ذاتياً لإثبات الولاية، لأن إثبات السيطرة على رقم الجوال لا يثبت ولاية.
+      فطلب الولي يُقدَّم إلى المنشأة أو إلينا عبر بريد الطلبات، ويُتحقق من الولاية بالمستند المناسب،
+      ويُتلَف ذلك المستند فور اكتمال التحقق ولا يُستعمل لغير هذا الغرض.
+    en: >-
+      The platform has no self-service route for proving guardianship, because control of a mobile
+      number does not establish it. A guardian's request is therefore made to the establishment or to
+      us at the requests address, guardianship is verified by the appropriate document, and that
+      document is destroyed as soon as verification is complete and used for nothing else.

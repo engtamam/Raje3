@@ -1,0 +1,120 @@
+# اتفاقية معالجة البيانات — من جهة المنشأة، والمعالِج فيها نحن.
+#
+# THE MIRROR OF processor-dpa.yaml, AND THAT IS THE WHOLE POINT OF WRITING IT NOW.
+#
+# doc14 states our commitments as the processor. This one is the agreement the CONTROLLER holds —
+# same articles, same annexes, written from its side. Article 17 requires the engagement to be
+# governed by an agreement; these are the two faces of that single engagement, not two deals.
+#
+# SO EVERY ANNEX HERE IS THE SAME TEXT, WORD FOR WORD. That is a deliberate constraint rather than
+# copying for its own sake: the annexes ARE the instructions (Art. 17-1 a/b/c/g), and a difference
+# of one word between the two documents is precisely what gets read out in a dispute — one of them
+# would then describe a purpose we were not instructed to serve, and Article 17-4 turns that into
+# us being a controller with direct liability. They are generated from ONE source for that reason;
+# see the `annexes_from` key below, which is not a convenience but the guarantee.
+#
+# WHAT DIFFERS BETWEEN THE TWO IS ONLY VOICE AND PARTY. Here the establishment is named by the same
+# acceptance-record reference, and WE are named in full — because the party the controller is
+# engaging must be identifiable to it without looking anything up.
+
+values:
+  # جهة التحكم: نفس الإحالة المستعملة في doc14. One published document for every establishment; the
+  # acceptance record is the signature and carries the identity, the moment and the version.
+  COMPANY_NAME:
+    ar: "المنشأة التي قبِلت هذه الاتفاقية عبر حسابها على المنصة، وفق سجلّ القبول المشار إليه أدناه"
+    en: "The Establishment that accepted this Agreement through its account on the platform, per the acceptance record referred to below"
+
+  # المعالِج: نحن، بالاسم النظامي الكامل.
+  #
+  # AND NOT BY REFERENCE, WHICH WOULD BE THE MIRROR-IMAGE MISTAKE. The controller is identified by
+  # its acceptance because it is one of thousands and the record is authoritative. We are one party
+  # and the shop is engaging US — it must be able to read who from the document itself. A processor
+  # that named itself "the party providing the service" would be a party nobody could sue.
+  #
+  # BLANK UNTIL THE COMMERCIAL REGISTER SAYS IT. The publish path refuses an unfilled token, which
+  # is the behaviour we want: a registered name is a fact on a register, and a plausible invented
+  # one produces a document that reads as executed and binds nobody.
+  PROCESSOR_NAME: ""          # الاسم النظامي للشركة كما في السجل التجاري — نفس قيمة COMPANY_NAME في doc14
+
+  # SAME VERSION LINE AS ITS MIRROR, AND IT MOVES WITH IT. These two documents describe one
+  # engagement; publishing a new version of one and not the other would leave a shop bound to this
+  # year's instructions on one side and last year's on the other.
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""          # يُملأ يوم الإصدار الفعلي، لا قبله
+
+# THE ANNEXES ARE NOT WRITTEN HERE. They are taken from processor-dpa.yaml so the two documents
+# cannot drift — ci/gen_legal.py copies them and fails if this key names a file it cannot read.
+# Editing an annex means editing it once, in the file that owns it.
+annexes_from: processor-dpa.yaml
+
+# ── ثلاثة مواضع نضيف فيها ما يفترضه النموذج ولا يقوله ───────────────────────────────────────
+#
+# The pack assumes a service contract exists around this agreement and stays silent on what that
+# contract holds. Silence is fine in a template and dangerous in an executed document: the first
+# question after an incident is which paper governs, and "neither says" is the answer nobody wants.
+additions:
+  # WHAT MAKES THE NAMELESS CONTROLLER ENFORCEABLE — the same clause as its mirror, verbatim.
+  parties:
+    ar: >-
+      تُبرَم هذه الاتفاقية بين المعالِج المسمّى أعلاه وبين المنشأة التي قبِلتها عبر حسابها على
+      المنصة. ويقوم سجلّ القبول لدى المعالِج مقام التوقيع، ويتضمّن مُعرِّف المنشأة وهوية من قبِل
+      نيابةً عنها وتاريخ القبول وساعته ورقم نسخة الاتفاقية المقبولة. ويُتاح هذا السجلّ للمنشأة عند
+      طلبها. وكل تعديل جوهري يصدر برقم نسخة جديد ويستوجب قبولاً جديداً، ولا يسري القبول السابق
+      عليه.
+    en: >-
+      This Agreement is made between the Processor named above and the Establishment that accepted
+      it through its account on the platform. The Processor's acceptance record stands in place of
+      signature and contains the Establishment's identifier, the identity of the person who accepted
+      on its behalf, the date and time of acceptance, and the version number accepted. That record
+      is made available to the Establishment on request. Any material amendment is issued under a
+      new version number and requires fresh acceptance; a prior acceptance does not carry over to
+      it.
+
+  # THE RELATIONSHIP BETWEEN THIS PAPER AND THE SERVICE CONTRACT, stated rather than assumed.
+  #
+  # Two failure modes it closes. First, an incident where each side points at the other document —
+  # here the data-protection terms win on data protection, and nothing else is disturbed. Second,
+  # and more likely: a shop reads this agreement and concludes it is the whole relationship, then
+  # discovers the subscription terms elsewhere. Naming both, and their order, costs one paragraph.
+  precedence:
+    ar: >-
+      تُعدّ هذه الاتفاقية جزءاً لا يتجزأ من عقد الخدمة (الشروط والأحكام) بين الطرفين، ولا تحلّ محلّه.
+      وعند التعارض في شأن حماية البيانات الشخصية وحدها، تسود هذه الاتفاقية. وفيما عدا ذلك — من مقابل
+      مالي ومدد اشتراك وإنهاء ومستوى خدمة ومسؤولية — يسري عقد الخدمة. ويظلّ سريان هذه الاتفاقية
+      مرتبطاً بسريان عقد الخدمة، وتنتهي بانتهائه مع بقاء الالتزامات التي بطبيعتها تمتدّ بعده،
+      كالسرّية والإتلاف والإشعار بالانتهاك.
+    en: >-
+      This Agreement forms an integral part of, and does not replace, the service contract (the
+      Terms) between the parties. In the event of conflict on matters of personal data protection
+      alone, this Agreement prevails. In all other respects — fees, subscription term, termination,
+      service levels and liability — the service contract governs. This Agreement runs with the
+      service contract and ends with it, save for obligations that by their nature survive, such as
+      confidentiality, destruction and breach notification.
+
+  # WHAT THE CONTROLLER OWES, WHICH THIS FAMILY OF TEMPLATES BARELY MENTIONS.
+  #
+  # Article 17-2 requires the controller to issue clear instructions, and the rest follows from a
+  # fact about our product: the establishment collects the numbers, at its counter, from its own
+  # customers. We never meet them. So the lawful basis for holding them, and the truthfulness of
+  # what its staff type, are its side of the arrangement — and if that is not written down, the
+  # first customer who says "I never gave them my number" is a question aimed at us.
+  #
+  # THIS IS NOT US SHIFTING RISK. It is where the law already puts it: the controller determines
+  # the purpose and the means, and a processor cannot verify consent it never witnessed.
+  controller_obligations:
+    ar: >-
+      تُقرّ جهة التحكم بأنها تجمع بيانات عملائها بنفسها ولغرضها، وتلتزم بأن يكون لجمعها ومعالجتها
+      أساسٌ نظامي صحيح، وبإبلاغ أصحاب البيانات بما يوجبه النظام قبل الجمع، وبأن تكون البيانات التي
+      تُدخلها أو يُدخلها منسوبوها في المنصة صحيحة وحديثة. وتلتزم كذلك بألّا تستخدم المنصة في إرسال
+      رسائل إلى من سحب موافقته، وبأن تُصدر تعليماتها للمعالِج بوضوح وعبر قنوات المنصة المتاحة لها.
+      ولا يتحقّق المعالِج من صحة الأساس النظامي لجمع بياناتٍ لم يشهد جمعها، ولا يعالج البيانات إلا
+      وفق الملحق (أ).
+    en: >-
+      The Controller acknowledges that it collects its customers' data itself and for its own
+      purpose, and undertakes that such collection and processing rest on a valid legal basis; that
+      Data Subjects are informed as the Law requires before collection; and that the data it or its
+      personnel enter into the platform is accurate and current. It further undertakes not to use
+      the platform to message anyone who has withdrawn consent, and to issue its instructions to the
+      Processor clearly through the platform channels available to it. The Processor does not verify
+      the legal basis for a collection it did not witness, and processes data only in accordance
+      with Annex A.

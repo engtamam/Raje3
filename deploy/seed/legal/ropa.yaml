@@ -1,0 +1,330 @@
+# سجلّ أنشطة معالجة البيانات الشخصية — راجِع.
+#
+# TWO REGISTERS IN ONE FILE, AND KEEPING THEM APART IS THE WHOLE DISCIPLINE.
+#
+# We are a CONTROLLER of our own data — the shop owner is our customer, we decide why we hold his
+# number — and a PROCESSOR of the establishment's data, where the shop decides and we execute.
+# Article 31 requires the record; conflating the two roles inside it is what makes a record
+# indefensible, because the answer to "who decided this purpose" changes per row and a regulator
+# reads exactly that column.
+#
+# EVERY ROW BELOW WAS READ OUT OF THE CODE, not imagined from the product description. The store
+# name is given for each so the record can be checked against the system rather than believed:
+# a ROPA nobody can verify is a document, and the thing being asked for is a record.
+#
+# THE TEMPLATE IS A WORKBOOK AND WE USE IT AS ONE. doc04 ships a checklist of common activities and
+# a worked "Payroll" example to be deleted — both are instructions to the author, not content. What
+# survives is the blank record block, once per activity, which is what this file supplies.
+#
+# AND THE BLANKS HERE ARE [BRACKETS], WHICH THE PUBLISH GUARD DOES NOT SEE. It refuses a document
+# with an unfilled {{TOKEN}} and scans nothing else — so an EMPTY ROPA publishes cleanly. Our own
+# check is the one that has to catch it; see ci/check_legal.py.
+
+values:
+  COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
+  DPO_EMAIL: ""               # بريد مسؤول حماية البيانات
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""
+
+# ── السجلّ الأول: نحن جهة التحكم ─────────────────────────────────────────────────────────────
+#
+# Our own data: the establishment as OUR customer, our partners, our staff. Here we choose the
+# purpose, so here the legal basis is ours to justify.
+controller:
+  - ref: ACC-01
+    activity: { ar: "حسابات المنشآت وتسجيل الدخول", en: "Establishment accounts and sign-in" }
+    owner: { ar: "التشغيل", en: "Operations" }
+    purpose:
+      ar: "إنشاء حساب المنشأة وإثبات هوية من يدخل إليه، وحماية الحساب من الدخول غير المصرّح به."
+      en: "Creating the establishment's account, proving the identity of whoever signs in, and protecting it from unauthorised access."
+    legal_basis: { ar: "تنفيذ عقد", en: "Contract" }
+    # THE PASSWORD IS NOT A CATEGORY OF PERSONAL DATA WE HOLD, and saying "we store passwords" would
+    # be false: what is stored is a one-way hash. Precision here is not pedantry — a breach
+    # notification is written against this list.
+    data_categories:
+      ar: "رقم جوال المالك (وهو مُعرِّف الدخول)، وبصمة كلمة المرور غير القابلة للعكس، ورموز تحقّق مؤقتة، وأوقات الدخول وعناوين IP."
+      en: "The owner's mobile number (which is the login identifier), an irreversible password hash, temporary verification codes, and sign-in times and IP addresses."
+    subjects: { ar: "أصحاب المنشآت ومن يفوّضونهم", en: "Establishment owners and their delegates" }
+    recipients:
+      ar: "Meta — لتسليم رمز التحقّق عبر واتساب فقط."
+      en: "Meta — solely to deliver the verification code over WhatsApp."
+    transfer:
+      ar: "نعم، لرمز التحقّق وحده: يصل رقم الجوال إلى Meta خارج المملكة لأنه القناة التي يُسلَّم بها. المادة 29."
+      en: "Yes, for the verification code alone: the mobile number reaches Meta outside the Kingdom because that is the channel it is delivered on. Art. 29."
+    retention:
+      ar: "طوال حياة الحساب، ثم بانتهاء الاشتراك تسري مدّة السماح (سنتان) ثم يُحذف. ورموز التحقّق تُتلَف خلال دقائق من إصدارها."
+      en: "For the life of the account; on the subscription ending the grace period (two years) applies, then it is deleted. Verification codes are destroyed within minutes of issue."
+    security:
+      ar: "بصمة كلمة مرور بخوارزمية بطيئة، ورموز مؤقتة قصيرة العمر بعدد محاولات محدود، وتشفير النقل، وتسجيل تدقيقي لكل دخول."
+      en: "A slow password hash, short-lived codes with a capped attempt count, encryption in transit, and an audit entry for every sign-in."
+
+  - ref: SUB-01
+    activity: { ar: "الاشتراك والباقات والاستحقاقات", en: "Subscription, plans and entitlements" }
+    owner: { ar: "التشغيل", en: "Operations" }
+    purpose:
+      ar: "تحديد ما تشترك فيه المنشأة وما تستحقّه من قدرات المنصة، وإدارة فترة التجربة والتجديد."
+      en: "Determining what the establishment subscribes to and is entitled to, and managing the trial and renewal."
+    legal_basis: { ar: "تنفيذ عقد", en: "Contract" }
+    data_categories:
+      ar: "مُعرِّف المنشأة، والباقة، وتواريخ البدء والتجديد، وحدود المقاعد والفروع المستهلكة."
+      en: "The establishment identifier, the plan, start and renewal dates, and the seat and branch counts consumed."
+    subjects: { ar: "المنشآت", en: "Establishments" }
+    recipients: { ar: "لا أحد خارج المنصة.", en: "Nobody outside the platform." }
+    transfer: { ar: "لا.", en: "No." }
+    retention:
+      ar: "طوال الاشتراك ومدّة السماح، ثم يُحذف — عدا ما تربطه فاتورة (انظر FIN-01)."
+      en: "For the subscription and the grace period, then deleted — except what an invoice ties to it (see FIN-01)."
+    security: { ar: "ضبط وصول بالأدوار، وتشفير النقل، وتسجيل تدقيقي لكل تغيير.", en: "Role-based access control, encryption in transit, and an audit entry for every change." }
+
+  - ref: FIN-01
+    activity: { ar: "الفوترة والسجلات المحاسبية", en: "Invoicing and accounting records" }
+    owner: { ar: "المالية", en: "Finance" }
+    purpose:
+      ar: "إصدار فواتير الاشتراك وحفظ المستندات المحاسبية المطلوبة نظاماً."
+      en: "Issuing subscription invoices and keeping the accounting records the law requires."
+    # NOT "CONTRACT", AND THE DIFFERENCE MATTERS. Issuing the invoice is contractual; KEEPING it for
+    # years afterwards is a statutory duty and the only reason we may hold it after the customer is
+    # gone. Recording the wrong basis here would leave the longest retention in the platform with
+    # nothing behind it.
+    legal_basis: { ar: "التزام نظامي", en: "Legal obligation" }
+    data_categories:
+      ar: "اسم المنشأة وبياناتها الضريبية، وأرقام الفواتير والمبالغ وتواريخها."
+      en: "The establishment's name and tax details, and invoice numbers, amounts and dates."
+    subjects: { ar: "المنشآت", en: "Establishments" }
+    recipients:
+      ar: "الجهات المختصة عند الطلب النظامي، والمحاسب القانوني."
+      en: "The competent authorities on lawful request, and the external accountant."
+    transfer: { ar: "لا.", en: "No." }
+    # THE ONE PLACE THIS REGISTER DEPARTS FROM §14.5, AND IT IS DELIBERATE. Everything else is
+    # deleted at the end of the grace period; an invoice is not, because a statutory retention
+    # period outlives the customer relationship. Stating the exception is what stops the retention
+    # sweep and this record contradicting one another.
+    retention:
+      ar: "المدّة التي توجبها الأنظمة المالية والضريبية، وهي أطول من مدّة السماح؛ ولا يشملها الحذف التلقائي عند انتهاء المدّة."
+      en: "The period required by the financial and tax regulations, which is longer than the grace period; the automatic end-of-period deletion does not cover it."
+    security: { ar: "وصول مقصور على المالية، وتشفير النقل والتخزين، ونسخ احتياطي مختوم.", en: "Access limited to finance, encryption in transit and at rest, and sealed backups." }
+
+  - ref: SUP-01
+    activity: { ar: "الدعم الفني والتذاكر", en: "Technical support and tickets" }
+    owner: { ar: "الدعم", en: "Support" }
+    purpose:
+      ar: "استقبال طلبات المنشأة ومتابعتها وحلّها، وتحسين المنتج بناءً على تكرار المشكلات."
+      en: "Receiving, tracking and resolving the establishment's requests, and improving the product from recurring issues."
+    legal_basis: { ar: "تنفيذ عقد", en: "Contract" }
+    # THE HONEST RISK IN THIS ROW, WRITTEN DOWN RATHER THAN HOPED AWAY. A free-text ticket is where
+    # a customer's number ends up when an owner pastes one to explain a problem. It is not a
+    # category we ask for, and it is a category we receive. A record that omits it describes a
+    # system nobody operates.
+    data_categories:
+      ar: "بيانات التواصل مع المنشأة، ونص الرسائل والمرفقات — وقد يُدرج فيها المالك بياناتٍ لعميله عند شرح مشكلة، وهي ليست بياناتٍ نطلبها ونتعامل معها كبيانات شخصية بالكامل."
+      en: "The establishment's contact details, and message text and attachments — into which an owner may paste a customer's details when explaining a problem; we do not ask for those and treat them fully as personal data."
+    subjects: { ar: "أصحاب المنشآت، وعملاؤهم عرَضاً", en: "Establishment owners, and incidentally their customers" }
+    recipients: { ar: "فريق الدعم لدينا فقط.", en: "Our support team only." }
+    transfer: { ar: "لا.", en: "No." }
+    retention: { ar: "سنتان من إغلاق التذكرة.", en: "Two years from the ticket being closed." }
+    security: { ar: "ضبط وصول بالأدوار، وتشفير النقل، وتسجيل تدقيقي للاطّلاع.", en: "Role-based access control, encryption in transit, and an audit entry on access." }
+
+  - ref: AUD-01
+    activity: { ar: "سجلّ التدقيق", en: "Audit log" }
+    owner: { ar: "الأمن", en: "Security" }
+    purpose:
+      ar: "إثبات من فعل ماذا ومتى، للتحقيق في الحوادث وإثبات الالتزام وحماية المنشأة من إنكار عملية جرت فعلاً."
+      en: "Establishing who did what and when — for incident investigation, for demonstrating compliance, and to protect the establishment from a denial that an operation took place."
+    legal_basis: { ar: "التزام نظامي ومصلحة مشروعة", en: "Legal obligation and legitimate interest" }
+    # THE ROW WHOSE PRECISION IS THE POINT. The chain holds a SALTED PSEUDONYM, never a name and
+    # never a number. That is why an erasure can complete without destroying the audit trail, and
+    # why the trail is not itself a second copy of everybody's identity — and a ROPA that said "we
+    # log the user" would have described a system with exactly that problem.
+    data_categories:
+      ar: "معرّف مستعار مُشتقّ بالتجزئة (لا اسم ولا رقم)، ونوع الإجراء، والمورد، والوقت، وعنوان IP."
+      en: "A salted pseudonymous identifier (no name, no number), the action type, the resource, the time and the IP address."
+    subjects: { ar: "كل من يستخدم المنصة", en: "Everyone who uses the platform" }
+    recipients: { ar: "الأمن لدينا، والجهات المختصة عند الطلب النظامي.", en: "Our security team, and the competent authorities on lawful request." }
+    transfer: { ar: "لا.", en: "No." }
+    retention:
+      ar: "المدّة اللازمة لغرض التدقيق، ولا يُمحى محتواه عند تنفيذ طلب حذف لأنه لا يحمل هوية أصلاً."
+      en: "As long as the audit purpose requires; its content is not erased when a deletion request is executed, because it carries no identity to begin with."
+    security: { ar: "سلسلة غير قابلة للتعديل بأثر رجعي، ووصول مقصور، وتشفير النقل.", en: "A chain that cannot be altered retroactively, restricted access, and encryption in transit." }
+
+  - ref: PRT-01
+    activity: { ar: "الشركاء والمسوّقون والعمولات", en: "Partners, marketers and commissions" }
+    owner: { ar: "التطوير التجاري", en: "Business development" }
+    purpose:
+      ar: "معرفة من جلب أي منشأة واحتساب عمولته عن كل شهر تبقى فيه مشتركة."
+      en: "Knowing which partner brought which establishment and computing the commission for each month it remains subscribed."
+    legal_basis: { ar: "تنفيذ عقد", en: "Contract" }
+    data_categories:
+      ar: "اسم الشريك وبيانات تواصله، ورقم اعتماده، وختم الإحالة (أي منشأة ومتى)، والمبالغ المستحقة."
+      en: "The partner's name and contact details, their credential reference, the referral stamp (which establishment and when), and the amounts due."
+    subjects: { ar: "الشركاء والمسوّقون", en: "Partners and marketers" }
+    recipients: { ar: "المالية لدينا.", en: "Our finance team." }
+    transfer: { ar: "لا.", en: "No." }
+    retention:
+      ar: "طوال العلاقة، ثم بالمدّة التي توجبها الأنظمة المالية للمستحقات المدفوعة."
+      en: "For the term of the relationship, then for the period the financial regulations require for amounts paid."
+    security: { ar: "ضبط وصول بالأدوار، وختم الإحالة يُكتب مرة ولا يُعاد كتابته، وتسجيل تدقيقي.", en: "Role-based access control, a referral stamp written once and never rewritten, and audit logging." }
+
+  - ref: HR-01
+    activity: { ar: "موظفو الشركة", en: "Company staff" }
+    owner: { ar: "الموارد البشرية", en: "HR" }
+    purpose:
+      ar: "التوظيف وإدارة العلاقة الوظيفية وصرف الرواتب والالتزامات النظامية المرتبطة بها."
+      en: "Recruitment, managing the employment relationship, payroll and the statutory obligations attached to it."
+    legal_basis: { ar: "تنفيذ عقد والتزام نظامي", en: "Contract and legal obligation" }
+    data_categories:
+      ar: "بيانات الهوية والتواصل، والعقد والراتب، وبيانات التأمينات، والسير الذاتية للمتقدمين."
+      en: "Identity and contact details, contract and salary, social-insurance details, and applicants' CVs."
+    subjects: { ar: "الموظفون والمتقدمون للوظائف", en: "Employees and job applicants" }
+    recipients:
+      ar: "الجهات الحكومية المختصة، والبنك، ومزوّد التأمين."
+      en: "The competent government bodies, the bank, and the insurance provider."
+    transfer: { ar: "لا.", en: "No." }
+    retention:
+      ar: "طوال العلاقة الوظيفية، ثم بالمدّة التي يوجبها نظام العمل والأنظمة ذات الصلة. وسير المتقدمين غير المقبولين تُتلَف خلال سنة."
+      en: "For the employment relationship, then for the period the Labour Law and related regulations require. Unsuccessful applicants' CVs are destroyed within a year."
+    security: { ar: "وصول مقصور على الموارد البشرية، وتشفير التخزين والنقل.", en: "Access limited to HR, and encryption at rest and in transit." }
+
+# ── السجلّ الثاني: نحن معالج ─────────────────────────────────────────────────────────────────
+#
+# The establishment's data. Every row here has the SAME legal basis line, and that is not laziness:
+# a processor has no basis of its own. Ours is the instruction in Annex A of the agreement, and the
+# basis for the collection itself is the establishment's to hold. Writing "consent" or "legitimate
+# interest" in these rows would be us claiming a decision we did not make — and, under Art. 17-4,
+# claiming to be a controller.
+processor:
+  _shared:
+    legal_basis:
+      ar: "المعالجة بتعليمات جهة التحكم (المنشأة) وفق الملحق (أ) من اتفاقية المعالجة — اللائحة م.17-2. والأساس النظامي للجمع تملكه المنشأة."
+      en: "Processing on the Controller's (the establishment's) instructions under Annex A of the processing agreement — Reg. Art. 17-2. The legal basis for the collection itself rests with the establishment."
+    subjects: { ar: "عملاء المنشأة، وموظفوها المستخدمون للمنصة", en: "The establishment's customers, and its employees who use the platform" }
+    retention:
+      ar: "وفق الملحق (أ): طوال الاشتراك ثم مدّة سماح لا تتجاوز سنتين، أو حتى تُصدر المنشأة تعليمة حذف، أو حتى يطلب العميل حذف بياناته — أيّها أسبق."
+      en: "Per Annex A: for the subscription then a grace period of no more than two years, or until the establishment issues a deletion instruction, or until the customer requests erasure — whichever comes first."
+    security:
+      ar: "عزل كامل بين المنشآت مطبَّق عند المخزن، وتشفير النقل، وضبط وصول بالأدوار، ومعرّف مستعار لدى كل خدمة عدا واحدة، وتسجيل تدقيقي، ونسخ احتياطي مختوم."
+      en: "Full isolation between establishments enforced at the store, encryption in transit, role-based access control, a pseudonymous identifier in every service but one, audit logging, and sealed backups."
+
+  - ref: OPS-01
+    activity: { ar: "تسجيل العملاء والزيارات", en: "Recording customers and visits" }
+    stores: "customers · assets · visits · operators · branches"
+    purpose:
+      ar: "تسجيل زيارة العميل والخدمات المؤداة له، والتعرّف عليه عند عودته."
+      en: "Recording the customer's visit and the services performed, and recognising him when he returns."
+    data_categories:
+      # THE ONE PLACE IN THE PLATFORM THAT HOLDS A NUMBER IN THE CLEAR, and the record says so
+      # rather than letting "we pseudonymise" stand as a blanket claim it would not survive.
+      ar: "رقم الجوال بصيغته الصريحة — وهذه الخدمة وحدها في المنصة تحمله كذلك، لأن شاشة الميدان تبحث ببادئة الرقم ولا يمكن البحث ببادئة في قيمة مُجزّأة — والاسم إن سُجِّل، وسجلّ الزيارات والخدمات وتواريخها. وفي قطاعات السيارات: رقم اللوحة وبيانات المركبة والعدّاد."
+      en: "The mobile number in the clear — this service alone in the platform holds it so, because the field screen searches by number prefix and a hashed value cannot be prefix-searched — the name where recorded, and the visit and service history with dates. In vehicle sectors: the plate, vehicle details and odometer."
+    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+    transfer: { ar: "لا.", en: "No." }
+
+  - ref: MSG-01
+    activity: { ar: "جدولة رسائل المتابعة وإرسالها", en: "Scheduling and sending follow-up messages" }
+    stores: "schedules"
+    purpose:
+      ar: "جدولة رسالة التذكير أو المتابعة بعد الزيارة وإرسالها باسم المنشأة عبر واتساب."
+      en: "Scheduling the reminder or follow-up after a visit and sending it in the establishment's name over WhatsApp."
+    data_categories:
+      ar: "معرّف مستعار للعميل، وموعد الإرسال، والقالب ومتغيّراته، وحالة التسليم."
+      en: "A pseudonymous customer identifier, the send time, the template and its variables, and the delivery state."
+    recipients: { ar: "Meta — لتسليم الرسالة.", en: "Meta — to deliver the message." }
+    transfer:
+      ar: "نعم: يصل رقم المستقبِل ونص الرسالة إلى Meta خارج المملكة، بتعليمة المنشأة التي اختارت القناة. المادة 29."
+      en: "Yes: the recipient's number and the message content reach Meta outside the Kingdom, on the instruction of the establishment that chose the channel. Art. 29."
+
+  - ref: CNS-01
+    activity: { ar: "موافقة العميل على الرسائل التسويقية", en: "Customer marketing consent" }
+    stores: "marketing_consent"
+    purpose:
+      ar: "حفظ إثبات موافقة العميل وسحبها، ومنع إرسال أي رسالة تسويقية لمن سحب موافقته."
+      en: "Keeping evidence of the customer's consent and its withdrawal, and preventing any marketing message to whoever withdrew it."
+    data_categories:
+      ar: "معرّف مستعار، وحالة الموافقة، وتاريخها، والقناة، ونسخة النص المعروض وقتها."
+      en: "A pseudonymous identifier, the consent state, its date, the channel, and the version of the wording shown at the time."
+    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+    transfer: { ar: "لا.", en: "No." }
+    # A CONSENT RECORD OUTLIVES THE CONSENT IT RECORDS, and that is the point of it. Deleting the
+    # withdrawal along with everything else would leave us unable to show why we stopped sending.
+    retention:
+      ar: "كسائر بيانات المنشأة، غير أن إثبات سحب الموافقة يُحفظ ما دام يُحتجّ به على أننا امتنعنا عن الإرسال."
+      en: "As for the establishment's other data, save that evidence of a withdrawal is kept for as long as it is relied on to show that we stopped sending."
+
+  - ref: CMP-01
+    activity: { ar: "الحملات التسويقية", en: "Marketing campaigns" }
+    stores: "campaigns · campaign_runs"
+    purpose:
+      ar: "تنفيذ حملة تُطلقها المنشأة بنفسها على شريحة من عملائها الموافقين."
+      en: "Executing a campaign the establishment itself launches to a segment of its consenting customers."
+    data_categories:
+      ar: "معرّفات مستعارة للجمهور، وشروط الشريحة، والنص، وأعداد الإرسال والتسليم."
+      en: "Pseudonymous audience identifiers, the segment criteria, the text, and send and delivery counts."
+    recipients: { ar: "Meta — لتسليم الرسائل.", en: "Meta — to deliver the messages." }
+    transfer: { ar: "نعم، كما في MSG-01.", en: "Yes, as in MSG-01." }
+
+  - ref: LOY-01
+    activity: { ar: "برنامج الولاء", en: "Loyalty programme" }
+    stores: "loyalty_entries · loyalty_balances · loyalty_rewards · loyalty_redemptions"
+    purpose:
+      ar: "احتساب نقاط العميل عن زياراته وتمكينه من استبدالها."
+      en: "Computing the customer's points for his visits and letting him redeem them."
+    data_categories:
+      ar: "معرّف مستعار، وحركات الكسب والاستبدال وتواريخها والأرصدة."
+      en: "A pseudonymous identifier, earning and redemption entries with dates, and balances."
+    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+    transfer: { ar: "لا.", en: "No." }
+
+  - ref: INS-01
+    activity: { ar: "المؤشرات والتقارير", en: "Indicators and reports" }
+    stores: "insight_snapshots · insight_sequences · insight_pairs"
+    purpose:
+      ar: "احتساب مؤشرات أداء المنشأة وأنماط الطلب لديها، وإرسال تقريرها الأسبوعي."
+      en: "Computing the establishment's performance indicators and demand patterns, and sending its weekly report."
+    # WHY THIS ROW READS LIKE STATISTICS AND NOT LIKE PROFILING. The engine runs on pseudonyms and
+    # aggregates; it produces no judgement about a named person and takes no automated decision
+    # about one. Stating that here is what keeps it out of the automated-decision-making questions
+    # in doc10 — and it has to be true, which is why it is checked in code, not asserted here.
+    data_categories:
+      ar: "أعداد وتجميعات ونسب على مستوى المنشأة، ومعرّفات مستعارة في حسابات التتابع والاقتران. ولا يُنتج أي قرار آلي بحق شخص مُعيَّن."
+      en: "Counts, aggregates and ratios at establishment level, and pseudonymous identifiers inside the sequence and association computations. No automated decision is produced about any identified person."
+    recipients: { ar: "المنشأة نفسها، وMeta لتسليم التقرير الأسبوعي.", en: "The establishment itself, and Meta to deliver the weekly report." }
+    transfer: { ar: "نعم، للتقرير الأسبوعي فقط، كما في MSG-01.", en: "Yes, for the weekly report only, as in MSG-01." }
+
+  - ref: BKP-01
+    activity: { ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" }
+    stores: "أرشيف مختوم"
+    purpose:
+      ar: "حماية بيانات المنشأة من الفقد وتمكين استعادتها بعد عطل أو حادث."
+      en: "Protecting the establishment's data from loss and enabling restoration after a failure or incident."
+    data_categories:
+      ar: "نسخة من بيانات الخدمات المشمولة كما هي وقت أخذ النسخة."
+      en: "A copy of the covered services' data as it stood when the backup was taken."
+    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+    transfer: { ar: "لا — التخزين داخل المملكة.", en: "No — storage is inside the Kingdom." }
+    # THE ROW THAT IS USUALLY MISSING AND IS ALWAYS THE FIRST QUESTION AFTER A DELETION. An archive
+    # is a copy, and a copy that outlives an erasure quietly reverses it.
+    retention:
+      ar: "تُحفظ النسخ لمدّة محدودة ثم تُتلَف. ولا تُستعمل نسخة لإحياء بياناتٍ نُفِّذ حذفها، ويُعاد تنفيذ الحذف على أي بيانات تعود من استعادة."
+      en: "Backups are kept for a limited period then destroyed. A backup is never used to revive data whose deletion was executed, and the deletion is re-applied to any data returning from a restore."
+
+  - ref: DSR-01
+    activity: { ar: "تنفيذ طلبات أصحاب البيانات", en: "Executing data-subject requests" }
+    stores: "erasure.py"
+    purpose:
+      ar: "تنفيذ طلب العميل حذف بياناته أو الاطّلاع عليها، وإثبات ما نُفِّذ."
+      en: "Executing a customer's request to erase or access his data, and evidencing what was carried out."
+    data_categories:
+      ar: "معرّف مستعار لصاحب الطلب، ونوع الطلب وتاريخه، وما نُفِّذ وما أُبقي وأساس الإبقاء."
+      en: "A pseudonymous identifier for the requester, the request type and date, and what was executed, what was retained and the basis for retaining it."
+    recipients: { ar: "المنشأة — تُخطَر بالتنفيذ.", en: "The establishment — it is notified of the execution." }
+    transfer: { ar: "لا.", en: "No." }
+
+# ── ما لا يوجد، مذكوراً عمداً ────────────────────────────────────────────────────────────────
+#
+# A ROPA lists what is processed. These two lines say what is NOT, because both are things a
+# reader would otherwise reasonably assume — and an assumption in a regulator's head is worse than
+# a sentence in ours.
+absences:
+  - ar: "خدمة صفحة العميل (portal) لا تملك مخزن بيانات شخصية إطلاقاً: تعرض ما تطلبه من غيرها ولا تحتفظ بشيء. وهذا تقليلٌ فعلي للبيانات لا وصفٌ لها."
+    en: "The customer-page service (portal) holds no personal-data store at all: it renders what it requests from others and retains nothing. That is data minimisation in fact, not as a description."
+  - ar: "لا تُعالَج أي بيانات شخصية حسّاسة في المنصة — لا صحية ولا مالية للأفراد ولا بيومترية ولا عقائدية."
+    en: "No sensitive personal data is processed on the platform — no health, no individual financial, no biometric and no belief data."

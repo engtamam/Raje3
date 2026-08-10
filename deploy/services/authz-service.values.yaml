@@ -11,7 +11,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/authz-service
-  digest: "sha256:06c7d733aa83a27617cc33a184c5e764d9a8c32cb764b95a8525c2c8c566c2fa"
+  digest: "sha256:d97522dc3104d81a90df5c4c481b1fff9a745462cca92994059bbc1e6446f7ee"
 
 replicas: 1
 
