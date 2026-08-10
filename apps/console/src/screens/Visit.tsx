@@ -10,17 +10,17 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   fetchCatalogue, recentCustomers, suggestByPrefix,
   type CatalogueService, type CustomerHit, type SectorField,
-} from './api';
-import { Keypad } from './Keypad';
-import { ServiceGrid } from './ServiceGrid';
-import { newIdempotencyKey, queue, type Queued } from './queue';
-import { isSignedIn, useSession } from './session';
+} from '../api';
+import { Keypad } from '../Keypad';
+import { ServiceGrid } from '../ServiceGrid';
+import { newIdempotencyKey, queue, type Queued } from '../queue';
+import { isSignedIn, useSession } from '../session';
 
 /** How few digits are worth a search. Below this every establishment matches and the list is
  *  noise; this is the shortest prefix that narrows anything in a Saudi number. */
 const MIN_PREFIX = 3;
 
-export function App() {
+export function Visit() {
   const session = useSession();
   const [services, setServices] = useState<CatalogueService[]>([]);
   const [fields, setFields] = useState<SectorField[]>([]);
