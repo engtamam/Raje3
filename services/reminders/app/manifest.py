@@ -72,6 +72,10 @@ def build_manifest(
                          # 403 to every one of them.
                          "platform.secrets", "platform.config"],  # e.g. ["files.upload", "files.read"] — atomic capability keys
         "endpoints": [
+            # «اليوم» reads this once and gets the whole status: what went out, what waits, and
+            # how much of Meta's ceiling is left. One call because a status screen that loads in
+            # pieces is briefly wrong, and briefly wrong is worse than briefly blank.
+            {"path": "/api/v1/reminders/today", "tier": "user", "method": "GET"},
             # From the generated scaffold, and kept: what a client calls to confirm its token is
             # accepted at all, which is the first question asked when something else is failing.
             # Undeclared in every service until a guard compared the manifest with the app itself.

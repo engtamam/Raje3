@@ -7,6 +7,8 @@ turns every rule we wrote into a suspected bug.
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
@@ -248,3 +250,55 @@ async def suggest_group(request: Request, principal: Principal = Depends(_READ))
     which is the fastest way to lose their trust in a screen.
     """
     return {"suggestion": await _settings(request).suggest_group(principal.tenant)}
+
+
+@router.get("/today", dependencies=[Depends(rate_limit)])
+async def today(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Everything «اليوم» needs, in one call.
+
+    ONE CALL RATHER THAN FOUR, and the reason is the screen's own promise. It opens on the question
+    "is everything running", which is answered by the WHOLE picture or not at all: a ceiling that
+    arrives after the send count renders a screen that says "23 sent" and then, a beat later,
+    "you have 4 left" — and the owner has already formed an impression from the first number. Four
+    requests also means four ways to be half-loaded, and a status screen that is sometimes partly
+    wrong is worse than one that is briefly blank.
+
+    AND WHAT IT DOES NOT INCLUDE IS THE POINT OF THE SCREEN. No indicator, no trend, no comparison
+    beyond yesterday. Those live in «محلّي» and are read once a week; this is read every day and
+    must stay answerable at a glance.
+    """
+    c = request.app.state.container
+    tenant = principal.tenant or ""
+    store = ScheduleStore(c.datastore)
+
+    # THE CEILING IS READ FROM META, NOT FROM A COPY. A second copy of a number we do not own
+    # eventually disagrees with the source, and the owner sees two figures with no way to tell
+    # which is true — the shape of a support call nobody can close.
+    ceiling = await c.ceiling.read(tenant)
+    reached = await c.reach.count(tenant)
+
+    pending, _ = await store._find(tenant, {"state": "pending"}, limit=200,
+                                   sort=("due_at", "asc"))
+    sent, _ = await store._find(tenant, {"state": "sent"}, limit=200, sort=("due_at", "desc"))
+
+    now = int(time.time())
+    day = now - 86_400
+    sent_today = [r for r in sent if int(r.get("sent_at") or r.get("due_at") or 0) >= day]
+
+    return {
+        "messages": {
+            "sent_today": len(sent_today),
+            "waiting": len(pending),
+        },
+        "ceiling": {
+            # `known` distinguishes "we asked and Meta said unlimited" from "we could not ask".
+            # The screen must never render an unknown ceiling as a zero — a zero reads as "you may
+            # send to nobody", which is the opposite of what an unreadable answer means.
+            "known": ceiling.known(),
+            "unlimited": ceiling.unlimited(),
+            "limit": ceiling.limit,
+            "reached_today": reached,
+            "remaining": ceiling.remaining(reached),
+            "quality": ceiling.quality,
+        },
+    }

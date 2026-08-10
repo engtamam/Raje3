@@ -143,4 +143,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # fastest way to lose their trust in a screen.
         "help": "هل تكرّر المالك؟ نقترح، ولا نغيّر شيئاً بأنفسنا.",
     },
+    {
+        "id": "reminders.today", "label": "حالة اليوم", "method": "GET",
+        "path": "/api/v1/reminders/today", "capability": "reminders.read", "group": "اليوم",
+        # ONE CALL, because the screen it feeds answers "is everything running" — which is answered
+        # by the whole picture or not at all. A ceiling arriving after a send count shows "23 sent"
+        # and then, a beat later, "4 left", and the owner has already formed an impression.
+        "help": "رسائل اليوم وما ينتظر، وسقفك المتبقي لدى واتساب.",
+    },
 ]

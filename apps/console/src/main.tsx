@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { Visit } from './screens/Visit';
+import { Today } from './screens/TodayRoute';
+import { Customers } from './screens/CustomersRoute';
 import { applyRaje3 } from './brand/theme';
 import './index.css';
 
@@ -15,8 +17,9 @@ const router = createBrowserRouter([
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: <Visit /> },
+      { index: true, element: <Today /> },
       { path: 'visit', element: <Visit /> },
+      { path: 'customers', element: <Customers /> },
     ],
   },
 ]);

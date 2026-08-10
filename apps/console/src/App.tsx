@@ -12,7 +12,7 @@
  * ours to design.
  */
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
@@ -90,6 +90,11 @@ export function App() {
       user={{ name: session.operatorName || session.operator }}
       labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج' }}
       onSignOut={() => navigate('/')}
-    />
+    >
+      {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.
+          We pass the Outlet explicitly so the screens receive the session and the catalogue we
+          already loaded, rather than each fetching the catalogue again on every navigation. */}
+      <Outlet context={{ session, catalog }} />
+    </AppShell>
   );
 }
