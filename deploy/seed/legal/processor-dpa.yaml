@@ -1,10 +1,14 @@
-# ── النشر: اتفاقية معالجة البيانات — تُعرض ويُشترط قبولها قبل تفعيل أي اشتراك.
-# PUBLICATION: The data processing agreement — shown and required to be accepted before any subscription is activated.
+# ── النشر: اتفاقية معالجة البيانات — ملحقٌ بالشروط والأحكام، يُقبَل بقبولها.
+# PUBLICATION: The data processing agreement — an annex to the Terms, accepted by accepting them.
 #
-# THE ONLY DOCUMENT THAT GATES ANYTHING. Acceptance is the signature, and it is required before a
-# subscription activates because Art. 17-5-c needs the controller's PRIOR acceptance of a
-# sub-processor — and Meta is named in Annex C. Accepting after the first message would be
-# acceptance of something already done.
+# PUBLISHED AND BINDING, BUT NOT A SECOND SIGNATURE. It was briefly the gating document on its own;
+# then the Terms were written and the honest structure became clear — one engagement, one master
+# agreement, this as its data-protection annex. Two acceptance screens for one relationship is how a
+# shop ends up bound to this year's Terms and last year's DPA.
+#
+# THE TIMING STILL MATTERS AND IS UNCHANGED: acceptance happens BEFORE a subscription activates,
+# because Art. 17-5-c requires the controller's PRIOR acceptance of a sub-processor and Meta is
+# named in Annex C. Accepting after the first message would be accepting something already done.
 #
 # اتفاقية معالجة البيانات — التزامات راجِع تجاه المنشأة.
 #
@@ -39,7 +43,7 @@
 # So the engine, the indicators and the campaigns are named below explicitly. Not because a
 # regulator would fail to imagine them — because if they are not in the annex, they are ours.
 
-publication: accept
+publication: annex
 
 values:
   # ── who we are ────────────────────────────────────────────────────────────────────────────

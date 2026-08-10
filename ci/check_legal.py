@@ -44,6 +44,7 @@ PACK = ROOT / "platform" / "services" / "compliance-service" / "app" / "data" / 
 
 # Which of our files fills which template in the pack.
 DOCS = {
+    "terms.yaml": "",           # ours entirely — the PDPL pack has no service contract
     "processor-dpa.yaml": "doc14_processor_dpa.yaml",
     "processing-agreement.yaml": "doc13_processing_agreement.yaml",
     "ropa.yaml": "doc04_ropa.yaml",
@@ -112,7 +113,9 @@ for ours_name, pack_name in sorted(DOCS.items()):
     vals = values_of(text)
 
     # 1 — every token the TEMPLATE uses is answered by us.
-    if pack.exists():
+    if not pack_name:
+        needed = set()          # a document of our own: nothing upstream declares its tokens
+    if pack_name and pack.exists():
         needed = set(TOKEN.findall(pack.read_text(encoding="utf-8")))
         # CONTROLLER_NAME is answered by reference rather than by a scalar; a nested value counts.
         for tok in sorted(needed):
@@ -123,7 +126,7 @@ for ours_name, pack_name in sorted(DOCS.items()):
                         + ("" if tok in AWAITED else " — and is not a value we are waiting on"))
                 continue
             problems.append(f"{ours_name}: the template uses {{{{{tok}}}}} and we supply no value")
-    else:
+    elif pack_name:
         problems.append(f"{ours_name}: names {pack_name}, which is not in the pack")
 
     # 2 — no square-bracket placeholder survives in OUR text. This is the check their guard cannot
@@ -149,6 +152,8 @@ if missing_mode:
     problems.append(f"no publication mode declared for {', '.join(sorted(missing_mode))} — "
                     f"whether a document is published, gated or internal is not a detail to infer")
 gated = [n for n, m in modes.items() if m == "accept"]
+# `annex` is bound by the acceptance of the master agreement rather than by one of its own — which
+# is why it does not count here and must not be marked `accept`.
 if len(gated) != 1:
     problems.append(f"{len(gated)} document(s) marked `accept` ({', '.join(sorted(gated)) or 'none'}) "
                     f"— exactly one agreement gates a subscription; two would make a shop sign twice "

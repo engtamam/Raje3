@@ -1,0 +1,543 @@
+# ── النشر: الشروط والأحكام — العقد الرئيس، يُقبَل مرة واحدة عند إنشاء الحساب.
+# PUBLICATION: The Terms — the master agreement, accepted once at account creation.
+#
+# THE ONE ACCEPTANCE. The data processing agreement is an ANNEX to this document rather than a
+# second signature: accepting these Terms accepts it. One engagement, one acceptance, one version
+# line — which is also what stops a shop being bound to this year's Terms and last year's DPA.
+#
+# لا يوجد نموذج لهذه الوثيقة في حزمة PDPL — تلك حزمة حماية بيانات، وهذه عقد الخدمة. فهي من صياغتنا
+# بالكامل، وهذا يعني أن كل ضعف فيها ضعفٌ لا يحميه أحد غيرنا.
+
+publication: accept
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# ما يحمي فعلاً، وما يبدو حماية وليس بها
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+#
+# THE CAP WAS ASKED FOR AS "one month's subscription". Written naively that is a clause a court can
+# set aside in an afternoon, and a clause that is set aside protects nothing at all — it is worse
+# than a modest cap that holds, because it was relied on. Three things decide whether it survives:
+#
+# 1 · IT MUST NOT BE ILLUSORY. الأساسية is a small monthly fee. A cap equal to one month of it, set
+#     against the loss of a shop's entire customer history, is close enough to zero that a judge may
+#     read the clause as excluding liability rather than limiting it — and exclusion is the thing
+#     most likely to be struck. So the cap is the GREATER of one month's fee and a stated floor.
+#     A floor costs us almost nothing in the cases that matter and is what makes the ceiling real.
+#
+# 2 · SOME LIABILITY CANNOT BE CAPPED, AND PRETENDING OTHERWISE POISONS THE REST. Fraud, wilful
+#     misconduct and gross negligence are not limitable; a clause that tries makes a reader doubt
+#     every other clause. Carving them out is not a concession — it is what lets the cap stand for
+#     everything else.
+#
+# 3 · THE CAP BINDS THE SHOP AND NOBODY ELSE. It does not bind the shop's CUSTOMER, who is not a
+#     party and never agreed to anything with us, and it does not bind the regulator: a PDPL
+#     penalty is not a claim this contract can limit. A cap that reads as though it covers those is
+#     misleading rather than protective. Our exposure to a data subject is reduced by the DPIA and
+#     by the controls, not by this paragraph.
+#
+# AND THE DATA-PROTECTION CARVE-OUT IS THE HARD ONE. A shop's counsel will ask that a breach of the
+# DPA sit outside the cap; leaving the DPA inside a one-month cap makes the whole agreement read as
+# theatre. We take the middle: our data-protection obligations carry their own, higher cap. Whether
+# that number should be higher again is a commercial decision, and it is one to take deliberately —
+# not by leaving the field at its default.
+
+values:
+  COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
+  COMPANY_ADDRESS: ""
+  COMPANY_WEBSITE: "raje3.sa"
+  SUPPORT_EMAIL: ""
+  VERSION: "1.0"
+  EFFECTIVE_DATE: ""
+
+  # الحدّ الأدنى للسقف، بالريال. يجعل السقف حقيقياً بدل أن يكون صفراً مقنّعاً.
+  # A FLOOR, IN RIYALS. Left blank deliberately: it is a commercial number, and a plausible default
+  # written here would become the number nobody ever revisited.
+  LIABILITY_FLOOR: ""
+  # سقف أعلى لالتزامات حماية البيانات وحدها.
+  LIABILITY_DATA_MONTHS: "12"
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# القاعدة التي تحكم صياغة كل بند: نُحيل ولا نُكرّر
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+#
+# THE RULE: A NUMBER THAT IS OURS TO CHANGE IS REFERENCED, NEVER RESTATED.
+#
+# Write "the trial is fourteen days" into a contract and the day we make it seven, every existing
+# customer is on a document that says otherwise — so either we are in breach, or we re-issue the
+# Terms and stop every shop at an acceptance screen to change one product setting. Neither is a
+# price worth paying for a sentence that adds nothing: the shop learns the length from the pricing
+# page it is looking at when it subscribes.
+#
+# So operational parameters point at what is PUBLISHED AT THE TIME: the trial length, the plan
+# limits, the prices, the grace period, the sectors, the support hours. Change the product, publish
+# the change, and the contract is still true — for everyone, without a signature.
+#
+# AND THE LIMIT OF THAT RULE, WHICH MATTERS MORE THAN THE RULE. What we OWE THEM stays a fixed
+# number in this text: the notice before a price rise, the liability floor, the survival of their
+# data after termination, the fact that a material amendment needs fresh acceptance. Referencing
+# those away would leave an agreement in which every obligation is whatever we say it is today —
+# which reads as one-sided, and a one-sided term is the one a court removes. Flexibility that
+# erases every commitment does not protect us; it deletes the clause that was protecting us.
+#
+# The short version: our knobs are referenced, our promises are written.
+
+clauses:
+  # ── 1 · الأطراف والقبول ────────────────────────────────────────────────────────────────────
+  parties:
+    title: { ar: "الأطراف والقبول", en: "Parties and acceptance" }
+    ar: >-
+      تُبرَم هذه الشروط بين {{COMPANY_NAME}} ("المزوّد") وبين المنشأة التي قبِلتها عبر حسابها على
+      المنصة ("العميل"). ويقوم سجلّ القبول لدى المزوّد مقام التوقيع، ويتضمّن مُعرِّف المنشأة وهوية
+      من قبِل نيابةً عنها وتاريخ القبول وساعته ورقم النسخة المقبولة، ويُتاح للعميل عند طلبه. ويُقرّ
+      من يقبل بأنه مفوَّض بإلزام المنشأة. واتفاقية معالجة البيانات ملحقٌ بهذه الشروط، وقبولها يقع
+      بقبولها.
+    en: >-
+      These Terms are made between {{COMPANY_NAME}} ("the Provider") and the establishment that
+      accepted them through its account on the platform ("the Customer"). The Provider's acceptance
+      record stands in place of signature and contains the establishment's identifier, the identity
+      of the person who accepted on its behalf, the date and time of acceptance and the version
+      accepted; it is made available to the Customer on request. Whoever accepts represents that he
+      is authorised to bind the establishment. The data processing agreement is an annex to these
+      Terms and is accepted by accepting them.
+
+  # ── 2 · الخدمة ─────────────────────────────────────────────────────────────────────────────
+  service:
+    title: { ar: "الخدمة", en: "The service" }
+    ar: >-
+      يوفّر المزوّد منصة برمجية تمكّن العميل من تسجيل زيارات عملائه، وجدولة رسائل متابعة وإرسالها
+      عبر واتساب باسم العميل، وإدارة برنامج ولاء، والاطّلاع على مؤشرات أداء منشأته، وتنفيذ حملات
+      يطلقها بنفسه. والخدمة تُقدَّم كما هي متاحة من حين لآخر، وللمزوّد تطويرها وتغيير تفاصيلها
+      التقنية بما لا ينتقص جوهرياً مما اشترك العميل لأجله.
+    en: >-
+      The Provider supplies a software platform enabling the Customer to record its customers'
+      visits, schedule and send follow-up messages over WhatsApp in the Customer's name, run a
+      loyalty programme, view its establishment's performance indicators, and execute campaigns it
+      launches itself. The service is provided as made available from time to time, and the Provider
+      may develop it and change its technical details so long as it does not materially reduce what
+      the Customer subscribed for.
+
+  # ── 3 · واتساب: القيد الذي يجب أن يُقرأ قبل الاشتراك ───────────────────────────────────────
+  #
+  # THE MOST LIKELY DISPUTE IN THIS ENTIRE BUSINESS, and it is not about our software. A shop pays
+  # us, hits Meta's unverified-account ceiling on day two, and concludes it bought something that
+  # does not work. Written here it is a known term; unwritten it is a refund conversation we lose
+  # on fairness even when we are right.
+  whatsapp:
+    title: { ar: "الاعتماد على واتساب", en: "Dependence on WhatsApp" }
+    ar: >-
+      تُسلَّم الرسائل عبر واتساب من Meta، ويتعاقد العميل معها مباشرةً وتُحاسبه عن الرسائل. ويقرّ
+      العميل بأن Meta تفرض حدوداً على عدد العملاء الذين تبدأ المنشأة محادثتهم يومياً، وأن هذه
+      الحدود ترتفع بتوثيق نشاطه التجاري لدى Meta، وأنها ليست من وضع المزوّد ولا تحت سيطرته. ولا
+      يضمن المزوّد سقفاً معيّناً ولا اعتماد قالبٍ بعينه ولا استمرار توفّر واتساب، ولا يُعدّ بلوغ
+      العميل حدود Meta أو رفضها قالباً أو تعليقها حسابه إخلالاً من المزوّد. ويعرض المزوّد للعميل
+      سقفه الحالي في لوحته ليكون على بيّنة منه.
+    en: >-
+      Messages are delivered over WhatsApp by Meta, with which the Customer contracts directly and
+      by which it is billed for messages. The Customer acknowledges that Meta imposes limits on how
+      many customers an establishment may start a conversation with per day, that these rise with
+      verification of its business with Meta, and that they are neither set by nor within the
+      control of the Provider. The Provider warrants no particular ceiling, no approval of any given
+      template and no continued availability of WhatsApp; the Customer reaching Meta's limits, Meta
+      rejecting a template, or Meta suspending its account is not a breach by the Provider. The
+      Provider displays the Customer's current ceiling in its console so it is not taken by surprise.
+
+  # ── 4 · التزامات العميل ────────────────────────────────────────────────────────────────────
+  customer_obligations:
+    title: { ar: "التزامات العميل", en: "The Customer's obligations" }
+    ar: >-
+      يلتزم العميل بأن يكون لجمعه بيانات عملائه أساسٌ نظامي صحيح، وبألّا يستخدم المنصة في مخالفة
+      أنظمة المملكة أو سياسات Meta، وبعدم إرسال رسائل إلى من سحب موافقته، وبصحة ما يُدخله هو
+      ومنسوبوه، وبحماية بيانات دخول حساباته وأي استخدام يقع عبرها. ويظلّ العميل مسؤولاً عن مضمون
+      الرسائل التي يرسلها باسمه وعن أي عرض تجاري فيها.
+    en: >-
+      The Customer undertakes that its collection of its customers' data rests on a valid legal
+      basis; that it will not use the platform in breach of the laws of the Kingdom or of Meta's
+      policies; that it will not message anyone who has withdrawn consent; that what it and its
+      personnel enter is accurate; and that it will protect its account credentials and any use made
+      through them. The Customer remains responsible for the content of the messages sent in its
+      name and for any commercial offer they contain.
+
+  # ── 5 · الاشتراك والدفع والإنهاء ───────────────────────────────────────────────────────────
+  subscription:
+    title: { ar: "الاشتراك والدفع والإنهاء", en: "Subscription, payment and termination" }
+    ar: >-
+      يبدأ الاشتراك بتفعيله ويتجدّد تلقائياً لمدد مماثلة ما لم يُلغِه العميل قبل نهاية المدّة
+      الجارية. والمقابل مستحقّ مقدماً وغير مسترد عن مدّة بدأت، إلا ما يقضي به النظام. وللعميل
+      إنهاء الاشتراك في أي وقت بأثر من نهاية المدّة المدفوعة. وللمزوّد إيقاف الخدمة أو إنهاؤها عند
+      عدم السداد بعد إشعارٍ ومهلة معقولة، أو فوراً عند استخدام يخالف النظام أو يعرّض المنصة أو
+      غيرها من العملاء للخطر. وبعد الإنهاء تُعامل بيانات العميل وفق سياسة الاحتفاظ المعلنة في ملحق
+      اتفاقية المعالجة وقت الإنهاء — وهي مدّة سماح يُحتفظ فيها بالبيانات ليستأنف العميل عمله أو
+      يستخرجها، وتنتهي فوراً متى أصدر تعليمة حذف من لوحته. ولا تقلّ مدّة السماح عن ثلاثة أشهر
+      مهما تغيّرت السياسة، فذلك التزامٌ للعميل لا إعدادٌ عندنا.
+    en: >-
+      The subscription begins on activation and renews automatically for like periods unless the
+      Customer cancels before the current period ends. Fees are payable in advance and are
+      non-refundable for a period that has begun, save as the law requires. The Customer may
+      terminate at any time with effect from the end of the paid period. The Provider may suspend or
+      terminate on non-payment after notice and a reasonable cure period, or immediately for use
+      that breaches the law or endangers the platform or other customers. After termination the
+      Customer's data is handled under the retention policy published in the processing agreement's
+      annex at the time of termination — a grace period during which the data is retained so the
+      Customer may resume or export it, ending at once on a deletion instruction from its console.
+      That grace period is never less than three months however the policy changes, because that is
+      an undertaking to the Customer rather than a setting of ours.
+
+  # ── 6 · الإتاحة ────────────────────────────────────────────────────────────────────────────
+  #
+  # NO UPTIME NUMBER IS PROMISED, and the reason is written rather than hidden: promising 99.9%
+  # while our own delivery depends on Meta would be promising something we cannot deliver, and an
+  # unmet SLA is a claim handed to the other side. What IS promised is what we control.
+  availability:
+    title: { ar: "الإتاحة", en: "Availability" }
+    ar: >-
+      يسعى المزوّد إلى إتاحة الخدمة على مدار الساعة، ولا يضمن نسبة إتاحة محدّدة، ولا يضمن تسليم كل
+      رسالة — فالتسليم بيد Meta والشبكات. وتُستثنى من ذلك أعمال الصيانة المخطّطة، والأعطال الخارجة
+      عن سيطرة المزوّد، وانقطاع خدمات الغير. ويقتصر التزام المزوّد على بذل العناية المعقولة
+      لاستعادة الخدمة، وعلى حفظ نسخ احتياطية تمكّن من استعادة بيانات العميل.
+    en: >-
+      The Provider endeavours to keep the service available at all times, warrants no particular
+      availability percentage, and does not warrant the delivery of every message — delivery rests
+      with Meta and the networks. Planned maintenance, failures outside the Provider's control and
+      third-party outages are excluded. The Provider's obligation is limited to reasonable care in
+      restoring service and to maintaining backups enabling the Customer's data to be recovered.
+
+  # ── 7 · حدّ المسؤولية ──────────────────────────────────────────────────────────────────────
+  liability:
+    title: { ar: "حدّ المسؤولية", en: "Limitation of liability" }
+    ar: >-
+      لا يُسأل المزوّد عن الأضرار غير المباشرة أو التبعية، ولا عن فوات الكسب أو الفرصة أو السمعة،
+      ولا عن خسارة بيانات كان بوسع العميل تفاديها بتصدير بياناته المتاح له.
+      وتقتصر مسؤولية المزوّد الإجمالية عن كل المطالبات الناشئة عن هذه الشروط، أياً كان أساسها، على
+      الأعلى من: مقابل شهر اشتراك واحد سبق واقعة المطالبة، أو {{LIABILITY_FLOOR}} ريال.
+      ويُستثنى من هذا الحدّ ما يلي ولا يسري عليه: الغش، والخطأ الجسيم، والفعل العمدي، وما لا يجوز
+      نظاماً حدّه أو استبعاده. وتقتصر مسؤولية المزوّد عن الإخلال بالتزاماته في اتفاقية معالجة
+      البيانات على مقابل {{LIABILITY_DATA_MONTHS}} شهراً من الاشتراك.
+      ولا يحدّ هذا البند من حقوق أي شخص ليس طرفاً في هذه الشروط، ولا يسري على ما تفرضه الجهات
+      المختصة من جزاءات نظامية.
+    en: >-
+      The Provider is not liable for indirect or consequential loss, for loss of profit,
+      opportunity or reputation, or for loss of data the Customer could have avoided by using the
+      export available to it.
+      The Provider's aggregate liability for all claims arising under these Terms, on any basis, is
+      limited to the greater of: one month's subscription fee preceding the event giving rise to the
+      claim, or SAR {{LIABILITY_FLOOR}}.
+      The following are excluded from that limit and are not subject to it: fraud, gross negligence,
+      wilful misconduct, and anything the law does not permit to be limited or excluded. The
+      Provider's liability for breach of its obligations under the data processing agreement is
+      limited to {{LIABILITY_DATA_MONTHS}} months' subscription fees.
+      This clause does not limit the rights of any person who is not a party to these Terms, and does
+      not apply to penalties imposed by the competent authorities.
+
+  # ── 8 · تعويض العميل للمزوّد ───────────────────────────────────────────────────────────────
+  #
+  # THE OTHER DIRECTION, and it is the one that actually protects us here. Our realistic exposure is
+  # not a shop suing us — it is a shop's CUSTOMER, or the regulator, arriving because the shop
+  # messaged people who never agreed. The cap above does nothing about that; this clause does.
+  indemnity:
+    title: { ar: "تعويض المزوّد", en: "Indemnity" }
+    ar: >-
+      يعوّض العميل المزوّد عن كل مطالبة أو غرامة أو تكلفة دفاع تنشأ عن مخالفة العميل لهذه الشروط،
+      أو عن استخدامه المنصة في إرسال رسائل إلى من لم يكن له أساس نظامي لمراسلته، أو عن مضمون رسالة
+      أرسلها باسمه. ويُشعِر المزوّد العميل بالمطالبة دون تأخير غير مبرر، ويتعاون معه بشكل معقول في
+      الدفاع.
+    en: >-
+      The Customer indemnifies the Provider against any claim, fine or cost of defence arising from
+      the Customer's breach of these Terms, from its use of the platform to message anyone it had no
+      lawful basis to contact, or from the content of a message sent in its name. The Provider
+      notifies the Customer of any such claim without undue delay and cooperates reasonably in the
+      defence.
+
+  # ── 9 · الملكية الفكرية والبيانات ──────────────────────────────────────────────────────────
+  ip_and_data:
+    title: { ar: "الملكية الفكرية والبيانات", en: "Intellectual property and data" }
+    ar: >-
+      تبقى المنصة وبرمجياتها وعلاماتها ملكاً للمزوّد، ولا يُمنح العميل إلا ترخيصاً غير حصري وغير
+      قابل للتنازل باستخدامها طوال اشتراكه. وتبقى بيانات العميل وبيانات عملائه ملكاً له، ويستطيع
+      تصديرها في أي وقت. وللمزوّد استخدام بيانات إحصائية مُجمَّعة لا تدلّ على العميل ولا على أي فرد
+      لتحسين الخدمة، ولا يشمل ذلك بيع البيانات ولا مشاركتها مع معلن.
+    en: >-
+      The platform, its software and its marks remain the Provider's property, and the Customer
+      receives only a non-exclusive, non-transferable licence to use them for the term of its
+      subscription. The Customer's data and its customers' data remain its own, and it may export
+      them at any time. The Provider may use aggregated statistical data that identifies neither the
+      Customer nor any individual to improve the service; this does not include selling data or
+      sharing it with any advertiser.
+
+  # ── 10 · التعديل ───────────────────────────────────────────────────────────────────────────
+  #
+  # A "we may change these at any time, continued use is acceptance" clause is the one most likely
+  # to be struck down, and it is unnecessary: the platform already re-asks on a version bump, so
+  # describing what it does is both accurate and stronger.
+  amendment:
+    title: { ar: "تعديل الشروط", en: "Amendment" }
+    ar: >-
+      للمزوّد تعديل هذه الشروط، ويصدر التعديل الجوهري برقم نسخة جديد ويُطلب قبوله من العميل عند
+      دخوله التالي؛ ولا يسري القبول السابق على النسخة الجديدة. ولا يُعدّ استمرار الاستخدام وحده
+      قبولاً لتعديل جوهري. وللعميل إن لم يقبل أن يُنهي اشتراكه بأثر من نهاية المدّة المدفوعة.
+    en: >-
+      The Provider may amend these Terms. A material amendment is issued under a new version number
+      and the Customer is asked to accept it at its next sign-in; a prior acceptance does not carry
+      over. Continued use alone is not acceptance of a material amendment. A Customer that does not
+      accept may terminate with effect from the end of the paid period.
+
+  # ── 11 · النظام الواجب والاختصاص ───────────────────────────────────────────────────────────
+  governing_law:
+    title: { ar: "النظام الواجب التطبيق", en: "Governing law" }
+    ar: >-
+      تخضع هذه الشروط لأنظمة المملكة العربية السعودية، وتختصّ الجهات القضائية المختصة فيها بالفصل
+      في أي نزاع ينشأ عنها. وإذا وُجد بندٌ باطلاً أو غير قابل للنفاذ بقيت بقية البنود نافذة، وحلّ
+      محلّ الباطل أقرب ما يمكن إنفاذه إلى قصد الطرفين.
+    en: >-
+      These Terms are governed by the laws of the Kingdom of Saudi Arabia, and its competent
+      judicial authorities have jurisdiction over any dispute arising from them. If any provision is
+      void or unenforceable the remainder continues in force, and the void provision is replaced by
+      the closest enforceable expression of the parties' intent.
+
+  # ── 12 · الخدمة كما هي ─────────────────────────────────────────────────────────────────────
+  #
+  # AS-IS, WRITTEN AS A LIMIT ON WARRANTY AND NOT AS A LICENCE TO UNDERDELIVER. A blanket "no
+  # warranties of any kind" is unenforceable in part and commercially insulting to a shop paying
+  # every month. So this disclaims the warranties nobody can honestly give — fitness for a
+  # particular purpose, uninterrupted operation, a commercial result — while leaving intact the one
+  # thing we do promise: that the service performs substantially as described.
+  as_is:
+    title: { ar: "تقديم الخدمة كما هي", en: "The service is provided as-is" }
+    ar: >-
+      تُقدَّم الخدمة "كما هي" و"كما هي متاحة". ولا يقدّم المزوّد أي ضمان صريح أو ضمني بملاءمتها
+      لغرض خاص بالعميل، ولا بخلوّها من الأخطاء، ولا بعملها دون انقطاع، ولا بتحقيقها نتيجة تجارية
+      معيّنة — فعدد من يعود من العملاء يتوقف على المحل وخدمته وأسعاره وسوقه، لا على البرنامج وحده.
+      ويقتصر ما يضمنه المزوّد على أن الخدمة تؤدي جوهرياً ما هو موصوف في هذه الشروط ووثائق المنصة،
+      وأنه يبذل العناية المعقولة في تشغيلها وحماية بياناتها.
+    en: >-
+      The service is provided "as is" and "as available". The Provider gives no warranty, express or
+      implied, of fitness for the Customer's particular purpose, of freedom from error, of
+      uninterrupted operation, or of any commercial result — how many customers return depends on
+      the shop, its service, its prices and its market, not on software alone. What the Provider
+      warrants is that the service performs substantially as described in these Terms and the
+      platform's documentation, and that it exercises reasonable care in operating it and protecting
+      its data.
+
+  # ── 13 · ربط واتساب قبل الاشتراك المدفوع ───────────────────────────────────────────────────
+  #
+  # OUR OWN PRODUCT RULE (§6.2.1), and it belongs here because it is a condition on buying. A shop
+  # that pays and only then discovers it cannot send has bought nothing — the refusal protects it
+  # more than it protects us, which is exactly why it reads well in a contract.
+  connection_first:
+    title: { ar: "ربط واتساب شرطٌ للاشتراك المدفوع", en: "A WhatsApp connection precedes a paid subscription" }
+    ar: >-
+      لا يُفعَّل اشتراك مدفوع قبل ربط العميل حساب واتساب الأعمال الخاص به بالمنصة، لأن الخدمة بلا
+      قناة إرسال لا تؤدي غرضها. ويُستثنى من ذلك فترة التجربة، فهي متاحة قبل الربط. والربط عملية
+      دقائق، ولا يُشترط توثيق النشاط التجاري لدى Meta للبدء.
+    en: >-
+      A paid subscription is not activated before the Customer has connected its own WhatsApp
+      Business account to the platform, because the service serves no purpose without a sending
+      channel. The trial is excepted and is available before connecting. Connecting takes minutes,
+      and business verification with Meta is not required in order to start.
+
+  # ── 14 · فترة التجربة ──────────────────────────────────────────────────────────────────────
+  trial:
+    title: { ar: "فترة التجربة", en: "The trial period" }
+    ar: >-
+      تُتاح فترة تجربة على الباقة الأساسية دون بطاقة ودون التزام، ومدّتها المعلنة في صفحة الأسعار
+      وقت الاشتراك. ولا تتحوّل تلقائياً إلى اشتراك مدفوع: بانقضائها يتوقف الإرسال وتبقى بيانات
+      العميل كما هي إلى أن يشترك أو يطلب حذفها. وللمزوّد تعديل مدّة التجربة أو إلغاؤها للاشتراكات
+      الجديدة دون أثر على تجربة قائمة.
+    en: >-
+      A trial is available on the entry plan with no card and no commitment, for the period stated on
+      the pricing page at the time of subscribing. It does not roll over into a paid subscription: at
+      its end sending stops and the Customer's data remains as it is until it subscribes or asks for
+      deletion. The Provider may change or withdraw the trial for new subscriptions without affecting
+      one already running.
+
+  # ── 15 · ما تشمله الباقة، وما لا تشمله ─────────────────────────────────────────────────────
+  #
+  # THE PRICING PIVOT (§16.7) MADE CONTRACTUAL. We do not sell messages; Meta bills the shop.
+  # Unwritten, the first invoice from Meta becomes a support ticket accusing us of a hidden charge.
+  what_the_plan_buys:
+    title: { ar: "ما تشمله الباقة", en: "What the plan includes" }
+    ar: >-
+      تشتري الباقة استخدام المنصة وقدراتها — المحرّك والمؤشرات والولاء والحملات وعدد المقاعد
+      والفروع المبيّن فيها — ولا تشتري سعة إرسال ولا عدد رسائل. فتكلفة الرسائل بين العميل وMeta
+      مباشرةً وتُحاسبه عليها، ولا يتقاضى المزوّد عنها شيئاً ولا يتحكّم في تسعيرها. وتُبيَّن قدرات كل باقة وحدودها — ومنها عدد المقاعد والفروع —
+      في صفحة الأسعار المنشورة وقت الاشتراك، وهي المرجع لا هذا النص. ويُرفض تجاوز الحدّ عند
+      الإضافة مع بيانه. وللمزوّد تطوير الباقات وتعديل حدودها للاشتراكات الجديدة، ولا يُنقِص من
+      قدرات باقةٍ قائمة خلال مدّتها المدفوعة.
+    en: >-
+      The plan buys use of the platform and its capabilities — the engine, the indicators, loyalty,
+      campaigns, and the seat and branch counts stated in it — and does not buy sending capacity or a
+      number of messages. The cost of messages is between the Customer and Meta directly, which bills
+      it; the Provider takes nothing for them and does not control their pricing. Each plan's capabilities and limits — including seat and branch counts —
+      are stated on the pricing page published at the time of subscribing, which is the reference
+      rather than this text. Exceeding a limit is refused at the point of addition with the limit
+      named. The Provider may develop the plans and change their limits for new subscriptions, and
+      does not reduce the capabilities of a plan already running during its paid period.
+
+  # ── 15.1 · القطاعات والقدرات المتغيّرة ─────────────────────────────────────────────────────
+  #
+  # THE CLAUSE THAT COVERS EVERYTHING THE SPECIFICATION WILL CHANGE. Sectors, field layouts, the
+  # template library, indicator definitions, the ordering of the service grid — all of these are
+  # product decisions we edit at runtime from our own console, by design. None of them belongs as a
+  # promise in a contract, and all of them would otherwise be one.
+  evolving_product:
+    title: { ar: "تطوّر المنصة وقدراتها", en: "The platform and its capabilities evolve" }
+    ar: >-
+      تُبيَّن قطاعات النشاط وحقول الإدخال ومكتبة القوالب وتعريفات المؤشرات وسائر تفاصيل التشغيل في
+      وثائق المنصة وواجهتها، وهي قابلة للتطوير والتعديل والإضافة والحذف من المزوّد في أي وقت.
+      ويلتزم المزوّد بألّا يُلغي خلال مدّة مدفوعة قائمة قدرةً جوهرية اشترك العميل لأجلها دون بديل
+      مكافئ أو إشعار مسبق معقول. ولا يُعدّ تغيير شكل واجهة أو تسمية أو ترتيب أو إضافة قطاع أو
+      قالب أو مؤشر انتقاصاً من الخدمة.
+    en: >-
+      The business sectors, the input fields, the template library, the indicator definitions and
+      the other operational details are set out in the platform's documentation and interface, and
+      may be developed, changed, added to or removed by the Provider at any time. The Provider
+      undertakes not to withdraw, during a paid period already running, a material capability the
+      Customer subscribed for, without an equivalent replacement or reasonable prior notice. A change
+      to an interface, a name, an ordering, or the addition of a sector, template or indicator is not
+      a reduction of the service.
+
+  # ── 16 · موافقة العميل النهائي ─────────────────────────────────────────────────────────────
+  consent_rules:
+    title: { ar: "الموافقة على الرسائل التسويقية", en: "Consent to marketing messages" }
+    ar: >-
+      لا تُرسل رسالة تسويقية إلا لعميل منح موافقة صريحة، ولا تُعدّ الحالة المجهولة موافقة. ويوقف
+      النظام الإرسال فوراً عند سحب الموافقة، ولا يملك العميل ولا المزوّد تجاوز ذلك. ورسائل الخدمة —
+      كتأكيد زيارة أو تذكير بموعد — تختلف عن التسويقية وتخضع لقواعدها الخاصة. ولكل عميل نهائي إيقاف
+      الرسائل التسويقية بنقرة واحدة من الرسالة نفسها دون تسجيل دخول.
+    en: >-
+      A marketing message is sent only to a customer who has given express consent; an unknown state
+      is not consent. Sending stops immediately on withdrawal, and neither the Customer nor the
+      Provider can override that. Service messages — a visit confirmation, an appointment reminder —
+      are of a different nature and follow their own rules. Every end customer may stop marketing
+      messages with one tap from the message itself, without signing in.
+
+  # ── 17 · حذف العميل النهائي لبياناته ───────────────────────────────────────────────────────
+  #
+  # THE CLAUSE A SHOP MIGHT OBJECT TO, WHICH IS WHY IT IS STATED BEFORE IT SIGNS. We execute a
+  # customer's erasure directly and notify rather than ask. Discovering that afterwards would be a
+  # genuine grievance; agreeing to it in advance is a term.
+  end_customer_erasure:
+    title: { ar: "حذف العميل النهائي لبياناته", en: "Erasure by the end customer" }
+    ar: >-
+      لعميل المنشأة أن يطلب حذف بياناته من صفحته مباشرةً، ويُنفَّذ الطلب فوراً وتُخطَر به المنشأة
+      دون أن يتوقف التنفيذ على موافقتها — فهو حقٌّ لصاحب البيانات لا قرارٌ تجاري. ويبقى بعد الحذف
+      سجلّ الزيارات بلا أي مُعرِّف، وهو سجلّ المنشأة عن عملٍ أدّته ولا يدلّ على شخص.
+    en: >-
+      A customer of the establishment may request erasure of his data from his own page; the request
+      is executed immediately and the establishment is notified, execution not being conditional on
+      its approval — it is a data subject's right, not a commercial decision. After erasure the visit
+      history remains with no identifier in it, being the establishment's record of work it performed
+      and pointing to no person.
+
+  # ── 18 · الحسابات والموظفون ────────────────────────────────────────────────────────────────
+  accounts:
+    title: { ar: "الحسابات والموظفون", en: "Accounts and personnel" }
+    ar: >-
+      يُنشئ العميل حسابات موظفيه ويمنحهم الأدوار المناسبة، ولا يمنح ما لا يملكه هو. وكل إجراء يقع
+      من حساب منسوب إليه يُعدّ واقعاً منه. وعليه إلغاء وصول من انتهت علاقته به فوراً. والهوية تُؤخذ
+      من الجلسة، فكل زيارة وكل استبدال منسوب إلى من سجّله.
+    en: >-
+      The Customer creates its personnel's accounts and grants them appropriate roles, and may not
+      grant what it does not itself hold. Any action taken from an account attributed to it is deemed
+      taken by it. It must revoke access for anyone whose relationship with it has ended. Identity
+      comes from the session, so every visit and every redemption is attributed to whoever recorded
+      it.
+
+  # ── 19 · الاستخدام المقبول ─────────────────────────────────────────────────────────────────
+  acceptable_use:
+    title: { ar: "الاستخدام المقبول", en: "Acceptable use" }
+    ar: >-
+      لا يجوز للعميل إعادة بيع المنصة أو إتاحتها للغير أو استخدامها لحساب منشأة أخرى دون اشتراك
+      مستقل، ولا رفع أرقام لم يجمعها بنفسه من عملائه، ولا استخدامها في إرسال جماعي غير مرتبط بعلاقة
+      قائمة، ولا محاولة تجاوز الحدود التقنية أو الوصول إلى بيانات منشأة أخرى. ومخالفة هذا البند
+      تجيز الإيقاف الفوري.
+    en: >-
+      The Customer may not resell the platform, make it available to others, or use it for another
+      establishment without a separate subscription; may not upload numbers it did not itself collect
+      from its own customers; may not use it for bulk sending unrelated to an existing relationship;
+      and may not attempt to circumvent technical limits or reach another establishment's data.
+      Breach of this clause permits immediate suspension.
+
+  # ── 20 · الدعم ─────────────────────────────────────────────────────────────────────────────
+  support:
+    title: { ar: "الدعم", en: "Support" }
+    ar: >-
+      يقدّم المزوّد الدعم عبر قنواته وأوقاته المعلنة على موقعه وقت طلب الدعم، ويبذل عناية معقولة في الاستجابة دون
+      التزام بمدّة محدّدة ما لم يُتفق عليها كتابةً. وقد يبادر المزوّد بالتواصل مع العميل عند ملاحظته
+      ما يعيق استفادته من الخدمة.
+    en: >-
+      The Provider offers support through the channels and hours published on its site at the time support is sought, and exercises
+      reasonable care in responding, without commitment to a fixed response time unless separately
+      agreed in writing. The Provider may proactively contact the Customer where it observes
+      something impeding its use of the service.
+
+  # ── 21 · الأسعار وتغييرها ──────────────────────────────────────────────────────────────────
+  pricing_changes:
+    title: { ar: "الأسعار وتغييرها", en: "Prices and changes to them" }
+    ar: >-
+      الأسعار المعلنة شاملة ضريبة القيمة المضافة ما لم يُذكر خلاف ذلك. وللمزوّد تعديل أسعاره بإشعار
+      لا يقل عن ثلاثين يوماً قبل بدء المدّة التالية، ولا يسري التعديل على مدّة مدفوعة قائمة، وللعميل
+      إن لم يقبله إنهاء اشتراكه بأثر من نهايتها. وقد يتفق المزوّد مع منشأة بعينها على باقة أو سعر
+      خاص، ولا يُنشئ ذلك حقاً لغيرها.
+    en: >-
+      Published prices include VAT unless stated otherwise. The Provider may change its prices on no
+      less than thirty days' notice before the next period begins; a change does not apply to a paid
+      period already running, and a Customer that does not accept it may terminate with effect from
+      its end. The Provider may agree a particular plan or price with a particular establishment,
+      which creates no right for any other.
+
+  # ── 22 · الشركاء والمسوّقون ────────────────────────────────────────────────────────────────
+  partners:
+    title: { ar: "الشركاء والمسوّقون", en: "Partners and marketers" }
+    ar: >-
+      قد يصل العميل إلى المنصة عن طريق شريك أو مسوّق معتمد لدى المزوّد. ولا يجعل ذلك الشريك طرفاً في
+      هذه الشروط، ولا يخوّله الوصول إلى بيانات العميل ولا إلى بيانات عملائه، ولا يلزم المزوّد بشيء
+      وعده به الشريك خارج ما هو منشور رسمياً.
+    en: >-
+      The Customer may reach the platform through a partner or marketer accredited by the Provider.
+      That does not make the partner a party to these Terms, does not entitle it to access the
+      Customer's data or its customers' data, and does not bind the Provider to anything the partner
+      promised beyond what is officially published.
+
+  # ── 23 · القوة القاهرة ─────────────────────────────────────────────────────────────────────
+  force_majeure:
+    title: { ar: "القوة القاهرة", en: "Force majeure" }
+    ar: >-
+      لا يُسأل أي طرف عن تأخّر أو إخلال سببه أمر خارج عن سيطرته المعقولة، ومنه انقطاع خدمات الغير
+      التي تعتمد عليها المنصة كواتساب ومزوّد الاستضافة وشبكات الاتصال، والأوامر الحكومية، والكوارث.
+      ويظلّ التزام العميل بالسداد عن مدّة استُخدمت فيها الخدمة قائماً.
+    en: >-
+      Neither party is liable for delay or failure caused by anything beyond its reasonable control,
+      including outages of the third-party services the platform depends on such as WhatsApp, the
+      hosting provider and the telecommunications networks, government orders and disasters. The
+      Customer's obligation to pay for a period in which the service was used remains.
+
+  # ── 24 · الإشعارات ─────────────────────────────────────────────────────────────────────────
+  #
+  # OUR NOTICES REACH A SHOP OWNER WHERE HE ACTUALLY IS — the same reasoning that put the weekly
+  # report on WhatsApp rather than behind a login. A notice clause pointing at an inbox nobody opens
+  # guarantees the notice was not read.
+  notices:
+    title: { ar: "الإشعارات", en: "Notices" }
+    ar: >-
+      تُرسَل إشعارات المزوّد إلى العميل عبر لوحته أو عبر رقم الجوال المسجّل في حسابه، وتُعدّ واصلةً
+      من تاريخ إرسالها. وتُرسَل إشعارات العميل إلى المزوّد على {{SUPPORT_EMAIL}} أو عبر قنوات الدعم
+      المعلنة.
+    en: >-
+      The Provider's notices to the Customer are sent through its console or to the mobile number
+      registered on its account, and are deemed received on the date sent. The Customer's notices to
+      the Provider are sent to {{SUPPORT_EMAIL}} or through the published support channels.
+
+  # ── 25 · أحكام عامة ────────────────────────────────────────────────────────────────────────
+  general:
+    title: { ar: "أحكام عامة", en: "General" }
+    ar: >-
+      لا يجوز للعميل التنازل عن هذه الشروط دون موافقة المزوّد الكتابية، وللمزوّد التنازل عنها في حال
+      اندماج أو بيع نشاطه مع بقاء التزاماته. وتمثّل هذه الشروط وملحقاتها كامل الاتفاق بين الطرفين
+      وتحلّ محلّ كل تفاهم سابق. وعدم استعمال أي طرف لحقٍّ لا يُعدّ تنازلاً عنه. وتُنشَر هذه الشروط
+      بالعربية والإنجليزية، ويُعتدّ بالنص العربي عند الاختلاف.
+    en: >-
+      The Customer may not assign these Terms without the Provider's written consent; the Provider
+      may assign them on a merger or sale of its business, its obligations continuing. These Terms
+      and their annexes constitute the entire agreement between the parties and supersede any prior
+      understanding. A party's failure to exercise a right is not a waiver of it. These Terms are
+      published in Arabic and English; the Arabic text prevails in the event of a discrepancy.
