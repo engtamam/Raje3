@@ -21,7 +21,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
-import { Select } from '@base-ui/design-system/Field';
+import { Drawer } from '@base-ui/design-system/Drawer';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
@@ -109,6 +109,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const [adjustMsg, setAdjustMsg] = useState('');
   const [nameDraft, setNameDraft] = useState('');
   const [namingMsg, setNamingMsg] = useState('');
+  const [pickingReason, setPickingReason] = useState(false);
 
   useEffect(() => {
     const a = action(catalog, 'operations.customer');
@@ -474,26 +475,59 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     «أخرى» KEEPS THE DOOR OPEN, because a closed list always meets the case nobody
                     predicted, and a screen that refuses the unusual reason teaches the operator to
                     pick the nearest lie — worse than free text, because it looks like data. */}
-                {/* THE KIT'S OWN SELECT — a native element with our paint on it, which keeps the
-                    mobile picker, the keyboard and the accessibility for free. The chevron flips
-                    side in RTL by itself.
-                    AND IT SITS ON ITS OWN ROW. The real fault in the version before this was not
-                    the control: chips and a select alike were squeezed into the narrow column left
-                    beside the number field, so six reasons stacked into a ragged tower. A choice
-                    of sentences needs the width of the card. */}
-                <Select
-                  value={(ADJUST_REASONS as readonly string[]).includes(adjustNote)
-                    ? adjustNote : 'other'}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                    setAdjustNote(e.target.value === 'other' ? '' : e.target.value)}
-                  aria-label="سبب التعديل"
+                {/* A SHEET, NOT A DROPDOWN, and the third attempt at this control.
+                    A native <select> renders its list outside the page — we cannot give it a
+                    height, a scroll, or a readable line width, and on the owner's screen it opened
+                    into something he could not move through. Six full sentences were never going
+                    to fit a control designed for «نعم / لا».
+                    THE DRAWER IS THE KIT'S OWN. It owns the whole width, scrolls inside itself,
+                    closes on the backdrop, and each reason is a 44px row a thumb can hit — which
+                    is the same answer the field screen reached for its keypad. */}
+                <button
+                  type="button"
+                  onClick={() => setPickingReason(true)}
+                  className="flex min-h-11 w-full items-center justify-between rounded-xl bg-surface-1 px-3 text-start text-sm shadow-sm"
                 >
-                  {ADJUST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  {/* «أخرى» STAYS: a closed list always meets the case nobody predicted, and
-                      forcing the nearest wrong reason corrupts the record while making it look
-                      clean — worse than free text, because it reads as data. */}
-                  <option value="other">أخرى…</option>
-                </Select>
+                  <span className={adjustNote ? '' : 'text-text-secondary'}>
+                    {adjustNote || 'اختر السبب'}
+                  </span>
+                  <span className="text-text-secondary">▾</span>
+                </button>
+
+                <Drawer
+                  open={pickingReason}
+                  onClose={() => setPickingReason(false)}
+                  title="سبب التعديل"
+                  subtitle="يُحفَظ مع الحركة، ويُقرأ بعد أشهر"
+                >
+                  <ul className="flex flex-col gap-1">
+                    {ADJUST_REASONS.map((r) => (
+                      <li key={r}>
+                        <button
+                          type="button"
+                          onClick={() => { setAdjustNote(r); setPickingReason(false); }}
+                          className={`min-h-11 w-full rounded-xl px-3 text-start text-sm ${
+                            adjustNote === r ? 'bg-accent text-white' : 'bg-surface-2'
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      </li>
+                    ))}
+                    <li>
+                      {/* «أخرى» STAYS: a closed list always meets the case nobody predicted, and
+                          forcing the nearest wrong reason corrupts the record while making it look
+                          clean — worse than free text, because it reads as data. */}
+                      <button
+                        type="button"
+                        onClick={() => { setAdjustNote(''); setPickingReason(false); }}
+                        className="min-h-11 w-full rounded-xl bg-surface-2 px-3 text-start text-sm"
+                      >
+                        أخرى…
+                      </button>
+                    </li>
+                  </ul>
+                </Drawer>
               </div>
 
               {/* THE FREE FIELD ONLY FOR «أخرى» — the common case is two taps, and the case
