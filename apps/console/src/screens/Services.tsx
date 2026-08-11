@@ -265,13 +265,57 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * references it, and a shop that stopped offering something still needs last year's records to
    * make sense.
    */
-  const addService = async (name: string, cycleDays: number) => {
+  /**
+   * A NEW SERVICE, WITH EVERY ANSWER IT NEEDS — not a name and one number.
+   *
+   * The form asked for the cycle alone, so every service arrived half-configured: no follow-up, no
+   * points, no group. The owner had no way to know that; the form looked finished. He would add
+   * «تلميع», walk away, and find out weeks later that it never asked his customer anything and
+   * never earned a point — by which time the visits it should have counted are gone.
+   *
+   * FOUR SERVICES ANSWER THIS, IN THIS ORDER, AND THE FIRST ONE IS THE ONLY REQUIRED ONE.
+   * operations owns the service, reminders owns its cycle and its follow-up and its group, loyalty
+   * owns its points. So the row is created first and the rest are applied to the id it returns —
+   * and any of them that his role cannot reach is simply not asked for on the form.
+   *
+   * A FAILURE AFTER THE FIRST STEP LEAVES A REAL SERVICE. That is deliberate: the service exists,
+   * it is on the operator's grid, and the settings it is missing are all editable on the card he
+   * is looking at. Rolling it back would delete something he successfully created because a
+   * secondary setting timed out.
+   */
+  const addService = async (
+    name: string,
+    opts: { cycleDays: number; followUpDays: number; points: number | null; group: string },
+  ) => {
     const a = action(catalog, 'operations.create_service');
     if (!a || !name.trim()) return;
     setSaving(true);
     setError('');
     try {
-      await call(session, a, { name: name.trim(), cycle_days: cycleDays });
+      const created = await call<{ id?: string }>(
+        session, a, { name: name.trim(), cycle_days: opts.cycleDays });
+      const id = created?.id ?? '';
+
+      if (id) {
+        const rem = action(catalog, 'reminders.set_service_settings');
+        // THE CYCLE WENT WITH THE ROW ALREADY; the follow-up is reminders' and has to be said
+        // separately. Zero means "do not ask after this service", which is a real answer and not
+        // an unset field — so it is only sent when he typed something above zero.
+        if (rem && opts.followUpDays > 0) {
+          await call(session, rem, { service_id: id, follow_up_days: opts.followUpDays });
+        }
+        // NULL MEANS "follow the general rule" (§9.2: inherit, never copy). Writing today's
+        // general number instead would freeze it, and the next change to the general setting
+        // would skip this service without saying so.
+        if (earnAction && opts.points !== null) {
+          await call(session, earnAction, { service_id: id, points: opts.points });
+        }
+        const grp = action(catalog, 'reminders.set_group');
+        if (grp && opts.group.trim()) {
+          await call(session, grp, { name: opts.group.trim(), service_ids: [id] });
+        }
+      }
+
       setAdding(false);
       load();
     } catch (e) {
@@ -510,7 +554,16 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 onSubmit={(e) => {
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
-                  addService(String(f.get('name') || ''), Number(f.get('cycle_days') || 0));
+                  const pts = String(f.get('points') || '').trim();
+                  addService(String(f.get('name') || ''), {
+                    cycleDays: Number(f.get('cycle_days') || 0),
+                    followUpDays: Number(f.get('follow_up_days') || 0),
+                    // AN EMPTY BOX IS NOT A ZERO HERE. Blank means "whatever the shop's general
+                    // rule is"; a typed 0 means "this one earns nothing", and they are different
+                    // instructions with different futures.
+                    points: pts === '' ? null : Number(pts),
+                    group: String(f.get('group') || ''),
+                  });
                 }}
               >
                 <label className="flex flex-col gap-1">
@@ -519,18 +572,43 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                          placeholder="مثال: تلميع وتشميع، أو كيس قهوة 250 جم"
                          className="h-10 rounded-lg bg-surface-2 px-3" />
                 </label>
-                <label className="flex items-center justify-between gap-3">
-                  <span className="flex flex-col">
-                    <span className="text-sm">كل كم يوماً يحتاجه العميل؟</span>
-                    {/* ZERO IS A REAL ANSWER, not an empty field: a one-off job has no natural
-                        cycle and must not produce a reminder. Said here rather than discovered. */}
-                    <span className="text-sm text-text-secondary">
-                      اتركه 0 إن كان لمرة واحدة — فلا تذكير له.
-                    </span>
-                  </span>
+
+                <Row label="كل كم يوماً يحتاجه العميل؟"
+                     hint="اتركه 0 إن كان لمرة واحدة — فلا تذكير له.">
                   <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
                          className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
-                </label>
+                </Row>
+
+                {action(catalog, 'reminders.set_service_settings') ? (
+                  <Row label="الاطمئنان بعد الزيارة"
+                       hint="رسالة قصيرة تسأل إن كان كل شيء تمام، وتُلغى تلقائياً إن عاد قبل موعدها. اتركه 0 فلا نسأل.">
+                    <input name="follow_up_days" type="number" min={0} defaultValue={0} dir="ltr"
+                           className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                  </Row>
+                ) : null}
+
+                {earnAction ? (
+                  <Row label="نقاطها"
+                       hint="اتركه فارغاً لتتبع إعدادك العام — واكتب رقماً لتكون لها نقاطها وحدها.">
+                    <input name="points" type="number" min={0} dir="ltr"
+                           placeholder={String(earn?.general?.points ?? 0)}
+                           className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                  </Row>
+                ) : null}
+
+                {action(catalog, 'reminders.set_group') ? (
+                  <Row label="المجموعة"
+                       hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها. واتركه بلا مجموعة إن لم تكن متأكداً؛ تنقلها متى شئت.">
+                    <select name="group"
+                            className="h-10 w-full shrink-0 rounded-lg bg-surface-2 px-3 sm:w-44">
+                      <option value="">بلا مجموعة</option>
+                      {Object.keys(settings?.groups ?? {}).map((g) => (
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </Row>
+                ) : null}
+
                 <div className="flex gap-2">
                   <Button type="submit" disabled={saving}>إضافة</Button>
                   <Button type="button" variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button>
@@ -784,6 +862,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       </div>
         );
       })()}
+    </div>
+  );
+}
+
+/** One question on the add form: its label, its «؟», and the control that answers it. */
+function Row({ label, hint, children }:
+    { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm">{label}</span>
+      <Hint>{hint}</Hint>
+      <span className="ms-auto">{children}</span>
     </div>
   );
 }
