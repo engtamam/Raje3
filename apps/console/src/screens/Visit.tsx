@@ -37,6 +37,18 @@ import { isSignedIn, useSession } from '../session';
  * The space is INSERTED, never typed. He types 1234ABC and reads 1234 ABC, which is also exactly
  * what gets stored and indexed — see seams.py.
  */
+/**
+ * The number in the form this product uses everywhere a person reads or types one.
+ *
+ * Storage and the network want E.164; the operator, the validator and the display all want the
+ * local form. Converting at the ONE boundary where a stored number enters the screen keeps the
+ * rest of the file from having to know there are two.
+ */
+export function asLocal(phone: string): string {
+  const d = (phone || '').replace(/\D/g, '');
+  return d.startsWith('966') ? `0${d.slice(3)}` : d;
+}
+
 export function formatPlate(raw: string): string {
   const clean = raw.replace(/[^0-9a-zA-Z]/g, '');
   const digits = clean.replace(/[^0-9]/g, '').slice(0, 4);
@@ -374,6 +386,19 @@ export function Visit() {
                   visits he knows it and writes it in a quiet moment. */}
             </div>
 
+            {/* THE WAY BACK OUT OF AN EDIT. Pressing «تعديل» used to be one-way: the lookup stops
+                running while `changing` is set, so the card never returned and he had no button
+                that said so. An edit a person cannot abandon is a trap, not a feature. */}
+            {changing ? (
+              <button
+                type="button"
+                onClick={() => { setChanging(false); }}
+                className="min-h-11 shrink-0 rounded-xl bg-surface-2 text-sm font-semibold"
+              >
+                إلغاء التعديل والعودة لبيانات السيارة
+              </button>
+            ) : null}
+
             <div className="touch-only min-h-0 flex-1">
                 <Keypad value={phone} onChange={setPhone} />
               </div>
@@ -507,7 +532,13 @@ export function Visit() {
 
       <button
         type="button"
-        onClick={() => { setChanging(true); setPlateKnown(false); setPhone(''); setName(''); }}
+        onClick={() => {
+          // THE NUMBER IS KEPT, NOT CLEARED. Emptying it turned «تعديل» into «ابدأ من الصفر»: he
+          // wanted to fix one digit of a number he could no longer see, on a page that had also
+          // stopped offering him a way back. Editing starts from what is there.
+          setChanging(true);
+          setPlateKnown(false);
+        }}
         className="min-h-[44px] rounded-xl bg-surface-2 text-base font-semibold"
       >
         تعديل بيانات العميل

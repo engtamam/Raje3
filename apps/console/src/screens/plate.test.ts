@@ -2,7 +2,7 @@
  * The plate formatter — because a wrong rule here splits one car into two customers.
  */
 import { describe, expect, it } from 'vitest';
-import { formatPlate } from './Visit';
+import { asLocal, formatPlate } from './Visit';
 
 describe('formatPlate', () => {
   it('places the separator so he never types it', () => {
@@ -26,5 +26,21 @@ describe('formatPlate', () => {
 
   it('uppercases, because two scripts for one car is two customers', () => {
     expect(formatPlate('1234abc')).toBe('1234 ABC');
+  });
+});
+
+describe('asLocal', () => {
+  it('turns what the server stores into what the screen validates', () => {
+    // THE BUG THIS NAMES: the plate lookup filled «966555555555», the validator wanted
+    // «05XXXXXXXX», and «حفظ وإرسال» stayed dead with a perfectly good customer on the page.
+    expect(asLocal('966555555555')).toBe('0555555555');
+  });
+
+  it('leaves a local number alone, so a typed number is never rewritten under him', () => {
+    expect(asLocal('0501234567')).toBe('0501234567');
+  });
+
+  it('matches the validator this screen uses', () => {
+    expect(/^05\d{8}$/.test(asLocal('966501234567'))).toBe(true);
   });
 });
