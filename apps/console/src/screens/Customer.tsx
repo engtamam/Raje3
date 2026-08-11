@@ -472,18 +472,20 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   dir="ltr"
                   placeholder="50"
                   aria-label="عدد النقاط"
-                  className="h-11 w-24 rounded-xl bg-surface-1 px-3 text-center tabular-nums shadow-sm"
+                  className="h-11 w-full rounded-xl bg-surface-1 px-3 text-center text-lg tabular-nums shadow-sm"
                 />
-                {/* SAID BY EXAMPLE, BECAUSE A MINUS IS A DECISION AND NOT A DETAIL. «موجب/سالب»
-                    is the vocabulary of a form, not of a counter — an owner compensating a
-                    customer should not have to work out that the same box also takes points away.
-                    He reads «-50» and knows without being taught. */}
-                <span className="self-center text-xs leading-tight text-text-secondary">
-                  اكتب <span dir="ltr" className="tabular-nums">50</span> لمنحه نقاطاً،
-                  <br />
-                  و<span dir="ltr" className="tabular-nums">-50</span> لخصمها منه.
-                </span>
               </div>
+
+                {/* UNDER THE FIELD, ON ONE LINE. Beside it the sentence folded into three ragged
+                    lines next to a small box — the same mistake as the reason, one row up. A hint
+                    is an aside: it belongs under the thing it explains, not in competition with it.
+                    AND BY EXAMPLE, NOT BY GRAMMAR. «موجب/سالب» is the vocabulary of a form, and an
+                    owner compensating a customer should not have to work out that the same box
+                    also takes points away. He reads «-50» and knows. */}
+                <p className="text-xs text-text-secondary">
+                  اكتب <span dir="ltr" className="tabular-nums">50</span> لمنحه نقاطاً،
+                  و<span dir="ltr" className="tabular-nums">-50</span> لخصمها منه.
+                </p>
 
                 {/* THE REASON IS A CHOICE, NOT AN ESSAY. It stays required — the entry outlives
                     the memory of it and the customer asks six months later — but demanding free
