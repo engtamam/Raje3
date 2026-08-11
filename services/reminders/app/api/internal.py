@@ -18,6 +18,7 @@ from app.config import Settings, get_settings
 from app.core.erasure import RemindersErasure
 from app.core.stores import ScheduleStore
 from app.core import backup as _backup
+from app.core import rendering as R
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
 
@@ -534,7 +535,16 @@ async def send_dsar_code(request: Request, body: DsarCodeIn) -> dict:
     await request.app.state.container.sender.send(
         tenant=body.tenant, subject_ref=body.subject_ref,
         template_name="per_dsar_code",
-        variables=[code, str(minutes), body.shop_name or ""],
+        # THE LIBRARY NUMBERS ITS SLOTS ONCE, FOR EVERY TEMPLATE: {{1}} is the name (or its
+        # substitute), {{2}} is the establishment, and the rest is the message. This call filled
+        # them in its own order, so the code would have arrived where a name belongs and the shop
+        # name where a deadline belongs — a rendered message nobody could act on, under a template
+        # Meta had approved. Positional variables have no field names to catch that.
+        #
+        # AND THE NAME IS THE SUBSTITUTE HERE, always: this service holds a pseudonym and no name,
+        # by design (see the message-sender port). Meta refuses an empty variable, so the library's
+        # own fallback fills it rather than a blank.
+        variables=[R.FALLBACK_NAME, body.shop_name or "", code, str(minutes)],
         cls="personal",
         # ONE PER DSAR, ATTEMPT AND ALL. A retried delivery must not become two messages carrying
         # the same code — the second reads as a second request the subject did not make.

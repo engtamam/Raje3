@@ -228,6 +228,13 @@ def build(types: list[dict]) -> dict:
                   "means": "the service or the content"},
             "4": {"name": "detail", "example": "1234",
                   "means": "a second detail: a date, an amount, a transaction reference"},
+            # THE FIFTH EXISTS FOR ONE TEXT, and it was missing while that text was live.
+            # `svc_visit_redeemed` numbers five, the library declared four, and a submission whose
+            # placeholder has no example is refused by Meta at creation — hours later, against a
+            # name that cannot then be reused. The generator's own checker crashed on it, which is
+            # how it was found: a KeyError is a better messenger than a rejection email.
+            "5": {"name": "balance", "example": "40",
+                  "means": "what is LEFT after the act — today the points balance that remains"},
         },
         "tones": list(TONES),
         "types": types,

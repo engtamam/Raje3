@@ -33,6 +33,11 @@
       "name": "detail",
       "example": "1234",
       "means": "a second detail: a date, an amount, a transaction reference"
+    },
+    "5": {
+      "name": "balance",
+      "example": "40",
+      "means": "what is LEFT after the act — today the points balance that remains"
     }
   },
   "tones": [
@@ -52,6 +57,19 @@
         "brief": "أهلاً {{1}}، تم تسجيل زيارتك لدى {{2}}. شكراً لثقتك.",
         "warm": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}. سجّلنا زيارتك، وأي شي تحتاجه إحنا معك.",
         "formal": "عزيزنا {{1}}، نفيدكم بتسجيل زيارتكم لدى {{2}}. نشكر لكم ثقتكم بنا."
+      }
+    },
+    {
+      "name": "svc_visit_redeemed",
+      "deferral": "drop",
+      "title": "تأكيد الزيارة ومعه الاستبدال",
+      "cls": "service",
+      "category": "UTILITY",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، تم تسجيل زيارتك لدى {{2}}. استبدلت {{3}} بـ{{4}} نقطة، ورصيدك الآن {{5}}.",
+        "warm": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}. أخذت {{3}} مقابل {{4}} نقطة، وباقي لك {{5}} نقطة.",
+        "formal": "عزيزنا {{1}}، نفيدكم بتسجيل زيارتكم لدى {{2}}، واستبدال {{3}} بـ{{4}} نقطة. رصيدكم الحالي {{5}} نقطة."
       }
     },
     {
@@ -169,6 +187,19 @@
         "brief": "أهلاً {{1}}، لديك {{3}} نقطة في {{2}} تنتهي بتاريخ {{4}}.",
         "warm": "هلا {{1}}، لا تفوّتها — عندك {{3}} نقطة في {{2}} تنتهي بتاريخ {{4}}، وتقدر تستخدمها في زيارتك الجاية.",
         "formal": "عزيزنا {{1}}، نفيدكم بأن {{3}} نقطة من رصيدكم لدى {{2}} تنتهي صلاحيتها بتاريخ {{4}}."
+      }
+    },
+    {
+      "name": "per_dsar_code",
+      "deferral": "priority",
+      "title": "رمز تأكيد طلب البيانات (لا يُوقَف)",
+      "cls": "personal",
+      "category": "UTILITY",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، رمز تأكيد طلبك لدى {{2}} هو {{3}}، وصالح {{4}} دقيقة.",
+        "warm": "هلا {{1}}، عشان نكمّل طلبك في {{2}} أدخل الرمز {{3}} خلال {{4}} دقيقة.",
+        "formal": "عزيزنا {{1}}، رمز تأكيد طلبكم لدى {{2}} هو {{3}}، وصلاحيته {{4}} دقيقة."
       }
     },
     {
@@ -351,20 +382,6 @@
         "brief": "أهلاً {{1}}، موعد شاغر اليوم الساعة {{3}} في {{2}}.",
         "warm": "هلا {{1}}، انفتح موعد اليوم الساعة {{3}} في {{2}} — إذا يناسبك احجزه.",
         "formal": "عزيزنا {{1}}، يتوفر موعد شاغر لدى {{2}} اليوم الساعة {{3}}."
-      }
-    },
-    {
-      "_why": "PDPL Article 4: a data-subject request must prove the person asking IS the subject before we hand over or erase anything. compliance-service mints a verification code at DSAR creation and holds no channel to deliver it — so the code reached nobody and the verify step could never complete. We own the channel; this is the message that carries it. AUTHENTICATION, NOT MARKETING: it is UTILITY and `personal`, exempt from quiet hours by class for the same reason an OTP is — a legal deadline does not wait for morning, and a request the subject himself just made is one he is waiting on. AND IT CARRIES NO DATA. The code and the shop's name, nothing else: this message proves who he is, and putting anything of his in it would disclose before the proof it is asking for.",
-      "name": "per_dsar_code",
-      "deferral": "priority",
-      "title": "رمز تأكيد طلب البيانات (لا يُوقَف)",
-      "cls": "personal",
-      "category": "UTILITY",
-      "header": "",
-      "tones": {
-        "brief": "رمز تأكيد طلبك: {{1}}. صالح {{2}} دقيقة. لدى {{3}}.",
-        "warm": "أهلاً، رمز تأكيد طلب بياناتك لدى {{3}} هو {{1}} — صالح {{2}} دقيقة.",
-        "formal": "عزيزنا، رمز تأكيد طلبكم لدى {{3}}: {{1}}. صالحٌ لمدة {{2}} دقيقة."
       }
     }
   ]

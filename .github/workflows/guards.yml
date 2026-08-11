@@ -45,6 +45,14 @@ jobs:
       - name: the library passes Meta's documented template rules
         run: python3 ci/check_meta_rules.py
 
+      # AND THE TWO COPIES OF IT AGREE. The generated file is submitted by our seeding script;
+      # operations holds the curated copy that is pushed into a real establishment's registry. They
+      # drifted by three whole types — a weekly digest, a safety notice and a DSAR code that were
+      # written, wired and sending, and were never submitted for anybody. Nothing failed loudly:
+      # the send path correctly declines a template no account was ever given.
+      - name: both template libraries carry the same words
+        run: python3 ci/check_template_libraries.py
+
       # The price list lives in deploy/seed/plans.json and nowhere else. A price copied into code
       # is correct on the day it is written and silently wrong from the first time the list
       # changes — and then what a customer is shown is not what he is charged, which in a country
