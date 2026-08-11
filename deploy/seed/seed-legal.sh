@@ -80,11 +80,14 @@ print(jwt.encode({"sub": "seed-legal", "tenant": "_platform",
 rm -f /tmp/.legal-key.pem
 [ -n "$TOKEN" ] || { red "could not mint a token (pyjwt installed?)"; exit 1; }
 
-FAILED=0
+# A SUBSHELL CANNOT REPORT. `printf | while` runs the loop in a subshell, so a variable set inside
+# it is discarded — the first version ended by announcing success over five refusals, which is the
+# exact class of lie this whole seed step exists to prevent. A marker file survives the subshell.
+FAILMARK="$(mktemp -u)"
 printf '%s\n' "$MAP" | while IFS='=' read -r file template; do
   [ -n "$file" ] || continue
   src="$HERE/legal/$file"
-  [ -f "$src" ] || { red "$file is missing"; FAILED=1; continue; }
+  [ -f "$src" ] || { red "$file is missing"; : > "$FAILMARK"; continue; }
 
   # THE VALUES ONLY. Our YAML also carries `publication` and `clauses` — the first is our own note
   # about how the document is used, the second is prose we keep for review. Neither belongs in the
@@ -101,7 +104,7 @@ print(json.dumps({"values": vals, "version": sys.argv[2], "publish": True,
                   "default_locale": "ar"}, ensure_ascii=False))
 PY
 )
-  [ -n "$payload" ] || { red "$file: unreadable (is pyyaml installed?)"; FAILED=1; continue; }
+  [ -n "$payload" ] || { red "$file: unreadable (is pyyaml installed?)"; : > "$FAILMARK"; continue; }
 
   if [ "$DRY" = "1" ]; then inf "would publish $template v$VERSION from $file"; continue; fi
 
@@ -125,9 +128,19 @@ PY
   case "$out" in
     2*)   grn "$template v$VERSION published" ;;
     409*) grn "$template v$VERSION already published" ;;
-    *)    red "$template v$VERSION — ${out:-no answer}"; FAILED=1 ;;
+    *)    red "$template v$VERSION — ${out:-no answer}"; : > "$FAILMARK" ;;
   esac
 done
 
 [ "$DRY" = "1" ] && exit 0
+if [ -e "$FAILMARK" ]; then
+  rm -f "$FAILMARK"
+  # NAMED, BECAUSE THIS IS THE EXPECTED FAILURE UNTIL THE COMPANY DETAILS EXIST. compliance refuses
+  # a document with an unfilled {{TOKEN}} — correctly: a privacy policy that reaches a customer
+  # with a literal placeholder in it is worse than no policy. The values live in the YAML files
+  # under `values:` and ci/check_legal.py lists exactly which are still blank.
+  red "some documents were refused — usually a blank value (company name, CR, address, date)."
+  red "run: python3 ci/check_legal.py   to see which."
+  exit 1
+fi
 grn "the legal library is published"
