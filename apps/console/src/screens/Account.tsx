@@ -161,7 +161,7 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
         ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
         : null}
       {active === 'shop' ? <ShopPane session={session} catalog={catalog} /> : null}
-      {active === 'login' ? <LoginPane session={session} /> : null}
+      {active === 'login' ? <LoginPane /> : null}
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
     </div>
   );

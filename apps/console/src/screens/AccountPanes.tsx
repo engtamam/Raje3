@@ -20,7 +20,10 @@ interface Tenant {
   id?: string;
   name?: string;
   status?: string;
-  branding?: { logo_url?: string; colour?: string };
+  // `accent`, NOT `colour` — the name is portal's, and portal is the only reader: it derives the
+  // customer page's whole palette from this one field. A prettier name here writes to a field
+  // nothing reads, which is how a colour picker becomes decoration.
+  branding?: { logo_url?: string; accent?: string };
   config?: { locale?: string; timezone?: string; calendar?: string };
 }
 
@@ -51,7 +54,7 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
   if (t === undefined) return <Skeleton height={160} />;
   if (!t) return <Quiet>لا تملك صلاحية عرض بيانات المنشأة.</Quiet>;
 
-  const saveBranding = async (branding: { logo_url: string; colour: string }) => {
+  const saveBranding = async (branding: { logo_url: string; accent: string }) => {
     if (!canBrand) throw new Error('لا تملك صلاحية تعديل الهوية.');
     // MERGED, NOT REPLACED. `branding` is a free-form record on the tenant and other things live
     // in it; sending our two fields alone would quietly drop whatever else is there.
@@ -96,9 +99,9 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
  * page draws, which covers a dense display, and small enough that a record stays a record.
  */
 function BrandCard({ tenant, onSave }:
-    { tenant: Tenant; onSave: (b: { logo_url: string; colour: string }) => Promise<void> }) {
+    { tenant: Tenant; onSave: (b: { logo_url: string; accent: string }) => Promise<void> }) {
   const [logo, setLogo] = useState(tenant.branding?.logo_url ?? '');
-  const [colour, setColour] = useState(tenant.branding?.colour || DEFAULT_COLOUR);
+  const [colour, setColour] = useState(tenant.branding?.accent || DEFAULT_COLOUR);
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState('');
   const [error, setError] = useState('');
@@ -119,7 +122,7 @@ function BrandCard({ tenant, onSave }:
     e.preventDefault();
     setBusy(true); setError(''); setSaid('');
     try {
-      await onSave({ logo_url: logo, colour });
+      await onSave({ logo_url: logo, accent: colour });
       setSaid('حُفظ. هذا ما يراه عميلك.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
@@ -268,7 +271,7 @@ function Fact({ label, value, wide }: { label: string; value: string; wide?: boo
  * verification code arrives on — so changing it is not an edit, it is moving the account. There is
  * no action for it in the catalogue and there should not be a box for it here.
  */
-export function LoginPane({ session }: { session: Session }) {
+export function LoginPane() {
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -282,9 +285,10 @@ export function LoginPane({ session }: { session: Session }) {
       <Quiet>
         تغيير رقم الجوال ليس تعديلاً — الرقم هو حسابك نفسه وقناة رسائلك. راسلنا وننقله لك بأمان.
       </Quiet>
-      {/* The tenant is shown because a person who works at two shops needs to know which one this
-          browser is in before he changes anything in it. */}
-      <p className="text-sm text-text-secondary" dir="ltr">{session.tenant}</p>
+      {/* THE TENANT ID USED TO BE PRINTED HERE, raw — a thirty-two character hexadecimal string
+          under three Arabic paragraphs, which an owner reads as something broken rather than as
+          "which shop this browser is in". The question it was answering is real and «منشأتي»
+          answers it properly, by name. An identifier nobody can act on is not information. */}
     </div>
   );
 }
