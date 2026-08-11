@@ -469,17 +469,40 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     «أخرى» KEEPS THE DOOR OPEN, because a closed list always meets the case nobody
                     predicted, and a screen that refuses the unusual reason teaches the operator to
                     pick the nearest lie — worse than free text, because it looks like data. */}
-                <select
-                  value={(ADJUST_REASONS as readonly string[]).includes(adjustNote)
-                    ? adjustNote : 'other'}
-                  onChange={(e) =>
-                    setAdjustNote(e.target.value === 'other' ? '' : e.target.value)}
-                  aria-label="سبب التعديل"
-                  className="h-11 min-w-0 flex-1 rounded-xl bg-surface-1 px-3 text-sm shadow-sm"
-                >
-                  {ADJUST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  <option value="other">أخرى…</option>
-                </select>
+                {/* CHIPS, NOT A DROPDOWN. A native select opens a list the operator then has to
+                    scroll on a phone — and he told us it did not scroll at all where it mattered.
+                    Six reasons fit on the screen as buttons: nothing opens, nothing scrolls, and
+                    the choice is one tap where a dropdown was three. */}
+                <div className="flex flex-wrap gap-1.5">
+                  {ADJUST_REASONS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setAdjustNote(r)}
+                      className={`min-h-11 rounded-xl px-3 text-sm ${
+                        adjustNote === r
+                          ? 'bg-accent font-semibold text-white'
+                          : 'bg-surface-1 text-text-primary'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                  {/* «أخرى» STAYS, and it is not laziness: a closed list always meets the case
+                      nobody predicted, and forcing the nearest wrong reason corrupts the record
+                      while making it look clean. */}
+                  <button
+                    type="button"
+                    onClick={() => setAdjustNote('')}
+                    className={`min-h-11 rounded-xl px-3 text-sm ${
+                      !(ADJUST_REASONS as readonly string[]).includes(adjustNote)
+                        ? 'bg-accent font-semibold text-white'
+                        : 'bg-surface-1 text-text-primary'
+                    }`}
+                  >
+                    أخرى…
+                  </button>
+                </div>
               </div>
 
               {/* THE FREE FIELD ONLY FOR «أخرى» — the common case is two taps, and the case
