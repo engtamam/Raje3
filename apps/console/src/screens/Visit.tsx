@@ -6,7 +6,7 @@
  * taps them; only then does he turn to the customer. A screen that asked for the phone number
  * first would be asking him to stop working in order to feed the system.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   applyOffer, balanceFor, customerByPhone, customerByPlate, fetchCatalogue, offerFor,
   recentCustomers, redeem,
@@ -450,19 +450,63 @@ export function Visit() {
     </div>
   );
 
+  /**
+   * The plate, in the two halves it actually has.
+   *
+   * A SAUDI PLATE IS AT MOST FOUR DIGITS AND THREE LETTERS, and often fewer of either — a short
+   * number is a real plate, not an unfinished one. So the digits box advances to the letters on
+   * its own ONLY when it is full at four; below that he moves himself. Auto-advancing on a guess
+   * would trap every owner of a two-digit plate.
+   *
+   * LATIN, AND UPPERCASED AS HE TYPES. Both scripts appear on the plate itself, and letting each
+   * operator pick means «ABC 1234» and «ا ب ج ١٢٣٤» are two customers with one car. One form is
+   * stored, and the keyboard is told which one to open with `inputMode`.
+   *
+   * STORED AS ONE STRING, «1234 ABC», because that is what the index and the lookup already use
+   * (seams.py). The split is how it is typed, not how it is kept.
+   */
+  const [plateNums, setPlateNums] = useState('');
+  const [plateChars, setPlateChars] = useState('');
+  const charsRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const joined = [plateNums, plateChars].filter(Boolean).join(' ');
+    setPlate(joined);
+  }, [plateChars, plateNums]);
+
   const platePane = (
     <div className="flex h-full flex-col justify-center gap-3">
-      <input
-        value={plate}
-        onChange={(e) => setPlate(e.target.value)}
-        placeholder="رقم اللوحة"
-        autoFocus
-        className="h-16 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold shadow-sm placeholder:text-lg placeholder:font-normal placeholder:text-text-secondary"
-      />
+      <div dir="ltr" className="flex items-stretch gap-2">
+        <input
+          value={plateNums}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+            setPlateNums(v);
+            // FOUR IS FULL, and only four. See the note above: a two-digit plate is ordinary.
+            if (v.length === 4) charsRef.current?.focus();
+          }}
+          inputMode="numeric"
+          autoFocus
+          placeholder="1234"
+          aria-label="أرقام اللوحة"
+          className="h-16 flex-1 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold tabular-nums shadow-sm placeholder:font-normal placeholder:text-text-secondary"
+        />
+        <span className="self-center text-2xl text-text-secondary">·</span>
+        <input
+          ref={charsRef}
+          value={plateChars}
+          onChange={(e) =>
+            setPlateChars(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3))}
+          placeholder="ABC"
+          aria-label="حروف اللوحة"
+          className="h-16 flex-1 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold uppercase shadow-sm placeholder:font-normal placeholder:normal-case placeholder:text-text-secondary"
+        />
+      </div>
+
       <p className="text-center text-sm text-text-secondary">
         {plateKnown && !changing
           ? 'سيارة معروفة عندنا — صاحبها في الصفحة التالية.'
-          : 'اكتب حرفين أو رقمين وتظهر لك السيارة إن كانت عندنا.'}
+          : 'الأرقام ثم الحروف. اللوحات القصيرة عادية — أكمل متى شئت.'}
       </p>
     </div>
   );
