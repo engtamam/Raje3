@@ -27,7 +27,14 @@ DICT = ROOT + "apps/console/src/i18n.ts"
 def main() -> int:
     asked: set[str] = set()
     for path in sorted(glob.glob(KIT, recursive=True)):
-        asked |= set(re.findall(r"t\('([a-zA-Z0-9._]+)'\)", io.open(path, encoding="utf-8").read()))
+        src = io.open(path, encoding="utf-8").read()
+        # A KEY IN A COMMENT IS NOT A KEY ON SCREEN. The kit documents an option it does not take —
+        # «label: t('auth.phone')» inside a doc block — and this guard demanded an Arabic string for
+        # a call nobody makes. A check that fires on prose teaches people to ignore it, and it is
+        # the second false positive of exactly this family found in one audit.
+        src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+        src = re.sub(r"^\s*//.*$", "", src, flags=re.M)
+        asked |= set(re.findall(r"t\('([a-zA-Z0-9._]+)'\)", src))
 
     text = io.open(DICT, encoding="utf-8").read()
     answered = set(re.findall(r"^\s*'([a-zA-Z0-9._]+)':", text, re.M))

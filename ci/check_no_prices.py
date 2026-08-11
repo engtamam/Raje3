@@ -92,6 +92,13 @@ def main() -> int:
             except (UnicodeDecodeError, OSError):
                 continue
             for line_no, line in enumerate(text.splitlines(), 1):
+                # A DIGEST IS NOT A PRICE. `sha256:...e598b9...` contains «598» surrounded by
+                # letters, which every one of these patterns is deliberately blind to — they guard
+                # against a digit boundary, and a hex string has none. The guard failed on a line
+                # that CI itself rewrites on every publish, which is the worst possible false
+                # positive: it fires on a change nobody made and teaches people to ignore it.
+                if "sha256:" in line:
+                    continue
                 for price, pat in zip(PRICES, PATTERNS):
                     if pat.search(line):
                         problems.append(
