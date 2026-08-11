@@ -8,8 +8,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  fetchCatalogue, recentCustomers, suggestByPrefix,
-  type CatalogueService, type CustomerHit, type SectorField,
+  customerByPhone, fetchCatalogue, offerFor, recentCustomers, suggestByPrefix,
+  type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
 } from '../api';
 import { Keypad } from '../Keypad';
 import { ServiceGrid } from '../ServiceGrid';
@@ -96,6 +96,29 @@ export function Visit() {
     return () => { stale = true; window.clearTimeout(id); };
   }, [phone, session]);
 
+  /**
+   * HIS OFFER, AT THE COUNTER — the one place it can be honoured.
+   *
+   * ONLY ON A COMPLETE NUMBER. A prefix identifies several people, and showing one man's
+   * entitlement while another's number is half-typed is worse than showing none: the worker reads
+   * it aloud, and the customer in front of him was never sent it.
+   *
+   * AND IT NEVER BLOCKS THE ENTRY. A failed lookup leaves the offer unshown and the visit
+   * recordable — this screen is used a hundred times a day and its budget is five seconds.
+   */
+  const [offer, setOffer] = useState<FieldOffer | null>(null);
+  useEffect(() => {
+    if (phone.length < 9) { setOffer(null); return; }
+    let stale = false;
+    const id = window.setTimeout(() => {
+      customerByPhone(session, phone)
+        .then((r) => (r.customer?.subject_ref ? offerFor(session, r.customer.subject_ref) : null))
+        .then((o) => { if (!stale) setOffer(o); })
+        .catch(() => { if (!stale) setOffer(null); });
+    }, 220);
+    return () => { stale = true; window.clearTimeout(id); };
+  }, [phone, session]);
+
   const ready = chosen.length > 0 && phone.length >= 9;
 
   const save = useCallback(() => {
@@ -167,6 +190,22 @@ export function Visit() {
             </div>
             <Keypad value={phone} onChange={setPhone} />
           </div>
+
+          {/* HIS OFFER, WHERE THE WORK HAPPENS. Directly under the number, above the matches:
+              by the time it appears the number is complete, so there is exactly one person it can
+              belong to. Loud on purpose — this is the sentence the customer is about to ask about,
+              and a worker who misses it has taken money for something already paid for. */}
+          {offer?.text ? (
+            <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
+              <div className="mb-1 text-sm font-semibold">عرضٌ خاص بهذا العميل</div>
+              <div>{offer.text}</div>
+              {offer.expires_at ? (
+                <div className="mt-1 text-sm tabular-nums opacity-80">
+                  ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and

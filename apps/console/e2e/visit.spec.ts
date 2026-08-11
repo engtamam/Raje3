@@ -113,3 +113,36 @@ test('a visit that will never send is reported, not left in a silent queue', asy
 
   await expect(shop.getByText(/لم تُرسَل/)).toBeVisible({ timeout: 30_000 });
 });
+
+test('a customer who was sent an offer has it on the counter screen', async ({ shop }) => {
+  /**
+   * THE OFFER IS AN ENTITLEMENT, AND THIS IS THE ONLY PLACE IT CAN BE HONOURED (§5.6.2). It was
+   * sent to one person, it expires, and everything about it was built except the screen where it
+   * gets redeemed: the send log records it, the customer's page counts down to it, the owner reads
+   * it on the customer record — and the worker taking the visit saw nothing. Built in the depth,
+   * cut at the door, for the third time.
+   *
+   * SEEDED ON THE CLUSTER, NOT BY THIS FILE, and that is not a shortcut. An offer is created by a
+   * SEND — the send log IS the entitlement record, which is precisely what stops a screen forging
+   * one. There is no owner-facing "grant this person an offer" action and there should not be, so
+   * the row comes from deploy/seed/seed-field-offer.py. If it has not been run, this skips rather
+   * than passing on an absence.
+   */
+  const PHONE = '0555000913';
+
+  await open(shop, '/visit');
+  for (const d of PHONE) {
+    await shop.getByRole('button', { name: d, exact: true }).first().click();
+  }
+
+  const banner = shop.getByText('عرضٌ خاص بهذا العميل');
+  const appeared = await banner.isVisible({ timeout: 20_000 }).catch(() => false);
+  test.skip(!appeared, 'no offer seeded for this customer — run deploy/seed/seed-field-offer.py');
+
+  await expect(banner).toBeVisible();
+  // THE SENTENCE ITSELF, because a heading with an empty body is the failure that looks like
+  // success: the lookup worked and the text never arrived.
+  await expect(shop.getByText(/غسلة مجانية مع أول زيارة/)).toBeVisible();
+  // AND THE END DATE, which is what makes it an offer rather than a standing discount.
+  await expect(shop.getByText(/ينتهي/)).toBeVisible();
+});

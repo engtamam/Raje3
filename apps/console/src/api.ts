@@ -144,8 +144,35 @@ export async function suggestByPrefix(session: Session, prefix: string): Promise
 }
 
 /** The full number has been typed. Answers `{customer: {...} | null}`. */
-export function customerByPhone(session: Session, phone: string): Promise<{ customer: CustomerHit | null }> {
+export function customerByPhone(
+  session: Session, phone: string,
+): Promise<{ customer: (CustomerHit & { subject_ref?: string }) | null }> {
   return call(session, `/api/v1/field/customers/by-phone?phone=${encodeURIComponent(phone)}`);
+}
+
+/**
+ * What this customer is OWED, for the person standing in front of him.
+ *
+ * THE OFFER IS AN ENTITLEMENT, NOT A POSTER (§5.6.2). It was sent to him and nobody else, it has
+ * an expiry, and the only place it can actually be honoured is the counter — so the worker taking
+ * the visit has to see it without being told to look. Everything else about the offer was built:
+ * the send log records it, the customer's page counts down to it, the owner reads it on the
+ * customer record. This screen, the one where it is redeemed, showed nothing.
+ *
+ * `subject_ref` IS THE PSEUDONYM, not the phone. reminders holds no names by design, so this is
+ * the only handle it answers to — and it arrives on the by-phone lookup for exactly this.
+ */
+export interface FieldOffer {
+  text?: string;
+  expires_at?: number;
+  service_ids?: string[];
+}
+
+export async function offerFor(session: Session, subjectRef: string): Promise<FieldOffer | null> {
+  const q = new URLSearchParams({ subject_ref: subjectRef });
+  const out = await call<{ offer: FieldOffer | null }>(
+    session, `/api/v1/reminders/offer?${q.toString()}`);
+  return out.offer ?? null;
 }
 
 /** The strip along the top — today's customers, one tap away. */

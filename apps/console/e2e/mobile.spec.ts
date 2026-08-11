@@ -31,10 +31,26 @@ const SCREENS: [string, string][] = [
   ['/account', 'حسابي'],
 ];
 
+/**
+ * OPEN WHAT COLLAPSES. The first version of this file measured every screen as it loads, and a
+ * screen as it loads is the half of it with no controls on: an owner photographed a row of inputs
+ * hanging off the side of his phone, and this spec had passed on that page minutes earlier. What
+ * overflows is almost always a label next to a fixed-width control, and those live inside the
+ * things you tap to open.
+ */
+async function expandFirst(page: import('@playwright/test').Page): Promise<void> {
+  const opener = page.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة|واطمئنان/ }).first();
+  if (await opener.count()) {
+    await opener.click();
+    await page.waitForTimeout(300);
+  }
+}
+
 for (const [path, name] of SCREENS) {
   test(`«${name}» fits a phone — nothing hangs off the side`, async ({ shop }) => {
     await shop.setViewportSize(PHONE);
     await open(shop, path);
+    await expandFirst(shop);
 
     const overflow = await shop.evaluate(() => {
       const doc = document.documentElement;
@@ -59,6 +75,7 @@ for (const [path, name] of SCREENS) {
   test(`«${name}» has no control too small for a thumb`, async ({ shop }) => {
     await shop.setViewportSize(PHONE);
     await open(shop, path);
+    await expandFirst(shop);
 
     const small = await shop.evaluate(() => {
       const bad: string[] = [];

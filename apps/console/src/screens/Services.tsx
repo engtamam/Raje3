@@ -91,7 +91,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * working list makes every ordinary edit a matter of reading past the dead ones. Default to what
    * he sells, one tap to what he stopped, one tap to everything.
    */
-  const [show, setShow] = useState<'active' | 'stopped' | 'all'>('active');
+  const [show, setShow] = useState<'active' | 'stopped'>('active');
 
   const load = () => {
     // THE OWNER'S LIST WHEN HE HAS IT, and it includes what he has retired. The field grid is
@@ -384,7 +384,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           // `active` absent means active: the field grid has never sent the flag, and treating a
           // missing field as "stopped" would empty the screen for every shop reading that route.
           const stopped = svc.active === false;
-          return show === 'all' || (show === 'stopped' ? stopped : !stopped);
+          return show === 'stopped' ? stopped : !stopped;
         });
         const bins = grouped(visible);
         const stoppedCount = services.filter((x) => x.active === false).length;
@@ -397,12 +397,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         <Segmented
           ariaLabel="عرض الخدمات والمنتجات"
           value={show}
-          onChange={(v) => setShow(v as 'active' | 'stopped' | 'all')}
+          onChange={(v) => setShow(v as 'active' | 'stopped')}
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
+            // TWO, NOT THREE. «الكل» mixes what he sells with what he stopped, which is the
+            // one view that answers no question: every ordinary edit becomes a matter of reading
+            // past the dead lines, and finding a stopped one is what the second tab is for.
             { value: 'active', label: 'المفعّلة' },
             { value: 'stopped', label: `الموقوفة (${stoppedCount})` },
-            { value: 'all', label: 'الكل' },
           ]}
         />
       ) : null}
@@ -485,7 +487,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               out what the group actually does. The remainder bin has no settings and says so by
               carrying no number. */}
           <div className="flex items-center justify-between gap-3 px-1 pt-2">
-            <h2 className="text-sm font-semibold text-text-secondary">
+            <h2 className="min-w-0 text-sm font-semibold text-text-secondary">
               {group === UNGROUPED ? 'غير مجمّعة' : group}
               {group !== UNGROUPED && settings?.groups?.[group]?.interval_days
                 ? ` · كل ${settings.groups[group].interval_days} يوماً`
@@ -570,8 +572,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     reminder settings because it is the more basic fact: what this thing is comes
                     before when we message about it. */}
                 {action(catalog, 'operations.update_service') ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="flex flex-1 items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <label className="flex min-w-0 flex-1 items-center gap-2">
                       <span className="text-sm text-text-secondary">الاسم</span>
                       <input
                         defaultValue={svc.name}
@@ -604,8 +606,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     had no way to say it. He had to set the same number three times and wait to be
                     asked. The suggestion is now the shortcut, not the gate. */}
                 {action(catalog, 'reminders.set_group') ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex flex-col">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <span className="flex min-w-0 flex-col">
                       <span className="text-sm">المجموعة</span>
                       <span className="text-sm text-text-secondary">
                         ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.
@@ -623,7 +625,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                         if (!v) { leaveGroup(svc.id); return; }
                         joinGroup(svc.id, v);
                       }}
-                      className="h-10 shrink-0 rounded-lg bg-surface-2 px-3"
+                      className="h-10 w-full shrink-0 rounded-lg bg-surface-2 px-3 sm:w-auto"
                     >
                       <option value="">بلا مجموعة</option>
                       {Object.keys(settings?.groups ?? {}).map((g) => (
@@ -706,8 +708,13 @@ function Setting({
 
   return (
     <div className="flex flex-col gap-1 rounded-lg bg-surface-2/60 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex flex-col">
+      {/* STACKED ON A PHONE, SIDE BY SIDE WHEN THERE IS ROOM — and `min-w-0` is the part that
+          actually fixes it. A flex child defaults to `min-width: auto`, so a paragraph refuses to
+          shrink below its content and pushes the number box off the edge of the screen instead of
+          wrapping. That is what the owner photographed: the inputs were there, just not on the
+          phone. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <span className="flex min-w-0 flex-col">
           <span className="text-sm">{label}</span>
           <span className="text-sm text-text-secondary">{meaning}</span>
         </span>
@@ -722,7 +729,7 @@ function Setting({
           }}
           aria-label={`${label} (بالأيام)`}
           dir="ltr"
-          className="h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
+          className="h-10 w-24 shrink-0 self-start rounded-lg bg-surface-1 px-3 text-center tabular-nums sm:self-auto"
         />
       </div>
       <span className="text-sm text-accent-on-soft">{n > 0 ? preview(n) : zero}</span>
