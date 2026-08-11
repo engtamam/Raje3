@@ -86,10 +86,21 @@ export default defineConfig({
   webServer: {
     command: 'npx vite --port 5174 --strictPort',
     url: 'http://localhost:5174',
-    // REUSE WHAT IS ALREADY THERE. `false` is the safer default in CI, and on a developer's
-    // machine it is the reason a run dies with "port already in use" after any earlier run left a
-    // server behind — which is a failure about ports, reported as if the product were broken.
-    reuseExistingServer: !process.env.CI,
+    // EVERY RUN OWNS ITS OWN SERVER, and this line was the opposite for a reason that turned out
+    // to be the smaller problem.
+    //
+    // Reuse was set to avoid "port already in use" after a run left a server behind. What it
+    // actually did was worse and much harder to read: a run ADOPTED a server belonging to an
+    // earlier process, and when that process ended — a timeout, a finished run, a killed
+    // terminal — the adopted server went with it. The current run then lost its server MID-RUN,
+    // and every file after that point failed with ERR_CONNECTION_REFUSED. Sixty-six failures in
+    // one run, each one describing an imaginary product bug, every one of them green when its own
+    // file was run alone.
+    //
+    // Owning the server means a stray one is a loud, immediate "port in use" — a true statement
+    // about the machine, made before a single test runs — instead of a silent adoption that
+    // fails halfway through and blames the product.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
