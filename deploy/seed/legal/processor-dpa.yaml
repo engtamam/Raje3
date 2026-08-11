@@ -167,6 +167,16 @@ annex_c:
       ar: "داخل المملكة العربية السعودية"
       en: "Inside the Kingdom of Saudi Arabia"
 
+# ── THE CLAUSES THAT ARE OURS TO WRITE ────────────────────────────────────────────────────────
+#
+# THEY HAD NO PARENT AND THE FILE DID NOT PARSE. Everything from here down sat at two spaces after
+# `annex_c:`, which is a LIST — so a YAML parser stopped at the first key and said so, and this
+# document could not be loaded at all. It went unnoticed because nothing had ever loaded it: the
+# CI guard reads these files line by line with a regex, deliberately, and a regex does not care
+# about nesting. The day the publisher was written was the day the file was first parsed.
+#
+# The clauses are unchanged; they are given the parent they always meant to have.
+clauses:
   # WHAT MAKES THE REFERENCE ABOVE ENFORCEABLE. Without this clause the reader is left to guess how
   # a nameless party is identified; with it, the method is part of the agreement itself.
   parties:

@@ -202,6 +202,10 @@ controller:
 # basis for the collection itself is the establishment's to hold. Writing "consent" or "legitimate
 # interest" in these rows would be us claiming a decision we did not make — and, under Art. 17-4,
 # claiming to be a controller.
+# THE ROWS SIT UNDER A KEY OF THEIR OWN, because the section also carries `_shared` — and a
+# YAML mapping and a sequence cannot share one parent. The file did not parse at all until
+# this was fixed, which nothing had noticed because nothing had ever loaded it: the CI guard
+# reads these documents with a regex, line by line, and a regex does not see nesting.
 processor:
   _shared:
     legal_basis:
@@ -215,119 +219,120 @@ processor:
       ar: "عزل كامل بين المنشآت مطبَّق عند المخزن، وتشفير النقل، وضبط وصول بالأدوار، ومعرّف مستعار لدى كل خدمة عدا واحدة، وتسجيل تدقيقي، ونسخ احتياطي مختوم."
       en: "Full isolation between establishments enforced at the store, encryption in transit, role-based access control, a pseudonymous identifier in every service but one, audit logging, and sealed backups."
 
-  - ref: OPS-01
-    activity: { ar: "تسجيل العملاء والزيارات", en: "Recording customers and visits" }
-    stores: "customers · assets · visits · operators · branches"
-    purpose:
-      ar: "تسجيل زيارة العميل والخدمات المؤداة له، والتعرّف عليه عند عودته."
-      en: "Recording the customer's visit and the services performed, and recognising him when he returns."
-    data_categories:
-      # THE ONE PLACE IN THE PLATFORM THAT HOLDS A NUMBER IN THE CLEAR, and the record says so
-      # rather than letting "we pseudonymise" stand as a blanket claim it would not survive.
-      ar: "رقم الجوال بصيغته الصريحة — وهذه الخدمة وحدها في المنصة تحمله كذلك، لأن شاشة الميدان تبحث ببادئة الرقم ولا يمكن البحث ببادئة في قيمة مُجزّأة — والاسم إن سُجِّل، وسجلّ الزيارات والخدمات وتواريخها. وفي قطاعات السيارات: رقم اللوحة وبيانات المركبة والعدّاد."
-      en: "The mobile number in the clear — this service alone in the platform holds it so, because the field screen searches by number prefix and a hashed value cannot be prefix-searched — the name where recorded, and the visit and service history with dates. In vehicle sectors: the plate, vehicle details and odometer."
-    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
-    transfer: { ar: "لا.", en: "No." }
+  rows:
+    - ref: OPS-01
+      activity: { ar: "تسجيل العملاء والزيارات", en: "Recording customers and visits" }
+      stores: "customers · assets · visits · operators · branches"
+      purpose:
+        ar: "تسجيل زيارة العميل والخدمات المؤداة له، والتعرّف عليه عند عودته."
+        en: "Recording the customer's visit and the services performed, and recognising him when he returns."
+      data_categories:
+        # THE ONE PLACE IN THE PLATFORM THAT HOLDS A NUMBER IN THE CLEAR, and the record says so
+        # rather than letting "we pseudonymise" stand as a blanket claim it would not survive.
+        ar: "رقم الجوال بصيغته الصريحة — وهذه الخدمة وحدها في المنصة تحمله كذلك، لأن شاشة الميدان تبحث ببادئة الرقم ولا يمكن البحث ببادئة في قيمة مُجزّأة — والاسم إن سُجِّل، وسجلّ الزيارات والخدمات وتواريخها. وفي قطاعات السيارات: رقم اللوحة وبيانات المركبة والعدّاد."
+        en: "The mobile number in the clear — this service alone in the platform holds it so, because the field screen searches by number prefix and a hashed value cannot be prefix-searched — the name where recorded, and the visit and service history with dates. In vehicle sectors: the plate, vehicle details and odometer."
+      recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+      transfer: { ar: "لا.", en: "No." }
 
-  - ref: MSG-01
-    activity: { ar: "جدولة رسائل المتابعة وإرسالها", en: "Scheduling and sending follow-up messages" }
-    stores: "schedules"
-    purpose:
-      ar: "جدولة رسالة التذكير أو المتابعة بعد الزيارة وإرسالها باسم المنشأة عبر واتساب."
-      en: "Scheduling the reminder or follow-up after a visit and sending it in the establishment's name over WhatsApp."
-    data_categories:
-      ar: "معرّف مستعار للعميل، وموعد الإرسال، والقالب ومتغيّراته، وحالة التسليم."
-      en: "A pseudonymous customer identifier, the send time, the template and its variables, and the delivery state."
-    recipients: { ar: "Meta — لتسليم الرسالة.", en: "Meta — to deliver the message." }
-    transfer:
-      ar: "نعم: يصل رقم المستقبِل ونص الرسالة إلى Meta خارج المملكة، بتعليمة المنشأة التي اختارت القناة. المادة 29."
-      en: "Yes: the recipient's number and the message content reach Meta outside the Kingdom, on the instruction of the establishment that chose the channel. Art. 29."
+    - ref: MSG-01
+      activity: { ar: "جدولة رسائل المتابعة وإرسالها", en: "Scheduling and sending follow-up messages" }
+      stores: "schedules"
+      purpose:
+        ar: "جدولة رسالة التذكير أو المتابعة بعد الزيارة وإرسالها باسم المنشأة عبر واتساب."
+        en: "Scheduling the reminder or follow-up after a visit and sending it in the establishment's name over WhatsApp."
+      data_categories:
+        ar: "معرّف مستعار للعميل، وموعد الإرسال، والقالب ومتغيّراته، وحالة التسليم."
+        en: "A pseudonymous customer identifier, the send time, the template and its variables, and the delivery state."
+      recipients: { ar: "Meta — لتسليم الرسالة.", en: "Meta — to deliver the message." }
+      transfer:
+        ar: "نعم: يصل رقم المستقبِل ونص الرسالة إلى Meta خارج المملكة، بتعليمة المنشأة التي اختارت القناة. المادة 29."
+        en: "Yes: the recipient's number and the message content reach Meta outside the Kingdom, on the instruction of the establishment that chose the channel. Art. 29."
 
-  - ref: CNS-01
-    activity: { ar: "موافقة العميل على الرسائل التسويقية", en: "Customer marketing consent" }
-    stores: "marketing_consent"
-    purpose:
-      ar: "حفظ إثبات موافقة العميل وسحبها، ومنع إرسال أي رسالة تسويقية لمن سحب موافقته."
-      en: "Keeping evidence of the customer's consent and its withdrawal, and preventing any marketing message to whoever withdrew it."
-    data_categories:
-      ar: "معرّف مستعار، وحالة الموافقة، وتاريخها، والقناة، ونسخة النص المعروض وقتها."
-      en: "A pseudonymous identifier, the consent state, its date, the channel, and the version of the wording shown at the time."
-    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
-    transfer: { ar: "لا.", en: "No." }
-    # A CONSENT RECORD OUTLIVES THE CONSENT IT RECORDS, and that is the point of it. Deleting the
-    # withdrawal along with everything else would leave us unable to show why we stopped sending.
-    retention:
-      ar: "كسائر بيانات المنشأة، غير أن إثبات سحب الموافقة يُحفظ ما دام يُحتجّ به على أننا امتنعنا عن الإرسال."
-      en: "As for the establishment's other data, save that evidence of a withdrawal is kept for as long as it is relied on to show that we stopped sending."
+    - ref: CNS-01
+      activity: { ar: "موافقة العميل على الرسائل التسويقية", en: "Customer marketing consent" }
+      stores: "marketing_consent"
+      purpose:
+        ar: "حفظ إثبات موافقة العميل وسحبها، ومنع إرسال أي رسالة تسويقية لمن سحب موافقته."
+        en: "Keeping evidence of the customer's consent and its withdrawal, and preventing any marketing message to whoever withdrew it."
+      data_categories:
+        ar: "معرّف مستعار، وحالة الموافقة، وتاريخها، والقناة، ونسخة النص المعروض وقتها."
+        en: "A pseudonymous identifier, the consent state, its date, the channel, and the version of the wording shown at the time."
+      recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+      transfer: { ar: "لا.", en: "No." }
+      # A CONSENT RECORD OUTLIVES THE CONSENT IT RECORDS, and that is the point of it. Deleting the
+      # withdrawal along with everything else would leave us unable to show why we stopped sending.
+      retention:
+        ar: "كسائر بيانات المنشأة، غير أن إثبات سحب الموافقة يُحفظ ما دام يُحتجّ به على أننا امتنعنا عن الإرسال."
+        en: "As for the establishment's other data, save that evidence of a withdrawal is kept for as long as it is relied on to show that we stopped sending."
 
-  - ref: CMP-01
-    activity: { ar: "الحملات التسويقية", en: "Marketing campaigns" }
-    stores: "campaigns · campaign_runs"
-    purpose:
-      ar: "تنفيذ حملة تُطلقها المنشأة بنفسها على شريحة من عملائها الموافقين."
-      en: "Executing a campaign the establishment itself launches to a segment of its consenting customers."
-    data_categories:
-      ar: "معرّفات مستعارة للجمهور، وشروط الشريحة، والنص، وأعداد الإرسال والتسليم."
-      en: "Pseudonymous audience identifiers, the segment criteria, the text, and send and delivery counts."
-    recipients: { ar: "Meta — لتسليم الرسائل.", en: "Meta — to deliver the messages." }
-    transfer: { ar: "نعم، كما في MSG-01.", en: "Yes, as in MSG-01." }
+    - ref: CMP-01
+      activity: { ar: "الحملات التسويقية", en: "Marketing campaigns" }
+      stores: "campaigns · campaign_runs"
+      purpose:
+        ar: "تنفيذ حملة تُطلقها المنشأة بنفسها على شريحة من عملائها الموافقين."
+        en: "Executing a campaign the establishment itself launches to a segment of its consenting customers."
+      data_categories:
+        ar: "معرّفات مستعارة للجمهور، وشروط الشريحة، والنص، وأعداد الإرسال والتسليم."
+        en: "Pseudonymous audience identifiers, the segment criteria, the text, and send and delivery counts."
+      recipients: { ar: "Meta — لتسليم الرسائل.", en: "Meta — to deliver the messages." }
+      transfer: { ar: "نعم، كما في MSG-01.", en: "Yes, as in MSG-01." }
 
-  - ref: LOY-01
-    activity: { ar: "برنامج الولاء", en: "Loyalty programme" }
-    stores: "loyalty_entries · loyalty_balances · loyalty_rewards · loyalty_redemptions"
-    purpose:
-      ar: "احتساب نقاط العميل عن زياراته وتمكينه من استبدالها."
-      en: "Computing the customer's points for his visits and letting him redeem them."
-    data_categories:
-      ar: "معرّف مستعار، وحركات الكسب والاستبدال وتواريخها والأرصدة."
-      en: "A pseudonymous identifier, earning and redemption entries with dates, and balances."
-    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
-    transfer: { ar: "لا.", en: "No." }
+    - ref: LOY-01
+      activity: { ar: "برنامج الولاء", en: "Loyalty programme" }
+      stores: "loyalty_entries · loyalty_balances · loyalty_rewards · loyalty_redemptions"
+      purpose:
+        ar: "احتساب نقاط العميل عن زياراته وتمكينه من استبدالها."
+        en: "Computing the customer's points for his visits and letting him redeem them."
+      data_categories:
+        ar: "معرّف مستعار، وحركات الكسب والاستبدال وتواريخها والأرصدة."
+        en: "A pseudonymous identifier, earning and redemption entries with dates, and balances."
+      recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+      transfer: { ar: "لا.", en: "No." }
 
-  - ref: INS-01
-    activity: { ar: "المؤشرات والتقارير", en: "Indicators and reports" }
-    stores: "insight_snapshots · insight_sequences · insight_pairs"
-    purpose:
-      ar: "احتساب مؤشرات أداء المنشأة وأنماط الطلب لديها، وإرسال تقريرها الأسبوعي."
-      en: "Computing the establishment's performance indicators and demand patterns, and sending its weekly report."
-    # WHY THIS ROW READS LIKE STATISTICS AND NOT LIKE PROFILING. The engine runs on pseudonyms and
-    # aggregates; it produces no judgement about a named person and takes no automated decision
-    # about one. Stating that here is what keeps it out of the automated-decision-making questions
-    # in doc10 — and it has to be true, which is why it is checked in code, not asserted here.
-    data_categories:
-      ar: "أعداد وتجميعات ونسب على مستوى المنشأة، ومعرّفات مستعارة في حسابات التتابع والاقتران. ولا يُنتج أي قرار آلي بحق شخص مُعيَّن."
-      en: "Counts, aggregates and ratios at establishment level, and pseudonymous identifiers inside the sequence and association computations. No automated decision is produced about any identified person."
-    recipients: { ar: "المنشأة نفسها، وMeta لتسليم التقرير الأسبوعي.", en: "The establishment itself, and Meta to deliver the weekly report." }
-    transfer: { ar: "نعم، للتقرير الأسبوعي فقط، كما في MSG-01.", en: "Yes, for the weekly report only, as in MSG-01." }
+    - ref: INS-01
+      activity: { ar: "المؤشرات والتقارير", en: "Indicators and reports" }
+      stores: "insight_snapshots · insight_sequences · insight_pairs"
+      purpose:
+        ar: "احتساب مؤشرات أداء المنشأة وأنماط الطلب لديها، وإرسال تقريرها الأسبوعي."
+        en: "Computing the establishment's performance indicators and demand patterns, and sending its weekly report."
+      # WHY THIS ROW READS LIKE STATISTICS AND NOT LIKE PROFILING. The engine runs on pseudonyms and
+      # aggregates; it produces no judgement about a named person and takes no automated decision
+      # about one. Stating that here is what keeps it out of the automated-decision-making questions
+      # in doc10 — and it has to be true, which is why it is checked in code, not asserted here.
+      data_categories:
+        ar: "أعداد وتجميعات ونسب على مستوى المنشأة، ومعرّفات مستعارة في حسابات التتابع والاقتران. ولا يُنتج أي قرار آلي بحق شخص مُعيَّن."
+        en: "Counts, aggregates and ratios at establishment level, and pseudonymous identifiers inside the sequence and association computations. No automated decision is produced about any identified person."
+      recipients: { ar: "المنشأة نفسها، وMeta لتسليم التقرير الأسبوعي.", en: "The establishment itself, and Meta to deliver the weekly report." }
+      transfer: { ar: "نعم، للتقرير الأسبوعي فقط، كما في MSG-01.", en: "Yes, for the weekly report only, as in MSG-01." }
 
-  - ref: BKP-01
-    activity: { ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" }
-    stores: "أرشيف مختوم"
-    purpose:
-      ar: "حماية بيانات المنشأة من الفقد وتمكين استعادتها بعد عطل أو حادث."
-      en: "Protecting the establishment's data from loss and enabling restoration after a failure or incident."
-    data_categories:
-      ar: "نسخة من بيانات الخدمات المشمولة كما هي وقت أخذ النسخة."
-      en: "A copy of the covered services' data as it stood when the backup was taken."
-    recipients: { ar: "لا جهة خارجية.", en: "No external party." }
-    transfer: { ar: "لا — التخزين داخل المملكة.", en: "No — storage is inside the Kingdom." }
-    # THE ROW THAT IS USUALLY MISSING AND IS ALWAYS THE FIRST QUESTION AFTER A DELETION. An archive
-    # is a copy, and a copy that outlives an erasure quietly reverses it.
-    retention:
-      ar: "تُحفظ النسخ لمدّة محدودة ثم تُتلَف. ولا تُستعمل نسخة لإحياء بياناتٍ نُفِّذ حذفها، ويُعاد تنفيذ الحذف على أي بيانات تعود من استعادة."
-      en: "Backups are kept for a limited period then destroyed. A backup is never used to revive data whose deletion was executed, and the deletion is re-applied to any data returning from a restore."
+    - ref: BKP-01
+      activity: { ar: "النسخ الاحتياطي والاستعادة", en: "Backup and restore" }
+      stores: "أرشيف مختوم"
+      purpose:
+        ar: "حماية بيانات المنشأة من الفقد وتمكين استعادتها بعد عطل أو حادث."
+        en: "Protecting the establishment's data from loss and enabling restoration after a failure or incident."
+      data_categories:
+        ar: "نسخة من بيانات الخدمات المشمولة كما هي وقت أخذ النسخة."
+        en: "A copy of the covered services' data as it stood when the backup was taken."
+      recipients: { ar: "لا جهة خارجية.", en: "No external party." }
+      transfer: { ar: "لا — التخزين داخل المملكة.", en: "No — storage is inside the Kingdom." }
+      # THE ROW THAT IS USUALLY MISSING AND IS ALWAYS THE FIRST QUESTION AFTER A DELETION. An archive
+      # is a copy, and a copy that outlives an erasure quietly reverses it.
+      retention:
+        ar: "تُحفظ النسخ لمدّة محدودة ثم تُتلَف. ولا تُستعمل نسخة لإحياء بياناتٍ نُفِّذ حذفها، ويُعاد تنفيذ الحذف على أي بيانات تعود من استعادة."
+        en: "Backups are kept for a limited period then destroyed. A backup is never used to revive data whose deletion was executed, and the deletion is re-applied to any data returning from a restore."
 
-  - ref: DSR-01
-    activity: { ar: "تنفيذ طلبات أصحاب البيانات", en: "Executing data-subject requests" }
-    stores: "erasure.py"
-    purpose:
-      ar: "تنفيذ طلب العميل حذف بياناته أو الاطّلاع عليها، وإثبات ما نُفِّذ."
-      en: "Executing a customer's request to erase or access his data, and evidencing what was carried out."
-    data_categories:
-      ar: "معرّف مستعار لصاحب الطلب، ونوع الطلب وتاريخه، وما نُفِّذ وما أُبقي وأساس الإبقاء."
-      en: "A pseudonymous identifier for the requester, the request type and date, and what was executed, what was retained and the basis for retaining it."
-    recipients: { ar: "المنشأة — تُخطَر بالتنفيذ.", en: "The establishment — it is notified of the execution." }
-    transfer: { ar: "لا.", en: "No." }
+    - ref: DSR-01
+      activity: { ar: "تنفيذ طلبات أصحاب البيانات", en: "Executing data-subject requests" }
+      stores: "erasure.py"
+      purpose:
+        ar: "تنفيذ طلب العميل حذف بياناته أو الاطّلاع عليها، وإثبات ما نُفِّذ."
+        en: "Executing a customer's request to erase or access his data, and evidencing what was carried out."
+      data_categories:
+        ar: "معرّف مستعار لصاحب الطلب، ونوع الطلب وتاريخه، وما نُفِّذ وما أُبقي وأساس الإبقاء."
+        en: "A pseudonymous identifier for the requester, the request type and date, and what was executed, what was retained and the basis for retaining it."
+      recipients: { ar: "المنشأة — تُخطَر بالتنفيذ.", en: "The establishment — it is notified of the execution." }
+      transfer: { ar: "لا.", en: "No." }
 
 # ── ما لا يوجد، مذكوراً عمداً ────────────────────────────────────────────────────────────────
 #

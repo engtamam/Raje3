@@ -190,6 +190,30 @@ step "services"
 PRODUCT_NAME=raje3 CHART="$ROOT/platform/deploy/chart" VALUES_DIR="$ROOT/deploy/services" \
   bash "$ROOT/platform/deploy/server/update.sh"
 
+# ── 8 ─────────────────────────────────────────────────────────────────────────────────────────
+# THE INSTALL ENDED HERE, AND THE CLUSTER WAS EMPTY. Every service ran, every probe was green, and
+# the product had no roles, no price list, no legal library and no sector definitions — because
+# nothing in this script had ever applied a single seed. The gap was invisible in exactly the way
+# this file's own verify step was built to catch elsewhere: a truthful report about the wrong
+# thing. A shop signing up on a fresh install would have got a login it could do nothing with.
+#
+# ORDER MATTERS AND IS NOT ALPHABETICAL:
+#   roles first  — everything after this needs a capability to exist before it can be granted;
+#   plans next   — the subscribe path reads a plan's trial before it will take money;
+#   legal last   — it gates a signup, so it must be publishable before the first one happens.
+#
+# EACH ONE IS IDEMPOTENT AND SAYS SO. Re-running the install must not overwrite an operator's
+# edits: seeders create what is missing and leave what exists, which is why they are safe here
+# rather than dangerous.
+#
+# TEMPLATES ARE ABSENT ON PURPOSE. The WhatsApp library is submitted PER ESTABLISHMENT at the
+# moment its account connects (§6.6.1) — a platform-wide push would be a submission to nobody's
+# account. seed-templates.sh takes --tenant for that reason.
+step "seed"
+bash "$HERE/seed/seed-roles.sh"  || echo "  (roles: see above)"
+bash "$HERE/seed/seed-plans.sh"  || echo "  (plans: see above)"
+bash "$HERE/seed/seed-legal.sh"  || echo "  (legal: see above)"
+
 # ── verify ────────────────────────────────────────────────────────────────────────────────────
 # The rollout reports what helm told it. This reads what the cluster is RUNNING, which is the only
 # claim worth making at the end of an install.
