@@ -151,8 +151,12 @@ function BrandCard({ tenant, onSave }:
         <span className="text-xs text-white/75">صفحتك لدى المتجر</span>
       </div>
 
+      {/* FULL WIDTH, BECAUSE IT IS THE ACTION OF THIS CARD. A short pill floating at one end of
+          a wide card reads as a footnote, and it is the one thing on the card he came here to
+          press. «إزالة» sits beside it only when there is something to remove, and takes the width
+          it needs rather than half the row — the two are not equals. */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="cursor-pointer rounded-xl bg-surface-2 px-3 py-2 text-sm">
+        <label className="grid min-h-11 flex-1 cursor-pointer place-items-center rounded-xl bg-surface-2 px-3 text-sm">
           {logo ? 'تغيير الشعار' : 'ارفع شعارك'}
           <input
             type="file"
@@ -163,8 +167,8 @@ function BrandCard({ tenant, onSave }:
         </label>
         {logo ? (
           <button type="button" onClick={() => setLogo('')}
-                  className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
-            إزالة الشعار
+                  className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm text-text-secondary">
+            إزالة
           </button>
         ) : null}
         <p className="basis-full text-xs text-text-secondary">
