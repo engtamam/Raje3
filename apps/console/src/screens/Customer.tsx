@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
+import { Select } from '@base-ui/design-system/Field';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
@@ -264,7 +265,11 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           scroll away. Same shape as «حسابي» and «خدماتي»: a person who learned one has learned
           this. */}
       <Segmented
-        className="flex w-full flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 [&>button]:whitespace-nowrap sm:[&>button]:flex-1"
+        // FOUR SHORT WORDS SPLIT EVENLY, and never a strip that slides. A tab hanging half off
+        // the edge is a tab nobody presses: it does not look like a control, it looks like the
+        // page is broken. «حسابي» has five tabs and needs the sliding row; four fit, so they get
+        // the width instead — the same component, sized to what it holds.
+        className="flex w-full flex-nowrap [&>button]:min-w-0 [&>button]:flex-1 [&>button]:truncate [&>button]:px-1 [&>button]:text-xs sm:[&>button]:px-3 sm:[&>button]:text-sm"
         ariaLabel="أقسام العميل"
         value={tab}
         onChange={(v: string) => setTab(v as typeof tab)}
@@ -469,40 +474,26 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     «أخرى» KEEPS THE DOOR OPEN, because a closed list always meets the case nobody
                     predicted, and a screen that refuses the unusual reason teaches the operator to
                     pick the nearest lie — worse than free text, because it looks like data. */}
-                {/* CHIPS, NOT A DROPDOWN. A native select opens a list the operator then has to
-                    scroll on a phone — and he told us it did not scroll at all where it mattered.
-                    Six reasons fit on the screen as buttons: nothing opens, nothing scrolls, and
-                    the choice is one tap where a dropdown was three. */}
-                <div className="flex flex-wrap gap-1.5">
-                  {ADJUST_REASONS.map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setAdjustNote(r)}
-                      className={`min-h-11 rounded-xl px-3 text-sm ${
-                        adjustNote === r
-                          ? 'bg-accent font-semibold text-white'
-                          : 'bg-surface-1 text-text-primary'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                  {/* «أخرى» STAYS, and it is not laziness: a closed list always meets the case
-                      nobody predicted, and forcing the nearest wrong reason corrupts the record
-                      while making it look clean. */}
-                  <button
-                    type="button"
-                    onClick={() => setAdjustNote('')}
-                    className={`min-h-11 rounded-xl px-3 text-sm ${
-                      !(ADJUST_REASONS as readonly string[]).includes(adjustNote)
-                        ? 'bg-accent font-semibold text-white'
-                        : 'bg-surface-1 text-text-primary'
-                    }`}
-                  >
-                    أخرى…
-                  </button>
-                </div>
+                {/* THE KIT'S OWN SELECT — a native element with our paint on it, which keeps the
+                    mobile picker, the keyboard and the accessibility for free. The chevron flips
+                    side in RTL by itself.
+                    AND IT SITS ON ITS OWN ROW. The real fault in the version before this was not
+                    the control: chips and a select alike were squeezed into the narrow column left
+                    beside the number field, so six reasons stacked into a ragged tower. A choice
+                    of sentences needs the width of the card. */}
+                <Select
+                  value={(ADJUST_REASONS as readonly string[]).includes(adjustNote)
+                    ? adjustNote : 'other'}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    setAdjustNote(e.target.value === 'other' ? '' : e.target.value)}
+                  aria-label="سبب التعديل"
+                >
+                  {ADJUST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {/* «أخرى» STAYS: a closed list always meets the case nobody predicted, and
+                      forcing the nearest wrong reason corrupts the record while making it look
+                      clean — worse than free text, because it reads as data. */}
+                  <option value="other">أخرى…</option>
+                </Select>
               </div>
 
               {/* THE FREE FIELD ONLY FOR «أخرى» — the common case is two taps, and the case
