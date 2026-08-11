@@ -26,3 +26,21 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
 @media (pointer: coarse) {
   .touch-only { display: block; }
 }
+
+/* THE WAIT, IN OUR OWN MARK — see Waiting.tsx for why a page-sized grey rectangle had to go.
+ *
+ * THREE SECONDS PER TURN, not one. The mark is a journey that leaves and comes back; spun at
+ * spinner speed it becomes a spinner, and the one thing it has to say — that this is راجِع and it
+ * is working — is lost in the blur. Slow enough to read, fast enough to be alive.
+ *
+ * `linear`, because an eased rotation looks like it is struggling. */
+@keyframes raje-turn { to { transform: rotate(360deg); } }
+.raje-waiting { display: inline-flex; animation: raje-turn 3s linear infinite; }
+
+/* MOVEMENT IS A SYMPTOM FOR SOME PEOPLE, not decoration. They have said so in their system
+ * settings, and the sentence beside the mark already carries the whole meaning — so here it
+ * breathes in place instead of turning, and nothing is lost. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes raje-breathe { 50% { opacity: .45; } }
+  .raje-waiting { animation: raje-breathe 1.6s ease-in-out infinite; }
+}

@@ -27,7 +27,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -184,7 +184,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
     }
   };
 
-  if (rewards === null) return <div className="p-4"><Skeleton height={200} /></div>;
+  // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
+  // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
+  if (rewards === null) return <Waiting what="نقرأ نقاطك وجوائزك" />;
 
   /** A service's effective points, and whether the number is its own (§9.2: inherit, never copy). */
   const earnFor = (id: string): { points: number; own: boolean } => {

@@ -26,6 +26,7 @@ import { Hint } from '../Hint';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import { partitionOffers, remaining, type Offer } from '../offers';
 import type { Session } from '../session';
@@ -158,7 +159,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
     return () => { stale = true; };
   }, [id, session, catalog]);
 
-  if (record === undefined) return <div className="p-4"><Skeleton height={240} /></div>;
+  // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
+  // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
+  if (record === undefined) return <Waiting what="نفتح صفحة عميلك" />;
 
   if (record === null) {
     return (

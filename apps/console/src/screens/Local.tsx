@@ -23,8 +23,8 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { KpiCard } from '@base-ui/design-system/KpiCard';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { TrendingUp, Users, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -66,7 +66,9 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
       </div>
     );
   }
-  if (!data) return <div className="p-4"><Skeleton height={240} /></div>;
+  // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
+  // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
+  if (!data) return <Waiting what="نقرأ مؤشرات محلّك" />;
 
   if (data.computing) {
     // NOT AN EMPTY DASHBOARD. A first-day shop that sees zeros concludes the product does not

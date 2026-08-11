@@ -21,8 +21,8 @@ import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Hint } from '../Hint';
+import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -413,7 +413,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     }
   };
 
-  if (services === null) return <div className="p-4"><Skeleton height={200} /></div>;
+  // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
+  // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
+  if (services === null) return <Waiting what="نقرأ خدماتك" />;
 
   if (services.length === 0) {
     // A SHOP SHOULD NEVER SEE THIS. Its catalogue is seeded full from its sector at creation
