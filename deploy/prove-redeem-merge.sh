@@ -66,6 +66,20 @@ for _ in range(20):
         break
     time.sleep(1)
 
+# WAIT FOR THE THING WE INTEND TO JOIN. The confirmation is written by REMINDERS consuming the
+# visit event, and the balance by LOYALTY consuming the same event — two independent consumers on
+# an asynchronous bus. Waiting only for the balance and then redeeming meant redeeming before the
+# confirmation existed, and this script reported "the merge did not happen" about a race of its
+# own making. In the shop the operator redeems minutes later and the row is always there.
+for _ in range(30):
+    sched = call(f"/api/v1/reminders/schedule?state=pending&limit=200", token=token)
+    if any(r.get("subject_ref") == subject and r.get("kind") == "visit_confirmation"
+           for r in sched.get("schedule", [])):
+        break
+    time.sleep(1)
+else:
+    print("  ! no confirmation was ever scheduled", file=sys.stderr)
+
 call("/api/v1/loyalty/redeem", "POST", {
     "subject_ref": subject, "reward_id": cheapest["id"],
     "idempotency_key": str(uuid.uuid4())}, token)
@@ -98,7 +112,10 @@ async def main() -> int:
         print("  ✗ no confirmation at all")
         return 1
 
-    row = confirm[0]
+    # THE MERGED ONE IF THERE IS ONE, and the count is asserted separately below. Taking
+    # `confirm[0]` blindly reported "not upgraded" while a correctly upgraded row sat second in
+    # the list — the duplicate was the real bug and this reading hid it behind a wrong sentence.
+    row = next((r for r in confirm if r.get("template_type") == "svc_visit_redeemed"), confirm[0])
     print(f"    template_type = {row.get('template_type')}")
     print(f"    redeemed      = {row.get('redeemed_name')!r}"
           f"  cost={row.get('redeemed_cost')}  remaining={row.get('redeemed_remaining')}")

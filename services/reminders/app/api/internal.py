@@ -243,7 +243,12 @@ async def redemption(request: Request, body: RedemptionIn) -> dict:
     row["redeemed_cost"] = int(body.cost)
     row["redeemed_remaining"] = int(body.remaining)
     row["updated"] = int(time.time())
-    await store.upsert(body.tenant, row["id"] if "id" in row else _sched_key(row), row)
+    # THE NATURAL KEY, NEVER THE ID. The store writes under whatever key it is handed, and the id
+    # is not that key — passing it created a SECOND row carrying the same id, one on the old
+    # template and one on the new. The customer would then be holding two pending confirmations
+    # for one visit, which is the exact duplication the natural key exists to prevent
+    # (tenant|subject|service|kind — see models.Schedule.key).
+    await store.upsert(body.tenant, _sched_key(row), row)
     return {"merged": True, "schedule": row.get("id", ""), "template_type": row["template_type"]}
 
 
