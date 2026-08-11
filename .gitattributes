@@ -1,18 +1,11 @@
-# Line endings are LF, everywhere, always.
+# LF FOR EVERY SHELL SCRIPT, DECIDED ONCE INSTEAD OF REMEMBERED.
 #
-# The catalog under data/ compiles to canonical JSON. A CRLF checkout on Windows
-# and an LF checkout on Linux would hash differently for identical content and
-# break any signature or content check for reasons nobody can explain.
-* text=auto eol=lf
-
-# Never touch binary
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.pdf binary
-*.zip binary
-*.woff binary
-*.woff2 binary
-
-# SVG is text — keep it LF
-*.svg text eol=lf
+# A CRLF shebang fails on the server with «No such file or directory» — about bash itself, which
+# is the most misleading error in this pipeline: it names the interpreter when the fault is an
+# invisible byte at the end of line one. The deploy guard has caught it FOUR times, twice because
+# an edit from a Windows editor re-introduced it minutes after it was fixed.
+#
+# A rule in the repository ends that loop. The guard stays, because it also catches files this
+# pattern does not cover.
+*.sh text eol=lf
+*.py text eol=lf

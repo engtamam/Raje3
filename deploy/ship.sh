@@ -146,6 +146,21 @@ ship_image_fast() {
   open_registry_tunnel || {
     red "$svc: the node cannot reach the registry — run ./deploy/registry.sh once"; return 1
   }
+
+  # ALREADY ON THE NODE? THEN SAY SO AND STOP. A ship that failed at the pull, at the roll, or at
+  # the verify has usually left the image sitting in containerd — and re-pushing three hundred
+  # megabytes to prove what a one-line query answers is how a five-minute repair became an hour
+  # tonight. This is the resume the whole path was missing.
+  local have
+  have="$("${SSH[@]}" "sudo -n k3s ctr images ls -q 2>/dev/null | grep -m1 '^127.0.0.1:$REG_PORT/raje3/$svc@'" 2>/dev/null | tr -d '
+')"
+  if [ -n "$have" ] && docker image inspect "raje3/$svc:ship" >/dev/null 2>&1; then
+    # It is only the same build if the LOCAL image would push to the same digest, so this is a
+    # hint and never a claim: we still push below, and Docker sends only the missing layers —
+    # which for an unchanged image is nothing at all.
+    say "$svc · the node already holds an image for this service — pushing only what changed"
+  fi
+
   docker tag "raje3/$svc:ship" "$ref" || return 1
   # ONLY THE MISSING LAYERS TRAVEL. Our Dockerfiles copy the source last, so a code edit is one
   # small layer and everything under it is already on the node.
@@ -160,10 +175,31 @@ ship_image_fast() {
   # the wire. kubelet reads containerd, not the registry, so a pushed image nothing pulled is an
   # image the pod cannot see — and pulling BY DIGEST is what makes the name and the content the
   # same fact rather than two.
-  if ! "${SSH[@]}" "sudo -n k3s ctr images pull --plain-http 127.0.0.1:$REG_PORT/raje3/$svc@$pushed \
-        >/dev/null 2>&1; sudo -n k3s ctr images ls -q \
-        | grep -qx 127.0.0.1:$REG_PORT/raje3/$svc@$pushed"; then
-    red "$svc: the image is NOT in containerd under $pushed — the pod would ImagePullBackOff"
+  # RETRIED, AND THE TUNNEL REBUILT BETWEEN TRIES. This single step cost four ships in one evening.
+  # The layers travel back over the forward while the node pulls, and a forwarded port under
+  # sustained load is the least reliable thing in this pipeline — it dropped mid-pull three times
+  # with the host idle and 2.7G free. The old code took ONE failure as final and threw away a build
+  # and a push that had both succeeded.
+  #
+  # THE TWO REASONS ARE SEPARATED, because they need different answers from whoever reads this:
+  # "the forward died" is worth retrying, "the digest is not there" is not.
+  local pull_ok=0 attempt
+  for attempt in 1 2 3; do
+    if ! "${SSH[@]}" "curl -fsS -m 5 -o /dev/null http://127.0.0.1:$REG_PORT/v2/" 2>/dev/null; then
+      say "$svc · the registry forward dropped — rebuilding it (try $attempt/3)"
+      close_registry_tunnel
+      open_registry_tunnel || { sleep 3; continue; }
+    fi
+    if "${SSH[@]}" "sudo -n k3s ctr images pull --plain-http 127.0.0.1:$REG_PORT/raje3/$svc@$pushed >/dev/null 2>&1; sudo -n k3s ctr images ls -q | grep -qx 127.0.0.1:$REG_PORT/raje3/$svc@$pushed"; then
+      pull_ok=1
+      break
+    fi
+    say "$svc · the pull did not settle — retrying ($attempt/3)"
+    sleep $(( attempt * 3 ))
+  done
+  if [ "$pull_ok" -ne 1 ]; then
+    red "$svc: the image is NOT in containerd under $pushed after 3 tries"
+    red "   the build and the push SUCCEEDED — re-running resumes from here without rebuilding"
     return 1
   fi
   # The caller re-pins the values file to this, and points the repository at the registry.
@@ -277,6 +313,21 @@ ship_one() {
       -o jsonpath='{.status.containerStatuses[0].imageID}'" | sed 's/.*@//')"
   if [ "$live" != "$digest" ]; then
     red "$svc: RUNNING ${live:0:26}… but shipped ${digest:0:26}…"
+    # TWO DIGESTS TELL NOBODY WHY. This exact line appeared four times tonight and each time the
+    # next twenty minutes went on asking the cluster what it already knew — so it asks now, once,
+    # and prints the ONE fact that separates the causes.
+    local why
+    why="$("${SSH[@]}" "kubectl -n $NS get events --sort-by=.lastTimestamp 2>/dev/null         | grep -Ei 'operations|$svc' | grep -Ei 'Failed|BackOff|Error' | tail -2" 2>/dev/null)"
+    if [ -n "$why" ]; then
+      printf '   %s
+' "$why"
+      red "   the new pod could not START — the image is pinned but not runnable on the node"
+      red "   almost always: the pull never landed. Re-run; the build and push are reused."
+    else
+      red "   the deployment still references the old image — the values sync did not apply."
+      red "   fix: re-run this command (it re-syncs), rather than 'rollout restart', which"
+      red "        re-pulls whatever the deployment ALREADY points at."
+    fi
     return 1
   fi
   grn "$svc is running the image this command built"

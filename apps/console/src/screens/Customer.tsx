@@ -391,8 +391,17 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   if (!a2) return;
                   setNamingMsg('');
                   try {
-                    await call(session, a2, { customer_id: c.id, name: nameDraft.trim() });
-                    setNamingMsg('تم حفظ الاسم.');
+                    const saved = nameDraft.trim();
+                    await call(session, a2, { customer_id: c.id, name: saved });
+                    // THE PAGE AGREES WITH THE SERVER NOW. Without this the header still showed
+                    // «بلا اسم» beside a field that had just been saved — two truths on one
+                    // screen, and the one he can see is the wrong one.
+                    c.name = saved;
+                    setNamingMsg('✓ تم حفظ الاسم');
+                    // IT CLEARS ITSELF. A confirmation that stays becomes furniture — after a
+                    // minute he cannot tell whether it belongs to the edit he just made or the
+                    // one before it, which is worse than no confirmation at all.
+                    window.setTimeout(() => setNamingMsg(''), 3000);
                   } catch (e) {
                     setNamingMsg(e instanceof Error ? e.message : 'تعذّر الحفظ');
                   }
@@ -407,7 +416,11 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             <p className="text-xs text-text-secondary">
               الرقم لا يُعدَّل — هو هوية العميل عند كل أقسام النظام. رقمٌ خاطئ يعني عميلاً جديداً.
             </p>
-            {namingMsg ? <p className="text-sm text-text-secondary">{namingMsg}</p> : null}
+            {namingMsg ? (
+              <p className={`text-sm ${namingMsg.startsWith('✓') ? 'text-success' : 'text-danger'}`}>
+                {namingMsg}
+              </p>
+            ) : null}
           </div>
 
               {/* THE APOLOGY, WHERE THE BALANCE IS. A machine ate a card, an operator picked the
