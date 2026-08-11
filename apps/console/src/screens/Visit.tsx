@@ -8,7 +8,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  applyOffer, balanceFor, customerByPhone, customerByPlate, fetchCatalogue, offerFor,
+  applyOffer, balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
+  offerFor, pointsByService, type EarnSettings,
   recentCustomers, redeem,
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
@@ -99,6 +100,10 @@ export function Visit() {
       .then((r) => { setServices(r.services); setFields(r.fields ?? []); })
       .catch(() => { setServices([]); setFields([]); });
     recentCustomers(session).then((r) => setRecent(r.customers)).catch(() => setRecent([]));
+    // THE EARNING RULES, ONCE. A failure leaves the tiles without numbers rather than with zeros:
+    // a shop that has not set points up must not be shown sixteen zeros, and a shop that has must
+    // not be shown zeros because one read failed.
+    earnSettings(session).then(setEarn).catch(() => setEarn(null));
   }, [session]);
 
   // THE QUEUE DRAINS ON EVERY SIGNAL THE BROWSER GIVES US, not on a timer. `online` is the one
@@ -163,6 +168,7 @@ export function Visit() {
    */
   const [subject, setSubject] = useState('');
   const [balance, setBalance] = useState<Balance | null>(null);
+  const [earn, setEarn] = useState<EarnSettings | null>(null);
   const [redeeming, setRedeeming] = useState('');
   /**
    * WHETHER THE OPERATOR SAID THE CUSTOMER TOOK HIS OFFER.
@@ -662,6 +668,7 @@ export function Visit() {
         redeemable={new Set(
           (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
         )}
+        points={pointsByService(earn, services.map((x) => x.id))}
       />
 
       {/* WHY HE NEVER SAW AN OFFERS PAGE. Skipping a step silently makes an operator wonder what

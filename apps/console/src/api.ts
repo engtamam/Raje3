@@ -206,6 +206,45 @@ export interface Balance {
   expires_at?: number;
 }
 
+/**
+ * What each service EARNS — the shop's own earning rules, three levels deep.
+ *
+ * READ ONCE PER ENTRY TO THE SCREEN, not per customer: this is the shop's configuration and does
+ * not change between two visits a minute apart. It is what lets the operator say «هذي تجيب لك 5
+ * نقاط» while his hand is on the tile — the sentence that makes a loyalty programme exist outside
+ * the database.
+ */
+export interface EarnSettings {
+  general?: { points?: number };
+  groups?: Record<string, { points?: number }>;
+  services?: Record<string, { points?: number }>;
+  service_group?: Record<string, string>;
+}
+
+export function earnSettings(session: Session): Promise<EarnSettings> {
+  return call(session, '/api/v1/loyalty/settings');
+}
+
+/**
+ * The effective number for every service — service, then its group, then general (§9.2).
+ *
+ * INHERITED IS SHOWN, NOT HIDDEN. Resolving only the explicit per-service values would print a
+ * number on the three tiles somebody customised and nothing on the rest, which reads as "these
+ * three earn points and the others do not" — the opposite of what the shop configured.
+ */
+export function pointsByService(earn: EarnSettings | null, ids: string[]): Record<string, number> {
+  if (!earn) return {};
+  const out: Record<string, number> = {};
+  for (const id of ids) {
+    const own = earn.services?.[id]?.points;
+    if (own !== undefined) { out[id] = own; continue; }
+    const group = earn.service_group?.[id];
+    const fromGroup = group ? earn.groups?.[group]?.points : undefined;
+    out[id] = fromGroup ?? earn.general?.points ?? 0;
+  }
+  return out;
+}
+
 export function balanceFor(session: Session, subjectRef: string): Promise<Balance> {
   return call(session, `/api/v1/loyalty/balance/${encodeURIComponent(subjectRef)}`);
 }

@@ -21,6 +21,18 @@ export interface ServiceGridProps {
   offered?: Set<string>;
   /** Services he could take with the points he holds right now. */
   redeemable?: Set<string>;
+  /**
+   * What each service EARNS him, by service id — the third thing the tile was missing.
+   *
+   * WHY ON THE TILE AND NOT ON A SETTINGS PAGE. The operator is the one person who can say it out
+   * loud at the right moment: «هذي تجيب لك 5 نقاط». He cannot say it if the number lives two
+   * screens away, and a loyalty programme nobody mentions at the counter is a line in a database.
+   *
+   * ABSENT MEANS ABSENT. A service with no number shows nothing rather than a zero — zero is a
+   * decision the shop made about that service, and printing it on every tile of a shop that has
+   * not set points up yet is sixteen zeros telling him the feature is broken.
+   */
+  points?: Record<string, number>;
   onToggle: (id: string) => void;
   /** How often each service is chosen here — the baseline order. Supplied by the caller because
    *  it belongs to the establishment, not to this component. */
@@ -34,7 +46,7 @@ export interface ServiceGridProps {
 
 export function ServiceGrid({
   services, selected, onToggle, weights = {}, together = {}, adaptive = true,
-  offered, redeemable,
+  offered, redeemable, points = {},
 }: ServiceGridProps) {
   /**
    * THE ORDER IS COMPUTED ONCE PER ENTRY, FROM THE FIRST CHOICE ONLY — never from the whole
@@ -107,6 +119,15 @@ export function ServiceGrid({
                 workshop floor, and it says nothing to an operator who cannot distinguish it. */}
             {on ? (
               <span aria-hidden className="absolute top-1 start-2 text-base leading-none">✓</span>
+            ) : null}
+            {/* WHAT IT EARNS HIM. Bottom-start, opposite the badges, and only when the shop has
+                actually set a number above zero for it. */}
+            {(points[s.id] ?? 0) > 0 ? (
+              <span className={`absolute bottom-1 start-1.5 text-[10px] font-normal leading-none ${
+                on ? 'text-white/80' : 'text-text-secondary'
+              }`}>
+                {points[s.id]}+
+              </span>
             ) : null}
             {/* The nudge, and only while it is true — a hint that stays after the selection has
                 moved on is noise the operator learns to look past. */}
