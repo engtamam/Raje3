@@ -17,6 +17,10 @@ import type { CatalogueService } from './api';
 export interface ServiceGridProps {
   services: CatalogueService[];
   selected: string[];
+  /** Services his live offer applies to — empty means the offer is shop-wide, not per service. */
+  offered?: Set<string>;
+  /** Services he could take with the points he holds right now. */
+  redeemable?: Set<string>;
   onToggle: (id: string) => void;
   /** How often each service is chosen here — the baseline order. Supplied by the caller because
    *  it belongs to the establishment, not to this component. */
@@ -30,6 +34,7 @@ export interface ServiceGridProps {
 
 export function ServiceGrid({
   services, selected, onToggle, weights = {}, together = {}, adaptive = true,
+  offered, redeemable,
 }: ServiceGridProps) {
   /**
    * THE ORDER IS COMPUTED ONCE PER ENTRY, FROM THE FIRST CHOICE ONLY — never from the whole
@@ -84,6 +89,18 @@ export function ServiceGrid({
                 : 'bg-surface-1 text-text-primary shadow-sm',
             ].join(' ')}
           >
+            {/* WHAT THIS SERVICE CARRIES FOR HIM, ON THE SERVICE ITSELF. An offer and a
+                redeemable reward used to live on a page of their own, one swipe away — so the
+                operator had to remember, while looking at «تغيير زيت», that something applied to
+                it. The mark belongs where the decision is.
+                A MARK IS NOT A SPEND (§5.6.2). These say what is available; applying it is a
+                second, deliberate tap — «الصمت لا يصرف». */}
+            {(offered?.has(s.id) || redeemable?.has(s.id)) ? (
+              <span className="absolute end-1 top-1 flex gap-0.5 text-xs leading-none">
+                {offered?.has(s.id) ? <span title="عليه عرض">🏷</span> : null}
+                {redeemable?.has(s.id) ? <span title="يمكن استبداله بنقاطه">⭐</span> : null}
+              </span>
+            ) : null}
             {s.icon ? <span className="text-base leading-none">{s.icon}</span> : null}
             <span className="line-clamp-2">{s.name}</span>
             {/* A CHECK MARK, NOT ONLY A COLOUR. Colour alone is invisible in direct sun on a

@@ -14,6 +14,7 @@ import {
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
 } from '../api';
 import { Keypad } from '../Keypad';
+import { Button } from '@base-ui/design-system/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
@@ -613,7 +614,55 @@ export function Visit() {
           </button>
         </div>
       ) : null}
-      <ServiceGrid services={services} selected={chosen} onToggle={toggle} />
+      {/* AND THE SECOND TAP, WHICH IS THE WHOLE RULE (§5.6.2). The badge SAYS what is available;
+          this applies it. «الصمت لا يصرف» — a customer who came for something else and was
+          quietly charged an offer he was saving is a customer we took something from, and he may
+          be holding it for next month. So it appears only when a marked service is chosen, and
+          ignoring it is a legitimate answer: he may be collecting points on purpose. */}
+      {(() => {
+        const markedOffer = chosen.some((id) => (offer?.service_ids ?? []).includes(id));
+        const spendable = (balance?.rewards ?? []).filter(
+          (r) => r.service_id && chosen.includes(r.service_id),
+        );
+        if (!markedOffer && spendable.length === 0) return null;
+        return (
+          <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-accent-soft px-3 py-2">
+            <span className="text-sm text-accent-on-soft">على ما اخترته:</span>
+            {markedOffer ? (
+              <Button
+                onClick={() => setApplying(true)}
+                variant={applying ? 'solid' : 'ghost'}
+              >
+                {applying ? '✓ سيُطبَّق العرض' : 'طبّق العرض'}
+              </Button>
+            ) : null}
+            {spendable.map((r) => (
+              <Button
+                key={r.id}
+                variant="ghost"
+                disabled={Boolean(redeeming) || redeemed === r.id}
+                onClick={() => spend(r.id, r.name)}
+              >
+                {redeemed === r.id ? `✓ ${r.name}` : `استبدل: ${r.name} (${r.cost})`}
+              </Button>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* THE BADGES COME FROM WHAT WE ALREADY ASKED FOR. His offer names the services it covers
+          (§5.6.2 — the scope applies, the text persuades), and the balance names the rewards he
+          can afford right now, each of which may BE a service («غسلة مجانية» is the wash, §9.4).
+          No new call: the same two answers the page already holds, put where the decision is. */}
+      <ServiceGrid
+        services={services}
+        selected={chosen}
+        onToggle={toggle}
+        offered={new Set(offer?.service_ids ?? [])}
+        redeemable={new Set(
+          (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
+        )}
+      />
 
       {/* WHY HE NEVER SAW AN OFFERS PAGE. Skipping a step silently makes an operator wonder what
           he missed — and «لا عروض» is the wrong answer for a customer we have never met, and a

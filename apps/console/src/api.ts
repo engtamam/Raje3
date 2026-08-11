@@ -190,7 +190,15 @@ export async function offerFor(session: Session, subjectRef: string): Promise<Fi
  * there is nothing useful to say — either he can afford everything or the shop has no rewards, and
  * «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
  */
-export interface FieldReward { id: string; name: string; cost: number; type?: string }
+export interface FieldReward {
+  id: string;
+  name: string;
+  cost: number;
+  type?: string;
+  /** The service this reward IS, when it is one — «غسلة مجانية» is the wash (§9.4). The badge on
+   *  the tile needs it, and the route has always sent it. */
+  service_id?: string;
+}
 export interface Balance {
   points: number;
   rewards: FieldReward[];
