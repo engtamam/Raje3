@@ -12,22 +12,36 @@ second pricing model, holds no plan, and duplicates no state — those were all 
 wrong (spec §16.4.1).
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
-NO PAID SUBSCRIPTION BEFORE WHATSAPP IS CONNECTED
+CONNECTING IS NO LONGER A GATE ON PAYING — IT IS THE NEXT STEP AFTER IT
 
-A shop that pays and cannot send has bought nothing. Taking the money first and discovering that
-together, a week later, is the refund conversation nobody wins — and it is avoidable by asking one
-question before the payment rather than after it.
+THE RULE WAS THE OTHER WAY ROUND AND IT WAS DEFENSIBLE: a shop that pays and cannot send has
+bought nothing, and the refund conversation is one nobody wins. It is reversed on the owner's
+decision, and the reasoning is better than the rule it replaces.
 
-THE TRIAL IS EXEMPT, and that is what makes the rule fair rather than a wall. The trial is for
-trying: the field screen, the customers, the points and the indicators all work without WhatsApp,
-and requiring a connection to start would gate the evaluation on a step whose purpose is only
-apparent afterwards.
+WHAT THE OLD RULE ACTUALLY DID. It asked a man who had decided to buy to go and do a ten-minute
+technical errand with Meta first — at the exact moment his intent was highest and most perishable.
+Some came back. The ones who did not were not lost to a bad product; they were lost to a queue we
+put in front of the till. And the errand does not become easier by being compulsory: it becomes a
+wall between a man and the thing he already wanted.
+
+AND PAYING IS ITSELF THE STRONGEST REASON TO CONNECT. A shop that has paid finishes what it
+started; a shop that has not is still deciding. Putting the money first turns the connection from
+a hurdle into the obvious next step — which is what it is.
+
+NOTHING IS SOLD THAT CANNOT BE DELIVERED, because the delivery is not gone, it is deferred, and
+the product says so in the same breath as the receipt. Everything except sending works from the
+first minute: the field screen, the customers, the points, the indicators. The messages queue
+against his ceiling and go out the day he connects.
+
+SO THE ANSWER CARRIES A NOTICE, NOT A REFUSAL. The decision is always yes; when he is paying and
+unconnected it comes back with the one sentence that says what is left to do. A silent yes here
+would be the real sale of something undeliverable — he would find out from the absence of
+messages, which is the worst possible teacher.
 
 AND IT IS THE CONNECTION, NOT THE VERIFICATION. Connecting is Embedded Signup — a WABA and a
 number, minutes. Business verification with Meta is days, is NOT required to send (it raises the
-ceiling from 250 to 2,000 unique customers a day), and gating payment on it would hold a shop
-behind a queue at Meta for a reason it has no control over. Confusing the two turns a ten-minute
-step into an indefinite one (§6.2.2).
+ceiling from 250 to 2,000 unique customers a day), and confusing the two turns a ten-minute step
+into an indefinite one (§6.2.2).
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 AND THE REFUSAL IS RETURNED, NOT RAISED
@@ -48,14 +62,18 @@ class SubscribeRefused(Exception):
 
 @dataclass(frozen=True)
 class Decision:
-    """Whether this subscription may proceed, and why not."""
+    """Whether this subscription may proceed, and what is still owed if it does."""
 
     allowed: bool
     reason: str = ""
+    # WHAT REMAINS, when the answer is yes but something is unfinished. Separate from `reason`,
+    # which is why a NO happened: a screen that shows a notice as a failure teaches an owner his
+    # payment did not go through, and a screen that swallows it teaches him nothing at all.
+    notice: str = ""
 
 
 def may_subscribe(*, connected: bool, trial_days: int) -> Decision:
-    """The one rule this path exists to enforce.
+    """The one product rule on this path — and today it is a notice rather than a gate.
 
     `connected`   does this establishment have a WhatsApp account attached?
     `trial_days`  the plan's trial length. Non-zero means he is not paying yet.
@@ -63,15 +81,14 @@ def may_subscribe(*, connected: bool, trial_days: int) -> Decision:
     PURE, so the rule can be read and tested without a cluster. Everything around it is plumbing;
     this is the decision.
     """
-    if trial_days > 0:
-        # THE TRIAL NEEDS NOTHING. He is evaluating, not buying, and most of the product works
-        # without a connection at all.
+    if trial_days > 0 or connected:
         return Decision(True)
-    if connected:
-        return Decision(True)
-    return Decision(False,
-                    "قبل تفعيل الاشتراك، اربط حساب واتساب الأعمال — بدونه لن تصل رسائلك "
-                    "لعملائك. الربط يستغرق دقائق من صفحة الإعدادات.")
+    # PAYING, AND NOT CONNECTED YET. Allowed — and told, in the same breath as the receipt, what
+    # the one remaining step is and what does and does not work until he takes it.
+    return Decision(
+        True,
+        notice="اشتراكك فعّال. تبقّى ربط واتساب الأعمال حتى تبدأ الرسائل بالخروج — دقائق من "
+               "صفحة حسابك. وكل شيء آخر يعمل الآن: الزيارات، وعملاؤك، ونقاطهم، ومؤشرات محلّك.")
 
 
 class NullConnections:

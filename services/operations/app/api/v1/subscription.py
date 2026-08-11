@@ -79,4 +79,9 @@ async def subscribe(request: Request, body: SubscribeIn,
     await request.app.state.auditor.record(
         "subscription.created", actor=principal.subject, tenant=tenant,
         resource=f"plan:{body.plan_id}", ip=request.client.host if request.client else "")
+    # WHAT IS STILL OWED, ALONGSIDE THE RECEIPT. He may subscribe unconnected — see
+    # core/subscribe.py for why that gate was removed — but he must never learn it from the
+    # absence of messages a week later. The notice travels with the success, not instead of it.
+    if decision.notice:
+        out = {**out, "notice": decision.notice}
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=out)

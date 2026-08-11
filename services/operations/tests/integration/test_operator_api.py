@@ -282,19 +282,29 @@ def _wire(client, *, connected: bool, trial: int = 0):
     return plans
 
 
-def test_a_paid_subscription_without_whatsapp_is_refused_with_a_usable_sentence(client,
-                                                                                monkeypatch):
-    """AND THE SENTENCE HAS TO SURVIVE. The platform's error handler strips an HTTPException's
-    detail, so a raised refusal arrives as a bare 402 and the only part that tells him what to do
-    is thrown away. It is RETURNED as a body instead."""
+def test_a_paid_subscription_without_whatsapp_goes_through_and_says_what_is_left(client,
+                                                                                 monkeypatch):
+    """THE GATE IS GONE, AND THE SENTENCE IS NOT. Connecting used to block the payment; it now
+    follows it — see core/subscribe.py for why the toll was in the wrong place. What must survive
+    is the telling: a silent success is how an owner discovers, a week later and from the absence
+    of messages, that one step was left."""
     plans = _wire(client, connected=False, trial=0)
     r = client.post("/api/v1/subscription", json={"plan_id": "plan_x"},
                     headers=_auth("billing.self", tenant="t1"))
-    assert r.status_code == 402
+    assert r.status_code == 201
     body = r.json()
-    assert body["error"] == "WHATSAPP_NOT_CONNECTED"
-    assert "اربط" in body["message"] and "دقائق" in body["message"]
-    assert not plans.subscribed, "nothing may reach billing when we refused"
+    assert "ربط" in body["notice"] and "دقائق" in body["notice"]
+    # AND IT REACHED BILLING. The whole point of the reversal is that the sale completes.
+    assert plans.subscribed == [("t1", "plan_x", "month")]
+
+
+def test_a_connected_shop_is_told_nothing_extra(client, monkeypatch):
+    """A notice with nothing owed is noise, and noise is what teaches people to skip notices."""
+    _wire(client, connected=True, trial=0)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201
+    assert "notice" not in r.json()
 
 
 def test_a_trial_subscribes_without_any_connection(client, monkeypatch):

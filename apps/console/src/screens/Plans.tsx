@@ -13,15 +13,21 @@
  * rather than printed as itself. That is deliberate — a plan that lists a line nobody understands
  * is worse at selling than a plan that lists one line fewer.
  *
- * AND PRESSING A PLAN BEFORE WHATSAPP IS CONNECTED DOES NOT REFUSE HIM.
+ * AND PRESSING A PLAN BEFORE WHATSAPP IS CONNECTED SUBSCRIBES HIM.
  *
- * A subscription with no connected number buys nothing that can run: every message this product
- * sends goes out on his own WhatsApp account, so the plan would start billing against a channel
- * that cannot carry a single reminder. The honest order is connect, then subscribe. But «لا يمكنك
- * الاشتراك» is a wall, and a wall at the exact moment somebody decided to pay is the most
- * expensive sentence in the product. So the press is ACCEPTED and answered — his choice is
- * remembered, the reason is one calm line, and the button in front of him is the next step rather
- * than a dismissal.
+ * THE ORDER WAS THE OTHER WAY ROUND: connect, then pay. The reasoning was sound — a subscription
+ * with no connected number bills against a channel that cannot carry a reminder — and it was still
+ * wrong, because of WHERE it put the errand. It asked a man who had just decided to buy to go and
+ * spend ten minutes with Meta first, at the moment his intent was highest and most perishable. The
+ * ones who did not come back were not lost to the product.
+ *
+ * PAYING IS THE STRONGEST REASON TO FINISH CONNECTING. A shop that has paid completes what it
+ * started; a shop that has not is still deciding. So the subscription goes through, and the
+ * connection becomes the next step rather than the toll.
+ *
+ * AND HE IS TOLD, IN THE SAME BREATH AS THE RECEIPT. The server returns a `notice` naming the one
+ * thing left and what already works without it. A silent success here would be the real sale of
+ * something undeliverable: he would learn it a week later from messages that never went.
  */
 import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -136,6 +142,8 @@ export function PlansPane({
   const [chosen, setChosen] = useState<Plan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  /** What the server says is still owed after a successful subscription. Never an error. */
+  const [notice, setNotice] = useState('');
 
   const canBrowse = action(catalog, 'billing.plans');
   const canSubscribe = action(catalog, 'billing.subscribe');
@@ -165,10 +173,15 @@ export function PlansPane({
     // THE ORDER, AND IT IS ANSWERED RATHER THAN REFUSED. See the module note: his choice is kept
     // and the screen shows him the step that makes it work.
     setChosen(p);
-    if (!connected || !canSubscribe) return;
+    // NOT GATED ON THE CONNECTION ANY MORE — see the module note. Only on having the action at
+    // all, which is a capability question and not a readiness one.
+    if (!canSubscribe) return;
     setBusy(true);
     try {
-      await call(session, canSubscribe, { plan_id: p.id });
+      const out = await call<{ notice?: string }>(session, canSubscribe, { plan_id: p.id });
+      // THE SERVER'S SENTENCE, NOT OURS. What is still owed after a successful subscription is a
+      // product rule and it lives in one place; a second copy here is the one that goes stale.
+      setNotice(out?.notice ?? '');
       setChosen(null);
       load();
     } catch (e) {
@@ -200,19 +213,16 @@ export function PlansPane({
         </div>
       ) : null}
 
-      {/* THE CHOICE HE MADE, ANSWERED. Rendered above the cards rather than as a dialog over them:
-          he can still read the plan he picked while he reads why it has not started. */}
-      {chosen && !connected ? (
+      {/* WHAT IS LEFT, AFTER THE SUBSCRIPTION SUCCEEDED. Not a refusal and not styled as one: the
+          payment went through, and this is the one step between him and messages going out. It is
+          the server's sentence — the rule lives in one place — with the button that does it. */}
+      {notice ? (
         <div className="rounded-card border border-accent-soft bg-accent-soft/40 p-5 shadow-sm">
-          <p className="mb-1 font-medium">اخترت «{chosen.name}» — وخطوة واحدة تفصلك.</p>
-          <p className="mb-4 text-sm text-text-secondary">
-            رسائل «راجِع» تخرج من رقم واتساب محلّك أنت، لا من رقمنا. فحتى يُربط رقمك، الباقة تدفع
-            ثمن قناة لا تستطيع أن تحمل رسالة واحدة. اربط رقمك أولاً — دقيقة واحدة — ثم تبدأ باقتك
-            وهي تعمل من أول يوم.
-          </p>
+          <p className="mb-1 font-medium">تم الاشتراك ✓</p>
+          <p className="mb-4 text-sm text-text-secondary">{notice}</p>
           <div className="flex gap-2">
-            <Button type="button" onClick={onGoConnect}>اربط رقمي الآن</Button>
-            <Button type="button" variant="ghost" onClick={() => setChosen(null)}>لاحقاً</Button>
+            <Button type="button" onClick={onGoConnect}>اربط واتسابي الآن</Button>
+            <Button type="button" variant="ghost" onClick={() => setNotice('')}>لاحقاً</Button>
           </div>
         </div>
       ) : null}

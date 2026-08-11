@@ -17,7 +17,7 @@ service:
 
 image:
   repository: 127.0.0.1:5055/raje3/campaigns
-  digest: "sha256:47ef19738b41cf1ff43894027443ce140dea85d8046456d81eaa485beacf9f76"
+  digest: "sha256:a716d38bc6a4783f1a469b95ae5a0b1f3a68aca9548080b6c9daa272db176a62"
 
 replicas: 1
 

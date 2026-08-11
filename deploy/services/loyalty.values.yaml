@@ -10,7 +10,7 @@ service:
 
 image:
   repository: 127.0.0.1:5055/raje3/loyalty
-  digest: "sha256:9265147178d9595b9b62b89b8a8816703206a4b4ab6b6e4028614229a124785f"   # CI rewrites this at publish; never a :latest tag
+  digest: "sha256:1437036504a4b68933442be87511a269e21715647ad725caf78c108a3cee2bb1"   # CI rewrites this at publish; never a :latest tag
 
 replicas: 1
 
