@@ -877,14 +877,15 @@ function Row({ label, hint, children }:
     // own line the moment a label was one word too long — so the form arrived as a ragged ladder,
     // some boxes beside their label and some beneath it, each starting at a different edge. Two
     // columns put every label on the right and every control on the left, at one width, always.
-    <div className="grid grid-cols-[1fr_7.5rem] items-center gap-2">
-      <span className="flex min-w-0 items-center gap-1.5">
-        {/* WRAPS RATHER THAN CLIPS. A label cut mid-word reads as a rendering fault; a label on
-            two lines reads as a label. */}
-        <span className="text-sm">{label}</span>
-        <Hint>{hint}</Hint>
-      </span>
-      {children}
+    // THREE CELLS ON ONE ROW, AND THE EXPLANATION UNDER ALL OF THEM. The «؟» is a direct child
+    // of this grid rather than of the label, which is what lets its sentence span the full width
+    // when it opens; the control is placed explicitly so the sentence cannot push it down a row.
+    <div className="grid grid-cols-[auto_auto_7.5rem] items-center gap-x-2 gap-y-1">
+      {/* WRAPS RATHER THAN CLIPS. A label cut mid-word reads as a rendering fault; a label on
+          two lines reads as a label. */}
+      <span className="min-w-0 text-sm">{label}</span>
+      <Hint wide>{hint}</Hint>
+      <span className="col-start-3 row-start-1">{children}</span>
     </div>
   );
 }

@@ -15,7 +15,8 @@
  */
 import { useState, type ReactNode } from 'react';
 
-export function Hint({ children, label = 'شرح' }: { children: ReactNode; label?: string }) {
+export function Hint({ children, label = 'شرح', wide = false }:
+    { children: ReactNode; label?: string; wide?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -31,7 +32,12 @@ export function Hint({ children, label = 'شرح' }: { children: ReactNode; labe
         ؟
       </button>
       {open ? (
-        <p className="basis-full text-xs leading-relaxed text-text-secondary">{children}</p>
+        // FULL WIDTH IN WHATEVER LAYOUT IT LANDS IN. `basis-full` is a flex instruction and a
+        // grid ignores it entirely — so inside a two-column row the sentence was squeezed into
+        // the label column and rendered one word per line, a column of text taller than the form
+        // it was explaining. `wide` adds the grid equivalent, and the two do not conflict.
+        <p className={`basis-full text-xs leading-relaxed text-text-secondary ${
+          wide ? 'col-span-full' : ''}`}>{children}</p>
       ) : null}
     </>
   );
