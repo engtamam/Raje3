@@ -101,6 +101,26 @@ export function planLines(p: Plan): string[] {
   return out;
 }
 
+/**
+ * What this plan adds over the one below it — and nothing it merely repeats.
+ *
+ * FOUR PLANS THAT SHARE MOST OF THEIR LIST make the reader do the diffing: he reads twenty lines
+ * to find the three that changed, and the thing he is actually buying — the difference — is the
+ * one thing the screen never says out loud. «كل ما في الأساسية +» says it in four words.
+ *
+ * A LINE SURVIVES ONLY IF ITS VALUE CHANGED. Comparing whole sentences is what makes this safe:
+ * «مقاعد للموظفين: 5» and «مقاعد للموظفين: 12» are different strings, so the seat increase shows;
+ * an identical line is inherited and stays quiet.
+ *
+ * AND THE FIRST PLAN KEEPS ITS FULL LIST, because there is nothing beneath it to inherit from.
+ */
+export function planDelta(plan: Plan, below: Plan | undefined): string[] {
+  const lines = planLines(plan);
+  if (!below) return lines;
+  const had = new Set(planLines(below));
+  return lines.filter((l) => !had.has(l));
+}
+
 export function PlansPane({
   session, catalog, connected, onGoConnect,
 }: {
@@ -199,7 +219,12 @@ export function PlansPane({
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      <ul className="grid gap-3 md:grid-cols-3">
+      {/* SIDE BY SIDE ON A PHONE, NOT STACKED. Four plans in a column are compared from memory:
+          by the time he reaches «المتقدّمة» the price of «الأساسية» is off the screen and he is
+          scrolling back and forth to hold two numbers in his head. A snapping row puts them next
+          to each other at a thumb's swipe, which is the comparison this screen exists to make.
+          The grid returns at md, where three fit without either. */}
+      <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>li]:w-[80%] [&>li]:shrink-0 [&>li]:snap-start md:grid md:grid-cols-3 md:overflow-visible md:[&>li]:w-auto">
         {plans.map((p) => {
           const price = monthly(p);
           const current = sub?.plan_id === p.id || sub?.plan_name === p.name;
@@ -207,7 +232,11 @@ export function PlansPane({
             <li key={p.id}>
               <div
                 className={[
-                  'flex h-full flex-col gap-3 rounded-card p-5 shadow-sm',
+                  // TIGHTER, BECAUSE THE CARD IS THE COMPARISON. p-5 with gap-3 spread four
+                  // short facts over a screen and a half, so «الأساسية» and «الذكية» could not be
+                  // read against each other without scrolling — which is the one thing this
+                  // screen is for. The tax line joins the price instead of taking a row.
+                  'flex h-full flex-col gap-2 rounded-card p-4 shadow-sm',
                   current ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-1',
                 ].join(' ')}
               >
@@ -224,14 +253,22 @@ export function PlansPane({
                 {/* SAID, NOT ASSUMED. «شامل الضريبة» is the server's flag; a shop owner reading a
                     price without it budgets the wrong number. */}
                 {price?.includes_tax ? (
-                  <span className="text-sm text-text-secondary">شامل ضريبة القيمة المضافة</span>
+                  <span className="-mt-1 text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
                 ) : null}
-                <ul className="flex flex-col gap-1 text-sm">
-                  {planLines(p).map((line) => (
+                <ul className="flex flex-col gap-0.5 text-sm leading-snug">
+                  {/* THE INHERITANCE, SAID ONCE. The plans arrive cheapest first, so the one below
+                      is the previous entry — and naming it is what makes the short list read as
+                      "more" rather than as "less". */}
+                  {plans[plans.indexOf(p) - 1] ? (
+                    <li className="font-medium">
+                      كل ما في «{plans[plans.indexOf(p) - 1].name}» +
+                    </li>
+                  ) : null}
+                  {planDelta(p, plans[plans.indexOf(p) - 1]).map((line) => (
                     <li key={line} className="text-text-secondary">• {line}</li>
                   ))}
                 </ul>
-                <div className="mt-auto pt-2">
+                <div className="mt-auto pt-1">
                   {current ? null : (
                     <Button type="button" disabled={busy} onClick={() => choose(p)}>
                       اختر هذه الباقة

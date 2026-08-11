@@ -51,9 +51,19 @@ export const SECTIONS: Section[] = [
   // The field screen: one action, and it is the one every operator has.
   { id: 'visit', path: '/visit', label: 'تسجيل زيارة', requires: ['operations.record_visit'] },
   { id: 'customers', path: '/customers', label: 'عملائي', requires: ['operations.recent'] },
-  // Gated on the insights engine (feature.insights.engine) — a shop without it does not see the
-  // section at all. The upgrade LINE lives inside «رسائلي», where he is already thinking about
-  // reaching people, and carries a number from his own shop rather than an advert (spec 10.8).
+  // OPEN TO ALL FOUR PLANS, and this comment used to say the opposite — it repeated a sentence
+  // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
+  // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
+  // association engine, the missed opportunities and the suggested bundles — and those are shown
+  // LOCKED inside the section, never by hiding the section.
+  //
+  // Hiding it would break the sale it exists to make: «42 عميلاً معرّضون للضياع» is what sells the
+  // messages that reach them, so an owner who cannot see it cannot see why he would pay. The
+  // upgrade LINE lives inside «رسائلي», where he is already thinking about reaching people, and
+  // carries a number from his own shop rather than an advert (spec 10.8).
+  //
+  // The gate here is the CAPABILITY — a role that may read indicators — which is a different
+  // question from which plan he bought.
   { id: 'shop', path: '/shop', label: 'محلّي', requires: ['insights.dashboard'] },
   // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
   // MARKETER both hold — and neither may change a price. A section whose every control is inert

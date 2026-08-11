@@ -47,7 +47,13 @@ export function Keypad({ value, onChange, maxLength = 15, disabled = false }: Ke
        a definite parent, and that chain had a block in the middle of it.
        So the keys are sized directly instead — smaller on a short screen, h-16 from `sm` up. It is
        plain, it cannot collapse, and a greasy finger still gets a 56px target at the worst. */
-    <div className="grid grid-cols-3 gap-2" role="group" aria-label="لوحة الأرقام">
+    /* FOUR ROWS SHARING WHATEVER THE PANE HAS LEFT. Two guesses failed before this: a fixed
+       height overflowed a short window, and `8.5dvh` per key was still a guess — dvh is the
+       WINDOW, and this grid lives below a title, a field and a hint that the window knows nothing
+       about. The parent is a flex item with a measured height now, so `h-full` finally resolves
+       against something real and the keys divide it. Nothing here can push a row under the
+       arrows, at any height, because there is no number to be wrong about. */
+    <div className="grid h-full grid-cols-3 grid-rows-4 gap-2" role="group" aria-label="لوحة الأرقام">
       {KEYS.map((d) => (
         <Key key={d} label={d} onPress={() => press(d)} disabled={disabled} />
       ))}
@@ -78,7 +84,7 @@ function Key({ label, onPress, disabled, muted }: {
         // broke the height it was a percentage of. `clamp` asks the viewport directly — nothing
         // in between can break it — so the keys shrink on a short screen and never go under 44px,
         // which is the floor a greasy finger needs.
-        'h-[clamp(2.75rem,8.5dvh,4rem)] rounded-xl text-2xl font-semibold tabular-nums',
+        'h-full min-h-10 rounded-xl text-2xl font-semibold tabular-nums',
         'transition-transform',
         'active:scale-95 disabled:opacity-40',
         muted

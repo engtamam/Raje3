@@ -10,7 +10,7 @@
  */
 import { expect, test } from './fixtures';
 
-const SIZES = [[390, 720], [484, 754], [768, 1024], [1280, 800]] as const;
+const SIZES = [[360, 640], [390, 720], [487, 731], [768, 1024], [1280, 800]] as const;
 
 for (const [w, h] of SIZES) {
   test(`الرحلة تسع شاشة ${w}×${h} بلا تمرير`, async ({ shop }) => {

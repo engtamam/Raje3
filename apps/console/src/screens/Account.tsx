@@ -34,7 +34,7 @@ import { PlansPane } from './Plans';
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
 interface ConnectState { state: string; message: string }
 
-type Pane = 'billing' | 'whatsapp' | 'shop' | 'login' | 'data';
+type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'login' | 'data';
 
 /**
  * The tabs, each with the sentence that says what is behind it.
@@ -44,7 +44,12 @@ type Pane = 'billing' | 'whatsapp' | 'shop' | 'login' | 'data';
  * short precisely because that line carries the meaning.
  */
 const TABS: { id: Pane; label: string; hint: string }[] = [
-  { id: 'billing', label: 'الاشتراك', hint: 'باقتك، فواتيرك، وسيلة الدفع' },
+  { id: 'billing', label: 'الاشتراك', hint: 'باقتك ووسيلة الدفع' },
+  // ITS OWN TAB, BECAUSE IT IS ITS OWN ERRAND. Choosing a plan is a decision made once or twice a
+  // year; fetching an invoice is bookkeeping, done on a date somebody else set — an accountant
+  // asks for last month's, and looking for it under «الاشتراك» means scrolling past four plans
+  // he is not buying today. Two purposes sharing one tab makes both harder to reach.
+  { id: 'invoices', label: 'فواتيري', hint: 'فواتيرك وإيصالاتك، جاهزة للتنزيل' },
   { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي' },
   { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك' },
   { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك' },
@@ -73,6 +78,7 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
 
   const tabs = TABS.filter((t) => {
     if (t.id === 'billing') return Boolean(action(catalog, 'billing.plans') || action(catalog, 'billing.my_subscriptions'));
+    if (t.id === 'invoices') return Boolean(action(catalog, 'billing.my_invoices'));
     if (t.id === 'whatsapp') return Boolean(action(catalog, 'whatsapp.connect_status'));
     if (t.id === 'shop') return Boolean(action(catalog, 'tenant.view_self'));
     return true;
@@ -114,7 +120,11 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
           // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
           // ragged block half the screen wide. It takes a className and merges with
           // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
-          className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+          // AND IT SCROLLS RATHER THAN WRAPS. `flex-1` on five long Arabic labels still folded
+          // onto a second row on a phone, which is what «بياناتي وأوراقي» hanging alone under the
+          // strip was. One row that slides sideways reads as one control; two ragged rows read as
+          // a broken one. The even split comes back at sm, where the labels fit.
+          className="flex w-full flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 [&>button]:whitespace-nowrap sm:[&>button]:flex-1"
           ariaLabel="أقسام حسابي"
           value={active}
           onChange={(v) => setPane(v as Pane)}
@@ -136,9 +146,9 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
             // connected number, so the pane that says so must be able to take him there.
             onGoConnect={() => setPane('whatsapp')}
           />
-          <InvoicesPane session={session} catalog={catalog} />
         </div>
       ) : null}
+      {active === 'invoices' ? <InvoicesPane session={session} catalog={catalog} /> : null}
       {active === 'whatsapp'
         ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
         : null}

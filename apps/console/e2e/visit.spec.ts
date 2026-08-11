@@ -18,15 +18,51 @@ function customerPhone(): string {
   return `05${Math.floor(Math.random() * 90_000_000) + 10_000_000}`;
 }
 
+/**
+ * Walk the journey until the thing we came for is on screen.
+ *
+ * «تسجيل زيارة» IS A SEQUENCE OF SCREENS NOW, not one page: plate, then his entitlements, then the
+ * services. Which step a control lives on depends on the SECTOR — a salon has no plate page — and
+ * on the customer, since the entitlements page is absent when he holds nothing. So no test names a
+ * step number; each one moves forward until what it needs is visible, which is also what a person
+ * does.
+ */
+async function reach(page: Page, control: Locator): Promise<void> {
+  // FORWARD, THEN BACK. A one-directional walk found the services and could never return to the
+  // number — which is not how anyone uses this: he takes the services while the car is on the
+  // lift and asks for the phone after. The journey allows both, so the test must too.
+  for (const label of ['التالي', 'السابق']) {
+    for (let i = 0; i < 4; i += 1) {
+      if (await control.isVisible().catch(() => false)) return;
+      const arrow = page.getByRole('button', { name: label });
+      if (await arrow.isDisabled().catch(() => true)) break;
+      await arrow.click();
+      await page.waitForTimeout(250);
+    }
+  }
+  await expect(control).toBeVisible({ timeout: 15_000 });
+}
+
 /** Type a number the way the operator does — one key at a time. */
 async function keyIn(page: Page, phone: string): Promise<void> {
-  const pad = page.getByRole('group', { name: 'لوحة الأرقام' });
-  for (const digit of phone) await pad.getByRole('button', { name: digit, exact: true }).click();
+  // THE FIELD, NOT THE KEYPAD. The pad is touch-only — right for a thumb, absent on the machine
+  // this suite runs on — and typing into the field is what a desktop operator does anyway. It
+  // also proves the input EXISTS there, which is the defect this replaced: for one commit a
+  // desktop had no way to enter a number at all.
+  const field = page.getByLabel('رقم الجوال');
+  await reach(page, field);
+  await field.fill(phone);
 }
 
 /** The first service in HIS catalogue. Chosen by position: the names are his to edit. */
 function anyService(page: Page) {
   return page.locator('button[aria-pressed]').first();
+}
+
+/** The services live on the last step; move there before reaching for one. */
+async function pickAnyService(page: Page): Promise<void> {
+  await reach(page, anyService(page));
+  await anyService(page).click();
 }
 
 test('the services come from his own catalogue, not from a list in the app', async ({ shop }) => {
@@ -41,7 +77,10 @@ test('the services come from his own catalogue, not from a list in the app', asy
    */
   await open(shop, '/visit');
 
-  await expect(shop.locator('button[aria-pressed]').first()).toBeVisible();
+  // THE GRID IS A STEP NOW, not the top of a page: only the current pane is in the DOM, so a
+  // screen that opens on the plate holds no tile at all until the journey reaches them.
+  await reach(shop, anyService(shop));
+  await expect(anyService(shop)).toBeVisible();
   await expect(shop.getByText('لا توجد خدمات')).toBeHidden();
 });
 
@@ -54,7 +93,7 @@ test('a visit is recorded and the customer becomes findable', async ({ shop }) =
   const phone = customerPhone();
   await open(shop, '/visit');
 
-  await anyService(shop).click();
+  await pickAnyService(shop);
   await keyIn(shop, phone);
   await shop.getByRole('button', { name: 'حفظ وإرسال' }).click();
 
@@ -89,7 +128,7 @@ test('an outage does not lose the visit — it waits, and says it is waiting', a
   await shop.route('**/api/v1/field/visits', (r) => r.fulfill({ status: 500, body: '{}' }));
   await open(shop, '/visit');
 
-  await anyService(shop).click();
+  await pickAnyService(shop);
   await keyIn(shop, customerPhone());
   await shop.getByRole('button', { name: 'حفظ وإرسال' }).click();
 
@@ -107,7 +146,7 @@ test('a visit that will never send is reported, not left in a silent queue', asy
                    (r) => r.fulfill({ status: 400, body: '{"message":"لا"}' }));
   await open(shop, '/visit');
 
-  await anyService(shop).click();
+  await pickAnyService(shop);
   await keyIn(shop, customerPhone());
   await shop.getByRole('button', { name: 'حفظ وإرسال' }).click();
 

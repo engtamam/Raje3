@@ -232,9 +232,21 @@ export function Visit() {
     }
   }, [redeeming, session, subject]);
 
-  const ready = chosen.length > 0 && phone.length >= 9;
+  // TEN DIGITS STARTING 05, WHICH IS WHAT A SAUDI MOBILE IS. The old check was `length >= 9`, so
+  // a nine-digit typo saved happily and the reminder went nowhere for ever — nothing failed, and
+  // the shop learned about it the day a customer said he never hears from them.
+  const phoneOk = /^05\d{8}$/.test(phone);
+  const ready = chosen.length > 0 && phoneOk;
 
   const save = useCallback(() => {
+    // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
+    // at this point is the expensive kind: the visit looks saved, the customer is never reached,
+    // and nobody learns why for months.
+    if (chosen.length > 0 && !phoneOk) {
+      setNote('الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05');
+      window.setTimeout(() => setNote(null), 4000);
+      return;
+    }
     if (!ready) return;
     // MINTED HERE, AT THE PRESS. Not inside the queue and not inside the request — a key created
     // where the request is sent would be a new key on every retry, which is exactly no key.
@@ -293,12 +305,36 @@ export function Visit() {
                live on the LAST page — the operator typed a number here and the customer he was
                looking for appeared two swipes away. */
             <div className="flex h-full flex-col gap-2">
-              <div
+              {/* A REAL INPUT, NOT A DISPLAY — and this was a defect I introduced.
+                  The number used to be a <div> because the keypad below was the only way to type
+                  it. Then the keypad became touch-only, correctly: it is a thumb's tool and it was
+                  pushing everything below the fold on a desktop. But that left a machine with a
+                  keyboard NO WAY AT ALL to enter a phone number, on the screen this product is
+                  built around. Found by a screenshot of a failing test, not by the type checker —
+                  nothing was broken in code, the control simply was not there. */}
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 dir="ltr"
-                className="grid h-[clamp(3rem,7dvh,3.5rem)] items-center rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums shadow-sm"
-              >
-                {phone || <span className="text-text-secondary">05…</span>}
-              </div>
+                inputMode="tel"
+                autoComplete="off"
+                placeholder="05…"
+                aria-label="رقم الجوال"
+                className="h-[clamp(3rem,7dvh,3.5rem)] w-full rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums shadow-sm placeholder:text-text-secondary"
+              />
+
+              {/* FEEDBACK, NOT A GATE. It says «تمام» the moment the ten digits are right and
+                  counts what is missing before that — and it stops there: he can still move to
+                  the services and come back, because the field is not always filled in the order
+                  the screen lists it. The refusal belongs to «حفظ وإرسال», which is the moment a
+                  wrong number becomes permanent. */}
+              <p className={`px-1 text-sm ${phoneOk ? 'text-success' : 'text-text-secondary'}`}>
+                {phone.length === 0
+                  ? 'رقم جواله — عشرة أرقام تبدأ بـ 05.'
+                  : phoneOk
+                    ? '✓ الرقم صحيح'
+                    : `${phone.length} من 10`}
+              </p>
               {/* THE KEYPAD IS FOR A THUMB, NOT FOR A DESK. On a machine with a real keyboard it
                   was a second, larger way to type ten digits — and it pushed everything that
                   matters below the fold. `.touch-only` is a pointer test, not a width test: see
@@ -308,7 +344,11 @@ export function Visit() {
                 aims at is not the key he hits. The height is reserved whether or not anyone
                 matches; an empty two-line gap costs nothing and a moving keypad costs a wrong
                 number saved against the wrong customer. */}
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* IT GROWS ONLY WHEN IT HAS SOMETHING. `flex-1` made this empty box claim every
+                spare pixel and push the keypad's bottom row under the arrows — a control cut in
+                half is worse than one that is absent. `max-h` caps it when matches arrive and it
+                takes no height at all when they have not. */}
+            <div className="max-h-24 shrink-0 overflow-y-auto">
               {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and
                   sees nothing concludes the customer is new — and registers him a second time. */}
               {matches.length > 0 ? (
@@ -332,7 +372,7 @@ export function Visit() {
                   visits he knows it and writes it in a quiet moment. */}
             </div>
 
-            <div className="touch-only">
+            <div className="touch-only min-h-0 flex-1">
                 <Keypad value={phone} onChange={setPhone} />
               </div>
             </div>
