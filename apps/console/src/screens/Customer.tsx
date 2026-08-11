@@ -22,6 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Drawer } from '@base-ui/design-system/Drawer';
+import { Hint } from '../Hint';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
@@ -402,7 +403,16 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               existed there was no way to add it afterwards: the owner recognising a regular sat
               watching a row that said «بلا اسم» for ever. */}
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium">اسمه</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">اسمه</span>
+              {/* THE RULE, ONE TAP AWAY. It is true for ever and read once; left on the card it
+                  becomes furniture that takes the width the fields need and gets skipped by the
+                  eye — so the one time somebody needs it, he has already learned to look past it. */}
+              <Hint label="لماذا لا يُعدَّل الرقم">
+                الرقم هوية العميل عند كل أقسام النظام، ومنه يُشتقّ معرّفه — فتغييره يترك نقاطه
+                وعروضه وتاريخه خلف الرقم القديم. رقمٌ خاطئ يعني عميلاً جديداً ودمجاً، لا تعديلاً.
+              </Hint>
+            </div>
             <div className="flex gap-2">
               <input
                 value={nameDraft || c.name || ''}
@@ -439,9 +449,6 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             {/* THE NUMBER IS NOT EDITABLE, and the sentence says why rather than leaving him to
                 wonder. It is the identity every peer resolves him by — his points, his offers and
                 his history all hang off the pseudonym derived from it. */}
-            <p className="text-xs text-text-secondary">
-              الرقم لا يُعدَّل — هو هوية العميل عند كل أقسام النظام. رقمٌ خاطئ يعني عميلاً جديداً.
-            </p>
             {namingMsg ? (
               <p className={`text-sm ${namingMsg.startsWith('✓') ? 'text-success' : 'text-danger'}`}>
                 {namingMsg}
@@ -457,7 +464,13 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               may ask in six months, and «+50» with nothing beside it is unanswerable. */}
           {action(catalog, 'loyalty.adjust') ? (
             <div className="mb-4 flex flex-col gap-2 rounded-xl bg-surface-2 p-3">
-              <span className="text-sm font-medium">تعديل رصيده</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">تعديل رصيده</span>
+                <Hint label="شرح المنح والخصم">
+                  اكتب <span dir="ltr" className="tabular-nums">50</span> لمنحه نقاطاً،
+                  و<span dir="ltr" className="tabular-nums">-50</span> لخصمها منه.
+                </Hint>
+              </div>
               {/* TWO ROWS, NOT ONE. Everything about this control was correct three attempts
                   ago except WHERE it stood: sharing a flex row with the number field left it the
                   narrow strip beside it, so one long sentence folded into a six-line tower. The
@@ -482,10 +495,6 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     AND BY EXAMPLE, NOT BY GRAMMAR. «موجب/سالب» is the vocabulary of a form, and an
                     owner compensating a customer should not have to work out that the same box
                     also takes points away. He reads «-50» and knows. */}
-                <p className="text-xs text-text-secondary">
-                  اكتب <span dir="ltr" className="tabular-nums">50</span> لمنحه نقاطاً،
-                  و<span dir="ltr" className="tabular-nums">-50</span> لخصمها منه.
-                </p>
 
                 {/* THE REASON IS A CHOICE, NOT AN ESSAY. It stays required — the entry outlives
                     the memory of it and the customer asks six months later — but demanding free
