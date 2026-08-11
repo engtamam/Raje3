@@ -62,6 +62,12 @@ test('the data rights are buttons he can press, not a paragraph about a right', 
 
   await expect(shop.getByRole('button', { name: 'تصدير نسخة' })).toBeVisible();
   await expect(shop.getByRole('button', { name: 'حذف بياناتي' })).toBeVisible();
+
+  // AND IT IS PRESSED, not merely rendered. The first version of this pane sent `kind` where
+  // compliance-service reads `type`: every button was visible, correctly labelled, and answered
+  // 422 into a console the owner does not have open. A visibility assertion would have passed.
+  await shop.getByRole('button', { name: 'تصدير نسخة' }).click();
+  await expect(shop.getByText(/سجّلنا طلبك/)).toBeVisible({ timeout: 30_000 });
 });
 
 test('an unconnected shop is told it is unconnected', async ({ shop }) => {

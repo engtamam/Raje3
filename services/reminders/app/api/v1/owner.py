@@ -315,6 +315,34 @@ async def set_group_settings(request: Request, name: str, body: GroupIn,
             "services": [s for s, g in tree.service_group.items() if g == name]}
 
 
+@router.delete("/settings/group/{name}/service/{service_id}", dependencies=[Depends(rate_limit)])
+async def leave_group(request: Request, name: str, service_id: str,
+                      principal: Principal = Depends(_MANAGE)) -> dict:
+    """Take one service out of its group.
+
+    `name` is in the path for the audit record and for a URL that reads as what it does; the write
+    itself is keyed by service, because a service is in at most one group. It returns to following
+    general, which is where it was before anyone grouped it.
+    """
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"settings:group:{name}:service:{service_id}",
+        ip=request.client.host if request.client else "")
+    await _settings(request).leave_group(principal.tenant, service_id)
+    return {"service_id": service_id, "group": "", "follows": "general"}
+
+
+@router.delete("/settings/group/{name}", dependencies=[Depends(rate_limit)])
+async def delete_group(request: Request, name: str,
+                       principal: Principal = Depends(_MANAGE)) -> dict:
+    """Delete a group. Its members become ungrouped and keep whatever they hold of their own."""
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"settings:group:{name}", ip=request.client.host if request.client else "")
+    tree = await _settings(request).delete_group(principal.tenant, name)
+    return {"group": name, "deleted": True, "groups": sorted(tree.groups)}
+
+
 @router.get("/settings/suggest-group", dependencies=[Depends(rate_limit)])
 async def suggest_group(request: Request, principal: Principal = Depends(_READ)) -> dict:
     """Is the owner repeating themselves?

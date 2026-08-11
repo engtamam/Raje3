@@ -153,6 +153,25 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "إعداد واحد لعدة خدمات متشابهة.",
     },
     {
+        # THE UNDO THAT DID NOT EXIST. `set_group` writes `service_group[sid]`, and "not in a
+        # group" is absence rather than a value — so there was nothing to call, and a screen
+        # offering «بلا مجموعة» was offering a choice with no action behind it.
+        "id": "reminders.leave_group", "label": "إخراج خدمة من المجموعة", "method": "DELETE",
+        "path": "/api/v1/reminders/settings/group/{name}/service/{service_id}",
+        "capability": "reminders.manage",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True},
+                   {"name": "service_id", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات",
+        "help": "تعود الخدمة إلى الإعداد العام.",
+    },
+    {
+        "id": "reminders.delete_group", "label": "حذف المجموعة", "method": "DELETE",
+        "path": "/api/v1/reminders/settings/group/{name}", "capability": "reminders.manage",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات", "confirm": True,
+        "help": "تُحذف المجموعة وتبقى خدماتها كما هي، بلا مجموعة.",
+    },
+    {
         "id": "reminders.suggest_group", "label": "اقتراح مجموعة", "method": "GET",
         "path": "/api/v1/reminders/settings/suggest-group", "capability": "reminders.read",
         "group": "الإعدادات",

@@ -147,12 +147,23 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
   const [error, setError] = useState('');
   const canAsk = action(catalog, 'compliance.open_my_dsar');
 
-  const ask = async (kind: string, label: string) => {
+  /**
+   * `type`, NOT `kind` — read off compliance-service rather than guessed, which is how the first
+   * version of this shipped a 422 to a button an owner pressed. The four values are the service's
+   * own DSAR_TYPES (access / export / erasure / correction), i.e. the PDPL rights themselves.
+   */
+  const ask = async (type: string, label: string) => {
     if (!canAsk) return;
-    setBusy(kind); setError(''); setSaid('');
+    setBusy(type); setError(''); setSaid('');
     try {
-      await call(session, canAsk, { kind });
-      setSaid(`استلمنا طلبك: ${label}. نردّ عليك خلال 30 يوماً كحدٍّ أقصى، وغالباً قبلها بكثير.`);
+      await call(session, canAsk, { type });
+      // WHAT IT ACTUALLY DID, and no more. The request is recorded — that part is real and the
+      // 30-day clock in the regulation starts from it. What it does NOT do yet is hand him a file:
+      // access and export stay `verified: false` until identity is confirmed (the service refuses
+      // to release personal data before that, correctly), and no service is registered as a data
+      // target on this cluster, so a dispatch would find nobody to ask. Saying «نردّ خلال 30
+      // يوماً» was a promise nothing behind it could keep.
+      setSaid(`سجّلنا طلبك: ${label}. نتواصل معك لتأكيد هويتك قبل تنفيذه — لا تخرج أي بيانات شخصية قبل هذا التأكيد.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر تسجيل الطلب.');
     } finally {

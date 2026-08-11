@@ -160,3 +160,35 @@ def test_an_unknown_field_is_dropped_rather_than_stored_and_ignored(store):
 def test_one_tenants_settings_are_invisible_to_another(store):
     run(store.set_general("t1", {"interval_days": 20}))
     assert run(store.load("t2")).resolve("oil", "interval_days").source == "default"
+
+
+@pytest.mark.asyncio
+async def test_leaving_a_group_returns_the_service_to_general(store):
+    """THE UNDO THAT HAD NO EXISTENCE. Putting a service in a group was a write; taking it out was
+    an absence, and nothing could produce it — found by an owner trying to reverse his own edit."""
+    tree = store
+    await tree.set_group("t1", "المحرك", {"interval_days": 90}, service_ids=["a", "b"])
+
+    after = await tree.leave_group("t1", "a")
+
+    assert "a" not in after.service_group
+    # The group and everyone else in it are untouched: leaving is about this service only.
+    assert after.service_group["b"] == "المحرك"
+    assert after.groups["المحرك"] == {"interval_days": 90}
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_group_releases_its_members_rather_than_orphaning_them(store):
+    """Members left pointing at a deleted group would resolve through `groups[name]`, find
+    nothing, and silently fall back to general — a service changing behaviour with nothing on any
+    screen to explain it. Worse than either deleting or keeping them."""
+    tree = store
+    await tree.set_group("t1", "المحرك", {"interval_days": 90}, service_ids=["a", "b"])
+    await tree.set_service("t1", "a", {"follow_up_days": 3})
+
+    after = await tree.delete_group("t1", "المحرك")
+
+    assert "المحرك" not in after.groups
+    assert after.service_group == {}
+    # What a service holds OF ITS OWN survives — the group was the sharing, not the values.
+    assert after.services["a"] == {"follow_up_days": 3}

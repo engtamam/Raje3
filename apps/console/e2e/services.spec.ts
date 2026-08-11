@@ -60,3 +60,79 @@ test('nothing on it is an untranslated key', async ({ shop }) => {
 
   expect(body).not.toMatch(/[a-z]+\.[a-z]+\.[a-z]+/);
 });
+
+test('the follow-up is saved AND reported — a summary that drops half of it is a wrong answer', async ({ shop }) => {
+  /**
+   * THE BUG THIS CATCHES, found by using the screen: the row's summary line read only the cycle.
+   * An owner who typed 15 into «الاطمئنان», closed the row and saw «كل 10 يوماً» had every reason
+   * to conclude it had not saved. It had — the service stores both, and the line reported one.
+   */
+  await open(shop, '/services');
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+
+  const followUp = shop.getByLabel('الاطمئنان بعد الزيارة (بالأيام)');
+  await expect(followUp).toBeVisible();
+  await followUp.fill('19');
+  await followUp.blur();
+
+  // 19 is nobody's default, so finding it after a reload is proof rather than coincidence.
+  await expect(shop.getByText(/اطمئنان بعد 19/).first()).toBeVisible({ timeout: 30_000 });
+  const body = await open(shop, '/services');
+  expect(body).toMatch(/اطمئنان بعد 19/);
+});
+
+test('each reminder field says what it sends, and previews when', async ({ shop }) => {
+  /**
+   * «الاطمئنان بعد الزيارة (بالأيام)» is a label, not a meaning: it never said what the customer
+   * receives. Two identical number boxes read as one setting asked twice.
+   */
+  await open(shop, '/services');
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+
+  const body = await shop.locator('body').innerText();
+  expect(body).toMatch(/الرسالة التي تُرجعه/);
+  expect(body).toMatch(/تسأل إن كان كل شيء تمام/);
+  // The consequence of the number now in the box, shown before he leaves the field.
+  expect(body).toMatch(/تذكير بعد \d+ يوماً من كل زيارة|لا تذكير لهذه الخدمة/);
+});
+
+test('a service can be put in a group directly, not only when the system offers', async ({ shop }) => {
+  /**
+   * Grouping used to exist ONLY as a suggestion the system made after the owner had repeated
+   * himself across three services. An owner who already knows «هذه كلها خدمات محرك» had no way to
+   * say so. The suggestion is a shortcut now, not the gate.
+   */
+  await open(shop, '/services');
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+
+  const picker = shop.getByLabel(/^مجموعة /);
+  await expect(picker).toBeVisible();
+  await expect(picker.locator('option', { hasText: 'مجموعة جديدة…' })).toHaveCount(1);
+});
+
+test('a service can leave its group, and a group can be deleted', async ({ shop }) => {
+  /**
+   * THE BUG THIS FILE WOULD HAVE CAUGHT, and did not: grouping was one-way. `set_group` wrote
+   * `service_group[id]` and nothing anywhere could unset it — «بلا مجموعة» sat in the dropdown as
+   * an option with no action behind it, and a group, once made, was permanent. Found by an owner
+   * trying to undo his own edit, which is the only way a one-way door is ever found.
+   */
+  await open(shop, '/services');
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+
+  const picker = shop.getByLabel(/^مجموعة /);
+  await picker.selectOption({ label: 'مجموعة جديدة…' });
+  const name = shop.getByLabel('اسم المجموعة الجديدة');
+  await expect(name).toBeVisible();
+  await name.fill('مجموعة الإثبات');
+  await name.press('Enter');
+
+  // It is a heading now, and the heading carries the act that unmakes it.
+  await expect(shop.getByRole('heading', { name: /مجموعة الإثبات/ })).toBeVisible({ timeout: 30_000 });
+  await expect(shop.getByRole('button', { name: 'حذف المجموعة' })).toBeVisible();
+
+  // AND THE SERVICE CAN WALK OUT ON ITS OWN, without taking the group with it.
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+  await shop.getByLabel(/^مجموعة /).first().selectOption('');
+  await expect(shop.getByRole('heading', { name: /مجموعة الإثبات/ })).toHaveCount(0, { timeout: 30_000 });
+});

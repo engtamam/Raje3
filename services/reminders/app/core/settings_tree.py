@@ -201,6 +201,40 @@ class SettingsStore:
         await self._save(tree)
         return tree
 
+    async def leave_group(self, tenant: str, service_id: str) -> SettingsTree:
+        """Take one service out of its group. It goes back to following general.
+
+        THE OPPOSITE OF set_group HAD NO EXISTENCE, and the shape of the tree hid that: putting a
+        service in a group is a write to `service_group`, and there is no value that means "not in
+        one" — absence does. So the screen could offer «بلا مجموعة» in a dropdown and there was
+        nothing behind it. Found by an owner trying to undo his own grouping.
+
+        It does NOT touch the group's settings or its other members: leaving is about this service
+        only. And it does not copy the group's values into the service on the way out, for the same
+        reason `follow_again` deletes rather than writes — a frozen copy diverges silently.
+        """
+        tree = await self.load(tenant)
+        tree.service_group.pop(service_id, None)
+        await self._save(tree)
+        return tree
+
+    async def delete_group(self, tenant: str, group: str) -> SettingsTree:
+        """Remove a group entirely; everything in it becomes ungrouped.
+
+        MEMBERS ARE RELEASED, NEVER DELETED WITH IT. A group is a way of saying "these share a
+        setting", so deleting it is deleting the sharing — not the services, and not any values a
+        service holds of its own. Leaving members pointing at a group that no longer exists would
+        be worse than either: `settingFor` would resolve through `groups[name]`, find nothing, and
+        silently fall back to general — a service quietly changing behaviour with nothing on any
+        screen to explain it.
+        """
+        tree = await self.load(tenant)
+        tree.groups.pop(group, None)
+        for sid in [s for s, g in tree.service_group.items() if g == group]:
+            tree.service_group.pop(sid, None)
+        await self._save(tree)
+        return tree
+
     async def suggest_group(self, tenant: str, *, minimum: int = 3) -> dict[str, Any] | None:
         """Is the owner repeating themselves? — the only place a group is ever proposed.
 

@@ -125,6 +125,9 @@ def build_manifest(
             {"path": "/api/v1/reminders/settings/service/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/settings/service/{}", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/reminders/settings/group/{}", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/settings/group/{}", "tier": "user", "method": "DELETE"},
+            {"path": "/api/v1/reminders/settings/group/{}/service/{}", "tier": "user",
+             "method": "DELETE"},
             {"path": "/api/v1/reminders/settings/suggest-group", "tier": "user", "method": "GET"},
             # ── the customer's own switches — no token in the URL (spec 8.6.1) ────────────
             {"path": "/api/v1/prefs/{}", "tier": "user", "method": "GET"},
