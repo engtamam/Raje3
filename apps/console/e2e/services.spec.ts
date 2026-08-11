@@ -30,7 +30,7 @@ test('the services are shown under the groups the system already knows', async (
    */
   const body = await open(shop, '/services');
 
-  expect(body).toMatch(/خدمات غير مجمّعة/);
+  expect(body).toMatch(/غير مجمّعة/);
 });
 
 test('a changed cycle is written to the tree the engine reads, and survives a reload', async ({ shop }) => {

@@ -118,7 +118,11 @@ export async function open(page: Page, path: string): Promise<string> {
   //
   // A screen has arrived when the nav is there and no skeleton is left. What it then says is the
   // spec's business, not this helper's.
-  await expect(page.getByRole('navigation')).toBeVisible({ timeout: 30_000 });
+  // `.first()` BECAUSE A SCREEN MAY HAVE A NAV OF ITS OWN. «خدماتي ومنتجاتي» grew a rail of the
+  // owner's groups, which is correctly a <nav> — and an unscoped role query then matches two and
+  // fails strict mode, reporting "the app did not render" about a screen that rendered more than
+  // it used to.
+  await expect(page.getByRole('navigation').first()).toBeVisible({ timeout: 30_000 });
   await expect
     .poll(async () => page.locator('[class*="animate-pulse"]').count(),
           { timeout: 30_000, message: `«${path}» never finished loading` })

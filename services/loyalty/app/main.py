@@ -71,6 +71,51 @@ def create_app() -> FastAPI:
                 "ports": container.describe(),
             },
         )
+        # ── the visit event: where every point in this service comes from ────────────────────
+        #
+        # THE BUG THIS CLOSES. `Earner.from_visit` was written, tested and reachable at
+        # /internal/loyalty/earn, and NOTHING CALLED IT. A visit was recorded and no point was
+        # awarded — so the rewards table, the redemption sheet and «نقاطي» all stood on a balance
+        # that was zero for ever, and every test in this service passed the whole time. Fourth
+        # instance of the same shape in this codebase: complete in the depth, cut at the door.
+        #
+        # A SUBSCRIPTION, NOT A CALL FROM operations. `operations` publishes and deliberately does
+        # not know who consumes a visit — a service that knows its consumers has to change every
+        # time one is added. So the wire belongs on this end.
+        #
+        # AND IT IS THE FAST PATH, NOT THE RELIABLE ONE. The bus is at-most-once by contract, so a
+        # pod that is rolling out simply misses the event and nothing records that it did.
+        # `Earner.catch_up` exists for exactly that and reads the same function — a catch-up with
+        # its own arithmetic is a second earning rule, and the second one drifts from the settings
+        # screen the first time somebody edits it.
+        async def _on_visit(event) -> None:
+            payload = getattr(event, "payload", None) or {}
+            try:
+                await container.earner.from_visit(
+                    str(payload.get("tenant") or ""),
+                    # Idempotent BY visit_id: the ledger refuses a second entry from the same
+                    # source, so a redelivered event awards nothing twice.
+                    visit_id=str(payload.get("visit_id") or ""),
+                    subject_ref=str(payload.get("subject_ref") or ""),
+                    service_ids=list(payload.get("service_ids") or []),
+                    amount_halalas=int(payload.get("amount_halalas") or 0),
+                    actor=str(payload.get("operator_id") or ""),
+                    branch_id=str(payload.get("branch_id") or ""))
+            except Exception as exc:                                        # noqa: BLE001
+                # NEVER RAISES INTO THE BUS. The visit already happened and is not ours to undo;
+                # a handler that throws here would, on some drivers, redeliver for ever.
+                logger.warning("earn_from_visit_failed",
+                               extra={"error": str(exc)[:200],
+                                      "visit": str(payload.get("visit_id") or "")})
+
+        try:
+            await container.event_bus.subscribe("operations.visit.recorded", _on_visit)
+            logger.info("subscribed", extra={"topic": "operations.visit.recorded"})
+        except Exception as exc:                                            # noqa: BLE001
+            # NOT fatal — the catch-up covers it, and refusing to start over a subscription would
+            # turn a degraded fast path into a total outage.
+            logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
+
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})

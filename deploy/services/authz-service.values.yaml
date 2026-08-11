@@ -107,8 +107,17 @@ env:
   #   tenant.manage  — only the owner closes an establishment (§3.2 root protection)
   #   partner.read   — belongs to the till company, not to anyone inside a shop
   #   platform.*     — ours (also in DENIED_CAP_PREFIXES above)
+  # search.read TRAVELS WITH operations.record: the visit screen finds the customer by the
+  # first digits of his number before it can record anything. An owner building a custom
+  # «يسجّل الزيارات فقط» role without it hands out a screen whose search answers 403 — the
+  # operator sees nothing, concludes the customer is new, and registers him a second time.
+  #
+  # AND THE COMMENT IS HERE RATHER THAN INSIDE THE BLOCK. `>-` is a folded scalar: every
+  # line under it is VALUE, so a `#` in there is not a comment, it is part of a capability
+  # name. The guard caught it as three capabilities the owner does not hold, which is
+  # exactly what it looked like.
   AUTHZ_TENANT_ASSIGNABLE_CAPS: >-
-    operations.record,operations.read,operations.manage,
+    operations.record,operations.read,operations.manage,search.read,
     reminders.read,reminders.manage,
     campaigns.read,campaigns.manage,
     loyalty.read,loyalty.redeem,loyalty.manage,

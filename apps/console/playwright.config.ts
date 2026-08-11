@@ -68,6 +68,17 @@ export default defineConfig({
   // server mid-run took the whole suite down with ERR_CONNECTION_REFUSED, and twelve specs failed
   // for a reason that had nothing to do with the product. A suite whose result depends on what
   // somebody else was doing at the time is a suite nobody trusts.
+  /**
+   * THE SERVER, AND THE ONE FAILURE MODE THAT COSTS HOURS.
+   *
+   * A dead node process can hold 5174 without serving anything on it. Playwright then finds the
+   * port occupied, does not start its own, and every test fails with ERR_CONNECTION_REFUSED — six
+   * screens reported broken by a run that never loaded one of them. It happened twice in a row
+   * and both times the first suspicion was the product.
+   *
+   * If a whole file fails at `page.goto`, check the port before reading any of it:
+   *   Get-NetTCPConnection -LocalPort 5174 -State Listen   # then Stop-Process the owner
+   */
   webServer: {
     command: 'npx vite --port 5174 --strictPort',
     url: 'http://localhost:5174',
