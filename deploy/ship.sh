@@ -55,8 +55,13 @@ NS="${NS:-base-services}"
 # ServerAliveInterval keeps the channel warm; ServerAliveCountMax lets it survive a slow moment
 # rather than giving up on the third. ConnectTimeout fails a genuinely unreachable host fast
 # instead of hanging the whole ship.
-SSH=(ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8
-     -o ConnectTimeout=20 -p "$PORT" "$REMOTE")
+# AND THE IMAGE PUSH IS WHERE THIS LINK DIES. A service image is hundreds of megabytes over a
+# forwarded port, and three separate ships failed mid-transfer with "Connection timed out" — the
+# tunnel gives up under sustained load long before the host is in trouble (measured: the host was
+# idle with 2.7G free each time). 30 keepalives at 15s carries a four-minute stall without
+# dropping the channel, which is longer than any pause this link has produced.
+SSH=(ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=30
+     -o ConnectTimeout=20 -o TCPKeepAlive=yes -p "$PORT" "$REMOTE")
 
 red(){ printf '\e[31m✗ %s\e[0m\n' "$*" >&2; }
 yel(){ printf '\e[33m⚠ %s\e[0m\n' "$*"; }
