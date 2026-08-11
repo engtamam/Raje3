@@ -16,7 +16,7 @@ service:
 
 image:
   repository: 127.0.0.1:5055/raje3/portal
-  digest: "sha256:4bbeece32f9394e69badc0b32d88436f526063ffb41d663745a4fb1b37323b07"
+  digest: "sha256:c2246f0616f83149960149d880a7808ed5ee2ff47a6064ccf6d3b98d3ef0072c"
 
 # ONE REPLICA — and this is a correction, not the original plan.
 #

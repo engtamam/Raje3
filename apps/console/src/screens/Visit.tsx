@@ -8,7 +8,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  balanceFor, customerByPhone, fetchCatalogue, offerFor, recentCustomers, redeem, suggestByPrefix,
+  applyOffer, balanceFor, customerByPhone, fetchCatalogue, offerFor, recentCustomers, redeem,
+  suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
 } from '../api';
 import { Keypad } from '../Keypad';
@@ -116,6 +117,14 @@ export function Visit() {
   const [subject, setSubject] = useState('');
   const [balance, setBalance] = useState<Balance | null>(null);
   const [redeeming, setRedeeming] = useState('');
+  /**
+   * WHETHER THE OPERATOR SAID THE CUSTOMER TOOK HIS OFFER.
+   *
+   * Held on the screen until the visit is saved, because the offer is applied TO a visit and the
+   * visit does not exist until he presses save. Consuming it earlier would spend an entitlement
+   * against something that may never be recorded.
+   */
+  const [applying, setApplying] = useState(false);
   const [redeemed, setRedeemed] = useState<string | null>(null);
 
   useEffect(() => {
@@ -169,16 +178,29 @@ export function Visit() {
 
   const save = useCallback(() => {
     if (!ready) return;
+    // MINTED HERE, AT THE PRESS. Not inside the queue and not inside the request — a key created
+    // where the request is sent would be a new key on every retry, which is exactly no key.
+    const key = newIdempotencyKey();
     queue.add({
       phone,
       service_ids: chosen,
       name: name.trim() || undefined,
       plate: showPlate && plate.trim() ? plate.trim() : undefined,
       meter: showMeter && meter ? Number(meter) : undefined,
-      // MINTED HERE, AT THE PRESS. Not inside the queue and not inside the request — a key created
-      // where the request is sent would be a new key on every retry, which is exactly no key.
-      idempotency_key: newIdempotencyKey(),
+      idempotency_key: key,
     }, session);
+
+    // THE OFFER IS SPENT AGAINST THIS VISIT, and the visit's own key identifies it — the one
+    // value that is the same on every retry, which is exactly what "one offer per visit" needs.
+    //
+    // FIRE AND FORGET, DELIBERATELY. The visit is already queued and will reach the server on its
+    // own schedule; making the operator wait for a second round trip would spend the five-second
+    // budget on something the customer is not watching. A failure here loses the application, not
+    // the visit — and the offer is still live, so it can be applied again.
+    if (applying && subject) {
+      applyOffer(session, subject, key, chosen).catch(() => undefined);
+    }
+    setApplying(false);
 
     // CLEARED ON THE QUEUE, NOT ON THE SERVER. The next customer is already waiting; a screen that
     // held still for a round trip would spend its five-second budget on a network the operator
@@ -190,7 +212,7 @@ export function Visit() {
     setMeter('');
     setNote('تم الحفظ ✓');
     window.setTimeout(() => setNote(null), 1500);
-  }, [chosen, meter, name, phone, plate, ready, session, showMeter, showPlate]);
+  }, [applying, chosen, meter, name, phone, plate, ready, session, showMeter, showPlate, subject]);
 
   if (!isSignedIn(session)) {
     // SAYS SO PLAINLY RATHER THAN INVENTING A TENANT. A placeholder establishment would let every
@@ -250,6 +272,18 @@ export function Visit() {
                   ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
                 </div>
               ) : null}
+              {/* THE TAP, AND IT IS NOT PRESSED FOR HIM. A customer may be holding this for next
+                  month; applying it because he happened to walk in would be taking something from
+                  him. So it is a deliberate act, and it says what it will do. */}
+              <label className="mt-2 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={applying}
+                  onChange={(e) => setApplying(e.target.checked)}
+                  className="h-5 w-5"
+                />
+                <span>طبّقتُ العرض على هذه الزيارة</span>
+              </label>
             </div>
           ) : null}
 

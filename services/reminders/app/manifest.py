@@ -111,6 +111,7 @@ def build_manifest(
             {"path": "/api/v1/reminders/schedule", "tier": "user", "method": "GET"},
             # The offer line above the field screen's service grid (§5.6.2).
             {"path": "/api/v1/reminders/offer", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/offer/consume", "tier": "user", "method": "POST"},
             # The owner's view of one customer's offers — including the expired ones, which the
             # customer's own page and the field screen must never show.
             {"path": "/api/v1/reminders/offers", "tier": "user", "method": "GET"},

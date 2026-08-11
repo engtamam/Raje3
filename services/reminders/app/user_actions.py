@@ -67,6 +67,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "العرض الذي يحمله هذا العميل الآن. المنتهي لا يُعاد إطلاقاً.",
     },
     {
+        # THE ACT THAT SPENDS ONE. Declared so a screen can call it — an offer that can be read
+        # and never applied is a promise the counter cannot keep.
+        "id": "reminders.consume_offer", "label": "تطبيق العرض على الزيارة", "method": "POST",
+        "path": "/api/v1/reminders/offer/consume", "capability": "reminders.manage",
+        "group": "العروض",
+        "help": "نقرةٌ تُثبت أن العميل أخذه — ولا يُستهلك تلقائياً أبداً.",
+    },
+    {
         "id": "reminders.customer_offers", "label": "عروض العميل", "method": "GET",
         "path": "/api/v1/reminders/offers", "capability": "reminders.read", "group": "العروض",
         "params": [{"name": "subject_ref", "in": "query", "type": "string", "required": True},

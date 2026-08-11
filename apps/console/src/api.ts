@@ -221,6 +221,28 @@ export function redeem(
   });
 }
 
+/**
+ * Apply the offer to this visit — the tap that turns a message into a fact.
+ *
+ * NOTHING SPENDS AN OFFER AUTOMATICALLY. A customer who came in for something else and was
+ * silently charged an offer he was saving is a customer we took something from; he may be holding
+ * it for next month, and that is his to decide. So the only thing that consumes one is a person
+ * pressing a button in front of him.
+ *
+ * AND IT IS ALSO THE ONLY MOMENT WE LEARN THE OFFER WORKED — the join between a campaign and the
+ * visit it produced exists nowhere else.
+ */
+export function applyOffer(
+  session: Session, subjectRef: string, visitId: string, serviceIds: string[],
+): Promise<{ applied: boolean; reason?: string }> {
+  return call(session, '/api/v1/reminders/offer/consume', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject_ref: subjectRef, visit_id: visitId, service_ids: serviceIds,
+    }),
+  });
+}
+
 /** The strip along the top — today's customers, one tap away. */
 export function recentCustomers(session: Session, limit = 10): Promise<{ customers: CustomerHit[] }> {
   return call(session, `/api/v1/field/customers/recent?limit=${limit}`);

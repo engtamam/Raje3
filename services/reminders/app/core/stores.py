@@ -146,9 +146,58 @@ class SendLogStore(_Base):
         """
         rows, _ = await self._find(tenant, {"subject_ref": subject_ref, "outcome": "sent"},
                                    limit=200, sort=("at", "desc"))
+        # AND NOT ALREADY SPENT. An offer is an entitlement with THREE ways to end: it expires, it
+        # is used, or the shop stops sending. Only the first was modelled — so a customer who had
+        # already had his free wash kept being shown it, and the worker at the counter had no way
+        # to tell the difference between an offer and one he had honoured last week.
         live = [r for r in (rows or [])
-                if r.get("offer_text") and int(r.get("offer_expires_at") or 0) > now]
+                if r.get("offer_text")
+                and int(r.get("offer_expires_at") or 0) > now
+                and not int(r.get("offer_used_at") or 0)]
         return sorted(live, key=lambda r: int(r.get("offer_expires_at") or 0))
+
+    async def consume_offer(self, tenant: str, subject_ref: str, *, visit_id: str,
+                            service_ids: list[str], now: int) -> dict[str, Any] | None:
+        """Spend ONE offer on ONE visit — and only when somebody says so (§5.6.2).
+
+        FOUR RULES, AND EACH ONE IS A REAL FAILURE WE WOULD OTHERWISE HAVE.
+
+        1. A TAP, NEVER AN INFERENCE. Nothing here runs from a visit arriving: a customer who came
+           for something else and was silently charged an offer he was saving is a customer we took
+           something from. Silence never spends.
+        2. ONE PER VISIT. A second call for the same visit returns the SAME row rather than
+           spending another — a double tap at a counter is one intention.
+        3. THE SCOPE DECIDES, NOT THE SENTENCE. `offer_services` empty means the whole shop; a
+           scoped offer applies only when the visit carries one of its services. The text persuades
+           and the scope applies (§5.6.2), which is exactly why both exist.
+        4. SOONEST TO EXPIRE FIRST. Holding two, he spends the one about to run out — the other
+           survives, and nobody has to explain why the wrong one went.
+        """
+        rows, _ = await self._find(tenant, {"subject_ref": subject_ref, "outcome": "sent"},
+                                   limit=200, sort=("at", "desc"))
+        rows = list(rows or [])
+
+        already = next((r for r in rows if r.get("offer_used_visit") == visit_id and visit_id), None)
+        if already is not None:
+            return already
+
+        wanted = set(service_ids or [])
+        applicable = [
+            r for r in rows
+            if r.get("offer_text")
+            and int(r.get("offer_expires_at") or 0) > now
+            and not int(r.get("offer_used_at") or 0)
+            and (not (r.get("offer_services") or [])
+                 or wanted & set(r.get("offer_services") or []))
+        ]
+        if not applicable:
+            return None
+
+        row = sorted(applicable, key=lambda r: int(r.get("offer_expires_at") or 0))[0]
+        row["offer_used_at"] = now
+        row["offer_used_visit"] = visit_id
+        await self._put(tenant, f"{tenant}|{row['id']}", row)
+        return row
 
     async def active_offer(self, tenant: str, subject_ref: str, *,
                            now: int) -> dict[str, Any] | None:
