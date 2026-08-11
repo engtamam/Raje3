@@ -458,7 +458,13 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
           {action(catalog, 'loyalty.adjust') ? (
             <div className="mb-4 flex flex-col gap-2 rounded-xl bg-surface-2 p-3">
               <span className="text-sm font-medium">تعديل رصيده</span>
-              <div className="flex gap-2">
+              {/* TWO ROWS, NOT ONE. Everything about this control was correct three attempts
+                  ago except WHERE it stood: sharing a flex row with the number field left it the
+                  narrow strip beside it, so one long sentence folded into a six-line tower. The
+                  amount is short and the reason is a sentence — they do not belong side by side.
+                  The lesson is the one worth keeping: I kept replacing the component when the
+                  layout was what the owner was photographing. */}
+              <div className="flex items-center gap-2">
                 <input
                   value={adjustBy}
                   onChange={(e) => setAdjustBy(e.target.value.replace(/[^0-9-]/g, ''))}
@@ -468,6 +474,8 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   aria-label="عدد النقاط"
                   className="h-11 w-24 rounded-xl bg-surface-1 px-3 text-center tabular-nums shadow-sm"
                 />
+              </div>
+
                 {/* THE REASON IS A CHOICE, NOT AN ESSAY. It stays required — the entry outlives
                     the memory of it and the customer asks six months later — but demanding free
                     text on a workshop tablet produces «تعويض», «خطا» and «..»: words written by
@@ -528,7 +536,6 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                     </li>
                   </ul>
                 </Drawer>
-              </div>
 
               {/* THE FREE FIELD ONLY FOR «أخرى» — the common case is two taps, and the case
                   nobody predicted is still possible. */}
