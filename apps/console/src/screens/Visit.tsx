@@ -8,7 +8,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  applyOffer, balanceFor, customerByPhone, fetchCatalogue, offerFor, recentCustomers, redeem,
+  applyOffer, balanceFor, customerByPhone, customerByPlate, fetchCatalogue, offerFor,
+  recentCustomers, redeem,
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
 } from '../api';
@@ -31,6 +32,9 @@ export function Visit() {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
+  /** The number the plate resolved to — and whether the operator has overridden it. */
+  const [plateKnown, setPlateKnown] = useState(false);
+  const [changing, setChanging] = useState(false);
   const [meter, setMeter] = useState('');
   const [note, setNote] = useState<string | null>(null);
   // EVERY ROW THE QUEUE HOLDS — waiting AND stuck. `subscribe` emits the whole list, so counting
@@ -394,6 +398,58 @@ export function Visit() {
   // off the bumper, and everything else — including whose phone this is — comes after. It used to
   // sit third in a column of optional fields, below the number of a person who may not be the
   // person driving.
+  // THE PLATE ANSWERS FOR ITS OWNER. A car we have seen carries a number we already hold, so the
+  // phone step is dropped from the journey exactly as the offers step is when it is empty.
+  useEffect(() => {
+    const p = plate.trim();
+    if (!showPlate || p.length < 3) { setPlateKnown(false); return; }
+    let stale = false;
+    const id = window.setTimeout(() => {
+      customerByPlate(session, p)
+        .then((r) => {
+          if (stale || changing) return;
+          const found = r.customer?.phone ?? '';
+          setPlateKnown(Boolean(found));
+          if (found) { setPhone(found); setName(r.customer?.name ?? ''); }
+        })
+        // A LOOKUP THAT FAILS ASKS FOR THE NUMBER. It never blocks and never guesses: the step
+        // simply stays in the journey, which is where it was before this existed.
+        .catch(() => { if (!stale) setPlateKnown(false); });
+    }, 250);
+    return () => { stale = true; window.clearTimeout(id); };
+  }, [changing, plate, session, showPlate]);
+
+  /**
+   * WHO THE PLATE FOUND — shown, not assumed, and editable in place.
+   *
+   * Two things happen constantly in a workshop: a car is sold, and a man changes his number. Both
+   * make our stored number wrong, and a screen that skipped straight past would save the visit
+   * against the previous owner — who then gets the reminder about a car he no longer has.
+   */
+  const knownPane = (
+    <div className="flex h-full flex-col justify-center gap-3">
+      <div className="rounded-2xl bg-surface-1 p-4 shadow-sm">
+        <div dir="ltr" className="text-center text-3xl font-semibold tabular-nums">{phone}</div>
+        {name ? <div className="mt-1 text-center text-lg">{name}</div> : null}
+        <div className="mt-1 text-center text-sm text-text-secondary">
+          لوحة <span dir="ltr">{plate}</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => { setChanging(true); setPlateKnown(false); setPhone(''); setName(''); }}
+        className="min-h-[44px] rounded-xl bg-surface-2 text-base font-semibold"
+      >
+        تعديل بيانات العميل
+      </button>
+
+      <p className="text-center text-xs text-text-secondary">
+        باعها؟ أو غيّر رقمه؟ عدّل هنا ويُحفَظ مع الزيارة.
+      </p>
+    </div>
+  );
+
   const platePane = (
     <div className="flex h-full flex-col justify-center gap-3">
       <input
@@ -404,7 +460,9 @@ export function Visit() {
         className="h-16 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold shadow-sm placeholder:text-lg placeholder:font-normal placeholder:text-text-secondary"
       />
       <p className="text-center text-sm text-text-secondary">
-        اكتب حرفين أو رقمين وتظهر لك السيارة إن كانت عندنا.
+        {plateKnown && !changing
+          ? 'سيارة معروفة عندنا — صاحبها في الصفحة التالية.'
+          : 'اكتب حرفين أو رقمين وتظهر لك السيارة إن كانت عندنا.'}
       </p>
     </div>
   );
@@ -493,8 +551,12 @@ export function Visit() {
             ...(showPlate
               ? [{ id: 'plate', title: 'رقم اللوحة', body: platePane }]
               : []),
-            { id: 'who', title: showPlate ? 'رقم جوال صاحب السيارة' : 'رقم جوال العميل',
-              body: identityPane },
+            // TWO FACES, NOT TWO OUTCOMES. When the plate already answered, this page STAYS and
+            // shows who it found — the operator has to be able to see that the car in front of him
+            // belongs to the number about to be saved. Skipping it outright hid exactly the thing
+            // he would want to check, and left a sold car quietly reminding its previous owner.
+            { id: 'who', title: showPlate ? 'صاحب السيارة' : 'رقم جوال العميل',
+              body: plateKnown && !changing ? knownPane : identityPane },
             { id: 'perks', title: 'عروضه ونقاطه',
               // ASKING KEEPS THE STEP. Removing it the instant a request goes out and restoring it
               // when the answer lands moves the ground under a thumb already in motion.

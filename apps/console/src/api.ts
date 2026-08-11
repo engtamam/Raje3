@@ -244,6 +244,19 @@ export function applyOffer(
   });
 }
 
+/**
+ * Whose car this is — the lookup a vehicle shop starts from.
+ *
+ * IT SAVES THE OPERATOR A QUESTION HE SHOULD NOT HAVE TO ASK. The plate is on the bumper; the
+ * number of the man who owns it is already ours. Asking for it again on every visit is asking
+ * something we can answer, with a customer standing there.
+ */
+export function customerByPlate(
+  session: Session, plate: string,
+): Promise<{ customer: CustomerHit & { subject_ref?: string } | null }> {
+  return call(session, `/api/v1/field/customers/by-plate?plate=${encodeURIComponent(plate)}`);
+}
+
 /** The strip along the top — today's customers, one tap away. */
 export function recentCustomers(session: Session, limit = 10): Promise<{ customers: CustomerHit[] }> {
   return call(session, `/api/v1/field/customers/recent?limit=${limit}`);

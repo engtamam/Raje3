@@ -265,6 +265,25 @@ class Operations:
     async def customer_by_phone(self, tenant: str, phone: str) -> Customer | None:
         return await self._customers.by_phone(tenant, _normalise_phone(phone))
 
+    async def customer_by_plate(self, tenant: str, plate: str) -> Customer | None:
+        """Whose car this is — the lookup a vehicle shop actually starts from (§4.3).
+
+        THE PLATE IS THE IDENTITY THERE. The car rolls in, the operator reads the plate off it, and
+        the number of the man who owns it is something we already hold — asking him for it again on
+        every visit is asking a question we can answer ourselves.
+
+        NOT UNIQUE, AND THAT IS ADMITTED. A plate is transcribed by a person, cars are sold, and
+        two rows can carry the same one (see models.py). The most recently seen wins, because that
+        is the car actually being worked on; a shop that finds the wrong owner corrects it by
+        changing the number, which is one tap on the plate step.
+        """
+        if not plate.strip():
+            return None
+        assets = await self._assets.by_plate(tenant, plate.strip())
+        if not assets:
+            return None
+        return await self._customers.get(tenant, assets[0].customer_id)
+
     async def customer_record(self, tenant: str, customer_id: str) -> dict[str, Any] | None:
         """A customer with their vehicles and recent visits — the screen an operator opens when a
         customer asks "when was I last here?"."""

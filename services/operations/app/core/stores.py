@@ -108,6 +108,13 @@ class AssetStore(_Base):
         row = await self._get(tenant, ident)
         return Asset(**row) if row else None
 
+    async def by_plate(self, tenant: str, plate: str) -> list[Asset]:
+        """Cars carrying this plate, newest first. A list, because a plate is not unique: it is
+        typed by a person and cars change hands (models.py). The caller decides; we do not pick
+        silently and pretend there was only one."""
+        rows, _ = await self._find(tenant, {"plate": plate}, limit=5, sort=("created", "desc"))
+        return [Asset(**r) for r in rows]
+
     async def for_customer(self, tenant: str, customer_id: str) -> list[Asset]:
         rows, _ = await self._find(tenant, {"customer_id": customer_id})
         return [Asset(**r) for r in rows]

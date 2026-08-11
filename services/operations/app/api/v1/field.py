@@ -167,6 +167,27 @@ async def resolve_customers(request: Request, body: ResolveIn,
     return {"customers": [c.public() for c in rows]}
 
 
+@router.get("/customers/by-plate", dependencies=[Depends(rate_limit)])
+async def customer_by_plate(request: Request, plate: str,
+                            principal: Principal = Depends(_READ)) -> dict:
+    """Whose car this is — so a vehicle shop never asks for a number it already holds.
+
+    DECLARED BEFORE /customers/{customer_id} ON PURPOSE. FastAPI matches in declaration order, and
+    a path parameter registered first would swallow «by-plate» as a customer id — the same trap
+    that «by-phone» sits above, for the same reason.
+
+    Answers `null` for an unknown plate rather than 404: the screen renders the same either way,
+    and a distinct status here is an oracle for which cars a shop has seen.
+    """
+    c = await _svc(request).customer_by_plate(_tenant(principal), plate)
+    if c is None:
+        return {"customer": None}
+    # The pseudonym travels with an exact match, exactly as it does for by-phone — it is what lets
+    # the screen ask about his offers without a second round trip.
+    return {"customer": {"id": c.id, "phone": c.phone, "name": c.name,
+                         "subject_ref": c.subject_ref}}
+
+
 @router.get("/customers/{customer_id}", dependencies=[Depends(rate_limit)])
 async def customer_record(request: Request, customer_id: str,
                           principal: Principal = Depends(_READ)) -> dict:

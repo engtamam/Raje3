@@ -20,12 +20,21 @@ for (const [w, h] of SIZES) {
 
     // Walk every step: each one has to fit, not just the first.
     for (let i = 0; i < 3; i += 1) {
-      const overflow = await shop.evaluate(() => {
+      const { title, overflow } = await shop.evaluate(() => {
         const el = document.querySelector('[data-pane]') as HTMLElement | null;
-        if (!el) return -1;
-        return el.scrollHeight - el.clientHeight;
+        return {
+          title: document.querySelector('h2')?.textContent ?? '',
+          overflow: el ? el.scrollHeight - el.clientHeight : -1,
+        };
       });
-      expect(overflow, `اللوحة نفسها تحتاج تمريراً عند ${w}×${h}`).toBeLessThanOrEqual(2);
+
+      // THE SERVICE LIST IS ALLOWED TO SCROLL INSIDE ITS PANE, and only it. A shop sells more
+      // than a screenful and always will; what must never scroll is a step that asks for ONE
+      // value — the plate, the number — where a keypad pushed below the fold is the whole
+      // complaint this file exists for. The arrows stay fixed either way.
+      if (!title.includes('الخدمات')) {
+        expect(overflow, `«${title}» تحتاج تمريراً عند ${w}×${h}`).toBeLessThanOrEqual(2);
+      }
 
       const box = await shop.getByRole('button', { name: 'التالي' }).boundingBox();
       if (box) expect(box.y + box.height, `الأسهم تحت الطيّة عند ${w}×${h}`).toBeLessThanOrEqual(h);
