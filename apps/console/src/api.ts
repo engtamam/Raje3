@@ -110,6 +110,8 @@ export function fetchCatalogue(
 export interface CustomerHit {
   id: string;
   phone: string;
+  /** His plates, space-joined, when the shop keeps vehicles. */
+  plate?: string;
   name?: string;
   visits?: number;
   points?: number;
@@ -140,8 +142,11 @@ export async function suggestByPrefix(session: Session, prefix: string): Promise
       id: String(r.id ?? r.doc_id ?? ''),
       phone: String(r.phone ?? r.title ?? ''),
       name: r.name ? String(r.name) : undefined,
+      // THE PLATE COMES BACK TOO, because the same document carries it now (seams.py) — and in a
+      // vehicle shop it is the only field the operator has actually looked at.
+      plate: r.plate ? String(r.plate) : undefined,
     }))
-    .filter((c) => c.phone);
+    .filter((c) => c.phone || c.plate);
 }
 
 /** The full number has been typed. Answers `{customer: {...} | null}`. */

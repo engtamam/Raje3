@@ -59,6 +59,8 @@ export function Visit() {
   const [plate, setPlate] = useState('');
   /** What he sees while typing: the same string, with the separator placed for him. */
   const [plateText, setPlateText] = useState('');
+  /** Cars whose plate starts with what he has typed. Two characters are enough to narrow a yard. */
+  const [plateHits, setPlateHits] = useState<CustomerHit[]>([]);
   /** The number the plate resolved to — and whether the operator has overridden it. */
   const [plateKnown, setPlateKnown] = useState(false);
   const [changing, setChanging] = useState(false);
