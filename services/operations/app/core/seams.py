@@ -45,32 +45,42 @@ class Seams:
         an index that is only written once drifts from the record it points at. The write is small
         and idempotent by document id.
         """
+        c = result.customer
+        await self.index_customer_row(
+            tenant=c.tenant, customer_id=c.id, phone=c.phone, name=c.name,
+            plates=list(getattr(result, "plates", []) or []))
+
+    async def index_customer_row(self, *, tenant: str, customer_id: str, phone: str,
+                                 name: str, plates: list[str]) -> None:
+        """The ONE place a customer's search document is composed.
+
+        TWO CALLERS, ONE SHAPE. The visit path writes it as it happens, and the backfill rewrites
+        it for customers who came before a field existed — and if those two ever disagreed, half a
+        shop would be searchable by a field the other half is not, which is worse than the field
+        not existing at all.
+        """
         if self._search is None:
             return
-        c = result.customer
         try:
             await self._search.index(
-                index=self._index, doc_id=c.id, tenant=c.tenant,
+                index=self._index, doc_id=customer_id, tenant=tenant,
                 fields={
-                    # The phone is indexed so the operator can find a customer by it. It is the
-                    # same decision as storing it readable here — the establishment already has
-                    # this number, and the screen is unusable without it (see core/models.py).
-                    "phone": c.phone,
+                    # STORED E.164, and the operator types 05. Both forms are indexed because the
+                    # search matches PREFIXES: «05…» against a stored «966…» matched nothing, ever,
+                    # on the one screen built around finding a customer fast. Measured on the live
+                    # index — «96» returned ten numbers, «05» returned none.
+                    "phone": phone,
+                    "local": ("0" + phone[3:]) if phone.startswith("966") else phone,
                     # Empty is fine and expected: the name is optional. The analyzer folds Arabic
                     # forms, which is why a customer saved as "محمّد" is found by someone typing
                     # "محمد" — proven, and the reason this is a search service and not a LIKE.
-                    "name": c.name,
-                    # HIS PLATES, AND THIS WAS MISSING ENTIRELY. Only phone and name were indexed,
-                    # so in a tyre shop — where the customer IS the car and the operator reads the
-                    # plate off the bumper as it rolls in — search found nothing at all, ever. The
-                    # one screen used a hundred times a day could not find its own customers.
-                    #
-                    # SPACE-JOINED so both cars are reachable: the analyzer tokenises, so «ABC» and
-                    # «7412» each match, and a customer with two cars is found by either.
-                    "plate": " ".join(getattr(result, "plates", []) or []),
+                    "name": name,
+                    # HIS PLATES, and ALL of them: «ممكن عندي سيارتين برقمي». In a vehicle sector
+                    # the operator reads the plate off the bumper and knows nothing else yet.
+                    "plate": " ".join([p for p in plates if p]),
                 })
         except Exception as exc:                                            # noqa: BLE001
-            self._note("search_index_failed", error=str(exc)[:200], customer=c.id)
+            self._note("search_index_failed", error=str(exc)[:200], customer=customer_id)
 
     async def _emit_visit(self, result) -> None:
         """Publish the fact, for whoever cares.

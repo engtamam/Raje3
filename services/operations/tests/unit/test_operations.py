@@ -327,15 +327,20 @@ async def _answer(value):
     return value
 
 
-def test_a_customer_is_findable_by_every_plate_he_holds():
-    """IN A TYRE SHOP THE CUSTOMER IS THE CAR, and search knew nothing about cars.
+def test_a_customer_is_findable_by_plate_by_name_and_by_the_number_he_types():
+    """THREE SECTORS, THREE WAYS IN, AND ALL OF THEM MUST WORK.
 
-    Only `phone` and `name` were indexed, so an operator reading a plate off a bumper as it rolled
-    in found nothing at all — on the screen used a hundred times a day, in the sector this product
-    was built for first.
+    A tyre shop finds the car — the operator reads the plate off the bumper and the man behind the
+    wheel may not be the one whose number we hold. A salon finds the person, by name or by number.
+    One index serves all three because the search scans every field of the document.
 
-    AND BOTH CARS, NOT THE ONE IN FRONT OF US. «ممكن عندي سيارتين برقمي»: indexing only this
-    visit's plate leaves the other car unfindable until the day it happens to come in.
+    THE PHONE IS INDEXED TWICE, AND THAT IS THE BUG THIS CATCHES. Storage is E.164 — «966501234567»
+    — and the operator keys «0501234567». The search matches PREFIXES, so what he typed matched
+    nothing at all, ever, on the one screen built around finding a customer fast. Measured against
+    the live index: prefix «96» returned ten numbers and «05» returned none.
+
+    AND EVERY PLATE, not this visit's: «ممكن عندي سيارتين برقمي». Indexing only the car in front of
+    us leaves the other one unfindable until the day it happens to come in.
     """
     class Spy:
         def __init__(self):
@@ -349,9 +354,13 @@ def test_a_customer_is_findable_by_every_plate_he_holds():
     spy = Spy()
     seams = __import__("app.core.seams", fromlist=["Seams"]).Seams(search=spy)
 
-    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["s"], plate="ABC 1234"))
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["s"], name="محمد",
+                         plate="ABC 1234"))
     r = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["s"], plate="XYZ 7788"))
     run(seams.after_visit(r))
 
-    indexed = spy.docs[-1]["fields"]["plate"]
-    assert "ABC 1234" in indexed and "XYZ 7788" in indexed
+    f = spy.docs[-1]["fields"]
+    assert "ABC 1234" in f["plate"] and "XYZ 7788" in f["plate"]
+    assert f["phone"].startswith("966")          # what the network needs
+    assert f["local"] == "0501234567"            # what the operator types
+    assert f["name"] == "محمد"

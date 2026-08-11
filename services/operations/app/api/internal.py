@@ -20,7 +20,7 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import ServiceStore, VisitStore, new_id
+from app.core.stores import AssetStore, ServiceStore, VisitStore, new_id
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -359,6 +359,51 @@ class CustomerVisitsIn(BaseModel):
     # TEN by default and capped at 25. A customer's page is not a statement of account, and a
     # public page that can ask for a thousand rows is a public page that can be made expensive.
     limit: int = Field(default=10, ge=1, le=25)
+
+
+class ReindexIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    limit: int = Field(default=2000, ge=1, le=20000)
+
+
+@router.post("/operations/reindex-customers", dependencies=[Depends(require_internal_token)])
+async def reindex_customers(request: Request, body: ReindexIn) -> dict:
+    """Rewrite the search documents for a tenant's existing customers.
+
+    WHY IT HAD TO EXIST. The index is written on every VISIT (seams.py), which keeps it fresh and
+    costs nothing — but it also means a field added to the document reaches a customer only when he
+    next comes in. We added the plate, and every car already in the yard stayed unfindable by it:
+    the shop that most needs the search — a tyre shop with three years of customers — would have
+    been the last to get it, one returning car at a time.
+
+    IDEMPOTENT AND BOUNDED. It writes the same document the visit path writes, so running it twice
+    changes nothing, and `limit` keeps a large tenant from turning one call into an unbounded scan.
+    """
+    c = request.app.state.container
+    if c.search is None:
+        return {"ok": False, "reason": "no search backend configured", "indexed": 0}
+
+    rows, _ = await c.datastore.find(CUSTOMERS, {"tenant": body.tenant}, limit=body.limit)
+    store = VisitStore(c.datastore)
+    assets = AssetStore(c.datastore)
+    done = 0
+    for r in rows or []:
+        cid = str(r.get("id") or "")
+        if not cid:
+            continue
+        plates = [a.plate for a in await assets.for_customer(body.tenant, cid) if a.plate]
+        try:
+            phone = str(r.get("phone") or "")
+            await c.seams.index_customer_row(
+                tenant=body.tenant, customer_id=cid, phone=phone,
+                name=str(r.get("name") or ""), plates=plates)
+            done += 1
+        except Exception:                                                   # noqa: BLE001
+            # ONE BAD DOCUMENT MUST NOT COST THE OTHER TWO THOUSAND. The count reported is what
+            # actually landed, so a partial run is visible rather than reported as complete.
+            continue
+    _ = store
+    return {"ok": True, "indexed": done, "customers": len(rows or [])}
 
 
 @router.post("/operations/offers-spent", dependencies=[Depends(require_internal_token)])
