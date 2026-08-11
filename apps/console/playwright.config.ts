@@ -49,6 +49,9 @@ export default defineConfig({
     // rather than behaviour — a broken screen should be reported by the spec that names the
     // behaviour it broke, and only then by the one that measures the phone.
     'mobile.spec.ts',
+    // LAST WITH mobile: both measure rather than assert behaviour, and a slow screen should be
+    // reported by the spec that names what it does before the one that times it.
+    'speed.spec.ts',
   ],
   // Generous, because these are real network calls to a real cluster over an SSH tunnel — not
   // because anything here is slow by design. A tight timeout on a live pass produces failures
