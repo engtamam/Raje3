@@ -136,3 +136,31 @@ test('a service can leave its group, and a group can be deleted', async ({ shop 
   await shop.getByLabel(/^مجموعة /).first().selectOption('');
   await expect(shop.getByRole('heading', { name: /مجموعة الإثبات/ })).toHaveCount(0, { timeout: 30_000 });
 });
+
+test('it opens on what he sells, with what he stopped one tap away', async ({ shop }) => {
+  /**
+   * REACHABLE IS NOT THE SAME AS ALWAYS PRESENT. A retired line must be findable or «تفعيل» acts
+   * on nothing — that is the bug that produced the owner's list at all. But a shop open two years
+   * accumulates lines it stopped selling, and mixing them into the working list makes every
+   * ordinary edit a matter of reading past the dead ones.
+   */
+  await open(shop, '/services');
+
+  // Stop the first one, so there is something to filter for.
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+  await shop.getByRole('button', { name: 'إيقاف' }).first().click();
+
+  // THE STRIP APPEARS ONLY NOW — offering «الموقوفة» to a shop with none is a control answering a
+  // question nobody asked.
+  const stopped = shop.getByRole('radio', { name: /الموقوفة/ });
+  await expect(stopped).toBeVisible({ timeout: 30_000 });
+  // And it opened on «المفعّلة» without being asked: fewest taps for the ordinary visit.
+  await expect(shop.getByRole('radio', { name: 'المفعّلة' })).toBeChecked();
+
+  await stopped.click();
+  await expect(shop.getByText('موقوفة').first()).toBeVisible({ timeout: 30_000 });
+
+  // Put it back, so the next run starts where this one did.
+  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+  await shop.getByRole('button', { name: 'تفعيل' }).first().click();
+});

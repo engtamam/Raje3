@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
+import { Segmented } from '@base-ui/design-system/Segmented';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
@@ -80,6 +81,17 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const [only, setOnly] = useState<string | null>(null);
   /** The add-a-service form, shown only when he asks for it. */
   const [adding, setAdding] = useState(false);
+  /**
+   * WHICH ONES ARE ON SCREEN — and it opens on «المفعّلة», which is the answer he wants nine
+   * visits out of ten.
+   *
+   * Retired lines have to be REACHABLE or «تفعيل» acts on nothing (the bug that sent us to build
+   * the owner's list in the first place). But reachable is not the same as always present: a shop
+   * that has been open two years accumulates lines it stopped selling, and mixing them into the
+   * working list makes every ordinary edit a matter of reading past the dead ones. Default to what
+   * he sells, one tap to what he stopped, one tap to everything.
+   */
+  const [show, setShow] = useState<'active' | 'stopped' | 'all'>('active');
 
   const load = () => {
     // THE OWNER'S LIST WHEN HE HAS IT, and it includes what he has retired. The field grid is
@@ -368,9 +380,33 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           below it and counts the same services, so a group he makes appears here the moment it
           exists and one he deletes leaves — there is nothing to keep in step. */}
       {(() => {
-        const bins = grouped(services);
+        const visible = services.filter((svc) => {
+          // `active` absent means active: the field grid has never sent the flag, and treating a
+          // missing field as "stopped" would empty the screen for every shop reading that route.
+          const stopped = svc.active === false;
+          return show === 'all' || (show === 'stopped' ? stopped : !stopped);
+        });
+        const bins = grouped(visible);
+        const stoppedCount = services.filter((x) => x.active === false).length;
         const shown = only === null ? bins : bins.filter(([g]) => g === only);
         return (
+      <div className="flex flex-col gap-3">
+      {/* SHOWN ONLY WHEN HE HAS STOPPED SOMETHING. A filter offering «الموقوفة» to a shop with
+          none is a control that answers a question nobody asked, and it costs a line on a phone. */}
+      {stoppedCount > 0 ? (
+        <Segmented
+          ariaLabel="عرض الخدمات والمنتجات"
+          value={show}
+          onChange={(v) => setShow(v as 'active' | 'stopped' | 'all')}
+          className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+          options={[
+            { value: 'active', label: 'المفعّلة' },
+            { value: 'stopped', label: `الموقوفة (${stoppedCount})` },
+            { value: 'all', label: 'الكل' },
+          ]}
+        />
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-[11rem_1fr]">
         <nav aria-label="مجموعات الخدمات" className="flex gap-2 overflow-x-auto md:flex-col md:overflow-visible">
           <button
@@ -381,7 +417,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               only === null ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-1',
             ].join(' ')}
           >
-            الكل <span className="tabular-nums text-text-secondary">{services.length}</span>
+            الكل <span className="tabular-nums text-text-secondary">{visible.length}</span>
           </button>
           {bins.map(([g, list]) => (
             <button
@@ -635,6 +671,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         </section>
       ))}
         </div>
+      </div>
       </div>
         );
       })()}

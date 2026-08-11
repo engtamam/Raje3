@@ -34,6 +34,7 @@ export default defineConfig({
   // without anybody deciding it belongs is a file whose failures nobody can place.
   testMatch: [
     'door.spec.ts',
+    'session.spec.ts',
     'today.spec.ts',
     'visit.spec.ts',
     'customers.spec.ts',
@@ -44,6 +45,10 @@ export default defineConfig({
     'team.spec.ts',
     'account.spec.ts',
     'roles.spec.ts',
+    // LAST, because it re-sizes the viewport for every case and its failures are about layout
+    // rather than behaviour — a broken screen should be reported by the spec that names the
+    // behaviour it broke, and only then by the one that measures the phone.
+    'mobile.spec.ts',
   ],
   // Generous, because these are real network calls to a real cluster over an SSH tunnel — not
   // because anything here is slow by design. A tight timeout on a live pass produces failures
@@ -66,7 +71,10 @@ export default defineConfig({
   webServer: {
     command: 'npx vite --port 5174 --strictPort',
     url: 'http://localhost:5174',
-    reuseExistingServer: false,
+    // REUSE WHAT IS ALREADY THERE. `false` is the safer default in CI, and on a developer's
+    // machine it is the reason a run dies with "port already in use" after any earlier run left a
+    // server behind — which is a failure about ports, reported as if the product were broken.
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 });

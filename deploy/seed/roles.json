@@ -19,7 +19,17 @@
     "that bind him, an operator no less than an owner.",
     "",
     "`partner` is excluded on purpose — the till company signs in to its own statements, not to a",
-    "shop's console, and our terms with it are a contract rather than a click."
+    "shop's console, and our terms with it are a contract rather than a click.",
+    "",
+    "SEARCH.READ IS ON EVERY ROLE THAT RECORDS A VISIT, and its absence was a silent product failure.",
+    "The visit screen finds a customer by the first four digits of his number — that is the whole",
+    "point of the screen — and /search/suggest requires search.read, which NO establishment role",
+    "held. Every lookup answered 403 into a console nobody has open, the operator saw an empty",
+    "suggestion list, concluded the customer was new, and registered him a second time. The product's",
+    "entire premise disappears quietly at that moment, and the spec names this exact failure.",
+    "",
+    "NOT GIVEN TO marketer OR partner: neither records a visit, and a capability granted because it",
+    "is harmless is a capability nobody can later argue against."
   ],
   "roles": [
     {
@@ -29,6 +39,7 @@
       "protected": true,
       "capabilities": [
         "operations.record",
+        "search.read",
         "operations.read",
         "operations.manage",
         "reminders.read",
@@ -72,6 +83,7 @@
       "_why_billing_self": "المفتاح الذي يمنحه المالك كان ينقصه ثلثه. الاشتراك وربط واتساب كلاهما يفرض billing.self لا billing.manage — فمديرٌ أُعطي الفوترة كان يرى شاشاتها ويُرفض عند الضغط، وهو أسوأ من ألا يراها.",
       "capabilities": [
         "operations.record",
+        "search.read",
         "operations.read",
         "operations.manage",
         "reminders.read",
@@ -121,6 +133,7 @@
       "_why_no_operations_manage": "كانت عنده، وoperations.manage تعني إنشاء فرع وإنشاء موظف وتعديل كتالوج الخدمات وأسعارها — لا شيء منها من عمل مشرف وردية، ووصف الدور نفسه يقول ذلك. وأثرها كان مرئياً: قسما «خدماتي» و«فريقي» يظهران له لأن الواجهة تشتق القائمة من الصلاحيات، فتُعرض عليه شاشتان لا يملك قرارهما.",
       "capabilities": [
         "operations.record",
+        "search.read",
         "operations.read",
         "reminders.read",
         "analytics.read",
@@ -137,6 +150,7 @@
       "protected": false,
       "capabilities": [
         "operations.record",
+        "search.read",
         "loyalty.read",
         "loyalty.redeem",
         "compliance.self"
