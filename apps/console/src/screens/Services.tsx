@@ -22,6 +22,7 @@ import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Hint } from '../Hint';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -62,6 +63,14 @@ function summarise(v: ServiceSetting): string {
   return parts.length ? parts.join(' · ') : 'بلا دورة';
 }
 
+/** loyalty's settings tree, in the shape it answers with: a number per level, and where it came from. */
+interface EarnSettings {
+  general?: { points?: number };
+  groups?: Record<string, { points?: number }>;
+  services?: Record<string, { points?: number }>;
+  service_group?: Record<string, string>;
+}
+
 export function ServicesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [services, setServices] = useState<Service[] | null>(null);
   /** The list could not be READ — as opposed to being read and found empty. Two different facts,
@@ -74,6 +83,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   /** The name box, shown only after he asks for the group — never as a field waiting to be filled. */
   const [naming, setNaming] = useState<string | null>(null);
+  /**
+   * THE POINTS EACH SERVICE EARNS — read here so the shortcut can show the INHERITED number too.
+   *
+   * Without it the field would render 0 for every service that simply follows the general rule,
+   * and an owner reading a zero next to a service that does earn points would type the number
+   * again — turning "follows the general setting" into a frozen copy that stops tracking it (§9.2).
+   */
+  const [earn, setEarn] = useState<EarnSettings | null>(null);
   /**
    * WHICH GROUP THE WORKSPACE IS SHOWING. `null` means all of them.
    *
@@ -121,6 +138,9 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     // A PROPOSAL, AND ITS ABSENCE IS THE NORMAL CASE. It reads null until the owner has repeated
     // himself across at least three services, which is the point: a shop on its first day is not
     // shown an organisational chore it has no reason for yet.
+    const es = action(catalog, 'loyalty.settings.read');
+    if (es) call<EarnSettings>(session, es).then(setEarn).catch(() => setEarn(null));
+
     const sg = action(catalog, 'reminders.suggest_group');
     if (sg) {
       call<{ suggestion: Suggestion | null }>(session, sg)
@@ -130,6 +150,30 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   };
 
   useEffect(load, [session, catalog]);
+
+  const earnAction = action(catalog, 'loyalty.settings.service');
+
+  /** Its points, and whether that number is its own — the same three levels the engine resolves. */
+  const earnFor = (id: string): { points: number; own: boolean } => {
+    const own = earn?.services?.[id]?.points;
+    if (own !== undefined) return { points: own, own: true };
+    const group = earn?.service_group?.[id];
+    const fromGroup = group ? earn?.groups?.[group]?.points : undefined;
+    return { points: fromGroup ?? earn?.general?.points ?? 0, own: false };
+  };
+
+  const setServicePoints = async (serviceId: string, points: number) => {
+    if (!earnAction) return;
+    setSaving(true); setError('');
+    try {
+      await call(session, earnAction, { service_id: serviceId, points });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر حفظ النقاط.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /**
    * A service's effective reminder cycle, and whether that value is its own.
@@ -390,14 +434,23 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           below it and counts the same services, so a group he makes appears here the moment it
           exists and one he deletes leaves — there is nothing to keep in step. */}
       {(() => {
+        const stoppedCount = services.filter((x) => x.active === false).length;
+        // THE TAB HE IS STANDING ON CAN CEASE TO EXIST UNDER HIM. Re-activating the last stopped
+        // service takes the count to zero, which hides the whole strip — and the state still said
+        // «الموقوفة», so the screen rendered an empty list with no control anywhere to leave it.
+        // He was stuck on a tab that was no longer on screen, by doing exactly the right thing.
+        //
+        // DERIVED, NOT JUST RESET. A `useEffect` that corrects the state afterwards renders the
+        // trapped frame first; reading the view through this expression means the frame that
+        // cannot happen never does.
+        const view = stoppedCount > 0 ? show : 'active';
         const visible = services.filter((svc) => {
           // `active` absent means active: the field grid has never sent the flag, and treating a
           // missing field as "stopped" would empty the screen for every shop reading that route.
           const stopped = svc.active === false;
-          return show === 'stopped' ? stopped : !stopped;
+          return view === 'stopped' ? stopped : !stopped;
         });
         const bins = grouped(visible);
-        const stoppedCount = services.filter((x) => x.active === false).length;
         const shown = only === null ? bins : bins.filter(([g]) => g === only);
         return (
       <div className="flex flex-col gap-3">
@@ -406,7 +459,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       {stoppedCount > 0 ? (
         <Segmented
           ariaLabel="عرض الخدمات والمنتجات"
-          value={show}
+          value={view}
           onChange={(v) => setShow(v as 'active' | 'stopped')}
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
@@ -598,8 +651,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     </label>
                     {/* STOPPED, NOT DELETED — and the button says which. Deleting a service would
                         orphan every visit that names it. */}
+                    {/* IT LOOKS LIKE WHAT IT DOES. As a ghost button «إيقاف» was a word floating
+                        in the middle of the card — indistinguishable from a label, and no warmer
+                        than the group heading under it. Stopping a service takes it off the
+                        operator's grid and silences its reminders, so it carries the colour of a
+                        withdrawal; «تفعيل», which restores, is an ordinary outline. */}
                     <Button
-                      variant="ghost"
+                      variant={svc.active === false ? 'outline' : 'danger'}
                       disabled={saving}
                       onClick={() => patchService(svc.id, { active: svc.active === false })}
                     >
@@ -617,11 +675,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     asked. The suggestion is now the shortcut, not the gate. */}
                 {action(catalog, 'reminders.set_group') ? (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <span className="flex min-w-0 flex-col">
+                    {/* BEHIND «؟» LIKE THE REST. Same reason: read once, then furniture. */}
+                    <span className="flex min-w-0 items-center gap-2">
                       <span className="text-sm">المجموعة</span>
-                      <span className="text-sm text-text-secondary">
-                        ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.
-                      </span>
+                      <Hint>ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.</Hint>
                     </span>
                     <select
                       aria-label={`مجموعة ${svc.name}`}
@@ -662,6 +719,42 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   </div>
                 ) : null}
 
+                {/* HIS POINTS FOR THIS SERVICE, HERE. The number lived in «نقاطي» alone, so an
+                    owner setting up a service had to leave the screen he was on, find the same
+                    service in another list, set one number, and come back — for the one field
+                    that belongs to the thing he is already looking at. The screen that owns the
+                    setting keeps owning it; this is the same action, reachable where the question
+                    is actually asked.
+
+                    IT SHOWS THE INHERITED NUMBER AS WELL AS AN OWN ONE (§9.2: inherit, never
+                    copy), so «إعداد عام» is visible rather than looking like a zero he forgot. */}
+                {earnAction ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2/60 p-3">
+                    <span className="text-sm">نقاط هذه الخدمة</span>
+                    <Hint>
+                      كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. اتركها كما هي لتتبع الإعداد
+                      العام — وتغييرها هنا يجعلها خاصة بهذه الخدمة وحدها.
+                    </Hint>
+                    {!earnFor(svc.id).own ? (
+                      <span className="text-xs text-text-secondary">تتبع العام</span>
+                    ) : null}
+                    <input
+                      type="number"
+                      min={0}
+                      dir="ltr"
+                      defaultValue={String(earnFor(svc.id).points)}
+                      aria-label={`نقاط ${svc.name}`}
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim();
+                        if (raw === '') return;
+                        const n = Number(raw);
+                        if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n);
+                      }}
+                      className="ms-auto h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
+                    />
+                  </div>
+                ) : null}
+
                 {own && action(catalog, 'reminders.follow_general') ? (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm text-text-secondary">
@@ -675,6 +768,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     </Button>
                   </div>
                 ) : null}
+                {/* CLOSED FROM THE BOTTOM, WHERE HIS THUMB ALREADY IS. The only way out of an
+                    open service was the header — which by then is a full screen above him, so
+                    closing a card meant scrolling back up past everything he had just read. */}
+                <Button variant="ghost" onClick={() => setOpen(null)}>إغلاق</Button>
               </div>
             ) : null}
           </div>
@@ -723,11 +820,14 @@ function Setting({
           shrink below its content and pushes the number box off the edge of the screen instead of
           wrapping. That is what the owner photographed: the inputs were there, just not on the
           phone. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <span className="flex min-w-0 flex-col">
-          <span className="text-sm">{label}</span>
-          <span className="text-sm text-text-secondary">{meaning}</span>
-        </span>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* THE SENTENCE MOVES BEHIND «؟». Every field on this card carried two lines of prose, and
+            with two fields open on a phone the explanations alone filled the screen — the owner
+            photographed a card he could not see the bottom of. He reads each of these once in his
+            life. The preview line below stays, because that one is not an explanation: it is what
+            this number will actually do, and it changes as he types. */}
+        <span className="text-sm">{label}</span>
+        <Hint>{meaning}</Hint>
         <input
           type="number"
           min={0}
@@ -739,7 +839,7 @@ function Setting({
           }}
           aria-label={`${label} (بالأيام)`}
           dir="ltr"
-          className="h-10 w-24 shrink-0 self-start rounded-lg bg-surface-1 px-3 text-center tabular-nums sm:self-auto"
+          className="ms-auto h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
         />
       </div>
       <span className="text-sm text-accent-on-soft">{n > 0 ? preview(n) : zero}</span>
