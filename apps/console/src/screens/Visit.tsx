@@ -486,7 +486,7 @@ export function Visit() {
    * would trap every owner of a two-digit plate.
    *
    * LATIN, AND UPPERCASED AS HE TYPES. Both scripts appear on the plate itself, and letting each
-   * operator pick means «ABC 1234» and «ا ب ج ١٢٣٤» are two customers with one car. One form is
+   * operator pick means «ABC 1234» and «ا ب ج 1234» are two customers with one car. One form is
    * stored, and the keyboard is told which one to open with `inputMode`.
    *
    * STORED AS ONE STRING, «1234 ABC», because that is what the index and the lookup already use
