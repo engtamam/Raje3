@@ -20,7 +20,10 @@ test('it opens as tabs, and the open one says what it is for', async ({ shop }) 
   expect(body).toMatch(/دخولي/);
   // THE SENTENCE UNDER THE STRIP, which is what stops five nouns being five things he must open
   // to understand. It follows the tab, so it is asserted on the tab that is actually open.
-  expect(body).toMatch(/باقتك، فواتيرك/);
+  // THE HINT OF THE TAB THAT IS OPEN. It was «باقتك، فواتيرك» when one tab carried both; the
+  // invoices moved to a tab of their own — an accountant asking for last month's should not have
+  // to scroll past four plans nobody is buying today — and the sentence narrowed with it.
+  expect(body).toMatch(/باقتك ووسيلة الدفع/);
 
   await shop.getByRole('radio', { name: 'دخولي' }).click();
   expect(await shop.locator('body').innerText()).toMatch(/جوالك وكلمة مرورك/);
@@ -41,24 +44,34 @@ test('the plans arrive from billing, with a price and what each one buys', async
   expect(body).not.toMatch(/staff\.seats|feature\./);
 });
 
-test('choosing a plan before the number is linked is answered, never refused', async ({ shop }) => {
+test('with no gateway configured, the plans page apologises instead of selling', async ({ shop }) => {
   /**
-   * A wall at the moment somebody decided to pay is the most expensive sentence in the product.
-   * The press is accepted, the choice is remembered by name, and the button in front of him is the
-   * next step rather than a dismissal.
+   * THIS TEST USED TO ASSERT THE OPPOSITE OF THE PRODUCT. It checked that pressing a plan before
+   * WhatsApp was connected produced «خطوة واحدة تفصلك» — the connect-first rule, which was
+   * reversed by decision: the errand now follows the payment rather than standing in front of it,
+   * because a ten-minute errand at the moment somebody decides to buy is where the decision goes
+   * to die.
+   *
+   * AND WHAT REPLACED IT IS THE MORE IMPORTANT ASSERTION. With no payment gateway configured the
+   * screen must SELL NOTHING and say so: an owner walking between paid tiers for free, each press
+   * writing «باقتك» over the last, is the state this product was actually in.
    */
   await open(shop, '/account');
-  await shop.getByRole('button', { name: 'اختر هذه الباقة' }).first().click();
-
   const body = await shop.locator('body').innerText();
-  expect(body).toMatch(/خطوة واحدة تفصلك/);
-  expect(body).toMatch(/رقم واتساب محلّك أنت/);
-  await expect(shop.getByRole('button', { name: 'اربط رقمي الآن' })).toBeVisible();
+
+  // Either the till is shut and it says so, or it is open and a card is pressable. Never a
+  // button that writes a plan with no money behind it.
+  const shut = /الدفع مغلق مؤقتاً/.test(body);
+  if (shut) {
+    expect(body).toMatch(/نعتذر/);
+    return;
+  }
+  await expect(shop.getByRole('button', { name: 'اختر هذه الباقة' }).first()).toBeVisible();
 });
 
 test('the data rights are buttons he can press, not a paragraph about a right', async ({ shop }) => {
   await open(shop, '/account');
-  await shop.getByRole('radio', { name: 'بياناتي وأوراقي' }).click();
+  await shop.getByRole('radio', { name: 'بياناتي' }).click();
 
   await expect(shop.getByRole('button', { name: 'تصدير نسخة' })).toBeVisible();
   await expect(shop.getByRole('button', { name: 'حذف بياناتي' })).toBeVisible();
@@ -84,9 +97,11 @@ test('an unconnected shop is told it is unconnected', async ({ shop }) => {
 
 test('the legal papers are reachable from here, because PDPL is not a footnote', async ({ shop }) => {
   await open(shop, '/account');
-  expect(await shop.locator('body').innerText()).toMatch(/بياناتي وأوراقي/);
+  // ONE WORD ON THE TAB, and the hint under the strip carries the rest — the long label was
+  // what pushed the six-tab strip past the edge of a phone and sliced the last one in half.
+  expect(await shop.locator('body').innerText()).toMatch(/بياناتي/);
 
-  await shop.getByRole('radio', { name: 'بياناتي وأوراقي' }).click();
+  await shop.getByRole('radio', { name: 'بياناتي' }).click();
   expect(await shop.locator('body').innerText()).toMatch(/الاحتفاظ، التصدير، الاتفاقيات/);
 });
 

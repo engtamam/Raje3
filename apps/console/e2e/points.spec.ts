@@ -35,16 +35,28 @@ test('a reward can be retired without being deleted', async ({ shop }) => {
    * RETIRED, NEVER DELETED. Every redemption in history references a reward, and its name and cost
    * are snapshotted onto the receipt precisely so that repricing it does not restate what a
    * customer was told last year.
+   *
+   * IT RETIRES A REWARD IT CREATED, and this is the whole fix. The first version clicked «إيقاف»
+   * on the FIRST row of the shop's own table — so every run retired one more of the seeded
+   * rewards, and after three runs the table this file's first test asserts is filled was empty.
+   * The suite was eating the fixture it depends on, one run at a time, and reported it as a
+   * product failure on the fourth.
+   *
+   * A TEST THAT MUTATES SHARED STATE MUST CREATE WHAT IT MUTATES.
    */
   await open(shop, '/points');
 
-  const stop = shop.getByRole('button', { name: 'إيقاف' }).first();
-  await expect(stop).toBeVisible();
-  await stop.click();
+  const name = `مكافأة اختبار ${Date.now().toString().slice(-6)}`;
+  await shop.getByRole('button', { name: 'إضافة مكافأة' }).click();
+  await shop.getByLabel('اسم المكافأة').fill(name);
+  await shop.getByLabel('التكلفة بالنقاط').fill('999');
+  await shop.getByRole('button', { name: 'حفظ' }).click();
 
-  await expect(shop.getByText('موقوفة').first()).toBeVisible({ timeout: 30_000 });
-  // It is still in the table — the row did not disappear, it changed state.
-  await expect(shop.getByRole('button', { name: 'تفعيل' }).first()).toBeVisible();
+  const row = shop.locator('li', { hasText: name }).first();
+  await expect(row).toBeVisible({ timeout: 30_000 });
+
+  await row.getByRole('button', { name: 'إيقاف' }).click();
+  await expect(row.getByText('موقوفة')).toBeVisible({ timeout: 30_000 });
 });
 
 test('the earning tab is a SWITCH, never two boxes ticked at once', async ({ shop }) => {
