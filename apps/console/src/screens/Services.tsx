@@ -573,15 +573,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                          className="h-10 rounded-lg bg-surface-2 px-3" />
                 </label>
 
-                <Row label="كل كم يوماً يحتاجه العميل؟"
-                     hint="اتركه 0 إن كان لمرة واحدة — فلا تذكير له.">
+                {/* SHORT LABELS, AND THE QUESTION LIVES IN THE «؟». The full sentences did not
+                    fit the label column on a phone and arrived clipped mid-word — «كل كم يوماً
+                    ي…» is worse than a short name, because a truncated question is unanswerable
+                    while a short one is merely brief. */}
+                <Row label="دورة التذكير"
+                     hint="كل كم يوماً يحتاج العميل هذه الخدمة؟ اتركه 0 إن كانت لمرة واحدة — فلا تذكير لها.">
                   <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
                 {action(catalog, 'reminders.set_service_settings') ? (
-                  <Row label="الاطمئنان بعد الزيارة"
-                       hint="رسالة قصيرة تسأل إن كان كل شيء تمام، وتُلغى تلقائياً إن عاد قبل موعدها. اتركه 0 فلا نسأل.">
+                  <Row label="الاطمئنان"
+                       hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام، وتُلغى تلقائياً إن عاد قبل موعدها. اتركه 0 فلا نسأل.">
                     <input name="follow_up_days" type="number" min={0} defaultValue={0} dir="ltr"
                            className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                   </Row>
@@ -873,9 +877,11 @@ function Row({ label, hint, children }:
     // own line the moment a label was one word too long — so the form arrived as a ragged ladder,
     // some boxes beside their label and some beneath it, each starting at a different edge. Two
     // columns put every label on the right and every control on the left, at one width, always.
-    <div className="grid grid-cols-[1fr_9rem] items-center gap-2">
+    <div className="grid grid-cols-[1fr_7.5rem] items-center gap-2">
       <span className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate text-sm">{label}</span>
+        {/* WRAPS RATHER THAN CLIPS. A label cut mid-word reads as a rendering fault; a label on
+            two lines reads as a label. */}
+        <span className="text-sm">{label}</span>
         <Hint>{hint}</Hint>
       </span>
       {children}
