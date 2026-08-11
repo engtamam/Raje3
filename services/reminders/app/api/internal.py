@@ -478,6 +478,66 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
     return res
 
 
+class ChooseOfferIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    # WHAT THE CUSTOMER ACTUALLY TOOK. A scoped offer applies only when one of its services is on
+    # the visit — the text persuades and the scope applies (§5.6.2).
+    service_ids: list[str] = Field(default_factory=list, max_length=50)
+
+
+@router.post("/reminders/offer/choose", dependencies=[Depends(require_internal_token)])
+async def choose_offer(request: Request, body: ChooseOfferIn) -> dict:
+    """WHICH offer a visit would apply — and it applies nothing (§5.6.2).
+
+    THE PREDECESSOR OF THIS ROUTE SPENT THE OFFER, by stamping `offer_used_at` onto the send-log
+    row. The spec says in as many words why that cannot be: «دفتر الإرسال يُضاف إليه ولا يُعدَّل
+    بقرار — وكل حدود 5.8 تُحتسب عليه». A ledger something edits is not a ledger, and every message
+    cap this product enforces is counted against that one.
+
+    SO THE ACT MOVED AND THE JUDGEMENT STAYED. `operations` records the spend on the visit — the
+    thing that happened at the counter, and the place «one per visit» can actually be enforced —
+    and calls this to ask which offer applies, because only this service knows what was sent, to
+    whom, with what scope and what expiry.
+
+    INTERNAL, NOT USER-TIER. Its only caller is another service, and the answer names an offer for
+    a pseudonym: exposed to a token it would be a way to ask "is this customer holding anything",
+    one guess at a time.
+    """
+    from app.core.stores import SendLogStore
+
+    used = await _spent_or_empty(body.tenant, body.subject_ref)
+    if used is None:
+        # NOTHING IS CHOSEN WHEN WE CANNOT KNOW WHAT WAS SPENT. The alternative is spending one
+        # twice, and a double discount on one invoice is money the owner never agreed to.
+        return {"offer": None, "reason": "تعذّر التحقق من العروض المستهلَكة"}
+
+    row = await SendLogStore(request.app.state.container.datastore).choose_offer(
+        body.tenant, body.subject_ref, service_ids=list(body.service_ids),
+        used_refs=used, now=int(time.time()))
+    if row is None:
+        # NOT AN ERROR, AND THE SENTENCE SAYS WHY. He may hold nothing, or hold one whose scope
+        # this visit does not touch — and the operator at the counter needs to tell those apart.
+        return {"offer": None, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
+    return {"offer": {"ref": str(row.get("id") or ""),
+                      "text": row.get("offer_text", ""),
+                      "expires_at": int(row.get("offer_expires_at") or 0)}}
+
+
+async def _spent_or_empty(tenant: str, subject_ref: str) -> set[str] | None:
+    """What operations says was spent, or None when it could not be asked — two different facts."""
+    from app.config import get_settings
+    from app.core.spent import SpentUnknown, spent_refs
+
+    cfg = get_settings()
+    try:
+        return spent_refs(operations_url=cfg.OPERATIONS_SERVICE_URL,
+                          token=cfg.INTERNAL_SERVICE_TOKEN,
+                          tenant=tenant, subject_ref=subject_ref)
+    except SpentUnknown:
+        return None
+
+
 @router.get("/portal/offers", dependencies=[Depends(require_internal_token)])
 async def portal_offers(request: Request, tenant: str, subject_ref: str) -> dict:
     """The offers a customer is holding, for his own page.
@@ -496,8 +556,15 @@ async def portal_offers(request: Request, tenant: str, subject_ref: str) -> dict
     """
     from app.core.stores import SendLogStore
 
+    # SPENT ONES ARE ABSENT TOO, and operations is who knows (§5.6.2). If it cannot be asked the
+    # page shows no offers rather than possibly-spent ones: a customer told on his own page that
+    # he still holds something he used last week will walk in expecting it.
+    used = await _spent_or_empty(tenant, subject_ref)
+    if used is None:
+        return {"offers": []}
+
     rows = await SendLogStore(request.app.state.container.datastore).live_offers(
-        tenant, subject_ref, now=int(time.time()))
+        tenant, subject_ref, used_refs=used, now=int(time.time()))
     return {"offers": [{"text": r.get("offer_text", ""),
                         "expires_at": int(r.get("offer_expires_at") or 0),
                         "sent_at": int(r.get("at") or 0),

@@ -183,6 +183,16 @@ class VisitStore(_Base):
         rows, _ = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
         return [Visit(**r) for r in rows]
 
+    async def offers_spent(self, tenant: str, customer_id: str, limit: int = 200) -> list[str]:
+        """The send-log rows this customer has already spent — the answer reminders needs.
+
+        BOUNDED, and the bound is the point: an offer older than the last 200 visits is long
+        expired, and an unbounded read on a path the counter waits for is how a screen becomes
+        slow for the shops that use us most.
+        """
+        rows, _ = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
+        return [str(r.get("offer_ref") or "") for r in rows if r.get("offer_ref")]
+
     async def save(self, v: Visit) -> Visit:
         await self._put(v.tenant, v.id, v.__dict__.copy())
         return v

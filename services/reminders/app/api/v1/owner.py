@@ -16,7 +16,20 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.reach import Reach
+from app.core.spent import SpentUnknown, spent_refs
 from app.core.stores import RuleStore, ScheduleStore, SendLogStore
+
+
+def _ops_url(request: Request) -> str:
+    """Where operations lives. Read off settings at call time, never captured at import — the
+    container is what a test replaces, and a module-level copy would ignore it."""
+    from app.config import get_settings
+    return get_settings().OPERATIONS_SERVICE_URL
+
+
+def _ops_token(request: Request) -> str:
+    from app.config import get_settings
+    return get_settings().INTERNAL_SERVICE_TOKEN
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -178,61 +191,23 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
     EXPIRED ANSWERS `null`, not an expired offer with a flag. A screen that renders one that has
     run out contradicts the operator out loud, which is worse than showing nothing at all.
     """
+    # WHAT HE HAS ALREADY SPENT COMES FROM operations (§5.6.2), because the visit is where the
+    # spending is recorded. Unknown is NOT treated as "nothing spent": showing an offer that was
+    # already honoured puts the operator in an argument with a customer holding a phone, so an
+    # unreachable peer shows nothing rather than something possibly wrong.
+    try:
+        used = spent_refs(operations_url=_ops_url(request), token=_ops_token(request),
+                          tenant=principal.tenant, subject_ref=subject_ref)
+    except SpentUnknown:
+        return {"offer": None}
+
     row = await SendLogStore(request.app.state.container.datastore).active_offer(
-        principal.tenant, subject_ref, now=int(time.time()))
+        principal.tenant, subject_ref, used_refs=used, now=int(time.time()))
     if not row:
         return {"offer": None}
     return {"offer": {"text": row.get("offer_text", ""),
                       "expires_at": int(row.get("offer_expires_at") or 0),
                       "sent_at": int(row.get("at") or 0)}}
-
-
-class ConsumeOfferIn(BaseModel):
-    subject_ref: str = Field(min_length=8, max_length=128)
-    # THE VISIT IT WAS APPLIED TO. Required, and it is what makes "one per visit" enforceable at
-    # all: without it a double tap is two spends and neither of us can prove which was meant.
-    visit_id: str = Field(min_length=1, max_length=128)
-    # WHAT THE CUSTOMER ACTUALLY TOOK. A scoped offer applies only when one of its services is on
-    # this visit — the text persuades and the scope applies (§5.6.2).
-    service_ids: list[str] = Field(default_factory=list, max_length=50)
-
-
-@router.post("/offer/consume", dependencies=[Depends(rate_limit)])
-async def consume_offer(request: Request, body: ConsumeOfferIn,
-                        principal: Principal = Depends(_MANAGE)) -> dict:
-    """Apply the offer to this visit — because somebody pressed a button (§5.6.2).
-
-    A TAP, NEVER AN INFERENCE. Nothing spends an offer just because a visit arrived: a customer
-    who came in for something else and was silently charged an offer he was saving is a customer we
-    took something from. He may be holding it for next month, and that is his to decide.
-
-    IT IS ALSO THE ONLY MOMENT WE LEARN THE OFFER WORKED. Sending is not proof of anything; a
-    campaign's whole value is the visits it produced, and this row is the only place that join
-    exists.
-
-    REPEATING IT IS SAFE. A second call for the same visit returns the same row and spends nothing
-    more — a double tap at a counter is one intention, and a screen that punished it would be a
-    screen people stop trusting.
-    """
-    row = await SendLogStore(request.app.state.container.datastore).consume_offer(
-        principal.tenant, body.subject_ref, visit_id=body.visit_id,
-        service_ids=list(body.service_ids), now=int(time.time()))
-
-    if row is None:
-        # NOT AN ERROR, AND THE SENTENCE SAYS WHY. He may hold nothing, or hold one whose scope
-        # this visit does not touch — and the operator standing at the counter needs to be able to
-        # tell those apart without reading a status code.
-        return {"applied": False,
-                "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
-
-    await request.app.state.auditor.record(
-        "reminders.offer_consumed", actor=principal.subject, tenant=principal.tenant,
-        resource=f"offer:{row.get('id','')}", ip=request.client.host if request.client else "")
-
-    return {"applied": True,
-            "offer": {"text": row.get("offer_text", ""),
-                      "expires_at": int(row.get("offer_expires_at") or 0),
-                      "used_at": int(row.get("offer_used_at") or 0)}}
 
 
 @router.get("/offers", dependencies=[Depends(rate_limit)])

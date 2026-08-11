@@ -204,6 +204,10 @@ class Settings(BaseSettings):
     # own: identity registers a user INTO a tenant, tenant-service creates a tenant for an
     # internal caller, and deciding that those two together mean "a new establishment" is a
     # product rule. Empty URLs disable both routes rather than half-creating anything.
+    # WHO DECIDES WHICH OFFER A VISIT APPLIES. We record the spend on the visit (§5.6.2); only
+    # reminders knows what was sent, with what scope and expiry. Empty = the tap refuses rather
+    # than guesses, which is the safe direction for money.
+    REMINDERS_SERVICE_URL: str = ""          # e.g. http://reminders:8000
     IDENTITY_SERVICE_URL: str = ""           # e.g. http://identity-service:8000
     TENANT_SERVICE_URL: str = ""             # e.g. http://tenant-service:8000
     SIGNUP_TIMEOUT_SECONDS: int = 10

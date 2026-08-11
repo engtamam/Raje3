@@ -30,7 +30,7 @@ def test_the_offer_shown_is_the_one_that_was_SENT():
     store = MemoryDataStore()
     _log(store, offer_text="20% على غيار الزيت", offer_expires_at=NOW + 3 * DAY)
 
-    got = asyncio.run(SendLogStore(store).active_offer(T, REF, now=NOW + DAY))
+    got = asyncio.run(SendLogStore(store).active_offer(T, REF, used_refs=set(), now=NOW + DAY))
     assert got["offer_text"] == "20% على غيار الزيت"
 
 
@@ -40,7 +40,7 @@ def test_an_expired_offer_is_not_returned_at_all():
     store = MemoryDataStore()
     _log(store, offer_text="خصم انتهى", offer_expires_at=NOW + DAY)
 
-    assert asyncio.run(SendLogStore(store).active_offer(T, REF, now=NOW + 2 * DAY)) is None
+    assert asyncio.run(SendLogStore(store).active_offer(T, REF, used_refs=set(), now=NOW + 2 * DAY)) is None
 
 
 def test_a_reminder_is_not_an_offer():
@@ -48,4 +48,4 @@ def test_a_reminder_is_not_an_offer():
     store = MemoryDataStore()
     _log(store, template_name="svc_service_reminder_brief")
 
-    assert asyncio.run(SendLogStore(store).active_offer(T, REF, now=NOW)) is None
+    assert asyncio.run(SendLogStore(store).active_offer(T, REF, used_refs=set(), now=NOW)) is None

@@ -20,7 +20,7 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import ServiceStore, new_id
+from app.core.stores import ServiceStore, VisitStore, new_id
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -359,6 +359,30 @@ class CustomerVisitsIn(BaseModel):
     # TEN by default and capped at 25. A customer's page is not a statement of account, and a
     # public page that can ask for a thousand rows is a public page that can be made expensive.
     limit: int = Field(default=10, ge=1, le=25)
+
+
+@router.post("/operations/offers-spent", dependencies=[Depends(require_internal_token)])
+async def offers_spent(request: Request, body: CustomerVisitsIn) -> dict:
+    """Which offers this customer has already spent — asked by reminders, answered by us.
+
+    THE DIRECTION IS THE WHOLE POINT (§5.6.2). `reminders` issues an offer and can say which one a
+    visit would apply; only `operations` may say that one WAS applied, because the visit is the
+    thing that happened and the send log is append-only. Reminders used to stamp its own log, and
+    every cap in 5.8 is counted against that log.
+
+    BY PSEUDONYM, and it answers with send-log row ids and nothing else. No visit, no service, no
+    date — the caller needs a set to subtract, and anything more would be this service volunteering
+    a history nobody asked for.
+    """
+    c = request.app.state.container
+    crows, _ = await c.datastore.find(
+        CUSTOMERS, {"tenant": body.tenant, "subject_ref": body.subject_ref}, limit=1)
+    if not crows:
+        # An unknown subject has spent nothing. Not a 404: same reason as customer-visits — a
+        # distinct answer here is an oracle for whether a pseudonym exists.
+        return {"refs": []}
+    refs = await VisitStore(c.datastore).offers_spent(body.tenant, str(crows[0].get("id") or ""))
+    return {"refs": refs}
 
 
 @router.post("/operations/customer-visits", dependencies=[Depends(require_internal_token)])

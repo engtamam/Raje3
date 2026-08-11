@@ -27,12 +27,16 @@ async def test_an_offer_is_spent_only_when_somebody_says_so(store):
                             "offer_expires_at": 9_000_000, "offer_services": []})
 
     # Reading it changes nothing.
-    assert len(await log.live_offers("t1", "sub_a", now=1000)) == 1
+    assert len(await log.live_offers("t1", "sub_a", used_refs=set(), now=1000)) == 1
 
-    row = await log.consume_offer("t1", "sub_a", visit_id="v1", service_ids=["x"], now=1000)
+    row = await log.choose_offer("t1", "sub_a", service_ids=["x"], used_refs=set(), now=1000)
     assert row is not None
-    # And now it is gone from what he is holding — not expired, SPENT.
-    assert await log.live_offers("t1", "sub_a", now=1000) == []
+
+    # AND CHOOSING SPENT NOTHING. The send log is append-only (§5.6.2) — operations records the
+    # spend on the visit, and hands back what it recorded. Until it does, he still holds it.
+    assert len(await log.live_offers("t1", "sub_a", used_refs=set(), now=1000)) == 1
+    # Once operations HAS recorded it, it is gone from what he holds — not expired, SPENT.
+    assert await log.live_offers("t1", "sub_a", used_refs={row["id"]}, now=1000) == []
 
 
 @pytest.mark.asyncio
@@ -45,12 +49,17 @@ async def test_a_second_tap_on_one_visit_spends_nothing_more(store):
                                 "outcome": "sent", "at": 100 + i, "offer_text": f"عرض {i}",
                                 "offer_expires_at": exp, "offer_services": []})
 
-    first = await log.consume_offer("t1", "sub_a", visit_id="v1", service_ids=[], now=1000)
-    again = await log.consume_offer("t1", "sub_a", visit_id="v1", service_ids=[], now=1000)
+    first = await log.choose_offer("t1", "sub_a", service_ids=[], used_refs=set(), now=1000)
+    # «One per visit» is enforced where the visit is — in operations, which returns what it already
+    # recorded rather than asking again. Here we prove the other half: once one is spent, the next
+    # question gets a DIFFERENT offer, never the same one twice.
+    again = await log.choose_offer("t1", "sub_a", service_ids=[],
+                                   used_refs={first["id"]}, now=1000)
 
-    assert first["id"] == again["id"]
-    # The second offer survives untouched — one visit spent one offer.
-    assert len(await log.live_offers("t1", "sub_a", now=1000)) == 1
+    assert first["id"] != again["id"]
+    # And nothing beyond those two exists to spend.
+    assert len(await log.live_offers("t1", "sub_a",
+                                     used_refs={first["id"], again["id"]}, now=1000)) == 0
 
 
 @pytest.mark.asyncio
@@ -66,10 +75,11 @@ async def test_the_scope_decides_and_the_soonest_to_expire_goes_first(store):
                             "offer_services": []})
 
     # A visit with neither: the scoped one must not be touched, and the open one is applicable.
-    row = await log.consume_offer("t1", "sub_a", visit_id="v1", service_ids=["tyres"], now=1000)
+    row = await log.choose_offer("t1", "sub_a", service_ids=["tyres"], used_refs=set(), now=1000)
     assert row["id"] == "s2"        # the open offer, and it expires soonest of the two
 
-    row = await log.consume_offer("t1", "sub_a", visit_id="v2", service_ids=["wash"], now=1000)
+    row = await log.choose_offer("t1", "sub_a", service_ids=["wash"],
+                                 used_refs={"s2"}, now=1000)
     assert row["id"] == "s1"        # now the scoped one, because this visit carries its service
 
 
@@ -80,6 +90,6 @@ async def test_a_visit_that_touches_nothing_scoped_spends_nothing(store):
                             "at": 101, "offer_text": "على الغسيل", "offer_expires_at": 9_000_000,
                             "offer_services": ["wash"]})
 
-    assert await log.consume_offer("t1", "sub_a", visit_id="v1",
-                                   service_ids=["tyres"], now=1000) is None
-    assert len(await log.live_offers("t1", "sub_a", now=1000)) == 1
+    assert await log.choose_offer("t1", "sub_a", service_ids=["tyres"],
+                                  used_refs=set(), now=1000) is None
+    assert len(await log.live_offers("t1", "sub_a", used_refs=set(), now=1000)) == 1

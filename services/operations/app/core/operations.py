@@ -71,9 +71,60 @@ class Operations:
         self._services = ServiceStore(store)
         self._visits = VisitStore(store)
         self._salt = pii_salt
+        # HOW WE ASK WHICH OFFER APPLIES. A callable rather than a URL so a test can answer it
+        # without a socket, and so this file never learns reminders' route shape.
+        self._choose_offer = None
         # How far back a claimed visit time may be before it is a broken clock. A shop migrating a
         # year of its own history needs more, and that must not require a release.
         self._max_backdate = int(max_backdate)
+
+    def with_offer_chooser(self, chooser) -> "Operations":
+        """Install who decides which offer a visit applies. Set at wiring, not at import."""
+        self._choose_offer = chooser
+        return self
+
+    async def apply_offer(self, *, tenant: str, visit_id: str,
+                          subject_ref: str) -> dict[str, Any] | None:
+        """Mark this visit as having applied an offer — the tap that proves it (§5.6.2).
+
+        ONE PER VISIT, and it is enforced here because here is where the visit is. A second tap
+        returns the offer already recorded and spends nothing more: a double tap at a counter is
+        one intention, not two discounts on one invoice — «خصمان على فاتورة واحدة قرارٌ لم يتخذه
+        المالك».
+
+        THE JUDGEMENT IS NOT OURS. Which offer applies depends on what was sent, its scope and its
+        expiry, all of which live in reminders. We ask, and we record what comes back — including
+        the TEXT, copied rather than referenced, because an owner reading this visit next year
+        needs what was promised and the send log may have been pruned by retention.
+
+        AND NO CHOOSER MEANS NO SPEND. A missing peer refuses rather than guesses; the alternative
+        is a discount granted because a URL was blank.
+        """
+        # BY ID OR BY THE CLIENT'S OWN KEY, because the screen has only the latter. «تسجيل زيارة»
+        # queues offline and hands the server an idempotency key; it never learns the id we mint,
+        # and it must not have to wait for a round trip to apply an offer with a customer standing
+        # there. The key is also the one value identical across every retry — which is precisely
+        # what «عرضٌ واحد لكل زيارة» needs to hold.
+        v = await self._visits.get(tenant, visit_id)
+        if v is None:
+            v = await self._visits.by_idempotency_key(tenant, visit_id)
+        if v is None:
+            raise OperationError("لا توجد زيارة بهذا المعرّف")
+        if v.offer_ref:
+            return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
+        if self._choose_offer is None:
+            raise OperationError("تعذّر التحقق من العروض الآن")
+
+        chosen = await self._choose_offer(tenant=tenant, subject_ref=subject_ref,
+                                          service_ids=list(v.service_ids))
+        if not chosen:
+            return None
+
+        v.offer_ref = str(chosen.get("ref") or "")
+        v.offer_text = str(chosen.get("text") or "")
+        v.offer_used_at = int(time.time())
+        await self._visits.save(v)
+        return {"ref": v.offer_ref, "text": v.offer_text, "used_at": v.offer_used_at}
 
     # ── the write path ────────────────────────────────────────────────────────────────────────
     async def record_visit(self, *, tenant: str, phone: str, service_ids: list[str],

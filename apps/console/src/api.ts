@@ -233,13 +233,14 @@ export function redeem(
  * visit it produced exists nowhere else.
  */
 export function applyOffer(
-  session: Session, subjectRef: string, visitId: string, serviceIds: string[],
+  session: Session, subjectRef: string, visitId: string,
 ): Promise<{ applied: boolean; reason?: string }> {
-  return call(session, '/api/v1/reminders/offer/consume', {
+  // ON THE VISIT, NOT ON THE OFFER (§5.6.2). The spend is recorded where it happened — the send
+  // log is append-only and every message cap is counted against it — and the services come off
+  // the visit itself rather than from this screen, so the two can never disagree.
+  return call(session, `/api/v1/field/visits/${encodeURIComponent(visitId)}/offer`, {
     method: 'POST',
-    body: JSON.stringify({
-      subject_ref: subjectRef, visit_id: visitId, service_ids: serviceIds,
-    }),
+    body: JSON.stringify({ subject_ref: subjectRef }),
   });
 }
 

@@ -117,6 +117,9 @@ env:
   # BOTH URLS OR NEITHER. An empty URL leaves the two public routes answering a refusal rather
   # than half-creating an account — a tenant with no owner is exactly the orphan the saga's undo
   # exists to prevent, and it would be created on every attempt.
+  # WHICH OFFER A VISIT APPLIES is reminders' judgement; recording that it was applied is ours
+  # (§5.6.2). Without this the tap refuses instead of guessing — the safe direction for a discount.
+  REMINDERS_SERVICE_URL: "http://reminders:8000"
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   TENANT_SERVICE_URL: "http://tenant-service:8000"
   SIGNUP_TIMEOUT_SECONDS: "10"

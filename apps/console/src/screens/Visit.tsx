@@ -198,7 +198,7 @@ export function Visit() {
     // budget on something the customer is not watching. A failure here loses the application, not
     // the visit — and the offer is still live, so it can be applied again.
     if (applying && subject) {
-      applyOffer(session, subject, key, chosen).catch(() => undefined);
+      applyOffer(session, subject, key).catch(() => undefined);
     }
     setApplying(false);
 

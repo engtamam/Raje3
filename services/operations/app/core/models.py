@@ -185,6 +185,18 @@ class Visit:
     # keeping ours means a device set to next month cannot schedule a reminder into next month.
     created: int = 0
     occurred_at: int = 0
+    # THE OFFER THIS VISIT SPENT, and it lives HERE rather than on the send-log row (§5.6.2).
+    #
+    # «ويُسجَّل على الزيارة، لا على العرض» — because the send log is append-only and every cap in
+    # 5.8 is counted against it, so a mutable flag inside it breaks the thing the limits are
+    # counted on. The visit is also simply what happened at the counter.
+    #
+    # `offer_ref` is the send-log row id. The TEXT is copied rather than referenced: the message
+    # said something specific to this customer, and an owner reading this visit a year later needs
+    # what was promised, not a pointer into a log that retention may have pruned.
+    offer_ref: str = ""
+    offer_text: str = ""
+    offer_used_at: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "customer_id": self.customer_id,
@@ -192,7 +204,9 @@ class Visit:
                 "operator_id": self.operator_id, "branch_id": self.branch_id,
                 "meter": self.meter, "note": self.note, "custom_service": self.custom_service,
                 "created": self.created,
-                "occurred_at": self.occurred_at or self.created}
+                "occurred_at": self.occurred_at or self.created,
+                "offer_ref": self.offer_ref, "offer_text": self.offer_text,
+                "offer_used_at": self.offer_used_at}
 
 
 @dataclass

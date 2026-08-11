@@ -52,6 +52,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أهم مسار في المنتج. مفتاح التكرار من الواجهة: ضغطتان تُنتجان زيارة واحدة.",
     },
     {
+        # THE ACT THAT SPENDS AN OFFER, and it belongs to the VISIT (§5.6.2) — reminders judges
+        # which offer applies, we record that it was applied. An offer that can be read and never
+        # applied is a promise the counter cannot keep.
+        "id": "operations.apply_offer", "label": "تطبيق العرض على الزيارة", "method": "POST",
+        "path": "/api/v1/field/visits/{visit_id}/offer", "capability": "operations.record",
+        "group": "الشاشة",
+        "help": "نقرةٌ تُثبت أن العميل أخذه — ولا يُستهلك تلقائياً أبداً، وعرضٌ واحد لكل زيارة.",
+        "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
+    },
+    {
         "id": "operations.customer", "label": "سجل العميل", "method": "GET",
         "path": "/api/v1/field/customers/{id}", "capability": "operations.read",
         "group": "الشاشة",

@@ -134,7 +134,7 @@ class SendLogStore(_Base):
         return await self._get(f"{tenant}|{send_id}")
 
     async def live_offers(self, tenant: str, subject_ref: str, *,
-                          now: int) -> list[dict[str, Any]]:
+                          used_refs: set[str], now: int) -> list[dict[str, Any]]:
         """EVERY offer this customer is still holding, soonest to expire first.
 
         The field screen wants one line and takes the first; the customer's own page wants the lot,
@@ -150,15 +150,30 @@ class SendLogStore(_Base):
         # is used, or the shop stops sending. Only the first was modelled — so a customer who had
         # already had his free wash kept being shown it, and the worker at the counter had no way
         # to tell the difference between an offer and one he had honoured last week.
+        #
+        # WHAT WAS SPENT IS ASKED OF operations, NOT READ OFF THESE ROWS. This log is append-only,
+        # so it cannot carry a used-flag without breaking every cap counted against it (§5.6.2) —
+        # and the visit is where the spending happened anyway.
         live = [r for r in (rows or [])
                 if r.get("offer_text")
                 and int(r.get("offer_expires_at") or 0) > now
-                and not int(r.get("offer_used_at") or 0)]
+                and str(r.get("id") or "") not in used_refs]
         return sorted(live, key=lambda r: int(r.get("offer_expires_at") or 0))
 
-    async def consume_offer(self, tenant: str, subject_ref: str, *, visit_id: str,
-                            service_ids: list[str], now: int) -> dict[str, Any] | None:
-        """Spend ONE offer on ONE visit — and only when somebody says so (§5.6.2).
+    async def choose_offer(self, tenant: str, subject_ref: str, *, service_ids: list[str],
+                           used_refs: set[str], now: int) -> dict[str, Any] | None:
+        """WHICH offer a visit would spend — and it spends nothing (§5.6.2).
+
+        THIS USED TO WRITE, AND THAT WAS THE BUG. It stamped `offer_used_at` onto the send-log row,
+        and §5.6.2 says in as many words why that is wrong: «دفتر الإرسال يُضاف إليه ولا يُعدَّل
+        بقرار — وكل حدود 5.8 تُحتسب عليه، فعلامةٌ متغيّرة فيه تكسر ما تُحتسب عليه الحدود كلها».
+        An append-only ledger that something edits is no longer a ledger, and every cap in 5.8 is
+        counted against it.
+
+        So the split is the one the spec draws: `reminders` ISSUES the offer and can say which one
+        applies; `operations` records that it was spent, on the visit, which is where the thing
+        actually happened. `used_refs` is what operations has already recorded, passed in — this
+        store never learns it by writing to itself.
 
         FOUR RULES, AND EACH ONE IS A REAL FAILURE WE WOULD OTHERWISE HAVE.
 
@@ -176,31 +191,22 @@ class SendLogStore(_Base):
         rows, _ = await self._find(tenant, {"subject_ref": subject_ref, "outcome": "sent"},
                                    limit=200, sort=("at", "desc"))
         rows = list(rows or [])
-
-        already = next((r for r in rows if r.get("offer_used_visit") == visit_id and visit_id), None)
-        if already is not None:
-            return already
-
         wanted = set(service_ids or [])
         applicable = [
             r for r in rows
             if r.get("offer_text")
             and int(r.get("offer_expires_at") or 0) > now
-            and not int(r.get("offer_used_at") or 0)
+            and str(r.get("id") or "") not in used_refs
             and (not (r.get("offer_services") or [])
                  or wanted & set(r.get("offer_services") or []))
         ]
         if not applicable:
             return None
 
-        row = sorted(applicable, key=lambda r: int(r.get("offer_expires_at") or 0))[0]
-        row["offer_used_at"] = now
-        row["offer_used_visit"] = visit_id
-        await self._put(tenant, f"{tenant}|{row['id']}", row)
-        return row
+        return sorted(applicable, key=lambda r: int(r.get("offer_expires_at") or 0))[0]
 
     async def active_offer(self, tenant: str, subject_ref: str, *,
-                           now: int) -> dict[str, Any] | None:
+                           used_refs: set[str], now: int) -> dict[str, Any] | None:
         """The offer this customer is holding right now, or nothing (§5.6.2).
 
         THE SOURCE IS THE MESSAGE THAT WENT OUT. Not a field an owner filled in a second time —
@@ -219,6 +225,8 @@ class SendLogStore(_Base):
             if not row.get("offer_text"):
                 continue
             if int(row.get("offer_expires_at") or 0) <= now:
+                continue
+            if str(row.get("id") or "") in used_refs:
                 continue
             return row
         return None

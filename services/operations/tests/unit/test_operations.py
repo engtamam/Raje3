@@ -266,3 +266,62 @@ def test_a_tenant_without_a_catch_all_gets_a_clean_refusal(ops):
         run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["unknown"],
                              idempotency_key="k3", allow_unknown_services=True))
     assert "أخرى" in str(exc.value)
+
+
+# ── the offer, spent on the visit (§5.6.2) ────────────────────────────────────────────────────
+def test_an_offer_is_recorded_on_the_visit_and_only_once(ops):
+    """«عرضٌ واحد لكل زيارة» — enforced HERE, because here is where the visit is.
+
+    The mark used to be written into the send log, and §5.6.2 says why that cannot be: the log is
+    append-only and every cap in 5.8 is counted against it. So reminders judges which offer
+    applies and this service records that it was applied.
+
+    A SECOND TAP RETURNS THE FIRST ANSWER and asks nobody anything. A double tap at a counter is
+    one intention, never two discounts on one invoice.
+    """
+    svc, store = ops
+    asked = []
+
+    async def chooser(*, tenant, subject_ref, service_ids):
+        asked.append(subject_ref)
+        return {"ref": "s1", "text": "غسلة مجانية"}
+
+    svc.with_offer_chooser(chooser)
+    v = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                             idempotency_key="key-1"))
+
+    first = run(svc.apply_offer(tenant=A, visit_id=v.visit.id, subject_ref="sub_a"))
+    again = run(svc.apply_offer(tenant=A, visit_id=v.visit.id, subject_ref="sub_a"))
+
+    assert first["ref"] == "s1" and first["text"] == "غسلة مجانية"
+    assert again == first
+    # AND THE SECOND TAP NEVER ASKED. Asking again could return a DIFFERENT offer and quietly spend
+    # a second one on the same invoice.
+    assert asked == ["sub_a"]
+
+    # It is on the visit, which is what both screens read.
+    stored = run(VisitStore(store).get(A, v.visit.id))
+    assert stored.offer_ref == "s1" and stored.offer_used_at > 0
+
+
+def test_the_offer_can_be_applied_by_the_key_the_screen_actually_holds(ops):
+    """«تسجيل زيارة» queues offline: it has its own idempotency key and never learns our id."""
+    svc, _ = ops
+    svc.with_offer_chooser(lambda **kw: _answer({"ref": "s9", "text": "خصم"}))
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                         idempotency_key="key-9"))
+
+    assert run(svc.apply_offer(tenant=A, visit_id="key-9", subject_ref="sub_a"))["ref"] == "s9"
+
+
+def test_no_chooser_refuses_rather_than_guesses(ops):
+    """A discount is money. A missing peer must never be the reason one is granted."""
+    svc, _ = ops
+    v = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"]))
+
+    with pytest.raises(OperationError):
+        run(svc.apply_offer(tenant=A, visit_id=v.visit.id, subject_ref="sub_a"))
+
+
+async def _answer(value):
+    return value

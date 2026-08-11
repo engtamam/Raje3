@@ -202,3 +202,42 @@ async def catalogue(request: Request, principal: Principal = Depends(_READ)) -> 
     return {"services": await _svc(request).catalogue(tenant),
             "sector": key,
             "fields": await sectors.fields_for(key) if key else []}
+
+class ApplyOfferIn(BaseModel):
+    subject_ref: str = Field(min_length=8, max_length=128)
+
+
+@router.post("/visits/{visit_id}/offer", dependencies=[Depends(rate_limit)])
+async def apply_offer(request: Request, visit_id: str, body: ApplyOfferIn,
+                      principal: Principal = Depends(_RECORD)) -> dict:
+    """Record that an offer was applied to this visit — the tap that proves it (§5.6.2).
+
+    IT LIVES HERE AND NOT IN reminders, and that is the whole correction. «ويُسجَّل على الزيارة،
+    لا على العرض»: the send log is append-only and every cap in 5.8 is counted against it, so the
+    used-mark cannot be written into it. The visit is also simply what happened at the counter.
+
+    A TAP, NEVER AN INFERENCE. Nothing spends an offer because a visit arrived — a customer who
+    came for something else and was quietly charged an offer he was saving is a customer we took
+    something from. The discount is money; a system that spends it with nobody deciding produces
+    an invoice the shop cannot explain.
+
+    ONE PER VISIT, ENFORCED HERE because here is where the visit is. A second tap returns the SAME
+    offer and spends nothing more — a double tap at a counter is one intention, and a screen that
+    punished it is a screen people stop trusting.
+
+    AND reminders CHOOSES WHICH ONE, because only it knows what was sent, with what scope and what
+    expiry. We record; it judges. Neither reads the other's tables.
+    """
+    ops: Operations = request.app.state.container.operations
+    try:
+        applied = await ops.apply_offer(tenant=principal.tenant, visit_id=visit_id,
+                                        subject_ref=body.subject_ref)
+    except OperationError as e:
+        # RETURNED, NEVER RAISED. The platform strips HTTPException detail on the way out, so a
+        # raise here reaches the owner as an empty 400 — the refusal he needs to read is the whole
+        # value of the answer.
+        return {"applied": False, "reason": str(e)}
+
+    if applied is None:
+        return {"applied": False, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
+    return {"applied": True, "offer": applied}

@@ -227,8 +227,16 @@ def build_container(settings: Settings) -> Container:
     from app.core.sectors import SectorCatalogue
     from app.core.templates import TemplateLibrary
 
-    container.operations = Operations(store=container.datastore, pii_salt=settings.PII_SALT,
-                                     max_backdate=settings.MAX_BACKDATE_SECONDS)
+    # WHO JUDGES WHICH OFFER A VISIT APPLIES is installed here, not imported inside the core: the
+    # core records the spend on the visit (§5.6.2) and asks somebody else which offer that is, so a
+    # test can answer without a socket and this service never learns reminders' route shape.
+    from app.adapters.offer_choice import http_chooser
+
+    container.operations = Operations(
+        store=container.datastore, pii_salt=settings.PII_SALT,
+        max_backdate=settings.MAX_BACKDATE_SECONDS,
+    ).with_offer_chooser(http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
+                                      token=settings.INTERNAL_SERVICE_TOKEN))
     container.search = build_search(settings)
     container.seams = Seams(search=container.search, events=container.event_bus,
                             telemetry=container.telemetry,
