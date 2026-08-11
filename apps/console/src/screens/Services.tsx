@@ -386,6 +386,31 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     }
   };
 
+  /**
+   * THE GENERAL SETTING — the value every service that has not been customised follows.
+   *
+   * IT COULD NOT BE SET FROM ANYWHERE. The screen offered per-service numbers and «العودة إلى
+   * العام», so «العام» was a value an owner could return to and never choose: the only way to
+   * change what his whole catalogue does was to open sixteen services and type the same number
+   * sixteen times. `reminders.set_general` existed, declared and served, and no screen called it.
+   *
+   * IT LEAVES CUSTOMISATIONS ALONE, and the route says so: an owner who spent a minute setting the
+   * oil change to 60 days has not asked us to undo that minute.
+   */
+  const setGeneral = async (patch: ServiceSetting) => {
+    const a = action(catalog, 'reminders.set_general');
+    if (!a) return;
+    setSaving(true); setError('');
+    try {
+      await call(session, a, { ...patch });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر حفظ الإعداد العام.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const setService = async (id: string, patch: ServiceSetting) => {
     const a = action(catalog, 'reminders.set_service_settings');
     if (!a) return;
@@ -500,6 +525,38 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         const shown = only === null ? bins : bins.filter(([g]) => g === only);
         return (
       <div className="flex flex-col gap-3">
+      {/* ── the general setting, which nothing could set ────────────────────────────────────
+          FIRST, because it is what most services actually use: a shop sets one cycle and one
+          follow-up, and customises the two or three that differ. Reading it here also tells him
+          what «العودة إلى العام» on a service card will give back. */}
+      {action(catalog, 'reminders.set_general') ? (
+        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">الإعداد العام</span>
+            <Hint>
+              يسري على كل خدمة لم تُخصَّص. وما خصّصته يبقى كما هو — تغيير هذا الرقم لا يلغي ما
+              ضبطته بنفسك على خدمة بعينها.
+            </Hint>
+          </div>
+          <Setting
+            label="دورة التذكير"
+            meaning="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة."
+            value={settings?.general?.interval_days}
+            preview={(n) => `تذكير بعد ${n} يوماً من كل زيارة`}
+            zero="لا تذكير — إلا لخدمة خصّصتها"
+            onSave={(n) => setGeneral({ interval_days: n })}
+          />
+          <Setting
+            label="الاطمئنان"
+            meaning="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها."
+            value={settings?.general?.follow_up_days}
+            preview={(n) => `سؤال بعد ${n} يوماً من الزيارة`}
+            zero="لا نسأل — إلا لخدمة خصّصتها"
+            onSave={(n) => setGeneral({ follow_up_days: n })}
+          />
+        </section>
+      ) : null}
+
       {/* SHOWN ONLY WHEN HE HAS STOPPED SOMETHING. A filter offering «الموقوفة» to a shop with
           none is a control that answers a question nobody asked, and it costs a line on a phone. */}
       {stoppedCount > 0 ? (
