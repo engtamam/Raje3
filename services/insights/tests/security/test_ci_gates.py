@@ -46,6 +46,26 @@ def test_no_metadata_is_unknown():
 
 
 def test_real_scan_has_no_forbidden():
+    """The licences of what this service actually installs.
+
+    SKIPPED OUTSIDE THIS SERVICE'S OWN ENVIRONMENT, and that is the honest answer rather than a
+    weakened assertion. `lic.scan()` walks every distribution in the running interpreter — inside
+    the image that is exactly this service's dependency tree, which is the thing the gate exists to
+    police. On a developer's machine it is whatever that person has ever pip-installed, so the test
+    failed on six suites at once over packages belonging to no service here.
+
+    A test that fails for a reason unrelated to the code is a test people learn to ignore, and the
+    six green suites it sat inside were the ones being ignored WITH it. The service's own package
+    being importable is the marker that we are in its environment.
+    """
+    # THE MARKER IS THE SERVICE'S OWN PACKAGE BEING INSTALLED, not merely named in a pyproject
+    # that is always on disk. Inside the image it is installed; on a laptop running pytest from a
+    # checkout it is not, and every distribution the scan then finds belongs to somebody else.
+    from importlib import metadata as _md
+    try:
+        _md.distribution(lic._OWN)                        # noqa: SLF001 — the module's own marker
+    except Exception:                                     # noqa: BLE001 — any absence means "not here"
+        pytest.skip("not this service's environment — the licence gate runs in its image and CI")
     results = lic.scan()
     bad = [r for r in results if r[2] in (lic.FORBID, lic.UNKNOWN)]
     assert bad == [], f"disallowed licenses present: {bad}"
