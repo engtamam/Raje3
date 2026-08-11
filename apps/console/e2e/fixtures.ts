@@ -211,6 +211,18 @@ export const test = base.extend<{ shop: Page }>({
     }
 
     await use(page);
+
+    // THE ROTATED TOKEN IS SAVED BACK, and this is what a ten-minute run costs without it.
+    //
+    // A refresh token ROTATES on use: the app exchanges it during a test, and the copy in
+    // SESSION_FILE — written when the session was first opened — is now the OLD one. Replaying an
+    // old refresh token is theft as far as identity is concerned, and it revokes the whole family.
+    // So a run passes for six minutes and then every file after it fails at once, each describing
+    // a different imaginary product bug: twenty-nine of them in one run, every single one green
+    // when the same file was run on its own.
+    //
+    // Saving after each test means the next one starts from the token this one ended with.
+    await context.storageState({ path: SESSION_FILE }).catch(() => undefined);
     await context.close();
   },
 });
