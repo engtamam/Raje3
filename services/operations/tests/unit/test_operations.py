@@ -325,3 +325,33 @@ def test_no_chooser_refuses_rather_than_guesses(ops):
 
 async def _answer(value):
     return value
+
+
+def test_a_customer_is_findable_by_every_plate_he_holds():
+    """IN A TYRE SHOP THE CUSTOMER IS THE CAR, and search knew nothing about cars.
+
+    Only `phone` and `name` were indexed, so an operator reading a plate off a bumper as it rolled
+    in found nothing at all — on the screen used a hundred times a day, in the sector this product
+    was built for first.
+
+    AND BOTH CARS, NOT THE ONE IN FRONT OF US. «ممكن عندي سيارتين برقمي»: indexing only this
+    visit's plate leaves the other car unfindable until the day it happens to come in.
+    """
+    class Spy:
+        def __init__(self):
+            self.docs = []
+
+        async def index(self, **kw):
+            self.docs.append(kw)
+
+    store = MemoryDataStore()
+    svc = Operations(store=store, pii_salt=SALT)
+    spy = Spy()
+    seams = __import__("app.core.seams", fromlist=["Seams"]).Seams(search=spy)
+
+    run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["s"], plate="ABC 1234"))
+    r = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["s"], plate="XYZ 7788"))
+    run(seams.after_visit(r))
+
+    indexed = spy.docs[-1]["fields"]["plate"]
+    assert "ABC 1234" in indexed and "XYZ 7788" in indexed

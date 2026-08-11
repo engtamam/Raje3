@@ -51,6 +51,11 @@ class RecordedVisit:
     # swallowed: an integration sending a service that does not exist is a bug worth seeing, even
     # though the visit was rightly kept.
     unknown_services: list[str] = field(default_factory=list)
+    # EVERY PLATE THIS CUSTOMER HAS, so the index can be written from one place. A vehicle shop
+    # finds people by plate and never by phone — the car arrives, the operator reads the plate off
+    # it, and the man behind the wheel may not be the man whose number we hold. Carried on the
+    # result rather than looked up again in `Seams`, which owns no stores by design.
+    plates: list[str] = field(default_factory=list)
 
 
 def _now() -> int:
@@ -225,7 +230,14 @@ class Operations:
         await self._visits.save(visit)
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
-                             unknown_services=unknown)
+                             unknown_services=unknown,
+                             # ALL OF THEM, not just this visit's. One number can hold two cars —
+                             # «ممكن عندي سيارتين برقمي» — and an index written with only the plate
+                             # in front of us would make the other car unfindable until the day it
+                             # happens to come in.
+                             plates=[a.plate for a
+                                     in await self._assets.for_customer(tenant, customer.id)
+                                     if a.plate])
 
     async def _resolve_asset(self, tenant: str, customer_id: str, plate: str) -> str:
         """Find this customer's vehicle by plate, or create it.

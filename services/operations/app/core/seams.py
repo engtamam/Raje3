@@ -60,6 +60,14 @@ class Seams:
                     # forms, which is why a customer saved as "محمّد" is found by someone typing
                     # "محمد" — proven, and the reason this is a search service and not a LIKE.
                     "name": c.name,
+                    # HIS PLATES, AND THIS WAS MISSING ENTIRELY. Only phone and name were indexed,
+                    # so in a tyre shop — where the customer IS the car and the operator reads the
+                    # plate off the bumper as it rolls in — search found nothing at all, ever. The
+                    # one screen used a hundred times a day could not find its own customers.
+                    #
+                    # SPACE-JOINED so both cars are reachable: the analyzer tokenises, so «ABC» and
+                    # «7412» each match, and a customer with two cars is found by either.
+                    "plate": " ".join(getattr(result, "plates", []) or []),
                 })
         except Exception as exc:                                            # noqa: BLE001
             self._note("search_index_failed", error=str(exc)[:200], customer=c.id)
