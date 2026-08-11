@@ -162,7 +162,8 @@ class Http:
 
 class SignupService:
     def __init__(self, *, store, sectors, http: Http, identity_url: str, tenants_url: str,
-                 authz_url: str = "", loyalty_url: str = "",
+                 authz_url: str = "", loyalty_url: str = "", compliance_url: str = "",
+                 data_map: list[str] | None = None,
                  roles: list[dict[str, Any]] | None = None,
                  partners=None,
                  owner_role: str = "owner",
@@ -177,6 +178,11 @@ class SignupService:
         # Optional on purpose: a deployment without loyalty seeds a catalogue and no rewards, which
         # is a shop missing a table rather than a signup that fails.
         self._loyalty = loyalty_url.rstrip("/")
+        # WHERE THIS SHOP'S DATA WILL LIVE, declared as configuration rather than written here.
+        # Every entry is "service:category", and the set is a property of what we have deployed —
+        # a service added next month must not need a release of this file.
+        self._compliance = compliance_url.rstrip("/")
+        self._data_map = list(data_map or [])
         self._roles = list(roles or [])
         self._partners = partners
         self._claims = CL.Claims(store)
@@ -286,6 +292,23 @@ class SignupService:
         # rewards works and is repairable from «نقاطي»; deleting an account over it is not.
         await self._seed_rewards(tenant, sector_key=shop.sector)
 
+        # HIS DATA MAP, AND PDPL IS THE REASON IT IS HERE AND NOT LATER.
+        #
+        # `DsarService.dispatch` refuses with NO_DATA_TARGETS_REGISTERED on an empty map, so until
+        # this runs NO export and NO erasure can complete for this shop — his customers hold a
+        # right we could not exercise. The refusal is honest rather than a false "done", which is
+        # why the gap was survivable; it was never acceptable.
+        #
+        # AT SIGNUP, because this is the last trusted moment: the user-tier route needs
+        # `compliance.manage`, a capability a shop owner must never hold — it also grants DELETE,
+        # which NARROWS the erasure fan-out. The internal tier arrived in base-services v0.16.4
+        # after we escalated exactly this.
+        #
+        # NOT UNDONE ON FAILURE, and reported instead. A shop whose map is incomplete works and is
+        # repairable from our panel; deleting a working account over one unreachable peer is the
+        # worse trade — the same call the catalogue and the rewards table make above.
+        map_error = await self._register_data_map(tenant)
+
         # THE STAMP, AND A BAD KEY DOES NOT COST HIM HIS SHOP. Attribution is our commercial
         # bookkeeping; failing a signup over a mistyped partner key would punish the owner for a
         # mistake made by his till company. Reported in the response instead, where an operator
@@ -298,7 +321,32 @@ class SignupService:
                 stamp_error = str(exc)[:200]
 
         return {"tenant": tenant, "phone": phone, "services": seeded,
-                "stamp_error": stamp_error}
+                "stamp_error": stamp_error, "data_map_error": map_error}
+
+    async def _register_data_map(self, tenant: str) -> str:
+        """Tell compliance which services hold this tenant's data. Never raises.
+
+        IDEMPOTENT BY THE STORE'S OWN RULE, so a retried signup is harmless. Each target is sent
+        separately: one unknown name must not cost the other twenty-two, and the reply names which
+        one it was — a service in our list that compliance cannot reach is a deployment drifting
+        from its configuration, which is worth seeing rather than swallowing.
+        """
+        if not self._compliance or not self._data_map:
+            return ""
+        failed: list[str] = []
+        for entry in self._data_map:
+            service, _, category = entry.partition(":")
+            if not service or not category:
+                failed.append(entry)
+                continue
+            status, _body = self._http.call(
+                f"{self._compliance}/internal/compliance/data-targets", method="POST",
+                internal=True,
+                body={"tenant": tenant, "service": service.strip(),
+                      "category": category.strip()})
+            if status >= 300:
+                failed.append(f"{entry}={status}")
+        return ", ".join(failed)[:400]
 
     async def _seed_rewards(self, tenant: str, *, sector_key: str) -> int:
         """Hand loyalty this shop's starting rewards. Never raises; returns how many were created.

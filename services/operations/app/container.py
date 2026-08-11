@@ -281,6 +281,8 @@ def build_container(settings: Settings) -> Container:
         default_cc=settings.SIGNUP_PHONE_DEFAULT_CC,
         authz_url=settings.AUTHZ_SERVICE_URL,
         loyalty_url=settings.LOYALTY_SERVICE_URL,
+        compliance_url=settings.COMPLIANCE_SERVICE_URL,
+        data_map=[e for e in (settings.TENANT_DATA_MAP or "").split(",") if e.strip()],
         roles=_roles,
         # ATTRIBUTION AT CREATION, before the first invoice — and stamped once, so a till company
         # that replaces another's software six months later cannot inherit its commission.

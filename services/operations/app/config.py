@@ -208,6 +208,11 @@ class Settings(BaseSettings):
     # reminders knows what was sent, with what scope and expiry. Empty = the tap refuses rather
     # than guesses, which is the safe direction for money.
     REMINDERS_SERVICE_URL: str = ""          # e.g. http://reminders:8000
+    COMPLIANCE_SERVICE_URL: str = ""         # e.g. http://compliance-service:8000
+    # WHERE A SHOP'S DATA LIVES, as "service:category" pairs, registered at signup so a DSAR has
+    # somewhere to go. Config and not code: a service deployed next month must not need a release
+    # of the signup saga, and a deployment that omits one can be seen in one place.
+    TENANT_DATA_MAP: str = ""
     IDENTITY_SERVICE_URL: str = ""           # e.g. http://identity-service:8000
     TENANT_SERVICE_URL: str = ""             # e.g. http://tenant-service:8000
     SIGNUP_TIMEOUT_SECONDS: int = 10

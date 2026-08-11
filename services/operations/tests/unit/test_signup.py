@@ -196,3 +196,36 @@ async def test_no_role_definitions_refuses_rather_than_creating_a_dead_account()
             NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
 
     assert ("DELETE", "http://tenants:8000/internal/tenants/t-1") in http.calls
+
+
+def test_a_new_shop_gets_a_data_map_so_a_dsar_has_somewhere_to_go():
+    """PDPL Article 18, and the reason it is at SIGNUP.
+
+    `DsarService.dispatch` refuses on an empty map, so until this runs no export and no erasure can
+    complete for a real shop. And it cannot be done later by the owner: the user-tier route needs
+    `compliance.manage`, which also grants DELETE — narrowing the erasure fan-out is a worse
+    posture than the honest refusal, so an owner must never hold it.
+
+    ONE CALL PER TARGET, so one unknown name cannot cost the other sixteen.
+    """
+    import asyncio
+
+    calls: list[dict] = []
+
+    class Http:
+        def call(self, url, method="GET", body=None, internal=False, **kw):
+            calls.append({"url": url, "body": body})
+            return 201, {}
+
+    svc = SignupService.__new__(SignupService)
+    svc._compliance = "http://compliance:8000"
+    svc._data_map = ["operations:visits", "loyalty:points", "broken"]
+    svc._http = Http()
+
+    failed = asyncio.run(svc._register_data_map("tnt_x"))
+
+    assert len(calls) == 2, "a malformed entry must not become a request"
+    assert calls[0]["body"] == {"tenant": "tnt_x", "service": "operations", "category": "visits"}
+    # AND THE BAD ONE IS REPORTED, not swallowed: a list that drifts from what is deployed is
+    # exactly the thing that leaves a shop half-covered while everything looks fine.
+    assert "broken" in failed

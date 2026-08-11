@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: 127.0.0.1:5055/raje3/operations
-  digest: "sha256:3f65c184e2e4da1031d1c12eddb9ef8f9db8c0aa0c0da2a66a3ec187e98df931"
+  digest: "sha256:e9a78d37c2bbf0cc5eda46caba5589e07667e10e026346415c0f2a839cf938f9"
 
 replicas: 1
 
@@ -120,6 +120,21 @@ env:
   # WHICH OFFER A VISIT APPLIES is reminders' judgement; recording that it was applied is ours
   # (§5.6.2). Without this the tap refuses instead of guessing — the safe direction for a discount.
   REMINDERS_SERVICE_URL: "http://reminders:8000"
+  COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
+
+  # ── TENANT_DATA_MAP — where a shop's data lives, registered the moment it is created ─────────
+  # PDPL Article 18 is the reason this list exists. `DsarService.dispatch` refuses with
+  # NO_DATA_TARGETS_REGISTERED on an empty map, so until signup registers these NO export and NO
+  # erasure can complete for a real shop — the customer holds a right we cannot exercise. The
+  # refusal is honest rather than a false "completed", which is why the gap was survivable; it was
+  # never acceptable.
+  #
+  # EVERY SERVICE HOLDING PERSONAL DATA IS HERE, and each names the CATEGORY it holds so an export
+  # can say what came from where. A service present in PRIVACY_TARGETS but missing from this list
+  # is reachable by the dispatcher and invisible to the map — the erase never runs, and the DSAR
+  # still reports complete. That is the precise failure mode this list is written against.
+  TENANT_DATA_MAP: "operations:visits,operations:customers,reminders:messages,loyalty:points,campaigns:campaigns,insights:analytics,portal:pages,identity-service:accounts,tenant-service:tenant,authz-service:roles,audit-service:audit,notification-service:notifications,search-service:search,billing-service:billing,onboarding-service:onboarding,file-service:files,ticket-service:tickets"
+
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   TENANT_SERVICE_URL: "http://tenant-service:8000"
   SIGNUP_TIMEOUT_SECONDS: "10"
