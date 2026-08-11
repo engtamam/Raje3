@@ -14,6 +14,7 @@ import {
 } from '../api';
 import { Keypad } from '../Keypad';
 import { ServiceGrid } from '../ServiceGrid';
+import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
 import { isSignedIn, useSession } from '../session';
 
@@ -127,8 +128,29 @@ export function Visit() {
   const [applying, setApplying] = useState(false);
   const [redeemed, setRedeemed] = useState<string | null>(null);
 
+  /**
+   * WHAT WE KNOW ABOUT HIS ENTITLEMENTS, and «we have not asked yet» is not «he has none».
+   *
+   * The offers step is REMOVED from the journey when there is nothing in it — an empty page with
+   * a progress dot that never lights is worse than no page. But four states have to stay apart or
+   * the step flickers into and out of existence under a moving thumb:
+   *
+   *   idle    — no customer identified yet. No step, and nothing to say about it.
+   *   asking  — the answer is in flight. The step STAYS, because removing it now and restoring it
+   *             half a second later moves the ground under him mid-swipe.
+   *   known   — we asked and were answered. Present only if there is something to spend.
+   *   failed  — we asked and could not hear. NEVER reported as "no offers": silence is not
+   *             absence, and telling a customer he holds nothing when he holds something is the
+   *             one wrong answer he will argue about at the counter.
+   */
+  const [perks, setPerks] = useState<'idle' | 'asking' | 'known' | 'failed'>('idle');
+
   useEffect(() => {
-    if (phone.length < 9) { setOffer(null); setBalance(null); setSubject(''); setRedeemed(null); return; }
+    if (phone.length < 9) {
+      setOffer(null); setBalance(null); setSubject(''); setRedeemed(null); setPerks('idle');
+      return;
+    }
+    setPerks('asking');
     let stale = false;
     const id = window.setTimeout(() => {
       customerByPhone(session, phone)
@@ -136,15 +158,20 @@ export function Visit() {
           const ref = r.customer?.subject_ref ?? '';
           if (stale) return;
           setSubject(ref);
-          if (!ref) { setOffer(null); setBalance(null); return; }
+          // A NUMBER WE HAVE NEVER SEEN. He is new — not empty-handed, and the two are different
+          // sentences on the next page.
+          if (!ref) { setOffer(null); setBalance(null); setPerks('known'); return; }
           // SETTLED, NOT ALL: one failing must not blank the other. A shop without the loyalty
           // feature has no balance to read, and that is not a reason to hide his offer.
           const [o, b] = await Promise.allSettled([offerFor(session, ref), balanceFor(session, ref)]);
           if (stale) return;
           setOffer(o.status === 'fulfilled' ? o.value : null);
           setBalance(b.status === 'fulfilled' ? b.value : null);
+          // BOTH FAILING is the only case we cannot see through. One failing is ordinary — a shop
+          // without the loyalty feature has no balance, and that says nothing about his offer.
+          setPerks(o.status === 'rejected' && b.status === 'rejected' ? 'failed' : 'known');
         })
-        .catch(() => { if (!stale) { setOffer(null); setBalance(null); } });
+        .catch(() => { if (!stale) { setOffer(null); setBalance(null); setPerks('failed'); } });
     }, 220);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phone, session]);
@@ -230,7 +257,11 @@ export function Visit() {
   // operator swipes between rather than three regions he scrolls past. Extracting them first,
   // with no change in what they render, keeps that move reviewable: this commit is a rename.
   const identityPane = (
-            <div className="flex flex-col gap-2">
+            /* THE PANE IS THE SCREEN, so it is a column that fills it: display, then the matches
+               in a space of their own, then the keypad taking what is left. The matches used to
+               live on the LAST page — the operator typed a number here and the customer he was
+               looking for appeared two swipes away. */
+            <div className="flex h-full flex-col gap-2">
               <div
                 dir="ltr"
                 className="h-14 rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums leading-[3.5rem] shadow-sm"
@@ -241,7 +272,36 @@ export function Visit() {
                   was a second, larger way to type ten digits — and it pushed everything that
                   matters below the fold. `.touch-only` is a pointer test, not a width test: see
                   index.css for why the width variant could not even compile here. */}
-              <div className="touch-only">
+              {/* THE MATCHES, WHERE HE IS TYPING — and in a fixed slot. A list that grows pushes
+                the keypad down under his thumb between one digit and the next, so the key he
+                aims at is not the key he hits. The height is reserved whether or not anyone
+                matches; an empty two-line gap costs nothing and a moving keypad costs a wrong
+                number saved against the wrong customer. */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and
+                  sees nothing concludes the customer is new — and registers him a second time. */}
+              {matches.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {matches.slice(0, 4).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setPhone(c.phone); setName(c.name ?? ''); }}
+                      className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2 text-start shadow-sm active:scale-95"
+                    >
+                      <span dir="ltr" className="tabular-nums">{c.phone}</span>
+                      <span className="text-text-secondary">{c.name || '—'}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* PRESENT FROM THE FIRST VISIT, REQUIRED AT NONE (spec 4.3). No asterisk and no
+                  validation: he cannot ask a stranger his name while taking his key, but after five
+                  visits he knows it and writes it in a quiet moment. */}
+            </div>
+
+            <div className="touch-only">
                 <Keypad value={phone} onChange={setPhone} />
               </div>
             </div>
@@ -329,45 +389,71 @@ export function Visit() {
     </>
   );
 
+  // ── the plate, alone, and first ───────────────────────────────────────────────────────────
+  // In بنشر, مغسلة and تنجيد the customer IS the car: it rolls in, the operator reads the plate
+  // off the bumper, and everything else — including whose phone this is — comes after. It used to
+  // sit third in a column of optional fields, below the number of a person who may not be the
+  // person driving.
+  const platePane = (
+    <div className="flex h-full flex-col justify-center gap-3">
+      <input
+        value={plate}
+        onChange={(e) => setPlate(e.target.value)}
+        placeholder="رقم اللوحة"
+        autoFocus
+        className="h-16 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold shadow-sm placeholder:text-lg placeholder:font-normal placeholder:text-text-secondary"
+      />
+      <p className="text-center text-sm text-text-secondary">
+        اكتب حرفين أو رقمين وتظهر لك السيارة إن كانت عندنا.
+      </p>
+    </div>
+  );
+
+  /** Is there anything on the entitlements page worth turning to? */
+  const hasPerks = Boolean(offer?.text) || Boolean(balance?.rewards?.length);
+
   const detailsPane = (
     <>
-            <div className="flex flex-col gap-2">
-              {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and
-                  sees nothing concludes the customer is new — and registers him a second time. */}
-              {matches.length > 0 ? (
-                <div className="flex flex-col gap-1">
-                  {matches.slice(0, 4).map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => { setPhone(c.phone); setName(c.name ?? ''); }}
-                      className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2 text-start shadow-sm active:scale-95"
-                    >
-                      <span dir="ltr" className="tabular-nums">{c.phone}</span>
-                      <span className="text-text-secondary">{c.name || '—'}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+      {/* WHAT HE TOOK — the last page, and the one he spends the most time on. */}
+      {/* AND ONE TAP TO UNDO ALL OF IT. A customer changes his mind and walks out with the car
+          half-quoted; without this the operator un-taps six tiles one by one while the next car
+          waits. It only appears when there is something to clear — a button that does nothing is
+          a button he has to think about every time he passes it. */}
+      {chosen.length > 0 ? (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-sm text-text-secondary tabular-nums">
+            المختار: {chosen.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setChosen([])}
+            className="min-h-[44px] rounded-xl bg-surface-2 px-4 text-sm font-semibold"
+          >
+            مسح المختارة
+          </button>
+        </div>
+      ) : null}
+      <ServiceGrid services={services} selected={chosen} onToggle={toggle} />
 
-              {/* PRESENT FROM THE FIRST VISIT, REQUIRED AT NONE (spec 4.3). No asterisk and no
-                  validation: he cannot ask a stranger his name while taking his key, but after five
-                  visits he knows it and writes it in a quiet moment. */}
+      {/* WHY HE NEVER SAW AN OFFERS PAGE. Skipping a step silently makes an operator wonder what
+          he missed — and «لا عروض» is the wrong answer for a customer we have never met, and a
+          lie when we simply could not ask. Three facts, three sentences. */}
+      {!hasPerks && phone.length >= 9 ? (
+        <p className="mb-2 rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+          {perks === 'failed'
+            ? 'تعذّر التحقق من عروضه ونقاطه الآن — سجّل الزيارة، ولا شيء يضيع.'
+            : subject
+              ? 'لا عروض ولا نقاط مستحقّة لهذا العميل.'
+              : 'عميل جديد — أول زيارة له عندك.'}
+        </p>
+      ) : null}
+            <div className="flex flex-col gap-2">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="الاسم (اختياري)"
                 className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
               />
-
-              {showPlate ? (
-                <input
-                  value={plate}
-                  onChange={(e) => setPlate(e.target.value)}
-                  placeholder="رقم اللوحة"
-                  className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
-                />
-              ) : null}
 
               {showMeter ? (
                 <input
@@ -384,49 +470,44 @@ export function Visit() {
   );
 
   return (
-    <main className="min-h-dvh bg-surface-0 p-3 text-text-primary">
-      <div className="mx-auto flex max-w-4xl flex-col gap-3 pb-24">
-        {/* TODAY'S CUSTOMERS, ONE TAP (spec 4.3). The same car comes back an hour later because a
-            second thing was found wrong with it, and making the operator retype ten digits for a
-            customer he served this morning is the friction this whole screen exists to remove. */}
-        {recent.length > 0 ? (
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {recent.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => { setPhone(c.phone); setName(c.name ?? ''); }}
-                className="shrink-0 rounded-xl bg-surface-1 px-3 py-2 text-sm shadow-sm active:scale-95"
-              >
-                <span dir="ltr" className="tabular-nums">{c.phone.slice(-4)}</span>
-                {c.name ? <span className="ms-2 text-text-secondary">{c.name}</span> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
+    // NO PADDING AND NO BOTTOM GAP. The journey measures the room it has and fills it exactly;
+    // anything this wrapper adds is height the panes cannot see and the arrows pay for.
+    <main className="bg-surface-0 text-text-primary">
+      <div className="mx-auto max-w-4xl">
+        {/* NO "TODAY'S CUSTOMERS" STRIP HERE, AND IT WAS THE FIRST THING ON THE SCREEN.
+            The premise was that the same car returns an hour later. It does not: the customer
+            drives away and comes back in weeks. So the strip spent its height — the height the
+            journey needs — on a shortcut nobody reaches for, on the screen that can least afford
+            it. Recent customers live in «عملائي», where looking someone up is the point. */}
 
-        <section className="grid gap-3 sm:grid-cols-2">
-          {identityPane}
-          {perksPane}
-          {detailsPane}
-        </section>
+        {/* ── THE JOURNEY ───────────────────────────────────────────────────────────────────
+            One question per screen, moved by a thumb. In a vehicle sector the plate comes first
+            and alone: the car rolls in and that is what is read off it. Everywhere else the
+            person IS the phone number, so that is the first screen instead.
 
-        {/* WHAT HE TOOK, AFTER WHO HE IS. The grid used to open the screen, and sixteen tiles at
-            96px filled a phone entirely — the operator could not see the customer field without
-            scrolling past everything the shop sells. At the counter the phone comes first: you
-            take the number, then you say what was done. The screen now runs in that order. */}
-        <ServiceGrid services={services} selected={chosen} onToggle={toggle} />
-      </div>
-
-      {/* THE SAVE BAR IS FIXED TO THE BOTTOM. It is the only button that must be reachable without
-          looking, and a button that scrolls is a button that is somewhere else each time. */}
-      {/* STICKY INSIDE THE CONTENT, NOT FIXED TO THE VIEWPORT.
-          `fixed inset-x-0` spans the whole window, so on a desktop the bar ran underneath the
-          sidebar — the shell's own column, which it has no business covering. Sticky keeps it
-          pinned to the bottom of the scrolling area it belongs to, and it can never reach past
-          the column it lives in, at any width and with the sidebar collapsed or open. */}
-      <div className="sticky bottom-0 -mx-4 border-t border-border bg-surface-0/95 p-3 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center gap-3">
+            THE ENTITLEMENTS STEP IS ABSENT WHEN THERE IS NOTHING IN IT, and the step after says
+            which kind of nothing it was — a new customer is not a customer with no offers, and
+            neither is a lookup we could not complete. */}
+        <Steps
+          steps={[
+            ...(showPlate
+              ? [{ id: 'plate', title: 'رقم اللوحة', body: platePane }]
+              : []),
+            { id: 'who', title: showPlate ? 'رقم جوال صاحب السيارة' : 'رقم جوال العميل',
+              body: identityPane },
+            { id: 'perks', title: 'عروضه ونقاطه',
+              // ASKING KEEPS THE STEP. Removing it the instant a request goes out and restoring it
+              // when the answer lands moves the ground under a thumb already in motion.
+              when: perks === 'asking' || hasPerks,
+              body: perksPane },
+            { id: 'what', title: 'الخدمات', body: detailsPane },
+          ]}
+          // THE SAVE BAR LIVES INSIDE THE JOURNEY, and it used to sit after it. That is what pushed
+          // the arrows below the fold: the pane sized itself to the window while a second bar was
+          // still stacked underneath, so the one control the whole screen exists for was reachable
+          // only by scrolling — on a screen built expressly not to scroll.
+          done={(
+    <div className="flex items-center gap-3">
           {pending.length > 0 ? (
             <span className="shrink-0 text-sm text-text-secondary tabular-nums">
               بانتظار الإرسال: {pending.length}
@@ -447,12 +528,23 @@ export function Visit() {
             type="button"
             onClick={save}
             disabled={!ready}
-            className="h-16 flex-1 rounded-2xl bg-accent text-xl font-bold text-white shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40"
+            className="h-11 flex-1 rounded-xl bg-accent text-base font-bold text-white transition-transform active:scale-[0.98] disabled:opacity-40"
           >
             حفظ وإرسال
           </button>
-        </div>
+    </div>
+          )}
+        />
+
       </div>
+
+      {/* THE SAVE BAR IS FIXED TO THE BOTTOM. It is the only button that must be reachable without
+          looking, and a button that scrolls is a button that is somewhere else each time. */}
+      {/* STICKY INSIDE THE CONTENT, NOT FIXED TO THE VIEWPORT.
+          `fixed inset-x-0` spans the whole window, so on a desktop the bar ran underneath the
+          sidebar — the shell's own column, which it has no business covering. Sticky keeps it
+          pinned to the bottom of the scrolling area it belongs to, and it can never reach past
+          the column it lives in, at any width and with the sidebar collapsed or open. */}
     </main>
   );
 }

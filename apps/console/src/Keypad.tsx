@@ -40,6 +40,13 @@ export function Keypad({ value, onChange, maxLength = 15, disabled = false }: Ke
   }, [disabled, onChange, value]);
 
   return (
+    /* KEYS THAT SHRINK WITH THE VIEWPORT, NOT ROWS THAT SHARE IT.
+       I tried `h-full` + `grid-rows-4` so four rows would divide whatever height was left. It
+       collapsed: `.touch-only` sets `display: block`, which kills the flex column above it, so the
+       rows resolved to zero and the digits stacked on top of each other. A percentage height needs
+       a definite parent, and that chain had a block in the middle of it.
+       So the keys are sized directly instead — smaller on a short screen, h-16 from `sm` up. It is
+       plain, it cannot collapse, and a greasy finger still gets a 56px target at the worst. */
     <div className="grid grid-cols-3 gap-2" role="group" aria-label="لوحة الأرقام">
       {KEYS.map((d) => (
         <Key key={d} label={d} onPress={() => press(d)} disabled={disabled} />
@@ -66,7 +73,7 @@ function Key({ label, onPress, disabled, muted }: {
       // mouse pointer; a key smaller than a thumb is a mistyped number, and a mistyped number is a
       // reminder sent to a stranger.
       className={[
-        'h-16 rounded-xl text-2xl font-semibold tabular-nums transition-transform',
+        'h-14 rounded-xl text-2xl font-semibold tabular-nums transition-transform sm:h-16',
         'active:scale-95 disabled:opacity-40',
         muted
           ? 'bg-surface-2 text-text-secondary'

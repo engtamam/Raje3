@@ -11,6 +11,15 @@
  * this to physical direction rather than to `dir` is the classic way a right-to-left app ends up
  * feeling backwards to everyone who uses it.
  *
+ * NOTHING IS GATED, AND THAT IS DELIBERATE. A step never blocks the next one: the operator can
+ * take the services first and ask for the number afterwards, which is exactly how it goes when
+ * the car is already on the lift and the owner has wandered off. A journey that insists on its
+ * own order is a journey that argues with a workshop, and the workshop wins.
+ *
+ * ARROWS AS WELL AS SWIPES. Touch can be off, gloved, or on a screen with a broken digitiser, and
+ * a journey reachable only by swiping is a journey some shops simply cannot use. The dots are
+ * buttons too, so any step is one tap from any other.
+ *
  * A SKIPPED STEP IS NOT A HIDDEN STEP. Steps carry `when`, and a step whose condition is false is
  * absent from the sequence entirely — no empty page, no dot in the progress row that never lights.
  * What the operator would have seen there is the caller's job to say on the following step; see
@@ -24,19 +33,61 @@ export interface Step {
   title: string;
   /** False = this step does not exist for this visit. Not "rendered empty". */
   when?: boolean;
-  /** False blocks «التالي» and says why, so a dead button never has to be guessed at. */
-  ready?: boolean;
-  readyHint?: string;
+  /** A hint under the arrows — never a block. See the note on free movement below. */
+  hint?: string;
   body: ReactNode;
 }
 
 /** How far a drag must travel to count as a swipe rather than a tap that wandered. */
 const THRESHOLD = 60;
 
+/**
+ * The height left between the top of this element and the bottom of the window — MEASURED.
+ *
+ * The first version subtracted a guessed 3.5rem for the shell's header. It was wrong on the very
+ * first phone it met: the real chrome differs by shell, by whether a banner is showing, and by
+ * every browser's own toolbars — so the journey ran taller than the screen and the arrows sat
+ * below the fold, reachable only by scrolling. The one thing this component exists to avoid.
+ *
+ * Asking the DOM removes the guess entirely, and it re-asks on resize and on rotation, which is a
+ * tablet being picked up off a bench.
+ */
+function useFittedHeight() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [h, setH] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fit = () => {
+      const el = ref.current;
+      if (!el) return;
+      setH(Math.max(320, Math.floor(window.innerHeight - el.getBoundingClientRect().top)));
+    };
+    fit();
+    // MEASURED AGAIN AFTER THE LAYOUT SETTLES, not once on mount. Fonts load, an offer line
+    // appears, a hint wraps to two lines — each moves our top edge, and a height computed before
+    // any of that is a height that was true for one frame. Observing the document catches all of
+    // them without knowing which one happened.
+    const ro = new ResizeObserver(fit);
+    ro.observe(document.documentElement);
+    window.addEventListener('resize', fit);
+    // The visual viewport is the one that shrinks when a keyboard opens — the moment this screen
+    // most needs to refit, and the one `resize` does not always report on mobile.
+    window.visualViewport?.addEventListener('resize', fit);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('resize', fit);
+    };
+  }, []);
+
+  return { ref, h };
+}
+
 export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
   const live = steps.filter((s) => s.when !== false);
   const [at, setAt] = useState(0);
   const start = useRef<number | null>(null);
+  const { ref, h } = useFittedHeight();
 
   // A STEP CAN DISAPPEAR UNDER HIM. Type a plate, the offers step appears; clear it and it is gone
   // — and if he was standing on it, the index now points past the end and the screen goes blank.
@@ -48,16 +99,14 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
   if (!step) return null;
 
   const last = at >= live.length - 1;
-  const blocked = step.ready === false;
-
-  const go = (delta: number) => {
-    if (delta > 0 && (blocked || last)) return;
+  const go = (delta: number) =>
     setAt((i) => Math.min(live.length - 1, Math.max(0, i + delta)));
-  };
 
   return (
     <div
-      className="flex h-[calc(100dvh-var(--shell-top,3.5rem))] flex-col overflow-hidden"
+      ref={ref}
+      style={{ height: h ?? undefined }}
+      className="flex flex-col overflow-hidden"
       onTouchStart={(e) => { start.current = e.touches[0]?.clientX ?? null; }}
       onTouchEnd={(e) => {
         const from = start.current;
@@ -73,12 +122,19 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           enough that "am I nearly done?" is a real question with a customer standing there. */}
       <div className="flex items-center justify-center gap-1.5 py-2">
         {live.map((s, i) => (
-          <span
+          <button
             key={s.id}
-            className={`h-1.5 rounded-full transition-all ${
-              i === at ? 'w-6 bg-accent' : 'w-1.5 bg-border-subtle'
-            }`}
-          />
+            type="button"
+            aria-label={s.title}
+            onClick={() => setAt(i)}
+            className="grid h-11 w-6 place-items-center"
+          >
+            <span
+              className={`h-1.5 rounded-full transition-all ${
+                i === at ? 'w-6 bg-accent' : 'w-1.5 bg-border-subtle'
+              }`}
+            />
+          </button>
         ))}
       </div>
 
@@ -88,29 +144,40 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           flex column — without it the pane grows to its content and the footer is pushed off. */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">{step.body}</div>
 
-      <div className="flex items-center gap-2 border-t border-border-subtle bg-surface-0 p-3">
-        {at > 0 ? (
-          <button
-            type="button"
-            onClick={() => go(-1)}
-            className="min-h-[44px] rounded-xl px-4 text-sm text-text-secondary"
-          >
-            رجوع
-          </button>
-        ) : null}
+      {step.hint ? (
+        <p className="px-4 pb-1 text-center text-xs text-text-secondary">{step.hint}</p>
+      ) : null}
 
-        {last ? (
-          <div className="flex-1">{done}</div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => go(1)}
-            disabled={blocked}
-            className="min-h-[44px] flex-1 rounded-xl bg-accent text-base font-semibold text-white disabled:opacity-40"
-          >
-            {blocked && step.readyHint ? step.readyHint : 'التالي'}
-          </button>
-        )}
+      {/* ARROWS POINT THE WAY THE PAGE READS. In Arabic «السابق» is on the right and «التالي» on
+          the left, so the flex order alone puts each where it belongs.
+          
+          THE GLYPHS ARE TRIANGLES, NOT CHEVRONS. `‹` and `›` are quotation marks, and the bidi
+          algorithm MIRRORS them in a right-to-left run — so the arrow rendered pointing the
+          opposite way to the one written in the source, and «السابق» wore the forward arrow. Seen
+          in a screenshot, not in a review. `◂` and `▸` are geometric shapes and are not mirrored,
+          so what is written is what is drawn. */}
+      <div className="flex items-center gap-2 border-t border-border-subtle bg-surface-0 p-3">
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          disabled={at === 0}
+          aria-label="السابق"
+          className="grid size-11 place-items-center rounded-xl bg-surface-2 text-lg disabled:opacity-30"
+        >
+          ▸
+        </button>
+
+        <div className="min-w-0 flex-1">{last ? done : null}</div>
+
+        <button
+          type="button"
+          onClick={() => go(1)}
+          disabled={last}
+          aria-label="التالي"
+          className="grid size-11 place-items-center rounded-xl bg-accent text-lg text-white disabled:opacity-30"
+        >
+          ◂
+        </button>
       </div>
     </div>
   );
