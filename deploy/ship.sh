@@ -72,10 +72,14 @@ NS="${NS:-base-services}"
 SSH=(ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=30
      -o ConnectTimeout=20 -o TCPKeepAlive=yes -p "$PORT" "$REMOTE")
 
+# EVERY ONE OF THESE WRITES TO STDERR. `ship_image_fast` RETURNS its digest on stdout, so a
+# progress line printed there is captured as part of the value — which is exactly what happened
+# the first time the fast path ran with the new retry messages: sed received the log line glued
+# to the digest and died with "unterminated `s' command". Progress and data never share a channel.
 red(){ printf '\e[31m✗ %s\e[0m\n' "$*" >&2; }
-yel(){ printf '\e[33m⚠ %s\e[0m\n' "$*"; }
-grn(){ printf '\e[32m✔ %s\e[0m\n' "$*"; }
-say(){ printf '\n\e[1m▸ %s\e[0m\n' "$*"; }
+yel(){ printf '\e[33m⚠ %s\e[0m\n' "$*" >&2; }
+grn(){ printf '\e[32m✔ %s\e[0m\n' "$*" >&2; }
+say(){ printf '\n\e[1m▸ %s\e[0m\n' "$*" >&2; }
 
 REG_PORT="${REG_PORT:-5055}"
 

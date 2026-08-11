@@ -183,9 +183,9 @@ test('a customer who was sent an offer has it on the counter screen', async ({ s
   const PHONE = '0555000913';
 
   await open(shop, '/visit');
-  for (const d of PHONE) {
-    await shop.getByRole('button', { name: d, exact: true }).first().click();
-  }
+  // THROUGH THE FIELD, NOT THE PAD. The keypad is touch-only — correct, it is a thumb's tool —
+  // so pressing its buttons on the machine this suite runs on found nothing at all.
+  await keyIn(shop, PHONE);
 
   const banner = shop.getByText('عرضٌ خاص بهذا العميل');
   const appeared = await banner.isVisible({ timeout: 20_000 }).catch(() => false);
@@ -212,23 +212,25 @@ test('a customer with points can spend them, in front of him', async ({ shop }) 
   const PHONE = `05${Date.now().toString().slice(-8)}`;
 
   await open(shop, '/visit');
-  const service = shop.getByRole('button').filter({ hasText: /^(?!\d)/ }).first();
-
   // Three visits, so the balance clears the cheapest seeded reward.
+  //
+  // THROUGH THE SAME HELPERS THE OTHER TESTS USE. This loop carried its own copy of the journey —
+  // its own keypad presses, its own guess at a service name, its own guess at the save button's
+  // label — and every one of those went stale the moment the screen became a sequence of steps.
+  // A test that re-implements the journey is testing a journey nobody takes.
   for (let i = 0; i < 3; i += 1) {
     await open(shop, '/visit');
-    for (const d of PHONE) {
-      await shop.getByRole('button', { name: d, exact: true }).first().click();
-    }
-    await shop.getByRole('button', { name: /غسيل|تلميع|خدمة/ }).first().click();
-    await shop.getByRole('button', { name: /حفظ|تسجيل الزيارة/ }).first().click();
+    await keyIn(shop, PHONE);
+    await pickAnyService(shop);
+    await save(shop);
     await shop.waitForTimeout(1500);
   }
 
+
   await open(shop, '/visit');
-  for (const d of PHONE) {
-    await shop.getByRole('button', { name: d, exact: true }).first().click();
-  }
+  // THROUGH THE FIELD, NOT THE PAD. The keypad is touch-only — correct, it is a thumb's tool —
+  // so pressing its buttons on the machine this suite runs on found nothing at all.
+  await keyIn(shop, PHONE);
 
   // HIS BALANCE IS ON THE SCREEN — this is the assertion that would have failed for the entire
   // life of the product before points 1 wired earning to the visit.
