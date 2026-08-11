@@ -16,7 +16,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { NAME_AR } from './brand/Mark';
+import { Mark, NAME_AR } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
 import { fetchCatalog, SessionExpired, type Catalog } from './catalog';
@@ -84,21 +84,17 @@ export function App() {
 
   return (
     <AppShell
-      // THE MARK SLOT EXISTS NOW, AND THIS IS THE ONE LINE THAT WILL USE IT:
-      //
-      //     brand={{ name: NAME_AR, mark: <Mark size={26} className="shrink-0" /> }}
+      // OUR OWN MARK, AND IT IS THE ONE LINE THIS WAITED FOR.
       //
       // The shell drew its own BrandMark unconditionally — امتثالك's notary seal, a ring holding a
       // checkmark, meaning "sealed · verified". Right for a compliance product and wrong for ours:
       // راجِع is a journey that closes. We escalated rather than forking the shell, and
-      // `brand.mark?: ReactNode` was added upstream, defaulted to BrandMark so no consumer changed.
+      // `brand.mark?: ReactNode` arrived in v0.16.4, defaulted to BrandMark so no consumer changed.
       //
-      // IT IS NOT PASSED YET, AND THE REASON IS NOT CAUTION. The commit is on their `main` and in
-      // no tagged release: this checkout is v0.16.2, and `git tag --contains` finds nothing. An
-      // extra property is not silently ignored by TypeScript — it is a compile error — so writing
-      // the line early breaks the build rather than waiting quietly for the version that supports
-      // it. It goes in the day we take v0.16.4, and it is one line.
-      brand={{ name: NAME_AR }}
+      // The wait was not caution: an extra property is a COMPILE ERROR in TypeScript, never a
+      // silently ignored one, so writing this line before the version that supports it would have
+      // broken the build rather than sat quietly. One tag, one line.
+      brand={{ name: NAME_AR, mark: <Mark size={26} className="shrink-0" /> }}
       // DERIVED, NOT WRITTEN — see nav.ts. An operator's list has one entry and a manager's is
       // missing what the owner keeps, with no role check anywhere in this file.
       navItems={sections.map((s) => ({ to: s.path, label: s.label }))}

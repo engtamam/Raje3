@@ -76,16 +76,19 @@ export function onSoftInk(): string {
 }
 
 export function applyRaje3(): void {
-  applyTheme('light', {});
-
-  const root = document.documentElement;
-  // A PALE SAND. The active item in the rail wears it: present enough to find at a glance, quiet
-  // enough to sit under a nav all day without shouting.
-  root.style.setProperty('--accent-soft', softTint());
-  // Dark enough on that sand to read at arm's length, on a tablet, at noon, in an open workshop.
-  root.style.setProperty('--accent-on-soft', onSoftInk());
-  root.style.setProperty('--accent-hover', mix(GOLD, '#000000', 0.22));
-
+  // THE ACCENT IS PASSED NOW, AND THE DERIVED TINTS ARE NOT.
+  //
+  // Until v0.16.4 the kit's `mix()` stripped the '#' and then indexed as though it were still
+  // there, so white's blue channel read 15 instead of 255 and every derived colour skewed yellow:
+  // `--accent-soft` rendered #f1ec0f, a highlighter, across the active nav row. We set the two
+  // variables by hand afterwards, because passing the accent re-derived them with the same broken
+  // mixer and overwrote anything we set first.
+  //
+  // It is fixed upstream for every consumer, so this is where our correction is DELETED rather
+  // than left behind. `softTint()` and `onSoftInk()` stay exported: the test still asserts those
+  // exact values, so if this ever regresses we learn it from a failing assertion instead of from
+  // a photograph of a yellow sidebar.
+  applyTheme('light', { accent: GOLD });
   applyDir('ar');
 }
 

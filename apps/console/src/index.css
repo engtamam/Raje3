@@ -9,30 +9,10 @@ html, body, #root { height: 100%; overscroll-behavior: none; }
 body { -webkit-tap-highlight-color: transparent; }
 button { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 
-/* THE NAV IS TAPPED WITH A THUMB, and the kit builds its rows at 32px.
- *
- * Every platform guideline puts the floor at 44px; our own measurement puts it at 36. A tablet on
- * a workbench, held in one hand while the other holds a part, is the worst case this product has
- * — and «تسجيل زيارة» is reached through this list a hundred times a day.
- *
- * WE RAISE IT HERE RATHER THAN FORK THE SHELL. AppShell takes its nav items as data and offers no
- * class hook for the row, so this is the narrowest place the rule can live: it names the shell's
- * own container and changes one property.
- *
- * ESCALATED UPSTREAM as a default worth raising for everyone. If it lands, this block goes. */
-aside nav a,
-aside nav button[role='link'],
-aside nav button,
-[role='radiogroup'] button {
-  min-height: 44px;
-}
-
-/* The mobile collapse toggle is size-8 — 32px square, and it is the ONE control a phone user must
- * hit before anything else on the screen is reachable. */
-aside button[aria-label] {
-  min-height: 44px;
-  min-width: 44px;
-}
+/* The 44px touch-target block that lived here is GONE, and that is the whole point of escalating
+ * rather than patching: base-services v0.16.4 raised AppShell's nav rows, Segmented's buttons and
+ * the mobile collapse toggle to min-h-11 for every consumer. Keeping ours would be a second
+ * opinion about a settled question, and the kind of leftover that outlives its own reason. */
 
 /* THE KEYPAD IS FOR A THUMB, AND THE HONEST TEST IS THE POINTER — not the viewport width.
  *

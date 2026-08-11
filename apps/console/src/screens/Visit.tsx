@@ -6,7 +6,7 @@
  * taps them; only then does he turn to the customer. A screen that asked for the phone number
  * first would be asking him to stop working in order to feed the system.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   applyOffer, balanceFor, customerByPhone, customerByPlate, fetchCatalogue, offerFor,
   recentCustomers, redeem,
@@ -18,6 +18,31 @@ import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
 import { isSignedIn, useSession } from '../session';
+
+/**
+ * One box, and the separator appears inside it.
+ *
+ * TWO BOXES WERE TOO BIG FOR A PHONE — side by side they took a third of the screen and left the
+ * hint wrapping under them. And the split was ours, not the plate's: a Saudi plate is one thing
+ * written in two parts, so it is one field that knows its own shape.
+ *
+ * FOUR DIGITS THEN THREE LETTERS is the Saudi maximum, and fewer of either is ordinary — a
+ * two-digit plate is a real plate, so nothing here waits for a length before accepting input.
+ * Anything else is dropped rather than refused: a workshop tablet's keyboard produces stray
+ * characters, and a box that rejects a whole entry over one of them is a box he fights.
+ *
+ * LATIN AND UPPERCASED, because both scripts are on the metal and letting each operator choose
+ * makes «ABC 1234» and «ا ب ج 1234» two customers with one car.
+ *
+ * The space is INSERTED, never typed. He types 1234ABC and reads 1234 ABC, which is also exactly
+ * what gets stored and indexed — see seams.py.
+ */
+export function formatPlate(raw: string): string {
+  const clean = raw.replace(/[^0-9a-zA-Z]/g, '');
+  const digits = clean.replace(/[^0-9]/g, '').slice(0, 4);
+  const letters = clean.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3);
+  return letters ? `${digits} ${letters}`.trim() : digits;
+}
 
 /** How few digits are worth a search. Below this every establishment matches and the list is
  *  noise; this is the shortest prefix that narrows anything in a Saudi number. */
@@ -32,6 +57,8 @@ export function Visit() {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [plate, setPlate] = useState('');
+  /** What he sees while typing: the same string, with the separator placed for him. */
+  const [plateText, setPlateText] = useState('');
   /** The number the plate resolved to — and whether the operator has overridden it. */
   const [plateKnown, setPlateKnown] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -465,48 +492,26 @@ export function Visit() {
    * STORED AS ONE STRING, «1234 ABC», because that is what the index and the lookup already use
    * (seams.py). The split is how it is typed, not how it is kept.
    */
-  const [plateNums, setPlateNums] = useState('');
-  const [plateChars, setPlateChars] = useState('');
-  const charsRef = useRef<HTMLInputElement | null>(null);
-
   useEffect(() => {
-    const joined = [plateNums, plateChars].filter(Boolean).join(' ');
-    setPlate(joined);
-  }, [plateChars, plateNums]);
+    setPlate(plateText.replace(/\s+/g, ' ').trim());
+  }, [plateText]);
 
   const platePane = (
     <div className="flex h-full flex-col justify-center gap-3">
-      <div dir="ltr" className="flex items-stretch gap-2">
-        <input
-          value={plateNums}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-            setPlateNums(v);
-            // FOUR IS FULL, and only four. See the note above: a two-digit plate is ordinary.
-            if (v.length === 4) charsRef.current?.focus();
-          }}
-          inputMode="numeric"
-          autoFocus
-          placeholder="1234"
-          aria-label="أرقام اللوحة"
-          className="h-16 flex-1 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold tabular-nums shadow-sm placeholder:font-normal placeholder:text-text-secondary"
-        />
-        <span className="self-center text-2xl text-text-secondary">·</span>
-        <input
-          ref={charsRef}
-          value={plateChars}
-          onChange={(e) =>
-            setPlateChars(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3))}
-          placeholder="ABC"
-          aria-label="حروف اللوحة"
-          className="h-16 flex-1 rounded-2xl bg-surface-1 px-4 text-center text-2xl font-semibold uppercase shadow-sm placeholder:font-normal placeholder:normal-case placeholder:text-text-secondary"
-        />
-      </div>
+      <input
+        value={plateText}
+        onChange={(e) => setPlateText(formatPlate(e.target.value))}
+        autoFocus
+        placeholder="1234 ABC"
+        aria-label="رقم اللوحة"
+        dir="ltr"
+        className="h-[clamp(3.25rem,9dvh,4rem)] rounded-2xl bg-surface-1 px-4 text-center text-xl font-semibold uppercase tabular-nums shadow-sm placeholder:font-normal placeholder:normal-case placeholder:text-text-secondary"
+      />
 
       <p className="text-center text-sm text-text-secondary">
         {plateKnown && !changing
           ? 'سيارة معروفة عندنا — صاحبها في الصفحة التالية.'
-          : 'الأرقام ثم الحروف. اللوحات القصيرة عادية — أكمل متى شئت.'}
+          : 'الأرقام ثم الحروف — والفاصل يظهر وحده.'}
       </p>
     </div>
   );
