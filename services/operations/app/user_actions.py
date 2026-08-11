@@ -165,6 +165,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أين وصل ربط واتساب، وما الخطوة الباقية إن توقّف.",
     },
     {
+        "id": "subscription.payment_state", "label": "حالة الدفع", "method": "GET",
+        "path": "/api/v1/subscription/payment", "capability": "billing.self",
+        "group": "الاشتراك",
+        # THE SCREEN ASKS BEFORE IT SELLS. One key decides whether there is a live way to pay, and
+        # a plans page that assumes there is hands out paid tiers for a button press.
+        "help": "يقول للشاشة هل الدفع متاح، ومفتاح المتصفح العام إن كان.",
+    },
+    {
         # `subscription.activate`, NOT `billing.subscribe` — which is what billing-service calls
         # ITS OWN subscribe action. Two services declaring one id is a collision the catalogue
         # cannot express: the console keys on the id, so one of them silently wins and the loser

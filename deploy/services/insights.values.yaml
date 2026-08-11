@@ -9,7 +9,7 @@ service:
   port: 8000
 
 image:
-  repository: docker.io/raje3/insights
+  repository: 127.0.0.1:5055/raje3/insights
   digest: "sha256:9e67bfa64cddb31fc25d4acd6b84b330e598b932114d23534960a64234ea80e7"   # CI rewrites this at publish; never a :latest tag
 
 replicas: 1

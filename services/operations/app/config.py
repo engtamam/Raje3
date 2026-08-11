@@ -194,6 +194,19 @@ class Settings(BaseSettings):
     BILLING_PLANS_DRIVER: str = "null"       # null | http
     BILLING_PLANS_PATH: str = "/api/v1/billing/plans"
     BILLING_SUBSCRIBE_PATH: str = "/api/v1/billing/subscriptions"
+
+    # ── the payment gateway, as the SCREEN needs to know it ───────────────────────────────────
+    #
+    # ONE KEY IS THE WHOLE SWITCH. Empty means no gateway is live, and the plans screen says so in
+    # a sentence instead of handing out paid tiers to whoever presses hardest. Filled means the
+    # card form appears and the subscription waits for a real charge. No code change, no rebuild:
+    # put the key in the secret and the product starts selling.
+    #
+    # PUBLISHABLE BY DESIGN. This is the key the gateway means to be read by a browser — it can
+    # create a token and nothing else. The SECRET key lives in billing-service and is never here,
+    # never in the console, and never in a response.
+    PAYMENT_PUBLISHABLE_KEY: str = ""
+    PAYMENT_PROVIDER: str = "moyasar"
     # Whether a shop has a WhatsApp account, ASKED of notification-service rather than stored: a
     # copy here is a second answer to the same question, and the first disagreement refuses a
     # subscription from a shop that connected an hour ago.

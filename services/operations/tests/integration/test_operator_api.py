@@ -262,8 +262,11 @@ class FakePlans:
     async def trial_days(self, plan_id):
         return self.trial
 
-    async def subscribe(self, *, tenant, plan_id, interval="month"):
+    async def subscribe(self, *, tenant, plan_id, interval="month", payment_token=""):
+        # THE TOKEN IS RECORDED, because "did money change hands" is the question these tests now
+        # exist to answer — a subscription that reached billing without one is a free plan.
         self.subscribed.append((tenant, plan_id, interval))
+        self.tokens = getattr(self, "tokens", []) + [payment_token]
         return 201, {"id": "sub_1", "tenant": tenant, "plan_id": plan_id}
 
 
@@ -289,7 +292,7 @@ def test_a_paid_subscription_without_whatsapp_goes_through_and_says_what_is_left
     is the telling: a silent success is how an owner discovers, a week later and from the absence
     of messages, that one step was left."""
     plans = _wire(client, connected=False, trial=0)
-    r = client.post("/api/v1/subscription", json={"plan_id": "plan_x"},
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_x", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
     assert r.status_code == 201
     body = r.json()
@@ -301,7 +304,7 @@ def test_a_paid_subscription_without_whatsapp_goes_through_and_says_what_is_left
 def test_a_connected_shop_is_told_nothing_extra(client, monkeypatch):
     """A notice with nothing owed is noise, and noise is what teaches people to skip notices."""
     _wire(client, connected=True, trial=0)
-    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro"},
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
     assert r.status_code == 201
     assert "notice" not in r.json()
@@ -319,7 +322,7 @@ def test_a_trial_subscribes_without_any_connection(client, monkeypatch):
 
 def test_a_connected_shop_subscribes_to_a_paid_plan(client, monkeypatch):
     plans = _wire(client, connected=True, trial=0)
-    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro"},
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
     assert r.status_code == 201
 
@@ -328,13 +331,45 @@ def test_the_interval_is_passed_through_rather_than_inferred(client, monkeypatch
     """The plan's PRICE carries an interval but the SUBSCRIPTION takes its own — defaulting it
     here would repeat the bug that made a one-time pack renew every month."""
     plans = _wire(client, connected=True, trial=0)
-    client.post("/api/v1/subscription", json={"plan_id": "pack_500", "interval": "once"},
+    client.post("/api/v1/subscription",
+                json={"plan_id": "pack_500", "interval": "once", "payment_token": "tok_1"},
                 headers=_auth("billing.self", tenant="t1"))
     assert plans.subscribed[-1][2] == "once"
 
 
+def test_a_paid_plan_without_a_payment_token_is_refused(client, monkeypatch):
+    """THE FREE-PLAN BUG, AS A TEST. With no gateway configured the screen let an owner walk
+    between «الأساسية» and «الاحترافية» as often as he liked — every press writing «باقتك» over the
+    last, and not one riyal moving. A press is not a payment."""
+    plans = _wire(client, connected=True, trial=0)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_pro"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 402
+    assert r.json()["error"] == "PAYMENT_REQUIRED"
+    assert plans.subscribed == [], "nothing may reach billing when nothing was paid"
+
+
+def test_a_trial_still_needs_no_card(client, monkeypatch):
+    """Otherwise the payment rule swallows the trial, and an evaluation that asks for a card is
+    not an evaluation."""
+    plans = _wire(client, connected=False, trial=14)
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_basic"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201 and plans.subscribed
+
+
+def test_the_screen_can_ask_whether_paying_is_even_possible(client, monkeypatch):
+    """ONE KEY IS THE WHOLE SWITCH — absent, the plans page apologises instead of selling; present,
+    the card form appears. And the SECRET key never appears in this answer or any other."""
+    r = client.get("/api/v1/subscription/payment", headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["enabled"] is False
+    assert "نعتذر" in body["message"]
+
+
 def test_a_token_without_a_tenant_cannot_subscribe_anybody(client, monkeypatch):
     _wire(client, connected=True, trial=0)
-    r = client.post("/api/v1/subscription", json={"plan_id": "plan_x"},
+    r = client.post("/api/v1/subscription", json={"plan_id": "plan_x", "payment_token": "tok_1"},
                     headers=_auth("billing.self"))
     assert r.status_code == 403

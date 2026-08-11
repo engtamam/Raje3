@@ -72,16 +72,29 @@ class Decision:
     notice: str = ""
 
 
-def may_subscribe(*, connected: bool, trial_days: int) -> Decision:
-    """The one product rule on this path — and today it is a notice rather than a gate.
+def may_subscribe(*, connected: bool, trial_days: int, paid: bool = True) -> Decision:
+    """Whether this subscription may proceed, and what is still owed if it does.
 
     `connected`   does this establishment have a WhatsApp account attached?
     `trial_days`  the plan's trial length. Non-zero means he is not paying yet.
+    `paid`        did money actually change hands — a gateway charge that succeeded?
 
     PURE, so the rule can be read and tested without a cluster. Everything around it is plumbing;
     this is the decision.
     """
-    if trial_days > 0 or connected:
+    if trial_days > 0:
+        # THE TRIAL TAKES NOTHING AND OWES NOTHING. He is evaluating, not buying.
+        return Decision(True)
+
+    if not paid:
+        # NO PLAN WITHOUT A PAYMENT. The screen let an owner walk between «الأساسية» and
+        # «الاحترافية» as often as he liked, each press writing «باقتك» over the last, and not one
+        # riyal moving — because the gateway is unconfigured and nothing above it said so. A
+        # product that hands out its paid tiers to anyone who presses a button is not generous,
+        # it is broken, and the first shop to notice tells the next one.
+        return Decision(False, reason="لم يكتمل الدفع. الباقة تبدأ بعد نجاح عملية الدفع.")
+
+    if connected:
         return Decision(True)
     # PAYING, AND NOT CONNECTED YET. Allowed — and told, in the same breath as the receipt, what
     # the one remaining step is and what does and does not work until he takes it.
@@ -155,8 +168,8 @@ class NullPlans:
     async def trial_days(self, plan_id: str) -> int:
         return 0
 
-    async def subscribe(self, *, tenant: str, plan_id: str,
-                        interval: str = "month") -> tuple[int, dict]:
+    async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
+                        payment_token: str = "") -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
 
 
@@ -211,11 +224,19 @@ class HttpPlans:
                 return int(plan.get("trial_days") or 0)
         return 0
 
-    async def subscribe(self, *, tenant: str, plan_id: str,
-                        interval: str = "month") -> tuple[int, dict]:
-        status, out = self._request(self._subscribe,
-                                    {"tenant": tenant, "plan_id": plan_id,
-                                     "interval": interval})
+    async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
+                        payment_token: str = "") -> tuple[int, dict]:
+        """Create the subscription — and, when a token is present, CHARGE for it.
+
+        THE CARD NEVER TOUCHES US. `payment_token` is what the gateway's own form hands back to the
+        browser after taking the number: a single-use reference we may charge and nobody may read a
+        card from. It crosses this boundary and no card field ever does — which is the whole reason
+        the flow is shaped this way rather than "post the number to our server".
+        """
+        body = {"tenant": tenant, "plan_id": plan_id, "interval": interval}
+        if payment_token:
+            body["payment_token"] = payment_token
+        status, out = self._request(self._subscribe, body)
         return status, out if isinstance(out, dict) else {"detail": out}
 
 

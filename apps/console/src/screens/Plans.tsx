@@ -144,6 +144,17 @@ export function PlansPane({
   const [error, setError] = useState('');
   /** What the server says is still owed after a successful subscription. Never an error. */
   const [notice, setNotice] = useState('');
+  /**
+   * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
+   *
+   * With no gateway configured this screen was a shop with no till: every press wrote «باقتك» over
+   * the last one and no riyal moved, so an owner could walk between «الأساسية» and «الاحترافية»
+   * all afternoon. A product that hands out its paid tiers to whoever presses hardest is not
+   * generous; it is broken, and the first shop to notice tells the second.
+   *
+   * `undefined` while unknown, so the buttons are not rendered as live before we know they are.
+   */
+  const [pay, setPay] = useState<{ enabled: boolean; message?: string } | undefined>(undefined);
 
   const canBrowse = action(catalog, 'billing.plans');
   const canSubscribe = action(catalog, 'billing.subscribe');
@@ -166,6 +177,15 @@ export function PlansPane({
     }
   };
 
+  useEffect(() => {
+    const a = action(catalog, 'subscription.payment_state');
+    if (!a) { setPay({ enabled: false, message: '' }); return; }
+    call<{ enabled: boolean; message?: string }>(session, a)
+      .then(setPay)
+      // A FAILED READ IS NOT AN OPEN TILL. Erring the other way sells a plan nobody can charge for.
+      .catch(() => setPay({ enabled: false, message: '' }));
+  }, [session, catalog]);
+
   useEffect(load, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const choose = async (p: Plan) => {
@@ -175,7 +195,9 @@ export function PlansPane({
     setChosen(p);
     // NOT GATED ON THE CONNECTION ANY MORE — see the module note. Only on having the action at
     // all, which is a capability question and not a readiness one.
-    if (!canSubscribe) return;
+    // NOT WHILE THE TILL IS SHUT. The press is still remembered — his choice is not lost — but
+    // nothing is written and no plan starts.
+    if (!canSubscribe || !pay?.enabled) return;
     setBusy(true);
     try {
       const out = await call<{ notice?: string }>(session, canSubscribe, { plan_id: p.id });
@@ -216,6 +238,16 @@ export function PlansPane({
       {/* WHAT IS LEFT, AFTER THE SUBSCRIPTION SUCCEEDED. Not a refusal and not styled as one: the
           payment went through, and this is the one step between him and messages going out. It is
           the server's sentence — the rule lives in one place — with the button that does it. */}
+      {/* NO TILL, SO NOTHING IS SOLD — and it is said plainly rather than by a button that does
+          nothing. The day a gateway is configured this sentence disappears by itself: one key
+          decides, read from the server, with no edit here and no rebuild. */}
+      {pay && !pay.enabled && pay.message ? (
+        <div className="rounded-card border border-border-subtle bg-surface-2 p-5 text-center">
+          <p className="mb-1 font-medium">الدفع مغلق مؤقتاً</p>
+          <p className="text-sm text-text-secondary">{pay.message}</p>
+        </div>
+      ) : null}
+
       {notice ? (
         <div className="rounded-card border border-accent-soft bg-accent-soft/40 p-5 shadow-sm">
           <p className="mb-1 font-medium">تم الاشتراك ✓</p>

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.authz import require_capability
+from app.config import get_settings
 from app.core.subscribe import may_subscribe
 from app.api.ratelimit import rate_limit
 
@@ -33,10 +34,38 @@ class SubscribeIn(BaseModel):
     # plan's PRICE carries an interval but the SUBSCRIPTION takes its own, and defaulting it here
     # would repeat the bug that made a pack renew monthly.
     interval: str = Field(default="month", max_length=16)
+    # WHAT THE GATEWAY'S FORM HANDED THE BROWSER — a single-use reference to a card we never see.
+    # Absent on a trial, required on anything paid: see may_subscribe.
+    payment_token: str = Field(default="", max_length=256)
 
 
 def _tenant(p) -> str:
     return getattr(p, "tenant", "") or ""
+
+
+@router.get("/payment", dependencies=[Depends(rate_limit)])
+async def payment_state(principal=Depends(_OWNER)) -> dict:
+    """Is there a live way to pay — and what does the screen need in order to offer it?
+
+    THE SCREEN MUST NOT GUESS. Until this existed the plans page assumed payment worked, so with no
+    gateway configured every press wrote «باقتك» over the last one and no riyal moved. A product
+    that hands out its paid tiers to whoever presses hardest is not generous; it is broken, and the
+    first shop to notice tells the second.
+
+    AND IT FLIPS BY ITSELF. One key decides: absent, the screen apologises and sells nothing;
+    present, the card form appears and a subscription waits for a real charge. Nobody edits code
+    on the day we sign with a provider — the key goes in the secret and the product starts selling.
+
+    THE PUBLISHABLE KEY IS MEANT TO BE READ BY A BROWSER — it can mint a single-use token and do
+    nothing else. The secret key lives in billing-service and appears in no response, ever.
+    """
+    cfg = get_settings()
+    key = (cfg.PAYMENT_PUBLISHABLE_KEY or "").strip()
+    return {"enabled": bool(key), "provider": cfg.PAYMENT_PROVIDER if key else "",
+            "publishable_key": key,
+            "message": "" if key else
+                       "الدفع الإلكتروني غير متاح مؤقتاً. نعتذر — نعمل على تفعيله، "
+                       "وحتى ذلك الحين تواصل معنا لتفعيل باقتك."}
 
 
 @router.post("", dependencies=[Depends(rate_limit)])
@@ -54,7 +83,10 @@ async def subscribe(request: Request, body: SubscribeIn,
     trial_days = await c.billing_plans.trial_days(body.plan_id)
     connected = await c.connections.connected(tenant)
 
-    decision = may_subscribe(connected=connected, trial_days=trial_days)
+    # PAID MEANS A TOKEN WE CAN ACTUALLY CHARGE. An empty one is not "pay later"; it is the press
+    # of a button with no money behind it, and the plan must not start on it.
+    decision = may_subscribe(connected=connected, trial_days=trial_days,
+                             paid=bool(body.payment_token))
     if not decision.allowed:
         # RETURNED, NEVER RAISED. The platform's error handler strips an HTTPException's detail,
         # so a raised refusal arrives as a bare 402 and the sentence telling him what to do — the
@@ -64,11 +96,12 @@ async def subscribe(request: Request, body: SubscribeIn,
             resource=f"plan:{body.plan_id}",
             ip=request.client.host if request.client else "")
         return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            content={"error": "WHATSAPP_NOT_CONNECTED",
+                            content={"error": "PAYMENT_REQUIRED",
                                      "message": decision.reason})
 
     status_code, out = await c.billing_plans.subscribe(
-        tenant=tenant, plan_id=body.plan_id, interval=body.interval)
+        tenant=tenant, plan_id=body.plan_id, interval=body.interval,
+        payment_token=body.payment_token)
     if status_code >= 400:
         # BILLING'S REFUSAL IS BILLING'S. We do not translate it into a sentence of our own — an
         # invented explanation for somebody else's decision is how support ends up answering for a
