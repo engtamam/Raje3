@@ -26,8 +26,66 @@ import { applyDir } from '@base-ui/i18n';
  * one appearance is one fewer thing to be wrong about. The owner's console may offer the toggle
  * later; the field screen must not.
  */
+/**
+ * The derived colours, corrected after the fact — because the kit computes them wrong.
+ *
+ * `theme.config.ts` mixes two hex colours with:
+ *
+ *     const h = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+ *     const [r, g, b] = h(from.replace('#', ''));
+ *
+ * It strips the `#` and then indexes as though it were still there. `h('ffffff')` therefore reads
+ * ("ff", "ff", "f") — white's blue channel comes out 15 instead of 255 — and every colour derived
+ * from the brand gold is wrong. `--accent-soft`, which should be a pale sand (#f6f0e6), lands on
+ * #f1ec0f: a highlighter yellow. That is the colour the owner photographed filling the active item
+ * in the sidebar, and it is why «النشط بلونٍ لا يصرخ» could not be satisfied by changing anything
+ * we own — the token itself was broken.
+ *
+ * AND IT CANNOT BE FIXED THROUGH `applyTheme`'s OVERRIDES. That function reads only `brand.accent`,
+ * then RE-DERIVES soft and on-soft from it with the same broken mix — so passing our own values
+ * has them computed over. We therefore set the two variables directly, immediately after, using
+ * the same mechanism applyTheme itself uses (inline custom properties on the root).
+ *
+ * NOT A FORK, AND DELETABLE IN ONE EDIT. platform/ui is untouched; the upstream bug is escalated;
+ * this block disappears the day the fix lands upstream. The base gold is left alone — it was never
+ * wrong, only what was derived from it.
+ */
+const GOLD = '#B8862B';
+
+/** The mix the kit meant to write: `#` stripped, then indexed from zero. */
+function mix(from: string, to: string, amount: number): string {
+  const channels = (c: string) => {
+    const hex = c.replace('#', '');
+    return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  };
+  const [r1, g1, b1] = channels(from);
+  const [r2, g2, b2] = channels(to);
+  const one = (a: number, b: number) =>
+    Math.round(a + (b - a) * amount).toString(16).padStart(2, '0');
+  return `#${one(r1, r2)}${one(g1, g2)}${one(b1, b2)}`;
+}
+
+/** The pale sand the active nav item wears. Exported so it can be asserted, not only applied. */
+export function softTint(): string {
+  return mix(GOLD, '#ffffff', 0.88);
+}
+
+/** The ink that sits on it. */
+export function onSoftInk(): string {
+  return mix(GOLD, '#000000', 0.55);
+}
+
 export function applyRaje3(): void {
   applyTheme('light', {});
+
+  const root = document.documentElement;
+  // A PALE SAND. The active item in the rail wears it: present enough to find at a glance, quiet
+  // enough to sit under a nav all day without shouting.
+  root.style.setProperty('--accent-soft', softTint());
+  // Dark enough on that sand to read at arm's length, on a tablet, at noon, in an open workshop.
+  root.style.setProperty('--accent-on-soft', onSoftInk());
+  root.style.setProperty('--accent-hover', mix(GOLD, '#000000', 0.22));
+
   applyDir('ar');
 }
 
