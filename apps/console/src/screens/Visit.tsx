@@ -224,11 +224,168 @@ export function Visit() {
     );
   }
 
+
+  // ── THE THREE PANES OF ONE VISIT ──────────────────────────────────────────────────────────
+  // Named here rather than inlined below, because they are about to become three SCREENS the
+  // operator swipes between rather than three regions he scrolls past. Extracting them first,
+  // with no change in what they render, keeps that move reviewable: this commit is a rename.
+  const identityPane = (
+            <div className="flex flex-col gap-2">
+              <div
+                dir="ltr"
+                className="h-14 rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums leading-[3.5rem] shadow-sm"
+              >
+                {phone || <span className="text-text-secondary">05…</span>}
+              </div>
+              {/* THE KEYPAD IS FOR A THUMB, NOT FOR A DESK. On a machine with a real keyboard it
+                  was a second, larger way to type ten digits — and it pushed everything that
+                  matters below the fold. `.touch-only` is a pointer test, not a width test: see
+                  index.css for why the width variant could not even compile here. */}
+              <div className="touch-only">
+                <Keypad value={phone} onChange={setPhone} />
+              </div>
+            </div>
+
+  );
+
+  const perksPane = (
+    <>
+            {/* HIS OFFER, WHERE THE WORK HAPPENS. Directly under the number, above the matches:
+                by the time it appears the number is complete, so there is exactly one person it can
+                belong to. Loud on purpose — this is the sentence the customer is about to ask about,
+                and a worker who misses it has taken money for something already paid for. */}
+            {offer?.text ? (
+              <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
+                <div className="mb-1 text-sm font-semibold">عرضٌ خاص بهذا العميل</div>
+                <div>{offer.text}</div>
+                {offer.expires_at ? (
+                  <div className="mt-1 text-sm tabular-nums opacity-80">
+                    ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
+                  </div>
+                ) : null}
+                {/* THE TAP, AND IT IS NOT PRESSED FOR HIM. A customer may be holding this for next
+                    month; applying it because he happened to walk in would be taking something from
+                    him. So it is a deliberate act, and it says what it will do. */}
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applying}
+                    onChange={(e) => setApplying(e.target.checked)}
+                    className="h-5 w-5"
+                  />
+                  <span>طبّقتُ العرض على هذه الزيارة</span>
+                </label>
+              </div>
+            ) : null}
+
+            {/* HIS POINTS, AND THE ONE TAP THAT SPENDS THEM.
+                Under the offer, because an offer is already his and points are a choice he makes.
+                Nothing renders without a balance: a shop with no loyalty programme must not be
+                shown an empty points box on the screen it uses a hundred times a day. */}
+            {balance ? (
+              <div className="rounded-xl bg-surface-1 p-3 shadow-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm text-text-secondary">رصيده</span>
+                  <span className="tabular-nums text-xl font-semibold">{balance.points} نقطة</span>
+                </div>
+
+                {redeemed ? (
+                  <p className="mt-2 rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+                    تم استبدال «{redeemed}» — أخبره برصيده الجديد.
+                  </p>
+                ) : null}
+
+                {balance.rewards.length > 0 ? (
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {/* ONLY WHAT HE CAN AFFORD — the service filtered before answering. A sheet
+                        listing everything and grey­ing out most of it turns a moment of goodwill
+                        into a list of things he cannot have. */}
+                    {balance.rewards.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          disabled={Boolean(redeeming)}
+                          onClick={() => spend(r.id, r.name)}
+                          className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
+                        >
+                          <span>{r.name}</span>
+                          <span className="shrink-0 tabular-nums text-sm text-text-secondary">
+                            {r.cost} نقطة · ويبقى له {balance.points - r.cost}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : balance.to_next_reward > 0 ? (
+                  // ENCOURAGEMENT, NOT AN APOLOGY — and only when there is something true to say.
+                  // Zero means either he can afford everything or the shop has no rewards, and
+                  // «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
+                  <p className="mt-1 text-sm text-text-secondary">
+                    تبقّى له {balance.to_next_reward} نقطة لأقرب مكافأة.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+    </>
+  );
+
+  const detailsPane = (
+    <>
+            <div className="flex flex-col gap-2">
+              {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and
+                  sees nothing concludes the customer is new — and registers him a second time. */}
+              {matches.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {matches.slice(0, 4).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setPhone(c.phone); setName(c.name ?? ''); }}
+                      className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2 text-start shadow-sm active:scale-95"
+                    >
+                      <span dir="ltr" className="tabular-nums">{c.phone}</span>
+                      <span className="text-text-secondary">{c.name || '—'}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* PRESENT FROM THE FIRST VISIT, REQUIRED AT NONE (spec 4.3). No asterisk and no
+                  validation: he cannot ask a stranger his name while taking his key, but after five
+                  visits he knows it and writes it in a quiet moment. */}
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="الاسم (اختياري)"
+                className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
+              />
+
+              {showPlate ? (
+                <input
+                  value={plate}
+                  onChange={(e) => setPlate(e.target.value)}
+                  placeholder="رقم اللوحة"
+                  className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
+                />
+              ) : null}
+
+              {showMeter ? (
+                <input
+                  value={meter}
+                  onChange={(e) => setMeter(e.target.value.replace(/\D/g, ''))}
+                  inputMode="numeric"
+                  placeholder="قراءة العدّاد"
+                  dir="ltr"
+                  className="h-14 rounded-xl bg-surface-1 px-4 text-lg tabular-nums shadow-sm placeholder:text-text-secondary"
+                />
+              ) : null}
+            </div>
+    </>
+  );
+
   return (
     <main className="min-h-dvh bg-surface-0 p-3 text-text-primary">
       <div className="mx-auto flex max-w-4xl flex-col gap-3 pb-24">
-        <ServiceGrid services={services} selected={chosen} onToggle={toggle} />
-
         {/* TODAY'S CUSTOMERS, ONE TAP (spec 4.3). The same car comes back an hour later because a
             second thing was found wrong with it, and making the operator retype ten digits for a
             customer he served this morning is the friction this whole screen exists to remove. */}
@@ -249,143 +406,16 @@ export function Visit() {
         ) : null}
 
         <section className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <div
-              dir="ltr"
-              className="h-14 rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums leading-[3.5rem] shadow-sm"
-            >
-              {phone || <span className="text-text-secondary">05…</span>}
-            </div>
-            <Keypad value={phone} onChange={setPhone} />
-          </div>
-
-          {/* HIS OFFER, WHERE THE WORK HAPPENS. Directly under the number, above the matches:
-              by the time it appears the number is complete, so there is exactly one person it can
-              belong to. Loud on purpose — this is the sentence the customer is about to ask about,
-              and a worker who misses it has taken money for something already paid for. */}
-          {offer?.text ? (
-            <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
-              <div className="mb-1 text-sm font-semibold">عرضٌ خاص بهذا العميل</div>
-              <div>{offer.text}</div>
-              {offer.expires_at ? (
-                <div className="mt-1 text-sm tabular-nums opacity-80">
-                  ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
-                </div>
-              ) : null}
-              {/* THE TAP, AND IT IS NOT PRESSED FOR HIM. A customer may be holding this for next
-                  month; applying it because he happened to walk in would be taking something from
-                  him. So it is a deliberate act, and it says what it will do. */}
-              <label className="mt-2 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={applying}
-                  onChange={(e) => setApplying(e.target.checked)}
-                  className="h-5 w-5"
-                />
-                <span>طبّقتُ العرض على هذه الزيارة</span>
-              </label>
-            </div>
-          ) : null}
-
-          {/* HIS POINTS, AND THE ONE TAP THAT SPENDS THEM.
-              Under the offer, because an offer is already his and points are a choice he makes.
-              Nothing renders without a balance: a shop with no loyalty programme must not be
-              shown an empty points box on the screen it uses a hundred times a day. */}
-          {balance ? (
-            <div className="rounded-xl bg-surface-1 p-3 shadow-sm">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-text-secondary">رصيده</span>
-                <span className="tabular-nums text-xl font-semibold">{balance.points} نقطة</span>
-              </div>
-
-              {redeemed ? (
-                <p className="mt-2 rounded-lg bg-accent-soft p-2 text-accent-on-soft">
-                  تم استبدال «{redeemed}» — أخبره برصيده الجديد.
-                </p>
-              ) : null}
-
-              {balance.rewards.length > 0 ? (
-                <ul className="mt-2 flex flex-col gap-2">
-                  {/* ONLY WHAT HE CAN AFFORD — the service filtered before answering. A sheet
-                      listing everything and grey­ing out most of it turns a moment of goodwill
-                      into a list of things he cannot have. */}
-                  {balance.rewards.map((r) => (
-                    <li key={r.id}>
-                      <button
-                        type="button"
-                        disabled={Boolean(redeeming)}
-                        onClick={() => spend(r.id, r.name)}
-                        className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
-                      >
-                        <span>{r.name}</span>
-                        <span className="shrink-0 tabular-nums text-sm text-text-secondary">
-                          {r.cost} نقطة · ويبقى له {balance.points - r.cost}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : balance.to_next_reward > 0 ? (
-                // ENCOURAGEMENT, NOT AN APOLOGY — and only when there is something true to say.
-                // Zero means either he can afford everything or the shop has no rewards, and
-                // «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
-                <p className="mt-1 text-sm text-text-secondary">
-                  تبقّى له {balance.to_next_reward} نقطة لأقرب مكافأة.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="flex flex-col gap-2">
-            {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and
-                sees nothing concludes the customer is new — and registers him a second time. */}
-            {matches.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                {matches.slice(0, 4).map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => { setPhone(c.phone); setName(c.name ?? ''); }}
-                    className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2 text-start shadow-sm active:scale-95"
-                  >
-                    <span dir="ltr" className="tabular-nums">{c.phone}</span>
-                    <span className="text-text-secondary">{c.name || '—'}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {/* PRESENT FROM THE FIRST VISIT, REQUIRED AT NONE (spec 4.3). No asterisk and no
-                validation: he cannot ask a stranger his name while taking his key, but after five
-                visits he knows it and writes it in a quiet moment. */}
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="الاسم (اختياري)"
-              className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
-            />
-
-            {showPlate ? (
-              <input
-                value={plate}
-                onChange={(e) => setPlate(e.target.value)}
-                placeholder="رقم اللوحة"
-                className="h-14 rounded-xl bg-surface-1 px-4 text-lg shadow-sm placeholder:text-text-secondary"
-              />
-            ) : null}
-
-            {showMeter ? (
-              <input
-                value={meter}
-                onChange={(e) => setMeter(e.target.value.replace(/\D/g, ''))}
-                inputMode="numeric"
-                placeholder="قراءة العدّاد"
-                dir="ltr"
-                className="h-14 rounded-xl bg-surface-1 px-4 text-lg tabular-nums shadow-sm placeholder:text-text-secondary"
-              />
-            ) : null}
-          </div>
+          {identityPane}
+          {perksPane}
+          {detailsPane}
         </section>
+
+        {/* WHAT HE TOOK, AFTER WHO HE IS. The grid used to open the screen, and sixteen tiles at
+            96px filled a phone entirely — the operator could not see the customer field without
+            scrolling past everything the shop sells. At the counter the phone comes first: you
+            take the number, then you say what was done. The screen now runs in that order. */}
+        <ServiceGrid services={services} selected={chosen} onToggle={toggle} />
       </div>
 
       {/* THE SAVE BAR IS FIXED TO THE BOTTOM. It is the only button that must be reachable without

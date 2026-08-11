@@ -33,3 +33,16 @@ aside button[aria-label] {
   min-height: 44px;
   min-width: 44px;
 }
+
+/* THE KEYPAD IS FOR A THUMB, AND THE HONEST TEST IS THE POINTER — not the viewport width.
+ *
+ * A tablet on a workbench is 1024px wide and has no keyboard; a laptop at 1280 has one. Asking
+ * "how wide is the screen?" answers neither question, and a `max-[900px]` variant does not even
+ * compile here — the kit's `screens` mixes units, which silently disables min-*/max-* variants
+ * (the build says so, and the keypad vanished on the phone too).
+ *
+ * `pointer: coarse` asks the only thing that matters: is this finger-operated? */
+.touch-only { display: none; }
+@media (pointer: coarse) {
+  .touch-only { display: block; }
+}

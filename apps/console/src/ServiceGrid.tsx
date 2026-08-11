@@ -60,7 +60,10 @@ export function ServiceGrid({
   const suggested = new Set(anchor ? together[anchor] ?? [] : []);
 
   return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+    /* THREE ACROSS ON A PHONE AT 64px, NOT 96. Sixteen tiles at h-24 filled a phone screen
+       entirely — the operator could not see the customer field at all without scrolling past
+       everything he sells, on the one screen used a hundred times a day. */
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
       {ordered.map((s) => {
         const on = selected.includes(s.id);
         return (
@@ -73,15 +76,15 @@ export function ServiceGrid({
               onToggle(s.id);
             }}
             className={[
-              'relative flex h-24 flex-col items-center justify-center gap-1 rounded-2xl',
-              'px-2 text-center text-sm font-semibold leading-tight transition-transform',
+              'relative flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl',
+              'px-2 text-center text-xs font-semibold leading-tight transition-transform sm:text-sm',
               'active:scale-95',
               on
                 ? 'bg-accent text-white shadow-md'
                 : 'bg-surface-1 text-text-primary shadow-sm',
             ].join(' ')}
           >
-            {s.icon ? <span className="text-2xl leading-none">{s.icon}</span> : null}
+            {s.icon ? <span className="text-base leading-none">{s.icon}</span> : null}
             <span className="line-clamp-2">{s.name}</span>
             {/* A CHECK MARK, NOT ONLY A COLOUR. Colour alone is invisible in direct sun on a
                 workshop floor, and it says nothing to an operator who cannot distinguish it. */}
