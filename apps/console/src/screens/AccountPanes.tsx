@@ -12,7 +12,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
-import { Field, Input } from '@base-ui/design-system/Field';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -52,52 +51,206 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
   if (t === undefined) return <Skeleton height={160} />;
   if (!t) return <Quiet>لا تملك صلاحية عرض بيانات المنشأة.</Quiet>;
 
-  const save = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!canBrand) return;
-    const form = new FormData(e.currentTarget);
-    setSaving(true); setError(''); setSaid('');
-    try {
-      await call(session, canBrand, { logo_url: String(form.get('logo_url') || '').trim() });
-      setSaid('حُفظ.');
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
-    } finally {
-      setSaving(false);
-    }
+  const saveBranding = async (branding: { logo_url: string; colour: string }) => {
+    if (!canBrand) throw new Error('لا تملك صلاحية تعديل الهوية.');
+    // MERGED, NOT REPLACED. `branding` is a free-form record on the tenant and other things live
+    // in it; sending our two fields alone would quietly drop whatever else is there.
+    await call(session, canBrand, { ...(t?.branding ?? {}), ...branding });
+    load();
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <Row label="اسم المنشأة" value={t.name || '—'} />
-        <Row label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')} />
+      {/* WHAT HE IS, IN FOUR FACTS — a grid of cells rather than four label/value lines. Four rows
+          of «label ………… value» read as a form he has to fill; four cells read as a card about his
+          shop, which is what they are: not one of them is editable here. */}
+      <section className="grid grid-cols-2 gap-2">
+        <Fact label="اسم المنشأة" value={t.name || '—'} wide />
+        <Fact label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')} />
         {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
             timezone; reading the device's would schedule an owner travelling abroad into his
             customers' small hours. */}
-        <Row label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
-        <Row label="التقويم" value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} />
-      </Card>
+        <Fact label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
+        <Fact label="التقويم" value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
+      </section>
 
-      {canBrand ? (
-        <form onSubmit={save} className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-          <h3 className="text-sm text-text-secondary">الشعار الذي يراه عميلك</h3>
-          <Field label="رابط الشعار" hint="يظهر أعلى صفحة عميلك — اتركه فارغاً ليظهر اسم محلّك فقط">
-            <Input name="logo_url" dir="ltr" defaultValue={t.branding?.logo_url ?? ''} />
-          </Field>
-          {t.branding?.logo_url ? (
-            <img
-              src={t.branding.logo_url}
-              alt="شعار منشأتك"
-              className="h-16 w-16 rounded-card object-contain"
+      {canBrand ? <BrandCard tenant={t} onSave={saveBranding} /> : null}
+    </div>
+  );
+}
+
+/**
+ * THE MARK AND THE COLOUR HIS CUSTOMER SEES — with a default, so nobody has to decide.
+ *
+ * WHY NO FILE SERVICE STANDS BEHIND THIS. There was one, and the logo was the only file in the
+ * entire product: no attachments, no documents, no upload anywhere else. A whole service, a whole
+ * store, a whole erasure target under PDPL and a whole attack surface, for one picture per shop.
+ * It is gone, and the image is reduced here and kept inline on the establishment's own record.
+ *
+ * And pictures in campaigns later do not bring it back: Meta does not send an image we host — it
+ * is uploaded to their endpoint, which hands back a handle, and they serve it. Our own copy would
+ * be weight with no reader.
+ *
+ * REDUCED IN THE BROWSER, NEVER SENT WHOLE. A photo off a phone is three or four megabytes, and
+ * the tenant record is read on nearly every screen. 256px is larger than the 64px the customer
+ * page draws, which covers a dense display, and small enough that a record stays a record.
+ */
+function BrandCard({ tenant, onSave }:
+    { tenant: Tenant; onSave: (b: { logo_url: string; colour: string }) => Promise<void> }) {
+  const [logo, setLogo] = useState(tenant.branding?.logo_url ?? '');
+  const [colour, setColour] = useState(tenant.branding?.colour || DEFAULT_COLOUR);
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState('');
+  const [error, setError] = useState('');
+
+  const pick = async (file: File | null | undefined) => {
+    if (!file) return;
+    setError(''); setSaid('');
+    try {
+      setLogo(await shrink(file));
+    } catch {
+      // NAMED, NOT GENERIC. It fails when the file is not an image or the browser cannot decode
+      // it, and either way he is otherwise left looking at an unchanged square.
+      setError('تعذّر قراءة الصورة. اختر صورة بصيغة PNG أو JPG.');
+    }
+  };
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setBusy(true); setError(''); setSaid('');
+    try {
+      await onSave({ logo_url: logo, colour });
+      setSaid('حُفظ. هذا ما يراه عميلك.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-4 rounded-card bg-surface-1 p-4 shadow-sm">
+      <h3 className="text-sm text-text-secondary">هويّتك كما يراها عميلك</h3>
+
+      {/* THE PREVIEW IS THE CUSTOMER'S HEADER, not a swatch beside a button. The first version put
+          a 64px tile next to «ارفع شعارك» and the shop's name overflowed it — because that tile
+          was pretending to be two things: a colour sample and a logo frame. This is the actual
+          band the customer page draws at the top of his page, at the width it is drawn. He is not
+          picking a colour; he is looking at his page. */}
+      <div
+        className="flex flex-col items-center gap-2 rounded-card px-4 py-5 text-center"
+        style={{ background: colour }}
+      >
+        {logo ? (
+          <img src={logo} alt="شعار منشأتك"
+               className="size-14 rounded-2xl bg-white/15 object-contain" />
+        ) : null}
+        <span className="max-w-full truncate text-lg font-semibold text-white">
+          {tenant.name || 'محلّك'}
+        </span>
+        <span className="text-xs text-white/75">صفحتك لدى المتجر</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="cursor-pointer rounded-xl bg-surface-2 px-3 py-2 text-sm">
+          {logo ? 'تغيير الشعار' : 'ارفع شعارك'}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }}
+          />
+        </label>
+        {logo ? (
+          <button type="button" onClick={() => setLogo('')}
+                  className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+            إزالة الشعار
+          </button>
+        ) : null}
+        <p className="basis-full text-xs text-text-secondary">
+          بلا شعار يظهر اسم محلّك — وهذا كافٍ، لا شيء ناقص.
+        </p>
+      </div>
+
+      {/* EIGHT CELLS IN FOUR COLUMNS: seven colours and the picker, which is exactly two full
+          rows. Seven chips wrapping freely left a half-empty second row with the «+» stranded in
+          the middle of it — the ragged block on the screenshot. The count is chosen to fit the
+          grid rather than the grid stretched around an awkward count. */}
+      <div className="flex flex-col gap-2">
+        <span className="text-sm text-text-secondary">لون علامتك</span>
+        <div className="grid grid-cols-4 gap-2">
+          {SWATCHES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-label={`اللون ${c}`}
+              aria-pressed={colour.toLowerCase() === c.toLowerCase()}
+              onClick={() => setColour(c)}
+              style={{ background: c }}
+              className={`aspect-square w-full rounded-full ${
+                colour.toLowerCase() === c.toLowerCase()
+                  ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface-1' : ''
+              }`}
             />
-          ) : null}
-          {error ? <p className="text-sm text-danger">{error}</p> : null}
-          {said ? <p className="text-sm text-text-secondary">{said}</p> : null}
-          <div><Button type="submit" disabled={saving}>حفظ</Button></div>
-        </form>
-      ) : null}
+          ))}
+          {/* AND ANY OTHER COLOUR, for a shop that has a brand book. The native picker is the one
+              control on this screen genuinely better than anything we would draw. */}
+          <label className="grid aspect-square w-full cursor-pointer place-items-center rounded-full border border-dashed border-border-subtle text-lg text-text-secondary">
+            +
+            <input type="color" value={colour} className="sr-only"
+                   onChange={(e) => setColour(e.target.value)} />
+          </label>
+        </div>
+      </div>
+
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {said ? <p className="text-sm text-text-secondary">{said}</p> : null}
+      <div><Button type="submit" disabled={busy}>حفظ</Button></div>
+    </form>
+  );
+}
+
+/** Our own gold, and five that sit beside it without fighting the page. */
+const DEFAULT_COLOUR = '#B08A3E';
+const SWATCHES = [DEFAULT_COLOUR, '#1F6F5C', '#2B4C7E', '#8C3B3B',
+                  '#7A5C9E', '#4A4A4A', '#111827'];
+
+/** The longest side, in pixels, a stored logo is reduced to. See BrandCard for why. */
+const LOGO_PX = 256;
+
+/**
+ * A picked file, drawn small and returned as an inline image.
+ *
+ * WEBP, WITH A JPEG BEHIND IT. WebP is roughly half the bytes at the same quality and every
+ * browser this app supports draws it — but `toDataURL` quietly returns a PNG when a format is
+ * unsupported, so the result is checked rather than trusted.
+ */
+function shrink(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, LOGO_PX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('no 2d context')); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const webp = canvas.toDataURL('image/webp', 0.85);
+      resolve(webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('undecodable')); };
+    img.src = url;
+  });
+}
+
+function Fact({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={`flex flex-col gap-1 rounded-card bg-surface-1 p-3 shadow-sm ${wide ? 'col-span-2' : ''}`}>
+      <span className="text-xs text-text-secondary">{label}</span>
+      <span className="truncate">{value}</span>
     </div>
   );
 }

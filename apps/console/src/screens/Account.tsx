@@ -53,7 +53,9 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي' },
   { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك' },
   { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك' },
-  { id: 'data', label: 'بياناتي وأوراقي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
+  // ONE WORD, BECAUSE THE HINT LINE CARRIES THE REST. «بياناتي وأوراقي» was the label that
+  // pushed the strip past the screen and left the last tab sliced in half.
+  { id: 'data', label: 'بياناتي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
 ];
 
 export function AccountScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
@@ -124,7 +126,13 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
           // onto a second row on a phone, which is what «بياناتي وأوراقي» hanging alone under the
           // strip was. One row that slides sideways reads as one control; two ragged rows read as
           // a broken one. The even split comes back at sm, where the labels fit.
-          className="flex w-full flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 [&>button]:whitespace-nowrap sm:[&>button]:flex-1"
+          // A GRID, NOT A ROW THAT SLIDES. The strip scrolled sideways, and a control that
+          // scrolls hides itself: the last tab arrived cut down the middle, which reads as a
+          // rendering fault rather than as "there is more this way". Six equal cells over three
+          // columns fit six Arabic labels on the narrowest phone with nothing clipped and nothing
+          // ragged — the wrapping the kit does by default is ragged because the cells are not
+          // equal, not because wrapping is wrong. One row from sm up, where they all fit.
+          className="grid w-full grid-cols-3 gap-1 sm:flex sm:flex-nowrap [&>button]:w-full [&>button]:truncate sm:[&>button]:flex-1"
           ariaLabel="أقسام حسابي"
           value={active}
           onChange={(v) => setPane(v as Pane)}
