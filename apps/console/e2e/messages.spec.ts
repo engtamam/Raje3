@@ -45,3 +45,29 @@ test('nothing on it is an untranslated key', async ({ shop }) => {
 
   expect(body).not.toMatch(/[a-z]+\.[a-z]+\.[a-z]+/);
 });
+
+test('the log answers the only question this engine ever generates', async ({ shop }) => {
+  /**
+   * `reminders.log` calls itself the most important route this service has — «لماذا لم تصل رسالة
+   * عميلي؟ هو السؤال الوحيد الذي تولّده هذه الخدمة، وشاشةٌ لا تجيبه تحوّل كل قاعدة كتبناها إلى
+   * عطلٍ مشتبهٍ به» — and no screen called it. Quiet hours, the ceiling, consent, an unapproved
+   * template: every correct refusal read to the owner as a fault.
+   */
+  await open(shop, '/messages');
+  await shop.getByRole('radio', { name: 'ما خرج ولم يخرج' }).click();
+
+  const body = await shop.locator('body').innerText();
+  expect(body).toMatch(/كل رسالة لم تخرج، ومعها سببها/);
+
+  // The filter he actually comes for, named by what happened rather than by our word for it.
+  await expect(shop.getByRole('radio', { name: 'لم تخرج' })).toBeVisible();
+  await shop.getByRole('radio', { name: 'لم تخرج' }).click();
+
+  // Either a real suppression with its reason, or the honest empty state — never a blank panel.
+  await expect
+    .poll(async () => {
+      const t = await shop.locator('body').innerText();
+      return /لا شيء في السجل بعد/.test(t) || /لم تخرج/.test(t);
+    }, { timeout: 30_000 })
+    .toBe(true);
+});

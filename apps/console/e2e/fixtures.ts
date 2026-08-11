@@ -159,8 +159,24 @@ export const test = base.extend<{ shop: Page }>({
     // It is also the app behaving correctly: an expired session signs out, because «تعذّر الوصول
     // إلى المنصة» would tell an owner to wait for something that is not broken.
     await page.goto('/');
+
+    // WAIT FOR WHICHEVER ARRIVES — the door or the shell — instead of racing a fixed timeout
+    // against one of them.
+    //
+    // THE BUG THIS FIXES COST FOUR RUNS. The old check gave the door five seconds; on a cold start
+    // over the tunnel neither had painted by then, so it concluded "not on the door", skipped the
+    // repair, and every assertion after it failed against a sign-in form. Four spec files each
+    // reported a different imaginary product bug, and the product was fine.
+    //
+    // Racing the two is also the only honest question: "which of the two states is this?" —
+    // whereas "is the door visible in five seconds?" answers a question about our patience.
+    await Promise.race([
+      page.getByRole('radio', { name: 'محل جديد' }).waitFor({ timeout: 45_000 }),
+      page.getByRole('navigation').first().waitFor({ timeout: 45_000 }),
+    ]).catch(() => undefined);
+
     const onTheDoor = await page.getByRole('radio', { name: 'محل جديد' })
-      .isVisible({ timeout: 5_000 })
+      .isVisible()
       .catch(() => false);
     if (onTheDoor) {
       // eslint-disable-next-line no-console
