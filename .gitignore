@@ -32,3 +32,8 @@ services/operations/.venv/
 venv/
 node_modules/
 apps/*/dist/
+
+# Playwright artefacts — screenshots and traces of a run, never source.
+apps/console/test-results/
+apps/console/playwright-report/
+apps/console/e2e/.session.json
