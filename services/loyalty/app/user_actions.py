@@ -36,6 +36,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # a second spend the customer holds a receipt for.
     },
     {
+        # THE APOLOGY THE PRODUCT COULD NOT MAKE. A machine ate a card, an operator recorded the
+        # wrong service, a customer was shorted — and until this existed the only repair an owner
+        # had was to invent a visit that never happened, which corrupts the very data his
+        # indicators are built on.
+        "id": "loyalty.adjust", "label": "تعديل نقاط العميل", "method": "POST",
+        "path": "/api/v1/loyalty/adjust", "capability": "loyalty.manage", "group": "الولاء",
+        "confirm": True,
+        "help": "منحٌ أو خصمٌ يدوي بسبب مكتوب — لا يُعيد تشغيل مدة انتهاء النقاط.",
+    },
+    {
         "id": "loyalty.history", "label": "حركة النقاط", "method": "GET",
         "path": "/api/v1/loyalty/history/{subject_ref}", "capability": "loyalty.read",
         "params": [{"name": "subject_ref", "in": "path", "type": "string", "required": True}],

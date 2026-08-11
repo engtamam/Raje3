@@ -198,6 +198,70 @@ async def list_rewards(request: Request, include_retired: bool = False,
     return {"rewards": [r.to_dict() for r in rows]}
 
 
+class AdjustIn(BaseModel):
+    subject_ref: str = Field(min_length=8, max_length=128)
+    # POSITIVE COMPENSATES, NEGATIVE CORRECTS. Zero is refused rather than accepted as a no-op: a
+    # zero here is a slip on the way to a number, and writing an entry that moves nothing turns
+    # the ledger into a place where mistakes leave litter.
+    delta: int = Field(ge=-100_000, le=100_000)
+    # REQUIRED, AND THAT IS THE POINT. An adjustment without a reason is unexplainable the moment
+    # anybody asks — including the customer, six months later, whose balance it changed. The note
+    # travels with the entry into the history the counter reads out loud.
+    note: str = Field(min_length=3, max_length=280)
+    # A REPEATED PRESS IS ONE INTENTION. Without it a slow network turns a 50-point apology into
+    # a hundred, and neither the owner nor the customer can tell which press was real.
+    idempotency_key: str = Field(min_length=4, max_length=128)
+
+
+@router.post("/adjust", dependencies=[Depends(rate_limit)])
+async def adjust(request: Request, body: AdjustIn,
+                 principal: Principal = Depends(_MANAGE)) -> dict:
+    """Grant or take back points by hand — the apology the product could not make (spec §9.1).
+
+    THE LEDGER HAS ALWAYS KNOWN THIS MOVEMENT. `reason="adjust"` is in REASONS, and `post()`
+    reasons about it explicitly — an adjustment does NOT restart the expiry clock, «otherwise a
+    shop tidying its books would silently extend every balance it touched». Nothing called it.
+    A machine had gone wrong, a customer had been shorted, and the only repair available to the
+    owner was to invent a fake visit.
+
+    THE MANAGER, NOT THE OPERATOR. `loyalty.manage`, deliberately: an operator who can mint points
+    at the counter is a control the shop cannot audit — and the person who compensates a customer
+    is the person who decides what the shop owes.
+
+    AUDITED BEFORE THE WRITE. A balance moved by hand with no record of who moved it is the one
+    entry in this ledger nobody can defend.
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    actor = getattr(principal, "subject", "") or ""
+
+    if body.delta == 0:
+        return {"ok": False, "reason": "لا يمكن أن يكون التعديل صفراً"}
+
+    # NEVER BELOW ZERO. A negative balance is a number no screen in this product can explain, and
+    # a customer who reads «-30 نقطة» concludes the shop is charging him for loyalty.
+    bal = await c.ledger.balance(tenant, body.subject_ref)
+    if body.delta < 0 and bal.points + body.delta < 0:
+        return {"ok": False,
+                "reason": f"رصيده {bal.points} نقطة — لا يمكن خصم أكثر من ذلك"}
+
+    await request.app.state.auditor.record(
+        "loyalty.adjusted", actor=actor, tenant=tenant, resource=f"subject:{body.subject_ref}",
+        ip=request.client.host if request.client else "",
+        metadata={"delta": body.delta, "note": body.note[:120]})
+
+    entry = await c.ledger.post(
+        tenant=tenant, subject_ref=body.subject_ref, delta=body.delta, reason="adjust",
+        source=body.idempotency_key, actor=actor, note=body.note)
+    if entry is None:
+        # ALREADY DONE, NOT FAILED. The same key twice is one intention; report the balance as it
+        # stands so the screen agrees with the ledger either way.
+        return {"ok": True, "balance": (await c.ledger.balance(tenant, body.subject_ref)).points,
+                "repeated": True}
+
+    return {"ok": True, "balance": entry.balance_after, "repeated": False}
+
+
 @router.post("/rewards", dependencies=[Depends(rate_limit)])
 async def create_reward(request: Request, body: RewardIn,
                         principal: Principal = Depends(_MANAGE)) -> dict:

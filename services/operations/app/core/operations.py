@@ -265,6 +265,28 @@ class Operations:
     async def customer_by_phone(self, tenant: str, phone: str) -> Customer | None:
         return await self._customers.by_phone(tenant, _normalise_phone(phone))
 
+    async def rename_customer(self, tenant: str, customer_id: str, name: str) -> Customer | None:
+        """Give a customer his name — the one edit an owner needs and could not make.
+
+        THE NAME ARRIVES LATE BY DESIGN (§4.3): it is hard to ask a stranger his name while taking
+        his key, and after five visits the operator simply knows it. The field never blocks a save,
+        so most customers are created without one — and until now there was NO way to add it later.
+        The owner recognising a regular on his screen had to sit and watch a row that said «بلا
+        اسم» for ever.
+        
+        THE NAME ONLY. Not the phone: that is the identity every peer resolves him by, and letting
+        it be edited turns one customer into two — the pseudonym is derived from it, so his points,
+        his offers and his history would all stay behind with the old number. A wrong number is a
+        new customer and a merge, not an edit.
+        """
+        c = await self._customers.get(tenant, customer_id)
+        if c is None:
+            return None
+        # TRIMMED AND BOUNDED HERE, not trusted from the screen: this is also the till's route.
+        c.name = (name or "").strip()[:120]
+        await self._customers.save(c)
+        return c
+
     async def customer_by_plate(self, tenant: str, plate: str) -> Customer | None:
         """Whose car this is — the lookup a vehicle shop actually starts from (§4.3).
 

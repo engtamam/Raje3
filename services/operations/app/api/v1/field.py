@@ -167,6 +167,26 @@ async def resolve_customers(request: Request, body: ResolveIn,
     return {"customers": [c.public() for c in rows]}
 
 
+class RenameIn(BaseModel):
+    name: str = Field(default="", max_length=120)
+
+
+@router.patch("/customers/{customer_id}", dependencies=[Depends(rate_limit)])
+async def rename_customer(request: Request, customer_id: str, body: RenameIn,
+                          principal: Principal = Depends(_RECORD)) -> dict:
+    """Name a customer who arrived without one (§4.3).
+
+    THE OPERATOR MAY DO IT, not only the owner: he is the one standing in front of the man whose
+    name it is, and a correction that has to wait for a manager is a correction that never happens.
+    It is the same capability that records the visit — writing a name is smaller than writing a
+    visit, and the visit is already his to write.
+    """
+    c = await _svc(request).rename_customer(_tenant(principal), customer_id, body.name)
+    if c is None:
+        return {"ok": False, "reason": "لا يوجد عميل بهذا المعرّف"}
+    return {"ok": True, "customer": {"id": c.id, "name": c.name}}
+
+
 @router.get("/customers/by-plate", dependencies=[Depends(rate_limit)])
 async def customer_by_plate(request: Request, plate: str,
                             principal: Principal = Depends(_READ)) -> dict:

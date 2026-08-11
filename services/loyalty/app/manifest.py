@@ -103,6 +103,7 @@ def build_manifest(
             # ── the field screen (spec §4.7, §9.5) ────────────────────────────────────────
             {"path": "/api/v1/loyalty/balance/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/loyalty/redeem", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/loyalty/adjust", "tier": "user", "method": "POST"},
             {"path": "/api/v1/loyalty/history/{}", "tier": "user", "method": "GET"},
             # ── the rewards catalogue (spec §9.4) ─────────────────────────────────────────
             {"path": "/api/v1/loyalty/rewards", "tier": "user", "method": "GET"},

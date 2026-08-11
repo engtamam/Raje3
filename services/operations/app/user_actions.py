@@ -62,6 +62,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
     },
     {
+        # THE ONE EDIT AN OWNER NEEDED AND COULD NOT MAKE. The name arrives after five visits by
+        # design (§4.3) and nothing could add it afterwards — a regular he recognised on sight
+        # stayed «بلا اسم» on his screen for ever.
+        "id": "operations.rename_customer", "label": "تسمية العميل", "method": "PATCH",
+        "path": "/api/v1/field/customers/{customer_id}", "capability": "operations.record",
+        "group": "العملاء",
+        "params": [{"name": "customer_id", "in": "path", "type": "string", "required": True}],
+        "help": "الاسم فقط — الرقم هوية العميل عند كل الأقسام ولا يُعدَّل.",
+    },
+    {
         "id": "operations.customer", "label": "سجل العميل", "method": "GET",
         "path": "/api/v1/field/customers/{id}", "capability": "operations.read",
         "group": "الشاشة",
