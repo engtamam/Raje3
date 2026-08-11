@@ -52,10 +52,34 @@ class NullSender:
 class HttpSender:
     driver = "http"
 
-    def __init__(self, *, url: str, path: str, token: str, timeout: int = 8) -> None:
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 8,
+                 merge_path: str = "/internal/reminders/redemption") -> None:
         self._url = url.rstrip("/") + path
+        # WHERE A REDEMPTION ASKS TO JOIN A MESSAGE ALREADY WAITING, rather than send its own.
+        self._merge_url = url.rstrip("/") + merge_path
         self._token = token
         self._timeout = timeout
+
+    async def merge_redemption(self, *, tenant: str, subject_ref: str, reward_name: str,
+                               cost: int, remaining: int) -> bool:
+        """Try to fold this redemption into the confirmation that has not gone out yet (§9.6).
+
+        True means it joined and NOTHING ELSE SHOULD BE SENT. False means there was nothing to join
+        — a redemption without a visit — and the caller falls back to its own receipt, because a
+        customer who spends points and hears nothing is worse served than one who gets two
+        messages.
+
+        UNREACHABLE COUNTS AS FALSE. A peer that is down must not silence a receipt; the fallback
+        is the safe direction.
+        """
+        try:
+            out = _post(self._merge_url, {
+                "tenant": tenant, "subject_ref": subject_ref, "reward_name": reward_name,
+                "cost": int(cost), "remaining": int(remaining),
+            }, self._token, self._timeout)
+            return bool(out.get("merged"))
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return False
 
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
                    owner_text: str, idempotency_key: str) -> dict[str, Any]:

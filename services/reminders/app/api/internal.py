@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import RemindersErasure
+from app.core.stores import ScheduleStore
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -199,6 +200,56 @@ async def ceiling_pressure(request: Request, limit: int = 200) -> dict:
     rows = await store.scan_all(NOTICES, max(1, min(1000, limit)))
     rows = sorted(rows or [], key=lambda r: int(r.get("at") or 0), reverse=True)
     return {"establishments": rows, "count": len(rows)}
+
+
+class RedemptionIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    reward_name: str = Field(min_length=1, max_length=80)
+    cost: int = Field(ge=0, le=1_000_000)
+    remaining: int = Field(ge=0, le=100_000_000)
+
+
+@router.post("/reminders/redemption", dependencies=[Depends(require_internal_token)])
+async def redemption(request: Request, body: RedemptionIn) -> dict:
+    """Fold a redemption into the confirmation that has not gone out yet (§9.6).
+
+    THE DECISION THIS SERVES, IN THE OWNER'S WORDS: «تأكيد الاستبدال تكون ضمن رسالة تأكيد الزيارة
+    بحيث ما نرسل رسايل كثير». Before this, a redemption sent its own receipt — a second message
+    minutes after the first, from a product whose whole discipline is not sending many.
+
+    AND THE TEN-MINUTE DELAY IS WHAT MAKES IT POSSIBLE. The confirmation waits on purpose (a
+    message arriving while he is still at the counter is about something he is watching happen),
+    and that same window is exactly when a reward is handed over. So the merge is not a trick: it
+    is the two events being genuinely simultaneous.
+
+    RETURNS `merged: false` RATHER THAN FAILING when there is no pending confirmation — a
+    redemption without a visit is a real case (the owner correcting something, a portal
+    redemption), and the caller then falls back to its own receipt. Silence would be worse than a
+    second message: the customer would learn nothing about points he just spent.
+    """
+    c = request.app.state.container
+    store = ScheduleStore(c.datastore)
+    pending = await store.pending_for_subject(body.tenant, body.subject_ref)
+    row = next((r for r in pending if r.get("kind") == "visit_confirmation"), None)
+    if row is None:
+        return {"merged": False, "reason": "no pending visit confirmation"}
+
+    # A TEMPLATE VARIANT, NOT AN EXTRA SENTENCE. WhatsApp has no optional part, so a confirmation
+    # with three unused slots is not a thing that can exist — the row moves to the template that
+    # declares five and the send engine chooses it by type, exactly as it does for every other.
+    row["template_type"] = "svc_visit_redeemed"
+    row["redeemed_name"] = body.reward_name
+    row["redeemed_cost"] = int(body.cost)
+    row["redeemed_remaining"] = int(body.remaining)
+    row["updated"] = int(time.time())
+    await store.upsert(body.tenant, row["id"] if "id" in row else _sched_key(row), row)
+    return {"merged": True, "schedule": row.get("id", ""), "template_type": row["template_type"]}
+
+
+def _sched_key(row: dict) -> str:
+    return (f"{row.get('tenant','')}|{row.get('subject_ref','')}|"
+            f"{row.get('service_id','')}|{row.get('kind','')}")
 
 
 @router.post("/reminders/receipt", dependencies=[Depends(require_internal_token)])

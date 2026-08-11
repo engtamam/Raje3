@@ -74,6 +74,22 @@ class Notifier:
 
     async def receipt(self, *, tenant: str, subject_ref: str, redemption_id: str,
                       reward_name: str, cost: int, remaining: int) -> dict:
+        """Tell him what he spent — inside the visit confirmation when there is one (§9.6).
+
+        THE OWNER'S RULE: «تأكيد الاستبدال تكون ضمن رسالة تأكيد الزيارة بحيث ما نرسل رسايل كثير».
+        The confirmation waits ten minutes by design, and a reward is handed over inside exactly
+        that window — so the two are genuinely one moment and belong in one message.
+
+        THE FALLBACK IS NOT A COMPROMISE. A redemption with no visit behind it (the owner
+        correcting something, a portal redemption) has no message to join, and silence there would
+        leave a customer who just spent points knowing nothing about it.
+        """
+        merge = getattr(self.sender, "merge_redemption", None)
+        if merge is not None and await merge(
+                tenant=tenant, subject_ref=subject_ref, reward_name=reward_name,
+                cost=cost, remaining=remaining):
+            return {"sent": True, "merged": True}
+
         return await self.sender.send(
             tenant=tenant, subject_ref=subject_ref, template_type=RECEIPT, cls="personal",
             owner_text=receipt_text(reward_name=reward_name, cost=cost, remaining=remaining),

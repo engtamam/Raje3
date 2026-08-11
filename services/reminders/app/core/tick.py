@@ -447,10 +447,22 @@ class Tick:
         service_text = R.merged_service_text(
             [service_names.get(s, s) for s in
              [row.get("service_id", "")] + list(row.get("also_services") or [])])
+        # THE REDEMPTION, IF ONE JOINED THIS MESSAGE (§9.6). A confirmation waits ten minutes on
+        # purpose, and that is exactly the window in which a redemption happens at the counter —
+        # so it rides along instead of becoming a second message. Slots 3, 4 and 5 of
+        # `svc_visit_redeemed`: what he took, what it cost, what is left.
+        #
+        # 3 AND 4 ARE SHARED SLOTS. On every other template they hold the service text; on this
+        # one the reward's name and its cost. Same numbering, different template — which is the
+        # whole reason this is a template VARIANT rather than an optional sentence: WhatsApp has
+        # no optional part, and a visit without a redemption has nothing true to put in them.
+        redeemed = row.get("redeemed_name", "")
         rendered = R.render(
             template=template,
-            system={"1": customer_name, "2": establishment, "3": service_text,
-                    "4": service_text},
+            system={"1": customer_name, "2": establishment,
+                    "3": redeemed or service_text,
+                    "4": str(row.get("redeemed_cost", "")) if redeemed else service_text,
+                    "5": str(row.get("redeemed_remaining", ""))},
             catalogue={"3": service_text, "4": service_text},
             owner={"3": row.get("owner_text", ""), "4": row.get("owner_text", "")})
 
