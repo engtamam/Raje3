@@ -73,6 +73,26 @@ function when(epoch: number): string {
   });
 }
 
+/**
+ * Why a balance was moved by hand — the reasons a shop actually has.
+ *
+ * TYPING IS THE ENEMY HERE. The reason is required because the entry outlives the memory of it,
+ * but requiring it as free text on a workshop tablet produces «تعويض» and «خطا» and «..» — three
+ * words that answer nothing six months later, which is exactly when the customer asks. A short
+ * list of the real cases costs one tap and produces a record somebody can read.
+ *
+ * «أخرى» KEEPS THE DOOR OPEN, because a fixed list always meets the case nobody predicted — and a
+ * screen that refuses the unusual reason teaches the operator to pick the nearest lie.
+ */
+const ADJUST_REASONS = [
+  'تعويض عن خطأ في تسجيل الزيارة',
+  'تعويض عن خدمة لم تُنفَّذ كما يجب',
+  'نقاط ترحيبية',
+  'تصحيح رصيد بعد جرد',
+  'استبدال تمّ يدوياً في المحل',
+  'إلغاء استبدال',
+] as const;
+
 export function CustomerScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { id = '' } = useParams();
   const navigate = useNavigate();
