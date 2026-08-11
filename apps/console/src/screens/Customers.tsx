@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search } from 'lucide-react';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Button } from '@base-ui/design-system/Button';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -31,6 +32,18 @@ const MIN_PREFIX = 3;
 /** One pending reminder, as the scheduler stores it. The pseudonym, never a name. */
 interface Due { subject_ref?: string; due_at?: number }
 
+/** One request a customer made from his own page. It carries a pseudonym and never a name. */
+interface PrivacyAsk { id: string; type: string; at: number }
+
+/** How long ago, in the words an owner uses — the clock started then, and that is the point. */
+function ago(at: number): string {
+  const days = Math.floor((Date.now() / 1000 - at) / 86_400);
+  if (days <= 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  if (days === 2) return 'قبل يومين';
+  return `قبل ${days} أيام`;
+}
+
 export function CustomersScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const navigate = useNavigate();
   const [tab, setTab] = useState<'all' | 'overdue'>('all');
@@ -38,6 +51,15 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
   const [matches, setMatches] = useState<CustomerHit[]>([]);
   const [recent, setRecent] = useState<CustomerHit[] | null>(null);
   const [overdue, setOverdue] = useState<CustomerHit[] | null>(null);
+  /**
+   * WHAT HIS CUSTOMERS ASKED HIM FOR, from their own pages — a copy of their data, or its erasure.
+   *
+   * IT SITS AT THE TOP OF «عملائي» AND NOWHERE ELSE. This is a legal obligation with a thirty-day
+   * clock and it belongs where he already looks at customers, not in a settings page he opens
+   * twice a year. Absent when there is nothing to answer: a permanent empty panel about a legal
+   * duty is how a legal duty becomes wallpaper.
+   */
+  const [asks, setAsks] = useState<PrivacyAsk[]>([]);
 
   useEffect(() => {
     const a = action(catalog, 'operations.recent');
@@ -102,6 +124,18 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
     return () => { stale = true; window.clearTimeout(id); };
   }, [query, session]);
 
+  const asksAction = action(catalog, 'operations.privacy_requests');
+  const closeAsk = action(catalog, 'operations.close_privacy_request');
+
+  useEffect(() => {
+    if (!asksAction) return;
+    call<{ requests: PrivacyAsk[] }>(session, asksAction)
+      .then((r) => setAsks(r.requests ?? []))
+      // SILENT ON FAILURE, because this panel is absent when there is nothing to show and an
+      // error box about a feature he has never used is noise on the screen he opens most.
+      .catch(() => setAsks([]));
+  }, [session, catalog, asksAction]);
+
   const searching = query.length >= MIN_PREFIX;
   const showing = tab === 'overdue'
     ? (overdue ?? [])
@@ -110,6 +144,46 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      {/* ── what his customers asked him for ────────────────────────────────────────────────
+          FIRST, AND ONLY WHEN THERE IS ONE. A customer tapped «اطلب حذف بياناتي» on his own page;
+          under the PDPL the establishment is the controller and owes him an answer within thirty
+          days. Before this the only way the shop could learn of it was a phone call — which is
+          exactly what his page was built to replace. */}
+      {asks.length ? (
+        <section className="flex flex-col gap-2 rounded-card border border-warning/40 bg-surface-1 p-4 shadow-sm">
+          <h2 className="text-sm font-medium">
+            طلبات على البيانات ({asks.length})
+          </h2>
+          <p className="text-sm text-text-secondary">
+            عملاء طلبوا نسخة من بياناتهم أو حذفها من صفحاتهم. الرد عليهم مسؤوليتك نظاماً، خلال
+            ثلاثين يوماً من تاريخ الطلب.
+          </p>
+          {asks.map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">
+              <span className="flex flex-col">
+                <span className="text-sm">
+                  {a.type === 'erase' ? 'طلب حذف بياناته' : 'طلب نسخة من بياناته'}
+                </span>
+                {/* THE DATE IS THE POINT: the clock started on it, and «قبل يومين» is what tells
+                    him whether this is urgent without arithmetic. */}
+                <span className="text-xs text-text-secondary">{ago(a.at)}</span>
+              </span>
+              {closeAsk ? (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await call(session, closeAsk, { request_id: a.id }).catch(() => null);
+                    setAsks((cur) => cur.filter((x) => x.id !== a.id));
+                  }}
+                >
+                  تم الرد
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       <Segmented
         // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
         // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a

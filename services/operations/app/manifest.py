@@ -134,6 +134,9 @@ def build_manifest(
             {"path": "/api/v1/field/customers/recent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-phone", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-plate", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/field/privacy-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/field/privacy-requests/{}/close", "tier": "user", "method": "POST"},
+            {"path": "/internal/operations/privacy-request", "tier": "internal", "method": "POST"},
             # Pseudonyms to customers — the join «عملائي» needs for its overdue tab, since the
             # schedule comes from reminders and reminders holds no names.
             {"path": "/api/v1/field/customers/resolve", "tier": "user", "method": "POST"},

@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
+from app.core import privacy_requests as PR
 from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
 from app.core.models import CUSTOMERS, VISITS
@@ -883,6 +884,38 @@ async def backup_import(request: Request, body: BackupImportIn,
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+class PrivacyRequestIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    # `export` or `erase`. Correction is deliberately not offered from the page: it is a sentence
+    # at the counter and the operator fixes it in a second, which is faster than any queue.
+    type: str = Field(min_length=3, max_length=16)
+
+
+@router.post("/operations/privacy-request", dependencies=[Depends(require_internal_token)])
+async def privacy_request(request: Request, body: PrivacyRequestIn) -> dict:
+    """A customer asked HIS SHOP for his data, from his own page.
+
+    RECORDED, NOT EXECUTED. The establishment is the controller under the PDPL and the right is
+    exercised against it; a page that erased a customer's history the moment he tapped would be us
+    acting for the controller without its knowledge — and would hand anyone holding a page link a
+    delete button for somebody else's record. The owner already has the control (§ pdpl 3); what he
+    never had was any way to know a request existed.
+
+    THE MOMENT IS THE POINT. It is when the thirty-day clock in the regulation starts, and this row
+    is what proves it started — so it survives the erasure it asks for, holding a pseudonym and a
+    type and nothing else about him.
+    """
+    kind = body.type.strip().lower()
+    if kind not in PR.TYPES:
+        return {"ok": False, "reason": f"type must be one of {list(PR.TYPES)}"}
+    req = await _svc(request).record_privacy_request(body.tenant, body.subject_ref, kind)
+    await request.app.state.auditor.record(
+        "privacy.requested", actor="", tenant=body.tenant, resource=f"privacy:{req.id}",
+        metadata={"type": kind})
+    return {"ok": True, "id": req.id, "at": req.at}
 
 
 @router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])

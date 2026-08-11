@@ -82,6 +82,10 @@ def _css(theme: Theme) -> str:
         ".card{background:var(--surface);border:1px solid var(--border);border-radius:16px;"
         "padding:1.15rem 1.25rem;margin-top:1.15rem}"
         ".card h2{font-size:1.05rem;font-weight:640;margin-bottom:.2rem}"
+        # A SECOND, QUIETER BUTTON. These two ask for something rather than saving a
+        # preference, and giving them the same weight as «حفظ» would make the page look
+        # like it is urging him to leave.
+        ".btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border);margin-inline-end:.5rem;margin-top:.4rem}"
         ".card .sub{color:var(--text-muted);font-size:.9rem;margin-bottom:.9rem}"
         # ── the switches ──────────────────────────────────────────────────────────────────
         ".row{display:flex;align-items:flex-start;gap:.9rem;padding:.85rem 0;"
@@ -158,7 +162,7 @@ def _css(theme: Theme) -> str:
 
 
 def render_page(page: Page, theme: Theme, *, saved: bool = False,
-                logo_url: str = "") -> str:
+                logo_url: str = "", asked: str = "") -> str:
     """The whole document.
 
     Returns a string rather than writing to a template engine: there is one page on this service,
@@ -298,6 +302,33 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
         for v in page.visits.data[:10]:
             parts.append(f"<div class='v'><span>{_e(v.get('services') or 'زيارة')}</span>"
                          f"<span class='d'>{_e(v.get('date') or '')}</span></div>")
+    parts.append("</section>")
+
+    # ── his data, and what he can ask for ─────────────────────────────────────────────────
+    #
+    # THE RIGHT EXISTS WHETHER OR NOT THE PAGE OFFERS IT, and a right nobody is told about is not
+    # one. The PDPL gives him access to his data and its erasure, and it gives them AGAINST THE
+    # SHOP — not against us — so the page asks the shop, plainly, in the same place the rest of his
+    # relationship with it lives.
+    #
+    # LAST ON THE PAGE. He came for his offer and his points; this is the paragraph he reads once
+    # in his life, on the day he wants it, and it must be findable rather than prominent.
+    #
+    # NO CONFIRMATION DIALOG, AND NOTHING IS DESTROYED BY THE TAP. It records a request his shop
+    # answers — see operations — so the cost of a mistaken tap is a message to the workshop, not a
+    # deleted history. A confirm step here would be theatre.
+    parts.append("<section class='card'><h2>بياناتك</h2>"
+                 "<p class='sub'>بياناتك لدى هذا المتجر ملكك. تقدر تطلب نسخة منها، أو تطلب "
+                 "حذفها — والمتجر هو من ينفّذ الطلب، ويصلك رده.</p>")
+    if asked:
+        parts.append(f"<p class='ok'>{_e(asked)}</p>")
+    parts.append(f"<form method='post' action='/p/{_e(page.reference)}/data'>"
+                 "<button class='btn ghost' type='submit' name='ask' value='export'>"
+                 "اطلب نسخة من بياناتي</button>"
+                 "<button class='btn ghost' type='submit' name='ask' value='erase'>"
+                 "اطلب حذف بياناتي</button></form>")
+    parts.append("<p class='muted'>الحذف نهائي: تختفي زياراتك ونقاطك ورسائلك لدى هذا المتجر. "
+                 "وتبقى الفواتير التي يلزم النظام بحفظها.</p>")
     parts.append("</section>")
 
     parts.append("</div>")

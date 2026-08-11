@@ -62,6 +62,19 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
     },
     {
+        "id": "operations.privacy_requests", "label": "طلبات عملائي على بياناتهم", "method": "GET",
+        "path": "/api/v1/field/privacy-requests", "capability": "operations.manage",
+        "group": "Customers",
+        "help": "ما طلبه عملاؤك من صفحاتهم: نسخة من بياناتهم أو حذفها. المنشأة هي المسؤولة نظاماً.",
+    },
+    {
+        "id": "operations.close_privacy_request", "label": "أغلق الطلب", "method": "POST",
+        "path": "/api/v1/field/privacy-requests/{request_id}/close",
+        "capability": "operations.manage", "group": "Customers",
+        "params": [{"name": "request_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True,
+    },
+    {
         "id": "operations.erase_customer",
         "label": "حذف بيانات العميل",
         "method": "POST",

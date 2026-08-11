@@ -105,6 +105,7 @@ def build_manifest(
             # forwarded, and whoever opens it must learn nothing about whose it is.
             {"path": "/p/{}", "tier": "public", "method": "GET"},
             {"path": "/p/{}/prefs", "tier": "public", "method": "POST"},
+            {"path": "/p/{}/data", "tier": "public", "method": "POST"},
             {"path": "/p/{}/stop", "tier": "public", "method": "GET"},
         ],
         "ports": ports or [],  # port -> driver, from the composition root

@@ -92,6 +92,12 @@ class NullOperations:
     async def visits_for(self, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
         return []
 
+    async def privacy_request(self, tenant: str, subject_ref: str, kind: str) -> bool:
+        # FALSE, NEVER A CHEERFUL LIE. An unconfigured deployment must not tell a customer his
+        # request was received when nothing recorded it — that is the one message he will act on
+        # by doing nothing further.
+        return False
+
 
 class HttpOperations:
     driver = "http"
@@ -109,6 +115,19 @@ class HttpOperations:
         data = _post(self._url, {"tenant": tenant, "subject_ref": subject_ref,
                                  "limit": self._limit}, self._token, self._timeout)
         return list(data.get("visits") or [])
+
+    async def privacy_request(self, tenant: str, subject_ref: str, kind: str) -> bool:
+        """Record that this customer asked his shop for his data — a copy of it, or its erasure.
+
+        THE SHOP IS THE CONTROLLER and answers; we record. See operations' route for why nothing is
+        erased here, and why the moment matters more than the wording: it is when the thirty-day
+        clock in the regulation starts.
+        """
+        base = self._url.rsplit("/internal/", 1)[0]
+        data = _post(f"{base}/internal/operations/privacy-request",
+                     {"tenant": tenant, "subject_ref": subject_ref, "type": kind},
+                     self._token, self._timeout)
+        return bool(data.get("ok"))
 
 
 # ── reminders: the switches ────────────────────────────────────────────────────────────────────

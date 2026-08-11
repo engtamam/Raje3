@@ -50,6 +50,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أوقف أي نوع من الرسائل على حدة، أو أوقفها كلها.",
     },
     {
+        "id": "portal.ask_about_data", "label": "طلب نسخة من بياناتي أو حذفها", "method": "POST",
+        "path": "/p/{ref}/data", "capability": "", "group": "صفحتي",
+        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
+        "danger": True,
+        # HIS RIGHT UNDER THE PDPL, AGAINST THE SHOP — which is why it is recorded for the shop to
+        # answer rather than executed here. A right nobody is told about is not a right, and until
+        # this existed the only way to exercise it was to telephone the workshop.
+        "help": "يسجّل طلبك لدى المتجر: نسخة من بياناتك أو حذفها. المتجر ينفّذه ويرد خلال 30 يوماً.",
+    },
+    {
         "id": "portal.stop", "label": "إيقاف العروض", "method": "GET",
         "path": "/p/{ref}/stop", "capability": "", "group": "صفحتي",
         "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],

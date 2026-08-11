@@ -33,7 +33,8 @@ from typing import Any
 
 from app.core.models import Asset, Customer, Visit
 from app.core.pii import subject_ref
-from app.core.stores import AssetStore, CustomerStore, ServiceStore, VisitStore, new_id
+from app.core.stores import (AssetStore, CustomerStore, PrivacyRequestStore, ServiceStore,
+                             VisitStore, new_id)
 
 
 class OperationError(Exception):
@@ -75,6 +76,10 @@ class Operations:
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
         self._visits = VisitStore(store)
+        # WHAT HIS CUSTOMERS ASKED HIM FOR, from their own pages. Recorded here rather than acted
+        # on, because the establishment is the controller and the right is exercised against it —
+        # see core/privacy_requests.py.
+        self._privacy = PrivacyRequestStore(store)
         self._salt = pii_salt
         # HOW WE ASK WHICH OFFER APPLIES. A callable rather than a URL so a test can answer it
         # without a socket, and so this file never learns reminders' route shape.
@@ -82,6 +87,16 @@ class Operations:
         # How far back a claimed visit time may be before it is a broken clock. A shop migrating a
         # year of its own history needs more, and that must not require a release.
         self._max_backdate = int(max_backdate)
+
+    # ── his customers' privacy requests ───────────────────────────────────────────────────────
+    async def record_privacy_request(self, tenant: str, subject_ref: str, kind: str):
+        return await self._privacy.open_request(tenant, subject_ref, kind)
+
+    async def open_privacy_requests(self, tenant: str):
+        return await self._privacy.list_open(tenant)
+
+    async def close_privacy_request(self, tenant: str, request_id: str, by: str) -> bool:
+        return await self._privacy.close(tenant, request_id, by)
 
     def with_offer_chooser(self, chooser) -> "Operations":
         """Install who decides which offer a visit applies. Set at wiring, not at import."""

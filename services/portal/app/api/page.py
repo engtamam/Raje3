@@ -116,6 +116,44 @@ async def save_prefs(request: Request, ref: str) -> Response:
     return HTMLResponse(render_page(built, theme, saved=saved, logo_url=logo), headers=NO_STORE)
 
 
+@router.post("/{ref}/data", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
+async def ask_about_data(request: Request, ref: str) -> Response:
+    """«اطلب نسخة من بياناتي» / «اطلب حذف بياناتي» — his right, exercised against his shop.
+
+    RECORDED, NOT EXECUTED, and the establishment answers. It is the controller under the PDPL and
+    we are its processor; a page that erased his history on a tap would also be a delete button for
+    anyone who ever saw the link. See operations' privacy-request route.
+
+    THE ANSWER IS THE PEER'S, NOT OUR OPTIMISM — the same rule the preferences save learned. A
+    customer told his request was received, when nothing recorded it, does not ask again: he
+    assumes the shop ignored him, which is the one outcome this page exists to prevent.
+    """
+    r = parse(ref)
+    c = request.app.state.container
+    if not r.valid:
+        from app.core.compose import Page
+        return HTMLResponse(render_page(Page(reference=ref, tenant=""), build_theme(None)),
+                            headers=NO_STORE)
+
+    import urllib.parse
+
+    raw = (await request.body())[:4096].decode("utf-8", "ignore")
+    kind = (urllib.parse.parse_qs(raw).get("ask") or [""])[0]
+    ok = False
+    if kind in ("export", "erase"):
+        ok = await c.operations.privacy_request(r.tenant, r.subject_ref, kind)
+
+    built = await c.composer.build(r.tenant, r.subject_ref)
+    theme = build_theme(built.brand_colour)
+    logo = await c.identity.logo_url(r.tenant) if hasattr(c.identity, "logo_url") else ""
+    # WHAT HAPPENS NEXT, IN HIS WORDS AND WITH A DEADLINE. «تم» tells him nothing about whether to
+    # wait or to follow up; the regulation gives the shop thirty days and he is entitled to know it.
+    said = ("وصل طلبك إلى المتجر. يرد عليك خلال ثلاثين يوماً — وقد يتواصل معك للتأكد من هويتك قبل "
+            "التنفيذ." if ok else
+            "تعذّر تسجيل طلبك الآن. حاول بعد قليل — ولم يتغيّر شيء في بياناتك.")
+    return HTMLResponse(render_page(built, theme, logo_url=logo, asked=said), headers=NO_STORE)
+
+
 @router.get("/{ref}/stop", response_class=HTMLResponse, dependencies=[Depends(rate_limit)])
 async def stop(request: Request, ref: str) -> Response:
     """One tap: stop the marketing, then say so (spec §8.3).

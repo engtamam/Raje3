@@ -238,6 +238,27 @@ async def erase_customer(request: Request, customer_id: str, authorization: str 
     return {"ok": True, **result}
 
 
+@router.get("/privacy-requests", dependencies=[Depends(rate_limit)])
+async def privacy_requests(request: Request, principal: Principal = Depends(_MANAGE)) -> dict:
+    """What his customers have asked him for, and not yet been answered.
+
+    A RIGHT NOBODY IS TOLD ABOUT IS NOT A RIGHT. The customer taps «احذف بياناتي» on his own page
+    and the request lands here; without this list the only way the establishment would learn of it
+    is if he also telephoned — which is the situation the page exists to replace.
+    """
+    rows = await _svc(request).open_privacy_requests(_tenant(principal))
+    return {"requests": [r.public() for r in rows]}
+
+
+@router.post("/privacy-requests/{request_id}/close", dependencies=[Depends(rate_limit)])
+async def close_privacy_request(request: Request, request_id: str,
+                                principal: Principal = Depends(_MANAGE)) -> dict:
+    """Answered. WHO closed it is kept — «we answered him» is a claim that needs a name on it."""
+    ok = await _svc(request).close_privacy_request(_tenant(principal), request_id,
+                                                  principal.subject)
+    return {"ok": ok}
+
+
 @router.get("/customers/by-plate", dependencies=[Depends(rate_limit)])
 async def customer_by_plate(request: Request, plate: str,
                             principal: Principal = Depends(_READ)) -> dict:
