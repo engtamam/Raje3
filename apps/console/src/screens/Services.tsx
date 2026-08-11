@@ -880,9 +880,12 @@ function Row({ label, hint, children }:
     // THREE CELLS ON ONE ROW, AND THE EXPLANATION UNDER ALL OF THEM. The «؟» is a direct child
     // of this grid rather than of the label, which is what lets its sentence span the full width
     // when it opens; the control is placed explicitly so the sentence cannot push it down a row.
-    <div className="grid grid-cols-[auto_auto_7.5rem] items-center gap-x-2 gap-y-1">
+    <div className="grid grid-cols-[1fr_auto_7.5rem] items-center gap-x-2 gap-y-1">
       {/* WRAPS RATHER THAN CLIPS. A label cut mid-word reads as a rendering fault; a label on
           two lines reads as a label. */}
+      {/* THE LABEL COLUMN TAKES THE SLACK (`1fr`), so the «؟» sits at the same x on every row
+          instead of trailing each label wherever it happens to end — four marks scattered across
+          the card read as decoration; four in a line read as one control repeated. */}
       <span className="min-w-0 text-sm">{label}</span>
       <Hint wide>{hint}</Hint>
       <span className="col-start-3 row-start-1">{children}</span>
