@@ -71,12 +71,27 @@ export class SessionExpired extends Error {}
  */
 const CACHE_KEY = 'raje3.catalog';
 
+/**
+ * How long a catalogue may be believed. Ten minutes, and the number is chosen from what changes
+ * it: a plan upgraded from our panel, a capability granted to a role, a service deployed with a
+ * new action. None of those touch the browser, so a cache keyed ONLY on the token holds a stale
+ * answer for as long as the tab stays open — and the screen hides a feature the shop is paying
+ * for, silently, with nothing to click and no error to read.
+ *
+ * Observed exactly that: `loyalty.adjust` went live on the cluster and the owner's «تعديل» tab
+ * kept showing only the name. Nothing was broken; the page simply believed an old answer.
+ */
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
 function cached(token: string): Catalog | null {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const held = JSON.parse(raw) as { token: string; catalog: Catalog };
-    return held.token === token ? held.catalog : null;
+    const held = JSON.parse(raw) as { token: string; catalog: Catalog; at?: number };
+    if (held.token !== token) return null;
+    // AN AGE THE ENTRY CARRIES, not a timer we would have to keep alive across reloads.
+    if (!held.at || Date.now() - held.at > CACHE_TTL_MS) return null;
+    return held.catalog;
   } catch {
     return null;
   }
@@ -84,7 +99,7 @@ function cached(token: string): Catalog | null {
 
 function remember(token: string, catalog: Catalog): void {
   try {
-    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ token, catalog }));
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ token, catalog, at: Date.now() }));
   } catch {
     // Private mode, or a full quota. The app simply fetches again — a cache that throws must not
     // be a cache that breaks the page.
