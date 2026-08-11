@@ -174,6 +174,8 @@ async def backup_import(request: Request, body: BackupImportIn,
 
 # ── the heartbeat ──────────────────────────────────────────────────────────────────────────────
 class TickIn(BaseModel):
+    # EVERY FIELD HAS A DEFAULT AND THE BODY ITSELF IS OPTIONAL — see the routes below for the
+    # eighteen hours of "أحسب الآن" that taught us the difference.
     # Empty = every tenant the data knows about. A value scopes the pass, which is what a support
     # engineer wants when investigating one shop without recomputing the product.
     tenant: str = ""
@@ -181,13 +183,24 @@ class TickIn(BaseModel):
 
 
 @router.post("/insights/tick", dependencies=[Depends(require_internal_token)])
-async def tick(request: Request, body: TickIn) -> dict:
+async def tick(request: Request, body: TickIn | None = None) -> dict:
     """Compute snapshots (spec §10.6.1).
 
     WITHOUT ITS CRON THIS SERVICE IS INERT AND LOOKS HEALTHY — every probe green, every route
     answering, and every dashboard saying "أحسب الآن" for ever. Playbook trap §4.1, which is why
     the schedule is declared beside this endpoint in the manifest rather than left to a deployer.
     """
+    # THE CRON POSTS NO BODY AT ALL. The platform's scheduled-job template sends an empty payload
+    # with a JSON content type, and a REQUIRED model rejects that as a validation error before a
+    # line of this function runs — so the job failed every night, the snapshot was never computed,
+    # and every dashboard said «أحسب مؤشرات محلك الآن» for ever. Exactly the trap the values file
+    # warns about, arriving through the one door nobody watched: every probe green, every route
+    # answering, the failure visible only in a Job's exit code.
+    #
+    # OPTIONAL BODY, DEFAULTS INSIDE. An empty POST now means "every tenant", which is what a
+    # nightly pass is; a body still scopes it for a support engineer looking at one shop.
+    body = body or TickIn()
+
     import time as _time
 
     c = request.app.state.container
@@ -198,7 +211,7 @@ async def tick(request: Request, body: TickIn) -> dict:
 
 
 @router.post("/insights/digest", dependencies=[Depends(require_internal_token)])
-async def digest(request: Request, body: TickIn) -> dict:
+async def digest(request: Request, body: TickIn | None = None) -> dict:
     """The weekly report, through reminders' gate.
 
     Sends NOTHING for a tenant with no snapshot or no visits: a message reading "0 visits" is our
@@ -206,6 +219,9 @@ async def digest(request: Request, body: TickIn) -> dict:
     """
     from app.core.digest import build as build_digest
     from app.core.models import SNAPSHOTS
+
+    # Optional for the same reason as the tick above: the cron posts no body.
+    body = body or TickIn()
 
     import time as _time
 

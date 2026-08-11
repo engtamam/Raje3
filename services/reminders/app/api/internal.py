@@ -99,7 +99,7 @@ class TickIn(BaseModel):
 
 
 @router.post("/reminders/tick", dependencies=[Depends(require_internal_token)])
-async def tick(request: Request, body: TickIn) -> dict:
+async def tick(request: Request, body: TickIn | None = None) -> dict:
     """The heartbeat. A CronJob in the values file drives this.
 
     WITHOUT THE CRON THIS SERVICE IS INERT AND LOOKS HEALTHY: visits arrive, schedules are created,
@@ -111,6 +111,13 @@ async def tick(request: Request, body: TickIn) -> dict:
     at-most-once: a visit the event missed should be scheduled and sent in the same tick, not in
     the next one.
     """
+    # THE CRON POSTS NO BODY AT ALL. The platform's scheduled-job template sends an empty payload
+    # with a JSON content type, and a REQUIRED model rejects that as a validation error before a
+    # line of this function runs — so the heartbeat failed on every schedule while every probe
+    # stayed green and every route answered. The failure lived in a Job's exit code and nowhere
+    # else. An empty POST now means what a scheduled pass means: all of it.
+    body = body or TickIn()
+
     c = request.app.state.container
     s = get_settings()
     now = int(time.time())

@@ -175,7 +175,7 @@ class TickIn(BaseModel):
 
 
 @router.post("/loyalty/tick", dependencies=[Depends(require_internal_token)])
-async def tick(request: Request, body: TickIn) -> dict:
+async def tick(request: Request, body: TickIn | None = None) -> dict:
     """Expire what is due, and warn what is about to expire (spec §9.7).
 
     WITHOUT ITS CRON THIS SERVICE IS INERT AND LOOKS PERFECTLY HEALTHY. Balances accumulate, every
@@ -187,6 +187,13 @@ async def tick(request: Request, body: TickIn) -> dict:
     balance half-expired; and a warning that fails is retried tomorrow, because `mark_warned` is
     only stamped once the send succeeded.
     """
+    # THE CRON POSTS NO BODY AT ALL. The platform's scheduled-job template sends an empty payload
+    # with a JSON content type, and a REQUIRED model rejects that as a validation error before a
+    # line of this function runs — so the heartbeat failed on every schedule while every probe
+    # stayed green and every route answered. The failure lived in a Job's exit code and nowhere
+    # else. An empty POST now means what a scheduled pass means: all of it.
+    body = body or TickIn()
+
     import time as _time
 
     c = request.app.state.container
