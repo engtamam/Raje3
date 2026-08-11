@@ -49,13 +49,58 @@ const HEADLINE: { key: string; label: string; icon: typeof Users; percent?: bool
   { key: 'churn_rate', label: 'نسبة التسرّب', icon: AlertTriangle, percent: true },
 ];
 
+/** Two services that arrive together, and how sure the engine is. */
+interface Pairs {
+  learning?: boolean;
+  have?: number;
+  need?: number;
+  pairs?: { a: string; b: string; verdict: string; customers: number }[];
+}
+
+/** A bundle the shop could offer. WE SAY WHERE, NEVER HOW MUCH — the price is his (§10.6.2.1). */
+interface Bundle {
+  a_name?: string; b_name?: string; why?: string;
+  customers?: number; action?: string; action_label?: string;
+}
+
+interface Branches {
+  rows?: { branch_id?: string; name?: string; visits?: number; customers?: number }[];
+  unknown?: number;
+  can_rank?: boolean;
+}
+
 export function LocalScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [failed, setFailed] = useState(false);
   /** Whether HE receives the weekly report. Optimistic, and reverted if the save fails. */
   const [digest, setDigest] = useState(true);
+  /**
+   * THE THREE PANELS THE ENGINE COMPUTES AND NOTHING RENDERED.
+   *
+   * `insights.associations`, `insights.bundles` and `insights.branches` were built, tested,
+   * deployed and reachable by nothing — so «محلّي» showed the headline numbers and the shop never
+   * saw the answers the engine exists to produce: which two services go together, which bundle to
+   * suggest, and which branch is ahead.
+   *
+   * ABSENT WHERE THE PLAN DOES NOT INCLUDE THEM, and absent is right (§8.6.1). The gateway drops
+   * the action from the catalogue, so the panel is not rendered at all rather than rendered locked
+   * — the teaser line above already does the selling, once, in a sentence that is true.
+   */
+  const [pairs, setPairs] = useState<Pairs | null>(null);
+  const [bundles, setBundles] = useState<Bundle[] | null>(null);
+  const [branches, setBranches] = useState<Branches | null>(null);
 
   useEffect(() => {
+    // EACH ONE ON ITS OWN, and a failure in one leaves the others. They are three separate
+    // answers, and a shop whose branch table cannot be read should still see its pairs.
+    const assoc = action(catalog, 'insights.associations');
+    if (assoc) call<Pairs>(session, assoc).then(setPairs).catch(() => setPairs(null));
+    const bun = action(catalog, 'insights.bundles');
+    if (bun) call<{ bundles: Bundle[] }>(session, bun)
+      .then((r) => setBundles(r.bundles ?? [])).catch(() => setBundles(null));
+    const br = action(catalog, 'insights.branches');
+    if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
+
     const a = action(catalog, 'insights.dashboard');
     if (!a) { setFailed(true); return; }
     call<Dashboard>(session, a).then(setData).catch(() => setFailed(true));
@@ -160,6 +205,85 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         // sitting there while his plan cannot send one. It is the truest upgrade motivator in the
         // product for exactly that reason, so it stays a LINE and never becomes a banner.
         <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.audience.message}</p>
+      ) : null}
+
+      {/* ── what goes with what ───────────────────────────────────────────────────────────
+          A PAIR IS NOT ADVICE UNTIL IT IS EXPLAINED. Each row carries the engine's own sentence,
+          because «غيار زيت + فلتر» with no reason is a coincidence the owner has to trust us
+          about — and the one thing he cannot check is the one thing he will not act on. */}
+      {pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
+        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          <h2 className="text-sm text-text-secondary">ما يُطلب معاً</h2>
+          {(pairs.pairs ?? []).slice(0, 6).map((p) => (
+            <div key={`${p.a}|${p.b}`} className="flex items-center justify-between gap-3 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+              <span className="text-sm">{p.a} + {p.b}</span>
+              <span className="tabular-nums text-xs text-text-secondary">{p.customers} عميلاً</span>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      {/* STILL LEARNING IS A STATE, NOT AN ABSENCE. A shop three weeks old has no pairs because it
+          has no history, and saying so — with the count it still needs — is the difference between
+          a product that is working and one that looks broken. */}
+      {pairs?.learning ? (
+        <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
+          ما زلنا نتعلّم ما يُطلب معاً في محلّك — {pairs.have ?? 0} زيارة من {pairs.need ?? 0}.
+        </p>
+      ) : null}
+
+      {/* ── the bundles ───────────────────────────────────────────────────────────────────
+          WE SAY WHERE, NEVER HOW MUCH (§10.6.2.1). The price is the shop's and nothing here
+          suggests one — a platform that prices a workshop's work is a platform that is wrong in
+          public. */}
+      {bundles && bundles.length ? (
+        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          <h2 className="text-sm text-text-secondary">باقات مقترحة</h2>
+          {bundles.slice(0, 4).map((b, i) => (
+            <div key={i} className="flex flex-col gap-1 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+              <span className="text-sm font-medium">{b.a_name} + {b.b_name}</span>
+              {b.why ? <span className="text-xs text-text-secondary">{b.why}</span> : null}
+              <div className="flex items-center justify-between gap-2">
+                {b.action_label ? (
+                  <span className="text-xs text-accent-on-soft">{b.action_label}</span>
+                ) : <span />}
+                <span className="tabular-nums text-xs text-text-secondary">
+                  {b.customers} فرصة
+                </span>
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      {/* ── the branches ──────────────────────────────────────────────────────────────────
+          RENDERED ONLY FOR A SHOP THAT HAS MORE THAN ONE. A comparison table with one row is a
+          table about nothing, and `can_rank` is the server saying whether the comparison is even
+          fair yet — a branch opened last week does not lose to one open three years. */}
+      {branches && (branches.rows ?? []).length > 1 ? (
+        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          <h2 className="text-sm text-text-secondary">فروعك</h2>
+          {(branches.rows ?? []).map((r, i) => (
+            <div key={r.branch_id || i} className="flex items-center justify-between gap-3 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+              <span className="text-sm">{r.name || r.branch_id || 'بلا اسم'}</span>
+              <span className="tabular-nums text-xs text-text-secondary">
+                {r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً
+              </span>
+            </div>
+          ))}
+          {branches.unknown ? (
+            // THE UNSPECIFIED ROW IS SHOWN, NOT HIDDEN. Visits recorded without a branch belong to
+            // somebody, and a table that silently drops them makes every branch look smaller.
+            <p className="text-xs text-text-secondary">
+              {branches.unknown} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.
+            </p>
+          ) : null}
+          {branches.can_rank === false ? (
+            <p className="text-xs text-text-secondary">
+              لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.
+            </p>
+          ) : null}
+        </section>
       ) : null}
 
       {data.teaser?.message ? (
