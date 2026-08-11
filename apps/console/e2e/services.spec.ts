@@ -132,7 +132,13 @@ test('a service can leave its group, and a group can be deleted', async ({ shop 
   await expect(shop.getByRole('button', { name: 'حذف المجموعة' })).toBeVisible();
 
   // AND THE SERVICE CAN WALK OUT ON ITS OWN, without taking the group with it.
-  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+  //
+  // THE ROW IS ALREADY OPEN. Re-clicking it here CLOSED it — the header is a toggle — and the
+  // picker then never appeared, which the run reported as a missing control on a screen that was
+  // behaving exactly as designed. Opened only if it is shut, which is also what a person does.
+  if (!(await shop.getByLabel(/^مجموعة /).first().isVisible().catch(() => false))) {
+    await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
+  }
   await shop.getByLabel(/^مجموعة /).first().selectOption('');
   await expect(shop.getByRole('heading', { name: /مجموعة الإثبات/ })).toHaveCount(0, { timeout: 30_000 });
 });

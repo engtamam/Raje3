@@ -178,9 +178,32 @@ export const test = base.extend<{ shop: Page }>({
     const onTheDoor = await page.getByRole('radio', { name: 'محل جديد' })
       .isVisible()
       .catch(() => false);
-    if (onTheDoor) {
+
+    // THE SHELL IS NOT PROOF OF A SESSION, and believing it was cost a whole run.
+    //
+    // Refresh tokens ROTATE, and reusing one twice is theft as far as identity is concerned — it
+    // revokes the entire family. A saved storageState replayed by a second run does exactly that,
+    // so the app mounts (the shell needs no server), the nav paints, and every data call 401s. The
+    // screens then render their empty states, and «خدماتي» reported a seeded shop as having no
+    // services at all. Two specs failed, describing a product bug that did not exist.
+    //
+    // So the session is ASKED whether it is alive, rather than inferred from a rendered sidebar.
+    const alive = onTheDoor ? false : await page.evaluate(async () => {
+      const raw = localStorage.getItem('raje3.session');
+      if (!raw) return false;
+      try {
+        const r = await fetch('/api/v1/app/catalog', {
+          headers: { Authorization: `Bearer ${JSON.parse(raw).token}` },
+        });
+        return r.ok;
+      } catch {
+        return false;
+      }
+    }).catch(() => false);
+
+    if (onTheDoor || !alive) {
       // eslint-disable-next-line no-console
-      console.log('  session expired — opening a fresh shop');
+      console.log('  session dead — opening a fresh shop');
       await openShop(page);
       await context.close();
       context = await browser.newContext({ storageState: SESSION_FILE });

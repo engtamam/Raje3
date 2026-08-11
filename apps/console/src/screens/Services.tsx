@@ -64,6 +64,9 @@ function summarise(v: ServiceSetting): string {
 
 export function ServicesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [services, setServices] = useState<Service[] | null>(null);
+  /** The list could not be READ — as opposed to being read and found empty. Two different facts,
+   *  and this screen used to say the same sentence for both. */
+  const [unread, setUnread] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -102,8 +105,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     const list = mine ?? action(catalog, 'operations.list_services');
     if (list) {
       call<{ services: Service[] }>(session, list, mine ? { include_retired: true } : {})
-        .then((x) => setServices(x.services))
-        .catch(() => setServices([]));
+        .then((x) => { setServices(x.services); setUnread(false); })
+        // A FAILED READ IS NOT AN EMPTY SHOP. This used to set [], so a 401, a 503 or a dropped
+        // connection all rendered «لا توجد خدمات» — the screen telling an owner with a full
+        // catalogue that he sells nothing, in the same words it uses for a genuinely new shop.
+        // He cannot tell those apart, and the wrong one costs him the trust the true one needs.
+        .catch(() => { setServices([]); setUnread(true); });
     } else {
       setServices([]);
     }
@@ -327,8 +334,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     return (
       <div className="p-4">
         <EmptyState
-          title="لا توجد خدمات"
-          description="قائمة قطاعك تُضاف تلقائياً عند إنشاء الحساب — تواصل معنا إن بقيت فارغة."
+          title={unread ? 'تعذّر عرض خدماتك' : 'لا توجد خدمات'}
+          description={unread
+            ? 'خدماتك موجودة ولم نستطع قراءتها الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.'
+            : 'قائمة قطاعك تُضاف تلقائياً عند إنشاء الحساب — تواصل معنا إن بقيت فارغة.'}
+          action={unread ? <Button onClick={load}>أعد المحاولة</Button> : undefined}
         />
       </div>
     );
