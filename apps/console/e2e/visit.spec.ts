@@ -216,14 +216,26 @@ test('a customer with points can spend them, in front of him', async ({ shop }) 
   // had set. A test that depends on unstated configuration is not testing the product; it is
   // testing whoever seeded the tenant last. So it states it.
   await open(shop, '/points');
+  // «نقاطي» OPENS ON «المكافآت», because the table is what an owner comes to read; what a visit
+  // EARNS lives behind «الكسب». A test that assumes the first tab is the only tab reports a
+  // missing field that is simply one tap away.
+  await shop.getByRole('radio', { name: 'الكسب' }).click();
   const general = shop.getByRole('spinbutton', { name: 'نقاط لكل زيارة (عام)' }).first();
-  if (await general.isVisible().catch(() => false)) {
-    const now = Number((await general.inputValue()) || 0);
-    if (!now) {
-      await general.fill('10');
-      await general.blur();
-      await shop.waitForTimeout(1200);
-    }
+  // ASSERTED, NOT ATTEMPTED. The first version of this setup skipped quietly when the control was
+  // absent, so the test went on to fail thirty seconds later on «رصيده» — a missing SETTING wearing
+  // the costume of a broken redemption path. If the shop cannot set what a visit is worth, that is
+  // the finding, and it should be the sentence in the report.
+  await expect(general).toBeVisible({ timeout: 15_000 });
+  if (!Number((await general.inputValue()) || 0)) {
+    await general.fill('10');
+    await general.blur();
+    await shop.waitForTimeout(1500);
+    // RE-READ THROUGH THE TAB, because reopening the page lands on «المكافآت» again and the field
+    // we are confirming is not on it.
+    await open(shop, '/points');
+    await shop.getByRole('radio', { name: 'الكسب' }).click();
+    await expect(shop.getByRole('spinbutton', { name: 'نقاط لكل زيارة (عام)' }).first())
+      .toHaveValue('10');
   }
 
   await open(shop, '/visit');
@@ -249,7 +261,13 @@ test('a customer with points can spend them, in front of him', async ({ shop }) 
 
   // HIS BALANCE IS ON THE SCREEN — this is the assertion that would have failed for the entire
   // life of the product before points 1 wired earning to the visit.
-  await expect(shop.getByText('رصيده')).toBeVisible({ timeout: 30_000 });
+  // AND WALK TO THE PAGE IT IS ON. His points live on «عروضه ونقاطه», a step of their own since
+  // the journey became a sequence — the balance was never missing, the test was standing on the
+  // wrong screen looking for it. `reach` is the same helper every other test here uses, and it is
+  // what a person does: move forward until the thing appears.
+  const balanceLine = shop.getByText('رصيده');
+  await reach(shop, balanceLine);
+  await expect(balanceLine).toBeVisible({ timeout: 30_000 });
   const line = await shop.locator('body').innerText();
   expect(line).toMatch(/\d+ نقطة/);
   // Either he can afford something, or the screen says how far he is — never a blank box.

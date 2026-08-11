@@ -12,9 +12,12 @@ the filter is the control, the key layout is what catches the day the filter is 
 """
 from __future__ import annotations
 
+import time
+
 import uuid
 from typing import Any
 
+from app.core import privacy_requests as PR
 from app.core.models import (ASSETS, BRANCHES, CUSTOMERS, OPERATORS, SERVICES, VISITS,
                              Asset, Branch, Customer, Operator, Service, Visit)
 
@@ -55,6 +58,42 @@ class _Base:
         if where:
             filt.update(where)
         return await self._s.find(self.collection, filt, limit=limit, after=after, sort=sort)
+
+
+class PrivacyRequestStore(_Base):
+    """What his customers asked HIM for — see core/privacy_requests.py for why we record and he acts."""
+
+    collection = PR.PRIVACY_REQUESTS
+
+    async def open_request(self, tenant: str, subject_ref: str, kind: str) -> PR.PrivacyRequest:
+        """Record an ask, or return the one already standing.
+
+        IDEMPOTENT ON PURPOSE. A customer who taps twice — or taps again after being asked to
+        confirm — has made one request. Two rows would show his shop a queue that overstates what
+        is owed, and a shop that sees five requests where there is one stops reading the list.
+        """
+        ident = PR.natural_key(tenant, subject_ref, kind).replace("|", "_")
+        row = await self._get(tenant, ident)
+        if row and row.get("status") == PR.OPEN:
+            return PR.PrivacyRequest(**row)
+        req = PR.PrivacyRequest(id=ident, tenant=tenant, subject_ref=subject_ref, type=kind)
+        await self._put(tenant, ident, req.__dict__.copy())
+        return req
+
+    async def list_open(self, tenant: str, limit: int = 50) -> list[PR.PrivacyRequest]:
+        rows, _ = await self._find(tenant, {"status": PR.OPEN}, limit=limit, sort=("at", "asc"))
+        return [PR.PrivacyRequest(**r) for r in rows]
+
+    async def close(self, tenant: str, request_id: str, by: str) -> bool:
+        """Answered. WHO closed it is kept, because "we answered him" is a claim that needs a name."""
+        row = await self._get(tenant, request_id)
+        if not row:
+            return False
+        row["status"] = PR.DONE
+        row["closed_at"] = int(time.time())
+        row["closed_by"] = by
+        await self._put(tenant, request_id, row)
+        return True
 
 
 class CustomerStore(_Base):
