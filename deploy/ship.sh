@@ -45,7 +45,18 @@ ROOT="$(cd "$HERE/.." && pwd)"
 REMOTE="${REMOTE:-tamam@127.0.0.1}"
 PORT="${PORT:-2224}"
 NS="${NS:-base-services}"
-SSH=(ssh -o BatchMode=yes -p "$PORT" "$REMOTE")
+# KEEPALIVES, BECAUSE THE VERIFY STEP IS THE LONGEST QUIET MOMENT IN THE RUN.
+#
+# Between the rollout and the digest read the connection can sit idle long enough for something in
+# the middle to drop it, and the failure surfaces as «Connection closed» during VERIFY — which
+# reads as "the image did not take" about an image that took. Twice today that sent me chasing a
+# rollout that had already succeeded.
+#
+# ServerAliveInterval keeps the channel warm; ServerAliveCountMax lets it survive a slow moment
+# rather than giving up on the third. ConnectTimeout fails a genuinely unreachable host fast
+# instead of hanging the whole ship.
+SSH=(ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8
+     -o ConnectTimeout=20 -p "$PORT" "$REMOTE")
 
 red(){ printf '\e[31m✗ %s\e[0m\n' "$*" >&2; }
 yel(){ printf '\e[33m⚠ %s\e[0m\n' "$*"; }
