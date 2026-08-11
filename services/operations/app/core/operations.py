@@ -287,6 +287,15 @@ class Operations:
         await self._customers.save(c)
         return c
 
+    async def customer_for_erasure(self, tenant: str, customer_id: str) -> Customer | None:
+        """The row an erasure needs — which is the pseudonym, and nothing else about him.
+
+        SEPARATE FROM `customer_record` ON PURPOSE. That one assembles his vehicles and his visits
+        for a screen; this one is read immediately before his data is destroyed, and reading his
+        history in order to delete it is work whose only product is a copy in a log line.
+        """
+        return await self._customers.get(tenant, customer_id)
+
     async def customer_by_plate(self, tenant: str, plate: str) -> Customer | None:
         """Whose car this is — the lookup a vehicle shop actually starts from (§4.3).
 

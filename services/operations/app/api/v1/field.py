@@ -16,12 +16,15 @@ not hold.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.config import get_settings
+from app.core import erase_customer as E
 from app.core.operations import OperationError, Operations
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -32,6 +35,9 @@ router = APIRouter(prefix="/field", tags=["field"])
 # grant the first without the second.
 _RECORD = require_capability("operations.record")
 _READ = require_capability("operations.read")
+# The third: what only the owner or a manager may do. Erasing a customer is irreversible by
+# design — the whole point of an erasure is that nothing is left to restore.
+_MANAGE = require_capability("operations.manage")
 
 
 def _svc(request: Request) -> Operations:
@@ -185,6 +191,51 @@ async def rename_customer(request: Request, customer_id: str, body: RenameIn,
     if c is None:
         return {"ok": False, "reason": "لا يوجد عميل بهذا المعرّف"}
     return {"ok": True, "customer": {"id": c.id, "name": c.name}}
+
+
+@router.post("/customers/{customer_id}/erase", dependencies=[Depends(rate_limit)])
+async def erase_customer(request: Request, customer_id: str, authorization: str = Header(""),
+                         principal: Principal = Depends(_MANAGE)) -> dict:
+    """«امسح بياناتي» — honoured by the shop that was asked, in the shop's own screen.
+
+    THE ESTABLISHMENT IS THE CONTROLLER. Its customer asks IT, not us, and the PDPL gives him an
+    answer within thirty days from the establishment. The erasure engine has been complete for
+    months — compliance opens the request, fans it out to every service that holds anything of his,
+    and keeps each acknowledgement — and the person who receives the request had no way to start
+    it. See core/erase_customer.py for why we start it there rather than deleting anything here.
+
+    NOT THE OPERATOR'S. `operations.manage`, not `operations.record`: recording a visit is what
+    the man at the counter does all day, and erasing a customer is the one act on this screen that
+    cannot be undone by anybody, including us.
+
+    THE CALLER'S OWN AUTHORIZATION IS FORWARDED. compliance re-checks the capability and re-scopes
+    to his tenant, so the erasure is his act under his name — and this service never gains the
+    power to erase a customer of an establishment that did not ask.
+    """
+    c = await _svc(request).customer_for_erasure(_tenant(principal), customer_id)
+    if c is None or not c.subject_ref:
+        # NOT A 404. The screen renders the same either way, and a distinct status here answers
+        # "does this establishment hold this id?" for anyone who can guess one.
+        return {"ok": False, "reason": "لا يوجد عميل بهذا المعرّف"}
+
+    # WRITE-AHEAD, like every other irreversible act in this service: an erasure the log cannot
+    # witness must not happen, and recording it afterwards would leave the one action a regulator
+    # asks about as the one action with no record.
+    await request.app.state.auditor.record(
+        "customer.erasure_requested", actor=principal.subject, tenant=_tenant(principal),
+        resource=f"customer:{customer_id}",
+        ip=request.client.host if request.client else "")
+
+    try:
+        result = await run_in_threadpool(
+            E.erase_subject,
+            compliance_url=get_settings().COMPLIANCE_SERVICE_URL,
+            authorization=authorization, subject_ref=c.subject_ref)
+    except E.EraseFailed as exc:
+        # RETURNED, NOT RAISED. The platform strips a refusal's detail on the way out, and «تعذّر»
+        # with no reason is what sends an owner to support with a legal deadline running.
+        return {"ok": False, "reason": str(exc)}
+    return {"ok": True, **result}
 
 
 @router.get("/customers/by-plate", dependencies=[Depends(rate_limit)])

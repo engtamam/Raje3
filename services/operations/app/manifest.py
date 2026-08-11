@@ -130,6 +130,7 @@ def build_manifest(
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/visits/{}/offer", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/{}", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/field/customers/{}/erase", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/recent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-phone", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-plate", "tier": "user", "method": "GET"},

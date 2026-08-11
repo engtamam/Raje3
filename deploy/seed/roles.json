@@ -59,15 +59,14 @@
         "authz.manage",
         "service_accounts:read",
         "service_accounts:write",
-        "file.read",
-        "file.write",
         "ticket.read",
         "ticket.write",
         "analytics.read",
         "wallet.read",
         "notification.read",
         "insights.read",
-        "compliance.self"
+        "compliance.self",
+        "compliance.manage"
       ]
     },
     {
@@ -93,8 +92,6 @@
         "tenant.read",
         "identity.read",
         "identity.manage",
-        "file.read",
-        "file.write",
         "ticket.read",
         "ticket.write",
         "analytics.read",
@@ -102,7 +99,8 @@
         "loyalty.redeem",
         "loyalty.manage",
         "insights.read",
-        "compliance.self"
+        "compliance.self",
+        "compliance.manage"
       ],
       "_why_no_service_accounts": "إصدار اعتماد للكاشير بيد المالك وحده. الاعتماد يكتب زيارات باسم منشأته ولا تنتهي صلاحيته باستقالة موظف — فهو أقرب إلى مفتاح المحل منه إلى مهمة يومية. والمدير يستطيع كل شيء آخر، وهذا أحد فرقين اثنين فقط بينهما.",
       "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
@@ -119,7 +117,6 @@
         "reminders.manage",
         "operations.read",
         "analytics.read",
-        "file.read",
         "loyalty.read",
         "insights.read",
         "compliance.self"

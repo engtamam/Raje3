@@ -62,6 +62,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "visit_id", "in": "path", "type": "string", "required": True}],
     },
     {
+        "id": "operations.erase_customer",
+        "label": "حذف بيانات العميل",
+        "method": "POST",
+        "path": "/api/v1/field/customers/{customer_id}/erase",
+        "capability": "operations.manage",
+        "params": [{"name": "customer_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True,
+        "danger": True,
+        "group": "Customers",
+    },
+    {
         # THE ONE EDIT AN OWNER NEEDED AND COULD NOT MAKE. The name arrives after five visits by
         # design (§4.3) and nothing could add it afterwards — a regular he recognised on sight
         # stayed «بلا اسم» on his screen for ever.
@@ -85,6 +96,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # no names — deliberately — so the names are looked up where they already live.
         "help": "يحوّل الأسماء المستعارة القادمة من جدولة التذكيرات إلى عملاء هذه المنشأة. "
                 "المنشأة من الجلسة لا من الطلب.",
+    },
+    {
+        "id": "operations.customer_by_plate", "label": "بحث بلوحة السيارة", "method": "GET",
+        "path": "/api/v1/field/customers/by-plate", "capability": "operations.read",
+        "group": "الشاشة",
+        "params": [{"name": "plate", "in": "query", "type": "string", "required": True}],
+        # THE LOOKUP A VEHICLE SHOP STARTS FROM. The plate is on the bumper and the number of the
+        # man who owns it is already ours; asking for it again is asking a question we can answer.
+        # It was served and undeclared, which means no capability review ever saw it.
+        "help": "يجيب صاحب السيارة من لوحتها. المنشأة من الجلسة لا من الطلب.",
     },
     {
         "id": "operations.customer_by_phone", "label": "بحث برقم كامل", "method": "GET",

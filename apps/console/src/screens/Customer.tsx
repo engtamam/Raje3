@@ -111,6 +111,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const [nameDraft, setNameDraft] = useState('');
   const [namingMsg, setNamingMsg] = useState('');
   const [pickingReason, setPickingReason] = useState(false);
+  const [erasing, setErasing] = useState(false);
+  const [eraseAsked, setEraseAsked] = useState(false);
+  const [eraseMsg, setEraseMsg] = useState('');
 
   useEffect(() => {
     const a = action(catalog, 'operations.customer');
@@ -173,6 +176,11 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   // FROM THE TESTED MODULE, NOT FROM A COPY HERE. A rule that lives inside a component is a rule
   // only a rendered page can check — and the rendered page is the thing most likely to be rewritten.
   const [live, past] = partitionOffers(offers ?? []);
+  // NOT OFFERED AT ALL WHERE IT IS NOT PERMITTED. The gateway has already filtered
+  // the catalogue by capability, so a supervisor sees a shorter tab rather than a
+  // button that refuses him — and `operations.manage` is deliberately not the
+  // capability the man at the counter carries.
+  const eraseAction = action(catalog, 'operations.erase_customer');
 
   /**
    * WHAT HIS OWN VISITS SAY ABOUT HIM — computed here, from what we already have.
@@ -610,7 +618,73 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
             </div>
           ) : null}
 
+          {/* ── «امسح بياناتي» — the request his customer makes to HIM ────────────────────────
+              THE ESTABLISHMENT IS THE CONTROLLER under the PDPL and we are its processor: the
+              customer asks the workshop, and the workshop owes him the erasure. The engine that
+              performs it has been complete for months and the person who receives the request had
+              no way to start it — the obligation was his and the button was nobody's.
 
+              LAST ON THE TAB, AND ALONE. It is separated from the name and the points by a rule
+              and by distance, because every other control here is a correction and this one is
+              not: nothing on this screen, and nothing we hold, brings him back. */}
+          {eraseAction ? (
+            <div className="mt-6 flex flex-col gap-2 border-t border-border-subtle pt-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">حذف بيانات هذا العميل</span>
+                <Hint>
+                  حقّ نظامي لعميلك: إذا طلب حذف بياناته فالحذف عليك أنت لا علينا، ونحن ننفّذه
+                  بأمرك. يُحذف اسمه ورقمه وزياراته ونقاطه ورسائله من كل مكان في المنصة — ولا يمكن
+                  التراجع. ويبقى ما يلزمنا القانون بحفظه: الفواتير والسجلّ المحاسبي، لأن حذفها
+                  مخالفة أخرى.
+                </Hint>
+              </div>
+
+              {!eraseAsked ? (
+                <div>
+                  <Button variant="outline" onClick={() => { setEraseAsked(true); setEraseMsg(''); }}>
+                    حذف بياناته
+                  </Button>
+                </div>
+              ) : (
+                /* TWO STEPS, AND THE SECOND ONE NAMES HIM. A confirmation that says «متأكد؟» is a
+                   reflex; one that repeats whose data is about to go is a decision. */
+                <div className="flex flex-col gap-2 rounded-card bg-surface-2 p-3">
+                  <p className="text-sm">
+                    سيُحذف نهائياً كل ما لدينا عن {record?.customer?.name || 'هذا العميل'} — بلا رجعة.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="danger"
+                      disabled={erasing}
+                      onClick={async () => {
+                        setErasing(true); setEraseMsg('');
+                        try {
+                          const r = await call<{ ok?: boolean; reason?: string }>(
+                            session, eraseAction, { customer_id: id ?? '' });
+                          if (r?.ok === false) { setEraseMsg(r.reason || 'تعذّر الحذف'); return; }
+                          // AND WE LEAVE THE PAGE. Staying on the record of a person we just
+                          // erased would render his name off a copy in the browser's memory —
+                          // which is the one place the fan-out cannot reach.
+                          navigate('/customers', { replace: true });
+                        } catch (e) {
+                          setEraseMsg(e instanceof Error ? e.message : 'تعذّر الحذف');
+                        } finally {
+                          setErasing(false);
+                        }
+                      }}
+                    >
+                      نعم، احذف نهائياً
+                    </Button>
+                    <Button variant="outline" disabled={erasing}
+                            onClick={() => setEraseAsked(false)}>
+                      تراجع
+                    </Button>
+                  </div>
+                  {eraseMsg ? <p className="text-sm text-danger">{eraseMsg}</p> : null}
+                </div>
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

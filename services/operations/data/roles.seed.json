@@ -22,6 +22,7 @@
       "protected": true,
       "capabilities": [
         "operations.record",
+        "search.read",
         "operations.read",
         "operations.manage",
         "reminders.read",
@@ -41,15 +42,14 @@
         "authz.manage",
         "service_accounts:read",
         "service_accounts:write",
-        "file.read",
-        "file.write",
         "ticket.read",
         "ticket.write",
         "analytics.read",
         "wallet.read",
         "notification.read",
         "insights.read",
-        "compliance.self"
+        "compliance.self",
+        "compliance.manage"
       ]
     },
     {
@@ -65,6 +65,7 @@
       "_why_billing_self": "المفتاح الذي يمنحه المالك كان ينقصه ثلثه. الاشتراك وربط واتساب كلاهما يفرض billing.self لا billing.manage — فمديرٌ أُعطي الفوترة كان يرى شاشاتها ويُرفض عند الضغط، وهو أسوأ من ألا يراها.",
       "capabilities": [
         "operations.record",
+        "search.read",
         "operations.read",
         "operations.manage",
         "reminders.read",
@@ -74,8 +75,6 @@
         "tenant.read",
         "identity.read",
         "identity.manage",
-        "file.read",
-        "file.write",
         "ticket.read",
         "ticket.write",
         "analytics.read",
@@ -83,7 +82,8 @@
         "loyalty.redeem",
         "loyalty.manage",
         "insights.read",
-        "compliance.self"
+        "compliance.self",
+        "compliance.manage"
       ],
       "_why_no_service_accounts": "إصدار اعتماد للكاشير بيد المالك وحده. الاعتماد يكتب زيارات باسم منشأته ولا تنتهي صلاحيته باستقالة موظف — فهو أقرب إلى مفتاح المحل منه إلى مهمة يومية. والمدير يستطيع كل شيء آخر، وهذا أحد فرقين اثنين فقط بينهما.",
       "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
@@ -100,7 +100,6 @@
         "reminders.manage",
         "operations.read",
         "analytics.read",
-        "file.read",
         "loyalty.read",
         "insights.read",
         "compliance.self"
@@ -114,6 +113,7 @@
       "_why_no_operations_manage": "كانت عنده، وoperations.manage تعني إنشاء فرع وإنشاء موظف وتعديل كتالوج الخدمات وأسعارها — لا شيء منها من عمل مشرف وردية، ووصف الدور نفسه يقول ذلك. وأثرها كان مرئياً: قسما «خدماتي» و«فريقي» يظهران له لأن الواجهة تشتق القائمة من الصلاحيات، فتُعرض عليه شاشتان لا يملك قرارهما.",
       "capabilities": [
         "operations.record",
+        "search.read",
         "operations.read",
         "reminders.read",
         "analytics.read",
@@ -130,6 +130,7 @@
       "protected": false,
       "capabilities": [
         "operations.record",
+        "search.read",
         "loyalty.read",
         "loyalty.redeem",
         "compliance.self"

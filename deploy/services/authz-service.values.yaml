@@ -123,9 +123,9 @@ env:
     loyalty.read,loyalty.redeem,loyalty.manage,
     insights.read,
     billing.read,billing.manage,billing.self,
-    tenant.read,identity.read,identity.manage,compliance.self,
+    tenant.read,identity.read,identity.manage,compliance.self,compliance.manage,
     service_accounts:read,service_accounts:write,
-    file.read,file.write,ticket.read,ticket.write,
+    ticket.read,ticket.write,
     analytics.read,wallet.read,notification.read
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────
