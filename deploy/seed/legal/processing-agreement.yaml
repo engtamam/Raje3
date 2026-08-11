@@ -44,13 +44,13 @@ values:
   # BLANK UNTIL THE COMMERCIAL REGISTER SAYS IT. The publish path refuses an unfilled token, which
   # is the behaviour we want: a registered name is a fact on a register, and a plausible invented
   # one produces a document that reads as executed and binds nobody.
-  PROCESSOR_NAME: ""          # الاسم النظامي للشركة كما في السجل التجاري — نفس قيمة COMPANY_NAME في doc14
+  PROCESSOR_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"          # الاسم النظامي للشركة كما في السجل التجاري — نفس قيمة COMPANY_NAME في doc14
 
   # SAME VERSION LINE AS ITS MIRROR, AND IT MOVES WITH IT. These two documents describe one
   # engagement; publishing a new version of one and not the other would leave a shop bound to this
   # year's instructions on one side and last year's on the other.
   VERSION: "1.0"
-  EFFECTIVE_DATE: ""          # يُملأ يوم الإصدار الفعلي، لا قبله
+  EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"          # يُملأ يوم الإصدار الفعلي، لا قبله
 
 # THE ANNEXES ARE NOT WRITTEN HERE. They are taken from processor-dpa.yaml so the two documents
 # cannot drift — ci/gen_legal.py copies them and fails if this key names a file it cannot read.

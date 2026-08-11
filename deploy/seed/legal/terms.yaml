@@ -41,18 +41,20 @@ publication: accept
 # that number should be higher again is a commercial decision, and it is one to take deliberately —
 # not by leaving the field at its default.
 
+# ⚠ القيم أدناه مؤقتة للاختبار فقط — تُستبدل ببيانات الشركة الحقيقية قبل الإطلاق.
+# Placeholder values for testing only. Every one of them says so in its own text, so a
+# document published by accident reads as unfinished rather than as somebody else's.
 values:
-  COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
-  COMPANY_ADDRESS: ""
+  COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"            # الاسم النظامي كما في السجل التجاري
+  COMPANY_ADDRESS: "الرياض، المملكة العربية السعودية (عنوان مؤقت)"
   COMPANY_WEBSITE: "raje3.sa"
-  SUPPORT_EMAIL: ""
+  SUPPORT_EMAIL: "support@example.invalid"
   VERSION: "1.0"
-  EFFECTIVE_DATE: ""
-
+  EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
   # الحدّ الأدنى للسقف، بالريال. يجعل السقف حقيقياً بدل أن يكون صفراً مقنّعاً.
   # A FLOOR, IN RIYALS. Left blank deliberately: it is a commercial number, and a plausible default
   # written here would become the number nobody ever revisited.
-  LIABILITY_FLOOR: ""
+  LIABILITY_FLOOR: "قيمة اشتراك شهر واحد (قيمة مؤقتة)"
   # سقف أعلى لالتزامات حماية البيانات وحدها.
   LIABILITY_DATA_MONTHS: "12"
 

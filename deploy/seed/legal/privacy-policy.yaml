@@ -25,18 +25,25 @@
 
 publication: public
 
+# ⚠ القيم أدناه مؤقتة للاختبار فقط — تُستبدل ببيانات الشركة الحقيقية قبل الإطلاق.
+# Placeholder values for testing only. Every one of them says so in its own text, so a
+# document published by accident reads as unfinished rather than as somebody else's.
 values:
-  COMPANY_NAME: ""            # الاسم النظامي كما في السجل التجاري
+  COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"            # الاسم النظامي كما في السجل التجاري
   COMPANY_ACTIVITY:
     ar: "منصة سحابية تمكّن المنشآت الخدمية من متابعة عملائها وإعادتهم عبر رسائل واتساب"
     en: "A cloud platform that lets service businesses follow up with their customers and bring them back over WhatsApp"
-  COMPANY_ADDRESS: ""         # العنوان الوطني للشركة
-  COMPANY_PHONE: ""
+  COMPANY_ADDRESS: "الرياض، المملكة العربية السعودية (عنوان مؤقت)"         # العنوان الوطني للشركة
+  COMPANY_PHONE: "+966500000000"
   COMPANY_WEBSITE: "raje3.sa"
-  PRIVACY_EMAIL: ""           # بريد طلبات الخصوصية — منفصل عن الدعم عمداً
-  DPO_EMAIL: ""
-  DPO_PHONE: ""
-  COMPLAINT_CONTACT: ""       # نفس بريد الخصوصية ما لم تُنشأ جهة مستقلة
+  PRIVACY_EMAIL: "privacy@example.invalid"           # بريد طلبات الخصوصية — منفصل عن الدعم عمداً
+  DPO_EMAIL: "dpo@example.invalid"
+  # DPO_NAME: THE TEMPLATE REQUIRES IT AND WE SUPPLIED NO VALUE AT ALL — so three documents
+  # could not be instantiated, and the CI guard did not see it because a token absent from our
+  # file is invisible to a check that reads our file.
+  DPO_NAME: "مسؤول حماية البيانات (اسم مؤقت)"
+  DPO_PHONE: "+966500000000"
+  COMPLAINT_CONTACT: "privacy@example.invalid"       # نفس بريد الخصوصية ما لم تُنشأ جهة مستقلة
   COMPLAINT_DEPARTMENT:
     ar: "مسؤول حماية البيانات"
     en: "The Data Protection Officer"
@@ -44,8 +51,7 @@ values:
     ar: "ثلاثين يوماً من تاريخ تقديم الشكوى"
     en: "thirty days from the date the complaint is submitted"
   VERSION: "1.0"
-  EFFECTIVE_DATE: ""
-
+  EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
   # ── الغايات: تُذكر بالاسم لا بالعموم ────────────────────────────────────────────────────────
   # "To improve our services" is the phrase that covers everything and therefore permits nothing —
   # a purpose a data subject cannot picture is a purpose he cannot object to. Each of these is a

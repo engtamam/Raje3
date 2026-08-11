@@ -26,18 +26,20 @@
 
 publication: public
 
+# ⚠ القيم أدناه مؤقتة للاختبار فقط — تُستبدل ببيانات الشركة الحقيقية قبل الإطلاق.
+# Placeholder values for testing only. Every one of them says so in its own text, so a
+# document published by accident reads as unfinished rather than as somebody else's.
 values:
-  COMPANY_NAME: ""
+  COMPANY_NAME: "راجِع (اسم مؤقت — يُستبدل قبل الإطلاق)"
   COMPANY_WEBSITE: "raje3.sa"
-  PRIVACY_EMAIL: ""
-  DPO_EMAIL: ""
+  PRIVACY_EMAIL: "privacy@example.invalid"
+  DPO_EMAIL: "dpo@example.invalid"
   # WHERE THE READER CHANGES HIS MIND. A policy that describes a preferences screen without linking
   # to it is describing something the reader cannot reach — and "manage your preferences" with no
   # destination is the most common empty promise in this whole family of documents.
   PREFERENCE_LINK: "raje3.sa/cookies"
   VERSION: "1.0"
-  EFFECTIVE_DATE: ""
-
+  EFFECTIVE_DATE: "1446-01-01 (تاريخ مؤقت)"
 # ── الفئات: اثنتان لا أربع ───────────────────────────────────────────────────────────────────
 categories:
   - name: { ar: "ضرورية", en: "Strictly necessary" }

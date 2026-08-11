@@ -96,7 +96,20 @@ printf '%s\n' "$MAP" | while IFS='=' read -r file template; do
 import json, sys
 import yaml
 doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
-vals = doc.get("values") or {}
+raw = doc.get("values") or {}
+
+# BILINGUAL VALUES ARE FLATTENED TO THE PUBLISHED LOCALE, and this is a workaround rather than a
+# design. Our documents answer several tokens bilingually — {ar: ..., en: ...} — because the same
+# policy is read in both languages, and compliance's instantiate route declares `values` as
+# dict[str, str]: a nested object is a 422 before the route's own code runs. Three documents could
+# not be published for that reason alone, and the error said only VALIDATION_ERROR.
+#
+# So the Arabic is sent, matching `default_locale: ar`, and the English is kept in the file rather
+# than deleted — the day the route accepts an object, this line goes and nothing else changes.
+# ESCALATED UPSTREAM: `values: dict[str, str]` cannot express a bilingual document, which the pack
+# itself is.
+vals = {k: (v.get("ar") or v.get("en") or "") if isinstance(v, dict) else str(v)
+        for k, v in raw.items()}
 # ACCEPTANCE IS A PROPERTY OF THE DOCUMENT, not a flag somebody remembers to pass. `publication:
 # accept` in the file is what makes the gate hold a signup on it.
 print(json.dumps({"values": vals, "version": sys.argv[2], "publish": True,
