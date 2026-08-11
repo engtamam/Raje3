@@ -170,6 +170,7 @@ class Scheduler:
                 tenant=tenant, subject_ref=subject, service_id=lead_sid, kind="reminder",
                 due_at=cyclic[lead_sid], cls="service", template_type="svc_service_reminder",
                 also_services=others, visit_id=visit_id,
+                asset_id=event.get("asset_id") or "",
                 branch_id=event.get("branch_id") or "")
             await self._sched.upsert(tenant, sch.key, as_row(sch))
             outcome.scheduled.append(sch.key)
@@ -185,6 +186,7 @@ class Scheduler:
                 tenant=tenant, subject_ref=subject, service_id=sid, kind="follow_up",
                 due_at=occurred + days * DAY, cls="service",
                 template_type="svc_follow_up", visit_id=visit_id,
+                asset_id=event.get("asset_id") or "",
                 branch_id=event.get("branch_id") or "")
             await self._sched.upsert(tenant, sch.key, as_row(sch))
             outcome.scheduled.append(sch.key)

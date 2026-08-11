@@ -218,3 +218,29 @@ def test_a_service_with_no_setting_at_all_still_schedules(st, sch):
     """An absent entry and an empty one mean the same thing: the tree's defaults already applied."""
     out = run(sch.on_visit(visit(service_ids=["unknown_service"]), now=NOW, service_config={}))
     assert len(service_rows(out)) == 1
+
+
+def test_two_cars_on_one_number_get_two_reminders(st, sch):
+    """«ممكن عندي سيارتين برقمي» — and the cycle belongs to the CAR, not to the phone.
+
+    THE NATURAL KEY DID NOT CARRY THE ASSET, so an oil change on the second car collided with the
+    first car's schedule and UPDATED it. One row where there should be two: a whole vehicle fell
+    out of the product silently, and the owner would have seen nothing wrong — the reminder he did
+    get was correct, and the one he never got left no trace.
+
+    The event has carried `asset_id` since the beginning. Nothing read it.
+    """
+    run(sch.on_visit(visit(visit_id="v1", asset_id="ast_camry"), now=NOW, service_config=CFG))
+    run(sch.on_visit(visit(visit_id="v2", asset_id="ast_hilux"), now=NOW, service_config=CFG))
+
+    rows = [r for r in run(ScheduleStore(st).pending_for_subject("t1", "sub_a"))
+            if r["kind"] == "reminder"]
+    assert len(rows) == 2
+    assert sorted(r["asset_id"] for r in rows) == ["ast_camry", "ast_hilux"]
+
+
+def test_a_sector_without_cars_keeps_the_key_it_always_had(st, sch):
+    """A salon has no asset, and its schedules must not be re-keyed by this change — a new key
+    shape would orphan every row already scheduled and re-send what was already sent."""
+    out = run(sch.on_visit(visit(visit_id="v3"), now=NOW, service_config=CFG))
+    assert service_rows(out) == ["t1|sub_a|oil|reminder"]

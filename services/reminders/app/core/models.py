@@ -84,6 +84,13 @@ class Schedule:
     # trace a message back to the thing that produced it.
     visit_id: str = ""
     branch_id: str = ""
+    # WHICH CAR THIS IS ABOUT, and empty for every sector that has none.
+    #
+    # In بنشر, مغسلة and تنجيد the cycle belongs to the VEHICLE, not to the person holding the
+    # phone: «ممكن عندي سيارتين برقمي». Without this in the key, an oil change on the second car
+    # UPDATED the first car's reminder instead of creating its own — one schedule where there
+    # should be two, and a whole car falling silently out of the product.
+    asset_id: str = ""
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 
@@ -91,7 +98,11 @@ class Schedule:
     def key(self) -> str:
         """The natural key. Distinct from `id`: the id is stable for tracing, this is what a
         second visit collides with so it updates instead of duplicating."""
-        return f"{self.tenant}|{self.subject_ref}|{self.service_id}|{self.kind}"
+        # THE ASSET IS PART OF IT, and an empty one changes nothing for the sectors without cars —
+        # their key keeps the exact shape it had, so no existing schedule is orphaned by this.
+        return (f"{self.tenant}|{self.subject_ref}|{self.asset_id}"
+                f"|{self.service_id}|{self.kind}") if self.asset_id else (
+            f"{self.tenant}|{self.subject_ref}|{self.service_id}|{self.kind}")
 
 
 @dataclass
