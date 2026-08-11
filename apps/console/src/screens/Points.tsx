@@ -99,6 +99,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   const canEdit = action(catalog, 'loyalty.rewards.update');
   const canSetGeneral = action(catalog, 'loyalty.settings.general');
   const canSetService = action(catalog, 'loyalty.settings.service');
+  const canSetGroup = action(catalog, 'loyalty.settings.group');
   const canFollow = action(catalog, 'loyalty.settings.follow');
   const canSetMode = action(catalog, 'loyalty.settings.mode');
 
@@ -189,6 +190,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   if (rewards === null) return <Waiting what="نقرأ نقاطك وجوائزك" />;
 
   /** A service's effective points, and whether the number is its own (§9.2: inherit, never copy). */
+  /** The groups the engine already knows — from his own «خدماتي», never a second list. */
+  const groupNames = Array.from(new Set(Object.values(earn?.service_group ?? {})))
+    .filter(Boolean)
+    .sort();
+
   const earnFor = (id: string): { points: number; own: boolean } => {
     const own = earn?.services?.[id]?.points;
     if (own !== undefined) return { points: own, own: true };
@@ -431,6 +437,61 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
                 />
               </label>
+            </div>
+          ) : null}
+
+          {/* ── points for a whole GROUP of services ────────────────────────────────────────
+              THE MIDDLE LEVEL, AND NOTHING COULD SET IT. The engine resolves service → group →
+              general (§9.2) and `loyalty.settings.group` was declared, served and called by no
+              screen: a shop that had organised sixteen services into four groups still had to set
+              points sixteen times, and the level built to spare him that was unreachable.
+
+              THE GROUPS COME FROM WHAT HE ALREADY BUILT in «خدماتي» — they are read out of the
+              settings the engine returns, so there is no second place to define a group and no way
+              for the two to disagree. */}
+          {canSetGroup && groupNames.length > 0 ? (
+            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
+              <h2 className="mb-1 text-sm text-text-secondary">نقاط مجموعة</h2>
+              <p className="mb-3 text-sm text-text-secondary">
+                تسري على كل خدمة في المجموعة لم تُخصَّص وحدها.
+              </p>
+              <ul className="flex flex-col gap-2">
+                {groupNames.map((g) => (
+                  <li key={g} className="flex items-center justify-between gap-3">
+                    <span className="text-sm">{g}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      dir="ltr"
+                      defaultValue={String(earn?.groups?.[g]?.points ?? earn?.general?.points ?? 0)}
+                      aria-label={`نقاط مجموعة ${g}`}
+                      onBlur={async (e) => {
+                        const raw = e.target.value.trim();
+                        if (raw === '') return;
+                        const n = Number(raw);
+                        if (n === (earn?.groups?.[g]?.points ?? -1)) return;
+                        setSaving(true);
+                        try {
+                          // THE MEMBERS COME FROM THE TREE, not from this screen. Sending our own
+                          // list would let a group that changed in «خدماتي» be silently rewritten
+                          // to whatever this page last saw.
+                          await call(session, canSetGroup, {
+                            group: g,
+                            points: n,
+                            service_ids: Object.entries(earn?.service_group ?? {})
+                              .filter(([, name]) => name === g)
+                              .map(([id]) => id),
+                          });
+                          load();
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                      className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                    />
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
 

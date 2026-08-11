@@ -50,7 +50,7 @@ function when(at: number): string {
 
 interface Run { at?: number; sent?: number; suppressed?: number; reason?: string }
 
-interface Schedule { schedule: { kind?: string; due_at?: number }[]; count: number }
+interface Schedule { schedule: { id?: string; kind?: string; due_at?: number }[]; count: number }
 
 /**
  * The occasions, by their names rather than by their template ids.
@@ -87,6 +87,8 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
   const [launching, setLaunching] = useState(false);
   /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
   const [runs, setRuns] = useState<Run[] | null>(null);
+  /** Which occasion's queue is open. One at a time — this is a list, not a dashboard. */
+  const [openKind, setOpenKind] = useState('');
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
   // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
@@ -118,6 +120,14 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
       setCampaigns(null);
     }
   }, [session, catalog]);
+
+  /** Re-read what is queued — after a cancel, so the row he just stopped is gone. */
+  const loadSchedule = () => {
+    const a = action(catalog, 'reminders.list_schedule');
+    if (!a) return;
+    call<Schedule>(session, a).then(setSchedule)
+      .catch(() => setSchedule({ schedule: [], count: 0 }));
+  };
 
   const openRuns = async (id: string) => {
     const a = action(catalog, 'campaigns.runs');
@@ -167,19 +177,62 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
           <ul className="flex flex-col gap-2">
             {OCCASIONS.map((o) => {
               const waiting = waitingOf(o.kind);
+              const rows = (schedule?.schedule ?? []).filter((r) => r.kind === o.kind);
               return (
-                <li key={o.kind} className="flex items-center justify-between gap-3">
-                  <span className="flex flex-col">
-                    <span>{o.label}</span>
-                    <span className="text-sm text-text-secondary">{o.help}</span>
-                  </span>
-                  {/* THE STATE, NOT A SWITCH. Turning an occasion off is a per-service setting in
-                      the tree, and it lives in «خدماتي» where he is looking at the service it
-                      belongs to. A global switch here would be a second place to change one thing,
-                      and the two would disagree. */}
-                  <span className="shrink-0 tabular-nums text-text-secondary">
-                    {waiting > 0 ? `${waiting} بانتظار الإرسال` : '—'}
-                  </span>
+                <li key={o.kind} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex flex-col">
+                      <span>{o.label}</span>
+                      <span className="text-sm text-text-secondary">{o.help}</span>
+                    </span>
+                    {/* THE STATE, NOT A SWITCH. Turning an occasion off is a per-service setting
+                        in the tree, and it lives in «خدماتي» where he is looking at the service it
+                        belongs to. A global switch here would be a second place to change one
+                        thing, and the two would disagree.
+
+                        BUT THE COUNT OPENS NOW. Seeing comes before acting — the route says so in
+                        its own note — and the count used to be the end of the road: an owner who
+                        knew one particular reminder should not go out could not reach it. */}
+                    <button
+                      type="button"
+                      disabled={waiting === 0}
+                      onClick={() => setOpenKind(openKind === o.kind ? '' : o.kind)}
+                      className="shrink-0 tabular-nums text-text-secondary disabled:opacity-60"
+                    >
+                      {waiting > 0 ? `${waiting} بانتظار الإرسال` : '—'}
+                    </button>
+                  </div>
+
+                  {openKind === o.kind ? (
+                    <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+                      {rows.slice(0, 20).map((r, i) => (
+                        <div key={r.id || i} className="flex items-center justify-between gap-2">
+                          <span className="text-sm tabular-nums text-text-secondary">
+                            {r.due_at ? `يخرج ${when(r.due_at)}` : 'بانتظار موعده'}
+                          </span>
+                          {/* CANCELS THE MESSAGE, NOT THE RULE — the route's own words, repeated
+                              here so he is not surprised: the next visit schedules a new one,
+                              which is what he almost always means. */}
+                          {action(catalog, 'reminders.cancel') && r.id ? (
+                            <Button
+                              variant="ghost"
+                              onClick={async () => {
+                                const a2 = action(catalog, 'reminders.cancel');
+                                if (!a2 || !r.id) return;
+                                await call(session, a2, { id: r.id }).catch(() => null);
+                                loadSchedule();
+                              }}
+                            >
+                              ألغِه
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                      <p className="text-xs text-text-secondary">
+                        الإلغاء يوقف هذه الرسالة وحدها — والزيارة القادمة تجدول واحدة جديدة.
+                      </p>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
