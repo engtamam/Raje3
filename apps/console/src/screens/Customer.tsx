@@ -103,7 +103,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const [sends, setSends] = useState<Send[] | null>(null);
   const [tab, setTab] = useState<'overview' | 'points' | 'messages' | 'manage'>('overview');
   const [adjustBy, setAdjustBy] = useState('');
-  const [adjustNote, setAdjustNote] = useState('');
+  const [adjustNote, setAdjustNote] = useState<string>(ADJUST_REASONS[0]);
   const [adjusting, setAdjusting] = useState(false);
   const [adjustMsg, setAdjustMsg] = useState('');
   const [nameDraft, setNameDraft] = useState('');
@@ -462,14 +462,38 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   aria-label="عدد النقاط"
                   className="h-11 w-24 rounded-xl bg-surface-1 px-3 text-center tabular-nums shadow-sm"
                 />
+                {/* THE REASON IS A CHOICE, NOT AN ESSAY. It stays required — the entry outlives
+                    the memory of it and the customer asks six months later — but demanding free
+                    text on a workshop tablet produces «تعويض», «خطا» and «..»: words written by
+                    somebody who wanted the keyboard gone, answering nothing.
+                    «أخرى» KEEPS THE DOOR OPEN, because a closed list always meets the case nobody
+                    predicted, and a screen that refuses the unusual reason teaches the operator to
+                    pick the nearest lie — worse than free text, because it looks like data. */}
+                <select
+                  value={(ADJUST_REASONS as readonly string[]).includes(adjustNote)
+                    ? adjustNote : 'other'}
+                  onChange={(e) =>
+                    setAdjustNote(e.target.value === 'other' ? '' : e.target.value)}
+                  aria-label="سبب التعديل"
+                  className="h-11 min-w-0 flex-1 rounded-xl bg-surface-1 px-3 text-sm shadow-sm"
+                >
+                  {ADJUST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  <option value="other">أخرى…</option>
+                </select>
+              </div>
+
+              {/* THE FREE FIELD ONLY FOR «أخرى» — the common case is two taps, and the case
+                  nobody predicted is still possible. */}
+              {!(ADJUST_REASONS as readonly string[]).includes(adjustNote) ? (
                 <input
                   value={adjustNote}
                   onChange={(e) => setAdjustNote(e.target.value)}
-                  placeholder="السبب — مثال: تعويض عن خطأ في التسجيل"
-                  aria-label="سبب التعديل"
-                  className="h-11 min-w-0 flex-1 rounded-xl bg-surface-1 px-3 text-sm shadow-sm"
+                  placeholder="اكتب السبب"
+                  aria-label="سبب آخر"
+                  className="h-11 rounded-xl bg-surface-1 px-3 text-sm shadow-sm"
                 />
-              </div>
+              ) : null}
+
               <Button
                 disabled={adjusting || !adjustBy || adjustNote.trim().length < 3}
                 onClick={async () => {
