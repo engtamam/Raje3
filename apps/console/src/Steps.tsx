@@ -142,7 +142,14 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
 
       {/* THE PANE OWNS THE REST OF THE SCREEN. `min-h-0` is what actually lets it shrink inside a
           flex column — without it the pane grows to its content and the footer is pushed off. */}
-      <div data-pane className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">{step.body}</div>
+      {/* CONSTRAINED AND CENTRED ON A WIDE SCREEN. This journey is designed for a phone held in
+          one hand, and a phone layout stretched across a desktop is not generous — it is a form
+          whose fields run a foot wide with a field of empty page under them. The width is capped
+          at the size the design was drawn for; the extra room becomes margin, which is what a
+          reader's eye expects. */}
+      <div data-pane className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
+        <div className="mx-auto w-full max-w-3xl">{step.body}</div>
+      </div>
 
       {step.hint ? (
         <p className="px-4 pb-1 text-center text-xs text-text-secondary">{step.hint}</p>
@@ -156,7 +163,7 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           opposite way to the one written in the source, and «السابق» wore the forward arrow. Seen
           in a screenshot, not in a review. `◂` and `▸` are geometric shapes and are not mirrored,
           so what is written is what is drawn. */}
-      <div className="flex items-center gap-2 border-t border-border-subtle bg-surface-0 p-3">
+      <div className="mx-auto flex w-full max-w-3xl items-center gap-2 border-t border-border-subtle bg-surface-0 p-3">
         <button
           type="button"
           onClick={() => go(-1)}
