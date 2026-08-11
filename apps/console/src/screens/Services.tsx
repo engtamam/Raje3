@@ -576,14 +576,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <Row label="كل كم يوماً يحتاجه العميل؟"
                      hint="اتركه 0 إن كان لمرة واحدة — فلا تذكير له.">
                   <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
-                         className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                         className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
                 {action(catalog, 'reminders.set_service_settings') ? (
                   <Row label="الاطمئنان بعد الزيارة"
                        hint="رسالة قصيرة تسأل إن كان كل شيء تمام، وتُلغى تلقائياً إن عاد قبل موعدها. اتركه 0 فلا نسأل.">
                     <input name="follow_up_days" type="number" min={0} defaultValue={0} dir="ltr"
-                           className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                           className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                   </Row>
                 ) : null}
 
@@ -592,15 +592,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                        hint="اتركه فارغاً لتتبع إعدادك العام — واكتب رقماً لتكون لها نقاطها وحدها.">
                     <input name="points" type="number" min={0} dir="ltr"
                            placeholder={String(earn?.general?.points ?? 0)}
-                           className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                           className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                   </Row>
                 ) : null}
 
                 {action(catalog, 'reminders.set_group') ? (
                   <Row label="المجموعة"
                        hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها. واتركه بلا مجموعة إن لم تكن متأكداً؛ تنقلها متى شئت.">
-                    <select name="group"
-                            className="h-10 w-full shrink-0 rounded-lg bg-surface-2 px-3 sm:w-44">
+                    <select name="group" className="h-10 w-full rounded-lg bg-surface-2 px-2 text-sm">
                       <option value="">بلا مجموعة</option>
                       {Object.keys(settings?.groups ?? {}).map((g) => (
                         <option key={g} value={g}>{g}</option>
@@ -870,10 +869,16 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 function Row({ label, hint, children }:
     { label: string; hint: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm">{label}</span>
-      <Hint>{hint}</Hint>
-      <span className="ms-auto">{children}</span>
+    // A GRID, NOT A WRAPPING FLEX ROW. As a flex row with `ms-auto` the control dropped onto its
+    // own line the moment a label was one word too long — so the form arrived as a ragged ladder,
+    // some boxes beside their label and some beneath it, each starting at a different edge. Two
+    // columns put every label on the right and every control on the left, at one width, always.
+    <div className="grid grid-cols-[1fr_9rem] items-center gap-2">
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="truncate text-sm">{label}</span>
+        <Hint>{hint}</Hint>
+      </span>
+      {children}
     </div>
   );
 }
