@@ -189,3 +189,46 @@ def test_soonest_to_expire_comes_first():
     p = page(rem=Rem(offers=[{"text": "لاحق", "expires_at": later},
                              {"text": "أقرب", "expires_at": SOON}]))
     assert [o["text"] for o in p.offers.data] == ["أقرب", "لاحق"]
+
+
+class _Loyalty:
+    def __init__(self, payload):
+        self.payload = payload
+
+    async def balance_for(self, tenant, subject_ref):
+        return self.payload
+
+
+@pytest.mark.asyncio
+async def test_his_points_reach_his_own_page():
+    """THE ONE NUMBER HE CANNOT GET ANYWHERE ELSE. A balance he never sees does not bring him
+    back, and a reward he does not know he can afford is never asked for."""
+    c = Composer(identity=Ident(), operations=Ops(), reminders=Rem(),
+                 loyalty=_Loyalty({"points": 140, "rewards": [{"id": "r1", "name": "غسلة", "cost": 100}],
+                                   "to_next_reward": 0}))
+    page = await c.build("t1", "sub_a")
+
+    assert page.points.available is True
+    assert page.points.data["points"] == 140
+
+
+@pytest.mark.asyncio
+async def test_a_shop_with_no_programme_shows_no_points_section():
+    """Not a zero — an ABSENCE. A points card reading zero on the page of a shop that runs no
+    loyalty is a promise nobody made, and he would ask about it at the counter."""
+    c = Composer(identity=Ident(), operations=Ops(), reminders=Rem(),
+                 loyalty=_Loyalty({}))
+    page = await c.build("t1", "sub_a")
+
+    assert page.points.available is False
+
+
+@pytest.mark.asyncio
+async def test_the_page_survives_loyalty_being_absent_entirely():
+    """A deployment without the service composes four sections rather than failing — the same rule
+    every other peer here follows."""
+    page = await Composer(identity=Ident(), operations=Ops(),
+                          reminders=Rem()).build("t1", "sub_a")
+
+    assert page.points.available is False
+    assert page.visits.available is True

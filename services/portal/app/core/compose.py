@@ -76,6 +76,12 @@ class Page:
     # read an offer and found a 500 concludes the shop's message was a trick. An unavailable offers
     # section says so; it does not pretend he has none.
     offers: Section = field(default_factory=Section)
+    # HIS POINTS — the one number he cannot get anywhere else.
+    #
+    # A balance he never sees does not bring him back, and a reward he does not know he can afford
+    # is never asked for. Absent entirely for a shop without the loyalty feature: an empty points
+    # box on a customer's page is a shop advertising something it does not run.
+    points: Section = field(default_factory=Section)
 
     @property
     def has_identity(self) -> bool:
@@ -83,10 +89,14 @@ class Page:
 
 
 class Composer:
-    def __init__(self, *, identity, operations, reminders, deadline_seconds: float = 3.0) -> None:
+    def __init__(self, *, identity, operations, reminders, loyalty=None,
+                 deadline_seconds: float = 3.0) -> None:
         self._identity = identity
         self._operations = operations
         self._reminders = reminders
+        # OPTIONAL. A deployment without loyalty composes a page with four sections rather than
+        # failing — the same rule every other peer here follows.
+        self._loyalty = loyalty
         self._deadline = deadline_seconds
 
     async def build(self, tenant: str, subject_ref: str) -> Page:
@@ -105,11 +115,16 @@ class Composer:
         async def _offers():
             return await self._reminders.offers_for(tenant, subject_ref)
 
+        async def _points():
+            if self._loyalty is None:
+                return None
+            return await self._loyalty.balance_for(tenant, subject_ref)
+
         # `gather` with return_exceptions, then a single wait_for around the lot. A per-call
         # timeout would let slow peers add up; this way the page is late once, at most.
         try:
             results = await asyncio.wait_for(
-                asyncio.gather(_identity(), _visits(), _prefs(), _offers(),
+                asyncio.gather(_identity(), _visits(), _prefs(), _offers(), _points(),
                                return_exceptions=True),
                 timeout=self._deadline)
         except asyncio.TimeoutError:
@@ -118,7 +133,7 @@ class Composer:
             # which is honest, and it is not a 500 that says the shop is broken.
             return page
 
-        ident, visits, prefs, offers = results
+        ident, visits, prefs, offers, points = results
 
         if not isinstance(ident, BaseException) and ident is not None:
             page.shop_name = getattr(ident, "name", "") or ""
@@ -132,6 +147,12 @@ class Composer:
 
         if not isinstance(offers, BaseException) and offers is not None:
             page.offers = Section(available=True, data=_normalise_offers(offers))
+
+        # A SHOP WITHOUT REWARDS IS NOT AN OUTAGE. `to_next_reward` is 0 and the list is empty for
+        # a shop that runs no programme; the section stays unavailable so the page renders nothing
+        # rather than a balance of zero nobody can spend.
+        if not isinstance(points, BaseException) and isinstance(points, dict) and points:
+            page.points = Section(available=True, data=points)
 
         return page
 

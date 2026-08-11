@@ -250,6 +250,37 @@ async def earn(request: Request, body: EarnIn) -> dict:
         branch_id=body.branch_id)
 
 
+# ── the customer's own page ────────────────────────────────────────────────────────────────────
+@router.get("/loyalty/portal/balance", dependencies=[Depends(require_internal_token)])
+async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dict:
+    """What the CUSTOMER sees of his own points, read by portal on his behalf.
+
+    AN INTERNAL ROUTE, NOT THE OWNER'S. The customer holds no token — he opened a link from a
+    WhatsApp message — so the page is composed server-side by portal using its internal
+    credential. Reusing the owner-facing route would mean minting an owner's token for a member of
+    the public, which is not a thing to be clever about.
+
+    THE SAME NUMBERS THE COUNTER SEES. It is deliberately the same call the field screen makes:
+    two balance calculations would disagree the first time a rule changed, and the disagreement
+    would be between what he reads at home and what he is told at the till.
+
+    NO NAME, NO NUMBER, EVER. Everything here is keyed by the pseudonym; this service has never
+    held a phone number and this route does not become the first place one appears.
+    """
+    c = request.app.state.container
+    bal = await c.ledger.balance(tenant, subject_ref)
+    affordable = await c.rewards.affordable(tenant, bal.points)
+    all_costs = [r.cost for r in await c.rewards.list(tenant)]
+    from app.core.notify import to_next_reward
+    return {
+        "points": bal.points,
+        "rewards": [r.to_dict() for r in affordable],
+        # Zero means "say nothing" — either he can afford everything or the shop has no rewards.
+        "to_next_reward": to_next_reward(bal.points, all_costs),
+        "expires_at": c.expiry.due_at(bal.to_dict()),
+    }
+
+
 # ── the till (spec §9.8) ───────────────────────────────────────────────────────────────────────
 class TillRedeemIn(BaseModel):
     tenant: str

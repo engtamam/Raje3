@@ -177,6 +177,11 @@ class Settings(BaseSettings):
     OPERATIONS_SERVICE_URL: str = ""
     OPERATIONS_VISITS_PATH: str = "/internal/operations/customer-visits"
     REMINDERS_SERVICE_URL: str = ""
+    # OPTIONAL, and deliberately not in the required list below. A shop without a loyalty
+    # programme is a whole legitimate product, and a portal that refuses to boot without loyalty
+    # would make the points feature a dependency of the customer's page rather than a section on
+    # it.
+    LOYALTY_SERVICE_URL: str = ""
     # THEIRS, and the reference goes in the path exactly as reminders parses it.
     REMINDERS_PREFS_PATH: str = "/api/v1/prefs/{ref}"
     # Short: three of these run under ONE page deadline, and a customer is waiting.

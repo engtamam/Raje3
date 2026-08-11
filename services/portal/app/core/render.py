@@ -236,6 +236,37 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
             parts.append("</article>")
         parts.append("</section>")
 
+    # ── his points, AFTER the offers and BEFORE the switches ──────────────────────────────
+    #
+    # AFTER, because an offer is a thing he already has and points are a thing he is working
+    # towards — the first is why he opened the link, the second is why he comes back. BEFORE the
+    # switches for the same reason the offers are: a notification setting is not what anybody
+    # opened this page to read.
+    #
+    # ABSENT ENTIRELY FOR A SHOP WITH NO PROGRAMME. A points card reading zero on a page belonging
+    # to a shop that runs no loyalty is a promise nobody made, and the customer would ask about it
+    # at the counter.
+    if page.points.available and page.points.data:
+        pts = page.points.data
+        parts.append("<section class='card'><h2>نقاطك</h2>")
+        parts.append(f"<p class='big'>{int(pts.get('points') or 0)} <span>نقطة</span></p>")
+
+        rewards = list(pts.get("rewards") or [])
+        if rewards:
+            # ONLY WHAT HE CAN AFFORD — the service filtered before answering. Listing what he
+            # cannot reach turns his own page into a display of things withheld from him.
+            parts.append("<p class='sub'>تقدر تستبدلها الآن — اطلبها عند زيارتك:</p><ul class='rw'>")
+            for r in rewards[:6]:
+                parts.append(f"<li>{_e(str(r.get('name') or ''))}"
+                             f" <b>{int(r.get('cost') or 0)} نقطة</b></li>")
+            parts.append("</ul>")
+        elif int(pts.get("to_next_reward") or 0) > 0:
+            # ENCOURAGEMENT ONLY WHEN IT IS TRUE. Zero means he can afford everything, or the shop
+            # has no rewards at all — and «تبقى لك 0» is a sentence that means nothing.
+            parts.append(f"<p class='sub'>باقي لك {int(pts['to_next_reward'])} نقطة"
+                         f" لأقرب مكافأة.</p>")
+        parts.append("</section>")
+
     # ── the switches ──────────────────────────────────────────────────────────────────────
     parts.append("<section class='card'><h2>الرسائل التي تصلك</h2>"
                  "<p class='sub'>أوقف ما لا يناسبك. القرار قرارك في أي وقت.</p>")

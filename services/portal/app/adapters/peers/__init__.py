@@ -112,6 +112,36 @@ class HttpOperations:
 
 
 # ── reminders: the switches ────────────────────────────────────────────────────────────────────
+class NullLoyalty:
+    driver = "null"
+
+    async def balance_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        return {}
+
+
+class HttpLoyalty:
+    """His points, read on his behalf.
+
+    THE CUSTOMER HOLDS NO TOKEN — he opened a link from a WhatsApp message — so the page is
+    composed here with portal's internal credential against loyalty's internal route. The
+    alternative, minting an owner's token for a member of the public, is not a thing to be clever
+    about.
+    """
+
+    driver = "http"
+
+    def __init__(self, *, url: str, token: str, timeout: int = 3) -> None:
+        self._url = url.rstrip("/")
+        self._token = token
+        self._timeout = timeout
+
+    async def balance_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        return _get(f"{self._url}/internal/loyalty/portal/balance"
+                    f"?tenant={urllib.parse.quote(tenant, safe='')}"
+                    f"&subject_ref={urllib.parse.quote(subject_ref, safe='')}",
+                    self._token, self._timeout)
+
+
 class NullReminders:
     driver = "null"
 
@@ -191,9 +221,12 @@ class HttpReminders:
             return False
 
 
-def build_peers(settings) -> tuple[Any, Any, Any]:
+def build_peers(settings) -> tuple[Any, Any, Any, Any]:
+    """FOUR NOW, and loyalty is the fourth. Returned rather than reached for so that a deployment
+    with LOYALTY_SERVICE_URL unset composes a page without a points section instead of failing —
+    every peer here follows that rule and this one is not the exception."""
     if (getattr(settings, "PEERS_DRIVER", "") or "null").lower() == "null":
-        return NullIdentity(), NullOperations(), NullReminders()
+        return NullIdentity(), NullOperations(), NullReminders(), NullLoyalty()
     t = settings.PEER_TIMEOUT_SECONDS
     return (
         HttpIdentity(url=settings.TENANT_SERVICE_URL, path=settings.TENANT_READ_PATH,
@@ -204,4 +237,7 @@ def build_peers(settings) -> tuple[Any, Any, Any]:
                        token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         HttpReminders(url=settings.REMINDERS_SERVICE_URL, path=settings.REMINDERS_PREFS_PATH,
                       token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+        (HttpLoyalty(url=settings.LOYALTY_SERVICE_URL,
+                     token=settings.INTERNAL_SERVICE_TOKEN, timeout=t)
+         if getattr(settings, "LOYALTY_SERVICE_URL", "") else NullLoyalty()),
     )

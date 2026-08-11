@@ -91,6 +91,10 @@ env:
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   OPERATIONS_VISITS_PATH: "/internal/operations/customer-visits"
   REMINDERS_SERVICE_URL: "http://reminders:8000"
+  # HIS POINTS, on his own page. OPTIONAL BY DESIGN and not in the required list: a shop with no
+  # loyalty programme is a whole legitimate product, and portal must compose four sections rather
+  # than refuse to serve a customer's page over a feature that shop never bought.
+  LOYALTY_SERVICE_URL: "http://loyalty:8000"
   REMINDERS_PREFS_PATH: "/api/v1/prefs/{ref}"
 
   # Three seconds each, and a three-second budget for the WHOLE page — the calls run concurrently,

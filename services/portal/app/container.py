@@ -220,9 +220,11 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.peers import build_peers
     from app.core.compose import Composer
 
-    container.identity, container.operations, container.reminders = build_peers(settings)
+    (container.identity, container.operations, container.reminders,
+     container.loyalty) = build_peers(settings)
     container.composer = Composer(identity=container.identity,
                                   operations=container.operations,
                                   reminders=container.reminders,
+                                  loyalty=container.loyalty,
                                   deadline_seconds=settings.PAGE_DEADLINE_SECONDS)
     return container
