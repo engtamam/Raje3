@@ -1076,3 +1076,110 @@ with it, and time went into the wrong file. There, a check found nothing and pri
 as a system with nothing wrong; here, a correct file printed errors from a version that no longer
 existed. **Both are cases where the message and the cause are in different places — and the first
 question in that situation is not "what is wrong here" but "am I looking at what actually ran".**
+
+### 4.40 A complete feature that nothing calls — thirteen times, one shape
+
+The single most expensive defect in this product, by a distance. Not one of these was a bug in the
+code that was written; every one of them was code that was written, tested, deployed, and reachable
+by nothing:
+
+| Built and unreachable | What the owner saw |
+| --- | --- |
+| The redemption path, with its idempotency key and its ledger | Customers earned points for ever and could never spend them |
+| Earning on a visit — the engine, fully tested | Every balance stayed at zero |
+| `svc_visit_redeemed`, three tones, shipped in the seed | The redemption confirmation never went out |
+| The send log — "the only question this service generates" | Every correct refusal read as a fault |
+| The PDPL data map | An export request was distributed to nobody |
+| The DSAR verification code | Minted at creation, delivered to no channel, so no request could ever be verified |
+| Erasure of one customer | The establishment is the controller and had no button |
+| The whole campaign engine — goals, audiences, spread, reserve | «حملاتي» explained what a campaign is and offered no way to launch one |
+| `campaigns.runs` — the log the service calls its most important | "It didn't arrive" had no answer |
+| Associations, bundles, branch comparison | Computed nightly at 04:00 and rendered nowhere |
+| The weekly report's subscription switch | An optional notice that could not be switched off |
+| `reminders.set_general` | «العام» was a value an owner could return to and never choose |
+| The adaptive learning engine (§5.2) | Not one number it learned was ever displayed |
+
+**They share one cause, and it is not laziness.** A backend task ends when the tests pass; a screen
+task ends when the screen renders. Neither ends at "a person can now do this", so the last hop —
+the button — belongs to nobody. And nothing fails: no test goes red, no line appears in a log. The
+feature is simply absent, and absence is the hardest state in a product to see.
+
+**Three things that catch it, cheapest first:**
+
+1. `ci/check_unused_actions.py` — every declared action, and whether any screen calls it. It is the
+   opposite question to "does every action a screen names exist?", which only catches typos. A typo
+   fails on the first click; an orphan is silent for months.
+2. An allow-list WITH REASONS for the deliberate ones, so "we know about that one" becomes
+   something the repository says rather than something a person remembers.
+3. The definition of done for a feature is **a person can do it**, not "the endpoint answers".
+
+**And the guard has to be in CI.** Half the guards in this repository — including the one written on
+the afternoon every scheduled job was found silently failing — ran only when somebody remembered.
+A guard outside CI is a note.
+
+### 4.41 A required request body, against a scheduler that sends none
+
+Every heartbeat in the product was failing, nightly, for days: the insights snapshot, the loyalty
+expiry sweep, the campaign tick, the reminder tick. The platform's scheduled-job template posts an
+EMPTY payload with a JSON content type, and a route that declares a required Pydantic body answers
+422 before a line of its own code runs.
+
+Nothing said so. Every probe green, every route answering, every dashboard showing «أحسب الآن» for
+ever and every reminder simply not going out. The only evidence anywhere was a Job's exit code — a
+resource nobody reads on a good day. It was found because an owner photographed a screen that had
+been "computing" for eighteen hours.
+
+**The rule:** a route a scheduler calls must accept the request that scheduler actually sends. Give
+the body a default, keep the fields' defaults inside it, and let an empty POST mean what a scheduled
+pass means — all of it. `ci/check_cron_bodies.py` reads every `cronJobs` entry in every values file,
+finds the route it targets, and fails on a required body or a path nothing serves.
+
+### 4.42 Two copies of one library, and only one of them reaches the customer
+
+The WhatsApp template library existed twice: generated from the specification for our seeding
+script, and curated inside operations for what is actually pushed into an establishment's registry
+when it connects. Both were legitimate. Nothing compared them, and they had drifted by three whole
+TYPES and thirteen texts — two of which differed in variable COUNT, which is a rejected send under
+a name Meta had already approved.
+
+The three missing types — a weekly digest, a safety notice, a DSAR code — were written, wired,
+tested and sending, and were submitted for nobody. And it failed silently by design: the send path
+checks approval and correctly declines a template the account never had.
+
+**The rule:** when the same content lives in two places for two legitimate reasons, compare the
+overlap in CI — the fields that must agree — and leave the rest alone. `ci/check_template_libraries.py`
+compares type, tone, class, category, header and the body word for word, and ignores the curated
+fields that are one side's own.
+
+### 4.43 An install that ends with a running cluster and an empty product
+
+`bring-up.sh` deployed every service, verified every digest, and seeded nothing: no roles, no price
+list, no legal documents. Every probe was green and a shop signing up would have received a login
+that could do nothing — no capability to grant, no plan to buy, and no agreement to accept.
+
+The legal library was the sharpest case: eight documents, authored, filled in and guarded by CI,
+with nothing anywhere that loaded them into the service that serves them. So an owner signed up and
+accepted nothing, and there was no processing agreement between us and the establishment whose
+customers' data we then processed — the one document Article 17 requires to exist BEFORE the
+processing does.
+
+**The rule:** an install is not done when the services run. It is done when the product WORKS — and
+the seeds belong in the install script, in dependency order, each idempotent enough that re-running
+the install is safe. And the day the publisher is written is the day the files are first parsed:
+two of those eight documents did not parse at all, because the CI guard reads them line by line with
+a regex and a regex does not see nesting.
+
+### 4.44 A test that fails for a reason unrelated to the code
+
+Six suites reported a failure for weeks. The licence gate walks every distribution in the running
+interpreter — inside the service's image that is exactly its dependency tree, which is the thing the
+gate exists to police; run from a checkout it is whatever that machine has ever pip-installed. So
+all six failed over packages belonging to no service in the repository.
+
+**«1 failed» became the expected output.** That is how a real failure hides: not by being missed,
+but by arriving in a place people have learned produces noise. Skip with a stated reason when the
+environment is not the one the check is about, and make the marker something real — the service's
+package being INSTALLED, not merely named in a pyproject that is always on disk.
+
+It is 4.35 again from the other side: there, a guard that cried too much got switched off; here, a
+test that cried for the wrong reason took five green suites down with it.
