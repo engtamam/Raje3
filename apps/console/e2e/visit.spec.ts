@@ -211,6 +211,21 @@ test('a customer with points can spend them, in front of him', async ({ shop }) 
    */
   const PHONE = `05${Date.now().toString().slice(-8)}`;
 
+  // A VISIT EARNS NOTHING UNTIL THE SHOP SAYS WHAT A VISIT IS WORTH, and this test spent an
+  // afternoon looking like a broken redemption path when what was missing was one number nobody
+  // had set. A test that depends on unstated configuration is not testing the product; it is
+  // testing whoever seeded the tenant last. So it states it.
+  await open(shop, '/points');
+  const general = shop.getByRole('spinbutton', { name: 'نقاط لكل زيارة (عام)' }).first();
+  if (await general.isVisible().catch(() => false)) {
+    const now = Number((await general.inputValue()) || 0);
+    if (!now) {
+      await general.fill('10');
+      await general.blur();
+      await shop.waitForTimeout(1200);
+    }
+  }
+
   await open(shop, '/visit');
   // Three visits, so the balance clears the cheapest seeded reward.
   //

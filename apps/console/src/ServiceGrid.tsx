@@ -114,7 +114,7 @@ export function ServiceGrid({
               </span>
             ) : null}
             {s.icon ? <span className="text-base leading-none">{s.icon}</span> : null}
-            <span className="line-clamp-2">{s.name}</span>
+            <span className="line-clamp-2 px-1">{s.name}</span>
             {/* A CHECK MARK, NOT ONLY A COLOUR. Colour alone is invisible in direct sun on a
                 workshop floor, and it says nothing to an operator who cannot distinguish it. */}
             {on ? (
@@ -123,10 +123,19 @@ export function ServiceGrid({
             {/* WHAT IT EARNS HIM. Bottom-start, opposite the badges, and only when the shop has
                 actually set a number above zero for it. */}
             {(points[s.id] ?? 0) > 0 ? (
-              <span className={`absolute bottom-1 start-1.5 text-[10px] font-normal leading-none ${
-                on ? 'text-white/80' : 'text-text-secondary'
-              }`}>
-                {points[s.id]}+
+              // `dir="ltr"` OR THE SIGN JUMPS SIDES. In a right-to-left run the bidi algorithm
+              // moves a leading «+» to the other end of the number, so «+100» rendered as «100+»
+              // — read as "100 or more" rather than "earns 100".
+              //
+              // A PILL, NOT LOOSE TEXT. Sixteen bare numbers floating under sixteen names read as
+              // debris on the tile; the same numbers in a soft chip read as one repeated fact.
+              <span
+                dir="ltr"
+                className={`absolute bottom-1 start-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-none ${
+                  on ? 'bg-white/20 text-white' : 'bg-accent-soft text-accent-on-soft'
+                }`}
+              >
+                +{points[s.id]}
               </span>
             ) : null}
             {/* The nudge, and only while it is true — a hint that stays after the selection has

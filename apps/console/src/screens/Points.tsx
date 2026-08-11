@@ -413,6 +413,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   type="number"
                   min={0}
                   defaultValue={earn?.general?.points ?? 0}
+                  // NAMED, because the label wraps this input as a sibling of two spans and a
+                  // screen reader — or a test — has no way to say which field this is otherwise.
+                  aria-label="نقاط لكل زيارة (عام)"
                   dir="ltr"
                   onBlur={async (e) => {
                     const raw = e.target.value.trim();
