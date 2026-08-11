@@ -23,6 +23,8 @@ import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Lock } from 'lucide-react';
+import { Button } from '@base-ui/design-system/Button';
+import { Launch } from './Launch';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -70,6 +72,8 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
   const [only, setOnly] = useState<'' | 'sent' | 'suppressed'>('');
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  /** The composer, open only when he asks for it — this tab is a list first. */
+  const [launching, setLaunching] = useState(false);
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
   // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
@@ -94,17 +98,22 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
       setSchedule({ schedule: [], count: 0 });
     }
 
-    const c = action(catalog, 'campaigns.list');
-    if (c) {
-      call<{ campaigns: Campaign[] }>(session, c)
-        .then((x) => setCampaigns(x.campaigns ?? []))
-        .catch(() => setCampaigns([]));
-    } else {
+    loadCampaigns();
+    if (!action(catalog, 'campaigns.list')) {
       // NOT AN ERROR AND NOT AN EMPTY LIST: the plan does not include campaigns. `null` is the
       // LOCKED state — the tab is still there, and it says why.
       setCampaigns(null);
     }
   }, [session, catalog]);
+
+  /** Re-read the list — after a launch, so the campaign he just started is on screen. */
+  const loadCampaigns = () => {
+    const c = action(catalog, 'campaigns.list');
+    if (!c) return;
+    call<{ campaigns: Campaign[] }>(session, c)
+      .then((x) => setCampaigns(x.campaigns ?? []))
+      .catch(() => setCampaigns([]));
+  };
 
   const waitingOf = (kind: string) =>
     (schedule?.schedule ?? []).filter((r) => r.kind === kind).length;
@@ -225,7 +234,18 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
           />
         </section>
       ) : (
-        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+        <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+          {/* THE BUTTON THAT DID NOT EXIST. The engine — goals with their locks, the audience
+              rules, the spread across days, the reserved share, the per-send log — was complete
+              and unreachable; this tab listed campaigns and explained what a campaign is for,
+              which is a brochure for a feature its owner cannot use. */}
+          {launching ? (
+            <Launch session={session} catalog={catalog}
+                    onDone={() => { setLaunching(false); loadCampaigns(); }} />
+          ) : action(catalog, 'campaigns.create') ? (
+            <div><Button onClick={() => setLaunching(true)}>أطلق حملة</Button></div>
+          ) : null}
+
           {campaigns.length === 0 ? (
             <EmptyState
               title="لم تُطلق حملة بعد"
