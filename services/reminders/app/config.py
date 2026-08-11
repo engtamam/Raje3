@@ -255,6 +255,12 @@ class Settings(BaseSettings):
     DEFAULT_INTERVAL_DAYS: float = 90.0
     DEFAULT_LEAD_DAYS: float = 7.0
 
+    # HOW LONG AFTER A VISIT THE CONFIRMATION GOES OUT (§8.4.2). Ten minutes, not instantly: a
+    # message that arrives while the customer is still at the counter is a message about something
+    # he is watching happen. And not an hour, either — after that it stops being a confirmation
+    # and becomes a shop remembering him, which is a different message with a different name.
+    VISIT_CONFIRM_DELAY_SECONDS: int = 600
+
     ENGAGEMENT_HALF_LIFE_DAYS: float = 60.0
     # Derived from the half-life, not chosen to look round: with a visit worth 10 points, a
     # threshold of 10 is reachable only on the DAY of the visit. See core/engagement.py.

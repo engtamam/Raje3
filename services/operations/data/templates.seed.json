@@ -83,6 +83,93 @@
       "active": false
     },
     {
+      "name": "svc_visit_redeemed_brief",
+      "type": "svc_visit_redeemed",
+      "tone": "brief",
+      "label": "تأكيد الزيارة مع استبدال نقاط",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "أهلاً {{1}}، تم تسجيل زيارتك لدى {{2}}، واستبدلت {{3}} مقابل {{4}} نقطة. رصيدك الآن {{5}} نقطة.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
+      "active": false
+    },
+    {
+      "name": "svc_visit_redeemed_warm",
+      "type": "svc_visit_redeemed",
+      "tone": "warm",
+      "label": "تأكيد الزيارة مع استبدال نقاط",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "يا هلا {{1}}، نوّرتنا اليوم في {{2}}. أخذت {{3}} مقابل {{4}} نقطة، وباقي لك {{5}} نقطة. عساك دايم.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
+      "active": false
+    },
+    {
+      "name": "svc_visit_redeemed_formal",
+      "type": "svc_visit_redeemed",
+      "tone": "formal",
+      "label": "تأكيد الزيارة مع استبدال نقاط",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، نفيدكم بتسجيل زيارتكم لدى {{2}}، واستبدال {{3}} مقابل {{4}} نقطة. رصيدكم الحالي {{5}} نقطة.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
+      "active": false
+    },
+    {
       "name": "svc_follow_up_brief",
       "type": "svc_follow_up",
       "tone": "brief",

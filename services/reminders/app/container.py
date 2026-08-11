@@ -266,7 +266,8 @@ def build_container(settings: Settings) -> Container:
     container.scheduler = Scheduler(
         store=container.datastore, cfg=adaptive_cfg, eng_cfg=eng_cfg,
         default_interval_days=settings.DEFAULT_INTERVAL_DAYS,
-        lead_days=settings.DEFAULT_LEAD_DAYS)
+        lead_days=settings.DEFAULT_LEAD_DAYS,
+        confirm_delay_seconds=settings.VISIT_CONFIRM_DELAY_SECONDS)
     # The catch-up client is absent when operations is not configured — and `Ingest` degrades to
     # the event path alone rather than failing at boot. A local run with no peers must still work;
     # production is covered by assert_sender_config_ok, which requires the same URL.

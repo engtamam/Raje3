@@ -67,7 +67,10 @@ def test_a_missed_event_is_repaired_by_the_read(st, ing):
     """The bus is at-most-once: a subscriber that is restarting does not receive the event, and
     nothing records that it missed one. For this service that is a reminder that never exists."""
     out = run(ing.catch_up("t1", now=NOW, service_config=CFG))
-    assert out["read"] == 5 and out["scheduled"] == 5
+    # TWO ROWS PER VISIT, not one: the service reminder AND the confirmation that replies to the
+    # visit itself. `scheduled` counts ROWS, which is what a catch-up needs to know it wrote
+    # something — the number of visits it handled is `read`.
+    assert out["read"] == 5 and out["scheduled"] == 10
     for i in range(1, 6):
         assert run(ScheduleStore(st).pending_for_subject("t1", f"sub_{i}"))
 
@@ -76,7 +79,7 @@ def test_the_catch_up_does_not_redo_what_the_event_already_did(st, ing):
     """Both paths call the same idempotent handler, so overlap is free."""
     run(ing.on_event(Event(type="x", payload=visit(1)), now=NOW, service_config=CFG))
     out = run(ing.catch_up("t1", now=NOW, service_config=CFG))
-    assert out["scheduled"] == 4
+    assert out["scheduled"] == 8      # four visits, a reminder and a confirmation each
 
 
 def test_the_watermark_stops_the_next_run_re_reading_everything(st, ing):
@@ -132,7 +135,10 @@ def test_discovery_bootstraps_a_tenant_we_have_never_heard_of(st, ing):
     list, and is never caught up — for ever. Found on a live cluster, not by a test: every test
     here hands the ingest a tenant name."""
     out = run(ing.discover(now=NOW, service_config=CFG))
-    assert out["read"] == 5 and out["scheduled"] == 5
+    # TWO ROWS PER VISIT, not one: the service reminder AND the confirmation that replies to the
+    # visit itself. `scheduled` counts ROWS, which is what a catch-up needs to know it wrote
+    # something — the number of visits it handled is `read`.
+    assert out["read"] == 5 and out["scheduled"] == 10
     assert ing._visits.calls[0] == 0
 
 

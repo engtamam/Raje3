@@ -60,7 +60,8 @@ class Scheduler:
 
     def __init__(self, *, store, cfg: adaptive.AdaptiveConfig,
                  eng_cfg: engagement.EngagementConfig,
-                 default_interval_days: float = 90.0, lead_days: float = 7.0) -> None:
+                 default_interval_days: float = 90.0, lead_days: float = 7.0,
+                 confirm_delay_seconds: int = 600) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._rules = RuleStore(store)
@@ -69,6 +70,7 @@ class Scheduler:
         self._eng_cfg = eng_cfg
         self._default = default_interval_days
         self._lead = lead_days
+        self._confirm_delay = int(confirm_delay_seconds)
 
     async def on_visit(self, event: dict[str, Any], *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None) -> VisitOutcome:
@@ -116,6 +118,28 @@ class Scheduler:
             outcome.cancelled += await self._sched.cancel_kind(
                 tenant, subject, sid, "follow_up",
                 reason="عاد العميل قبل موعد المتابعة", now=now)
+
+        # ── the confirmation: the reply to what he just did ────────────────────────────────────
+        #
+        # THE MESSAGE THE WHOLE LIBRARY OPENS WITH, AND NOTHING CREATED IT. Three tones of
+        # `svc_visit_confirmation` shipped in the seed, `gate.py` exempts the type from quiet
+        # hours by name — and no line anywhere built a row of it. A visit produced a reminder in
+        # ninety days and a follow-up in fifteen, and said nothing at all on the day.
+        #
+        # KEYED WITHOUT A SERVICE. It confirms the VISIT, not one of the services on it: a visit
+        # with an oil change and a tyre rotation is one event and gets one confirmation. Keying it
+        # by service would send two, which is the noise this product exists to prevent.
+        #
+        # AND A SECOND VISIT REPLACES IT rather than adding to it — the schedule's natural key is
+        # (tenant, customer, service, kind), so the upsert is the mechanism: a customer who comes
+        # back within the ten minutes gets one confirmation, for the later visit.
+        confirm = Schedule(
+            tenant=tenant, subject_ref=subject, service_id="", kind="visit_confirmation",
+            due_at=occurred + self._confirm_delay, cls="service",
+            template_type="svc_visit_confirmation", visit_id=visit_id,
+            branch_id=event.get("branch_id") or "")
+        await self._sched.upsert(tenant, confirm.key, as_row(confirm))
+        outcome.scheduled.append(confirm.key)
 
         # ── schedule ONE merged reminder ───────────────────────────────────────────────────────
         # The lead service is the one whose reminder falls EARLIEST. Not the first in the list:
