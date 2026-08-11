@@ -76,6 +76,30 @@ def declared() -> dict[str, str]:
     return out
 
 
+def platform_declared() -> set[str]:
+    """Action ids the PLATFORM declares.
+
+    NOT PART OF THE ORPHAN SCAN, deliberately: base-services ships two hundred actions and this
+    product sells a handful of them, so listing the rest as "screens we owe" would bury the ones
+    that are actually ours in noise.
+
+    They are read for one purpose — an allow-list line naming one of them is a line about a real
+    action, and reporting it as "no longer exists" every single run is the kind of permanent false
+    alarm that teaches people to skip the whole report.
+    """
+    out: set[str] = set()
+    for path in (ROOT / "platform" / "services").glob("*/app/user_actions.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            for key, value in zip(node.keys, node.values):
+                if (isinstance(key, ast.Constant) and key.value == "id"
+                        and isinstance(value, ast.Constant) and isinstance(value.value, str)):
+                    out.add(value.value)
+    return out
+
+
 def paths_of(actions: dict) -> dict[str, str]:
     """action id -> its declared path, so a literal URL can be matched back to the action."""
     out: dict[str, str] = {}
@@ -121,7 +145,12 @@ def main() -> int:
 
     orphans = {a: s for a, s in sorted(all_actions.items())
                if a not in used and a not in NOT_FOR_A_SCREEN}
-    stale = [a for a in NOT_FOR_A_SCREEN if a not in all_actions]
+    # AN ALLOW-LIST LINE IS STALE ONLY IF THE ACTION IS GONE FROM BOTH SIDES. Half of these name a
+    # PLATFORM action — billing's invoices, tenant's close, compliance's legal gate — and checking
+    # them against our services alone reported nine real, live actions as vanished on every single
+    # run. A guard that always prints something to ignore is a guard that gets ignored whole.
+    known = set(all_actions) | platform_declared()
+    stale = [a for a in NOT_FOR_A_SCREEN if a not in known]
 
     print(f"declared: {len(all_actions)}   named by a screen: "
           f"{len([a for a in all_actions if a in used])}   "
