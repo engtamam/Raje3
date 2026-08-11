@@ -470,7 +470,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   onChange={(e) => setAdjustBy(e.target.value.replace(/[^0-9-]/g, ''))}
                   inputMode="numeric"
                   dir="ltr"
-                  placeholder="+50"
+                  placeholder="50"
                   aria-label="عدد النقاط"
                   className="h-11 w-24 rounded-xl bg-surface-1 px-3 text-center tabular-nums shadow-sm"
                 />
