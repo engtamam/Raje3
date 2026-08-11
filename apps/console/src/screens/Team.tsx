@@ -85,6 +85,11 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   return (
     <div className="flex flex-col gap-4 p-4">
       <Segmented
+        // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
+        // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
+        // ragged block half the screen wide. It takes a className and merges with
+        // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
+        className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
         options={[
           { value: 'people', label: 'العاملون' },
           // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after. A tab that

@@ -58,7 +58,14 @@ export const SECTIONS: Section[] = [
   // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
   // MARKETER both hold — and neither may change a price. A section whose every control is inert
   // is worse than an absent one: the person tries, is refused, and learns to distrust the screen.
-  { id: 'services', path: '/services', label: 'خدماتي', requires: ['operations.update_service'] },
+  // «خدماتي ومنتجاتي», NOT «خدماتي» — the label is longer on purpose.
+  //
+  // This platform makes no distinction between the two: both are a line the owner configured, and
+  // nothing downstream reads which noun he used. But the NAME did make one, and it excluded half
+  // the market — a coffee shop or a spare-parts counter opening «خدماتي» reads a section that
+  // apparently is not for them and does not open it again. The rail pays two extra words for a
+  // sector that would otherwise think the product was not built for it.
+  { id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', requires: ['operations.update_service'] },
   { id: 'messages', path: '/messages', label: 'رسائلي', requires: ['reminders.get_settings'] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it

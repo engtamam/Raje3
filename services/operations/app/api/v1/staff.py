@@ -203,6 +203,25 @@ class ServiceIn(BaseModel):
     sort: int = Field(default=0, ge=0, le=9999)
 
 
+@router.get("/services", dependencies=[Depends(rate_limit)])
+async def list_services(request: Request, include_retired: bool = False,
+                        principal: Principal = Depends(_MANAGE)) -> dict:
+    """The OWNER's catalogue, which is not the field grid.
+
+    /field/catalogue answers what an operator may record a visit against, and it is right that a
+    retired service is absent from it. But the same list was the only one there was, so a service
+    stopped from the management screen vanished from the management screen — and «تفعيل» had
+    nothing left to act on. The same shape of bug as the rewards table, found the same way: by
+    stopping something and looking for it.
+
+    Gated on `operations.manage`, not read: this is the list you edit, and an operator has no
+    business seeing what the shop has retired.
+    """
+    rows = await ServiceStore(request.app.state.container.datastore).list(
+        _tenant(principal), active_only=not include_retired)
+    return {"services": [s.public() for s in rows]}
+
+
 @router.post("/services", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(rate_limit)])
 async def create_service(request: Request, body: ServiceIn,

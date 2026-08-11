@@ -20,7 +20,7 @@ test('a new owner opens a shop and lands inside it', async ({ page }) => {
   // HIS CATALOGUE IS NOT EMPTY. Seeding fails SOFT by design — a timeout must not destroy a
   // working account — which is exactly why it needs an assertion rather than trust. An empty
   // «خدماتي» is a first day spent typing twenty services.
-  await page.getByRole('link', { name: 'خدماتي' }).click();
+  await page.getByRole('link', { name: 'خدماتي ومنتجاتي' }).click();
   await expect(page.getByText('لا توجد خدمات')).toBeHidden();
 
   fs.writeFileSync(SESSION_FILE.replace('.session.json', '.phone'), phone);

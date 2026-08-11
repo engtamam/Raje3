@@ -72,8 +72,8 @@ interface EarnSettings {
  * spending the points.
  */
 const TYPES: { value: string; label: string; hint: string }[] = [
-  { value: 'service', label: 'من كتالوجي', hint: 'يختار ما يحصل عليه من خدماتك ومنتجاتك' },
-  { value: 'item', label: 'هدية', hint: 'شيء من خارج كتالوجك — الاسم يكفي' },
+  { value: 'service', label: 'من خدماتي', hint: 'يختار ما يحصل عليه مما تقدّمه — خدمةً كان أو منتجاً' },
+  { value: 'item', label: 'هدية', hint: 'شيء من خارج ما تقدّمه — الاسم يكفي' },
   { value: 'discount', label: 'خصم', hint: 'مبلغ يُخصم من الزيارة' },
 ];
 
@@ -217,6 +217,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       ) : null}
 
       <Segmented
+        // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
+        // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
+        // ragged block half the screen wide. It takes a className and merges with
+        // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
+        className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
         ariaLabel="أقسام النقاط"
         value={tab}
         onChange={setTab}
@@ -271,7 +276,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   <Input name="riyals" type="number" min={0} dir="ltr" required />
                 </Field>
               ) : type === 'service' ? (
-                <Field label="ما يحصل عليه" hint="من كتالوجك — خدمة كانت أو منتجاً">
+                <Field label="ما يحصل عليه" hint="مما تقدّمه — خدمةً كان أو منتجاً">
                   <select name="service_id" required className="h-10 rounded-lg bg-surface-2 px-3">
                     <option value="">—</option>
                     {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -350,6 +355,11 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
             <div className="rounded-card bg-surface-1 p-4 shadow-sm">
               <h2 className="mb-3 text-sm text-text-secondary">طريقة الاحتساب</h2>
               <Segmented
+                // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
+                // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
+                // ragged block half the screen wide. It takes a className and merges with
+                // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
+                className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
                 ariaLabel="طريقة احتساب النقاط"
                 value={earn?.config?.mode === 'invoice' ? 'invoice' : 'services'}
                 onChange={async (mode) => {

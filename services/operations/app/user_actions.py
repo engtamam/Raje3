@@ -142,21 +142,28 @@ USER_ACTIONS: list[dict[str, Any]] = [
     # test for which file a route belongs in is whose data it is: `platform.*` is ours;
     # everything else belongs to the establishment.
     {
-        "id": "operations.list_services", "label": "كتالوج الخدمات", "method": "GET",
-        "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "الكتالوج",
+        "id": "operations.list_services", "label": "قائمة خدماتي ومنتجاتي", "method": "GET",
+        "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "خدماتي ومنتجاتي",
         # A panel that can only ACT is half a panel: an owner needs to SEE a price before being
         # offered a button that changes it.
         "help": "الخدمات ومددها وأسعارها.",
     },
     {
-        "id": "operations.create_service", "label": "إضافة خدمة", "method": "POST",
-        "path": "/api/v1/staff/services", "capability": "operations.manage", "group": "الكتالوج",
+        # THE OWNER'S LIST, distinct from `operations.catalogue` which is the field grid. It can
+        # show what the shop has retired; the field grid must not.
+        "id": "operations.manage_services", "label": "خدماتي ومنتجاتي — للإدارة", "method": "GET",
+        "path": "/api/v1/staff/services", "capability": "operations.manage", "group": "خدماتي ومنتجاتي",
+        "help": "يشمل الموقوفة عند طلبها، ليمكن إعادة تفعيلها.",
+    },
+    {
+        "id": "operations.create_service", "label": "إضافة خدمة أو منتج", "method": "POST",
+        "path": "/api/v1/staff/services", "capability": "operations.manage", "group": "خدماتي ومنتجاتي",
         "help": "مدة الدورة 0 تعني خدمة بلا دورة طبيعية — فلا تُنتج تذكيراً.",
     },
     {
-        "id": "operations.update_service", "label": "تعديل خدمة", "method": "PATCH",
+        "id": "operations.update_service", "label": "تعديل خدمة أو منتج", "method": "PATCH",
         "path": "/api/v1/staff/services/{id}", "capability": "operations.manage",
-        "group": "الكتالوج", "confirm": True,
+        "group": "خدماتي ومنتجاتي", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "الإيقاف بـ active=false لا بالحذف — الحذف ييتّم كل زيارة تشير إليها.",
     },

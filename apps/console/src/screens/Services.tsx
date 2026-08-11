@@ -24,7 +24,7 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
-interface Service { id: string; name: string; cycle_days: number; price_minor: number; catchall?: boolean }
+interface Service { id: string; name: string; cycle_days: number; price_minor: number; catchall?: boolean; active?: boolean }
 
 /** One service's entry in the tree, and whether it is its own or inherited. */
 interface ServiceSetting { interval_days?: number; lead_days?: number; follow_up_days?: number; enabled?: boolean }
@@ -78,11 +78,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * he built into navigation instead of scenery.
    */
   const [only, setOnly] = useState<string | null>(null);
+  /** The add-a-service form, shown only when he asks for it. */
+  const [adding, setAdding] = useState(false);
 
   const load = () => {
-    const list = action(catalog, 'operations.list_services');
+    // THE OWNER'S LIST WHEN HE HAS IT, and it includes what he has retired. The field grid is
+    // active-only and rightly so — an operator must not be offered a service the shop stopped —
+    // but it was the only list there was, so stopping a service made it vanish from the very
+    // screen that stopped it, with «تفعيل» left acting on nothing.
+    const mine = action(catalog, 'operations.manage_services');
+    const list = mine ?? action(catalog, 'operations.list_services');
     if (list) {
-      call<{ services: Service[] }>(session, list)
+      call<{ services: Service[] }>(session, list, mine ? { include_retired: true } : {})
         .then((x) => setServices(x.services))
         .catch(() => setServices([]));
     } else {
@@ -184,11 +191,60 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     }
   };
 
+  /**
+   * Adding, renaming and retiring a service — the acts the screen named nowhere.
+   *
+   * «خدماتي» could show the catalogue and set its reminder cycles, and offered no way to put a
+   * service INTO it, correct a name, or stop selling something. The owner's words: «ماني شايف
+   * أساساً مكان أضيف فيه خدمات أو أعدّل اسمها».
+   *
+   * RETIRED, NEVER DELETED — the service says why: deleting a service orphans every visit that
+   * references it, and a shop that stopped offering something still needs last year's records to
+   * make sense.
+   */
+  const addService = async (name: string, cycleDays: number) => {
+    const a = action(catalog, 'operations.create_service');
+    if (!a || !name.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, a, { name: name.trim(), cycle_days: cycleDays });
+      setAdding(false);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّرت إضافة الخدمة.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const patchService = async (id: string, patch: Record<string, unknown>) => {
+    const a = action(catalog, 'operations.update_service');
+    if (!a) return;
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, a, { id, ...patch });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر حفظ التعديل.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   /** Take a service out of its group; it goes back to following the general setting. */
   const leaveGroup = async (serviceId: string) => {
-    const a = action(catalog, 'reminders.leave_group');
     const name = settings?.service_group?.[serviceId];
-    if (!a || !name) return;
+    if (!name) return;
+    const a = action(catalog, 'reminders.leave_group');
+    if (!a) {
+      // NOT A SILENT NO-OP. The catalogue is cached per token for the session, so a browser open
+      // since before this action existed simply does not have it — and returning quietly made the
+      // dropdown look broken. Say the one thing that fixes it.
+      setError('هذا الإجراء جديد — أعد فتح الصفحة أو سجّل الدخول من جديد ليظهر.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -344,6 +400,48 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         </nav>
 
         <div className="flex flex-col gap-3">
+          {/* THE ACT THIS SCREEN IS NAMED FOR, and it was missing. «خدماتي» listed a catalogue and
+              offered no way to add to it — a shop selling something new had nowhere to say so. */}
+          {action(catalog, 'operations.create_service') ? (
+            adding ? (
+              <form
+                className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  addService(String(f.get('name') || ''), Number(f.get('cycle_days') || 0));
+                }}
+              >
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm">الاسم</span>
+                  <input name="name" required autoFocus maxLength={128}
+                         placeholder="مثال: تلميع وتشميع، أو كيس قهوة 250 جم"
+                         className="h-10 rounded-lg bg-surface-2 px-3" />
+                </label>
+                <label className="flex items-center justify-between gap-3">
+                  <span className="flex flex-col">
+                    <span className="text-sm">كل كم يوماً يحتاجه العميل؟</span>
+                    {/* ZERO IS A REAL ANSWER, not an empty field: a one-off job has no natural
+                        cycle and must not produce a reminder. Said here rather than discovered. */}
+                    <span className="text-sm text-text-secondary">
+                      اتركه 0 إن كان لمرة واحدة — فلا تذكير له.
+                    </span>
+                  </span>
+                  <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
+                         className="h-10 w-24 shrink-0 rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                </label>
+                <div className="flex gap-2">
+                  <Button type="submit" disabled={saving}>إضافة</Button>
+                  <Button type="button" variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button>
+                </div>
+              </form>
+            ) : (
+              <div>
+                <Button onClick={() => setAdding(true)}>إضافة خدمة أو منتج</Button>
+              </div>
+            )
+          ) : null}
+
       {shown.map(([group, inGroup]) => (
         <section key={group || 'ungrouped'} className="flex flex-col gap-3">
           {/* THE HEADING CARRIES THE GROUP'S OWN CYCLE, because that is what the services under it
@@ -352,7 +450,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               carrying no number. */}
           <div className="flex items-center justify-between gap-3 px-1 pt-2">
             <h2 className="text-sm font-semibold text-text-secondary">
-              {group === UNGROUPED ? 'خدمات غير مجمّعة' : group}
+              {group === UNGROUPED ? 'غير مجمّعة' : group}
               {group !== UNGROUPED && settings?.groups?.[group]?.interval_days
                 ? ` · كل ${settings.groups[group].interval_days} يوماً`
                 : ''}
@@ -390,7 +488,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               {/* SHOWN WHERE IT HAPPENED. Without this the owner cannot tell which services he has
                   customised, and a general change that "did not work" is really a service holding
                   its own value. */}
-              {own ? <Badge tone="accent">إعداد خاص</Badge> : null}
+              <span className="flex items-center gap-2">
+                {svc.active === false ? <Badge tone="neutral">موقوفة</Badge> : null}
+                {own ? <Badge tone="accent">إعداد خاص</Badge> : null}
+              </span>
             </button>
 
             {isOpen ? (
@@ -429,6 +530,36 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 </>
                 ) : null}
 
+                {/* THE SERVICE ITSELF — its name, and whether the shop still sells it. Above the
+                    reminder settings because it is the more basic fact: what this thing is comes
+                    before when we message about it. */}
+                {action(catalog, 'operations.update_service') ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="flex flex-1 items-center gap-2">
+                      <span className="text-sm text-text-secondary">الاسم</span>
+                      <input
+                        defaultValue={svc.name}
+                        aria-label={`اسم ${svc.name}`}
+                        maxLength={128}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== svc.name) patchService(svc.id, { name: v });
+                        }}
+                        className="h-10 flex-1 rounded-lg bg-surface-2 px-3"
+                      />
+                    </label>
+                    {/* STOPPED, NOT DELETED — and the button says which. Deleting a service would
+                        orphan every visit that names it. */}
+                    <Button
+                      variant="ghost"
+                      disabled={saving}
+                      onClick={() => patchService(svc.id, { active: svc.active === false })}
+                    >
+                      {svc.active === false ? 'تفعيل' : 'إيقاف'}
+                    </Button>
+                  </div>
+                ) : null}
+
                 {/* PUTTING A SERVICE IN A GROUP, DIRECTLY.
                     Until now a group could only come into existence when the system NOTICED the
                     owner repeating himself across three services and offered to make one. That
@@ -441,7 +572,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     <span className="flex flex-col">
                       <span className="text-sm">المجموعة</span>
                       <span className="text-sm text-text-secondary">
-                        الخدمات في مجموعة واحدة تأخذ إعداداً واحداً — تغيّره مرة لها كلها.
+                        ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.
                       </span>
                     </span>
                     <select

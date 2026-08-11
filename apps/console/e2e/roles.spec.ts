@@ -22,7 +22,7 @@ test('the owner reaches all nine sections, and the list is not written in the ap
   await open(shop, '/');
 
   const nav = shop.getByRole('navigation');
-  for (const label of ['اليوم', 'تسجيل زيارة', 'عملائي', 'محلّي', 'خدماتي',
+  for (const label of ['اليوم', 'تسجيل زيارة', 'عملائي', 'محلّي', 'خدماتي ومنتجاتي',
                        'رسائلي', 'نقاطي', 'فريقي', 'حسابي']) {
     await expect(nav.getByRole('link', { name: label })).toBeVisible();
   }
