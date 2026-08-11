@@ -474,6 +474,15 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                   aria-label="عدد النقاط"
                   className="h-11 w-24 rounded-xl bg-surface-1 px-3 text-center tabular-nums shadow-sm"
                 />
+                {/* SAID BY EXAMPLE, BECAUSE A MINUS IS A DECISION AND NOT A DETAIL. «موجب/سالب»
+                    is the vocabulary of a form, not of a counter — an owner compensating a
+                    customer should not have to work out that the same box also takes points away.
+                    He reads «-50» and knows without being taught. */}
+                <span className="self-center text-xs leading-tight text-text-secondary">
+                  اكتب <span dir="ltr" className="tabular-nums">50</span> لمنحه نقاطاً،
+                  <br />
+                  و<span dir="ltr" className="tabular-nums">-50</span> لخصمها منه.
+                </span>
               </div>
 
                 {/* THE REASON IS A CHOICE, NOT AN ESSAY. It stays required — the entry outlives
