@@ -48,6 +48,10 @@ RIYADH = timezone(timedelta(hours=3))
 WINDOW_EXEMPT_TYPES = frozenset({
     "svc_visit_confirmation", "svc_booking_confirmation", "svc_ready_for_pickup", "svc_receipt",
     "per_account_notice", "per_points_expiring",
+    # A CODE THE SUBJECT IS WAITING ON, and a legal clock that does not stop at night. He asked
+    # for his data minutes ago; holding the proof of identity until morning delays a PDPL deadline
+    # to spare him a notification he is actively expecting.
+    "per_dsar_code",
 })
 
 # The priority ladder (spec 8.4.2 section 4). Lower number wins when two messages compete.

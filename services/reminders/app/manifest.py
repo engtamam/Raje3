@@ -96,6 +96,7 @@ def build_manifest(
             {"path": "/internal/reminders/eligibility", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/send", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/receipt", "tier": "internal", "method": "POST"},
+            {"path": "/internal/reminders/dsar-code", "tier": "internal", "method": "POST"},
             # A COUNT of who consents, never who. The owner sees a number (§8.5).
             {"path": "/internal/reminders/consent/count", "tier": "internal", "method": "POST"},
             # For portal: the offers a customer is holding, read on his behalf. His page carries no
@@ -114,6 +115,7 @@ def build_manifest(
             # The owner's view of one customer's offers — including the expired ones, which the
             # customer's own page and the field screen must never show.
             {"path": "/api/v1/reminders/offers", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/dsar-code", "tier": "user", "method": "POST"},
             {"path": "/api/v1/reminders/schedule/{}", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/reminders/rules", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/rules/{}", "tier": "user", "method": "PUT"},

@@ -478,6 +478,70 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
     return res
 
 
+class DsarCodeIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    dsar_id: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=8, max_length=128)
+    shop_name: str = Field(default="", max_length=120)
+
+
+@router.post("/reminders/dsar-code", dependencies=[Depends(require_internal_token)])
+async def send_dsar_code(request: Request, body: DsarCodeIn) -> dict:
+    """Deliver a DSAR verification code to the person who asked (PDPL Article 4).
+
+    THE HALF THAT WAS MISSING. compliance-service mints the code at DSAR creation to prove the
+    requester controls the channel — and holds no channel to send it on, so it reached nobody and
+    the verify step could never be completed. We own the channel; this is the delivery.
+
+    WE FETCH IT, WE NEVER MINT IT. The code stays compliance's secret and its clock stays
+    compliance's clock; a second issuer would be a second truth about who proved what, and the
+    first disagreement between them is the one a regulator reads.
+
+    A SPENT CODE IS NOT RE-SENT. The upstream route returns an empty code once the DSAR is
+    verified, and an empty code sends nothing — re-delivering a used one would tell a person to
+    prove something he has already proved.
+
+    AND IT CARRIES NOTHING OF HIS. The code, the minutes, the shop's name. This message asks for
+    proof of identity; putting his data in it would disclose before the proof it is asking for.
+    """
+    import json as _json
+    import urllib.request as _req
+
+    from app.config import get_settings
+
+    cfg = get_settings()
+    if not cfg.COMPLIANCE_SERVICE_URL:
+        return {"sent": False, "reason": "no compliance url configured"}
+
+    try:
+        r = _req.Request(
+            f"{cfg.COMPLIANCE_SERVICE_URL.rstrip('/')}"
+            f"/internal/compliance/dsar/{body.dsar_id}/verification-code",
+            headers={"X-Internal-Token": cfg.INTERNAL_SERVICE_TOKEN})
+        with _req.urlopen(r, timeout=6) as resp:                            # nosec B310
+            payload = _json.loads(resp.read() or b"{}")
+    except Exception as exc:                                                # noqa: BLE001
+        # REPORTED, NEVER SWALLOWED. A code that failed to reach him is a legal deadline running
+        # with nobody watching it, so the caller has to be able to retry knowing it did not go.
+        return {"sent": False, "reason": f"could not read the code: {str(exc)[:120]}"}
+
+    code = str(payload.get("code") or "")
+    if not code:
+        return {"sent": False, "reason": "already verified — nothing to send"}
+
+    minutes = max(1, int((int(payload.get("expires_at") or 0) - int(time.time())) // 60))
+
+    await request.app.state.container.sender.send(
+        tenant=body.tenant, subject_ref=body.subject_ref,
+        template_name="per_dsar_code",
+        variables=[code, str(minutes), body.shop_name or ""],
+        cls="personal",
+        # ONE PER DSAR, ATTEMPT AND ALL. A retried delivery must not become two messages carrying
+        # the same code — the second reads as a second request the subject did not make.
+        idempotency_key=f"dsar-code-{body.dsar_id}")
+    return {"sent": True, "expires_in_minutes": minutes}
+
+
 class ChooseOfferIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)

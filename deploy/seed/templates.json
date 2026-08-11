@@ -352,6 +352,20 @@
         "warm": "هلا {{1}}، انفتح موعد اليوم الساعة {{3}} في {{2}} — إذا يناسبك احجزه.",
         "formal": "عزيزنا {{1}}، يتوفر موعد شاغر لدى {{2}} اليوم الساعة {{3}}."
       }
+    },
+    {
+      "_why": "PDPL Article 4: a data-subject request must prove the person asking IS the subject before we hand over or erase anything. compliance-service mints a verification code at DSAR creation and holds no channel to deliver it — so the code reached nobody and the verify step could never complete. We own the channel; this is the message that carries it. AUTHENTICATION, NOT MARKETING: it is UTILITY and `personal`, exempt from quiet hours by class for the same reason an OTP is — a legal deadline does not wait for morning, and a request the subject himself just made is one he is waiting on. AND IT CARRIES NO DATA. The code and the shop's name, nothing else: this message proves who he is, and putting anything of his in it would disclose before the proof it is asking for.",
+      "name": "per_dsar_code",
+      "deferral": "priority",
+      "title": "رمز تأكيد طلب البيانات (لا يُوقَف)",
+      "cls": "personal",
+      "category": "UTILITY",
+      "header": "",
+      "tones": {
+        "brief": "رمز تأكيد طلبك: {{1}}. صالح {{2}} دقيقة. لدى {{3}}.",
+        "warm": "أهلاً، رمز تأكيد طلب بياناتك لدى {{3}} هو {{1}} — صالح {{2}} دقيقة.",
+        "formal": "عزيزنا، رمز تأكيد طلبكم لدى {{3}}: {{1}}. صالحٌ لمدة {{2}} دقيقة."
+      }
     }
   ]
 }

@@ -210,6 +210,32 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
                       "sent_at": int(row.get("at") or 0)}}
 
 
+class DsarCodeOut(BaseModel):
+    dsar_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/dsar-code", dependencies=[Depends(rate_limit)])
+async def send_my_dsar_code(request: Request, body: DsarCodeOut,
+                            principal: Principal = Depends(_READ)) -> dict:
+    """Send ME the code that proves this request is mine (PDPL Article 4).
+
+    THE SUBJECT ASKS FOR HIS OWN. `_READ` and not `manage`: the person pressing this is the person
+    whose data it is, and the code goes to the number on his own session — never to one supplied
+    in the request, which would turn a verification into a way to send codes to strangers.
+
+    THE DELIVERY ITSELF IS THE INTERNAL ROUTE, unchanged: it fetches the code from compliance, and
+    a spent code sends nothing. This is only the door a screen may knock on.
+    """
+    from app.api.internal import DsarCodeIn, send_dsar_code
+
+    return await send_dsar_code(request, DsarCodeIn(
+        tenant=principal.tenant,
+        dsar_id=body.dsar_id,
+        # HIS OWN PSEUDONYM, off the token. The one identifier a caller cannot choose.
+        subject_ref=getattr(principal, "subject", "") or "",
+        shop_name=""))
+
+
 @router.get("/offers", dependencies=[Depends(rate_limit)])
 async def customer_offers(request: Request, subject_ref: str = Query(min_length=8, max_length=128),
                           include_expired: bool = Query(default=True),
