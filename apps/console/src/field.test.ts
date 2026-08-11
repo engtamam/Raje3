@@ -11,7 +11,7 @@ import { VisitQueue, newIdempotencyKey } from './queue';
 import type { Session } from './session';
 
 const SESSION: Session = {
-  tenant: 't1', operator: 'op1', operatorName: 'أحمد', token: 'tok', sector: 'tyres',
+  tenant: 't1', operator: 'op1', operatorName: 'أحمد', token: 'tok',
 };
 
 function draft(key: string) {

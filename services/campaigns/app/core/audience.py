@@ -61,6 +61,11 @@ class Audience:
     # Everyone the rule matched but the gate would refuse — stopped classes, minimal engagement,
     # over a cap. Counted separately so the preview can show the HONEST number.
     excluded: int = 0
+    # HELD OUT BY THE CYCLE LOCK — they took this service too recently (spec §10.9.1). Counted
+    # apart from `excluded` because it is the one exclusion with a REASON the owner should read:
+    # a number that drops without explanation looks like a fault, and the same number beside its
+    # cause looks like a system that understands his shop.
+    too_recent: int = 0
     truncated: bool = False
 
     @property
@@ -68,9 +73,44 @@ class Audience:
         return len(self.candidates)
 
 
+# HOW FAR THROUGH HIS OWN CYCLE HE MUST BE before an offer on that service may reach him.
+#
+# 0.7 rather than a half: below it the need has not formed and the offer is noise; at it the need
+# has begun to press, and the offer PULLS FORWARD a visit that was coming — which is the only real
+# effect a campaign has. It does not create a need, it moves one.
+#
+# AND IT IS HIS OWN CYCLE, never a number of ours: the adaptive engine learns a rhythm per customer
+# per service, so a man who changes his oil every 60 days and one who takes 120 are each measured
+# against themselves rather than against one date for the whole shop.
+CYCLE_THRESHOLD = 0.7
+
+
+def _too_early(row: dict[str, Any], *, now: int, service_id: str,
+               threshold: float, window_days: int) -> tuple[bool, str]:
+    """Is this customer still early in his cycle for THIS service?
+
+    NEVER SEEN IT: not early, and he is exactly who an offer on it is for. Silence would exclude
+    every new customer from every service campaign, which is the opposite of the intent.
+    """
+    per_service = row.get("services") or {}
+    mine = per_service.get(service_id) or {}
+    last = int(mine.get("last_visit") or 0)
+    if not last:
+        return False, "لم يأخذ هذه الخدمة من قبل"
+    cycle = float(mine.get("interval_days") or row.get("interval_days") or window_days)
+    if cycle <= 0:
+        # A service with no rhythm — a one-off repair. Nothing to be early in.
+        return False, ""
+    elapsed = (now - last) / DAY
+    if elapsed < cycle * threshold:
+        return True, f"أخذها قبل {int(elapsed)} يوماً، ودورته {int(cycle)}"
+    return False, f"مضى {int(elapsed)} يوماً من دورته {int(cycle)}"
+
+
 async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=None,
                   already_reached: set[str] | None = None,
                   window_days: int = 90, min_visits: int = 3,
+                  service_id: str = "", cycle_threshold: float = CYCLE_THRESHOLD,
                   max_audience: int = DEFAULT_MAX_AUDIENCE) -> Audience:
     """Who this campaign reaches, right now.
 
@@ -92,9 +132,21 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
             continue
 
         matched, why = _matches(goal, row, now=now, window_days=window_days,
-                                min_visits=min_visits)
+                                min_visits=min_visits, service_id=service_id)
         if not matched:
             continue
+
+        # ── the cycle lock ────────────────────────────────────────────────────────────────────
+        # An offer on a service, sent to somebody who took it yesterday, is the message that loses
+        # the permission: he does not read a good intention, he reads a shop that does not know he
+        # was there. And it costs the owner money — a discount on a visit that was coming anyway
+        # is a sale sold cheaper, not a customer won.
+        if service_id:
+            early, _ = _too_early(row, now=now, service_id=service_id,
+                                  threshold=cycle_threshold, window_days=window_days)
+            if early:
+                out.too_recent += 1
+                continue
 
         if gate_check is not None and not await gate_check(subject):
             # MATCHED BUT WOULD BE REFUSED. Counted, not hidden: the preview says "reaches 43"
@@ -114,7 +166,7 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
 
 
 def _matches(goal: str, row: dict[str, Any], *, now: int, window_days: int,
-             min_visits: int) -> tuple[bool, str]:
+             min_visits: int, service_id: str = "") -> tuple[bool, str]:
     last = int(row.get("last_visit") or 0)
     visits = int(row.get("visit_count") or 0)
 
@@ -141,6 +193,18 @@ def _matches(goal: str, row: dict[str, Any], *, now: int, window_days: int,
         # Everyone the gate allows. The rule is deliberately empty — narrowing an announcement is
         # the owner's job through a different goal, not a hidden filter here.
         return True, "كل العملاء"
+
+    if goal == "service_offer":
+        # AN OFFER ON ONE SERVICE. The rule here is deliberately wide — everyone the gate allows —
+        # because the narrowing that matters is the cycle lock in `resolve`, and putting it here
+        # too would make one decision live in two places.
+        #
+        # A campaign of this goal WITHOUT a service is refused rather than widened to the whole
+        # shop: it would be an announcement sent under a name that promises targeting, and the
+        # owner would read the reach number as proof it worked.
+        if not service_id:
+            return False, ""
+        return True, "من قارب موعد هذه الخدمة"
 
     if goal == "occasion":
         # The owner supplied the date; matching a customer to it is data we do not hold yet.

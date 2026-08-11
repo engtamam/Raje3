@@ -80,9 +80,11 @@ def build_manifest(
                          # and authz denies the whole prefix to every tenant.
                          "platform.secrets", "platform.config"],
         "endpoints": [
-            # From the generated scaffold and kept: what a client calls to confirm its token is
-            # accepted at all, which is the first question asked when something else is failing.
-            {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
+            # `/api/v1/admin/ping` USED TO BE DECLARED HERE and this service has never served it.
+            # It came from the generated scaffold, survived every review, and the gate that catches
+            # exactly this ("the manifest declares routes this service does not serve — the console
+            # renders a button that 404s") had been failing on it. /whoami answers the question it
+            # was there for — is my token accepted — and that one exists.
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
             {"path": "/metrics", "tier": "public", "method": "GET"},
@@ -96,6 +98,7 @@ def build_manifest(
             # the caller (`loyalty`) holds no phone number and must not be handed one.
             {"path": "/internal/operations/visits/by-ref", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/seed-tenant", "tier": "internal", "method": "POST"},
+            {"path": "/internal/signup/partner-invite", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/sectors", "tier": "internal", "method": "GET"},
             # The most sensitive surface this service has: it turns a pseudonym back into a phone
             # number for a peer that is about to send. One subject per call, never a list.
@@ -127,6 +130,9 @@ def build_manifest(
             {"path": "/api/v1/field/visits", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/recent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-phone", "tier": "user", "method": "GET"},
+            # Pseudonyms to customers — the join «عملائي» needs for its overdue tab, since the
+            # schedule comes from reminders and reminders holds no names.
+            {"path": "/api/v1/field/customers/resolve", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/customers/{}", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/catalogue", "tier": "user", "method": "GET"},
             # ── the back office ───────────────────────────────────────────────────────────
@@ -160,6 +166,25 @@ def build_manifest(
             {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
+            # ── the door ──────────────────────────────────────────────────────────────────
+            # PUBLIC, and it is the only user-facing surface here that is. One route creates the
+            # account a token would come from and the other exchanges a phone and a password for
+            # one; neither can require the thing it produces. Declared as `public` so a route
+            # table built from manifests shows them for what they are rather than hiding two
+            # unauthenticated paths inside a list of guarded ones.
+            {"path": "/api/v1/signup", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/signup/signin", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/signup/sectors", "tier": "public", "method": "GET"},
+            # ── the shop's own till ───────────────────────────────────────────────────────
+            # `user` tier, not `internal`: it carries an ordinary Bearer token — the one identity
+            # mints for a service account — and it is capability-gated like every other user
+            # route. It is here rather than on the internal tier precisely so an outside party
+            # never needs the shared internal secret, which opens every internal door in the
+            # product.
+            {"path": "/api/v1/till/visits", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

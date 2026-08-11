@@ -82,6 +82,20 @@ class CustomerStore(_Base):
         rows, _ = await self._find(tenant, limit=limit, sort=("last_visit", "desc"))
         return [Customer(**r) for r in rows]
 
+    async def by_refs(self, tenant: str, refs: set[str]) -> list[Customer]:
+        """The customers behind a set of pseudonyms — for the overdue list, which arrives from
+        reminders carrying `subject_ref` and no names at all.
+
+        ONE READ, FILTERED IN MEMORY, and that is a deliberate trade rather than laziness. The
+        datastore has no `in` predicate, so the alternative is one round trip per pseudonym: fifty
+        overdue customers would be fifty reads to paint one list. An establishment's customer table
+        is thousands of rows at most — the size of one shop, not of the product.
+        """
+        if not refs:
+            return []
+        rows, _ = await self._find(tenant, limit=10_000)
+        return [Customer(**r) for r in rows if r.get("subject_ref") in refs]
+
     async def all_for_tenant(self, tenant: str, limit: int = 10_000) -> list[Customer]:
         rows, _ = await self._find(tenant, limit=limit)
         return [Customer(**r) for r in rows]

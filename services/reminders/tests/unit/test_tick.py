@@ -629,3 +629,152 @@ def test_recording_it_never_sends_anything(st):
         "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
         establishment="ورشة النخبة", customer_names={}))
     assert len(s.calls) == 2, "only the two customer messages; no notice to the owner"
+
+
+# ── the cross-visit merge, through the real tick (spec §5.8.1) ─────────────────────────────────
+#
+# `test_merge.py` covers the decision space of the pure planner. These prove the wiring: that the
+# fold happens after the gate and before the render, that the sentence the customer reads names
+# both services, and that the row which rode along is closed rather than left to go out tomorrow.
+
+def test_two_visits_days_apart_arrive_as_one_message(st):
+    """Sunday's oil, Tuesday's tyres — booked two days apart, and nothing knows they are one man
+    until the first goes out. He should read one sentence, not two messages in three days."""
+    sched(st, service_id="oil", due_at=at(9))
+    sched(st, service_id="tyres", due_at=at(9, day=17))
+    s = FakeSender()
+
+    res = go(st, s)
+
+    assert len(s.calls) == 1, "two messages went out where one was due"
+    assert s.calls[0]["variables"][2] == "غيار الزيت والإطارات"
+    assert res.sent == 1 and res.merged == 1
+
+
+def test_the_row_that_rode_along_is_closed_not_left_pending(st):
+    """Left pending it goes out tomorrow saying what today's message already said — and the
+    customer reads the merge as a system that repeats itself.
+
+    ASSERTED ON THE ROW, NOT ON A SILENT TOMORROW. This used to assert that a second pass sent
+    NOTHING, which was true only while no ladder existed: a reminder that goes out now schedules
+    its next rung (§5.6.1), so "the shop sends nothing else ever" is no longer the product. The
+    question this test asks is whether the MERGED row was closed — and that is what it reads.
+    """
+    sched(st, service_id="oil", due_at=at(9))
+    sched(st, service_id="tyres", due_at=at(9, day=17))
+    s = FakeSender()
+
+    go(st, s)
+
+    rows, _ = run(st.find("schedules", {"tenant": "t1", "service_id": "tyres"}, limit=10))
+    merged = [r for r in rows if r.get("kind") == "reminder"]
+    assert merged and merged[0]["state"] == "merged"
+    assert merged[0]["merged_into"]
+
+
+def test_a_reminder_a_week_out_is_left_for_its_own_day(st):
+    """Three days is the window. Past it the two are not the same conversation, and pulling one
+    forward a week teaches him that we nag."""
+    sched(st, service_id="oil", due_at=at(9))
+    sched(st, service_id="tyres", due_at=at(9, day=25))
+    s = FakeSender()
+
+    res = go(st, s)
+
+    assert s.calls[0]["variables"][2] == "غيار الزيت"
+    assert res.merged == 0
+
+
+# ── the follow-up ladder, which starts here or nowhere (§5.6.1) ────────────────────────────────
+from app.core.consent import Consent  # noqa: E402
+from app.core.models import RuleState  # noqa: E402
+from app.core.stores import RuleStore  # noqa: E402
+
+
+def learned(st, days=90, first_rung_returns=0):
+    """What the engine knows about this customer's rhythm — the ladder's only spacing input."""
+    r = RuleState(tenant="t1", subject_ref="sub_a", service_id="oil", interval_days=days,
+                  observations=4)
+    row = as_row(r)
+    row["first_rung_returns"] = first_rung_returns
+    run(RuleStore(st).upsert("t1", r.key, row))
+
+
+def rungs_of(st):
+    rows, _ = run(st.find("schedules", {"tenant": "t1"}, limit=50))
+    return sorted([r for r in rows if str(r.get("kind", "")).startswith("ladder_")],
+                  key=lambda r: r["due_at"])
+
+
+def test_a_sent_reminder_schedules_the_next_rung(st):
+    """THE WIRE THAT WAS NOT THERE. `core/ladder.py` was written, tested and called by nothing:
+    every rule was right and no customer would ever have received a second message."""
+    sched(st)
+    learned(st)
+    go(st, FakeSender())
+
+    assert len(rungs_of(st)) >= 1
+
+
+def test_the_ladder_starts_only_after_the_message_actually_WENT(st):
+    """A ladder built at schedule time would climb after a message that was suppressed, deferred or
+    dropped at the ceiling — pressing a customer about something he never received."""
+    sched(st)
+    learned(st)
+    go(st, FakeSender(fail=True))
+
+    assert rungs_of(st) == []
+
+
+def test_without_consent_there_is_no_offer_rung(st):
+    """§8.5: no offer reaches him under any circumstances. `never_asked` is not a yes."""
+    sched(st)
+    learned(st)
+    go(st, FakeSender())
+
+    assert all(r.get("cls") != "marketing" for r in rungs_of(st))
+
+
+def test_with_consent_the_middle_rung_is_the_offer(st):
+    """Variation, not escalation: the rung CHANGES KIND rather than getting louder."""
+    sched(st)
+    learned(st)
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    go(st, FakeSender())
+
+    rows = rungs_of(st)
+    assert rows and rows[0].get("cls") == "marketing"
+
+
+def test_the_rungs_are_separate_rows_not_one_that_overwrites_the_other(st):
+    """The schedule's natural key is (tenant, customer, service, kind). Two rungs sharing a kind
+    would be ONE row, and the second would silently replace the first."""
+    sched(st)
+    learned(st)
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    go(st, FakeSender())
+
+    rows = rungs_of(st)
+    assert len({r["kind"] for r in rows}) == len(rows)
+
+
+def test_the_spacing_comes_from_HIS_cycle(st):
+    """15% of ninety days is not 15% of ten — a fixed delay makes a car wash nag and a workshop
+    forget."""
+    sched(st)
+    learned(st, days=90)
+    go(st, FakeSender(), now=at(10))
+    long_gap = rungs_of(st)[0]["due_at"] - at(10)
+
+    assert long_gap == int(90 * 0.15 * 86400)
+
+
+def test_a_follow_up_has_no_ladder(st):
+    """A ladder answers one question — "he did not come" — and a follow-up is not that question."""
+    sched(st, kind="follow_up", template_type="svc_service_reminder")
+    learned(st)
+    go(st, FakeSender())
+
+    assert rungs_of(st) == []

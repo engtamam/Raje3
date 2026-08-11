@@ -58,6 +58,13 @@ CARDS = {
         "line": "نصيحة تخصّ ما أخذوه",
         "icon": "info",
     },
+    "service_offer": {
+        "title": "عرض على خدمة",
+        # THE LINE IS THE RULE, IN HIS WORDS. He is not told about a threshold or a cycle — he is
+        # told who it reaches, and that sentence is the whole of what he needs to trust it.
+        "line": "لمن قارب موعد خدمة معيّنة",
+        "icon": "tag",
+    },
 }
 
 

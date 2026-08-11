@@ -34,13 +34,29 @@ interface Today {
 interface CustomerRow { id: string; phone: string; name?: string }
 
 export function TodayScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [today, setToday] = useState<Today | null>(null);
+  /**
+   * THREE STATES, NOT TWO — and collapsing them is the bug this screen shipped with.
+   *
+   * `undefined` is loading, `null` is a read that FAILED, and a value is a value. It was written
+   * with `null` for both, and `if (!today)` painted the loading skeleton: so a failed read looked
+   * exactly like a slow one, for ever. Grey boxes that never resolve, nothing in the console,
+   * nothing on the screen — and the owner concludes the product is broken, which is nearly right
+   * and completely unactionable.
+   */
+  const [today, setToday] = useState<Today | null | undefined>(undefined);
   const [recent, setRecent] = useState<CustomerRow[] | null>(null);
   const [connected, setConnected] = useState<{ state: string; message: string } | null>(null);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.today');
-    if (a) call<Today>(session, a).then(setToday).catch(() => setToday(null));
+    // AN ABSENT ACTION IS A FAILURE HERE, not a wait. The nav only offers this section when the
+    // action exists, so arriving without it means the catalogue changed under us — and spinning
+    // for ever is the one response that tells him nothing.
+    if (a) {
+      call<Today>(session, a).then(setToday).catch(() => setToday(null));
+    } else {
+      setToday(null);
+    }
 
     const r = action(catalog, 'operations.recent');
     if (r) {
@@ -73,7 +89,20 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
     return '';
   })();
 
-  if (!today) {
+  if (today === null) {
+    // SAID, NOT SPUN. He can act on this — wait, or tell us — and neither is possible while a
+    // skeleton implies the answer is still coming.
+    return (
+      <div className="p-4">
+        <EmptyState
+          title="تعذّر تحميل شاشة اليوم"
+          description="حسابك سليم. حاول بعد قليل."
+        />
+      </div>
+    );
+  }
+
+  if (today === undefined) {
     return (
       <div className="grid gap-4 p-4 sm:grid-cols-3">
         <Skeleton height={96} /><Skeleton height={96} /><Skeleton height={96} />

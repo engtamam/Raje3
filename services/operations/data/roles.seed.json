@@ -1,0 +1,148 @@
+{
+  "_comment": [
+    "AN ESTABLISHMENT'S ROLES, AS THE SIGNUP SAGA CREATES THEM.",
+    "",
+    "THE SAME CONTENT AS deploy/seed/roles.json AND COPIED FROM IT, because the two are used at",
+    "different moments by different actors: the deploy seed is an operator's tool for a tenant that",
+    "already exists, and this one travels inside the image so a signup at three in the morning does",
+    "not need anybody present. A CI gate keeps them identical — a role added to one and not the",
+    "other would mean a shop provisioned today differs from one provisioned last week, and nothing",
+    "would say so.",
+    "",
+    "READ ONCE PER SIGNUP AND POSTED TO authz's /internal/authz/tenants/{tenant}/bootstrap. After",
+    "that authz owns them: the owner edits his roles from the console and this file has no further",
+    "say. Re-reading it later would undo his edits, which is the failure the sector seed already",
+    "documents."
+  ],
+  "roles": [
+    {
+      "name": "owner",
+      "label": "المالك",
+      "description": "صاحب المنشأة. يملك كل شيء داخل مستأجره، دائماً — ولا يستطيع أحد أن ينزع منه صلاحية ولا أن يحذف حسابه (3.2). ونقل الملكية بيده وحده.",
+      "protected": true,
+      "capabilities": [
+        "operations.record",
+        "operations.read",
+        "operations.manage",
+        "reminders.read",
+        "reminders.manage",
+        "campaigns.read",
+        "campaigns.manage",
+        "loyalty.read",
+        "loyalty.redeem",
+        "loyalty.manage",
+        "billing.read",
+        "billing.manage",
+        "billing.self",
+        "tenant.read",
+        "tenant.manage",
+        "identity.read",
+        "identity.manage",
+        "authz.manage",
+        "service_accounts:read",
+        "service_accounts:write",
+        "file.read",
+        "file.write",
+        "ticket.read",
+        "ticket.write",
+        "analytics.read",
+        "wallet.read",
+        "notification.read",
+        "insights.read",
+        "compliance.self"
+      ]
+    },
+    {
+      "name": "manager",
+      "label": "المدير",
+      "description": "يدير التشغيل اليومي كله: الميدان، والخدمات، والرسائل، والحملات، والموظفين. ولا يملك الفوترة ولا حذف الحساب — والفوترة مفتاح يمنحه المالك، لا دوراً ثانياً: محلٌّ بمديرٍ واحد لا يحتاج حسابين ليدفع أحدهم الفاتورة.",
+      "protected": false,
+      "grantable_extras": [
+        "billing.read",
+        "billing.manage",
+        "billing.self"
+      ],
+      "_why_billing_self": "المفتاح الذي يمنحه المالك كان ينقصه ثلثه. الاشتراك وربط واتساب كلاهما يفرض billing.self لا billing.manage — فمديرٌ أُعطي الفوترة كان يرى شاشاتها ويُرفض عند الضغط، وهو أسوأ من ألا يراها.",
+      "capabilities": [
+        "operations.record",
+        "operations.read",
+        "operations.manage",
+        "reminders.read",
+        "reminders.manage",
+        "campaigns.read",
+        "campaigns.manage",
+        "tenant.read",
+        "identity.read",
+        "identity.manage",
+        "file.read",
+        "file.write",
+        "ticket.read",
+        "ticket.write",
+        "analytics.read",
+        "loyalty.read",
+        "loyalty.redeem",
+        "loyalty.manage",
+        "insights.read",
+        "compliance.self"
+      ],
+      "_why_no_service_accounts": "إصدار اعتماد للكاشير بيد المالك وحده. الاعتماد يكتب زيارات باسم منشأته ولا تنتهي صلاحيته باستقالة موظف — فهو أقرب إلى مفتاح المحل منه إلى مهمة يومية. والمدير يستطيع كل شيء آخر، وهذا أحد فرقين اثنين فقط بينهما.",
+      "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
+    },
+    {
+      "name": "marketer",
+      "label": "مسؤول التسويق",
+      "description": "الحملات والقوالب والتقارير. لا يعدّل كتالوج الخدمات ولا يضيف موظفاً — من يكتب رسالة لألف عميل لا يحتاج أن يغيّر أسعار المحل.",
+      "protected": false,
+      "capabilities": [
+        "campaigns.read",
+        "campaigns.manage",
+        "reminders.read",
+        "reminders.manage",
+        "operations.read",
+        "analytics.read",
+        "file.read",
+        "loyalty.read",
+        "insights.read",
+        "compliance.self"
+      ]
+    },
+    {
+      "name": "supervisor",
+      "label": "مشرف وردية",
+      "description": "الميدان وعمّال ورديته وقراءة التقارير. لا حملات ولا فوترة ولا ربط واتساب — مسؤوليته الوردية التي يقف فيها.",
+      "protected": false,
+      "_why_no_operations_manage": "كانت عنده، وoperations.manage تعني إنشاء فرع وإنشاء موظف وتعديل كتالوج الخدمات وأسعارها — لا شيء منها من عمل مشرف وردية، ووصف الدور نفسه يقول ذلك. وأثرها كان مرئياً: قسما «خدماتي» و«فريقي» يظهران له لأن الواجهة تشتق القائمة من الصلاحيات، فتُعرض عليه شاشتان لا يملك قرارهما.",
+      "capabilities": [
+        "operations.record",
+        "operations.read",
+        "reminders.read",
+        "analytics.read",
+        "loyalty.read",
+        "loyalty.redeem",
+        "insights.read",
+        "compliance.self"
+      ]
+    },
+    {
+      "name": "operator",
+      "label": "الموظف الميداني",
+      "description": "تسجيل الزيارات فقط. صلاحية واحدة، وهي التصميم لا اختصاراً: شاشته شاشة واحدة (4.1)، وكل صلاحية زائدة عنصرُ قائمة يمرّ عليه مئة مرة في اليوم.",
+      "protected": false,
+      "capabilities": [
+        "operations.record",
+        "loyalty.read",
+        "loyalty.redeem",
+        "compliance.self"
+      ]
+    },
+    {
+      "name": "partner",
+      "label": "شريك",
+      "description": "شركة الكاشير: محلاتها التي جلبتها وكشوف عمولتها. لا ترى عملاء محل ولا أرقامهم ولا رسائلهم — المحل لم يوافق على مشاركتها مع من باعه الجهاز.",
+      "protected": false,
+      "capabilities": [
+        "partner.read"
+      ]
+    }
+  ]
+}

@@ -28,5 +28,32 @@ export default defineConfig({
       'react-dom': here('node_modules/react-dom'),
     },
   },
-  test: { environment: 'jsdom', globals: true },
+  // SAME ORIGIN IN DEVELOPMENT, WHICH IS WHY THERE IS A PROXY AND NOT A BASE URL.
+  //
+  // The cluster's gateway allows exactly two CORS origins — the production hosts — and it is right
+  // to. Pointing the app at `http://localhost:8080` instead would mean either a browser that
+  // refuses every call, or widening the allow-list on a real gateway so a developer's laptop can
+  // reach it. Proxying keeps the browser on one origin, so no preflight is involved at all and the
+  // deployed configuration stays exactly as strict as it should be.
+  //
+  // `CLUSTER` is the tunnel: ssh -N -p 2224 -L 127.0.0.1:8090:127.0.0.1:30080 tamam@127.0.0.1
+  //
+  // 8090 AND 127.0.0.1, BOTH DELIBERATE. VirtualBox already publishes a forward on 127.0.0.1:8080,
+  // so a tunnel asking for 8080 silently lands on ::1 instead — and then which of the two answers
+  // depends on how `localhost` happens to resolve that day. It resolved to the dead one, and every
+  // screen in the app reported 502 from a cluster that was serving 200.
+  server: {
+    host: true,                   // reachable from the host's browser, not just from localhost
+    proxy: {
+      '/api': {
+        target: process.env.CLUSTER ?? 'http://127.0.0.1:8090',
+        changeOrigin: true,
+      },
+    },
+  },
+  // `e2e/` IS PLAYWRIGHT'S, AND VITEST MUST NOT OPEN IT. Both call their entry point `test`, so
+  // vitest collects the browser specs, fails to construct them, and reports four failed files
+  // beside the unit results — a suite that is red for a reason that has nothing to do with the
+  // code, which is how a suite stops being read.
+  test: { environment: 'jsdom', globals: true, include: ['src/**/*.test.ts?(x)'] },
 });

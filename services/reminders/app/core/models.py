@@ -152,6 +152,23 @@ class SendLog:
     # from ignored, and the score treats it that way.
     read_at: int = 0
     clicked_at: int = 0
+    # WHAT THE OFFER SAID, AND UNTIL WHEN — recorded only on a message that carried one (§5.6.2).
+    #
+    # An offer the operator cannot see becomes a discount argued over at the counter: the customer
+    # is holding a message from this shop and the man in front of him knows nothing about it, and
+    # both are embarrassed. So the field screen shows it — and its source is THE MESSAGE THAT WENT
+    # OUT, never a field somebody retypes. What was not sent is not shown, and what was sent is
+    # shown in its own words.
+    #
+    # AN EXPIRED OFFER IS NOT AN OFFER. The expiry travels with the text precisely so the screen
+    # can drop it without asking anybody: a screen showing an offer that has run out is worse than
+    # a screen showing nothing, because it contradicts the operator out loud.
+    offer_text: str = ""
+    offer_expires_at: int = 0
+    # WHICH SERVICES IT COVERS. Empty means the whole shop — a real answer, not a missing one, and
+    # the screens say so in words rather than showing a gap. The sentence persuades and cannot be
+    # enforced; this is the part a screen can act on.
+    offer_services: list[str] = field(default_factory=list)
 
 
 @dataclass

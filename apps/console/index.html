@@ -5,7 +5,24 @@
     <!-- NO ZOOM, NO PULL-TO-REFRESH SURPRISE. A double-tap that zooms while an operator is picking
          services costs him the five seconds this screen exists to protect. -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <title>راجِع · الميدان</title>
+    <!-- OURS, AND IT HAD TO BE SAID OUT LOUD. With no icon declared the browser asks for
+         /favicon.ico, and what it finds is whatever the dev server or a cache last had — which is
+         how another product's seal ended up on our tab. -->
+    <!-- THE `?v=` IS NOT SUPERSTITION. Browsers cache a favicon far more stubbornly than a page —
+         Chrome keeps it in a separate store that a hard reload does not clear — so a tab can go on
+         showing the previous icon for days after the file behind it changed. Bumping this is how a
+         new mark actually reaches the people already using the product.
+
+         v2 FIXED A FILE THAT NEVER RENDERED. The first version opened with a long XML comment that
+         contained an em dash written as `--`, which is ILLEGAL inside an XML comment: the browser
+         failed to parse the whole document and quietly fell back to a default icon. It served with
+         a 200 and the right content type, so nothing anywhere said it was broken. The prose now
+         lives in <desc>, where it is content rather than syntax. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <meta name="theme-color" content="#151d33" />
+    <!-- «الميدان» WAS RIGHT WHEN THIS APP WAS ONLY THE FIELD SCREEN. It is now the whole console —
+         the owner, the manager and the operator behind one login — so the tab says the product. -->
+    <title>راجِع</title>
   </head>
   <body>
     <div id="root"></div>

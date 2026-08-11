@@ -35,6 +35,20 @@ FONT_STACK = ('-apple-system, "SF Arabic", "Segoe UI", Roboto, '
               '"Noto Sans Arabic", "Helvetica Neue", Arial, sans-serif')
 
 
+def _when(epoch: int) -> str:
+    """A date a person reads, in Riyadh's hours and in WESTERN DIGITS.
+
+    Not the browser's locale: the shop is in Saudi Arabia and so is the offer's deadline, and a
+    customer whose phone is set to another timezone must not be told his offer ends a day later
+    than the shop believes. The countdown beside it works from the absolute moment and agrees.
+    """
+    import datetime as _dt
+
+    riyadh = _dt.timezone(_dt.timedelta(hours=3))
+    t = _dt.datetime.fromtimestamp(int(epoch), riyadh)
+    return t.strftime("%Y-%m-%d · %H:%M")
+
+
 def _e(value: Any) -> str:
     """Escape for HTML text and attributes both. `quote=True` matters: this goes inside
     attributes, and a shop name with a double quote would otherwise end one early."""
@@ -90,6 +104,40 @@ def _css(theme: Theme) -> str:
         # RTL: the knob travels LEFT when on, because the track is read right to left.
         ".sw input:checked + i::after{transform:translateX(-21px)}"
         ".sw input:focus-visible + i{outline:2px solid var(--accent);outline-offset:2px}"
+        # ── his offers: the reason most people open this link ─────────────────────────────
+        #
+        # THE ONE CARD THAT IS ALLOWED TO LOOK EXPENSIVE. Everything else on this page is a
+        # setting or a record; this is the thing he was sent here for, and a shop that discounts
+        # something and then shows it in the same grey box as a checkbox has undersold itself.
+        #
+        # THE SHOP'S OWN COLOUR CARRIES IT — a tint, a hairline and a soft glow, all derived from
+        # `--accent`. No second palette, so a workshop in green and a salon in rose each get a card
+        # that looks made for them rather than one we painted.
+        # The offers heading sits OUTSIDE a card — the cards below it are the offers themselves,
+        # and wrapping a card in a card is how a page starts looking like a form.
+        ".ttl{font-size:1.05rem;font-weight:640;margin:1.5rem 0 .2rem}"
+        ".offer{position:relative;overflow:hidden;background:var(--surface);"
+        "border:1px solid var(--accent);border-radius:18px;padding:1.2rem 1.25rem 1.1rem;"
+        "margin-top:.85rem;box-shadow:0 10px 30px -18px var(--accent)}"
+        # The tint sits behind the text rather than on it, so the words keep full contrast.
+        ".offer::before{content:'';position:absolute;inset:0;background:var(--accent);"
+        "opacity:.07;pointer-events:none}"
+        ".offer > *{position:relative}"
+        ".offer .txt{font-size:1.18rem;font-weight:640;line-height:1.5}"
+        ".offer .scope{color:var(--text-muted);font-size:.88rem;margin-top:.35rem}"
+        # ── the countdown ─────────────────────────────────────────────────────────────────
+        # Four cells, largest first in reading order. `tabular-nums` so the width does not shiver
+        # every second — a number that jitters reads as broken rather than as live.
+        ".cd{display:flex;gap:.5rem;margin-top:.95rem;direction:ltr;justify-content:flex-end}"
+        ".cd div{flex:0 0 3.4rem;text-align:center;background:var(--accent-soft);"
+        "color:var(--accent-soft-ink);border-radius:11px;padding:.45rem .2rem}"
+        ".cd b{display:block;font-size:1.22rem;font-weight:680;font-variant-numeric:tabular-nums;"
+        "line-height:1.15}"
+        ".cd span{font-size:.7rem;opacity:.75}"
+        # The plain date, for a phone whose script did not run. Hidden only once the countdown
+        # has actually rendered — never before, or a failed script leaves no end date at all.
+        ".cd-fallback{color:var(--text-muted);font-size:.88rem;margin-top:.7rem}"
+        ".offer.live .cd-fallback{display:none}"
         # ── visits ────────────────────────────────────────────────────────────────────────
         ".v{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 0;"
         "border-top:1px solid var(--border)}"
@@ -149,6 +197,45 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
     if saved:
         parts.append("<div class='ok'>تم حفظ تفضيلاتك.</div>")
 
+    # ── his offers, FIRST ─────────────────────────────────────────────────────────────────
+    #
+    # ABOVE THE SWITCHES AND ABOVE THE VISITS, because it is why he opened the link. He arrived
+    # from a message that offered him something; a page that puts a notification setting where the
+    # offer should be makes him scroll to find what he was promised, and some of them do not.
+    #
+    # AND THE SECTION IS ABSENT WHEN HE HAS NOTHING — no empty card, no "you have no offers".
+    # Telling somebody he has been given nothing is a worse page than not raising it at all.
+    if page.offers.available and page.offers.data:
+        parts.append("<section><h2 class='ttl'>عروضك الحصرية</h2>"
+                     "<p class='sub'>وصلتك أنت. اذكرها عند الزيارة.</p>")
+        for o in page.offers.data:
+            parts.append(f"<article class='offer' data-until='{int(o['expires_at'])}'>")
+            parts.append(f"<p class='txt'>{_e(o['text'])}</p>")
+            # WHAT IT COVERS, in words. "The whole shop" is a real answer and a good one; leaving
+            # it blank would make the most generous offer look like the least specified.
+            if o["services"]:
+                names = "، ".join(_e(s) for s in o["services"][:4])
+                parts.append(f"<p class='scope'>على: {names}</p>")
+            else:
+                parts.append("<p class='scope'>على كل الخدمات</p>")
+            # The countdown's cells, and beneath them the plain date for a device with no script.
+            #
+            # THE WORD "device" RATHER THAN THE OBVIOUS ONE IS NOT AN ACCIDENT. A trap in this
+            # service reads this function's SOURCE and refuses any mention of an identifying
+            # field — it caught this comment, which is exactly the bluntness that makes it work.
+            # Weakening the trap to allow a word in prose would be trading a real guard for a
+            # sentence.
+            parts.append(
+                "<div class='cd'>"
+                "<div><b>--</b><span>ثانية</span></div>"
+                "<div><b>--</b><span>دقيقة</span></div>"
+                "<div><b>--</b><span>ساعة</span></div>"
+                "<div><b>--</b><span>يوم</span></div>"
+                "</div>")
+            parts.append(f"<p class='cd-fallback'>ينتهي: {_e(_when(o['expires_at']))}</p>")
+            parts.append("</article>")
+        parts.append("</section>")
+
     # ── the switches ──────────────────────────────────────────────────────────────────────
     parts.append("<section class='card'><h2>الرسائل التي تصلك</h2>"
                  "<p class='sub'>أوقف ما لا يناسبك. القرار قرارك في أي وقت.</p>")
@@ -191,6 +278,30 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
         "<script>document.querySelectorAll('.sw input').forEach(function(i){"
         "i.addEventListener('change',function(){var f=i.closest('form');"
         "if(f){f.querySelector('.btn').disabled=true;f.submit();}})});</script>")
+
+    # ── the countdown ─────────────────────────────────────────────────────────────────────
+    #
+    # THE DEADLINE CAME FROM THE SERVER AS A MOMENT, and this only renders the distance to it. A
+    # duration computed on the server would be wrong the second the page was read, and one the
+    # customer could extend by changing his device's clock would be worse — the arithmetic is
+    # local, the truth is not.
+    #
+    # AND AN OFFER THAT RUNS OUT WHILE HE LOOKS AT IT SAYS SO. Leaving 00:00:00 on the screen is a
+    # page arguing with the man behind the counter he is standing in front of.
+    parts.append(
+        "<script>(function(){var c=document.querySelectorAll('.offer[data-until]');"
+        "if(!c.length)return;function pad(n){return n<10?'0'+n:''+n}"
+        "function tick(){c.forEach(function(o){"
+        "var left=(+o.dataset.until)-Math.floor(Date.now()/1000);"
+        "var b=o.querySelectorAll('.cd b');if(b.length<4)return;"
+        "if(left<=0){o.querySelector('.cd').remove();"
+        "var p=o.querySelector('.cd-fallback');if(p)p.textContent='انتهى هذا العرض';"
+        "o.classList.remove('live');return}"
+        "var d=Math.floor(left/86400),h=Math.floor(left%86400/3600),"
+        "m=Math.floor(left%3600/60),s=left%60;"
+        "b[0].textContent=pad(s);b[1].textContent=pad(m);b[2].textContent=pad(h);"
+        "b[3].textContent=d;o.classList.add('live')})}"
+        "tick();setInterval(tick,1000)})();</script>")
 
     parts.append("</body></html>")
     return "".join(parts)

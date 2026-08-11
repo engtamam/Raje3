@@ -319,3 +319,63 @@ def test_the_default_model_is_both_so_an_old_template_is_never_hidden(cat):
     _, store = cat
     row = run(_lib(store).upsert(_tpl()))
     assert row["model"] == "both"
+
+
+# ── the rewards table a shop starts with (§10.8) ───────────────────────────────────────────────
+REWARD_SEED = {
+    "sectors": [
+        {"key": "tyres", "name": "بنشر", "asset": "vehicle", "fields": [], "sort": 10,
+         "services": [{"name": "فحص ضغط الإطارات", "cycle_days": 60, "sort": 10}],
+         "rewards": [
+             {"name": "فحص ضغط مجاناً", "cost": 100, "type": "service",
+              "service": "فحص ضغط الإطارات"},
+             {"name": "معطر سيارة", "cost": 150, "type": "item"},
+             {"name": "مكافأة لخدمة غير مبذورة", "cost": 200, "type": "service",
+              "service": "خدمة لا وجود لها"},
+         ]},
+    ],
+    "fields": {},
+}
+
+
+def _reward_file(tmp_path):
+    p = tmp_path / "rewards.seed.json"
+    p.write_text(json.dumps(REWARD_SEED, ensure_ascii=False), encoding="utf-8")
+    return str(p)
+
+
+def test_a_service_reward_carries_this_shops_own_service_id(cat, tmp_path):
+    """The sector can only NAME a service — sector rows are shared, and a service id belongs to
+    exactly one establishment. Shipping the name would give loyalty something it cannot store."""
+    c, store = cat
+    run(c.seed_from_file(_reward_file(tmp_path)))
+    run(c.seed_tenant(tenant=T, sector_key="tyres"))
+    rewards = run(c.rewards_for(tenant=T, sector_key="tyres"))
+
+    wash = next(r for r in rewards if r["type"] == "service")
+    mine = {s.name: s.id for s in run(ServiceStore(store).list(T, active_only=False))}
+    assert wash["service_id"] == mine["فحص ضغط الإطارات"]
+    # The NAME does not travel: loyalty has no way to resolve it and would store a dead string.
+    assert "service" not in wash
+
+
+def test_a_reward_whose_service_was_never_seeded_is_dropped(cat, tmp_path):
+    """`create` refuses a service reward with no service, and rightly: "free wash" that records no
+    visit and restarts no cycle is a name and nothing else. An integrated shop seeds no services at
+    all, so this is a real case rather than a defensive branch."""
+    c, _ = cat
+    run(c.seed_from_file(_reward_file(tmp_path)))
+    run(c.seed_tenant(tenant=T, sector_key="tyres"))
+    names = {r["name"] for r in run(c.rewards_for(tenant=T, sector_key="tyres"))}
+    assert "مكافأة لخدمة غير مبذورة" not in names
+    # And the rest still land — one bad row of OURS must not cost the owner his whole table.
+    assert names == {"فحص ضغط مجاناً", "معطر سيارة"}
+
+
+def test_a_sector_with_no_rewards_yields_none_rather_than_inventing_one(cat, tmp_path):
+    """A shop whose catalogue arrives from its own till has no service we could name, and a gift we
+    invented would be the only row on the screen he did not choose."""
+    c, _ = cat
+    run(c.seed_from_file(_seed_file(tmp_path)))          # the sectors without a `rewards` key
+    run(c.seed_tenant(tenant=T, sector_key="salon"))
+    assert run(c.rewards_for(tenant=T, sector_key="salon")) == []

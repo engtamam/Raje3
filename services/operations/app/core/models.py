@@ -138,13 +138,17 @@ class Service:
     # shop tidies its wording, and what lets a shop that went manual first ADOPT its till's id
     # rather than ending up with two identical rows and a visit history split across them.
     external_id: str = ""
+    # WE PUT THIS ROW HERE, HE DID NOT. Set only by the sector seeder, and it is what makes the
+    # catalogue tidy-up on integration safe: a seeded name the till never mentions and nobody ever
+    # sold is a GUESS of ours, and retiring a guess is not the same as touching a shop's data.
+    seeded: bool = False
     created: int = 0
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "cycle_days": self.cycle_days, "price_minor": self.price_minor,
                 "active": self.active, "sort": self.sort, "catchall": self.catchall,
-                "external_id": self.external_id, "created": self.created}
+                "external_id": self.external_id, "seeded": self.seeded, "created": self.created}
 
 
 @dataclass

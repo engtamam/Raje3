@@ -43,8 +43,9 @@ class Ops:
 
 
 class Rem:
-    def __init__(self, prefs=None, fail=False, slow=0.0):
+    def __init__(self, prefs=None, fail=False, slow=0.0, offers=None, offers_fail=False):
         self.prefs, self.fail, self.slow = prefs, fail, slow
+        self.offers, self.offers_fail = offers, offers_fail
 
     async def prefs_for(self, tenant, subject):
         if self.slow:
@@ -52,6 +53,13 @@ class Rem:
         if self.fail:
             raise RuntimeError("reminders unreachable")
         return self.prefs if self.prefs is not None else {"stopped": {}}
+
+    async def offers_for(self, tenant, subject):
+        if self.slow:
+            await asyncio.sleep(self.slow)
+        if self.offers_fail:
+            raise RuntimeError("reminders unreachable")
+        return {"offers": self.offers or []}
 
 
 def page(ident=None, ops=None, rem=None, deadline=3.0):
@@ -133,3 +141,51 @@ def test_the_alternate_response_shape_is_understood_too():
     b = page(rem=Rem([{"class": "marketing", "enabled": False}]))
     for p in (a, b):
         assert {s["class"]: s["enabled"] for s in p.prefs.data}["marketing"] is False
+
+
+# ── his offers, as a section like any other ────────────────────────────────────────────────────
+import time  # noqa: E402
+
+SOON = int(time.time()) + 3 * 86400
+GONE = int(time.time()) - 60
+
+
+def test_the_offers_arrive_and_carry_their_end():
+    p = page(rem=Rem(offers=[{"text": "20% على غيار الزيت", "expires_at": SOON,
+                              "sent_at": SOON - 86400, "services": ["srv_1"]}]))
+    assert p.offers.available
+    assert p.offers.data[0]["expires_at"] == SOON
+    assert p.offers.data[0]["services"] == ["srv_1"]
+
+
+def test_an_expired_offer_is_dropped_here_too():
+    """The peer already drops them, and this drops them again — not from distrust but because of
+    WHEN the page is read: a link sits in a chat for days, and the second reading can fall on the
+    other side of an expiry the first did not."""
+    p = page(rem=Rem(offers=[{"text": "خصم انتهى", "expires_at": GONE}]))
+    assert p.offers.available
+    assert p.offers.data == []
+
+
+def test_an_offer_with_no_end_is_not_an_offer():
+    """Nothing can count down to a deadline that does not exist, and a discount with no end is a
+    price change nobody decided on."""
+    p = page(rem=Rem(offers=[{"text": "خصم أبدي", "expires_at": 0}]))
+    assert p.offers.data == []
+
+
+def test_offers_failing_does_not_empty_the_page():
+    """A customer who came to read an offer and found a 500 concludes the shop's message was a
+    trick. The section says it is unavailable; it does not pretend he has none."""
+    p = page(rem=Rem(offers_fail=True))
+    assert p.has_identity and p.prefs.available
+    assert not p.offers.available
+
+
+def test_soonest_to_expire_comes_first():
+    """The order he needs to act in — not the order they arrived, which is an order only we care
+    about."""
+    later = SOON + 86400
+    p = page(rem=Rem(offers=[{"text": "لاحق", "expires_at": later},
+                             {"text": "أقرب", "expires_at": SOON}]))
+    assert [o["text"] for o in p.offers.data] == ["أقرب", "لاحق"]

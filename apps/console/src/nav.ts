@@ -43,7 +43,11 @@ export interface Section {
  * "templates and campaigns".
  */
 export const SECTIONS: Section[] = [
-  { id: 'today', path: '/', label: 'اليوم', requires: [] },
+  // NOT `requires: []`. It was, and an OPERATOR would have landed here first: he has
+  // `operations.record` and nothing else, so every read this screen makes 403s and the product
+  // opens on a broken page for the person who uses it most. The section needs the read it is
+  // built out of, exactly like every other one.
+  { id: 'today', path: '/', label: 'اليوم', requires: ['reminders.today'] },
   // The field screen: one action, and it is the one every operator has.
   { id: 'visit', path: '/visit', label: 'تسجيل زيارة', requires: ['operations.record_visit'] },
   { id: 'customers', path: '/customers', label: 'عملائي', requires: ['operations.recent'] },
@@ -51,10 +55,23 @@ export const SECTIONS: Section[] = [
   // section at all. The upgrade LINE lives inside «رسائلي», where he is already thinking about
   // reaching people, and carries a number from his own shop rather than an advert (spec 10.8).
   { id: 'shop', path: '/shop', label: 'محلّي', requires: ['insights.dashboard'] },
-  { id: 'services', path: '/services', label: 'خدماتي', requires: ['operations.catalogue'] },
+  // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
+  // MARKETER both hold — and neither may change a price. A section whose every control is inert
+  // is worse than an absent one: the person tries, is refused, and learns to distrust the screen.
+  { id: 'services', path: '/services', label: 'خدماتي', requires: ['operations.update_service'] },
   { id: 'messages', path: '/messages', label: 'رسائلي', requires: ['reminders.get_settings'] },
-  { id: 'points', path: '/points', label: 'نقاطي', requires: ['loyalty.settings.read'] },
-  { id: 'team', path: '/team', label: 'فريقي', requires: ['operations.list_operators'] },
+  // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
+  // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
+  // would put a settings section in the nav of a man whose screen is one screen. The section
+  // exists to change the programme, so it is gated on being able to.
+  { id: 'points', path: '/points', label: 'نقاطي', requires: ['loyalty.rewards.update'] },
+  // Same reasoning as «خدماتي»: listing employees is a read half the roles hold, and adding one
+  // is the reason the section exists.
+  { id: 'team', path: '/team', label: 'فريقي', requires: ['operations.create_operator'] },
+  // `requires: []` IS CORRECT HERE AND NOWHERE ELSE. «حسابي» holds the things every person has
+  // regardless of role — his password, his language, signing out — and the rows that are not his
+  // (billing, the WhatsApp connection) are already hidden one by one inside the screen, from the
+  // same catalogue. An operator opening it sees a short page rather than a broken one.
   { id: 'account', path: '/account', label: 'حسابي', requires: [] },
 ];
 

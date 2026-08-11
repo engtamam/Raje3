@@ -70,6 +70,12 @@ class Page:
     brand_colour: str = ""
     visits: Section = field(default_factory=Section)
     prefs: Section = field(default_factory=Section)
+    # HIS OFFERS — the reason most people open this link at all.
+    #
+    # It is a section like the others, which means it CANNOT fail the page: a customer who came to
+    # read an offer and found a 500 concludes the shop's message was a trick. An unavailable offers
+    # section says so; it does not pretend he has none.
+    offers: Section = field(default_factory=Section)
 
     @property
     def has_identity(self) -> bool:
@@ -96,11 +102,15 @@ class Composer:
         async def _prefs():
             return await self._reminders.prefs_for(tenant, subject_ref)
 
+        async def _offers():
+            return await self._reminders.offers_for(tenant, subject_ref)
+
         # `gather` with return_exceptions, then a single wait_for around the lot. A per-call
-        # timeout would let three slow peers add up; this way the page is late once, at most.
+        # timeout would let slow peers add up; this way the page is late once, at most.
         try:
             results = await asyncio.wait_for(
-                asyncio.gather(_identity(), _visits(), _prefs(), return_exceptions=True),
+                asyncio.gather(_identity(), _visits(), _prefs(), _offers(),
+                               return_exceptions=True),
                 timeout=self._deadline)
         except asyncio.TimeoutError:
             # Everything missed the clock. The page still renders — a shell with no shop name and
@@ -108,7 +118,7 @@ class Composer:
             # which is honest, and it is not a 500 that says the shop is broken.
             return page
 
-        ident, visits, prefs = results
+        ident, visits, prefs, offers = results
 
         if not isinstance(ident, BaseException) and ident is not None:
             page.shop_name = getattr(ident, "name", "") or ""
@@ -120,7 +130,45 @@ class Composer:
         if not isinstance(prefs, BaseException) and prefs is not None:
             page.prefs = Section(available=True, data=_normalise_prefs(prefs))
 
+        if not isinstance(offers, BaseException) and offers is not None:
+            page.offers = Section(available=True, data=_normalise_offers(offers))
+
         return page
+
+
+def _normalise_offers(raw: Any) -> list[dict[str, Any]]:
+    """His live offers, newest first, with nothing expired among them.
+
+    FILTERED HERE AS WELL AS AT THE PEER. The peer already drops expired ones, and this drops them
+    again — not from distrust but because of WHEN this page is read: a link sits in a chat for
+    days, and the second reading can fall on the other side of an expiry the first did not.
+
+    THE END TIME TRAVELS, NEVER A DURATION. "Three days left" computed here would be wrong by the
+    time it is rendered and frozen wrong for as long as the page is open; the countdown needs the
+    moment itself.
+    """
+    import time as _time
+
+    rows = raw.get("offers") if isinstance(raw, dict) else raw
+    if not isinstance(rows, list):
+        return []
+    now = int(_time.time())
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        text = str(r.get("text") or "").strip()
+        expires = int(r.get("expires_at") or 0)
+        # An offer with no end is not an offer: nothing can count down to a deadline that does not
+        # exist, and a discount with no end is a price change nobody decided on.
+        if not text or not expires or expires <= now:
+            continue
+        out.append({"text": text, "expires_at": expires,
+                    "sent_at": int(r.get("sent_at") or 0),
+                    # Which services it covers. Empty means the whole shop, which is a real answer
+                    # and not a missing one — the page says so in words rather than showing a gap.
+                    "services": [str(s) for s in (r.get("services") or []) if s]})
+    return sorted(out, key=lambda o: o["expires_at"])
 
 
 def _normalise_prefs(raw: Any) -> list[dict[str, Any]]:

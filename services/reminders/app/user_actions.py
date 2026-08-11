@@ -59,6 +59,23 @@ USER_ACTIONS: list[dict[str, Any]] = [
     # test for which file a route belongs in is whose data it is: `platform.*` is ours;
     # everything else belongs to the establishment.
     {
+        "id": "reminders.customer_offer", "label": "عرض العميل الساري", "method": "GET",
+        "path": "/api/v1/reminders/offer", "capability": "reminders.read", "group": "العروض",
+        "params": [{"name": "subject_ref", "in": "query", "type": "string", "required": True}],
+        # The line above the field screen's grid (§5.6.2). An offer the man at the counter cannot
+        # see becomes a discount argued over in front of the customer.
+        "help": "العرض الذي يحمله هذا العميل الآن. المنتهي لا يُعاد إطلاقاً.",
+    },
+    {
+        "id": "reminders.customer_offers", "label": "عروض العميل", "method": "GET",
+        "path": "/api/v1/reminders/offers", "capability": "reminders.read", "group": "العروض",
+        "params": [{"name": "subject_ref", "in": "query", "type": "string", "required": True},
+                   {"name": "include_expired", "in": "query", "type": "boolean",
+                    "required": False}],
+        "help": "كل عرض وصل هذا العميل ومتى ينتهي — والمنتهية معها، لأن المالك يسأل عن الشهر "
+                "الماضي بقدر ما يسأل عن اليوم.",
+    },
+    {
         "id": "reminders.list_schedule", "label": "التذكيرات القادمة", "method": "GET",
         "path": "/api/v1/reminders/schedule", "capability": "reminders.read",
         "group": "التذكيرات",

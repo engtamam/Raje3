@@ -133,6 +133,47 @@ class SendLogStore(_Base):
     async def get(self, tenant: str, send_id: str) -> dict[str, Any] | None:
         return await self._get(f"{tenant}|{send_id}")
 
+    async def live_offers(self, tenant: str, subject_ref: str, *,
+                          now: int) -> list[dict[str, Any]]:
+        """EVERY offer this customer is still holding, soonest to expire first.
+
+        The field screen wants one line and takes the first; the customer's own page wants the lot,
+        because a shop that ran two offers this month sent him two and he is holding both. Showing
+        him one would be the product deciding which of his own messages counts.
+
+        SORTED BY WHAT RUNS OUT FIRST, which is the order he needs to act in — not by when they
+        arrived, which is an order only we care about.
+        """
+        rows, _ = await self._find(tenant, {"subject_ref": subject_ref, "outcome": "sent"},
+                                   limit=200, sort=("at", "desc"))
+        live = [r for r in (rows or [])
+                if r.get("offer_text") and int(r.get("offer_expires_at") or 0) > now]
+        return sorted(live, key=lambda r: int(r.get("offer_expires_at") or 0))
+
+    async def active_offer(self, tenant: str, subject_ref: str, *,
+                           now: int) -> dict[str, Any] | None:
+        """The offer this customer is holding right now, or nothing (§5.6.2).
+
+        THE SOURCE IS THE MESSAGE THAT WENT OUT. Not a field an owner filled in a second time —
+        what was not sent is not shown, and what was sent is shown in its own words.
+
+        AND AN EXPIRED OFFER IS NOT RETURNED AT ALL, rather than returned with a flag for the
+        screen to interpret. A screen that renders an offer which has run out contradicts the
+        operator in front of the customer, which is worse than a screen that says nothing.
+
+        THE NEWEST WINS. Two live offers is not a state this product creates, and if it ever did,
+        the one the customer received last is the one he is talking about.
+        """
+        rows, _ = await self._find(tenant, {"subject_ref": subject_ref, "outcome": "sent"},
+                                   limit=200, sort=("at", "desc"))
+        for row in rows or []:
+            if not row.get("offer_text"):
+                continue
+            if int(row.get("offer_expires_at") or 0) <= now:
+                continue
+            return row
+        return None
+
     async def since(self, tenant: str, subject_ref: str, *, since: int,
                     cls: str = "") -> list[dict[str, Any]]:
         """Sends to one customer since a moment — the query every cap in spec 8.4.2 is built on.

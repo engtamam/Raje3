@@ -166,3 +166,79 @@ def test_an_invalid_reference_makes_no_peer_calls():
     src = inspect.getsource(__import__("app.api.page", fromlist=["x"]).page)
     before = src.split("if not r.valid:", 1)[1].split("return", 1)[0]
     assert "composer" not in before
+
+
+# ── his offers: the reason most people open this link ──────────────────────────────────────────
+import time  # noqa: E402
+
+SOON = int(time.time()) + 3 * 86400
+
+
+def with_offers(*offers):
+    return page(offers=Section(available=True, data=list(offers)))
+
+
+def an_offer(**over):
+    o = {"text": "20% على غيار الزيت", "expires_at": SOON, "sent_at": SOON - 86400,
+         "services": []}
+    o.update(over)
+    return o
+
+
+def test_the_offer_is_the_first_thing_on_the_page():
+    """He arrived from a message that offered him something. A page that puts a notification
+    setting where the offer should be makes him scroll to find what he was promised — and some of
+    them do not."""
+    html = render_page(with_offers(an_offer()), THEME)
+
+    assert html.index("عروضك الحصرية") < html.index("الرسائل التي تصلك")
+    assert html.index("عروضك الحصرية") < html.index("زياراتك")
+
+
+def test_the_offer_is_shown_in_its_own_words():
+    html = render_page(with_offers(an_offer()), THEME)
+    assert "20% على غيار الزيت" in html
+
+
+def test_what_it_covers_is_said_either_way():
+    """"The whole shop" is a real answer and a generous one — leaving it blank would make the most
+    generous offer look like the least specified."""
+    everything = render_page(with_offers(an_offer()), THEME)
+    assert "على كل الخدمات" in everything
+
+    some = render_page(with_offers(an_offer(services=["غيار الزيت", "غسيل"])), THEME)
+    assert "غيار الزيت" in some and "غسيل" in some
+
+
+def test_the_countdown_gets_the_MOMENT_not_a_duration():
+    """A duration computed here is wrong the second the page is read and frozen wrong while it
+    stays open. And an expiry the customer could extend by changing his phone's clock would be
+    worse — the arithmetic is local, the truth is not."""
+    html = render_page(with_offers(an_offer()), THEME)
+
+    assert f"data-until='{SOON}'" in html
+    # Four cells: days, hours, minutes, SECONDS.
+    assert html.count("<div><b>--</b>") == 4
+    assert "ثانية" in html and "دقيقة" in html and "ساعة" in html and "يوم" in html
+
+
+def test_a_phone_whose_script_did_not_run_still_sees_the_end_date():
+    """The countdown is an enhancement. Without it the offer must still say when it ends, or a
+    failed script leaves a discount with no deadline on it at all."""
+    html = render_page(with_offers(an_offer()), THEME)
+    assert "cd-fallback" in html
+    assert "ينتهي:" in html
+
+
+def test_a_customer_with_no_offers_is_not_told_he_has_none():
+    """No empty card and no "you have no offers". Telling somebody he has been given nothing is a
+    worse page than not raising it at all."""
+    html = render_page(page(), THEME)
+    assert "عروضك الحصرية" not in html
+
+
+def test_the_offers_section_never_mentions_us():
+    """§8.6.1 applies to the newest section as much as to the oldest: the customer is having a
+    relationship with a workshop, not with a platform."""
+    html = render_page(with_offers(an_offer()), THEME)
+    assert "راجع" not in html and "Raje3" not in html.lower()

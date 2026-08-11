@@ -195,6 +195,10 @@ class Operations:
     async def recent_customers(self, tenant: str, limit: int = 10) -> list[Customer]:
         return await self._customers.recent(tenant, limit=limit)
 
+    async def customers_by_refs(self, tenant: str, refs: set[str]) -> list[Customer]:
+        """The join reminders cannot make: pseudonyms to customers, inside one establishment."""
+        return await self._customers.by_refs(tenant, refs)
+
     async def customer_by_phone(self, tenant: str, phone: str) -> Customer | None:
         return await self._customers.by_phone(tenant, _normalise_phone(phone))
 
@@ -205,7 +209,16 @@ class Operations:
         if customer is None:
             return None
         return {
-            "customer": customer.public(),
+            # THE PSEUDONYM TRAVELS WITH THIS ONE RECORD, and with nothing else.
+            #
+            # `public()` deliberately omits it: it is the shape the recent-customers strip and the
+            # search results use, and a pseudonym in a list of fifty is fifty identifiers on a
+            # screen that needed none. Here it is the join key — the console asks reminders which
+            # offers this customer is holding, and reminders knows people only by this.
+            #
+            # It is not a secret from the owner: it is derived per establishment from his own
+            # tenant, means nothing anywhere else, and cannot be turned back into a number.
+            "customer": {**customer.public(), "subject_ref": customer.subject_ref},
             "assets": [a.public() for a in await self._assets.for_customer(tenant, customer_id)],
             "visits": [v.public() for v in await self._visits.for_customer(tenant, customer_id)],
         }

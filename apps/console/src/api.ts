@@ -15,6 +15,8 @@
  * header; the services array is `service_ids`; and prefix search is NOT served by operations at
  * all.
  */
+import { announceExpiry } from './expired';
+import { renew } from './renew';
 import type { Session } from './session';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
@@ -45,10 +47,23 @@ async function call<T>(session: Session, path: string, init: RequestInit = {}): 
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${session.token}`);
   if (init.body) headers.set('Content-Type', 'application/json');
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  let res = await fetch(`${BASE}${path}`, { ...init, headers });
+  if (res.status === 401) {
+    // RENEW BEFORE DECLARING ANYTHING. The bearer is good for 15 minutes and the refresh token for
+    // 31 days; on this screen especially — the one an operator keeps open all day at the counter —
+    // a 401 almost always means the shift outlasted the token, not that the session ended.
+    const token = await renew();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+      res = await fetch(`${BASE}${path}`, { ...init, headers });
+    }
+  }
   const text = await res.text();
   let body: unknown = null;
   try { body = text ? JSON.parse(text) : null; } catch { body = { raw: text }; }
+  // THE SESSION ENDS HERE, ONCE, for whichever screen happened to be the one that found out —
+  // and only after renewal has been tried and failed.
+  if (res.status === 401) announceExpiry();
   if (!res.ok) throw new ApiError(res.status, body, `${init.method ?? 'GET'} ${path} → ${res.status}`);
   return body as T;
 }
@@ -172,4 +187,28 @@ export function recordVisit(session: Session, draft: VisitDraft): Promise<VisitA
     method: 'POST',
     body: JSON.stringify(draft),
   });
+}
+
+// ── before there is a session ──────────────────────────────────────────────────────────────────
+
+/** A sector a new shop may choose. Key and label only — see the route for why it is not the
+ *  platform's fuller listing. */
+export interface Sector {
+  key: string;
+  label: string;
+}
+
+/**
+ * THE ONE READ THAT CARRIES NO TOKEN, and it is here rather than in auth.ts because it is a read
+ * of ordinary product data — the sectors we sell to — rather than part of proving who anyone is.
+ *
+ * A failure answers an empty list, and the form then has nothing to offer: better than a hardcoded
+ * pair that keeps working while the real catalogue has three, which is the failure nobody notices
+ * until an owner asks for the sector he saw on the website.
+ */
+export async function listSectors(): Promise<Sector[]> {
+  const res = await fetch(`${BASE}/api/v1/signup/sectors`);
+  if (!res.ok) throw new ApiError(res.status, null, 'sectors');
+  const body = (await res.json()) as { sectors?: Sector[] };
+  return body.sectors ?? [];
 }

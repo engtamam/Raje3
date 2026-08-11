@@ -340,6 +340,55 @@ async def internal_report(request: Request, body: ReportIn) -> dict:
     return rep
 
 
+# ── the table a shop starts with (spec §10.8) ─────────────────────────────────────────────────
+class SeedRewardIn(BaseModel):
+    name: str
+    cost: int
+    type: str
+    # Already resolved by the caller. Sector rows can only name a service, and a service id belongs
+    # to one establishment — so the lookup happens where that shop's catalogue is.
+    service_id: str = ""
+    discount_halalas: int = 0
+
+
+class SeedRewardsIn(BaseModel):
+    tenant: str
+    rewards: list[SeedRewardIn]
+
+
+@router.post("/loyalty/seed-rewards", dependencies=[Depends(require_internal_token)])
+async def seed_rewards(request: Request, body: SeedRewardsIn) -> dict:
+    """Give a new establishment its rewards table. Returns how many were created.
+
+    WHY THIS EXISTS AT ALL. «نقاطي» told owners the table "arrives filled for your sector — contact
+    us if it stays empty", and nothing in this product ever filled it: there was no seeding code in
+    any service. The screen was accusing the system of a fault that had no implementation behind
+    it, and every shop was told to call support on its first day.
+
+    IDEMPOTENT BY NAME, exactly like the service catalogue. A retried provisioning step must not
+    hand the owner two of every reward to delete by hand on day one.
+
+    IT REFUSES NOTHING AND CREATES WHAT IT CAN. A single malformed entry — a service reward whose
+    service was not seeded, a discount with no amount — skips itself and the rest still land. The
+    alternative is a shop with no rewards at all because one row of ours was wrong, which is our
+    mistake charged to the owner.
+    """
+    c = request.app.state.container
+    existing = {r.name for r in await c.rewards.list(body.tenant, active_only=False)}
+    created = 0
+    for entry in body.rewards:
+        if entry.name in existing:
+            continue
+        try:
+            await c.rewards.create(
+                body.tenant, name=entry.name, cost=entry.cost, type=entry.type,
+                service_id=entry.service_id, discount_halalas=entry.discount_halalas)
+        except LoyaltyError:
+            continue
+        created += 1
+    return {"created": created}
+
+
 # ── the repair (playbook: a materialised total can drift from its ledger) ──────────────────────
 class ReconcileIn(BaseModel):
     tenant: str

@@ -367,6 +367,17 @@ class CampaignSendIn(BaseModel):
     # side of a boundary is a rule the other side can bypass.
     owner_text: str = Field(default="", max_length=200)
     idempotency_key: str = Field(min_length=8, max_length=256)
+    # WHEN THIS OFFER STOPS BEING TRUE, carried from the campaign so it lands in the send log.
+    #
+    # That log is the record of who is entitled to what: the customer who received the message
+    # holds the offer until this moment, and the customer who did not never held it. Without the
+    # date it would be an entitlement with no end — and the operator at the counter, the customer's
+    # own page and its countdown would all have nothing to read.
+    #
+    # ZERO IS VALID AND MEANS "NOT AN OFFER". Most sends carry nothing to expire.
+    offer_expires_at: int = Field(default=0, ge=0)
+    # Which services the offer covers. Empty is "the whole shop".
+    offer_services: list[str] = Field(default_factory=list, max_length=100)
 
     model_config = {"populate_by_name": True}
 
@@ -398,11 +409,44 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "kind": "campaign", "owner_text": body.owner_text,
         "idempotency_key": body.idempotency_key, "id": body.idempotency_key,
         "also_services": [],
+        # THE OFFER'S OWN WORDS AND ITS END, so the send log records both. The text IS the owner's
+        # text — the one field he wrote and the one the customer read. Copying anything else here
+        # would be showing the operator a sentence the customer never received.
+        "offer_text": body.owner_text if body.offer_expires_at else "",
+        "offer_expires_at": body.offer_expires_at,
+        "offer_services": list(body.offer_services),
     }
     library = await _library(c, body.tenant)
     res = await c.tick.send_one(body.tenant, schedule, now=now, library=library,
                                 service_names={}, establishment=shop.name, tone=shop.tone)
     return res
+
+
+@router.get("/portal/offers", dependencies=[Depends(require_internal_token)])
+async def portal_offers(request: Request, tenant: str, subject_ref: str) -> dict:
+    """The offers a customer is holding, for his own page.
+
+    READ BY PORTAL ON HIS BEHALF, never by him: the page is public and carries no token, so the
+    only thing that reaches this route is a service that already resolved his reference. A public
+    route here would be a way to ask "does this shop hold an offer for this pseudonym", one guess
+    at a time.
+
+    EXPIRED ONES ARE ABSENT, not flagged. The link sits in a chat for days and is opened twice —
+    the second reading can fall on the other side of an expiry the first did not, and a page that
+    shows a dead offer contradicts the shop that sent it.
+
+    THE END TIME TRAVELS, NEVER A DURATION. "Three days left" computed here is wrong by the time it
+    renders and frozen wrong while the page stays open; the countdown needs the moment itself.
+    """
+    from app.core.stores import SendLogStore
+
+    rows = await SendLogStore(request.app.state.container.datastore).live_offers(
+        tenant, subject_ref, now=int(time.time()))
+    return {"offers": [{"text": r.get("offer_text", ""),
+                        "expires_at": int(r.get("offer_expires_at") or 0),
+                        "sent_at": int(r.get("at") or 0),
+                        "services": list(r.get("offer_services") or [])}
+                       for r in rows]}
 
 
 class ConsentCountIn(BaseModel):

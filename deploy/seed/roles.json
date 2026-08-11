@@ -10,7 +10,16 @@
     "",
     "NO platform.* APPEARS HERE, EVER. Those are ours (see operator-roles.json). authz strips them at",
     "mint as well, so even a corrupted row cannot carry one — but the first defence is that nobody",
-    "wrote one down."
+    "wrote one down.",
+    "",
+    "AND EVERY HUMAN ROLE HOLDS `compliance.self`, added after a browser found the gap: not one of",
+    "them did, so GET /me/legal/outstanding answered 403 for everybody and the legal gate could not",
+    "record a single acceptance. PDPL Art. 6 wants a consent that is demonstrable — and ours was",
+    "demonstrably absent. It is per PERSON rather than per tenant: each human accepts the documents",
+    "that bind him, an operator no less than an owner.",
+    "",
+    "`partner` is excluded on purpose — the till company signs in to its own statements, not to a",
+    "shop's console, and our terms with it are a contract rather than a click."
   ],
   "roles": [
     {
@@ -37,6 +46,8 @@
         "identity.read",
         "identity.manage",
         "authz.manage",
+        "service_accounts:read",
+        "service_accounts:write",
         "file.read",
         "file.write",
         "ticket.read",
@@ -44,7 +55,8 @@
         "analytics.read",
         "wallet.read",
         "notification.read",
-        "insights.read"
+        "insights.read",
+        "compliance.self"
       ]
     },
     {
@@ -54,8 +66,10 @@
       "protected": false,
       "grantable_extras": [
         "billing.read",
-        "billing.manage"
+        "billing.manage",
+        "billing.self"
       ],
+      "_why_billing_self": "المفتاح الذي يمنحه المالك كان ينقصه ثلثه. الاشتراك وربط واتساب كلاهما يفرض billing.self لا billing.manage — فمديرٌ أُعطي الفوترة كان يرى شاشاتها ويُرفض عند الضغط، وهو أسوأ من ألا يراها.",
       "capabilities": [
         "operations.record",
         "operations.read",
@@ -75,8 +89,10 @@
         "loyalty.read",
         "loyalty.redeem",
         "loyalty.manage",
-        "insights.read"
+        "insights.read",
+        "compliance.self"
       ],
+      "_why_no_service_accounts": "إصدار اعتماد للكاشير بيد المالك وحده. الاعتماد يكتب زيارات باسم منشأته ولا تنتهي صلاحيته باستقالة موظف — فهو أقرب إلى مفتاح المحل منه إلى مهمة يومية. والمدير يستطيع كل شيء آخر، وهذا أحد فرقين اثنين فقط بينهما.",
       "_why_no_authz_manage": "إنشاء الأدوار للمالك وحده، وهذا تصحيح لا تقييد. القاعدة النظامية (3.2) أن لا أحد يمنح صلاحية لا يملكها — وauthz يمنع المستأجر من منح platform.* وauthz.manage، لكنه لا يفرض أن تكون المجموعة الممنوحة جزءاً من مجموعة المانح. فمديرٌ يملك authz.manage يستطيع أن ينشئ دوراً فيه billing.manage ويعطيه لنفسه — وهي بالضبط الترقية التي تمنعها 3.2. ونزعُها يغلق الثغرة بلا انتظار تغيير في المنصة، ولا يكلّف المدير شيئاً: إضافة موظف وتعيينه على دور قائم تتم بـidentity.manage، وهي عنده."
     },
     {
@@ -93,7 +109,8 @@
         "analytics.read",
         "file.read",
         "loyalty.read",
-        "insights.read"
+        "insights.read",
+        "compliance.self"
       ]
     },
     {
@@ -101,15 +118,16 @@
       "label": "مشرف وردية",
       "description": "الميدان وعمّال ورديته وقراءة التقارير. لا حملات ولا فوترة ولا ربط واتساب — مسؤوليته الوردية التي يقف فيها.",
       "protected": false,
+      "_why_no_operations_manage": "كانت عنده، وoperations.manage تعني إنشاء فرع وإنشاء موظف وتعديل كتالوج الخدمات وأسعارها — لا شيء منها من عمل مشرف وردية، ووصف الدور نفسه يقول ذلك. وأثرها كان مرئياً: قسما «خدماتي» و«فريقي» يظهران له لأن الواجهة تشتق القائمة من الصلاحيات، فتُعرض عليه شاشتان لا يملك قرارهما.",
       "capabilities": [
         "operations.record",
         "operations.read",
-        "operations.manage",
         "reminders.read",
         "analytics.read",
         "loyalty.read",
         "loyalty.redeem",
-        "insights.read"
+        "insights.read",
+        "compliance.self"
       ]
     },
     {
@@ -120,7 +138,8 @@
       "capabilities": [
         "operations.record",
         "loyalty.read",
-        "loyalty.redeem"
+        "loyalty.redeem",
+        "compliance.self"
       ]
     },
     {

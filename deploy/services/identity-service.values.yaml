@@ -34,7 +34,10 @@ resources:
 autoscaling:
   enabled: false
 
-# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PRIVATE_KEY, PII_SALT,
+# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PRIVATE_KEY, TOKEN_PUBLIC_KEY, PII_SALT,
+# BOTH HALVES OF THE KEY LIVE HERE, and only the public half leaves. This service signs and it also
+# verifies — /auth/refresh reads the refresh token it was handed — so listing only the private key
+# is what left the verifier at `null` and made every renewal impossible. See TOKEN_VERIFIER_DRIVER.
 # AUTHZ_INTERNAL_TOKEN, EMAIL_VERIFICATION_PEPPER.
 # BACKUP_KEK IS ALSO REQUIRED HERE, and it is SHARED — the same value every export-capable
 # service and backup-service itself holds. This service serves /internal/backup/export, and without
@@ -69,6 +72,19 @@ env:
   # this: change it and every live session and refresh token is rejected at once.
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
+  # AND IT VERIFIES TOO — the setting every other service in the fleet has and this one did not.
+  #
+  # THE BUG THAT PROVED IT. Identity signs, so it is easy to read this file and conclude a verifier
+  # is somebody else's concern. It is not: /auth/refresh must VERIFY the refresh token it is handed
+  # before it will mint anything. With the driver left at its `null` default — deny-by-default,
+  # which is the right default — that verification failed on every token in existence, including
+  # ones this service had signed seconds earlier. So refresh returned 401 always, /readyz stayed
+  # green, sign-in worked (it authenticates by password, not by token), and the only symptom was an
+  # owner thrown back to the login screen every 15 minutes: the access TTL, with the 31-day refresh
+  # token beside it that could never be spent.
+  #
+  # The public half of TOKEN_PRIVATE_KEY, the same value every verifying service already holds.
+  TOKEN_VERIFIER_DRIVER: "rs256"
   # ── how long a session lives, and why it is this long ─────────────────────────────────────
   # ACCESS 15 MINUTES, unchanged. It is also what "instant suspension" (spec §11.1) actually
   # means: a suspended person keeps their access token until it expires, and is then refused at
@@ -117,8 +133,15 @@ env:
   AUTHZ_CAPS_TTL_SECONDS: "60"
 
   # ── Signup ────────────────────────────────────────────────────────────────────────────────
-  # Open registration: spec §16.5 is a 14-day self-serve trial with no card and no operator step.
-  REGISTRATION_ENABLED: "true"
+  # OPEN REGISTRATION IS OFF, and that is not a retreat from §16.5's self-serve trial — it is what
+  # makes it work. `/auth/register` creates a USER row inside a tenant, and a user row's roles are
+  # whatever config says, resolved by nobody. Our signup now uses
+  # POST /internal/tenancy/seed-owner instead: it creates the PERSON and the MEMBERSHIP that carry
+  # the role, which is what every later token derives its capabilities from.
+  #
+  # And a door nobody uses is a door left open. Registration reachable without a tenant of its own
+  # would let a stranger create an account inside any tenant id they can guess.
+  REGISTRATION_ENABLED: "false"
   # THE PHONE IS THE IDENTITY (v0.15.0 — closes our escalation).
   #
   # A Saudi shop owner has a mobile number the way he has a name; he may or may not have an email
@@ -169,9 +192,48 @@ env:
   IDENTITY_MEMBER_ADD_MODE: "invite"
   IDENTITY_INVITE_TTL_SECONDS: "604800"
 
-  # One establishment per account for now — spec §2.1's single unified account. Branches (§12)
-  # live INSIDE a tenant and are scoped by our own services, not by multi-tenant membership here.
-  IDENTITY_MULTI_TENANT: "false"
+  # ── Machine identity: the till's own credential (§16.6.1) ─────────────────────────────────
+  # OFF by default upstream, and rightly — it is a new class of credential. We turn it on because
+  # the alternative is worse than a new credential: without it, a shop's point-of-sale can only
+  # reach us through the shared internal token, and handing THAT to a POS company opens every
+  # internal door in the product — backup export, the erasure fan-out, seeding any tenant.
+  SERVICE_ACCOUNTS_ENABLED: "true"
+  # ONE HOUR. A machine re-runs the exchange for pennies, and a short life bounds what a leaked
+  # token reaches. There is no refresh token by design — a machine holds its secret, not a second
+  # long-lived credential it would also have to protect.
+  SERVICE_ACCOUNT_TOKEN_TTL_SECONDS: "3600"
+  # SEVEN DAYS OF OVERLAP ON A ROTATION, and this number is about tills rather than about
+  # cryptography: a POS build reaches hundreds of shops only as each one takes its own update. A
+  # hard cutover would be a fortnight of silent outage across a partner's whole fleet. It expires
+  # on its own — an overlap an operator must end by hand is one nobody ends. A leak is rotated
+  # with overlap 0, which the route accepts per call.
+  SERVICE_ACCOUNT_ROTATION_OVERLAP_SECONDS: "604800"
+  # TWO PER ESTABLISHMENT, not the upstream default of a hundred. A shop has one till system; the
+  # second slot exists for the week it migrates from one to another. A ceiling this low turns
+  # "issue a credential" from an unbounded write into something an operator would notice.
+  SERVICE_ACCOUNTS_MAX_PER_TENANT: "2"
+
+  # ── ON, AND NOT BECAUSE ANYONE OWNS TWO SHOPS ─────────────────────────────────────────────
+  # This file used to say "one establishment per account for now" and set it false. That was
+  # right about the product and wrong about the mechanism, and a live signup proved it:
+  #
+  #   `issue_tokens` — the single-tenant login — builds the token's `caps` from the USER ROW.
+  #   `issue_tenant_tokens` — the membership login — RESOLVES them from authz, by role.
+  #
+  # So with this off, IDENTITY_CAPS_SOURCE=authz has no effect on the only login we use: authz
+  # answered a role's twenty-two capabilities when asked directly, and the minted token still
+  # carried `caps: []`. Roles were being derived by nobody.
+  #
+  # Turning it on changes no product rule — every person still has exactly one establishment, and
+  # the picker never renders for one membership. What it buys is the mechanism our whole roles
+  # model already assumed: capabilities DERIVED from roles at every mint, so editing a role in
+  # authz reaches everyone holding it on their next token, and revoking one actually revokes.
+  #
+  # And it unlocks the primitive that makes self-serve signup possible at all:
+  # POST /internal/tenancy/seed-owner — the platform's own chicken-and-egg breaker, which creates
+  # a tenant's FIRST owner over the internal token, refuses to overwrite one on a staffed tenant,
+  # and returns an undo reference for the saga.
+  IDENTITY_MULTI_TENANT: "true"
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────
   AUDIT_SINK_DRIVER: "http"

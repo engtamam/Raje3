@@ -25,8 +25,8 @@ image:
   # It is still pinned BY DIGEST, not by the `:local` tag — the same rule as every other service,
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
-  repository: docker.io/raje3/operations
-  digest: "sha256:2cce93f0966dc1b2852d645010afddc2cc465a9bff8a0d7b0d4344ff7fb7de51"
+  repository: 127.0.0.1:5055/raje3/operations
+  digest: "sha256:b732c55b64e992bbc9935960bff3baea4ebc318722ece843a9a035093b6abd02"
 
 replicas: 1
 
@@ -108,6 +108,51 @@ env:
   BILLING_SERVICE_URL: "http://billing-service:8000"
   BILLING_USAGE_SET_PATH: "/internal/billing/usage/set"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
+
+  # ── the door (§16.5) ──────────────────────────────────────────────────────────────────────
+  # Signing up creates a TENANT and registers its owner. No platform service does both: identity
+  # registers a user INTO a tenant, tenant-service creates a tenant for an internal caller, and
+  # deciding those two together mean "a new establishment" is a product rule, so it lives here.
+  #
+  # BOTH URLS OR NEITHER. An empty URL leaves the two public routes answering a refusal rather
+  # than half-creating an account — a tenant with no owner is exactly the orphan the saga's undo
+  # exists to prevent, and it would be created on every attempt.
+  IDENTITY_SERVICE_URL: "http://identity-service:8000"
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  SIGNUP_TIMEOUT_SECONDS: "10"
+  # MUST MATCH identity's IDENTITY_PHONE_DEFAULT_CC. Our phone index folds numbers to E.164 the
+  # same way identity does; two different country codes would produce an index that disagrees
+  # with the platform's uniqueness rule — the account would exist and the login would say it did
+  # not, which is unfixable from the owner's side.
+  SIGNUP_PHONE_DEFAULT_CC: "966"
+  # CAN A CODE ACTUALLY REACH A PHONE? False while notification-service is on the `console`
+  # WhatsApp driver, which writes a log line and returns success — so identity answers
+  # `delivered: true` and every layer reports a message that was never sent. Signup says so
+  # plainly instead of parking a new owner on a code screen for nothing.
+  #
+  # Flipped to true in the SAME change that points WHATSAPP_CHAIN at `meta`; a guard in
+  # ci/check_deploy_wiring.py fails the build if the two ever disagree, in either direction.
+  SIGNUP_OTP_DELIVERABLE: "false"
+  # DEFERRED, NOT ABANDONED — and only because the line above is false. A proof we cannot send is
+  # a locked door with no key: the owner signs up, is told to confirm a number, and no message is
+  # ever attempted. The number is still recorded unverified and «حسابي» still says so; it simply
+  # no longer stands between him and his own shop.
+  #
+  # FLIPPED BACK TO true IN THE SAME CHANGE THAT WIRES META. A guard fails the build on the one
+  # combination that cannot be right: requiring a proof that cannot be delivered.
+  SIGNUP_REQUIRE_OTP: "false"
+  # THE STEP THAT MAKES A SELF-SERVE ACCOUNT USABLE (base-services v0.16.3). authz's internal
+  # bootstrap is the only door through a closed cycle: capabilities come from roles, a fresh
+  # tenant has none, and creating one needed a capability only that role could grant. Until this
+  # existed, every signup produced an owner with `caps: []` and an empty application.
+  AUTHZ_SERVICE_URL: "http://authz-service:8000"
+  # THE REWARDS TABLE, at the same moment as the catalogue. «نقاطي» promised an owner it "arrives
+  # filled for your sector"; nothing filled it, because no service had ever been asked to. Without
+  # this URL a shop starts with a real catalogue and an empty rewards table — a missing table
+  # rather than a failed signup, which is why it is optional in code.
+  LOYALTY_SERVICE_URL: "http://loyalty:8000"
+  SIGNUP_ROLES_FILE: "/app/data/roles.seed.json"
+  SIGNUP_OWNER_ROLE: "owner"
 
   # ── sectors: the ONE-TIME seed ────────────────────────────────────────────────────────────
   # Applied only when the sector table is empty. After that the table is the source of truth and

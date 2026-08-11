@@ -92,7 +92,13 @@ class Dispatcher:
                     template_type=campaign.get("template_type", ""),
                     cls=campaign.get("cls", "marketing"),
                     owner_text=campaign.get("owner_text", ""),
-                    idempotency_key=key)
+                    idempotency_key=key,
+                    # THE SAME END DATE FOR EVERY RECIPIENT OF THIS CAMPAIGN. A spread run reaches
+                    # people over several days, and an expiry counted from each person's send would
+                    # give the last recipient longer than the first — the shop would be running two
+                    # different offers without deciding to.
+                    offer_expires_at=int(campaign.get("expires_at") or 0),
+                    offer_services=list(campaign.get("scope_service_ids") or []))
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is

@@ -34,6 +34,8 @@ from app.core import engagement as E
 from app.core import gate as G
 from app.core import quota as Q
 from app.core import ceiling as C
+from app.core import ladder as L
+from app.core import merge as M
 from app.core import ceiling_notice as CN
 from app.core.reach import Reach
 
@@ -45,7 +47,8 @@ from app.core import rendering as R
 from app.core.models import SendLog, as_row
 from app.adapters.message_sender import CeilingReached, Unsendable
 from app.core.consent import Consent
-from app.core.stores import EngagementStore, PrefsStore, ScheduleStore, SendLogStore
+from app.core.stores import (EngagementStore, PrefsStore, RuleStore, ScheduleStore,
+                             SendLogStore)
 
 
 @dataclass
@@ -85,6 +88,9 @@ class TickResult:
     # "twelve customers did not get your messages" cannot be said unless these are counted alone.
     ceiling: int = 0
     deferred: int = 0
+    # Rows folded into another message rather than sent on their own (spec §5.8.1). Counted
+    # apart from `suppressed`: nothing was withheld from the customer, two messages became one.
+    merged: int = 0
     failed: int = 0
     scanned: int = 0
     # Suppression reasons, counted. This is the number an operator actually needs: "312 suppressed"
@@ -331,10 +337,16 @@ class Tick:
             raise
 
         await self._reach.record(tenant, subject, now=now)
+        # THE OFFER IS RECORDED ONLY ON A MESSAGE THAT WENT OUT, which is the whole point: the send
+        # log is the entitlement. Whoever received this holds the offer until it expires; whoever
+        # did not, never held it — no second table, and nothing to argue about at the counter.
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
             schedule_id=row.get("id", ""), template_name=rendered.template_name,
-            outcome="sent", idempotency_key=key)))
+            outcome="sent", idempotency_key=key,
+            offer_text=row.get("offer_text", ""),
+            offer_expires_at=int(row.get("offer_expires_at") or 0),
+            offer_services=list(row.get("offer_services") or []))))
         return {"sent": True, "reason": ""}
 
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
@@ -416,6 +428,19 @@ class Tick:
                     await self._defer_to_tomorrow(tenant, row, now, "known")
                     res.deferred += 1
                 return
+        # ── 2c. fold in what is due within days ───────────────────────────────────────────────
+        # AFTER the gate and the ceiling, and BEFORE the render — the only place it can be.
+        #
+        # Before the gate it would merge messages that are then refused, and the folded rows would
+        # be closed for a message that never went. After the render it would be too late to name
+        # them. And it belongs here rather than at scheduling time because a visit cannot see the
+        # visit that has not happened yet: two visits days apart book two reminders days apart, and
+        # nothing in the system knows they are one man until this moment (spec §5.8.1).
+        pending = await self._sched.pending_for_subject(tenant, subject)
+        folding = M.plan(row, pending, now=now)
+        if folding.merged:
+            row = folding.lead
+
         # ── 3. render ─────────────────────────────────────────────────────────────────────────
         template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                             library=library, approved=approved)
@@ -494,7 +519,28 @@ class Tick:
             schedule_id=row.get("id", ""), template_name=rendered.template_name,
             outcome="sent", idempotency_key=key)))
         await self._close(tenant, row, "sent", "", now)
+
+        # ── 5b. close what rode along ─────────────────────────────────────────────────────────
+        # CLOSED, NEVER DELETED, and with the id of the message that carried them. An owner
+        # reading «رسائلي» sees one message where he expected two and can follow it to the one
+        # that went — whereas a row that simply disappears reads as the daily cap eating his
+        # messages, which is the confusion `merge before counting` was written to avoid.
+        #
+        # AND ONLY AFTER THE SEND SUCCEEDED. Closing them at fold time would lose them for a
+        # message that then hit the ceiling or a peer failure — one lost visit's reminder is a
+        # customer nobody calls back.
+        for folded in folding.folded:
+            folded["merged_into"] = row.get("id", "")
+            await self._close(tenant, folded, "merged", "دُمجت في رسالة واحدة", now)
+            res.merged += 1
         res.sent += 1
+
+        # ── 5c. the ladder, and it starts HERE or nowhere ─────────────────────────────────────
+        #
+        # AFTER THE SEND SUCCEEDED, never at schedule time. A ladder built when the first reminder
+        # was scheduled would go on climbing after the message was suppressed, deferred or dropped
+        # at the ceiling — pressing a customer about a message he never received.
+        await self._ladder(tenant, row, subject, now=now, cls=cls)
 
     async def _claim(self, tenant: str, row: dict[str, Any], now: int) -> bool:
         """Move the row out of `pending` before anything external happens.
@@ -511,6 +557,64 @@ class Tick:
         await self._sched.upsert(tenant, _key(fresh), fresh)
         row.update(fresh)
         return True
+
+    async def _ladder(self, tenant: str, row: dict[str, Any], subject: str, *,
+                      now: int, cls: str) -> None:
+        """Schedule what follows a reminder that went out (§5.6.1). NEVER RAISES.
+
+        THE RUNGS COME FROM `core/ladder.py`, WHICH DECIDES AND DOES NOT ACT. This is the only
+        caller, and it exists because the module was written and wired to nothing: the arithmetic
+        was tested, the rules were right, and no customer would ever have received a second
+        message. That is the same shape as the severed `service_id` next door — complete in the
+        depth, cut at the door — and it is worth naming twice.
+
+        ONLY AFTER A REMINDER. A follow-up, a review request or a campaign has no ladder: they are
+        not "he did not come", which is the one thing a ladder answers.
+        """
+        if row.get("kind") != "reminder":
+            return
+        try:
+            rule = await RuleStore(self._store).get(
+                f"{tenant}|{subject}|{row.get('service_id', '')}") or {}
+            eng = await self._eng.get(tenant, subject) or {}
+            consent = await self._consent.state(tenant, subject)
+
+            rungs = L.build(
+                sent_at=now,
+                interval_days=int(float(rule.get("interval_days") or 0)),
+                # GRANTED, NOT "NOT REFUSED". `never_asked` is not consent — an offer needs a yes
+                # (§8.5), and the ladder simply loses that rung rather than substituting one.
+                marketing_consent=(consent == "granted"),
+                first_rung_returns=int(rule.get("first_rung_returns") or 0),
+                # NONE WHEN THERE IS NO RECORD, never 0.0. "Never measured" and "reads nothing"
+                # are different facts, and a shop's first week is nothing but the former.
+                engagement_score=(float(eng["score"]) if eng.get("score") is not None else None))
+
+            for i, rung in enumerate(rungs):
+                # ONE ROW PER RUNG, KEYED SO IT CANNOT COLLIDE with the reminder that produced it
+                # nor with the other rung. The schedule's natural key is
+                # (tenant, customer, service, kind) — two rungs of the same ladder would otherwise
+                # be one row, and the second would silently replace the first.
+                follow = dict(row)
+                follow.pop("id", None)
+                follow.pop("idempotency_key", None)
+                follow["kind"] = f"ladder_{i + 1}"
+                follow["state"] = "pending"
+                follow["reason"] = ""
+                follow["due_at"] = rung.due_at
+                follow["cls"] = "marketing" if rung.marketing else cls
+                # THE TONE IS THE VARIATION. Same template type, a different voice — no new
+                # template, no Meta review, and no crossing of the service/marketing wall.
+                follow["tone_index"] = rung.tone_index
+                follow["created"] = now
+                follow["updated"] = now
+                await self._sched.upsert(tenant, _key(follow), follow)
+        except Exception:                                                   # noqa: BLE001
+            # A LADDER THAT COULD NOT BE BUILT MUST NOT UNDO A MESSAGE THAT WENT. The reminder was
+            # delivered and recorded; failing here would leave the tick raising after a successful
+            # send, and the next pass would try to send it again.
+            if self._t is not None:
+                self._t.event("ladder_failed", tenant=tenant, service=row.get("service_id", ""))
 
     async def _close(self, tenant: str, row: dict[str, Any], state: str, reason: str,
                      now: int) -> None:

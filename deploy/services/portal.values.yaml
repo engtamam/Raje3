@@ -15,8 +15,8 @@ service:
   port: 8000
 
 image:
-  repository: docker.io/raje3/portal
-  digest: "sha256:7da2207b21d832490b278f2d4ede79da680c8011933c3792580bc12adefa8e2a"
+  repository: 127.0.0.1:5055/raje3/portal
+  digest: "sha256:4bbeece32f9394e69badc0b32d88436f526063ffb41d663745a4fb1b37323b07"
 
 # ONE REPLICA — and this is a correction, not the original plan.
 #

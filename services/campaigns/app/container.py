@@ -281,9 +281,13 @@ def build_container(settings: Settings) -> Container:
     container.settings = settings
 
     async def _resolver(campaign, *, already_reached, now):
+        # THE SEND RESOLVES THE SAME AUDIENCE THE PREVIEW SHOWED — including the service. Dropping
+        # it here would mean the owner is shown a targeted count and the run reaches everybody, and
+        # the report would agree with neither.
         return await container.audience.resolve_for(
             campaign.get("tenant", ""), goal=campaign.get("goal", ""), now=now,
-            already_reached=already_reached, cls=campaign.get("cls", "marketing"))
+            already_reached=already_reached, cls=campaign.get("cls", "marketing"),
+            service_id=campaign.get("service_id", ""))
 
     container.dispatcher = Dispatcher(store=container.datastore, sender=container.sender,
                                       audience_resolver=_resolver,
@@ -311,7 +315,16 @@ class _AudienceFacade:
         self._max_audience = int(max_audience)
 
     async def resolve_for(self, tenant: str, *, goal: str, now: int,
-                          already_reached=None, cls: str = "marketing"):
+                          already_reached=None, cls: str = "marketing",
+                          service_id: str = ""):
+        """`service_id` IS THE 70% CYCLE LOCK'S ONLY INPUT, and it used not to arrive.
+
+        The resolver has always accepted it and `_too_early` has always enforced it: whoever took
+        this service two days ago is held out, and whoever is 70% through his own rhythm for it is
+        exactly who the offer should reach. But no caller passed it — so every "offer on a service"
+        resolved as a shop-wide announcement, and the audience count read as proof of targeting
+        that never happened.
+        """
         async def _customers(t):
             return await self._c.customers(t)
 
@@ -321,4 +334,5 @@ class _AudienceFacade:
         return await self._resolve(goal=goal, tenant=tenant, now=now,
                                    customers=_customers, gate_check=_gate,
                                    already_reached=already_reached or set(),
-                                   max_audience=self._max_audience)
+                                   max_audience=self._max_audience,
+                                   service_id=service_id)

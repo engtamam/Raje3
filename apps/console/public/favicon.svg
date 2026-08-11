@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>راجِع</title>
+  <desc>The same mark as src/brand/Mark.tsx. Colours are LITERAL, not var(--accent): a favicon is
+  fetched outside the document, so it has no stylesheet and no custom properties, and currentColor
+  would render black on every tab. The ink square gives the mark its own ground, because a tab strip
+  may be light or dark and a bare gold stroke disappears into one of them. Any change to Mark.tsx
+  belongs here too.</desc>
+  <rect width="32" height="32" rx="7" fill="#151d33"/>
+  <g fill="none" stroke="#B8862B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 5.2a10.8 10.8 0 1 1-7.9 3.4"/>
+    <path d="M6.6 4.9 8.1 9.2 12.4 8.1"/>
+  </g>
+  <circle cx="16" cy="16" r="3.4" fill="#B8862B"/>
+</svg>

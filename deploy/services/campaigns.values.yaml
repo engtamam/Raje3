@@ -16,8 +16,8 @@ service:
   port: 8000
 
 image:
-  repository: docker.io/raje3/campaigns
-  digest: "sha256:14579065c5d9377d17cdda1fbd499d6bbdb6ec15ae4f1c15ddbafa15005f96fd"
+  repository: 127.0.0.1:5055/raje3/campaigns
+  digest: "sha256:47ef19738b41cf1ff43894027443ce140dea85d8046456d81eaa485beacf9f76"
 
 replicas: 1
 

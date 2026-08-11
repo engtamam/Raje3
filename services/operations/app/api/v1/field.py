@@ -118,7 +118,53 @@ async def customer_by_phone(request: Request, phone: str,
     finds nothing against a stored `966501234567` — the keypad must call suggest.
     """
     c = await _svc(request).customer_by_phone(_tenant(principal), phone)
-    return {"customer": c.public() if c else None}
+    if c is None:
+        return {"customer": None}
+    # THE PSEUDONYM COMES WITH THE EXACT MATCH, and only with it — never with the prefix
+    # suggestions, which are a list of people the operator has not chosen yet.
+    #
+    # It is here so the field screen can ask reminders one question: is this customer holding an
+    # offer (§5.6.2)? An offer the man at the counter cannot see becomes a discount argued over
+    # while the customer holds the message that promised it. The alternative was operations asking
+    # reminders on the hot path of a five-second screen, which puts another service's latency
+    # inside the one budget this product actually has.
+    return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+
+
+class ResolveIn(BaseModel):
+    """Pseudonyms in, customers out. NO TENANT FIELD — see the route."""
+
+    refs: list[str] = Field(default_factory=list, max_length=200)
+
+
+@router.post("/customers/resolve", dependencies=[Depends(rate_limit)])
+async def resolve_customers(request: Request, body: ResolveIn,
+                            principal: Principal = Depends(_READ)) -> dict:
+    """Turn a list of `subject_ref` pseudonyms into this establishment's customers.
+
+    WHY THIS EXISTS. «عملائي» promises three things and delivered two: how many do I have, find
+    this one, and WHO IS OVERDUE. The third could not be built, because the overdue list lives in
+    reminders — and reminders holds no names at all. It answers with the pseudonym, deliberately:
+    a service that does not need a customer's name must not be able to read one.
+
+    So the join happens where the names already are, which is here. The alternative was giving
+    reminders a copy of the customer table, and a second copy of a name is a second thing that goes
+    stale and a second place PII can leak from.
+
+    THE TENANT IS NOT A FIELD ON THE BODY. It comes from the token, exactly as the till route
+    learned to do: a caller who can name the tenant can name somebody else's, and a pseudonym is
+    only meaningful within one — so a request that carried its own tenant would be a customer
+    lookup across establishments wearing an internal-looking name.
+
+    UNKNOWN REFS ARE SIMPLY ABSENT from the answer rather than being reported. A pseudonym this
+    establishment does not hold is not an error to explain: it is an erased customer, or another
+    shop's, and confirming which would answer a question nobody should be able to ask.
+    """
+    wanted = {r for r in body.refs if r}
+    if not wanted:
+        return {"customers": []}
+    rows = await _svc(request).customers_by_refs(_tenant(principal), wanted)
+    return {"customers": [c.public() for c in rows]}
 
 
 @router.get("/customers/{customer_id}", dependencies=[Depends(rate_limit)])

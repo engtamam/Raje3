@@ -32,7 +32,7 @@ CAMPAIGNS = "campaigns"
 RUNS = "campaign_runs"
 
 # What the owner picks. Not a taxonomy they learn — five cards with two words each (spec §10.9).
-GOALS = ("win_back", "reward_loyal", "announce", "occasion", "awareness")
+GOALS = ("win_back", "reward_loyal", "announce", "occasion", "awareness", "service_offer")
 
 # Which template type each goal sends, and its regulatory class. The class is NOT the owner's
 # choice: every campaign is promotional except awareness, and awareness is the one with a lock.
@@ -42,7 +42,24 @@ GOAL_TEMPLATE = {
     "announce": ("mkt_announcement", "marketing"),
     "occasion": ("mkt_personal_occasion", "marketing"),
     "awareness": ("awr_care_tip", "awareness"),
+    # AN OFFER ON ONE SERVICE. The same announcement template the shop-wide goal uses — what makes
+    # it different is not the words but WHO it reaches: only customers who are 70% through their
+    # own cycle for that service (spec §10.9.1). A separate template would be a second thing to
+    # write, approve and keep in step for a difference that lives in the audience.
+    "service_offer": ("mkt_announcement", "marketing"),
 }
+
+# WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.
+#
+# Not every campaign is an offer. A care tip and a personal occasion give nothing away and expire
+# by being read; demanding a date for them would be a field with no meaning that somebody fills in
+# with a guess. But an offer without an end is a price change nobody decided on, and it is also the
+# only thing the counter can be asked to honour.
+OFFER_GOALS = ("service_offer", "win_back", "reward_loyal")
+
+
+def offers_something(goal: str) -> bool:
+    return goal in OFFER_GOALS
 
 # Who fires it. Derived from the goal, never asked.
 TRIGGERS = ("manual", "scheduled", "standing")
@@ -50,6 +67,10 @@ TRIGGERS = ("manual", "scheduled", "standing")
 GOAL_TRIGGER = {
     "win_back": "standing",        # absence is continuous; a one-off win-back is a missed month
     "reward_loyal": "standing",
+    # MANUAL, AND DELIBERATELY NOT STANDING. An offer is a decision the owner makes about this
+    # week — a standing one would keep discounting the same service for ever, to a rota of people
+    # crossing 70% of their cycle, with nobody ever deciding to stop.
+    "service_offer": "manual",
     "announce": "manual",          # news is not recurring
     "occasion": "scheduled",
     "awareness": "manual",         # pressed by the owner, then locked for a month (spec §10.9)
@@ -82,8 +103,40 @@ class Campaign:
     cls: str = "marketing"
     trigger: str = "manual"
     state: str = "draft"
+    # WHICH SERVICE THIS OFFER IS ABOUT — `service_offer` only, and required for it.
+    #
+    # It is what the cycle lock measures against: a customer who took THIS service two days ago is
+    # held out, and one who is 70% of the way through his own rhythm for it is exactly who the
+    # offer should reach. Without it the goal would be an announcement wearing a targeted name,
+    # and the reach number would read as proof it worked.
+    service_id: str = ""
+    # WHAT THE OFFER APPLIES TO, as something a screen can act on rather than read.
+    #
+    # `owner_text` is the sentence the customer receives, and it must stay free: it is what
+    # persuades, and it is the field Meta already approved a shell around. But a sentence cannot be
+    # ENFORCED — the operator at the counter reads "20% off" and decides for himself what that
+    # covers, and two operators decide differently on the same day.
+    #
+    # So the scope sits beside the words: empty means the whole shop, a list means these services.
+    # The text convinces; the scope applies. Neither replaces the other.
+    #
+    # SERVICES, NOT PRODUCTS. This product has no product catalogue — only services — and a scope
+    # that named products would be a promise nothing behind it could keep.
+    scope_service_ids: list[str] = field(default_factory=list)
     # For `scheduled`: when to fire. For `standing`: unused.
     fire_at: int = 0
+    # WHEN THE OFFER STOPS BEING TRUE — stored, and required for every goal that offers something.
+    #
+    # It used to be a preview-only number: the console sent it, the spread planner used it once to
+    # answer "can everyone be reached before then", and it was thrown away. So the message went out
+    # with no end anybody could name — an owner running "20% off" had no date, the operator at the
+    # counter had nothing to check against, and the customer's own page could not count anything
+    # down. A discount with no end is a permanent price nobody decided on.
+    #
+    # AND IT IS WHAT MAKES THE OFFER EXCLUSIVE MEAN SOMETHING. Whoever received the message holds
+    # it until this moment and no longer; whoever did not receive it never held it. The send log
+    # says who, and this says until when — no second table, and nothing to argue about at the till.
+    expires_at: int = 0
     # For `standing`: the last day it was evaluated, as an epoch. THE GUARD against a five-minute
     # cron evaluating a daily rule twelve times an hour — see core/tick.py. On the campaign rather
     # than in a side table, because a flag somewhere else is the flag that gets lost.

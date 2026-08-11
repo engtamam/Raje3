@@ -17,31 +17,36 @@ import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { NAME_AR } from './brand/Mark';
-import { fetchCatalog, type Catalog } from './catalog';
+import { Door } from './screens/Door';
+import { LegalGate } from './screens/LegalGate';
+import { fetchCatalog, SessionExpired, type Catalog } from './catalog';
 import { isOutage, visibleSections } from './nav';
 import { isSignedIn, useSession } from './session';
 
 export function App() {
-  const session = useSession();
+  const { session, signedIn, signOut } = useSession();
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!isSignedIn(session)) return;
-    fetchCatalog(session).then(setCatalog).catch(() => setFailed(true));
-  }, [session]);
+    fetchCatalog(session)
+      .then(setCatalog)
+      .catch((err) => {
+        // AN EXPIRED SESSION IS SHOWN THE DOOR, not an outage screen. Signing out puts him one tap
+        // from the only action that helps — and leaving him on «تعذّر الوصول إلى المنصة» tells
+        // him to wait for something that is not broken.
+        if (err instanceof SessionExpired) signOut();
+        else setFailed(true);
+      });
+  }, [session, signOut]);
 
-  if (!isSignedIn(session)) {
-    // Sign-in is its own route and its own task; until it lands this states the fact rather than
-    // inventing a tenant — a placeholder establishment would let every screen appear to work while
-    // writing into data nobody owns.
-    return (
-      <main className="grid min-h-dvh place-items-center bg-surface-0 p-6">
-        <EmptyState title="لم تُفتح الجلسة بعد" />
-      </main>
-    );
-  }
+  // THE DOOR IS NOT A ROUTE, and that is deliberate. A `/login` path is a page the app can be
+  // navigated to WHILE signed in and, worse, a page a signed-out person can navigate AWAY from
+  // into a screen that then renders half-loaded and 401s. Signed out, there is one thing on the
+  // screen and no way past it but through.
+  if (!isSignedIn(session)) return <Door onSignedIn={signedIn} />;
 
   if (failed) {
     // THE DISTINCTION THAT MATTERS TO A PAYING OWNER: "we cannot reach the platform" and "you have
@@ -79,22 +84,38 @@ export function App() {
 
   return (
     <AppShell
-      // THE BRAND SLOT TAKES A NAME, NOT A MARK. The shell draws its own BrandMark, which is the
-      // one component we fork rather than configure — see brand/Mark.tsx for why theirs (a notary
-      // seal) cannot be ours. Substituting it is a shell change, and it is deliberately left for
-      // the moment the mark is final rather than smuggled in through a prop that does not exist.
+      // THE MARK SLOT EXISTS NOW, AND THIS IS THE ONE LINE THAT WILL USE IT:
+      //
+      //     brand={{ name: NAME_AR, mark: <Mark size={26} className="shrink-0" /> }}
+      //
+      // The shell drew its own BrandMark unconditionally — امتثالك's notary seal, a ring holding a
+      // checkmark, meaning "sealed · verified". Right for a compliance product and wrong for ours:
+      // راجِع is a journey that closes. We escalated rather than forking the shell, and
+      // `brand.mark?: ReactNode` was added upstream, defaulted to BrandMark so no consumer changed.
+      //
+      // IT IS NOT PASSED YET, AND THE REASON IS NOT CAUTION. The commit is on their `main` and in
+      // no tagged release: this checkout is v0.16.2, and `git tag --contains` finds nothing. An
+      // extra property is not silently ignored by TypeScript — it is a compile error — so writing
+      // the line early breaks the build rather than waiting quietly for the version that supports
+      // it. It goes in the day we take v0.16.4, and it is one line.
       brand={{ name: NAME_AR }}
       // DERIVED, NOT WRITTEN — see nav.ts. An operator's list has one entry and a manager's is
       // missing what the owner keeps, with no role check anywhere in this file.
       navItems={sections.map((s) => ({ to: s.path, label: s.label }))}
       user={{ name: session.operatorName || session.operator }}
       labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج' }}
-      onSignOut={() => navigate('/')}
+      onSignOut={() => { signOut(); navigate('/'); }}
     >
       {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.
           We pass the Outlet explicitly so the screens receive the session and the catalogue we
           already loaded, rather than each fetching the catalogue again on every navigation. */}
-      <Outlet context={{ session, catalog }} />
+      {/* THE LEGAL GATE SITS INSIDE THE SHELL, not in front of it. An owner who must accept a
+          re-issued privacy notice is not locked out of a product he pays for — he is stopped at
+          the content until he answers, with his own nav still around him. Nothing outstanding
+          renders nothing at all. */}
+      <LegalGate session={session} catalog={catalog}>
+        <Outlet context={{ session, catalog }} />
+      </LegalGate>
     </AppShell>
   );
 }

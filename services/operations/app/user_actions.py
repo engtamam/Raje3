@@ -58,6 +58,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
     },
     {
+        "id": "operations.customers_by_refs", "label": "عملاء من قائمة التذكيرات", "method": "POST",
+        "path": "/api/v1/field/customers/resolve", "capability": "operations.read",
+        "group": "الشاشة",
+        # The join «عملائي» needs for its overdue tab. reminders answers with a pseudonym and holds
+        # no names — deliberately — so the names are looked up where they already live.
+        "help": "يحوّل الأسماء المستعارة القادمة من جدولة التذكيرات إلى عملاء هذه المنشأة. "
+                "المنشأة من الجلسة لا من الطلب.",
+    },
+    {
         "id": "operations.customer_by_phone", "label": "بحث برقم كامل", "method": "GET",
         "path": "/api/v1/field/customers/by-phone", "capability": "operations.read",
         "group": "الشاشة",
@@ -115,11 +124,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أين وصل ربط واتساب، وما الخطوة الباقية إن توقّف.",
     },
     {
-        "id": "billing.subscribe", "label": "تفعيل الاشتراك", "method": "POST",
+        # `subscription.activate`, NOT `billing.subscribe` — which is what billing-service calls
+        # ITS OWN subscribe action. Two services declaring one id is a collision the catalogue
+        # cannot express: the console keys on the id, so one of them silently wins and the loser
+        # is unreachable. And here the loser would have been OURS — the only path that enforces
+        # "no paid subscription before WhatsApp is connected" (§6.2.1). The shop would have gone
+        # straight to billing's raw subscribe and bought a product it cannot send with.
+        "id": "subscription.activate", "label": "تفعيل الاشتراك", "method": "POST",
         "path": "/api/v1/subscription", "capability": "billing.self", "group": "حسابي",
-        # It had been live and undeclared since it was written — invisible because the
-        # completeness gate reads declared actions, so a route with no action behind it is a route
-        # nothing checks. Found by adding the two beside it.
         "help": "اختر باقتك وفعّلها. يشترط ربط واتساب قبل الاشتراك المدفوع، والتجربة معفاة.",
     },
     # ── the owner's own surface, moved here from admin_actions ─────────────────────────
@@ -165,4 +177,32 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "operations.create_branch", "label": "إضافة فرع", "method": "POST",
         "path": "/api/v1/staff/branches", "capability": "operations.manage", "group": "الفروع",
     },
+]
+
+
+# Routes deliberately NOT rendered as app controls, each with the reason. The wiring gate reads
+# this list and refuses an entry without a `why`.
+UNDECLARED_ROUTES: list[dict[str, str]] = [
+    {"method": "POST", "path": "/api/v1/signup",
+     "why": "it creates the account a token would come from — an action is fetched WITH a token, "
+            "so a signed-in owner's control list is the one place this must never appear"},
+    {"method": "POST", "path": "/api/v1/signup/signin",
+     "why": "it exchanges a phone and a password FOR a token; a caller who could fetch it as an "
+            "action already has one"},
+    {"method": "POST", "path": "/api/v1/till/visits",
+     "why": "a machine's route, not a control: it is called by a shop's point-of-sale on a service "
+            "account credential, and no person ever presses it. Rendering it in a console would "
+            "offer an owner a button that posts an invoice he does not have"},
+    {"method": "POST", "path": "/api/v1/signup/claim",
+     "why": "the owner of a shop his till company enrolled, opening it for the first time — he has "
+            "no token yet, which is the whole reason this route exists"},
+    {"method": "POST", "path": "/api/v1/signup/code",
+     "why": "it asks for a code to prove a number that does not have an account yet — a caller who "
+            "could fetch it as an action would already hold the token it exists to produce"},
+    {"method": "POST", "path": "/api/v1/signup/verify",
+     "why": "it spends that code; same reason, and the refusal it gives is identical for an unknown "
+            "number and a wrong code"},
+    {"method": "GET", "path": "/api/v1/signup/sectors",
+     "why": "content the signup form renders — the sectors we sell to — read before any session "
+            "exists, like a page fetch rather than a button"},
 ]

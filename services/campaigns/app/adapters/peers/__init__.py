@@ -161,7 +161,9 @@ class HttpSender:
         self._timeout = timeout
 
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
-                   owner_text: str, idempotency_key: str) -> dict[str, Any]:
+                   owner_text: str, idempotency_key: str,
+                   offer_expires_at: int = 0,
+                   offer_services: list[str] | None = None) -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -173,6 +175,10 @@ class HttpSender:
                 "tenant": tenant, "subject_ref": subject_ref,
                 "template_type": template_type, "class": cls,
                 "owner_text": owner_text, "idempotency_key": idempotency_key,
+                # Carried so the send log can record the entitlement AND its end. Zero for every
+                # message that offers nothing, which is most of them.
+                "offer_expires_at": offer_expires_at,
+                "offer_services": list(offer_services or []),
             }, self._token, self._timeout)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode()[:200]

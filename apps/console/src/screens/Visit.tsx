@@ -21,7 +21,7 @@ import { isSignedIn, useSession } from '../session';
 const MIN_PREFIX = 3;
 
 export function Visit() {
-  const session = useSession();
+  const { session } = useSession();
   const [services, setServices] = useState<CatalogueService[]>([]);
   const [fields, setFields] = useState<SectorField[]>([]);
   const [recent, setRecent] = useState<CustomerHit[]>([]);
@@ -31,7 +31,12 @@ export function Visit() {
   const [plate, setPlate] = useState('');
   const [meter, setMeter] = useState('');
   const [note, setNote] = useState<string | null>(null);
-  const [pending, setPending] = useState<Queued[]>([]);
+  // EVERY ROW THE QUEUE HOLDS — waiting AND stuck. `subscribe` emits the whole list, so counting
+  // it as "waiting to be sent" counted visits that will never be sent among them, and the number
+  // an operator watched go down would have stalled at one for ever with no explanation.
+  const [queued, setQueued] = useState<Queued[]>([]);
+  const pending = queued.filter((r) => !r.stuck);
+  const stuck = queued.filter((r) => r.stuck);
   const [matches, setMatches] = useState<CustomerHit[]>([]);
 
   // THE SERVER SAID SO. Not a list of sector keys in this file — that would be our own data
@@ -51,7 +56,7 @@ export function Visit() {
   // THE QUEUE DRAINS ON EVERY SIGNAL THE BROWSER GIVES US, not on a timer. `online` is the one
   // that matters in a workshop — the tablet knows it reconnected long before a poll would.
   useEffect(() => {
-    const off = queue.subscribe(setPending);
+    const off = queue.subscribe(setQueued);
     const go = () => void queue.drain(session);
     window.addEventListener('online', go);
     window.addEventListener('focus', go);
@@ -217,11 +222,26 @@ export function Visit() {
 
       {/* THE SAVE BAR IS FIXED TO THE BOTTOM. It is the only button that must be reachable without
           looking, and a button that scrolls is a button that is somewhere else each time. */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-surface-0/95 p-3 backdrop-blur">
+      {/* STICKY INSIDE THE CONTENT, NOT FIXED TO THE VIEWPORT.
+          `fixed inset-x-0` spans the whole window, so on a desktop the bar ran underneath the
+          sidebar — the shell's own column, which it has no business covering. Sticky keeps it
+          pinned to the bottom of the scrolling area it belongs to, and it can never reach past
+          the column it lives in, at any width and with the sidebar collapsed or open. */}
+      <div className="sticky bottom-0 -mx-4 border-t border-border bg-surface-0/95 p-3 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           {pending.length > 0 ? (
             <span className="shrink-0 text-sm text-text-secondary tabular-nums">
               بانتظار الإرسال: {pending.length}
+            </span>
+          ) : null}
+          {/* AND THE ONES THAT WILL NEVER GO. The queue has always told these apart — a 400, a 403
+              or a 404 is not a network to wait out, and retrying it for ever burns battery and
+              hides the problem — but it told nobody: the visit left the screen, the counter said
+              nothing, and a shop lost a customer with no reminder, no points and no metric, in
+              silence. That silence was the whole reason for holding it rather than dropping it. */}
+          {stuck.length > 0 ? (
+            <span className="shrink-0 text-sm text-danger tabular-nums">
+              لم تُرسَل: {stuck.length} — تواصل معنا
             </span>
           ) : null}
           {note ? <span className="shrink-0 text-sm text-accent">{note}</span> : null}

@@ -161,12 +161,8 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "group": "المنصة",
         "help": "يعود للافتراضي المبنيّ في الخدمة.",
     },
-    {
-        "id": "operations.ping", "label": "فحص الاتصال", "method": "GET",
-        "path": "/api/v1/admin/ping", "capability": "platform.secrets", "group": "المنصة",
-        # From the generated scaffold and kept: what a client calls to confirm its token is accepted
-        # at all, which is the first question asked when something else is failing. Undeclared in
-        # every service until a guard compared the manifest with the app.
-        "help": "يؤكّد أن الخدمة تستقبل رمزك وتردّ.",
-    },
+    # `operations.ping` USED TO BE HERE, pointing at GET /api/v1/admin/ping — a route this service
+    # has never served. The console would have rendered a button that 404s, and the reason it
+    # survived review is that it reads like scaffolding nobody would question. /whoami answers the
+    # same question — is my token accepted, and as whom — and it exists.
 ]

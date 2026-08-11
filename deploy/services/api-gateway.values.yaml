@@ -66,6 +66,27 @@ env:
   #   register / login  — a stranger has no token yet; that is the whole point of the route.
   #   refresh           — the refresh token IS the credential; an access token is not required.
   # Everything else is auth=required. Deny-by-default applies to routing too.
+  # OUR SERVICES WERE ABSENT FROM THIS TABLE UNTIL NOW, AND NOTHING SAID SO. The route table is
+  # the ONLY thing that reaches an upstream: operations, reminders, loyalty, insights and campaigns
+  # were all running, healthy, pinned and rolled — and every call the console made to them 404'd at
+  # the gateway with {"error":"NOT_FOUND"}, which reads like a wrong path rather than a missing
+  # route. It was found the first time a real browser asked, which is the argument for the browser.
+  #
+  # ONE addition carries auth=none — /api/v1/signup, which creates the account a token would come
+  # from. Its whole subtree is public: opening a shop, asking for a verification code, spending it,
+  # and signing in. Every one of them answers a wrong number exactly as it answers a wrong
+  # password, so being reachable without a token reveals nothing.
+  #
+  # identity's /api/v1/otp is DELIBERATELY NOT ROUTED. It was, for an hour, and that was the bug:
+  # the browser proved a number directly against identity, identity recorded no verdict, and our
+  # sign-in had nothing to ask — so the verification step was a screen a person could simply walk
+  # around. The exchange now runs inside operations, which writes the answer down.
+  #
+  # /api/v1/search was missing until a browser asked for it: the keypad's prefix suggest 404'd on
+  # every keystroke, so finding a customer by typing part of his number simply did not work — and
+  # nothing in any log said so, because a 404 at the gateway never reaches a service.
+  #
+  # Everything else is auth=required, because deny-by-default applies to routing too.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -78,7 +99,26 @@ env:
       {"prefix":"/api/v1/roles","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/policies","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/subjects","upstream":"http://authz-service:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/api/v1/audit","upstream":"http://audit-service:8000","auth":"required","strip_prefix":false,"capabilities":["audit.view"]}
+      {"prefix":"/api/v1/audit","upstream":"http://audit-service:8000","auth":"required","strip_prefix":false,"capabilities":["audit.view"]},
+      {"prefix":"/api/v1/compliance","upstream":"http://compliance-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/billing","upstream":"http://billing-service:8000","auth":"required","strip_prefix":false},
+
+      {"prefix":"/api/v1/signup","upstream":"http://operations:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/oauth/token","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/service-accounts","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/till","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/field","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/staff","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/partner","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/subscription","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/operator","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/reminders","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/prefs","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/loyalty","upstream":"http://loyalty:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/insights","upstream":"http://insights:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/campaigns","upstream":"http://campaigns:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/search","upstream":"http://search-service:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
 

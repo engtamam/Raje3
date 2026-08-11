@@ -127,6 +127,25 @@
           "sort": 999,
           "catchall": true
         }
+      ],
+      "rewards": [
+        {
+          "name": "فحص ضغط الإطارات مجاناً",
+          "cost": 100,
+          "type": "service",
+          "service": "فحص ضغط الإطارات"
+        },
+        {
+          "name": "معطر سيارة",
+          "cost": 150,
+          "type": "item"
+        },
+        {
+          "name": "خصم 20 ريالاً",
+          "cost": 300,
+          "type": "discount",
+          "discount_halalas": 2000
+        }
       ]
     },
     {
@@ -173,6 +192,25 @@
           "cycle_days": 0,
           "sort": 999,
           "catchall": true
+        }
+      ],
+      "rewards": [
+        {
+          "name": "غسلة خارجية مجاناً",
+          "cost": 100,
+          "type": "service",
+          "service": "غسيل خارجي"
+        },
+        {
+          "name": "معطر سيارة",
+          "cost": 150,
+          "type": "item"
+        },
+        {
+          "name": "تلميع وتشميع مجاناً",
+          "cost": 300,
+          "type": "service",
+          "service": "تلميع وتشميع"
         }
       ]
     },
@@ -264,6 +302,25 @@
           "sort": 999,
           "catchall": true
         }
+      ],
+      "rewards": [
+        {
+          "name": "سشوار وتصفيف مجاناً",
+          "cost": 100,
+          "type": "service",
+          "service": "سشوار وتصفيف"
+        },
+        {
+          "name": "هدية العناية بالشعر",
+          "cost": 200,
+          "type": "item"
+        },
+        {
+          "name": "خصم 50 ريالاً",
+          "cost": 400,
+          "type": "discount",
+          "discount_halalas": 5000
+        }
       ]
     },
     {
@@ -311,7 +368,62 @@
           "sort": 999,
           "catchall": true
         }
+      ],
+      "rewards": [
+        {
+          "name": "تعقيم وتنظيف داخلي مجاناً",
+          "cost": 200,
+          "type": "service",
+          "service": "تعقيم وتنظيف داخلي"
+        },
+        {
+          "name": "فرش أرضيات مجاناً",
+          "cost": 400,
+          "type": "service",
+          "service": "فرش أرضيات"
+        },
+        {
+          "name": "خصم 100 ريال",
+          "cost": 600,
+          "type": "discount",
+          "discount_halalas": 10000
+        }
       ]
+    },
+    {
+      "_why": [
+        "«غير محدَّد» — the sector of an establishment that arrives through its till, and §4.2 says",
+        "it never sees the sector screen at all: its catalogue is built from its own invoices, and",
+        "asking a partner to pick a trade on its customer's behalf would be a guess written into",
+        "somebody's data.",
+        "",
+        "IT EXISTS BECAUSE seed_tenant REFUSES AN UNKNOWN SECTOR, correctly — a typo must not silently",
+        "produce an empty shop. Without a row to name, a partner provisioning an integrated shop had",
+        "no legal value to send, so the honest answer is a sector that means 'not stated' rather than",
+        "a flag that means 'skip the check'.",
+        "",
+        "NO FIELDS, and that is the whole point. `plate` on an unknown trade renders a vehicle input",
+        "in what may be a salon; absent, the field screen asks only what every trade has. The catch-all",
+        "is the single service, because an invoice line that matches nothing still has to land",
+        "somewhere or the visit is lost.",
+        "",
+        "AND NO ASSET. The vehicle is the only asset in the product, and claiming one for a shop we",
+        "cannot classify would attach cars to customers who do not have them."
+      ],
+      "key": "unspecified",
+      "name": "غير محدَّد",
+      "asset": "none",
+      "fields": [],
+      "sort": 900,
+      "services": [
+        {
+          "name": "خدمة أخرى",
+          "cycle_days": 0,
+          "sort": 999,
+          "catchall": true
+        }
+      ],
+      "rewards": []
     }
   ],
   "fields": {

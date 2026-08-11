@@ -54,6 +54,11 @@ class Preview:
     # Matched but refused by the gate. Shown as a second line only when it is non-zero, because a
     # permanent "0 excluded" is noise that teaches people to stop reading the area.
     excluded: int = 0
+    # HELD OUT BY THE CYCLE LOCK — they took this service too recently (spec §10.9.1). Kept apart
+    # from `excluded` because this one has a reason the owner should READ: a reach number that
+    # drops with no explanation looks like a fault, and the same number beside its cause looks
+    # like a system that knows his shop.
+    too_recent: int = 0
     truncated: bool = False
     # Why a sample of them matched — three at most. An owner who cannot see the rule cannot judge
     # it, and three examples explain a rule better than a sentence describing it.
@@ -61,6 +66,18 @@ class Preview:
     # What will actually happen, in a sentence: "sends now", "sends tomorrow at 9am — it is
     # outside the permitted hours", "runs every day".
     when: str = ""
+
+    @property
+    def held_out_line(self) -> str:
+        """The sentence under the reach number, or nothing at all.
+
+        SAID ONLY WHEN IT HAPPENED. A permanent «استُثني 0» is noise that teaches an owner to stop
+        reading the line — and the line is exactly what makes the lock read as intelligence rather
+        than as a number that shrank.
+        """
+        if self.too_recent <= 0:
+            return ""
+        return f"استُثني {self.too_recent} لأنهم أخذوا الخدمة قريباً"
 
 
 def sanitise_owner_text(value: str, *, required: bool) -> str:
@@ -133,6 +150,7 @@ def build(*, goal: str, template: dict[str, Any], establishment: str, owner_text
                                owner_text=clean),
         reaches=audience.count,
         excluded=getattr(audience, "excluded", 0),
+        too_recent=getattr(audience, "too_recent", 0),
         truncated=getattr(audience, "truncated", False),
         samples=[c.why for c in list(audience.candidates)[:3] if c.why],
         when=when)

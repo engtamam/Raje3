@@ -247,4 +247,37 @@ def build_container(settings: Settings) -> Container:
     container.billing_plans = build_plans(settings)
     container.sectors = SectorCatalogue(container.datastore)
     container.templates = TemplateLibrary(container.datastore)
+    # The door. Built with the sector catalogue rather than after it, because a signup that cannot
+    # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
+    from app.core.partners import PartnerRegistry
+    from app.core.signup import Http, SignupService
+
+    # THE ROLE DEFINITIONS, READ ONCE AT BOOT. A missing or malformed file leaves the list empty,
+    # and signup then REFUSES rather than creating an account with no capabilities — see
+    # core/signup.py for why a useless account is worse than none.
+    _roles: list[dict] = []
+    if settings.SIGNUP_ROLES_FILE:
+        try:
+            import json as _json
+            with open(settings.SIGNUP_ROLES_FILE, encoding="utf-8") as _f:
+                _roles = list(_json.load(_f).get("roles") or [])
+        except Exception:                                                   # noqa: BLE001
+            _roles = []
+
+    container.signup = SignupService(
+        store=container.datastore, sectors=container.sectors,
+        http=Http(timeout=settings.SIGNUP_TIMEOUT_SECONDS,
+                  internal_token=settings.INTERNAL_SERVICE_TOKEN),
+        identity_url=settings.IDENTITY_SERVICE_URL,
+        tenants_url=settings.TENANT_SERVICE_URL,
+        default_cc=settings.SIGNUP_PHONE_DEFAULT_CC,
+        authz_url=settings.AUTHZ_SERVICE_URL,
+        loyalty_url=settings.LOYALTY_SERVICE_URL,
+        roles=_roles,
+        # ATTRIBUTION AT CREATION, before the first invoice — and stamped once, so a till company
+        # that replaces another's software six months later cannot inherit its commission.
+        partners=PartnerRegistry(container.datastore, salt=settings.PII_SALT),
+        owner_role=settings.SIGNUP_OWNER_ROLE,
+        otp_deliverable=settings.SIGNUP_OTP_DELIVERABLE,
+        require_otp=settings.SIGNUP_REQUIRE_OTP)
     return container

@@ -118,6 +118,9 @@ class NullReminders:
     async def prefs_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
         return {"stopped": {}}
 
+    async def offers_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        return {"offers": []}
+
     async def set_prefs(self, tenant: str, subject_ref: str, *, stopped: list[str],
                         merge: bool = False) -> bool:
         return False
@@ -138,6 +141,18 @@ class HttpReminders:
 
     async def prefs_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
         return _get(f"{self._url}{self._ref_path(tenant, subject_ref)}",
+                    self._token, self._timeout)
+
+    async def offers_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
+        """The offers this customer is holding — the reason most people open the link.
+
+        A SEPARATE ROUTE FROM THE SWITCHES, on purpose. They fail differently and they are read at
+        different moments; folding them into one response would mean a customer who came to read
+        an offer loses it because the preferences store was slow.
+        """
+        return _get(f"{self._url}/internal/portal/offers"
+                    f"?tenant={urllib.parse.quote(tenant, safe='')}"
+                    f"&subject_ref={urllib.parse.quote(subject_ref, safe='')}",
                     self._token, self._timeout)
 
     async def set_prefs(self, tenant: str, subject_ref: str, *, stopped: list[str],

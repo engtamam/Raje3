@@ -38,3 +38,4 @@ def test_internal_manifest_with_token(client):
 def test_internal_rejects_wrong_token(client):
     r = client.get("/internal/health", headers={"X-Internal-Token": "wrong"})
     assert r.status_code == 401
+

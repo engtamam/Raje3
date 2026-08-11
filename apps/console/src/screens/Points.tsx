@@ -1,0 +1,481 @@
+/**
+ * «نقاطي» — the rewards table, and what a visit is worth.
+ *
+ * IT ARRIVES PRE-FILLED FOR HIS SECTOR ("100 points = an exterior wash, 300 = polish"). He edits a
+ * number, switches one off, or adds one — and never starts from a blank page (§10.8). So the empty
+ * state here is not an invitation to build a programme; it is a fault, the same as an empty
+ * service catalogue, and it says so.
+ *
+ * WHAT THIS SCREEN USED TO BE, AND WHY IT WAS WRONG. It listed rewards and nothing else: no edit,
+ * no retire, no add, no earning settings — while §9.2, §9.3 and §9.4 describe all four, and every
+ * one of the actions was already in the catalogue and simply never called. It also read
+ * `cost_points`, a field the API does not have, so the day a reward existed every row would have
+ * said «undefined نقطة». A read-only screen over a writable API is not a simpler product; it is a
+ * promise the owner cannot act on.
+ *
+ * TWO TABS, AND THE ORDER IS THE ARGUMENT. «المكافآت» is what he came for — the thing his customer
+ * asks about at the counter. «الكسب» is the rarer decision, set once and revisited on a quiet day
+ * (§10.8: whoever wants to work fast must be able to, without going deeper).
+ *
+ * AND THE SECTION IS ABSENT ENTIRELY WITHOUT feature.loyalty rather than shown disabled. The nav
+ * decides that from the catalogue, so this file never asks — it is only ever rendered for a shop
+ * that has the programme.
+ */
+import { useEffect, useState, type FormEvent } from 'react';
+import { Badge } from '@base-ui/design-system/Badge';
+import { Button } from '@base-ui/design-system/Button';
+import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Field, Input } from '@base-ui/design-system/Field';
+import { Segmented } from '@base-ui/design-system/Segmented';
+import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { action, call, type Catalog } from '../catalog';
+import type { Session } from '../session';
+
+/** `cost`, NOT `cost_points`. The API's own field name — see the module note. */
+interface Reward {
+  id: string;
+  name: string;
+  cost: number;
+  type: string;
+  service_id?: string;
+  discount_halalas?: number;
+  active?: boolean;
+}
+
+interface Report { redemptions?: number; customers?: number; outstanding?: number }
+
+interface Service { id: string; name: string }
+
+/** Points per visit, by level. `points` is the only inheriting field (§9.2). */
+interface EarnLevel { points?: number }
+interface EarnSettings {
+  general: EarnLevel;
+  services: Record<string, EarnLevel>;
+  groups: Record<string, EarnLevel>;
+  service_group: Record<string, string>;
+  /** `integrated` is whether a till is connected — the one thing invoice earning depends on. */
+  config: { mode?: string; points_per_riyal?: number; integrated?: boolean };
+}
+
+/**
+ * THREE KINDS, CUT WHERE THEY ACTUALLY DIFFER — which is by what the form must still ask for.
+ *
+ * The old cut was «خدمة» / «منتج» / «خصم», and the first two are the same object: a line in the
+ * owner's catalogue. A workshop calls it a service and a coffee shop calls it a product; nothing
+ * downstream reads that word, and the reminder interval is a property of the entry he configured,
+ * not of the noun. Asking him to choose between them decided nothing and implied a difference in
+ * scheduling that does not exist.
+ *
+ * What is genuinely three is the second question. A catalogue reward needs an entry picked; a
+ * discount needs an amount; a gift — a keyring, a voucher, anything not in his catalogue — needs
+ * neither, because its name IS the whole of it and the system does nothing with it beyond
+ * spending the points.
+ */
+const TYPES: { value: string; label: string; hint: string }[] = [
+  { value: 'service', label: 'من كتالوجي', hint: 'يختار ما يحصل عليه من خدماتك ومنتجاتك' },
+  { value: 'item', label: 'هدية', hint: 'شيء من خارج كتالوجك — الاسم يكفي' },
+  { value: 'discount', label: 'خصم', hint: 'مبلغ يُخصم من الزيارة' },
+];
+
+function typeLabel(t: string): string {
+  return TYPES.find((x) => x.value === t)?.label ?? t;
+}
+
+export function PointsScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [tab, setTab] = useState<'rewards' | 'earning'>('rewards');
+  const [rewards, setRewards] = useState<Reward[] | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [earn, setEarn] = useState<EarnSettings | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [type, setType] = useState(TYPES[0].value);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
+  // capability, so an absent action is a permission fact and the control is simply not rendered —
+  // never rendered-and-refused, which teaches him the product is broken.
+  const canAdd = action(catalog, 'loyalty.rewards.create');
+  const canEdit = action(catalog, 'loyalty.rewards.update');
+  const canSetGeneral = action(catalog, 'loyalty.settings.general');
+  const canSetService = action(catalog, 'loyalty.settings.service');
+  const canFollow = action(catalog, 'loyalty.settings.follow');
+  const canSetMode = action(catalog, 'loyalty.settings.mode');
+
+  const load = () => {
+    const r = action(catalog, 'loyalty.rewards.list');
+    if (r) {
+      // RETIRED ONES INCLUDED, on this screen only. The list defaults to active — right for the
+      // redemption sheet, wrong here: without them «إيقاف» made the row vanish, which reads as a
+      // delete and leaves «تفعيل» with nothing to act on.
+      call<{ rewards: Reward[] }>(session, r, { include_retired: true })
+        .then((x) => setRewards(x.rewards ?? []))
+        .catch(() => setRewards([]));
+    } else {
+      setRewards([]);
+    }
+
+    const rep = action(catalog, 'loyalty.report');
+    if (rep) call<Report>(session, rep).then(setReport).catch(() => setReport(null));
+
+    const s = action(catalog, 'loyalty.settings.read');
+    if (s) call<EarnSettings>(session, s).then(setEarn).catch(() => setEarn(null));
+
+    // HIS OWN CATALOGUE, because a service reward must name one of HIS services and the earning
+    // tab sets a number per service. Failure leaves the list empty, which removes the service
+    // reward type rather than offering one that cannot be bound.
+    const list = action(catalog, 'operations.list_services');
+    if (list) {
+      call<{ services: Service[] }>(session, list)
+        .then((x) => setServices(x.services ?? []))
+        .catch(() => setServices([]));
+    }
+  };
+
+  useEffect(load, [session, catalog]);
+
+  const patchReward = async (id: string, patch: Partial<Reward>) => {
+    if (!canEdit) return;
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, canEdit, { reward_id: id, ...patch });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addReward = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!canAdd) return;
+    const form = new FormData(e.currentTarget);
+    const type = String(form.get('type') || 'item');
+    setSaving(true);
+    setError('');
+    try {
+      await call(session, canAdd, {
+        name: String(form.get('name') || '').trim(),
+        cost: Number(form.get('cost') || 0),
+        type,
+        service_id: type === 'service' ? String(form.get('service_id') || '') : '',
+        // Riyals on the screen, halalas on the wire — no float ever touches money.
+        discount_halalas: type === 'discount' ? Number(form.get('riyals') || 0) * 100 : 0,
+      });
+      setAdding(false);
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر إضافة المكافأة.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setEarnFor = async (serviceId: string, points: number) => {
+    if (!canSetService) return;
+    setSaving(true);
+    try {
+      await call(session, canSetService, { service_id: serviceId, points });
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (rewards === null) return <div className="p-4"><Skeleton height={200} /></div>;
+
+  /** A service's effective points, and whether the number is its own (§9.2: inherit, never copy). */
+  const earnFor = (id: string): { points: number; own: boolean } => {
+    const own = earn?.services?.[id]?.points;
+    if (own !== undefined) return { points: own, own: true };
+    const group = earn?.service_group?.[id];
+    const fromGroup = group ? earn?.groups?.[group]?.points : undefined;
+    return { points: fromGroup ?? earn?.general?.points ?? 0, own: false };
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {report ? (
+        <div className="flex gap-6 rounded-card bg-surface-1 p-4 shadow-sm">
+          <span className="flex flex-col">
+            <span className="text-2xl tabular-nums">{report.customers ?? 0}</span>
+            <span className="text-sm text-text-secondary">عميلاً يجمع نقاطاً</span>
+          </span>
+          <span className="flex flex-col">
+            <span className="text-2xl tabular-nums">{report.redemptions ?? 0}</span>
+            <span className="text-sm text-text-secondary">استبدال</span>
+          </span>
+          {/* THE NUMBER WITH MONEY BEHIND IT (§9.1). Points are a deferred financial obligation,
+              and an owner who cannot see the size of what he promised cannot price the programme. */}
+          <span className="flex flex-col">
+            <span className="text-2xl tabular-nums">{report.outstanding ?? 0}</span>
+            <span className="text-sm text-text-secondary">نقطة لم تُستبدل بعد</span>
+          </span>
+        </div>
+      ) : null}
+
+      <Segmented
+        ariaLabel="أقسام النقاط"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'rewards', label: 'المكافآت' },
+          { value: 'earning', label: 'الكسب' },
+        ]}
+      />
+
+      {error ? <p className="text-danger">{error}</p> : null}
+
+      {tab === 'rewards' ? (
+        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm text-text-secondary">جدول المكافآت</h2>
+            {canAdd && !adding ? (
+              <Button variant="ghost" onClick={() => setAdding(true)}>إضافة مكافأة</Button>
+            ) : null}
+          </div>
+
+          {adding ? (
+            <form onSubmit={addReward} className="mb-4 flex flex-col gap-3">
+              <Field label="اسم المكافأة" hint="يظهر في رسالة واتساب للعميل — اجعله قصيراً">
+                <Input name="name" required maxLength={40} />
+              </Field>
+              <Field label="التكلفة بالنقاط">
+                <Input name="cost" type="number" min={1} required dir="ltr" />
+              </Field>
+              {/* THE HINT IS UNDER THE SELECT, NOT INSIDE IT. A native option list sizes itself to
+                  its longest string and is drawn by the OS, outside our layout — on a phone
+                  «خدمة من الكتالوج — تُسجَّل زيارة كاملة…» painted itself straight off the sheet.
+                  The consequence still has to be readable, so it moves to where we control it and
+                  follows the choice. */}
+              <Field label="النوع" hint={TYPES.find((t) => t.value === type)?.hint}>
+                <select
+                  name="type"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="h-10 rounded-lg bg-surface-2 px-3"
+                >
+                  {TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </Field>
+              {/* ONE FIELD AT A TIME. Showing both and labelling each with the case it belongs to
+                  («لمكافأة من نوع خصم») asks the owner to do the branching we already know the
+                  answer to. The server still refuses either mismatch by itself — the till reaches
+                  this API without passing here (§9.4) — so this hides a question, never a rule. */}
+              {type === 'discount' ? (
+                <Field label="مبلغ الخصم بالريال">
+                  <Input name="riyals" type="number" min={0} dir="ltr" required />
+                </Field>
+              ) : type === 'service' ? (
+                <Field label="ما يحصل عليه" hint="من كتالوجك — خدمة كانت أو منتجاً">
+                  <select name="service_id" required className="h-10 rounded-lg bg-surface-2 px-3">
+                    <option value="">—</option>
+                    {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </Field>
+              ) : null}
+              <div className="flex gap-2">
+                <Button type="submit" disabled={saving}>حفظ</Button>
+                <Button type="button" variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button>
+              </div>
+            </form>
+          ) : null}
+
+          {rewards.length === 0 ? (
+            // A FAULT, NOT AN INVITATION. The table is seeded for his sector at creation, so empty
+            // means the seeding did not run — and telling him to build one from scratch would hide
+            // our failure behind his effort.
+            <EmptyState
+              title="جدول المكافآت فارغ"
+              description="يصل معبّأً لقطاعك عند إنشاء الحساب — تواصل معنا إن بقي فارغاً."
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {rewards.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex flex-col">
+                    <span>{r.name}</span>
+                    <span className="text-sm text-text-secondary">{typeLabel(r.type)}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {canEdit ? (
+                      <input
+                        type="number"
+                        min={1}
+                        defaultValue={r.cost}
+                        aria-label={`تكلفة ${r.name} بالنقاط`}
+                        // A BLANK FIELD IS NOT A ZERO, and here it would also be a refusal: cost
+                        // must be greater than zero. An empty box saves nothing.
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          if (raw !== '' && Number(raw) !== r.cost) {
+                            patchReward(r.id, { cost: Number(raw) });
+                          }
+                        }}
+                        dir="ltr"
+                        className="h-10 w-24 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                      />
+                    ) : (
+                      <span className="tabular-nums text-text-secondary">{r.cost}</span>
+                    )}
+                    <span className="text-sm text-text-secondary">نقطة</span>
+                    {r.active === false ? <Badge tone="neutral">موقوفة</Badge> : null}
+                    {/* RETIRED, NEVER DELETED. Every redemption in history references a reward,
+                        and a receipt must not restate itself when the menu changes. */}
+                    {canEdit ? (
+                      <Button
+                        variant="ghost"
+                        disabled={saving}
+                        onClick={() => patchReward(r.id, { active: r.active === false })}
+                      >
+                        {r.active === false ? 'تفعيل' : 'إيقاف'}
+                      </Button>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : (
+        <section className="flex flex-col gap-4">
+          {/* THE SWITCH, NOT TWO CHECKBOXES (§9.3). A shop granting by invoice AND by service
+              grants twice for one transaction — an error that does not show on the screen but at
+              the end of the month, as an obligation double what he expected. */}
+          {canSetMode ? (
+            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
+              <h2 className="mb-3 text-sm text-text-secondary">طريقة الاحتساب</h2>
+              <Segmented
+                ariaLabel="طريقة احتساب النقاط"
+                value={earn?.config?.mode === 'invoice' ? 'invoice' : 'services'}
+                onChange={async (mode) => {
+                  setSaving(true);
+                  setError('');
+                  try {
+                    await call(session, canSetMode, {
+                      mode,
+                      points_per_riyal: earn?.config?.points_per_riyal ?? 1,
+                    });
+                    load();
+                  } catch (e) {
+                    // A SHOP WITH NO TILL CANNOT EARN BY INVOICE — the field screen records no
+                    // amounts (§9.3). The service refuses in a sentence the owner can read; the
+                    // switch must show it, not swallow it, and must stay where it was.
+                    setError(e instanceof Error ? e.message : 'تعذّر تغيير طريقة الاحتساب');
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                options={[
+                  { value: 'services', label: 'بالخدمات' },
+                  { value: 'invoice', label: 'بقيمة الفاتورة' },
+                ]}
+              />
+              {/* SAID BEFORE THE PRESS, NOT AFTER IT. The service refuses invoice earning without a
+                  till and says why, and that refusal now reaches the screen — but a rule the owner
+                  only meets by tripping over it is a rule the screen kept from him. The option
+                  stays visible and pressable: it is a capability he can buy by connecting a till,
+                  and a choice that vanishes reads as a fault (§ui 11). */}
+              {earn?.config?.integrated === false ? (
+                <p className="mt-3 text-sm text-text-secondary">
+                  الاحتساب بقيمة الفاتورة يحتاج ربطاً بالكاشير — الشاشة الميدانية تسجّل زيارة، لا مبلغاً.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {canSetGeneral ? (
+            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
+              <label className="flex items-center justify-between gap-3">
+                <span className="flex flex-col">
+                  <span className="text-sm">نقاط لكل زيارة (عام)</span>
+                  <span className="text-sm text-text-secondary">
+                    كل خدمة بلا رقم خاص تأخذ هذا الرقم.
+                  </span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  defaultValue={earn?.general?.points ?? 0}
+                  dir="ltr"
+                  onBlur={async (e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === '' || Number(raw) === (earn?.general?.points ?? 0)) return;
+                    setSaving(true);
+                    try {
+                      await call(session, canSetGeneral, { points: Number(raw) });
+                      load();
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          {canSetService && services.length > 0 ? (
+            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
+              <h2 className="mb-3 text-sm text-text-secondary">نقاط خدمة بعينها</h2>
+              <ul className="flex flex-col gap-2">
+                {services.map((s) => {
+                  const { points, own } = earnFor(s.id);
+                  return (
+                    <li key={s.id} className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2">
+                        <span>{s.name}</span>
+                        {/* SHOWN WHERE IT HAPPENED (§10.8.1), never in a distant settings screen
+                            he would have to find. */}
+                        {own ? <Badge tone="accent">إعداد خاص</Badge> : null}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          defaultValue={points}
+                          aria-label={`نقاط ${s.name}`}
+                          dir="ltr"
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim();
+                            if (raw !== '' && Number(raw) !== points) {
+                              setEarnFor(s.id, Number(raw));
+                            }
+                          }}
+                          className="h-10 w-24 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                        />
+                        {/* A DELETE, NOT A WRITE OF TODAY'S GENERAL VALUE: following means tracking
+                            it from now on, and writing the current number would freeze it. */}
+                        {own && canFollow ? (
+                          <Button
+                            variant="ghost"
+                            disabled={saving}
+                            onClick={async () => {
+                              setSaving(true);
+                              try {
+                                await call(session, canFollow, { service_id: s.id });
+                                load();
+                              } finally {
+                                setSaving(false);
+                              }
+                            }}
+                          >
+                            العودة إلى العام
+                          </Button>
+                        ) : null}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      )}
+    </div>
+  );
+}

@@ -21,8 +21,8 @@ image:
   # LOCAL, like operations: built here and imported into the node's containerd, `docker.io/`
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
-  repository: docker.io/raje3/reminders
-  digest: "sha256:ca5d279cc70fa4be10f781a2ed35c90823f062c3536496de8d3a076ced81eaa6"
+  repository: 127.0.0.1:5055/raje3/reminders
+  digest: "sha256:7d3a3d9a7b968eed3d428f7bba4564de4d5abe848789eba2d1c72a10fa57c8f6"
 
 replicas: 1
 

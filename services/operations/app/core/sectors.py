@@ -57,6 +57,13 @@ PLATFORM = "_platform"
 DEFAULT_CATCHALL = "خدمة أخرى"
 
 
+# THE SECTOR THAT MEANS "NOT STATED". An establishment provisioned by its till never chooses one
+# (§4.2): its catalogue comes from its own invoices and its screen asks only what every trade has.
+# A named row rather than an empty string, because `seed_tenant` refuses an unknown sector — and it
+# should, since a typo must not quietly produce a shop with no catalogue at all.
+UNSPECIFIED = "unspecified"
+
+
 class SectorError(Exception):
     """A refusal a console user can act on: an unknown sector, a duplicate key, a bad file."""
 
@@ -130,6 +137,15 @@ class SectorCatalogue:
             "asset": sector.get("asset", "none"),
             "fields": list(sector.get("fields", [])),
             "services": services,
+            # THE REWARDS TABLE THE SHOP STARTS WITH (§10.8). Same reasoning as the services: an
+            # owner who must invent a loyalty programme before switching one on does not switch one
+            # on. It lives on the sector — beside the services it references by NAME, since sector
+            # rows are shared and a service id belongs to one establishment.
+            #
+            # ALLOWED TO BE EMPTY, and one sector deliberately is: a shop whose catalogue arrives
+            # from its own till has no service we could name, and a gift we invented would be the
+            # only row on the screen he did not choose.
+            "rewards": list(sector.get("rewards", [])),
             "sort": int(sector.get("sort", 0)),
             "active": bool(sector.get("active", True)),
             "updated": int(time.time()),
@@ -228,7 +244,7 @@ class SectorCatalogue:
                 # wrong one to almost everybody, and a wrong price on a screen is worse than none.
                 price_minor=0,
                 sort=int(entry.get("sort", 0)),
-                catchall=bool(entry.get("catchall", False)), created=now))
+                catchall=bool(entry.get("catchall", False)), seeded=True, created=now))
             created += 1
 
         # RECORDED EVEN WHEN NOTHING WAS CREATED. A re-run adds no services (it is idempotent by
@@ -238,6 +254,59 @@ class SectorCatalogue:
                           {"id": tenant, "tenant": tenant, "sector": sector_key,
                            "integrated": bool(integrated), "updated": now})
         return created
+
+    async def rewards_for(self, *, tenant: str, sector_key: str) -> list[dict[str, Any]]:
+        """This shop's starting rewards, with every service NAME already resolved to ITS id.
+
+        RESOLVED HERE, NOT IN LOYALTY. The sector row can only name a service — sector rows are
+        shared by every shop in the trade, and a service id belongs to exactly one of them. The
+        resolution therefore has to happen where the shop's own catalogue is, which is here; asking
+        loyalty to do it would mean loyalty reading operations' tables.
+
+        A REWARD WHOSE SERVICE IS MISSING IS DROPPED, not shipped without one. `create` refuses a
+        service reward with no service, and rightly: "free wash" that records no visit and restarts
+        no cycle is a name and nothing else. An integrated shop seeds no services at all, so this
+        is a real case rather than a defensive branch.
+        """
+        sector = await self.get(sector_key)
+        if not sector:
+            return []
+        by_name = {s.name: s.id for s in await ServiceStore(self._s).list(tenant, active_only=False)}
+        out: list[dict[str, Any]] = []
+        for entry in sector.get("rewards", []):
+            reward = {k: v for k, v in entry.items() if k != "service"}
+            if entry.get("type") == "service":
+                sid = by_name.get((entry.get("service") or "").strip())
+                if not sid:
+                    continue
+                reward["service_id"] = sid
+            out.append(reward)
+        return out
+
+    async def tenant_row(self, tenant: str) -> dict[str, Any] | None:
+        """This establishment's sector row — sector, integrated, when it was written.
+
+        Returns None for a tenant provisioned before we recorded any of this, which the callers
+        treat as "nothing known" rather than as a default. A guess here renders a plate field in a
+        salon, or retires a catalogue nobody asked us to touch.
+        """
+        return await self._s.get(TENANT_SECTOR, tenant)
+
+    async def mark_integrated(self, tenant: str) -> bool:
+        """Record that this shop's till talks to us. Idempotent; False when there was no row.
+
+        WRITTEN ONCE AND NEVER UNSET. Integration is a fact about the shop, not a state that
+        toggles: a till that goes quiet for a week has not become a manual shop, and un-marking it
+        would re-seed a catalogue its invoices already built.
+        """
+        row = await self.tenant_row(tenant)
+        if row is None:
+            return False
+        if row.get("integrated"):
+            return True
+        await self._s.put(TENANT_SECTOR, tenant,
+                          {**row, "integrated": True, "updated": int(time.time())})
+        return True
 
     async def sector_of(self, tenant: str) -> str:
         """Which sector this establishment is, or empty if it was provisioned before we recorded

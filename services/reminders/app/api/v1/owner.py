@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.core.reach import Reach
 from app.core.stores import RuleStore, ScheduleStore, SendLogStore
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
@@ -136,7 +137,11 @@ async def send_log(request: Request, outcome: str = Query(default=""),
 class SettingsIn(BaseModel):
     # Every field optional: an owner changing the lead time must not be forced to restate the
     # interval, and a model requiring both would make a one-field edit a two-field decision.
-    interval_days: float | None = Field(default=None, ge=1, le=1095)
+    # ZERO IS A VALUE, NOT AN ABSENCE. It means "this service has no natural cycle" — a one-off
+    # repair, a diagnostic — and `operations` has always allowed it on the catalogue row. The tree
+    # refused it (ge=1), so an owner clearing the cycle on «خدماتي» got a 422 and a screen that
+    # simply did not save, with no sentence to read. The two stores now agree on what 0 means.
+    interval_days: float | None = Field(default=None, ge=0, le=1095)
     lead_days: float | None = Field(default=None, ge=0, le=60)
     follow_up_days: int | None = Field(default=None, ge=0, le=180)
     enabled: bool | None = None
@@ -158,6 +163,63 @@ def _settings(request: Request):
         "enabled": True})
 
 
+@router.get("/offer", dependencies=[Depends(rate_limit)])
+async def active_offer(request: Request, subject_ref: str = Query(min_length=8, max_length=128),
+                       principal: Principal = Depends(_READ)) -> dict:
+    """The offer this customer is holding, for the line above the service grid (§5.6.2).
+
+    AN OFFER THE OPERATOR CANNOT SEE BECOMES AN ARGUMENT AT THE COUNTER. The customer is holding a
+    message from this shop; the man in front of him knows nothing about it; both are embarrassed,
+    and the shop either honours something it did not plan or refuses something it did send.
+
+    THE PSEUDONYM IS THE KEY, because this service has no names and wants none. The console gets it
+    from the customer record operations already serves it — the same identifier every peer uses.
+
+    EXPIRED ANSWERS `null`, not an expired offer with a flag. A screen that renders one that has
+    run out contradicts the operator out loud, which is worse than showing nothing at all.
+    """
+    row = await SendLogStore(request.app.state.container.datastore).active_offer(
+        principal.tenant, subject_ref, now=int(time.time()))
+    if not row:
+        return {"offer": None}
+    return {"offer": {"text": row.get("offer_text", ""),
+                      "expires_at": int(row.get("offer_expires_at") or 0),
+                      "sent_at": int(row.get("at") or 0)}}
+
+
+@router.get("/offers", dependencies=[Depends(rate_limit)])
+async def customer_offers(request: Request, subject_ref: str = Query(min_length=8, max_length=128),
+                          include_expired: bool = Query(default=True),
+                          principal: Principal = Depends(_READ)) -> dict:
+    """Every offer this customer has been sent, for the owner looking at his record.
+
+    THE EXPIRED ONES ARE INCLUDED HERE AND NOWHERE ELSE, and the difference is who is asking. The
+    customer's page and the field screen must never show a dead offer — it contradicts the shop out
+    loud. The owner asks a different question: "did he get last month's offer?" as often as "what
+    is he holding now", and hiding it would make his own history unreadable.
+
+    THE SEND LOG IS THE ANSWER, not a second table. Whoever received the message holds the offer;
+    whoever did not, never did.
+    """
+    now = int(time.time())
+    store = SendLogStore(request.app.state.container.datastore)
+    rows = await store.since(principal.tenant, subject_ref, since=0)
+    out = []
+    for r in rows:
+        if not r.get("offer_text") or r.get("outcome") != "sent":
+            continue
+        expires = int(r.get("offer_expires_at") or 0)
+        if not include_expired and expires <= now:
+            continue
+        out.append({"text": r.get("offer_text", ""), "expires_at": expires,
+                    "sent_at": int(r.get("at") or 0),
+                    "services": list(r.get("offer_services") or []),
+                    # Said by the server rather than derived by the screen: two clocks disagreeing
+                    # about whether an offer is live is a support call nobody can settle.
+                    "live": expires > now})
+    return {"offers": sorted(out, key=lambda o: -o["sent_at"])}
+
+
 @router.get("/settings", dependencies=[Depends(rate_limit)])
 async def read_settings(request: Request, service_id: str = Query(default=""),
                         principal: Principal = Depends(_READ)) -> dict:
@@ -173,8 +235,19 @@ async def read_settings(request: Request, service_id: str = Query(default=""),
                 "customised": tree.is_customised(service_id),
                 "settings": {k: {"value": r.value, "source": r.source}
                              for k, r in tree.resolve_all(service_id).items()}}
+    # `service_group` TRAVELS WITH THE GROUPS, and it has to. A group's settings without its
+    # membership is a name and a number the screen cannot attach to anything — «خدماتي» rendered a
+    # flat list of twenty services while the system already knew four of them were one group,
+    # because the only place membership was ever reported was the answer to the write that created
+    # it. A screen that must remember a POST to know the world is a screen that is wrong after a
+    # reload.
+    # AND THE OVERRIDES THEMSELVES, NOT A LIST OF NAMES. This answered `customised_services` — the
+    # ids and nothing else — so a screen listing twenty services could say WHICH were customised
+    # but not to what, and its only way to find out was one request per service. Twenty round
+    # trips for values that are already in the row this handler just read.
     return {"general": tree.general, "groups": tree.groups,
-            "customised_services": sorted(tree.services)}
+            "service_group": tree.service_group,
+            "services": tree.services}
 
 
 @router.put("/settings", dependencies=[Depends(rate_limit)])
@@ -275,7 +348,11 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
     # eventually disagrees with the source, and the owner sees two figures with no way to tell
     # which is true — the shape of a support call nobody can close.
     ceiling = await c.ceiling.read(tenant)
-    reached = await c.reach.count(tenant)
+    # BUILT HERE RATHER THAN READ OFF THE CONTAINER, because the container has no `reach`: the
+    # window belongs to the tick, which constructs its own. `c.reach` was written from memory,
+    # never called, and answered every request with a 500 — and the screen it feeds sat on a
+    # loading skeleton for ever rather than saying so. Found by opening the page in a browser.
+    reached = await Reach(c.datastore).count(tenant, now=int(time.time()))
 
     pending, _ = await store._find(tenant, {"state": "pending"}, limit=200,
                                    sort=("due_at", "asc"))

@@ -428,9 +428,77 @@ for svc_dir in sorted((ROOT / "services").iterdir()) if (ROOT / "services").is_d
                         continue
                     declared.add((re.sub(r"\{[^}]*\}", "{}", a.get("path", "")),
                                   a.get("method", "GET")))
-    for path, method in sorted(routes - declared):
+    # EXEMPTED WITH A REASON — THE PLATFORM'S OWN MECHANISM, not one invented here. Every
+    # base-service declares an `UNDECLARED_ROUTES` list for routes that are real and deliberately
+    # not app controls; compliance-service uses it for the legal gate the shell drives rather than
+    # a user clicks. Ours needs it for the two signup routes: the catalogue is fetched WITH a
+    # token, so a route that exists precisely because there is no token yet cannot appear in a list
+    # of what its holder may do.
+    #
+    # THE `why` IS REQUIRED. Without it this is a skip-list, and a skip-list is how a forgotten
+    # route stops being a fault and starts being a habit.
+    exempt = set()
+    uf = svc_dir / "app" / "user_actions.py"
+    if uf.is_file():
+        try:
+            utree = ast.parse(read(uf))
+        except SyntaxError:
+            utree = None
+        for node in ast.walk(utree) if utree else []:
+            if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "UNDECLARED_ROUTES":
+                for el in getattr(node.value, "elts", []):
+                    try:
+                        row = ast.literal_eval(el)
+                    except Exception:                           # noqa: BLE001
+                        continue
+                    if not row.get("why"):
+                        fail(f"{svc}/app",
+                             f"UNDECLARED_ROUTES lists {row.get('method')} {row.get('path')} "
+                             f"with no `why` — an exemption without a reason is a skip-list")
+                        continue
+                    exempt.add((re.sub(r"\{[^}]*\}", "{}", row.get("path", "")),
+                                row.get("method", "GET")))
+
+    for path, method in sorted(routes - declared - exempt):
         fail(f"{svc}/app", f"{method} {path} is a user-facing route with no declared action — "
                            f"the console cannot render it, and nothing fails")
+
+
+# ── 13b. a promise of delivery matches a channel that can deliver ─────────────────────────────
+#
+# THE FAILURE THIS EXISTS FOR, and it is the quietest one in the product. notification-service's
+# `console` WhatsApp driver writes a log line and returns True. identity therefore answers
+# `delivered: true`, our signup answers "we sent you a code", and the person waits for a message no
+# part of the system ever attempted. Every component is honest; the sum is a lie.
+#
+# The only place that knows is the one that CHOSE the driver. So operations declares
+# SIGNUP_OTP_DELIVERABLE, and this ties that declaration to the channel actually configured — in
+# both directions: claiming deliverability on a console chain fails the build, and forgetting to
+# flip it when Meta is wired in leaves signup refusing a code it could have sent, which is also a
+# failure and also caught.
+_ops = read(VALUES / "operations.values.yaml")
+_notif = read(VALUES / "notification-service.values.yaml")
+if _ops and _notif:
+    _claims = scalar(_ops, "SIGNUP_OTP_DELIVERABLE").lower() == "true"
+    _chain = scalar(_notif, "WHATSAPP_CHAIN")
+    # A chain is a comma-separated fallback list; `meta` anywhere in it means a real send is
+    # possible. `console` and `webhook` are development shapes that report success regardless.
+    _real = any(link.strip() == "meta" for link in _chain.split(","))
+    if _claims and not _real:
+        fail("operations.values.yaml",
+             f"SIGNUP_OTP_DELIVERABLE is true but notification-service's WHATSAPP_CHAIN is "
+             f"{_chain!r} — the console driver returns success without sending, so every layer "
+             f"would report a delivered code that does not exist")
+    if _real and not _claims:
+        fail("operations.values.yaml",
+             "WHATSAPP_CHAIN can reach Meta but SIGNUP_OTP_DELIVERABLE is false — signup refuses "
+             "to send a code it could actually deliver, and blames itself for it")
+    # AND THE COMBINATION THAT CANNOT EVER BE RIGHT: demanding a proof that cannot be sent. It is
+    # a locked door with no key, and the person on the wrong side of it did nothing wrong.
+    if str(scalar(_ops, "SIGNUP_REQUIRE_OTP")).lower() == "true" and not _claims:
+        fail("operations.values.yaml",
+             "SIGNUP_REQUIRE_OTP is true while SIGNUP_OTP_DELIVERABLE is false — every new owner "
+             "would be told to confirm a number, and no code would ever be sent to confirm it")
 
 
 # ── 14. the owner holds everything, and the two lanes never mix ───────────────────────────────

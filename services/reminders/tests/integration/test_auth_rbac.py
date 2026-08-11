@@ -119,3 +119,23 @@ def test_rate_limit_429(auth_env):
     second = rl_client.get("/api/v1/whoami", headers=tok)
     assert first.status_code == 200
     assert second.status_code == 429
+
+
+def test_the_owners_today_screen_answers(client):
+    """THE ROUTE «اليوم» IS BUILT FROM, and it 500'd on every call in production while 581 unit
+    tests stayed green — because not one of them called it. `c.reach` was written from memory and
+    the container has no such attribute.
+
+    The console made it worse: a failed read left the screen on a loading skeleton for ever, so
+    the symptom was grey boxes rather than an error. Found by opening the page in a browser.
+
+    It asserts the SHAPE the screen reads, never the numbers — those belong to whatever the shop
+    did, and pinning them would make this fail on data rather than on code.
+    """
+    r = client.get("/api/v1/reminders/today",
+                   headers=_auth(_token(caps=["reminders.read"], tenant="t1")))
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert set(body["messages"]) >= {"sent_today", "waiting"}
+    assert "known" in body["ceiling"]

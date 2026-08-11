@@ -1,0 +1,156 @@
+/**
+ * «رسائلي» — what goes out in my name.
+ *
+ * IT OPENS ON WHAT IS BEING SENT NOW, never on a setup screen. That is the rule for every section
+ * (§10.8), and it matters most here because this is the one an owner opens when he is nervous:
+ * something went out, or did not, and he wants to see it rather than configure it.
+ *
+ * AND THE WORDS «قالب» AND «فئة» AND «اعتماد» DO NOT APPEAR. They are ours — Meta's vocabulary and
+ * our library's — and an owner who meets them concludes the product needs study. He picks a TONE
+ * once and every wording follows; that is the whole of his involvement with sixty-six templates.
+ *
+ * TWO TABS, BECAUSE THE TWO LISTS ANSWER DIFFERENT QUESTIONS. Stacked in one scroll, an owner
+ * hunting for "did my campaign go out" scrolls past four automatic occasions every time, and the
+ * thing he came for is never the thing on screen.
+ *
+ * AND «حملاتي» IS SHOWN LOCKED WHEN HIS PLAN HAS NO CAMPAIGNS, never removed. It used to vanish —
+ * `campaigns === null` rendered nothing at all — and a section that disappears reads as a fault,
+ * while a capability nobody can see is one nobody can buy.
+ */
+import { useEffect, useState } from 'react';
+import { Badge } from '@base-ui/design-system/Badge';
+import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Segmented } from '@base-ui/design-system/Segmented';
+import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Lock } from 'lucide-react';
+import { action, call, type Catalog } from '../catalog';
+import type { Session } from '../session';
+
+interface Campaign { id: string; name?: string; goal?: string; state?: string; sent?: number }
+interface Schedule { schedule: { kind?: string; due_at?: number }[]; count: number }
+
+/**
+ * The occasions, by their names rather than by their template ids.
+ *
+ * `kind` matches what the scheduler stores, which is how a count is attached to each without the
+ * screen inventing a mapping. A kind the backend adds later and this list does not name simply
+ * does not appear here — which is the safe direction: a missed row is a gap, an invented one is a
+ * promise the engine does not keep.
+ */
+const OCCASIONS: { kind: string; label: string; help: string }[] = [
+  { kind: 'reminder', label: 'تذكير الموعد', help: 'قبل موعد الخدمة القادمة بأيام.' },
+  { kind: 'follow_up', label: 'الاطمئنان بعد الزيارة', help: 'بعد الزيارة بأيام — يسأل إن كان كل شيء تمام.' },
+  { kind: 'review_request', label: 'طلب التقييم', help: 'بعد زيارة ناجحة.' },
+  { kind: 'campaign', label: 'الحملات', help: 'ما تُطلقه أنت على شريحة من عملائك.' },
+];
+
+export function MessagesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [tab, setTab] = useState<'auto' | 'campaigns'>('auto');
+  const [schedule, setSchedule] = useState<Schedule | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+
+  useEffect(() => {
+    const s = action(catalog, 'reminders.list_schedule');
+    if (s) {
+      call<Schedule>(session, s, { state: 'pending', limit: 200 })
+        .then(setSchedule)
+        .catch(() => setSchedule({ schedule: [], count: 0 }));
+    } else {
+      setSchedule({ schedule: [], count: 0 });
+    }
+
+    const c = action(catalog, 'campaigns.list');
+    if (c) {
+      call<{ campaigns: Campaign[] }>(session, c)
+        .then((x) => setCampaigns(x.campaigns ?? []))
+        .catch(() => setCampaigns([]));
+    } else {
+      // NOT AN ERROR AND NOT AN EMPTY LIST: the plan does not include campaigns. `null` is the
+      // LOCKED state — the tab is still there, and it says why.
+      setCampaigns(null);
+    }
+  }, [session, catalog]);
+
+  const waitingOf = (kind: string) =>
+    (schedule?.schedule ?? []).filter((r) => r.kind === kind).length;
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      <Segmented
+        ariaLabel="أقسام الرسائل"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'auto', label: 'ما يُرسَل تلقائياً' },
+          { value: 'campaigns', label: 'حملاتي' },
+        ]}
+      />
+
+      {tab === 'auto' ? (
+      <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+        <h2 className="mb-3 text-sm text-text-secondary">ما يُرسَل تلقائياً</h2>
+        {schedule === null ? (
+          <Skeleton height={140} />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {OCCASIONS.map((o) => {
+              const waiting = waitingOf(o.kind);
+              return (
+                <li key={o.kind} className="flex items-center justify-between gap-3">
+                  <span className="flex flex-col">
+                    <span>{o.label}</span>
+                    <span className="text-sm text-text-secondary">{o.help}</span>
+                  </span>
+                  {/* THE STATE, NOT A SWITCH. Turning an occasion off is a per-service setting in
+                      the tree, and it lives in «خدماتي» where he is looking at the service it
+                      belongs to. A global switch here would be a second place to change one thing,
+                      and the two would disagree. */}
+                  <span className="shrink-0 tabular-nums text-text-secondary">
+                    {waiting > 0 ? `${waiting} بانتظار الإرسال` : '—'}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+      ) : campaigns === null ? (
+        // LOCKED, NOT HIDDEN — and it names the thing rather than the plan tier, because "campaigns
+        // are in a higher plan" is a fact about our price list and "reach a group of your customers
+        // with one offer" is a fact about his shop.
+        <section className="rounded-card bg-surface-1 p-4 text-center shadow-sm">
+          {/* The kit's EmptyState takes a rendered node, not a component — the same shape «فريقي»
+              already uses for its locked branches tab. */}
+          <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
+          <EmptyState
+            title="الحملات ليست في باقتك"
+            description="الحملة تصل بعرض واحد إلى شريحة من عملائك الموافقين — بدل رسالة رسالة."
+          />
+        </section>
+      ) : (
+        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+          {campaigns.length === 0 ? (
+            <EmptyState
+              title="لم تُطلق حملة بعد"
+              description="اختر شريحة من عملائك الموافقين وأرسل لهم عرضاً."
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {campaigns.map((c) => (
+                <li key={c.id} className="flex items-center justify-between">
+                  <span>{c.name || c.goal || 'حملة'}</span>
+                  <span className="flex items-center gap-2">
+                    {typeof c.sent === 'number' ? (
+                      <span className="tabular-nums text-text-secondary">{c.sent} أُرسلت</span>
+                    ) : null}
+                    {c.state ? <Badge tone={c.state === 'running' ? 'accent' : 'neutral'}>{c.state}</Badge> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}

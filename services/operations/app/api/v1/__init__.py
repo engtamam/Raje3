@@ -20,6 +20,8 @@ from app.api.v1.field import router as field_router
 from app.api.v1.partner import router as partner_router
 from app.api.v1.subscription import router as subscription_router
 from app.api.v1.connect import router as connect_router
+from app.api.v1.signup import router as signup_router
+from app.api.v1.till import router as till_router
 from app.api.v1.platform import router as platform_router
 from app.api.v1.staff import router as staff_router
 
@@ -52,3 +54,7 @@ router.include_router(platform_router)
 router.include_router(partner_router)
 router.include_router(subscription_router)
 router.include_router(connect_router)
+# The only unauthenticated routes here — see the module for why they are apart.
+router.include_router(signup_router)
+# The shop's own till, on a machine credential — see the module for the hole this closes.
+router.include_router(till_router)

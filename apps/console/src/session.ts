@@ -1,20 +1,25 @@
 /**
- * WHO IS USING THIS SCREEN — asked in exactly one place, answered differently over time.
+ * WHO IS USING THIS SCREEN — asked in exactly one place.
  *
- * There is no login screen in this app yet, and that was a decision rather than an omission: the
- * field screens are worth more than the door, and building the door first would have meant
- * building it before we knew what it opens onto. Phone-and-password sign-in arrives once, later,
- * for every app at the same time.
+ * Every screen calls `useSession()`; not one of them reads a token, a tenant, or storage. That was
+ * built as a seam while there was no login at all, and it is what made adding the door a change to
+ * this file rather than to every call site.
  *
- * BUT DEFERRING A DOOR IS ONLY SAFE IF NOTHING BEHIND IT KNOWS THE DOOR IS MISSING. So identity
- * enters through this one function. Every screen asks `useSession()`; not one of them reads a
- * token, a tenant, or storage. The day sign-in lands, the body of `read()` changes and nothing
- * else does — the difference between adding a feature and rewriting an app.
+ * IT SURVIVES A CLOSED TAB, and that is a shop-floor decision rather than a security preference.
+ * The console runs on a phone behind a counter that is locked, pocketed and reopened forty times a
+ * day; a session that ended with the tab would mean typing a password forty times, and the answer
+ * to that is always a password taped to the till. The token still expires on the server's clock,
+ * which is the limit that actually holds.
  *
- * If instead each screen reached for its own token, "add login" would mean touching every call
- * site, and the ones missed would keep working against whatever was left lying in storage.
+ * THE TOKEN IS THE ONLY THING STORED. No capabilities, no role, no plan: everything the UI decides
+ * from comes out of the action catalogue on load, so a stale copy of a permission cannot outlive a
+ * change to it.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { forgetCatalog } from './catalog';
+import { SESSION_EXPIRED } from './expired';
+import { SESSION_RENEWED } from './renew';
 
 export interface Session {
   /** The establishment. Every request is scoped by it, and the server enforces the scope. */
@@ -25,46 +30,101 @@ export interface Session {
   operatorName: string;
   /** The bearer token. Held here and nowhere else, so a screen cannot log it or put it in a URL. */
   token: string;
-  /** Which sector this establishment is, because it decides which inputs render (spec 13.2) —
-   *  the plate exists in a بنشر and does not exist at all in a صالون. */
-  sector: string;
+  /**
+   * THE 31 DAYS. The bearer above lives 15 minutes — a deliberate, short blast radius — and this
+   * is what buys the next one. Without it stored, «مدة الجلسة 31 يوماً» was a claim about a token
+   * nobody kept: the owner was thrown out mid-screen a quarter of an hour after signing in.
+   */
+  refresh?: string;
 }
 
-export const ANONYMOUS: Session = {
-  tenant: '', operator: '', operatorName: '', token: '', sector: '',
-};
+export const ANONYMOUS: Session = { tenant: '', operator: '', operatorName: '', token: '' };
+
+export const KEY = 'raje3.session';
 
 /**
- * WHERE IT COMES FROM TODAY. A value handed to the app at startup — injected by the host page, or
- * a local file in development. NOT a login, and it does not pretend to be one.
- *
- * IT NEVER INVENTS A TENANT. An empty session stays empty and the screen says so, because a
- * placeholder establishment would let every screen appear to work while writing visits nobody
- * asked for into a tenant nobody owns — and that is discovered in production, in somebody's data.
+ * IT NEVER INVENTS A TENANT. An incomplete stored value reads as signed out, because a placeholder
+ * establishment would let every screen appear to work while writing visits nobody asked for into a
+ * tenant nobody owns — discovered in production, in somebody's data.
  */
 function read(): Session {
-  const raw = (globalThis as { __RAJE3_SESSION__?: Partial<Session> }).__RAJE3_SESSION__;
+  let raw: Partial<Session> | undefined;
+  try {
+    raw = JSON.parse(localStorage.getItem(KEY) || 'null') ?? undefined;
+  } catch {
+    raw = undefined;
+  }
+  // The host page may still inject one — that is how the field screens ran before there was a
+  // door, and how a test harness supplies a session without typing a password.
+  raw = raw ?? (globalThis as { __RAJE3_SESSION__?: Partial<Session> }).__RAJE3_SESSION__;
   if (!raw || !raw.tenant || !raw.token) return ANONYMOUS;
   return {
     tenant: String(raw.tenant),
     operator: String(raw.operator ?? ''),
     operatorName: String(raw.operatorName ?? ''),
     token: String(raw.token),
-    sector: String(raw.sector ?? ''),
+    refresh: raw.refresh ? String(raw.refresh) : '',
   };
 }
 
-export function useSession(): Session {
+export function useSession(): {
+  session: Session;
+  signedIn: (s: Session) => void;
+  signOut: () => void;
+} {
   const [session, setSession] = useState<Session>(read);
-  // RE-READ ON RETURN TO THE TAB. When sign-in does land it will refresh tokens in the background,
-  // and a screen holding the first token it ever saw would start failing after an hour with a 401
-  // the operator cannot act on.
+
+  // RE-READ ON RETURN TO THE TAB, and on a write from another one. An owner who signs out on his
+  // laptop and leaves the same page open on his phone is otherwise holding a screen that still
+  // works — and `storage` is the only event that reports the other tab's write.
   useEffect(() => {
     const again = () => setSession(read());
     window.addEventListener('focus', again);
-    return () => window.removeEventListener('focus', again);
+    window.addEventListener('storage', again);
+    return () => {
+      window.removeEventListener('focus', again);
+      window.removeEventListener('storage', again);
+    };
   }, []);
-  return session;
+
+  // AND ON A REFUSED TOKEN, from wherever in the app it was refused. Any request may be the one
+  // that discovers the session ended; before this, each screen caught its own 401, printed it to a
+  // console nobody has open, and left the person staring at a skeleton that would never fill.
+  useEffect(() => {
+    const gone = () => {
+      localStorage.removeItem(KEY);
+      forgetCatalog();
+      setSession(read());
+    };
+    window.addEventListener(SESSION_EXPIRED, gone);
+    return () => window.removeEventListener(SESSION_EXPIRED, gone);
+  }, []);
+
+  // AND ON A RENEWED ONE. Renewal happens inside a request already in flight, below every
+  // component, and writes the new bearer straight to storage. Without re-reading it here the hook
+  // would keep handing screens the dead token, so the next call they make 401s and renews again —
+  // working, but paying for a round trip on every request for the rest of the session.
+  useEffect(() => {
+    const fresh = () => setSession(read());
+    window.addEventListener(SESSION_RENEWED, fresh);
+    return () => window.removeEventListener(SESSION_RENEWED, fresh);
+  }, []);
+
+  const signedIn = useCallback((s: Session) => {
+    localStorage.setItem(KEY, JSON.stringify(s));
+    setSession(s);
+  }, []);
+
+  const signOut = useCallback(() => {
+    localStorage.removeItem(KEY);
+    // AND THE CATALOGUE WITH IT. It is keyed by token so it could not be served to the next
+    // person anyway, but leaving one person's capabilities in a shared browser is not a thing to
+    // rely on a key for.
+    forgetCatalog();
+    setSession(ANONYMOUS);
+  }, []);
+
+  return { session, signedIn, signOut };
 }
 
 export function isSignedIn(s: Session): boolean {

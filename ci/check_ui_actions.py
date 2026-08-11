@@ -34,10 +34,19 @@ APPS = ROOT / "apps"
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 
 
-def declared() -> set[str]:
-    """Every action id any service declares, in either catalogue."""
-    out: set[str] = set()
-    for svc in sorted(p for p in SERVICES.iterdir() if (p / "app").is_dir()):
+def declared() -> dict[str, list[str]]:
+    """Every action id any service declares, in either catalogue -> which services declare it.
+
+    THE PLATFORM'S SERVICES COUNT TOO. The gateway aggregates all of them into one catalogue, so an
+    id we choose collides across the whole fleet rather than within our own tree — and the console
+    keys on the id, so a collision means one declaration silently wins and the other is unreachable.
+    """
+    out: dict[str, list[str]] = {}
+    roots = [p for p in SERVICES.iterdir() if (p / "app").is_dir()]
+    platform_services = ROOT / "platform" / "services"
+    if platform_services.is_dir():
+        roots += [p for p in platform_services.iterdir() if (p / "app").is_dir()]
+    for svc in sorted(roots, key=lambda p: p.name):
         for name in ("user_actions.py", "admin_actions.py"):
             f = svc / "app" / name
             if not f.exists():
@@ -56,7 +65,7 @@ def declared() -> set[str]:
                     for k, v in zip(e.keys, e.values):
                         if (isinstance(k, ast.Constant) and k.value == "id"
                                 and isinstance(v, ast.Constant)):
-                            out.add(str(v.value))
+                            out.setdefault(str(v.value), []).append(svc.name)
                 break
     return out
 
@@ -91,6 +100,28 @@ def used() -> dict[str, list[str]]:
 
 have = declared()
 problems: list[str] = []
+
+# ── an AMBIGUOUS id, named by the UI without saying which service ─────────────────────────────
+#
+# AN ID IS UNIQUE WITHIN A SERVICE, NOT ACROSS THE FLEET, and that is the platform's design rather
+# than an oversight: thirteen of its services each declare `operator.get_config`, and the catalogue
+# groups actions under their service so a console reads the pair.
+#
+# What is NOT fine is our UI naming such an id bare. The lookup walks the services in order and
+# returns the first match, so the screen would call whichever service the gateway happened to list
+# first — and it would work, until the order changed.
+#
+# We met this for real: our subscribe path and billing-service's both declared `billing.subscribe`,
+# and the one at risk was OURS — the only path that refuses a paid subscription before WhatsApp is
+# connected. A shop would have reached billing's raw subscribe and bought a product it cannot send
+# with. We renamed ours rather than qualify it, because two names for two different rules is
+# clearer than one name asked for twice.
+for action_id, files in sorted(used().items()):
+    owners = set(have.get(action_id, []))
+    if len(owners) > 1:
+        problems.append(
+            f"{files[0]}: names `{action_id}` bare, but {', '.join(sorted(owners))} each declare "
+            f"it — pass the service to action(), or give ours a distinct id")
 for action_id, files in sorted(used().items()):
     if action_id not in have:
         near = sorted(h for h in have if h.split(".")[0] == action_id.split(".")[0])
@@ -106,5 +137,5 @@ if problems:
     sys.exit(1)
 
 n = len(used())
-print(f"{C_G}  ✔ every action id the UI names is declared by a service "
-      f"({n} id(s) checked against {len(have)} declared){C_N}")
+print(f"{C_G}  ✔ every action id the UI names is declared, and no two services declare the same one "
+      f"({n} used, {len(have)} declared across the fleet){C_N}")

@@ -198,6 +198,56 @@ class Settings(BaseSettings):
     # copy here is a second answer to the same question, and the first disagreement refuses a
     # subscription from a shop that connected an hour ago.
     CONNECTIONS_DRIVER: str = "null"         # null | http
+
+    # ── the door (§16.5) ──────────────────────────────────────────────────────
+    # Signing up creates a TENANT and registers its owner, which no platform service does on its
+    # own: identity registers a user INTO a tenant, tenant-service creates a tenant for an
+    # internal caller, and deciding that those two together mean "a new establishment" is a
+    # product rule. Empty URLs disable both routes rather than half-creating anything.
+    IDENTITY_SERVICE_URL: str = ""           # e.g. http://identity-service:8000
+    TENANT_SERVICE_URL: str = ""             # e.g. http://tenant-service:8000
+    SIGNUP_TIMEOUT_SECONDS: int = 10
+    # Saudi Arabia, and it MUST match identity's IDENTITY_PHONE_DEFAULT_CC. Our phone index folds
+    # numbers to E.164 the same way identity does; two different country codes would produce an
+    # index that disagrees with the platform's uniqueness rule, and the account would exist while
+    # the login said it did not.
+    SIGNUP_PHONE_DEFAULT_CC: str = "966"
+    # CAN A CODE ACTUALLY REACH A PHONE TODAY? Declared here because it is OUR deployment fact,
+    # and because nothing downstream will tell us the truth: notification-service's `console`
+    # driver writes a log line and returns True, so identity answers `delivered: true` and every
+    # layer reports success while no message exists. A chain of honest components can still add up
+    # to a lie, and the only place that knows is the one that chose the driver — us.
+    #
+    # FALSE means the signup path says so plainly instead of parking a person on a code screen for
+    # a message nobody sent. Flipped to true in the same change that points notification-service at
+    # Meta, and a CI check keeps the two in step.
+    SIGNUP_OTP_DELIVERABLE: bool = False
+    # IS PROVING THE NUMBER A CONDITION OF ENTRY? Separate from whether a code CAN be delivered,
+    # and the two are checked together by a CI gate: requiring a proof we cannot send is a locked
+    # door with no key, which is what it was until this knob existed.
+    #
+    # FALSE IS NOT "NO PROOF" — it is proof DEFERRED. The number is still recorded unverified, the
+    # screen still offers to confirm it, and «حسابي» still says it is unconfirmed. What changes is
+    # that it no longer stands between a person and his own shop. And the cost is real and worth
+    # naming: an unproven number is one a reminder may never reach, so this is a launch-phase
+    # setting rather than a preference.
+    SIGNUP_REQUIRE_OTP: bool = True
+    # ── the roles a new establishment is born with ────────────────────────────────────────
+    # Posted to authz's internal bootstrap during the signup saga. Without it the owner's token
+    # carries `caps: []` and he signs in to an empty application — every response a 2xx, and
+    # nothing anywhere reporting a fault. See core/signup.py.
+    AUTHZ_SERVICE_URL: str = ""              # e.g. http://authz-service:8000
+    # Where the rewards table is written at signup (§10.8: it arrives filled for his sector).
+    # Empty means a shop starts with no rewards — a missing table rather than a failed signup,
+    # which is the right trade for a peer that may not be deployed.
+    LOYALTY_SERVICE_URL: str = ""            # e.g. http://loyalty:8000
+    # SHIPPED IN THE IMAGE, like the sector and template seeds, so a signup at three in the
+    # morning needs nobody present. Read once per signup; after that authz owns the roles and the
+    # owner edits them from the console.
+    SIGNUP_ROLES_FILE: str = ""              # e.g. /app/data/roles.seed.json
+    # Which of those roles the registrant is given. Named rather than assumed to be the first in
+    # the file: a reordering of a JSON array must not decide who owns a shop.
+    SIGNUP_OWNER_ROLE: str = "owner"
     NOTIFICATION_SERVICE_URL: str = ""       # e.g. http://notification-service:8000
     NOTIFICATION_MESSAGING_LIMIT_PATH: str = "/internal/whatsapp/messaging-limit"
     PEER_TIMEOUT_SECONDS: int = 8

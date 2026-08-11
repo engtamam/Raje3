@@ -23,7 +23,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
-from app.core.models import Campaign, as_row
+from app.core.models import Campaign, as_row, offers_something
 from app.core.preview import PreviewError, build as build_preview, describe_when
 from app.core.share import compute as compute_share
 from app.core.spread import plan as plan_spread
@@ -49,6 +49,18 @@ class CampaignIn(BaseModel):
     # spilling past it, because a customer receiving an offer that expired yesterday sees a shop
     # that looks careless (§8.4.3).
     expires_at: int = Field(default=0, ge=0)
+    # WHICH SERVICES THE OFFER COVERS. Empty is not "unset" — it is "the whole shop", which is a
+    # real and common answer ("20% on everything this week"). Bounded because a scope longer than
+    # a shop's catalogue is not a scope.
+    scope_service_ids: list[str] = Field(default_factory=list, max_length=100)
+    # WHICH SERVICE THE `service_offer` GOAL IS ABOUT — and it had no way in.
+    #
+    # The field existed on the campaign, the audience engine read it, and the 70% cycle lock was
+    # written and tested against it (§10.9.1). But no request model carried it, so nothing could
+    # ever set it: every "offer on a service" went out as an untargeted announcement, the lock
+    # never engaged once, and the reach number read as proof that it had. A feature complete in
+    # the depth and severed at the door.
+    service_id: str = Field(default="", max_length=64)
 
 
 @router.get("/goals", dependencies=[Depends(rate_limit)])
@@ -83,7 +95,7 @@ async def preview(request: Request, body: CampaignIn,
 
     audience = await c.audience.resolve_for(
         principal.tenant, goal=body.goal, now=_now(),
-        already_reached=set())
+        already_reached=set(), service_id=body.service_id)
 
     try:
         p = build_preview(
@@ -155,9 +167,32 @@ async def create(request: Request, body: CampaignIn,
     except PreviewError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 
+    # AN OFFER WITHOUT AN END IS A PRICE CHANGE NOBODY DECIDED ON — refused here, before anything
+    # exists, and with the reason named. It is also what makes "this offer is yours" enforceable:
+    # the send log says who received it, and this says until when. Without a date the operator at
+    # the counter has nothing to check and the customer's own page has nothing to count down.
+    #
+    # REFUSED, NOT DEFAULTED. A silent "thirty days" would be a discount the shop never chose,
+    # discovered a month later in the margin.
+    if offers_something(body.goal):
+        if not body.expires_at:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                                "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم.")
+        if body.expires_at <= now:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                                "تاريخ الانتهاء مضى — اختر وقتاً قادماً.")
+
     campaign = Campaign(tenant=principal.tenant, goal=body.goal, owner_text=clean,
                         template_type=spec["template_type"], cls=spec["cls"],
-                        trigger=spec["trigger"], state="active", fire_at=body.fire_at)
+                        trigger=spec["trigger"], state="active", fire_at=body.fire_at,
+                        expires_at=body.expires_at or 0,
+                        # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
+                        # people who are 70% through their cycle for one service; an offer that
+                        # arrived because of a service and then did not cover it would be the
+                        # cruellest version of this feature.
+                        scope_service_ids=list(dict.fromkeys(
+                            ([body.service_id] if getattr(body, "service_id", "") else [])
+                            + list(body.scope_service_ids))))
 
     await request.app.state.auditor.record(
         "campaign.created", actor=principal.subject, tenant=principal.tenant,

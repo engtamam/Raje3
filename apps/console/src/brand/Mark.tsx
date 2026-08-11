@@ -66,6 +66,11 @@ export function Mark({ size = 26, className }: { size?: number; className?: stri
 /**
  * The wordmark.
  *
+ * USED EVERYWHERE THE NAME APPEARS, and that is the point of it existing at all. It was written and
+ * then left unused while three screens spelled `NAME_AR` into a `<span>` of their own — which is
+ * three places to fix on the day the name is set in a drawn logotype, and three chances to miss
+ * one. The component is not styling; it is the single place the product says its own name.
+ *
  * THE KASRA IS LOAD-BEARING, NOT DECORATION. راجَع and راجِع are different words: the first is
  * "he reviewed / went over the accounts", the second is the one about bringing someone back. A
  * product whose whole premise is the returning customer cannot be ambiguous about which word its
@@ -77,7 +82,17 @@ export const NAME_EN = 'Raje3';
 
 export function Wordmark({ locale = 'ar', className }: { locale?: 'ar' | 'en'; className?: string }) {
   return (
-    <span className={className} style={{ fontWeight: 700, letterSpacing: locale === 'en' ? '-0.01em' : 0 }}>
+    <span
+      className={className}
+      style={{
+        fontWeight: 700,
+        // ARABIC KEEPS ITS NATURAL SPACING. Negative tracking is a Latin habit: it tightens
+        // letters that stand apart, and in a connected script it pulls joined letterforms into
+        // each other — «راجِع» loses the seat its kasra sits on before anyone can say why the
+        // logo looks wrong.
+        letterSpacing: locale === 'en' ? '-0.01em' : 0,
+      }}
+    >
       {locale === 'ar' ? NAME_AR : NAME_EN}
     </span>
   );

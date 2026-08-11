@@ -172,3 +172,37 @@ def test_the_boot_guard_refuses_a_service_that_can_reach_nobody():
     s = Settings(ENV="production", INTERNAL_SERVICE_TOKEN="x" * 40, PEERS_DRIVER="null")
     with pytest.raises(ValueError, match="reached nobody|send nothing"):
         s.assert_peers_config_ok()
+
+
+# ── TRAP 4b: a field the ENGINE reads that no request model carries ────────────────────────────
+def test_the_service_the_offer_is_about_can_actually_be_set():
+    """THE FEATURE THAT WAS COMPLETE IN THE DEPTH AND SEVERED AT THE DOOR.
+
+    `Campaign.service_id` existed, `audience._too_early` enforced the 70% cycle lock against it,
+    and both were tested. But no request model declared it, so nothing could ever set it: every
+    "offer on a service" resolved as a shop-wide announcement, the lock never engaged once, and the
+    audience count read as proof of targeting that had not happened.
+
+    The previous trap in this file asks whether the DOOR drops a rule the core enforces. This one
+    asks the mirror question — whether the door can even express what the core is built to act on.
+    """
+    from app.api.v1.campaigns import CampaignIn
+    assert "service_id" in CampaignIn.model_fields
+
+
+def test_the_scope_is_a_list_the_screen_can_act_on_not_a_sentence():
+    """`owner_text` persuades and cannot be enforced: two operators read "20% off" and cover
+    different things on the same afternoon. The scope sits beside the words."""
+    from app.api.v1.campaigns import CampaignIn
+    assert "scope_service_ids" in CampaignIn.model_fields
+
+
+def test_an_offer_must_carry_an_end_date():
+    """An offer with no end is a price change nobody decided on — and the counter, the customer's
+    page and its countdown all have nothing to read."""
+    from app.core.models import offers_something
+    assert offers_something("service_offer")
+    assert offers_something("win_back")
+    # A care tip gives nothing away and expires by being read. Demanding a date for it would be a
+    # field with no meaning that somebody fills in with a guess.
+    assert not offers_something("awareness")

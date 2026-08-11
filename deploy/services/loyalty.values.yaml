@@ -9,8 +9,8 @@ service:
   port: 8000
 
 image:
-  repository: docker.io/raje3/loyalty
-  digest: "sha256:1fc324c233c5721c841747844d9705fcad42403c35221762f580a4d2e9530488"   # CI rewrites this at publish; never a :latest tag
+  repository: 127.0.0.1:5055/raje3/loyalty
+  digest: "sha256:792157b4dad4593864574e9ab229e7958b367211bf34fca94dc0a033f51eabf9"   # CI rewrites this at publish; never a :latest tag
 
 replicas: 1
 

@@ -11,7 +11,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/authz-service
-  digest: "sha256:62f5f62c119473d56a95003a2d48cb573ea7f4bb91ae33b2cecf5ac34e62499e"
+  digest: "sha256:f97190156075511ad85532f3f568494563dd15fe312f672d1955db9ccdfac06d"
 
 replicas: 1
 
@@ -114,7 +114,8 @@ env:
     loyalty.read,loyalty.redeem,loyalty.manage,
     insights.read,
     billing.read,billing.manage,billing.self,
-    tenant.read,identity.read,identity.manage,
+    tenant.read,identity.read,identity.manage,compliance.self,
+    service_accounts:read,service_accounts:write,
     file.read,file.write,ticket.read,ticket.write,
     analytics.read,wallet.read,notification.read
 

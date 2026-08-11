@@ -18,6 +18,7 @@ from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
 from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
+from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
 from app.core.stores import ServiceStore, new_id
 from app.core.operations import OperationError
@@ -184,6 +185,12 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                     service_store=ServiceStore(c.datastore), new_id=new_id,
                     now=int(time.time()))
                 item.service_ids = list(dict.fromkeys(list(item.service_ids) + res.service_ids))
+                # THE SHOP HAS JUST TOLD US IT IS INTEGRATED, by doing the one thing only an
+                # integrated shop does. Nobody could answer this at signup — the till company
+                # often connects weeks later, sometimes without the owner — so it is read from
+                # evidence instead of asked. Runs once; every invoice after this is a single read.
+                await Integration(store=c.datastore,
+                                  sectors=c.sectors).note_invoice(item.tenant)
                 # Free-text lines ride along as the custom label so the owner can read what was
                 # actually sold. Joined rather than dropped: a recurring label is the signal to
                 # offer it as a real service.
@@ -312,6 +319,38 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
             "integrated": body.integrated, "stamp_error": stamp_error,
             "fields": await sectors.fields_for(body.sector),
             "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
+
+
+class PartnerInviteIn(BaseModel):
+    """What a till company tells us when a shop presses «تفعيل» inside its software."""
+
+    phone: str = Field(min_length=6, max_length=32)
+    shop_name: str = Field(min_length=1, max_length=200)
+    # THE KEY IS THE ATTRIBUTION, and it arrives here rather than on the owner's claim for a
+    # reason: a value the OWNER could send is a value anyone could send, and commission would
+    # follow whoever typed the most convincing body.
+    partner_key: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/signup/partner-invite", dependencies=[Depends(require_internal_token)])
+async def partner_invite(request: Request, body: PartnerInviteIn) -> dict:
+    """Invite a shop whose till company just enrolled it — and create NO ACCOUNT.
+
+    THE ACCOUNT IS NOT CREATED HERE, and that is the whole design (core/claim.py). Somebody has to
+    choose a password; if it is not the owner, it is the till company — and whoever holds it can
+    connect his WhatsApp, subscribe him, and message his customers in his name.
+
+    So this records an invitation and sends him a message. He proves his number, picks his own
+    password, and the ordinary saga runs from there.
+    """
+    try:
+        return await request.app.state.container.signup.invite_partner_shop(
+            phone=body.phone, shop_name=body.shop_name, partner_key=body.partner_key)
+    except Exception as exc:                                                # noqa: BLE001
+        # INTERNAL TIER, SO IT MAY SAY WHAT IT MEANS. The caller is a service we contracted with,
+        # not a stranger — and a partner integration that fails silently is a shop nobody follows
+        # up on.
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)[:200])
 
 
 class CustomerVisitsIn(BaseModel):

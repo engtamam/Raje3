@@ -126,6 +126,58 @@ step "secrets"
 python3 "$ROOT/platform/deploy/server/gen-secrets.py"
 ok "secrets minted (shared values identical across services)"
 
+# ── 4b ────────────────────────────────────────────────────────────────────────────────────────
+# THE RS256 KEYPAIR, WHICH UPSTREAM'S SCHEMA DOES NOT KNOW ABOUT.
+#
+# secrets.schema.json declares TOKEN_HS256_SECRET and nothing else about tokens: it assumes a
+# shared symmetric secret. We run rs256 on purpose — identity SIGNS and every other service only
+# VERIFIES, so one compromised service cannot mint a session for any tenant. That choice makes the
+# keypair ours to provision, and until now nothing did: the keys on the live cluster were put there
+# by hand, which meant a fresh install had a fleet configured for rs256 and no keys to use.
+#
+# AND IDENTITY NEEDS BOTH HALVES. It is easy to read "identity signs" and give it only the private
+# key, and that is exactly what happened — /auth/refresh must VERIFY the refresh token it is handed
+# before it mints anything, so with no public key its verifier stayed at the `null` deny-by-default
+# driver and EVERY renewal returned 401. Sign-in still worked (it checks a password, not a token),
+# /readyz stayed green, and the only symptom was an owner thrown back to the login screen every 15
+# minutes — the access TTL — while holding a refresh token good for 31 days.
+#
+# Idempotent: an existing keypair is reused, never rotated. Rotating it would invalidate every live
+# session and refresh token on the platform at once.
+step "token keypair (rs256)"
+KEYDIR="$(mktemp -d)"; trap 'rm -rf "$KEYDIR"' EXIT
+if kubectl -n "$NS" get secret identity-service-secrets \
+     -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | grep -q .; then
+  kubectl -n "$NS" get secret identity-service-secrets \
+    -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' | base64 -d > "$KEYDIR/private.pem"
+  ok "keypair already present — reused, never rotated"
+else
+  openssl genrsa -out "$KEYDIR/private.pem" 2048 2>/dev/null
+  ok "keypair minted"
+fi
+openssl rsa -in "$KEYDIR/private.pem" -pubout -out "$KEYDIR/public.pem" 2>/dev/null
+PRIV_B64="$(base64 -w0 < "$KEYDIR/private.pem")"
+PUB_B64="$(base64 -w0 < "$KEYDIR/public.pem")"
+
+# Identity holds both. Everyone else holds only the public half — and WHO those are is read off the
+# values files rather than listed here, so a service added tomorrow is covered by declaring its own
+# verifier, not by remembering to edit this loop.
+kubectl -n "$NS" patch secret identity-service-secrets --type=merge \
+  -p "{\"data\":{\"TOKEN_PRIVATE_KEY\":\"$PRIV_B64\",\"TOKEN_PUBLIC_KEY\":\"$PUB_B64\"}}" >/dev/null
+ok "identity-service: private + public"
+
+verifiers=0
+for f in "$HERE"/services/*.values.yaml; do
+  grep -q 'TOKEN_VERIFIER_DRIVER: *"rs256"' "$f" || continue
+  svc="$(basename "$f" .values.yaml)"
+  [[ "$svc" == "identity-service" ]] && continue
+  kubectl -n "$NS" get secret "${svc}-secrets" >/dev/null 2>&1 || continue
+  kubectl -n "$NS" patch secret "${svc}-secrets" --type=merge \
+    -p "{\"data\":{\"TOKEN_PUBLIC_KEY\":\"$PUB_B64\"}}" >/dev/null
+  verifiers=$((verifiers + 1))
+done
+ok "public key distributed to $verifiers verifying service(s)"
+
 # ── 5 & 6 ─────────────────────────────────────────────────────────────────────────────────────
 step "databases and buckets"
 bash "$HERE/hooks/pre-deploy.sh"
