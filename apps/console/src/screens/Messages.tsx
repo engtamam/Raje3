@@ -39,6 +39,17 @@ interface LogRow {
   template_name?: string;
   cls?: string;
 }
+/** When it happened, in the words an owner uses. Same shape as «عملائي» — one habit, not two. */
+function when(at: number): string {
+  if (!at) return '';
+  const days = Math.floor((Date.now() / 1000 - at) / 86_400);
+  if (days <= 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  return `قبل ${days} أيام`;
+}
+
+interface Run { at?: number; sent?: number; suppressed?: number; reason?: string }
+
 interface Schedule { schedule: { kind?: string; due_at?: number }[]; count: number }
 
 /**
@@ -74,6 +85,8 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   /** The composer, open only when he asks for it — this tab is a list first. */
   const [launching, setLaunching] = useState(false);
+  /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
+  const [runs, setRuns] = useState<Run[] | null>(null);
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
   // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
@@ -105,6 +118,15 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
       setCampaigns(null);
     }
   }, [session, catalog]);
+
+  const openRuns = async (id: string) => {
+    const a = action(catalog, 'campaigns.runs');
+    if (!a) return;
+    // AN EMPTY LIST RATHER THAN A CLOSED PANEL ON FAILURE: he asked a question, and silence is
+    // the one answer that sends him to support.
+    setRuns(await call<{ runs: Run[] }>(session, a, { campaign_id: id })
+      .then((r) => r.runs ?? []).catch(() => []));
+  };
 
   /** Re-read the list — after a launch, so the campaign he just started is on screen. */
   const loadCampaigns = () => {
@@ -261,11 +283,62 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
                       <span className="tabular-nums text-text-secondary">{c.sent} أُرسلت</span>
                     ) : null}
                     {c.state ? <Badge tone={c.state === 'running' ? 'accent' : 'neutral'}>{c.state}</Badge> : null}
+                    {/* «ماذا حدث» — THE MOST IMPORTANT ROUTE THIS SERVICE HAS, by its own note:
+                        "it didn't arrive" is the only complaint this product generates, and every
+                        correct refusal (consent, the ceiling, quiet hours) reads as a fault until
+                        it is named. It was declared and called by nothing. */}
+                    {action(catalog, 'campaigns.runs') ? (
+                      <Button variant="ghost" onClick={() => void openRuns(c.id)}>ماذا حدث</Button>
+                    ) : null}
+                    {/* STOPPING A STANDING RULE, not deleting its history. Only while it runs —
+                        a pause button on a finished campaign is a control that does nothing. */}
+                    {c.state === 'running' && action(catalog, 'campaigns.pause') ? (
+                      <Button
+                        variant="ghost"
+                        onClick={async () => {
+                          const a2 = action(catalog, 'campaigns.pause');
+                          if (!a2) return;
+                          await call(session, a2, { campaign_id: c.id }).catch(() => null);
+                          loadCampaigns();
+                        }}
+                      >
+                        أوقفها
+                      </Button>
+                    ) : null}
                   </span>
                 </li>
               ))}
             </ul>
           )}
+
+          {/* WHAT ACTUALLY WENT OUT, PER SEND, WITH ITS REASON. Opened under the campaign it
+              belongs to rather than on a page of its own: the question is always about ONE
+              campaign, and a combined log is a log he has to filter before he can read it. */}
+          {runs ? (
+            <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">ماذا حدث</span>
+                <Button variant="ghost" onClick={() => setRuns(null)}>إغلاق</Button>
+              </div>
+              {runs.length === 0 ? (
+                <p className="text-sm text-text-secondary">لم تخرج إرسالة بعد.</p>
+              ) : (
+                runs.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+                    <span className="flex flex-col">
+                      <span className="text-sm tabular-nums">
+                        {r.sent ?? 0} وصلت · {r.suppressed ?? 0} امتنعت
+                      </span>
+                      {r.reason ? (
+                        <span className="text-xs text-text-secondary">{r.reason}</span>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-text-secondary">{when(r.at ?? 0)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : null}
         </section>
       )}
     </div>

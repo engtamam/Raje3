@@ -48,6 +48,15 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     "tenant.update_config": "no screen yet: timezone and calendar are read-only for now",
     "wallet.my_ledger": "wallet is not sold in any plan (§6.8)",
     "wallet.my_balance": "wallet is not sold in any plan (§6.8)",
+
+    # ── written down by the audit, each with the reason it is not a gap ────────────────────────
+    "reminders.get_prefs": "the CUSTOMER's own page renders these switches — portal calls the "
+                           "internal route with his reference; the console never sees them",
+    "reminders.set_prefs": "the same switches, saved from his page. An owner editing his "
+                           "customer's notification choices is the one thing consent must not be",
+    "partner.my_shops": "the till partner's own portal, not our console (§16.6.3)",
+    "partner.my_statements": "the till partner's own portal — his commission, his screen",
+    "partner.one_statement": "the till partner's own portal",
 }
 
 
