@@ -7,37 +7,51 @@
  * template to «رسائلي». Anything proposed here because it "found no place" is refused by that
  * sentence, and this comment exists so the refusal has something to point at.
  *
- * INDEX AND DETAIL, ONE BREAKPOINT. On a phone the detail replaces the index and a back button
- * returns; on a wide screen the two sit side by side and there is no navigation at all. Same
- * components, same routes — the layout differs, not the product.
+ * TABS ACROSS THE TOP, LIKE EVERY OTHER SECTION — and this replaced an index-and-detail layout
+ * that was correct in isolation and wrong in the product. It was the only screen where choosing
+ * meant leaving a list and coming back, so it read as a settings menu bolted on rather than as a
+ * section of the same application. Sameness of shape is not decoration: a person who has learned
+ * one screen has learned all of them.
  *
- * AND THE STATUS IS READ WITHOUT A TAP. Three lines answer the only question this page exists for:
- * is the relationship healthy. Everything else is one tap away, which is what stops the page
- * scrolling — the fix for scroll is structure, not smaller text.
+ * AND THE STATUS IS READ WITHOUT A TAP. Two lines above the tabs answer the only question this
+ * page exists for — is the relationship healthy — so the answer never depends on which tab
+ * happens to be open.
+ *
+ * EVERY TAB IS BUILT FROM ITS ACTIONS. A tab whose service the caller cannot reach is not
+ * rendered, because the gateway already removed those actions from the catalogue. An operator
+ * opening this page gets a short page, never a broken one.
  */
 import { useEffect, useState } from 'react';
-import { CreditCard, Database, MessageCircle, Store, UserCog } from 'lucide-react';
 import { Badge } from '@base-ui/design-system/Badge';
+import { Segmented } from '@base-ui/design-system/Segmented';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { Connect } from './Connect';
+import { DataPane, InvoicesPane, LoginPane, ShopPane } from './AccountPanes';
+import { PlansPane } from './Plans';
 
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
 interface ConnectState { state: string; message: string }
 
 type Pane = 'billing' | 'whatsapp' | 'shop' | 'login' | 'data';
 
-const ROWS: { id: Pane; label: string; hint: string; icon: typeof Store }[] = [
-  { id: 'billing', label: 'الاشتراك والفواتير', hint: 'باقتك، فواتيرك، وسيلة الدفع', icon: CreditCard },
-  { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي', icon: MessageCircle },
-  { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك', icon: Store },
-  { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك', icon: UserCog },
-  { id: 'data', label: 'بياناتي وأوراقي', hint: 'الاحتفاظ، التصدير، الاتفاقيات', icon: Database },
+/**
+ * The tabs, each with the sentence that says what is behind it.
+ *
+ * THE HINT SURVIVED THE REDESIGN, in the line under the tab strip rather than under a row. It is
+ * what stops «دخولي» being a noun somebody has to open to understand — and the tab labels are
+ * short precisely because that line carries the meaning.
+ */
+const TABS: { id: Pane; label: string; hint: string }[] = [
+  { id: 'billing', label: 'الاشتراك', hint: 'باقتك، فواتيرك، وسيلة الدفع' },
+  { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي' },
+  { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك' },
+  { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك' },
+  { id: 'data', label: 'بياناتي وأوراقي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
 ];
 
 export function AccountScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [pane, setPane] = useState<Pane | null>(null);
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null>(null);
 
@@ -48,9 +62,8 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
         .then((x) => setSub(x.subscriptions?.[0] ?? null))
         .catch(() => setSub(null));
     } else {
-      // The manager reaches this page without billing. Not an error and not a blank: the row
-      // below simply is not offered to him, and the status line does not claim a plan it cannot
-      // read.
+      // The manager reaches this page without billing. Not an error and not a blank: the tab is
+      // simply not offered to him, and the status line does not claim a plan it cannot read.
       setSub(null);
     }
 
@@ -58,99 +71,75 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
     if (w) call<ConnectState>(session, w).then(setConnected).catch(() => setConnected(null));
   }, [session, catalog]);
 
-  const rows = ROWS.filter((r) => {
-    if (r.id === 'billing') return Boolean(action(catalog, 'billing.my_subscriptions'));
-    if (r.id === 'whatsapp') return Boolean(action(catalog, 'whatsapp.connect_status'));
+  const tabs = TABS.filter((t) => {
+    if (t.id === 'billing') return Boolean(action(catalog, 'billing.plans') || action(catalog, 'billing.my_subscriptions'));
+    if (t.id === 'whatsapp') return Boolean(action(catalog, 'whatsapp.connect_status'));
+    if (t.id === 'shop') return Boolean(action(catalog, 'tenant.view_self'));
     return true;
   });
 
-  const index = (
-    <div className="flex flex-col gap-3">
-      {/* ── the three lines that answer the page's question without a tap ── */}
+  // OPENS ON THE FIRST TAB HE ACTUALLY HAS, not on a hardcoded 'billing' that a manager cannot
+  // read. `tabs` is never empty — «دخولي» and «بياناتي» are everyone's.
+  const [pane, setPane] = useState<Pane>(() => 'billing');
+  const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
+  const isConnected = connected?.state === 'connected';
+
+  return (
+    <div className="flex flex-col gap-4 p-4">
+      {/* ── the two lines that answer the page's question without a tap ── */}
       <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
         {sub === undefined ? (
           <Skeleton height={20} />
         ) : (
           <div className="flex items-center justify-between">
             <span>{sub ? `باقتك «${sub.plan_name ?? '—'}»` : 'لا يوجد اشتراك فعّال'}</span>
-            {sub?.status ? <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>{sub.status}</Badge> : null}
+            {sub?.status
+              ? <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
+                  {sub.status === 'active' ? 'فعّالة' : 'متوقفة'}
+                </Badge>
+              : null}
           </div>
         )}
         <div className="flex items-center justify-between">
-          <span dir="ltr" className="tabular-nums">
-            {connected?.state === 'connected' ? 'واتساب مربوط' : 'واتساب غير مربوط'}
-          </span>
-          {connected?.state === 'connected'
+          <span>{isConnected ? 'واتساب مربوط' : 'واتساب غير مربوط'}</span>
+          {isConnected
             ? <Badge tone="success">يعمل</Badge>
             : <Badge tone="warning">يحتاج ربط</Badge>}
         </div>
       </div>
 
-      <ul className="flex flex-col gap-2">
-        {rows.map((r) => (
-          <li key={r.id}>
-            <button
-              type="button"
-              onClick={() => setPane(r.id)}
-              className={[
-                'flex w-full items-center gap-3 rounded-card px-4 py-3 text-start shadow-sm',
-                pane === r.id ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-1',
-              ].join(' ')}
-            >
-              <r.icon size={18} />
-              <span className="flex flex-col">
-                <span>{r.label}</span>
-                <span className="text-sm text-text-secondary">{r.hint}</span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-  const detail = pane === 'whatsapp'
-    ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
-    : pane
-      ? <PaneStub label={ROWS.find((r) => r.id === pane)!.label} />
-      : null;
-
-  return (
-    <div className="p-4">
-      {/* ONE COLUMN ON A PHONE, TWO SIDE BY SIDE ON A WIDE SCREEN — and on the wide one there is
-          no navigation and no scroll, which is the whole reason the page is structured this way
-          rather than made smaller. */}
-      <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-        <div className={pane ? 'hidden lg:block' : ''}>{index}</div>
-        {detail ? (
-          <div>
-            <button
-              type="button"
-              onClick={() => setPane(null)}
-              className="mb-3 text-sm text-text-secondary lg:hidden"
-            >
-              ← رجوع
-            </button>
-            {detail}
-          </div>
-        ) : null}
+      <div className="flex flex-col gap-1">
+        <Segmented
+          ariaLabel="أقسام حسابي"
+          value={active}
+          onChange={(v) => setPane(v as Pane)}
+          options={tabs.map((t) => ({ value: t.id, label: t.label }))}
+        />
+        {/* The sentence that used to live under each row. Without it the strip is five nouns. */}
+        <p className="px-1 text-sm text-text-secondary">
+          {TABS.find((t) => t.id === active)?.hint}
+        </p>
       </div>
-    </div>
-  );
-}
 
-/**
- * A pane whose screen is a later task.
- *
- * NAMED RATHER THAN LEFT OUT, and the difference matters: a row that opens nothing reads as a
- * broken product, while a row that says what is coming reads as one being built. It carries no
- * controls, so there is nothing here to become dead code — when the pane lands, this call site is
- * replaced rather than extended.
- */
-function PaneStub({ label }: { label: string }) {
-  return (
-    <div className="rounded-card bg-surface-1 p-6 text-text-secondary shadow-sm">
-      {label} — قيد الإعداد.
+      {active === 'billing' ? (
+        <div className="flex flex-col gap-4">
+          <PlansPane
+            session={session}
+            catalog={catalog}
+            connected={isConnected}
+            // THE ONE SEAM BETWEEN TWO TABS, and it earns itself: a plan cannot run without a
+            // connected number, so the pane that says so must be able to take him there.
+            onGoConnect={() => setPane('whatsapp')}
+          />
+          <InvoicesPane session={session} catalog={catalog} />
+        </div>
+      ) : null}
+      {active === 'whatsapp'
+        ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
+        : null}
+      {active === 'shop' ? <ShopPane session={session} catalog={catalog} /> : null}
+      {active === 'login' ? <LoginPane session={session} /> : null}
+      {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
     </div>
   );
 }
