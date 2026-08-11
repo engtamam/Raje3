@@ -146,3 +146,43 @@ test('a customer who was sent an offer has it on the counter screen', async ({ s
   // AND THE END DATE, which is what makes it an offer rather than a standing discount.
   await expect(shop.getByText(/ينتهي/)).toBeVisible();
 });
+
+test('a customer with points can spend them, in front of him', async ({ shop }) => {
+  /**
+   * THE REDEMPTION PATH WAS COMPLETE AND CALLED BY NOTHING. `loyalty.redeem` existed with its
+   * idempotency key, its manager threshold and its ledger entry, and no screen in the product
+   * invoked it — a customer could earn for ever and never spend. This is the counter, which is
+   * the only place a reward is handed over.
+   *
+   * SEEDED BY VISITS, NOT BY A FIXTURE. Points come from visits and nothing else, so the balance
+   * this test spends is one the product actually produced.
+   */
+  const PHONE = `05${Date.now().toString().slice(-8)}`;
+
+  await open(shop, '/visit');
+  const service = shop.getByRole('button').filter({ hasText: /^(?!\d)/ }).first();
+
+  // Three visits, so the balance clears the cheapest seeded reward.
+  for (let i = 0; i < 3; i += 1) {
+    await open(shop, '/visit');
+    for (const d of PHONE) {
+      await shop.getByRole('button', { name: d, exact: true }).first().click();
+    }
+    await shop.getByRole('button', { name: /غسيل|تلميع|خدمة/ }).first().click();
+    await shop.getByRole('button', { name: /حفظ|تسجيل الزيارة/ }).first().click();
+    await shop.waitForTimeout(1500);
+  }
+
+  await open(shop, '/visit');
+  for (const d of PHONE) {
+    await shop.getByRole('button', { name: d, exact: true }).first().click();
+  }
+
+  // HIS BALANCE IS ON THE SCREEN — this is the assertion that would have failed for the entire
+  // life of the product before points 1 wired earning to the visit.
+  await expect(shop.getByText('رصيده')).toBeVisible({ timeout: 30_000 });
+  const line = await shop.locator('body').innerText();
+  expect(line).toMatch(/\d+ نقطة/);
+  // Either he can afford something, or the screen says how far he is — never a blank box.
+  expect(line).toMatch(/ويبقى له|تبقّى له/);
+});

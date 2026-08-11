@@ -17,6 +17,7 @@
  */
 import { announceExpiry } from './expired';
 import { renew } from './renew';
+import { newIdempotencyKey } from './queue';
 import type { Session } from './session';
 
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
@@ -173,6 +174,51 @@ export async function offerFor(session: Session, subjectRef: string): Promise<Fi
   const out = await call<{ offer: FieldOffer | null }>(
     session, `/api/v1/reminders/offer?${q.toString()}`);
   return out.offer ?? null;
+}
+
+/**
+ * HIS POINTS, AND WHAT THEY CAN BUY — read at the counter, spent at the counter.
+ *
+ * `rewards` IS ONLY WHAT THIS BALANCE AFFORDS. The service filters before answering, deliberately:
+ * a sheet listing everything and greying out most of it turns a moment of goodwill into a list of
+ * things he cannot have. `to_next_reward` carries the encouragement instead, and it is 0 when
+ * there is nothing useful to say — either he can afford everything or the shop has no rewards, and
+ * «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
+ */
+export interface FieldReward { id: string; name: string; cost: number; type?: string }
+export interface Balance {
+  points: number;
+  rewards: FieldReward[];
+  to_next_reward: number;
+  expires_at?: number;
+}
+
+export function balanceFor(session: Session, subjectRef: string): Promise<Balance> {
+  return call(session, `/api/v1/loyalty/balance/${encodeURIComponent(subjectRef)}`);
+}
+
+/**
+ * Spend the points.
+ *
+ * THE KEY IS REQUIRED BY THE ROUTE and minted here, at the press. A field phone retries, and a
+ * retry without a key is a second spend the customer holds a receipt for.
+ *
+ * `branch_id` is the SCREEN's to send, never the token's: an employee can work at more than one
+ * branch of the same establishment, so the token says which shop and only the screen knows where
+ * it is standing.
+ */
+export function redeem(
+  session: Session, subjectRef: string, rewardId: string, branchId = '',
+): Promise<{ balance?: number; entry_id?: string; message?: string }> {
+  return call(session, '/api/v1/loyalty/redeem', {
+    method: 'POST',
+    body: JSON.stringify({
+      subject_ref: subjectRef,
+      reward_id: rewardId,
+      idempotency_key: newIdempotencyKey(),
+      branch_id: branchId,
+    }),
+  });
 }
 
 /** The strip along the top — today's customers, one tap away. */

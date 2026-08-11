@@ -8,8 +8,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  customerByPhone, fetchCatalogue, offerFor, recentCustomers, suggestByPrefix,
-  type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
+  balanceFor, customerByPhone, fetchCatalogue, offerFor, recentCustomers, redeem, suggestByPrefix,
+  type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
 } from '../api';
 import { Keypad } from '../Keypad';
 import { ServiceGrid } from '../ServiceGrid';
@@ -107,17 +107,63 @@ export function Visit() {
    * recordable — this screen is used a hundred times a day and its budget is five seconds.
    */
   const [offer, setOffer] = useState<FieldOffer | null>(null);
+  /**
+   * WHAT HE HAS, AND WHAT HE CAN SPEND IT ON — beside the offer, from the same lookup.
+   *
+   * ONE by-phone CALL FOR BOTH. The offer and the balance are both keyed by the pseudonym, and
+   * two lookups for one number would double a request that sits inside a five-second journey.
+   */
+  const [subject, setSubject] = useState('');
+  const [balance, setBalance] = useState<Balance | null>(null);
+  const [redeeming, setRedeeming] = useState('');
+  const [redeemed, setRedeemed] = useState<string | null>(null);
+
   useEffect(() => {
-    if (phone.length < 9) { setOffer(null); return; }
+    if (phone.length < 9) { setOffer(null); setBalance(null); setSubject(''); setRedeemed(null); return; }
     let stale = false;
     const id = window.setTimeout(() => {
       customerByPhone(session, phone)
-        .then((r) => (r.customer?.subject_ref ? offerFor(session, r.customer.subject_ref) : null))
-        .then((o) => { if (!stale) setOffer(o); })
-        .catch(() => { if (!stale) setOffer(null); });
+        .then(async (r) => {
+          const ref = r.customer?.subject_ref ?? '';
+          if (stale) return;
+          setSubject(ref);
+          if (!ref) { setOffer(null); setBalance(null); return; }
+          // SETTLED, NOT ALL: one failing must not blank the other. A shop without the loyalty
+          // feature has no balance to read, and that is not a reason to hide his offer.
+          const [o, b] = await Promise.allSettled([offerFor(session, ref), balanceFor(session, ref)]);
+          if (stale) return;
+          setOffer(o.status === 'fulfilled' ? o.value : null);
+          setBalance(b.status === 'fulfilled' ? b.value : null);
+        })
+        .catch(() => { if (!stale) { setOffer(null); setBalance(null); } });
     }, 220);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phone, session]);
+
+  /**
+   * Spend them, in front of him.
+   *
+   * THE BALANCE IS RE-READ FROM THE SERVER rather than subtracted here. The screen's arithmetic
+   * and the ledger's would agree today and diverge the first time a rule changes, and the number
+   * the customer is told at the counter must be the one the shop is actually holding.
+   */
+  const spend = useCallback(async (rewardId: string, rewardName: string) => {
+    if (!subject || redeeming) return;
+    setRedeeming(rewardId);
+    try {
+      await redeem(session, subject, rewardId);
+      setRedeemed(rewardName);
+      setBalance(await balanceFor(session, subject));
+      window.setTimeout(() => setRedeemed(null), 4000);
+    } catch (e) {
+      // THE SENTENCE THE SERVICE WROTE. A refusal here is a rule — not enough points, a reward
+      // that needs a manager — and the operator is standing in front of the customer.
+      setNote(e instanceof Error ? e.message : 'تعذّر الاستبدال.');
+      window.setTimeout(() => setNote(null), 4000);
+    } finally {
+      setRedeeming('');
+    }
+  }, [redeeming, session, subject]);
 
   const ready = chosen.length > 0 && phone.length >= 9;
 
@@ -203,6 +249,55 @@ export function Visit() {
                 <div className="mt-1 text-sm tabular-nums opacity-80">
                   ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}
                 </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* HIS POINTS, AND THE ONE TAP THAT SPENDS THEM.
+              Under the offer, because an offer is already his and points are a choice he makes.
+              Nothing renders without a balance: a shop with no loyalty programme must not be
+              shown an empty points box on the screen it uses a hundred times a day. */}
+          {balance ? (
+            <div className="rounded-xl bg-surface-1 p-3 shadow-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm text-text-secondary">رصيده</span>
+                <span className="tabular-nums text-xl font-semibold">{balance.points} نقطة</span>
+              </div>
+
+              {redeemed ? (
+                <p className="mt-2 rounded-lg bg-accent-soft p-2 text-accent-on-soft">
+                  تم استبدال «{redeemed}» — أخبره برصيده الجديد.
+                </p>
+              ) : null}
+
+              {balance.rewards.length > 0 ? (
+                <ul className="mt-2 flex flex-col gap-2">
+                  {/* ONLY WHAT HE CAN AFFORD — the service filtered before answering. A sheet
+                      listing everything and grey­ing out most of it turns a moment of goodwill
+                      into a list of things he cannot have. */}
+                  {balance.rewards.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        disabled={Boolean(redeeming)}
+                        onClick={() => spend(r.id, r.name)}
+                        className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
+                      >
+                        <span>{r.name}</span>
+                        <span className="shrink-0 tabular-nums text-sm text-text-secondary">
+                          {r.cost} نقطة · ويبقى له {balance.points - r.cost}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : balance.to_next_reward > 0 ? (
+                // ENCOURAGEMENT, NOT AN APOLOGY — and only when there is something true to say.
+                // Zero means either he can afford everything or the shop has no rewards, and
+                // «تبقى لك 0 نقطة» is a sentence that means nothing to the person reading it.
+                <p className="mt-1 text-sm text-text-secondary">
+                  تبقّى له {balance.to_next_reward} نقطة لأقرب مكافأة.
+                </p>
               ) : null}
             </div>
           ) : null}
