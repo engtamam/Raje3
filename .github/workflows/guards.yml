@@ -73,6 +73,36 @@ jobs:
       - name: the customer page and the dashboard do not know about a subscription
         run: python3 ci/check_unsubscribed_paths.py
 
+      # ── the seven that ran only when somebody remembered ──────────────────────────────────
+      #
+      # HALF THE GUARDS IN THIS REPOSITORY WERE NOT IN CI. They were written after a real failure,
+      # each one, and then left to be run by hand — which means they ran on the day they were
+      # written and not reliably since. The heartbeat check is the sharpest example: it was written
+      # the same afternoon every scheduled job in the product was found silently failing, and it
+      # would not have run on a single pull request after that.
+      #
+      # A GUARD OUTSIDE CI IS A NOTE, NOT A GUARD.
+      - name: every action a screen names exists, and no two services claim one
+        run: python3 ci/check_ui_actions.py
+
+      - name: every declared action is called by a screen or accounted for
+        run: python3 ci/check_unused_actions.py
+
+      - name: every scheduled route accepts the empty POST its cron sends
+        run: python3 ci/check_cron_bodies.py
+
+      - name: the roles are whole, and the two seeds agree
+        run: python3 ci/check_roles.py
+
+      - name: the legal documents are complete
+        run: python3 ci/check_legal.py
+
+      - name: every string the kit renders has Arabic behind it
+        run: python3 ci/check_i18n.py
+
+      - name: a declared capability is a capability the code actually enforces
+        run: python3 ci/check_capability_truth.py
+
       - uses: azure/setup-helm@v4
 
       # A values file that cannot render is a failed deploy discovered on the cluster. Rendering
