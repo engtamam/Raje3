@@ -43,6 +43,19 @@ async function reach(page: Page, control: Locator): Promise<void> {
   await expect(control).toBeVisible({ timeout: 15_000 });
 }
 
+/**
+ * Save, from wherever he happens to be.
+ *
+ * «حفظ وإرسال» LIVES ON THE LAST STEP ONLY, which is correct — a save button on the plate page
+ * would be a button that discards a visit before it has one. So the test walks to it, exactly as
+ * the operator does after choosing the services.
+ */
+async function save(page: Page): Promise<void> {
+  const button = page.getByRole('button', { name: 'حفظ وإرسال' });
+  await reach(page, button);
+  await button.click();
+}
+
 /** Type a number the way the operator does — one key at a time. */
 async function keyIn(page: Page, phone: string): Promise<void> {
   // THE FIELD, NOT THE KEYPAD. The pad is touch-only — right for a thumb, absent on the machine
@@ -95,7 +108,7 @@ test('a visit is recorded and the customer becomes findable', async ({ shop }) =
 
   await pickAnyService(shop);
   await keyIn(shop, phone);
-  await shop.getByRole('button', { name: 'حفظ وإرسال' }).click();
+  await save(shop);
 
   await expect(shop.getByText(/تم الحفظ/)).toBeVisible({ timeout: 30_000 });
 
@@ -130,7 +143,7 @@ test('an outage does not lose the visit — it waits, and says it is waiting', a
 
   await pickAnyService(shop);
   await keyIn(shop, customerPhone());
-  await shop.getByRole('button', { name: 'حفظ وإرسال' }).click();
+  await save(shop);
 
   await expect(shop.getByText(/بانتظار الإرسال/)).toBeVisible({ timeout: 30_000 });
 });
@@ -148,7 +161,7 @@ test('a visit that will never send is reported, not left in a silent queue', asy
 
   await pickAnyService(shop);
   await keyIn(shop, customerPhone());
-  await shop.getByRole('button', { name: 'حفظ وإرسال' }).click();
+  await save(shop);
 
   await expect(shop.getByText(/لم تُرسَل/)).toBeVisible({ timeout: 30_000 });
 });

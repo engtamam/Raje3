@@ -3,7 +3,16 @@
 #
 #   ./deploy/ship.sh portal
 #   ./deploy/ship.sh reminders operations       # several, in order
-#   FAST=1 ./deploy/ship.sh operations          # push layers, not the whole image
+#   ./deploy/ship.sh operations                 # push layers, not the whole image — the DEFAULT
+#   FAST=0 ./deploy/ship.sh operations          # tarball the whole image, when no registry exists
+#
+# FAST IS THE DEFAULT NOW, AND IT SHOULD ALWAYS HAVE BEEN. It was opt-in, so every run that forgot
+# the flag — which was every run I made tonight, ten of them — sent hundreds of megabytes through
+# the forwarded port instead of one small layer. Three of those runs then died mid-transfer, and I
+# spent an hour widening keepalives to survive a transfer that did not need to happen.
+#
+# A FLAG THAT IS RIGHT EVERY TIME IS NOT A FLAG. FAST=0 stays for the case it was written for: a
+# machine with no local registry, where the tarball is the only road.
 #
 # FAST=1 — THE SAME SIX STEPS, WITH STEP 4 DONE BY THE REGISTRY.
 #
@@ -253,7 +262,7 @@ ship_one() {
   # The tag→digest step is what makes a digest-pinned deploy resolvable at all: `ctr images import`
   # stores by TAG, so kubelet tries the registry and fails with "pull access denied".
   say "$svc · 4/6 ship image"
-  if [ "${FAST:-0}" = "1" ]; then
+  if [ "${FAST:-1}" = "1" ]; then
     local manifest
     manifest="$(ship_image_fast "$svc" "$digest")" || return 1
     # RE-PINNED TO WHAT THE REGISTRY STORES, and the repository moved with it. A digest is an
@@ -414,7 +423,7 @@ ship_many() {
 
   # ── C. ship the images, in parallel ──────────────────────────────────────────────────────────
   say "3/5 ship images"
-  if [ "${FAST:-0}" = "1" ]; then
+  if [ "${FAST:-1}" = "1" ]; then
     # The tunnel is opened ONCE, here, rather than raced for by every parallel push.
     open_registry_tunnel || {
       red "the node cannot reach the registry — run ./deploy/registry.sh once"
@@ -423,7 +432,7 @@ ship_many() {
   fi
   for svc in "${svcs[@]}"; do
     (
-      if [ "${FAST:-0}" = "1" ]; then
+      if [ "${FAST:-1}" = "1" ]; then
         m="$(ship_image_fast "$svc" "${DIGEST[$svc]}")" && printf '%s' "$m" > "$tmp/$svc.manifest"
       else
         docker save "raje3/$svc:ship" | "${SSH[@]}" \
@@ -447,7 +456,7 @@ ship_many() {
   # RE-PINNED TO WHAT THE REGISTRY STORES. `docker build -q` prints the CONFIG digest, and
   # containerd will happily accept a NAME containing a digest that describes nothing — which is how
   # a deployment came to be "pinned" to a number no content matched.
-  if [ "${FAST:-0}" = "1" ]; then
+  if [ "${FAST:-1}" = "1" ]; then
     for svc in "${svcs[@]}"; do
       m="$(cat "$tmp/$svc.manifest")"
       values="$ROOT/deploy/services/$svc.values.yaml"
