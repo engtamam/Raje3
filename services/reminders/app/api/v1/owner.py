@@ -79,6 +79,7 @@ async def cancel(request: Request, schedule_key: str,
 
 @router.get("/rules", dependencies=[Depends(rate_limit)])
 async def list_rules(request: Request, service_id: str = Query(default=""),
+                     subject_ref: str = Query(default=""),
                      principal: Principal = Depends(_READ)) -> dict:
     """The learned interval per customer and service.
 
@@ -90,8 +91,16 @@ async def list_rules(request: Request, service_id: str = Query(default=""),
     from app.core.adaptive import AdaptiveConfig, is_learned
     cfg = AdaptiveConfig(warmup=get_settings().ADAPTIVE_WARMUP_OBSERVATIONS)
     store = RuleStore(request.app.state.container.datastore)
-    rows = (await store.for_service(principal.tenant, service_id)) if service_id else \
-        (await store._find(principal.tenant, limit=200, sort=("updated", "desc")))[0]
+    # BY CUSTOMER AS WELL AS BY SERVICE — which is what his own page needed. A rule is learned per
+    # (customer, service), and «هذا العميل يعود كل 47 يوماً» is the sentence §5.2 promises and no
+    # screen could ask for, because the only filter here was the service.
+    if subject_ref:
+        rows, _ = await store._find(principal.tenant, {"subject_ref": subject_ref},
+                                    limit=100, sort=("updated", "desc"))
+    elif service_id:
+        rows = await store.for_service(principal.tenant, service_id)
+    else:
+        rows = (await store._find(principal.tenant, limit=200, sort=("updated", "desc")))[0]
     for r in rows:
         r["learned"] = is_learned(int(r.get("observations") or 0), cfg)
     return {"rules": rows, "count": len(rows)}

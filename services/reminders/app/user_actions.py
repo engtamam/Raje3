@@ -102,7 +102,10 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "reminders.list_rules", "label": "قواعد الخدمات", "method": "GET",
         "path": "/api/v1/reminders/rules", "capability": "reminders.read", "group": "القواعد",
-        "help": "الفترة الحالية لكل خدمة، وكم تعلّمها النظام من سلوك العملاء.",
+        "params": [{"name": "subject_ref", "in": "query", "type": "string", "required": False},
+                   {"name": "service_id", "in": "query", "type": "string", "required": False}],
+        "help": "الفترة الحالية لكل خدمة، وكم تعلّمها النظام من سلوك العملاء. "
+                "وبـ subject_ref: دورة هذا العميل هو.",
     },
     {
         "id": "reminders.set_rule", "label": "تعديل قاعدة خدمة", "method": "PUT",

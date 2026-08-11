@@ -96,6 +96,23 @@ const ADJUST_REASONS = [
   'إلغاء استبدال',
 ] as const;
 
+/**
+ * One learned interval — HIS, for one service.
+ *
+ * `learned` is separate from the number on purpose: an owner told «تعلّمنا: 90 يوماً» from zero
+ * observations stops trusting every number on the screen, so an estimate that is still the sector
+ * default has to say it is one.
+ */
+interface Rule {
+  id?: string;
+  service_id?: string;
+  service_name?: string;
+  interval_days?: number;
+  observations?: number;
+  learned?: boolean;
+  pinned?: boolean;
+}
+
 export function CustomerScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -111,6 +128,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const [adjustMsg, setAdjustMsg] = useState('');
   const [nameDraft, setNameDraft] = useState('');
   const [namingMsg, setNamingMsg] = useState('');
+  /** His own rhythm, per service, as the engine learned it (§5.2). */
+  const [cycles, setCycles] = useState<Rule[]>([]);
+  const [pinMsg, setPinMsg] = useState('');
   const [pickingReason, setPickingReason] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [eraseAsked, setEraseAsked] = useState(false);
@@ -146,6 +166,15 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         if (hist) {
           call<{ history?: Move[]; moves?: Move[] }>(session, hist, { subject_ref: ref })
             .then((x) => { if (!stale) setMoves(x.history ?? x.moves ?? []); })
+            .catch(() => undefined);
+        }
+        // WHAT THE SYSTEM LEARNED ABOUT HIM — §5.2 and §5.3, invisible until now. The rules were
+        // computed per (customer, service) from his own rhythm, and the only screen that could
+        // read them filtered by service, so nobody could ever ask «كل كم يعود هذا؟».
+        const rules = action(catalog, 'reminders.list_rules');
+        if (rules) {
+          call<{ rules: Rule[] }>(session, rules, { subject_ref: ref })
+            .then((x) => { if (!stale) setCycles(x.rules ?? []); })
             .catch(() => undefined);
         }
         const log = action(catalog, 'reminders.log');
@@ -688,6 +717,69 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               )}
             </div>
           ) : null}
+        </section>
+      ) : null}
+
+      {/* ── his rhythm, and the one number an owner sometimes knows better ───────────────
+          THE ADAPTIVE ENGINE WAS INVISIBLE. It watches how often each customer comes back and
+          moves his reminder toward it (§5.2) — the feature the whole product's timing rests on —
+          and no screen ever showed a single learned number. An owner could not see it, could not
+          check it, and could not correct it on the one customer he knows by name.
+
+          AND CORRECTING IT STOPS THE LEARNING for that pair, which the route says in its own
+          words. Silently resuming adaptation would walk his number back toward the observed
+          rhythm over the next few visits, and he would conclude the setting does not work. */}
+      {tab === 'overview' && cycles.length ? (
+        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm text-text-secondary">دورته عندك</h2>
+            <Hint>
+              كم يوماً يمرّ عادةً قبل أن يعود لكل خدمة — نتعلّمها من زياراته هو، لا من متوسط عام.
+              وإن كنت تعرف رقمه أفضل منّا فاكتبه، ونتوقّف عن التعديل لهذه الخدمة.
+            </Hint>
+          </div>
+          {cycles.slice(0, 6).map((r) => (
+            <div key={r.id || r.service_id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+              <span className="flex min-w-0 flex-col">
+                <span className="text-sm">{r.service_name || r.service_id}</span>
+                <span className="text-xs text-text-secondary">
+                  {/* STILL AN ESTIMATE, AND IT SAYS SO. `learned` false means the number is the
+                      sector default wearing his name. */}
+                  {r.learned
+                    ? `تعلّمناها من ${r.observations ?? 0} زيارة`
+                    : 'تقدير مبدئي — لم نتعلّمها بعد'}
+                  {r.pinned ? ' · مثبّتة بيدك' : ''}
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  dir="ltr"
+                  defaultValue={String(Math.round(r.interval_days ?? 0))}
+                  aria-label={`دورة ${r.service_name || r.service_id}`}
+                  onBlur={async (e) => {
+                    const raw = e.target.value.trim();
+                    const n = Number(raw);
+                    if (!raw || !n || n === Math.round(r.interval_days ?? 0)) return;
+                    const a = action(catalog, 'reminders.set_rule');
+                    if (!a) return;
+                    setPinMsg('');
+                    try {
+                      await call(session, a, { service_id: r.id || r.service_id || '',
+                                               interval_days: n });
+                      setPinMsg('ثبّتنا رقمك — ولن نعدّله تلقائياً لهذه الخدمة.');
+                    } catch {
+                      setPinMsg('تعذّر الحفظ.');
+                    }
+                  }}
+                  className="h-10 w-20 rounded-lg bg-surface-2 px-2 text-center tabular-nums"
+                />
+                <span className="text-xs text-text-secondary">يوماً</span>
+              </span>
+            </div>
+          ))}
+          {pinMsg ? <p className="text-xs text-text-secondary">{pinMsg}</p> : null}
         </section>
       ) : null}
 
