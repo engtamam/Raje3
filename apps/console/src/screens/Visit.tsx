@@ -264,7 +264,7 @@ export function Visit() {
             <div className="flex h-full flex-col gap-2">
               <div
                 dir="ltr"
-                className="h-14 rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums leading-[3.5rem] shadow-sm"
+                className="grid h-[clamp(3rem,7dvh,3.5rem)] items-center rounded-xl bg-surface-1 px-4 text-end text-3xl font-semibold tabular-nums shadow-sm"
               >
                 {phone || <span className="text-text-secondary">05…</span>}
               </div>

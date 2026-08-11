@@ -37,6 +37,7 @@ export default defineConfig({
     'session.spec.ts',
     'today.spec.ts',
     'visit.spec.ts',
+    'fit.spec.ts',
     'customers.spec.ts',
     'shop.spec.ts',
     'services.spec.ts',

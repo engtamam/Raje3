@@ -142,7 +142,7 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
 
       {/* THE PANE OWNS THE REST OF THE SCREEN. `min-h-0` is what actually lets it shrink inside a
           flex column — without it the pane grows to its content and the footer is pushed off. */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">{step.body}</div>
+      <div data-pane className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">{step.body}</div>
 
       {step.hint ? (
         <p className="px-4 pb-1 text-center text-xs text-text-secondary">{step.hint}</p>

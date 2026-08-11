@@ -73,7 +73,13 @@ function Key({ label, onPress, disabled, muted }: {
       // mouse pointer; a key smaller than a thumb is a mistyped number, and a mistyped number is a
       // reminder sent to a stranger.
       className={[
-        'h-14 rounded-xl text-2xl font-semibold tabular-nums transition-transform sm:h-16',
+        // SIZED AGAINST THE SCREEN, NOT AGAINST A PARENT. Two attempts failed here: fixed h-16
+        // overflowed a short phone, and `h-full` collapsed because a `display:block` in the chain
+        // broke the height it was a percentage of. `clamp` asks the viewport directly — nothing
+        // in between can break it — so the keys shrink on a short screen and never go under 44px,
+        // which is the floor a greasy finger needs.
+        'h-[clamp(2.75rem,8.5dvh,4rem)] rounded-xl text-2xl font-semibold tabular-nums',
+        'transition-transform',
         'active:scale-95 disabled:opacity-40',
         muted
           ? 'bg-surface-2 text-text-secondary'
