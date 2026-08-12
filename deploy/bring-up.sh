@@ -453,6 +453,13 @@ fi
 step "databases and buckets"
 bash "$HERE/hooks/pre-deploy.sh"
 
+# ── 6b ────────────────────────────────────────────────────────────────────────────────────────
+# AND THE SIX SECRETS UPSTREAM'S GENERATOR CANNOT KNOW ABOUT — it builds its schema by reading the
+# config of every service under ITS tree, and ours are in this repository. After the databases,
+# because each of ours names one.
+step "our services' secrets"
+bash "$HERE/mint-our-secrets.sh"
+
 # ── 7 ─────────────────────────────────────────────────────────────────────────────────────────
 # Upstream's, health-gated, ONE SERVICE AT A TIME. Not a loop of our own: a hand-written parallel
 # restart is what exhausted the connection pool and deadlocked this cluster once already. The
@@ -515,7 +522,13 @@ if domain:
         cfg['acme_email'] = email
 json.dump(cfg, open(dst, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
 PYEOF
-  if EDGE_CONFIG="$EDGE_TMP/edge.json" EDGE_OUT="$EDGE_TMP/Caddyfile"      python3 "$ROOT/platform/tools/edge/render.py" >/dev/null; then
+  # JUDGED BY THE FILE, NOT BY THE EXIT CODE — and that is upstream's bug, not a shortcut of ours.
+  # render.py writes the Caddyfile and THEN prints a line that calls relative_to() on the output
+  # path against its own root; give it an EDGE_OUT anywhere else and the print raises, after the
+  # render has already succeeded. Escalated. Meanwhile the artefact is the truth: a non-empty
+  # Caddyfile means the config was accepted and validated, and an empty one means it was not.
+  EDGE_CONFIG="$EDGE_TMP/edge.json" EDGE_OUT="$EDGE_TMP/Caddyfile"     python3 "$ROOT/platform/tools/edge/render.py" >"$EDGE_TMP/render.out" 2>&1 || true
+  if [[ -s "$EDGE_TMP/Caddyfile" ]]; then
     kubectl -n "$NS" create configmap edge-caddyfile --from-file=Caddyfile="$EDGE_TMP/Caddyfile"       --dry-run=client -o yaml | kubectl apply -f - >/dev/null
     # THE CONSOLE FIRST — the edge's catch-all route names it, and a Caddy that cannot resolve an
     # upstream at start refuses to load the config rather than serving the rest.
@@ -526,7 +539,8 @@ PYEOF
     kubectl -n "$NS" rollout restart deployment/edge >/dev/null 2>&1 || true
     ok "edge serving ${DOMAIN:-localhost}${DOMAIN:+ over TLS}"
   else
-    warn "edge config rejected — see the line above; the domain will answer nothing"
+    warn "edge config rejected — the domain will answer nothing:"
+    sed 's/^/      /' "$EDGE_TMP/render.out" | tail -6
   fi
   rm -rf "$EDGE_TMP"
 fi
