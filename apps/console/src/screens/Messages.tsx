@@ -197,7 +197,10 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
                       type="button"
                       disabled={waiting === 0}
                       onClick={() => setOpenKind(openKind === o.kind ? '' : o.kind)}
-                      className="shrink-0 tabular-nums text-text-secondary disabled:opacity-60"
+                      // A COUNT THAT OPENS IS A BUTTON, and a button on this screen answers to the
+                      // same 44px floor as every other. Bare text passed review because it looks
+                      // like a label — which is exactly why the thumb misses it.
+                      className="grid min-h-11 shrink-0 place-items-center px-2 tabular-nums text-text-secondary disabled:opacity-60"
                     >
                       {waiting > 0 ? `${waiting} بانتظار الإرسال` : '—'}
                     </button>

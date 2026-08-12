@@ -25,11 +25,17 @@ export function Hint({ children, label = 'شرح', wide = false }:
         aria-label={label}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        // 44px, because it is a control on a screen used with a thumb — the same floor every
-        // other tappable thing in this app answers to.
-        className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-2 text-xs text-text-secondary"
+        // 44px OF TOUCH, 24px OF INK. The comment above this line claimed the floor and the class
+        // below it was `size-6` — 24 pixels, which the mobile suite caught on seven «؟» at once.
+        //
+        // A «؟» drawn at 44px is a button that shouts on a card whose whole point is to be quiet,
+        // so the SHAPE stays small and the TARGET grows around it: a 44px box with no background,
+        // holding a 24px circle. The finger gets its floor and the eye gets the footnote.
+        className="grid size-11 shrink-0 place-items-center rounded-full"
       >
-        ؟
+        <span aria-hidden className="grid size-6 place-items-center rounded-full bg-surface-2 text-xs text-text-secondary">
+          ؟
+        </span>
       </button>
       {open ? (
         // FULL WIDTH IN WHATEVER LAYOUT IT LANDS IN. `basis-full` is a flex instruction and a
