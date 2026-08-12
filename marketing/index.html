@@ -128,13 +128,6 @@ header{
 .wa-name{font-weight:800; color:var(--ink); font-size:.98rem}
 .wa-note{margin:14px 2px 0; color:var(--muted); font-size:.82rem; line-height:1.6}
 
-/* ── the numbers strip ────────────────────────────────────────────────────────────────────── */
-.strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--card)}
-.strip-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:2px; background:var(--line)}
-@media(min-width:760px){ .strip-grid{grid-template-columns:repeat(4,1fr)} }
-.stat{background:var(--card); padding:26px 20px; text-align:center}
-.stat b{display:block; color:var(--ink); font-size:clamp(1.6rem,3.4vw,2.1rem); font-weight:800; line-height:1.2}
-.stat span{font-size:.95rem; color:var(--muted)}
 
 /* ── cards ────────────────────────────────────────────────────────────────────────────────── */
 .grid{display:grid; gap:18px}
@@ -209,7 +202,6 @@ header{
   .section{padding:clamp(40px,11vw,64px) 0}
   .wrap{padding:0 18px}
   .card,.step{padding:20px 18px}
-  .stat{padding:20px 12px}
   .btn-lg{width:100%; justify-content:center}   /* a full-width target cannot be missed */
   .phone{width:min(300px,86vw)}
 
@@ -308,16 +300,6 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       </div>
     </div>
   </div>
-</section>
-
-<!-- ── the strip ────────────────────────────────────────────────────────────────────────── -->
-<section class="strip">
-  <div class="wrap"><div class="strip-grid">
-    <div class="stat"><b>نقاط</b><span>تُكسَب وتُصرَف عندك</span></div>
-    <div class="stat"><b>عروض حصرية</b><span>تصل لمن غاب</span></div>
-    <div class="stat"><b>حملات ذكية</b><span>تشتغل وحدها</span></div>
-    <div class="stat"><b>بلا إزعاج</b><span>سقفٌ ووقتٌ محترمان</span></div>
-  </div></div>
 </section>
 
 <!-- ── the problem, named ───────────────────────────────────────────────────────────────── -->
@@ -513,7 +495,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       <div class="card">
         <div class="ico" aria-hidden="true">✋</div>
         <h3>من رفض لا يُراسَل</h3>
-        <p>«إيقاف» بكلمةٍ واحدة، وتُحترم في حينها.</p>
+        <p>حقُّ عميلك، لا إعدادٌ عندك.</p>
       </div>
       <div class="card">
         <div class="ico" aria-hidden="true">🚪</div>
