@@ -34,6 +34,14 @@ from typing import Any
 STATEMENTS = "commission_statements"
 PLATFORM = "_platform"
 
+# THE THREE THINGS A STATEMENT CAN BE, and the reason it needs any state at all: a figure with no
+# state is a number nobody can act on. We could not answer «did we pay him for June?» from the
+# panel, the partner could not answer it either, and the truth lived in a WhatsApp thread.
+ISSUED = "issued"
+PAID = "paid"
+DISPUTED = "disputed"
+STATES = (ISSUED, PAID, DISPUTED)
+
 
 @dataclass
 class Line:
@@ -88,6 +96,10 @@ class Statement:
             "total_minor": self.total_minor,
             "net_minor": self.net_minor,
             "shops": len(self.lines),
+            # ISSUED, and nothing else this file decides. Payment is a fact that happens later, to
+            # somebody else's timetable — see `StatementStore.save` for why a re-run must not be
+            # allowed to reset it.
+            "status": ISSUED,
             "lines": [{"tenant": line.tenant, "settled_minor": line.settled_minor,
                        "refunded_minor": line.refunded_minor, "rate": line.rate,
                        "net_minor": line.net_minor,
@@ -138,10 +150,66 @@ class StatementStore:
         Safe precisely because `build` is reproducible: the overwrite writes the same numbers
         unless the underlying settlements changed, and if they did, the new figure is the correct
         one.
+
+        A PAID STATEMENT IS NEVER RECOMPUTED, and this is the sharp edge the schedule introduced.
+        The monthly sweep re-runs whatever it is pointed at; without this, one re-run of a settled
+        month would silently reset `paid` to `issued` and rewrite the amount — so the panel would
+        show money owed that we already sent, and somebody would send it twice. Once money has
+        moved, a changed figure is a correction with a conversation in it, not an overwrite.
+
+        AND A DISPUTE SURVIVES THE RECOMPUTE TOO. Re-running is precisely what a disputed month
+        needs — but the dispute is the reason it was re-run, and clearing the flag would erase the
+        record of why the number changed.
         """
         row = statement.as_row()
+        existing = await self._s.get(STATEMENTS, f"{PLATFORM}|{row['id']}")
+        if existing:
+            if existing.get("status") == PAID:
+                return existing
+            for carried in ("status", "note", "settled_at", "settled_by", "settled_ref"):
+                if existing.get(carried):
+                    row[carried] = existing[carried]
         await self._s.put(STATEMENTS, f"{PLATFORM}|{row['id']}", row)
         return row
+
+    async def set_state(self, partner_id: str, period_start: int, *, state: str, actor: str,
+                        reference: str = "", note: str = "",
+                        at: int = 0) -> dict[str, Any] | None:
+        """Record that a statement was paid, or that it is being disputed.
+
+        THE REFERENCE IS REQUIRED FOR A PAYMENT and for nothing else. «دفعنا» with no wire number
+        is a claim; with one it is a fact two parties can check against a bank statement months
+        later, which is exactly when the question gets asked.
+        """
+        if state not in STATES:
+            return None
+        key = f"{PLATFORM}|{partner_id}|{period_start}"
+        row = await self._s.get(STATEMENTS, key)
+        if row is None:
+            return None
+        row["status"] = state
+        row["settled_by"] = actor
+        row["settled_at"] = int(at or 0)
+        if reference:
+            row["settled_ref"] = reference
+        if note:
+            row["note"] = note
+        await self._s.put(STATEMENTS, key, row)
+        return row
+
+    async def all_statements(self, *, limit: int = 200,
+                             status: str = "") -> list[dict[str, Any]]:
+        """Every partner's statements, newest first — OUR view, not a partner's.
+
+        Filterable by state because that is the question actually asked of this screen: «أيّها لم
+        يُدفع بعد؟». A list of everything ever issued answers nothing on the second month.
+        """
+        filt: dict[str, Any] = {"tenant": PLATFORM}
+        if status in STATES:
+            filt["status"] = status
+        rows, _ = await self._s.find(STATEMENTS, filt, limit=limit,
+                                     sort=("period_start", "desc"))
+        return rows
 
     async def get(self, partner_id: str, period_start: int) -> dict[str, Any] | None:
         return await self._s.get(STATEMENTS, f"{PLATFORM}|{partner_id}|{period_start}")

@@ -122,6 +122,45 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "يوقف الأختام الجديدة. محلاته تبقى مختومة ومستحقاته قائمة.",
     },
     # ── the operator surface, and it is declared in every service or in none ──────────────
+    # ── what we owe the partners, and whether we paid it (§7) ────────────────────────────
+    {
+        "id": "operations.list_statements", "label": "كشوف العمولات", "method": "GET",
+        "path": "/api/v1/platform/statements", "capability": "platform.operations",
+        "group": "الشركاء",
+        "params": [
+            {"name": "status", "in": "query", "type": "enum", "required": False,
+             "help": "issued | paid | disputed — والسؤال الذي تُفتح له الشاشة: أيّها لم يُدفع؟"},
+            {"name": "limit", "in": "query", "type": "integer", "required": False},
+        ],
+        "help": "تُصدَر شهرياً بالجدولة على الشهر المنقضي، وتُقرأ هنا بحالتها لا بمبلغها وحده.",
+    },
+    {
+        "id": "operations.statement_paid", "label": "تسجيل دفع كشف", "method": "POST",
+        "path": "/api/v1/platform/statements/{partner_id}/{period_start}/paid",
+        "capability": "platform.operations", "group": "الشركاء", "confirm": True,
+        "params": [
+            {"name": "partner_id", "in": "path", "type": "string", "required": True},
+            {"name": "period_start", "in": "path", "type": "integer", "required": True},
+            {"name": "reference", "in": "body", "type": "string", "required": True,
+             "help": "مرجع الحوالة — بلا مرجع لا يمكن إثبات الدفع بعد أشهر"},
+            {"name": "paid_at", "in": "body", "type": "number", "required": False,
+             "help": "تاريخ القيمة عند البنك، لا وقت الإدخال"},
+            {"name": "note", "in": "body", "type": "string", "required": False},
+        ],
+        "help": "والمدفوع لا يُعاد حسابه: إعادة تشغيل شهر سُدّد تعيده «غير مدفوع» فيُدفع مرتين.",
+    },
+    {
+        "id": "operations.statement_dispute", "label": "تسجيل اعتراض على كشف", "method": "POST",
+        "path": "/api/v1/platform/statements/{partner_id}/{period_start}/dispute",
+        "capability": "platform.operations", "group": "الشركاء", "confirm": True,
+        "params": [
+            {"name": "partner_id", "in": "path", "type": "string", "required": True},
+            {"name": "period_start", "in": "path", "type": "integer", "required": True},
+            {"name": "note", "in": "body", "type": "string", "required": True,
+             "help": "سبب الاعتراض — «متنازَع عليه» بلا سبب لا يقود إلى إجراء"},
+        ],
+        "help": "الاعتراض يبقى بعد إعادة الحساب، لأنه سببُ إعادته.",
+    },
     {
         "id": "operations.operator_secrets", "label": "اعتمادات التشغيل", "method": "GET",
         "path": "/api/v1/operator/secrets", "capability": "platform.secrets", "group": "المنصة",

@@ -167,3 +167,79 @@ def test_a_partner_who_brought_nobody_gets_no_statement():
         "commission_rate": 0.2, "active": True, "created": 1}
     out = asyncio.run(statements_run.issue(store=store, settlements_source=_Money({})))
     assert out["issued"] == 0
+
+
+# ── the state on a statement, and the trap the schedule introduced ────────────────────────────
+
+
+def _statement(store, *, money, period=(1_750_000_000, 1_752_000_000)):
+    asyncio.run(statements_run.issue(store=store, settlements_source=_Money(money), period=period))
+    return [v for (c, _), v in store.rows.items() if c == STATEMENTS][0]
+
+
+def test_a_fresh_statement_is_issued_not_paid():
+    """Payment is a fact that happens later, on somebody else's timetable."""
+    store = _Store()
+    _seed(store, tenants=("t_a",))
+    row = _statement(store, money={"t_a": {"settled_minor": 10_000, "refunded_minor": 0}})
+    assert row["status"] == "issued"
+
+
+def test_a_paid_statement_survives_the_monthly_re_run():
+    """THE TRAP THE SCHEDULE INTRODUCED, and the reason `save` reads before it writes: the sweep
+    re-runs whatever it is pointed at, and without this one re-run of a settled month resets
+    `paid` to `issued` and rewrites the amount — so the panel shows money owed that we already
+    sent, and somebody sends it twice."""
+    from app.core.commission import StatementStore
+
+    store = _Store()
+    _seed(store, tenants=("t_a",))
+    period = (1_750_000_000, 1_752_000_000)
+    _statement(store, money={"t_a": {"settled_minor": 10_000, "refunded_minor": 0}}, period=period)
+    asyncio.run(StatementStore(store).set_state("prt_1", period[0], state="paid",
+                                                actor="u_ops", reference="WIRE-9", at=123))
+    # The sweep runs again, and the settlements have since moved.
+    _statement(store, money={"t_a": {"settled_minor": 99_000, "refunded_minor": 0}}, period=period)
+    row = [v for (c, _), v in store.rows.items() if c == STATEMENTS][0]
+    assert row["status"] == "paid"
+    assert row["settled_ref"] == "WIRE-9"
+    assert row["total_minor"] == 2_500, "a settled month was recomputed after the money moved"
+
+
+def test_a_dispute_survives_the_recompute_that_it_caused():
+    """Re-running is exactly what a disputed month needs — and the dispute is the reason it was
+    re-run, so clearing the flag would erase the record of why the number changed."""
+    from app.core.commission import StatementStore
+
+    store = _Store()
+    _seed(store, tenants=("t_a",))
+    period = (1_750_000_000, 1_752_000_000)
+    _statement(store, money={"t_a": {"settled_minor": 10_000, "refunded_minor": 0}}, period=period)
+    asyncio.run(StatementStore(store).set_state("prt_1", period[0], state="disputed",
+                                                actor="u_ops", note="ينقص محل"))
+    _statement(store, money={"t_a": {"settled_minor": 20_000, "refunded_minor": 0}}, period=period)
+    row = [v for (c, _), v in store.rows.items() if c == STATEMENTS][0]
+    assert row["status"] == "disputed" and row["note"] == "ينقص محل"
+    # The figure DID move — a disputed statement is the one case a recompute is meant to change.
+    assert row["total_minor"] == 5_000
+
+
+def test_an_unknown_state_is_refused_rather_than_written():
+    """A typo that reaches the row makes a statement nothing can filter for — invisible on the one
+    screen that exists to find it."""
+    from app.core.commission import StatementStore
+
+    store = _Store()
+    _seed(store, tenants=("t_a",))
+    _statement(store, money={"t_a": {"settled_minor": 10_000, "refunded_minor": 0}})
+    out = asyncio.run(StatementStore(store).set_state("prt_1", 1_750_000_000, state="settled",
+                                                      actor="u"))
+    assert out is None
+
+
+def test_marking_a_statement_that_does_not_exist_answers_none():
+    """A period guessed in a URL must not create a row — timestamps are guessable by design."""
+    from app.core.commission import StatementStore
+
+    out = asyncio.run(StatementStore(_Store()).set_state("prt_x", 1, state="paid", actor="u"))
+    assert out is None

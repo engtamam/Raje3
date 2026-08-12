@@ -310,3 +310,88 @@ async def deactivate_partner(request: Request, partner_id: str,
     return {"partner_id": partner_id, "active": False,
             "note": "المحلات المختومة به تبقى مختومة، ومستحقاته القائمة لا تسقط."}
 
+
+
+# ── the statements, from OUR side (§7) ─────────────────────────────────────────────────────────
+#
+# The partner has always been able to read his own (api/v1/partner.py). We could not read anybody's
+# — there was no route, and no state on the row either, so «هل دفعنا له عن يونيو؟» was a question
+# the panel could not answer and the truth lived in a WhatsApp thread.
+
+
+@router.get("/statements", dependencies=[Depends(rate_limit)])
+async def list_statements(request: Request, status: str = "", limit: int = 200,
+                          principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Every partner's statements, newest first, filterable by state.
+
+    BY STATE BECAUSE THAT IS THE QUESTION. «أيّها لم يُدفع بعد؟» is what this screen is opened
+    for; a list of everything ever issued stops answering anything in the second month.
+    """
+    from app.core.commission import StatementStore
+    rows = await StatementStore(request.app.state.container.datastore).all_statements(
+        limit=max(1, min(limit, 500)), status=status.strip().lower())
+    return {"statements": rows, "count": len(rows)}
+
+
+class StatementStateIn(BaseModel):
+    """Mark a statement paid, or dispute it."""
+
+    # A WIRE REFERENCE, REQUIRED FOR A PAYMENT — enforced in the route rather than the model,
+    # because it is required for one state and meaningless for the other.
+    reference: str = Field(default="", max_length=128)
+    note: str = Field(default="", max_length=500)
+    # The bank's value date, not our clicking time — the same rule §4.2 states for our own money.
+    paid_at: int = Field(default=0, ge=0)
+
+
+@router.post("/statements/{partner_id}/{period_start}/paid", dependencies=[Depends(rate_limit)])
+async def mark_statement_paid(request: Request, partner_id: str, period_start: int,
+                              body: StatementStateIn,
+                              principal: Principal = Depends(_PLATFORM)) -> dict:
+    """We paid this. Recorded with the wire reference and the value date.
+
+    «دفعنا» WITH NO REFERENCE IS A CLAIM. With one it is a fact two parties can check against a
+    bank statement months later, which is exactly when the question gets asked — and the moment
+    the person who pressed the button no longer remembers.
+    """
+    from app.core.commission import PAID, StatementStore
+    if not body.reference.strip():
+        return {"ok": False, "reason": "REFERENCE_REQUIRED",
+                "message": "أدخل مرجع الحوالة — بلا مرجع لا يمكن إثبات الدفع لاحقاً."}
+    await request.app.state.auditor.record(
+        "partner.statement_paid", actor=principal.subject, tenant="",
+        resource=f"statement:{partner_id}:{period_start}",
+        ip=request.client.host if request.client else "")
+    row = await StatementStore(request.app.state.container.datastore).set_state(
+        partner_id, period_start, state=PAID, actor=principal.subject,
+        reference=body.reference.strip(), note=body.note.strip(), at=body.paid_at)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return {"ok": True, "statement": row}
+
+
+@router.post("/statements/{partner_id}/{period_start}/dispute",
+             dependencies=[Depends(rate_limit)])
+async def dispute_statement(request: Request, partner_id: str, period_start: int,
+                            body: StatementStateIn,
+                            principal: Principal = Depends(_PLATFORM)) -> dict:
+    """A partner disagrees with a figure. Recorded, with the reason, before anybody recomputes.
+
+    THE FLAG SURVIVES A RECOMPUTE (core/commission.py). Re-running is exactly what a disputed
+    month needs — and the dispute is the reason it was re-run, so clearing it would erase the
+    record of why the number changed.
+    """
+    from app.core.commission import DISPUTED, StatementStore
+    if not body.note.strip():
+        return {"ok": False, "reason": "NOTE_REQUIRED",
+                "message": "اكتب سبب الاعتراض — «متنازَع عليه» بلا سبب لا يقود إلى أي إجراء."}
+    await request.app.state.auditor.record(
+        "partner.statement_disputed", actor=principal.subject, tenant="",
+        resource=f"statement:{partner_id}:{period_start}",
+        ip=request.client.host if request.client else "")
+    row = await StatementStore(request.app.state.container.datastore).set_state(
+        partner_id, period_start, state=DISPUTED, actor=principal.subject,
+        note=body.note.strip())
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return {"ok": True, "statement": row}
