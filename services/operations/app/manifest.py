@@ -191,6 +191,10 @@ def build_manifest(
             # never needs the shared internal secret, which opens every internal door in the
             # product.
             {"path": "/api/v1/till/visits", "tier": "user", "method": "POST"},
+            # AND THE ANSWER BACK. The till asked and we said nothing — see the routes for what
+            # that cost at the counter. Same tier, same one capability.
+            {"path": "/api/v1/till/customer", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/till/redeem", "tier": "user", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

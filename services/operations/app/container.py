@@ -237,6 +237,10 @@ def build_container(settings: Settings) -> Container:
         max_backdate=settings.MAX_BACKDATE_SECONDS,
     ).with_offer_chooser(http_chooser(reminders_url=settings.REMINDERS_SERVICE_URL,
                                       token=settings.INTERNAL_SERVICE_TOKEN))
+    # THE COUNTER'S DESK AT `loyalty` — what a till may ask about a customer's points, asked on
+    # its behalf so its own credential never has to carry a capability over the ledger.
+    from app.adapters.loyalty_desk import build_loyalty_desk
+    container.loyalty_desk = build_loyalty_desk(settings)
     container.search = build_search(settings)
     container.seams = Seams(search=container.search, events=container.event_bus,
                             telemetry=container.telemetry,

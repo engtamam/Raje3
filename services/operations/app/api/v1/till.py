@@ -141,3 +141,132 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # invoice resolution, the integration detection and the seams; a second copy here would be a
     # second set of behaviour to keep in step, and the one that drifts is always the newer.
     return await record_visits_batch(request, forwarded)
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  THE OTHER DIRECTION — and it did not exist.
+#
+#  The till sent us sales and heard back «accepted: 3». Nothing else. Not the customer's points,
+#  not what he could redeem, not the offer he is holding — at the one moment in the whole product
+#  where the customer is standing in front of a person, paying, and can be told.
+#
+#  «عندك 120 نقطة، تبغى تستبدلها؟» is said there or it is never said. Our own field screen says
+#  it; a shop whose till company integrated us got a silent version of the same product, and the
+#  loyalty programme it pays for stopped at the counter.
+#
+#  ONE CALL, NOT THREE. The vendor sends a phone number and gets everything the counter needs.
+#  Resolving a pseudonym, then calling a second host, then reconciling two error shapes is three
+#  chances for an integration written once to get it wrong.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/customer", dependencies=[Depends(rate_limit)])
+async def customer_at_the_counter(request: Request, phone: str = "", plate: str = "",
+                                  principal: Principal = Depends(_TILL)) -> Any:
+    """Who this is, what he has, and what he can take right now.
+
+    ANSWERS `found: false` RATHER THAN 404. A new customer is the ordinary case at a till, not an
+    error, and a vendor's HTTP layer treats a 404 as a fault to log and retry.
+
+    NEVER THE PSEUDONYM. It is our join key between services, and a till has no use for it — it
+    identifies its customer by the phone number it already holds. Handing it out would put a
+    durable cross-service identifier into a third party's database for no purpose it has.
+    """
+    if not principal.tenant:
+        return {"found": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    c = None
+    if phone.strip():
+        c = await svc.customer_by_phone(tenant, phone.strip())
+    if c is None and plate.strip():
+        c = await svc.customer_by_plate(tenant, plate.strip())
+    if c is None:
+        return {"found": False}
+
+    out: dict[str, Any] = {"found": True, "name": c.name or "", "visits": getattr(c, "visits", 0)}
+
+    desk = getattr(request.app.state.container, "loyalty_desk", None)
+    if desk is None or not desk.configured or not c.subject_ref:
+        # SILENT, NOT ZERO. A shop without the loyalty feature has no points section at its
+        # counter either (§9.9) — and a zero balance for a customer holding three hundred is a
+        # grievance we handed over ourselves.
+        return out
+
+    bal = await desk.balance(tenant=tenant, subject_ref=c.subject_ref)
+    if bal is None:
+        # THE FAILURE IS NAMED. A cashier who is told "we could not check" asks the customer to
+        # wait a moment; one shown 0 tells him he has nothing, and is believed.
+        out["points_unavailable"] = True
+        return out
+
+    out["points"] = bal.get("points", 0)
+    out["to_next_reward"] = bal.get("to_next_reward", 0)
+    # ONLY WHAT HE CAN AFFORD, exactly as the field screen shows it: a list of things he cannot
+    # have turns a moment of goodwill into a menu of refusals.
+    out["rewards"] = [{"id": r.get("id"), "name": r.get("name"), "cost": r.get("cost")}
+                      for r in (bal.get("rewards") or [])]
+    return out
+
+
+class TillRedeemIn(BaseModel):
+    """Hand a reward over, from their screen (§9.8)."""
+
+    phone: str = Field(default="", max_length=32)
+    plate: str = Field(default="", max_length=32)
+    reward_id: str = Field(min_length=1, max_length=128)
+    # THEIR key, required — not defaulted. See the type's own note in loyalty: a key we mint is
+    # new on every retry, and a doubled redemption spends a customer's points twice.
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    actor: str = Field(default="", max_length=64)
+    branch_id: str = Field(default="", max_length=64)
+
+
+@router.post("/redeem", dependencies=[Depends(rate_limit)])
+async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
+                                principal: Principal = Depends(_TILL)) -> Any:
+    """Spend his points at their till, and answer with what the receipt must carry.
+
+    THE ENGINE WAS ALREADY BUILT. `loyalty` has served `/internal/loyalty/redeem` — with its
+    idempotency key, its cashier attribution, its branch and its customer receipt — since the
+    programme was written, and nothing anywhere could reach it: the spec says redemption at an
+    integrated till happens over the API (§9.8), and the API had no door. This is the door.
+
+    STILL `operations.record`. The till does not gain a capability over the ledger: it asks us,
+    and we ask loyalty with our own credential. What a third party holds must stay the smallest
+    thing that does its job.
+    """
+    if not principal.tenant:
+        return {"ok": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    c = None
+    if body.phone.strip():
+        c = await svc.customer_by_phone(tenant, body.phone.strip())
+    if c is None and body.plate.strip():
+        c = await svc.customer_by_plate(tenant, body.plate.strip())
+    if c is None or not c.subject_ref:
+        return {"ok": False, "reason": "NOT_FOUND", "message": "لا يوجد عميل بهذا الرقم."}
+
+    desk = getattr(request.app.state.container, "loyalty_desk", None)
+    if desk is None or not desk.configured:
+        return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
+
+    # AUDITED BEFORE IT HAPPENS, like every other write a machine makes. A redemption the log
+    # could not record must not occur — it is a customer's balance being spent.
+    await request.app.state.auditor.record(
+        "loyalty.redeemed", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
+        resource="redemption", ip=request.client.host if request.client else "")
+
+    out = await desk.redeem(tenant=tenant, subject_ref=c.subject_ref, reward_id=body.reward_id,
+                            idempotency_key=body.idempotency_key, actor=body.actor,
+                            branch_id=body.branch_id)
+    if out is None:
+        return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
+    if "_status" in out:
+        # THE REFUSAL, IN THE WORDS THE LEDGER USED. «رصيده لا يكفي» is a sentence the cashier
+        # reads to the customer; «409» is one he cannot.
+        return {"ok": False, "reason": "REFUSED", "message": out.get("_reason") or "تعذّر الاستبدال."}
+    return {"ok": True, **out}
