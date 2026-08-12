@@ -153,6 +153,27 @@ for _ in $(seq 1 60); do
 done
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
+# THE TLS CERT POSTGRES MOUNTS, MINTED BEFORE THE STATEFULSET THAT MOUNTS IT.
+#
+# Without it the pod sits in ContainerCreating for ever — «MountVolume.SetUp failed for volume
+# "tls": secret "postgres-tls" not found» — and the only place that says so is `describe pod`. The
+# rollout above just times out. It is upstream's function, in their bootstrap, and our install
+# never called it: on this cluster the secret already existed from an older install, so the gap was
+# invisible until the machine was truly empty.
+#
+# IDEMPOTENT AND STICKY: an existing secret is left alone, so a re-run neither rotates the cert nor
+# bounces the database for no reason.
+if ! kubectl -n "$NS" get secret postgres-tls >/dev/null 2>&1; then
+  command -v openssl >/dev/null 2>&1 || { echo "  openssl is required to mint the postgres TLS cert" >&2; exit 1; }
+  TLSDIR="$(mktemp -d)"
+  # SANs COVER THE IN-CLUSTER NAMES, so the same cert still works if a later deployment tightens
+  # from `require` to `verify-full` — no re-mint, and no CA to run.
+  openssl req -new -x509 -nodes -days 3650 -subj "/CN=postgres"     -addext "subjectAltName=DNS:postgres,DNS:postgres.${NS}.svc,DNS:postgres.${NS}.svc.cluster.local"     -keyout "$TLSDIR/tls.key" -out "$TLSDIR/tls.crt" >/dev/null 2>&1     || { echo "  openssl could not mint the postgres TLS cert" >&2; exit 1; }
+  kubectl -n "$NS" create secret tls postgres-tls --cert="$TLSDIR/tls.crt" --key="$TLSDIR/tls.key" >/dev/null
+  rm -rf "$TLSDIR"
+  ok "postgres TLS cert minted"
+fi
+
 # NOT SILENCED. An apply that fails here leaves every following step failing for reasons that read
 # like unrelated faults; the one line it prints is the whole diagnosis.
 # `-n "$NS"` IS THE WHOLE LINE, and its absence was invisible for as long as an older install
