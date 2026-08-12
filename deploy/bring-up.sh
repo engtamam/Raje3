@@ -76,6 +76,54 @@ if [[ $WIPE -eq 1 ]]; then
   ok "namespace, volumes and host directories are gone"
 fi
 
+# ── 0b ────────────────────────────────────────────────────────────────────────────────────────
+# THE CLUSTER, BEFORE ANYTHING THAT SPEAKS TO ONE. Every step below — the preflight, the object
+# store credential, upstream's own bootstrap — begins by calling kubectl. On a machine that has
+# been installed before, that is free. On a virgin host it is the whole install failing in its
+# first ten seconds with `kubectl: command not found`, which reads like a broken bundle and is
+# nothing but an order-of-operations mistake. Upstream's bootstrap installs k3s too — but its
+# main() runs `need kubectl` FIRST, so it dies on the same host for the same reason.
+#
+# AND WE INSTALL IT WITH --secrets-encryption, which is the reason this is ours rather than a call
+# to theirs. That flag belongs to the k3s SERVER at start time: a cluster brought up without it
+# cannot be talked into it later, `secrets-encrypt enable` returns success while the status stays
+# Disabled, and every secret we then write — the postgres password, the token behind every
+# internal call, the session-signing key, PII_SALT — sits in etcd as base64 for the life of the
+# machine. PII_SALT is frozen by product identifiers; if it leaks it cannot be rotated, only
+# regretted. The one moment this is fixable is the moment below, and it lasts one command.
+#
+# The other flags mirror theirs exactly (flannel off, Calico brings the policy CNI, no traefik) —
+# drift here would give us a cluster their bootstrap then tries to correct.
+step "cluster"
+if command -v k3s >/dev/null 2>&1; then
+  ok "k3s already installed — left as it is"
+else
+  command -v curl >/dev/null 2>&1 || { echo "  curl is required to install k3s" >&2; exit 1; }
+  echo "  installing k3s (Calico CNI, traefik off, secrets encrypted at rest)"
+  curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL="${K3S_CHANNEL:-stable}" sh -s - \
+    --flannel-backend=none --disable-network-policy --disable traefik \
+    --write-kubeconfig-mode 644 --secrets-encryption \
+    || { echo "  k3s install failed" >&2; exit 1; }
+  ok "k3s installed"
+fi
+command -v kubectl >/dev/null 2>&1 || ln -sf /usr/local/bin/k3s /usr/local/bin/kubectl
+export PATH="/usr/local/bin:$PATH"
+# READY, NOT MERELY INSTALLED. The API server answers seconds after the installer returns, and a
+# kubectl that runs one second too early fails in a way that looks like a permission problem.
+for _ in $(seq 1 60); do kubectl get --raw=/readyz >/dev/null 2>&1 && break; sleep 2; done
+kubectl get --raw=/readyz >/dev/null 2>&1 || { echo "  the API server never became ready" >&2; exit 1; }
+ok "API server answering"
+
+# THE REGISTRY CREDENTIAL, HERE, because this is the first moment a cluster exists and the last
+# moment before anything pulls. Our images are private: without it every pod sits in
+# ImagePullBackOff, a failure that reads like a broken cluster and is a missing password.
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "$NS" create secret docker-registry ghcr \
+    --docker-server=ghcr.io --docker-username="${GHCR_USER:-x}" --docker-password="$GHCR_TOKEN" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null && ok "ghcr credential in place"
+fi
+
 # ── 1 ─────────────────────────────────────────────────────────────────────────────────────────
 step "preflight"
 # OURS FIRST, AND IT IS NOT A DUPLICATE. Upstream's proves the same property by reading its answer

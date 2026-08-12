@@ -61,7 +61,10 @@ mkdir -p "$(dirname "$CONF")"; chmod 700 "$(dirname "$CONF")"
 # shellcheck disable=SC1090
 [ -f "$CONF" ] && . "$CONF"
 
-_tty(){ [ -e /dev/tty ]; }
+# EXISTENCE IS NOT USABILITY. /dev/tty is a file on every Linux box; under `ssh host 'cmd'` there
+# is no controlling terminal behind it, so opening it fails and `[ -e ]` still says yes — which is
+# how a non-interactive run printed «No such device or address» twice and then carried on. Open it.
+_tty(){ { : </dev/tty; } 2>/dev/null; }
 _ask(){  # <prompt> <default>
   local p="$1" d="${2:-}" v=""
   if ! _tty; then printf '%s' "$d"; return; fi
@@ -124,18 +127,17 @@ if [ "${ASSUME_YES:-0}" != "1" ] && _tty; then
   case "${go:-}" in y|Y|yes|نعم) ;; *) die "أُلغي — لم يُمسّ شيء";; esac
 fi
 
-export DOMAIN ACME_EMAIL ADMIN_EMAIL ADMIN_PASSWORD
+export DOMAIN ACME_EMAIL ADMIN_EMAIL ADMIN_PASSWORD GHCR_USER GHCR_TOKEN
 
-# ── 1 · the registry credential, before anything pulls ────────────────────────────────────────
+# ── 1 · the registry credential, before k3s starts ────────────────────────────────────────────
+# ONLY THE FILE HERE — the cluster-side secret is minted by bring-up.sh, in the first second a
+# cluster exists. This ran kubectl on a virgin host once and printed `command not found` three
+# times before the real failure; on a machine installed earlier it had looked fine for weeks.
 phase "1 · اعتماد الصور"
 if [ -n "${GHCR_TOKEN:-}" ]; then
-  kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1 || true
-  kubectl -n "$NS" create secret docker-registry ghcr \
-    --docker-server=ghcr.io --docker-username="${GHCR_USER:-x}" --docker-password="$GHCR_TOKEN" \
-    --dry-run=client -o yaml | kubectl apply -f - >/dev/null \
-    && ok "اعتماد ghcr مضبوط"
-  # AND THE SAME CREDENTIAL WHERE THE KUBELET LOOKS. k3s reads /etc/rancher/k3s/registries.yaml for
-  # pulls that happen outside a pod spec — the pre-pull our rollout does, for one.
+  # WHERE THE KUBELET LOOKS. k3s reads /etc/rancher/k3s/registries.yaml for pulls that happen
+  # outside a pod spec — the pre-pull our rollout does, for one — and it reads it AT START, so
+  # writing it before k3s is installed is not merely allowed, it is the right moment.
   install -d -m 700 /etc/rancher/k3s
   cat > /etc/rancher/k3s/registries.yaml <<REGEOF
 configs:
@@ -145,7 +147,10 @@ configs:
       password: "${GHCR_TOKEN}"
 REGEOF
   chmod 600 /etc/rancher/k3s/registries.yaml
-  systemctl restart k3s >/dev/null 2>&1 || true
+  ok "اعتماد ghcr مكتوب حيث يقرأه kubelet"
+  # ONLY IF IT IS ALREADY RUNNING. On a first install there is no k3s to restart, and a restart of
+  # a unit that does not exist is a red line of output that frightens the reader for nothing.
+  systemctl is-active --quiet k3s && systemctl restart k3s >/dev/null 2>&1 || true
 else
   warn "بلا رمز — تخطّي اعتماد الصور"
 fi
