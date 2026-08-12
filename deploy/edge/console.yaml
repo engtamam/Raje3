@@ -38,7 +38,15 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            capabilities: { drop: [ALL] }
+            capabilities:
+              drop: [ALL]
+              # NOT A RELAXATION OF THE DROP ABOVE, AND THE EDGE LEARNED THIS FIRST. The caddy
+              # binary carries file capabilities; with no_new_privs the kernel refuses to exec a
+              # file whose capabilities it cannot grant, and the container dies before its first
+              # line of config with `exec /usr/bin/caddy: operation not permitted` — a message that
+              # names no port and no permission. This one does not even bind a low port; the
+              # capability is what makes the exec legal, nothing more.
+              add: [NET_BIND_SERVICE]
           # READ-ONLY ROOT, SO CADDY'S SCRATCH SPACE IS EXPLICIT. It writes nothing that must
           # survive — the certificates belong to the edge — but it does want a place to put its
           # config cache, and a container that cannot write anywhere fails to start.

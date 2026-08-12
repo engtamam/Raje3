@@ -20,6 +20,12 @@ metadata:
   namespace: base-services
 spec:
   replicas: 1
+  # RECREATE, BECAUSE THIS POD OWNS PORTS 80 AND 443 ON THE NODE. The default rolling update starts
+  # the new pod before stopping the old one, and the new one is unschedulable for as long as the
+  # old one holds the ports: «0/1 nodes are available: 1 node(s) didn't have free ports». The
+  # rollout then waits for a pod that cannot start until the pod it is replacing goes away. A
+  # singleton bound to host ports is not a thing you roll — it is a thing you replace.
+  strategy: { type: Recreate }
   selector:
     matchLabels: { app: edge }
   template:
