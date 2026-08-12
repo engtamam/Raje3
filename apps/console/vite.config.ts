@@ -8,6 +8,11 @@ import { fileURLToPath, URL } from 'node:url';
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
+  // THE CONSOLE LIVES AT /app/, AND THE BUNDLE HAS TO KNOW. Without this every asset is written as
+  // /assets/… , which under /app/ resolves at the ROOT — where the landing page answers instead,
+  // and the owner gets a blank screen with no error but a MIME complaint in a console he will
+  // never open. Vite exposes it back as import.meta.env.BASE_URL, which is what the router reads.
+  base: '/app/',
   plugins: [react()],
   resolve: {
     alias: {

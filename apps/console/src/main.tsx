@@ -43,7 +43,13 @@ const router = createBrowserRouter([
       { path: 'shop', element: <Local /> },
     ],
   },
-]);
+], {
+  // AND THE ROUTER TOO — from the same value, never a second literal. The app is mounted under a
+  // prefix, so a route declared as '/visit' is really '/app/visit'; a router that does not know
+  // that matches nothing and renders the not-found branch on every screen, on a page whose assets
+  // all loaded correctly. BASE_URL carries the trailing slash and basename must not.
+  basename: import.meta.env.BASE_URL.replace(/\/$/, ''),
+});
 
 applyRaje3();
 createRoot(document.getElementById('root')!).render(

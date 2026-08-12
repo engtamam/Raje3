@@ -11,6 +11,11 @@
 	# SPA ROUTING IS NOT OPTIONAL HERE. Every screen has a real URL — a customer page arrives as a
 	# link inside a WhatsApp message — and reloading one of those is a request with no file behind
 	# it. Without the rewrite the owner sees 404 on a screen that works perfectly when navigated to.
+	# /app WITHOUT THE SLASH IS NOT /app/ — and the reader who types it, or the link that omits it,
+	# lands on the landing page instead of the console with no error anywhere. `handle /app/*` does
+	# not match the bare path; only a redirect makes the two names one place.
+	redir /app /app/ permanent
+
 	handle /app/* {
 		try_files {path} /app/index.html
 		file_server
