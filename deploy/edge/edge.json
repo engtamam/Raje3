@@ -1,0 +1,23 @@
+{
+  "_comment": "THE ONE PLACE THE DOMAIN IS WRITTEN. base-services renders the Caddyfile from this file (platform/tools/edge/render.py) and bring-up.sh feeds the result to the cluster as a ConfigMap — so a route added here is a route the edge serves, and a Caddyfile edited by hand is a file that gets overwritten. Values are validated before they are interpolated; a hostname that does not parse stops the install rather than becoming a site block.",
+
+  "driver": "caddy",
+
+  "_domain": "Set by bring-up.sh from DOMAIN at install time — the installer asks once and every layer below reads the same answer. The value here is the local default, for a box with no DNS.",
+  "domain": "localhost",
+  "tls": false,
+  "http_port": 80,
+  "acme_email": "ops@example.com",
+
+  "_routes": "Longest prefix wins and the renderer sorts, so listing order cannot shadow a route. The last entry is the catch-all: everything that is not an API call is the console image, which carries the landing page at / and the screens under /app and does its own SPA fallback.",
+  "routes": [
+    { "path": "/api/v1/auth/*", "upstream": "identity-service:8000" },
+    { "path": "/api/v1/tenancy/*", "upstream": "identity-service:8000" },
+    { "path": "/api/*", "upstream": "api-gateway:8000" },
+
+    { "_p": "The customer's own page, opened from a WhatsApp link. It is the only path here a person reaches without a token, and it belongs to portal rather than to the console.",
+      "path": "/p/*", "upstream": "portal:8000" },
+
+    { "path": "/*", "upstream": "console:8080" }
+  ]
+}

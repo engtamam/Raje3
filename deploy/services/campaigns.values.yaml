@@ -16,8 +16,8 @@ service:
   port: 8000
 
 image:
-  repository: 127.0.0.1:5055/raje3/campaigns
-  digest: "sha256:a716d38bc6a4783f1a469b95ae5a0b1f3a68aca9548080b6c9daa272db176a62"
+  repository: ghcr.io/engtamam/raje3/campaigns
+  digest: "sha256:bd441f07a0d386384dde69a2c20a813eecf0fc640ca9c803447cd9353fdccb22"   # 9bb4258, published by publish-images.sh
 
 replicas: 1
 

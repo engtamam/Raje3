@@ -485,6 +485,52 @@ bash "$HERE/seed/seed-roles.sh"  || echo "  (roles: see above)"
 bash "$HERE/seed/seed-plans.sh"  || echo "  (plans: see above)"
 bash "$HERE/seed/seed-legal.sh"  || echo "  (legal: see above)"
 
+# ── 9 ─────────────────────────────────────────────────────────────────────────────────────────
+# THE EDGE, WHICH NOTHING USED TO APPLY. Every service could be healthy, every secret minted, every
+# database provisioned — and the domain answered nothing, because the one component that owns port
+# 443 was a file somebody remembered to run by hand. A from-nothing install found it in the only
+# way it could: by finishing successfully and serving no one.
+#
+# THE CADDYFILE IS RENDERED, NEVER WRITTEN. base-services turns edge.json into Caddy config with a
+# pure function, validating every value first — a hostname that does not parse stops the install
+# instead of becoming a site block. Our hostname and TLS flag are stamped in from what the
+# installer asked, so the certificate, the routed host and the URLs the console calls are one
+# answer given once.
+step "edge"
+EDGE_SRC="$HERE/edge/edge.json"
+if [[ ! -f "$EDGE_SRC" ]]; then
+  warn "no deploy/edge/edge.json — the domain will answer nothing"
+else
+  EDGE_TMP="$(mktemp -d)"
+  # DOMAIN decides TLS: a name in public DNS gets a real certificate, and a box without one must
+  # not ask Let's Encrypt for `localhost` — five failed attempts is a week-long rate limit.
+  python3 - "$EDGE_SRC" "$EDGE_TMP/edge.json" "${DOMAIN:-}" "${ACME_EMAIL:-}" <<'PYEOF'
+import json, sys
+src, dst, domain, email = sys.argv[1:5]
+cfg = json.load(open(src, encoding='utf-8'))
+if domain:
+    cfg['domain'] = domain
+    cfg['tls'] = True
+    if email:
+        cfg['acme_email'] = email
+json.dump(cfg, open(dst, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+PYEOF
+  if EDGE_CONFIG="$EDGE_TMP/edge.json" EDGE_OUT="$EDGE_TMP/Caddyfile"      python3 "$ROOT/platform/tools/edge/render.py" >/dev/null; then
+    kubectl -n "$NS" create configmap edge-caddyfile --from-file=Caddyfile="$EDGE_TMP/Caddyfile"       --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    # THE CONSOLE FIRST — the edge's catch-all route names it, and a Caddy that cannot resolve an
+    # upstream at start refuses to load the config rather than serving the rest.
+    kubectl apply -n "$NS" -f "$HERE/edge/console.yaml" >/dev/null
+    kubectl apply -n "$NS" -f "$HERE/edge/deployment.yaml" >/dev/null
+    # A CHANGED CONFIGMAP DOES NOT RESTART A POD. Caddy reads its file at start, so without this the
+    # rendered routes sit in the cluster while the edge keeps serving the previous ones.
+    kubectl -n "$NS" rollout restart deployment/edge >/dev/null 2>&1 || true
+    ok "edge serving ${DOMAIN:-localhost}${DOMAIN:+ over TLS}"
+  else
+    warn "edge config rejected — see the line above; the domain will answer nothing"
+  fi
+  rm -rf "$EDGE_TMP"
+fi
+
 # ── verify ────────────────────────────────────────────────────────────────────────────────────
 # The rollout reports what helm told it. This reads what the cluster is RUNNING, which is the only
 # claim worth making at the end of an install.

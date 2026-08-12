@@ -10,6 +10,7 @@
 #      platform/deploy/chart  the helm chart the values are rendered against
 #      platform/deploy/k3s    upstream's bootstrap (k3s · calico · datastores · tls · store)
 #      platform/deploy/server upstream's gen-secrets, update.sh, preflights
+#      platform/tools/edge     the renderer that turns our edge.json into a Caddyfile
 #
 #  AND A VERSION STAMP, WHICH IS THE PART WE LEARNED THE HARD WAY. The old server held a hand-copied
 #  tree that had drifted a full release behind: our new install script ran against an old bootstrap
@@ -54,6 +55,12 @@ tar -C "$ROOT" -cf - \
 for d in chart k3s server; do
   tar -C "$ROOT/platform/deploy" -cf - "$d" | tar -C "$STAGE/$NAME/platform/deploy" -xf -
 done
+
+# AND THE EDGE RENDERER, which is not under deploy/ but is RUN at install time: bring-up turns our
+# edge.json into a Caddyfile with it. Left out, the install finishes and the domain answers nothing
+# — the failure is a warning in a step nobody rereads, not a crash.
+mkdir -p "$STAGE/$NAME/platform/tools"
+tar -C "$ROOT/platform/tools" -cf - edge | tar -C "$STAGE/$NAME/platform/tools" -xf -
 
 # THE STAMP. Read here, where git exists — the server has no repository to ask.
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"

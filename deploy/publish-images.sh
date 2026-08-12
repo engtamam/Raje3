@@ -14,9 +14,18 @@
 #  a tag we could have used instead is a name, which can be moved after review so a pod runs code
 #  nobody approved.
 #
+#  ALL SEVEN AT ONCE, EACH WITH ITS OWN LOG. Building one at a time left the machine half idle: a
+#  push is network and a build is CPU, so while campaigns sent ninety megabytes nothing compiled.
+#  The reason it was serial first is exactly the reason the logs are now separated — seven builds
+#  writing into one terminal interleave, and the failure you most need to read is the one you cannot
+#  find. So each image writes to its own file, and a failure prints ITS log and nothing else. The
+#  gain is smaller than sevenfold and always will be: six of these share python:3.12-slim, and
+#  seven builds on one daemon share the same cores.
+#
 #  Usage:
-#    GHCR_TOKEN=… bash deploy/publish-images.sh              # all seven
+#    GHCR_TOKEN=… bash deploy/publish-images.sh              # all seven, in parallel
 #    GHCR_TOKEN=… bash deploy/publish-images.sh operations   # one, after a fix
+#    JOBS=2 GHCR_TOKEN=… bash deploy/publish-images.sh       # fewer at a time, on a small machine
 #
 #  The token needs write:packages — a read:packages token pulls fine and fails at the push, which is
 #  a twenty-minute build discovering its problem at the last second.
@@ -38,6 +47,7 @@ dfl(){ case "$1" in console) echo "$ROOT/apps/console/Dockerfile";; *) echo "$RO
 
 ALL=(campaigns insights loyalty operations portal reminders console)
 TARGETS=("$@"); [ ${#TARGETS[@]} -eq 0 ] && TARGETS=("${ALL[@]}")
+JOBS="${JOBS:-${#TARGETS[@]}}"
 
 docker version >/dev/null 2>&1 || die "docker is not running — start Docker Desktop and try again"
 : "${GHCR_TOKEN:?GHCR_TOKEN is required (write:packages)}"
@@ -49,34 +59,84 @@ printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-$OWNER}" --pas
 COMMIT="$(git -C "$ROOT" rev-parse --short HEAD)"
 git -C "$ROOT" diff --quiet || echo -e "${C_Y}  note: building from a tree with uncommitted changes${C_N}"
 
-for name in "${TARGETS[@]}"; do
-  values="$HERE/services/$name.values.yaml"
-  echo -e "\n${C_C}━━━ $name ━━━${C_N}"
-  docker build -q -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" >/dev/null \
-    || die "$name failed to build"
-  ok "built"
-  docker push -q "$REG/$name:$COMMIT" >/dev/null || die "$name failed to push"
-  docker push -q "$REG/$name:latest"  >/dev/null || true
-  # ASK THE REGISTRY, DO NOT PARSE THE PUSH. The local `RepoDigests` is populated only after a push
-  # and is empty for an image built from cache — reading it there is how a pin silently keeps its
-  # previous value while everything prints success.
-  digest="$(docker buildx imagetools inspect "$REG/$name:$COMMIT" --format '{{.Manifest.Digest}}' 2>/dev/null || true)"
-  [ -n "$digest" ] || digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$REG/$name:$COMMIT" 2>/dev/null | sed 's/.*@//')"
-  [ -n "$digest" ] || die "$name pushed but the registry did not report a digest — refusing to pin a guess"
-  ok "pushed ${digest:0:19}…"
+LOGS="$(mktemp -d)"; trap 'rm -rf "$LOGS"' EXIT
 
-  [ -f "$values" ] || { echo -e "${C_Y}  ! no values file — the image is published and nothing deploys it${C_N}"; continue; }
-  python3 - "$values" "$digest" "$REG/$name" "$COMMIT" <<'PY'
+# ONE IMAGE, BUILD TO DIGEST, IN ITS OWN PROCESS. It writes the digest to a file rather than printing
+# it: seven of these run at once, and stdout is not a place two processes can share a sentence.
+one(){
+  local name="$1" d=""
+  {
+    docker build -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" || exit 1
+    docker push "$REG/$name:$COMMIT" || exit 1
+    docker push "$REG/$name:latest"  || true
+    # ASK THE REGISTRY, DO NOT READ THE LOCAL IMAGE. RepoDigests is empty for an image built from
+    # cache, and reading it there is how a pin silently keeps its previous value while every line
+    # printed success.
+    d="$(docker buildx imagetools inspect "$REG/$name:$COMMIT" --format '{{.Manifest.Digest}}' 2>/dev/null || true)"
+    [ -n "$d" ] || d="$(docker inspect --format '{{index .RepoDigests 0}}' "$REG/$name:$COMMIT" 2>/dev/null | sed 's/.*@//')"
+    [ -n "$d" ] || { echo "pushed, but the registry reported no digest — refusing to pin a guess"; exit 1; }
+    printf '%s' "$d" > "$LOGS/$name.digest"
+  } > "$LOGS/$name.log" 2>&1
+}
+
+echo -e "${C_C}  ${#TARGETS[@]} image(s), $JOBS at a time — commit $COMMIT${C_N}"
+declare -A PID
+RUNNING=0
+for name in "${TARGETS[@]}"; do
+  # A CAP, because a laptop running seven docker builds with a browser open is a laptop that stops
+  # answering its owner. The default is all of them; JOBS=2 exists for the machine that cannot.
+  while [ "$RUNNING" -ge "$JOBS" ]; do wait -n 2>/dev/null || true; RUNNING=$((RUNNING-1)); done
+  one "$name" & PID[$name]=$!
+  RUNNING=$((RUNNING+1))
+  echo -e "${C_D}  ▸ $name${C_N}"
+done
+
+FAILED=()
+for name in "${TARGETS[@]}"; do
+  if wait "${PID[$name]}"; then
+    d="$(cat "$LOGS/$name.digest")"
+    ok "$name  ${d:0:19}…"
+    # THE CONSOLE IS PINNED SOMEWHERE ELSE, because it is deployed by a plain manifest rather than
+    # by the service chart — it is a Caddy holding files, with no secret, no driver and no database
+    # for a values file to describe.
+    if [ "$name" = "console" ]; then
+      python3 - "$HERE/edge/console.yaml" "$d" <<'PYCON'
+import re, sys
+path, digest = sys.argv[1:3]
+src = open(path, encoding='utf-8').read()
+src = re.sub(r'image: (ghcr\.io/\S+/console)@sha256:[0-9a-f]+', rf'image: @{digest}', src, count=1)
+open(path, 'w', encoding='utf-8', newline='
+').write(src)
+PYCON
+      ok "pinned in edge/console.yaml"
+      continue
+    fi
+    values="$HERE/services/$name.values.yaml"
+    if [ ! -f "$values" ]; then
+      echo -e "${C_Y}  ! $name: no values file — the image is published and nothing deploys it${C_N}"
+      continue
+    fi
+    # PINNED HERE IN THE PARENT, ONE AT A TIME. Seven children rewriting seven files is safe right
+    # up until two of them share one, and the day that happens the loss is silent.
+    python3 - "$values" "$d" "$REG/$name" "$COMMIT" <<'PYEOF'
 import re, sys
 path, digest, repo, commit = sys.argv[1:5]
 src = open(path, encoding='utf-8').read()
 src = re.sub(r'^  repository: .*$', f'  repository: {repo}', src, count=1, flags=re.M)
-src = re.sub(r'^  digest: *"[^"]*".*$', f'  digest: "{digest}"   # {commit}, published by publish-images.sh',
+src = re.sub(r'^  digest: *"[^"]*".*$',
+             f'  digest: "{digest}"   # {commit}, published by publish-images.sh',
              src, count=1, flags=re.M)
 open(path, 'w', encoding='utf-8', newline='\n').write(src)
-PY
-  ok "pinned in $(basename "$values")"
+PYEOF
+  else
+    FAILED+=("$name")
+    echo -e "${C_R}  ✖ $name${C_N}"
+    # ONLY THE FAILURE'S OWN LOG. That is the whole point of separating them: this paragraph is
+    # about one image and contains not a line from the six that worked.
+    tail -25 "$LOGS/$name.log" | sed 's/^/      /'
+  fi
 done
 
 echo
+[ ${#FAILED[@]} -gt 0 ] && die "${#FAILED[@]} did not publish: ${FAILED[*]} — the pins for the rest are written"
 echo -e "${C_D}  next: commit the pins, then  bash deploy/pack.sh --to root@HOST  and re-run the installer${C_N}"

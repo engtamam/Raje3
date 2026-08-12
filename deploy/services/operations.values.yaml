@@ -25,8 +25,8 @@ image:
   # It is still pinned BY DIGEST, not by the `:local` tag — the same rule as every other service,
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
-  repository: 127.0.0.1:5055/raje3/operations
-  digest: "sha256:d7c1db7b24cc7305193937b8362f882121ef910410a2922ed840603bd907ba19"
+  repository: ghcr.io/engtamam/raje3/operations
+  digest: "sha256:d57446a3aa0a199b22a2019f83d8823e35b4de704118a6da13048e2ed0b94db2"   # 9bb4258, published by publish-images.sh
 
 replicas: 1
 

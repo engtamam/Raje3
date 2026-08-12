@@ -1,0 +1,70 @@
+# ==================================================================================================
+#  console — the landing page and the owner's screens, served as files.
+# --------------------------------------------------------------------------------------------------
+#  NOT THROUGH THE SERVICE CHART, AND THAT IS THE POINT. The chart exists for a base-services
+#  service: a secret it names, drivers it selects, a database it owns, a /internal/manifest the
+#  gateway reads. This container has none of those and never will — it is a Caddy holding compiled
+#  files. Pushing it through the chart would mean declaring a secret it does not read and drivers it
+#  does not have, which is configuration asserting something untrue to satisfy a guard.
+#
+#  IT IS ALSO WHY THERE IS NO DATABASE, NO NETWORK POLICY BEYOND THE DEFAULT, AND NOTHING TO BACK UP:
+#  the whole state of this pod is its image. Delete it and roll it again and nothing is lost.
+#
+#  The digest is rewritten by deploy/publish-images.sh from what the registry reported. Never a tag.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console
+  namespace: base-services
+  labels: { app: console }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: console }
+  template:
+    metadata:
+      labels: { app: console }
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: console
+          image: ghcr.io/engtamam/raje3/console@sha256:6ebc98452e833d65b771b0f24f4fdeb6813131d8399237dd3f94a32468629892
+          ports:
+            - { containerPort: 8080 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          # READ-ONLY ROOT, SO CADDY'S SCRATCH SPACE IS EXPLICIT. It writes nothing that must
+          # survive — the certificates belong to the edge — but it does want a place to put its
+          # config cache, and a container that cannot write anywhere fails to start.
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 20m, memory: 32Mi }
+            limits:   { memory: 128Mi }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: console
+  namespace: base-services
+spec:
+  selector: { app: console }
+  ports:
+    - { port: 8080, targetPort: 8080 }

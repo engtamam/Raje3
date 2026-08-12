@@ -1,0 +1,83 @@
+# ==================================================================================================
+#  the edge — plumbing only. THE ROUTING LIVES IN edge.json, and this file never mentions a hostname.
+# --------------------------------------------------------------------------------------------------
+#  base-services renders its Caddyfile from a config with tools/edge/render.py, and the docstring
+#  there says why better than we would: the domain comes from ONE place «so the cert, the routing
+#  host and the URLs the UI calls can never drift». Every value is validated first, because a
+#  Caddyfile is a configuration language and an unvalidated hostname is an injected site block.
+#
+#  We had 169 lines of hand-written Caddy beside that renderer, which is a fourth source of truth
+#  that agrees with the other three right up until it doesn't. It is gone. What stays here is what
+#  their manifest does NOT carry: hostPorts 80/443, the capability that lets an unprivileged Caddy
+#  bind them, and a volume for the certificates.
+#
+#  THE CONFIGMAP IS NOT IN THIS FILE. bring-up.sh renders it from deploy/edge/edge.json and creates
+#  it — so editing a route here would be editing nothing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge
+  namespace: base-services
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: edge }
+  template:
+    metadata:
+      labels: { app: edge }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: caddy
+          image: caddy:2.8-alpine
+          ports:
+            - { containerPort: 80,  hostPort: 80 }
+            - { containerPort: 443, hostPort: 443 }
+            - { containerPort: 443, hostPort: 443, protocol: UDP }   # HTTP/3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+              # REQUIRED, and not a relaxation of the drop above. The caddy binary carries file
+              # capabilities, and under no_new_privs the kernel refuses to exec a file with
+              # capabilities it cannot grant — so without this the container fails to START, with
+              # an error that says nothing about ports. Binding 80 and 443 as a non-root user is
+              # precisely what this permits, and nothing else.
+              add: [NET_BIND_SERVICE]
+          livenessProbe:
+            httpGet: { path: /health, port: 80 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - { name: caddyfile, mountPath: /etc/caddy }
+            # THE CERTIFICATES MUST SURVIVE A RESTART. On an emptyDir every restart discards the
+            # account key and the issued certificate and asks Let's Encrypt for new ones. Their
+            # rate limit is 5 duplicate certificates per week, so a pod that restarts a few times
+            # on a bad afternoon locks the domain out of new certificates for SEVEN DAYS — with a
+            # site serving nothing the whole time.
+            - { name: data,   mountPath: /data }
+            - { name: config, mountPath: /config }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { memory: 256Mi }
+      volumes:
+        - name: caddyfile
+          configMap: { name: edge-caddyfile }
+        - name: data
+          persistentVolumeClaim: { claimName: edge-data }
+        - name: config
+          emptyDir: {}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: edge-data
+  namespace: base-services
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 256Mi     # certificates and an ACME account key; small, and it must not be lost

@@ -15,8 +15,8 @@ service:
   port: 8000
 
 image:
-  repository: 127.0.0.1:5055/raje3/portal
-  digest: "sha256:efc7b618fdf866ede4e9a477867d50be459894b7429636e524d25afe67af1b98"
+  repository: ghcr.io/engtamam/raje3/portal
+  digest: "sha256:e6a543a2975a85df65e211c1604323d6427716fffe59b1e5898ecb0976661f5e"   # 9bb4258, published by publish-images.sh
 
 # ONE REPLICA — and this is a correction, not the original plan.
 #

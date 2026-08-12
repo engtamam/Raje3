@@ -1,0 +1,25 @@
+# The console's own server, inside the cluster. The edge in front of it — also Caddy — owns TLS and
+# the hostnames; this one only decides which file answers which path.
+:8080 {
+	root * /srv
+	encode gzip
+
+	respond /healthz 200 {
+		body "ok"
+	}
+
+	# SPA ROUTING IS NOT OPTIONAL HERE. Every screen has a real URL — a customer page arrives as a
+	# link inside a WhatsApp message — and reloading one of those is a request with no file behind
+	# it. Without the rewrite the owner sees 404 on a screen that works perfectly when navigated to.
+	handle /app/* {
+		try_files {path} /app/index.html
+		file_server
+	}
+
+	# The landing page at the root, same origin as the console, so a link from one into the other is
+	# not a cross-site anything.
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
