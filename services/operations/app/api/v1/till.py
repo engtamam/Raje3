@@ -37,7 +37,7 @@ no longer the door an outside party would have to be let through.
 """
 from __future__ import annotations
 
-import time
+import hashlib
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -95,6 +95,44 @@ class TillBatchIn(BaseModel):
     visits: list[TillVisitIn] = Field(min_length=1, max_length=50)
 
 
+def content_key(*, tenant: str, visit: "TillVisitIn") -> str:
+    """A key derived from the sale itself, for a till that sends no key and no invoice number.
+
+    THE FALLBACK IT REPLACES WAS THE BUG. It was `till:{tenant}:{now}:{i}` — unique inside one
+    request and new on the next, so a till that lost the reply and re-sent two seconds later
+    recorded every visit a second time: doubled history, doubled reminders, doubled points, and
+    an owner asking why a customer who came once shows twice.
+
+    SO THE KEY COMES FROM THE CONTENT, and the same sale hashes to the same key however many times
+    it is sent. `occurred_at` is part of it and is the till's own clock — ours moves between
+    retries, which is precisely what broke the old one.
+
+    TWO GENUINELY IDENTICAL SALES — same shop, same number, same second, same lines — collapse
+    into one. That is the safer of the two errors by a wide margin: merging a real duplicate pair
+    costs one visit; splitting a retried sale costs a customer's trust in every message we send
+    him afterwards.
+    """
+    parts = [tenant, (visit.phone or "").strip(), str(visit.occurred_at),
+             (visit.plate or "").strip(), str(visit.meter or 0)]
+    # SORTED, because a till is free to reorder the lines of the same invoice between retries —
+    # and an unsorted fingerprint would make the reorder look like a different sale.
+    parts += sorted(f"{line.product_id}|{line.name}|{line.qty}|{line.amount_minor}"
+                    for line in (visit.lines or []))
+    digest = hashlib.sha256("".join(parts).encode()).hexdigest()[:32]
+    return f"till:{tenant}:c:{digest}"
+
+
+def _key_for(tenant: str, visit: "TillVisitIn") -> str:
+    """Their key, else their invoice number, else the sale's own fingerprint."""
+    if visit.idempotency_key:
+        return visit.idempotency_key
+    if visit.invoice_id:
+        # NAMESPACED, so a till whose invoice numbers restart at 1 each day cannot collide with a
+        # key some other integration chose.
+        return f"till:{tenant}:{visit.invoice_id}"
+    return content_key(tenant=tenant, visit=visit)
+
+
 @router.post("/visits", dependencies=[Depends(rate_limit)])
 async def record_from_till(request: Request, body: TillBatchIn,
                            principal: Principal = Depends(_TILL)) -> Any:
@@ -117,7 +155,21 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # nothing to overwrite — `TillVisitIn` has no such field. This is the single line the whole
     # module exists for.
     tenant = principal.tenant
-    now = int(time.time())
+    # A SALE WITH NOTHING STABLE ON IT IS REFUSED, not accepted with a key that changes.
+    #
+    # Three things can make a retry recognisable: their own key, their invoice number, or the time
+    # the sale happened by their clock. A till that sends none of the three has given us no way to
+    # tell "the same sale again" from "another sale", and inventing one from OUR clock is what
+    # doubled a shop's history. The refusal names all three, per item, so the rest of the batch
+    # still lands and their engineer reads a sentence instead of guessing.
+    unstable = [i for i, v in enumerate(body.visits)
+                if not (v.idempotency_key or v.invoice_id or v.occurred_at)]
+    if unstable:
+        return {"accepted": 0, "total": len(body.visits),
+                "results": [{"idempotency_key": "", "status": "rejected",
+                             "reason": "send one of: idempotency_key, invoice_id, occurred_at — "
+                                       "without one a retry cannot be told from a second sale",
+                             "index": i} for i in unstable]}
     forwarded = BatchIn(visits=[
         BatchVisitIn(
             tenant=tenant,
@@ -126,15 +178,14 @@ async def record_from_till(request: Request, body: TillBatchIn,
             meter=v.meter, note=v.note,
             lines=[line.model_dump() for line in v.lines],
             invoice_id=v.invoice_id,
-            # A batch is by definition a replay, and a replay without a stable key is how one lost
-            # reply becomes two visits, two reminders and doubled revenue. The invoice number is
-            # the till's own idea of "the same sale"; our fallback is only for a till that sends
-            # neither, and it is per-request so at least a retry inside one call cannot double.
-            idempotency_key=v.idempotency_key or (f"till:{tenant}:{v.invoice_id}"
-                                                  if v.invoice_id else f"till:{tenant}:{now}:{i}"),
+            # A batch is by definition a replay, and a replay without a stable key is how one
+            # lost reply becomes two visits, two reminders and doubled revenue. `_key_for` picks
+            # the most authoritative thing the till gave us, and every one of its answers is the
+            # same on the second attempt — which the old fallback was not.
+            idempotency_key=_key_for(tenant, v),
             occurred_at=v.occurred_at,
         )
-        for i, v in enumerate(body.visits)
+        for v in body.visits
     ])
 
     # REUSED, NOT REIMPLEMENTED. The batch handler holds the per-item outcome reporting, the

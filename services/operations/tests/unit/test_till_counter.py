@@ -199,3 +199,71 @@ def test_the_two_fields_a_redemption_cannot_be_without(field):
     kw[field] = ""
     with pytest.raises(Exception):
         till_routes.TillRedeemIn(**kw)
+
+
+# ── the key that told a retry from a second sale, and did not ─────────────────────────────────
+
+
+def _visit(**kw):
+    base = {"phone": "0500000000", "occurred_at": 1_750_000_000}
+    base.update(kw)
+    return till_routes.TillVisitIn(**base)
+
+
+def test_their_own_key_wins_over_everything():
+    """Only their system knows whether two calls are the same sale."""
+    v = _visit(idempotency_key="POS-1", invoice_id="INV-9")
+    assert till_routes._key_for("t_1", v) == "POS-1"
+
+
+def test_the_invoice_number_is_namespaced_by_tenant():
+    """A till whose invoice numbers restart at 1 each day must not collide with a key some other
+    integration chose."""
+    key = till_routes._key_for("t_1", _visit(invoice_id="1"))
+    assert key.startswith("till:t_1:") and key.endswith("1")
+
+
+def test_the_same_sale_sent_twice_produces_the_same_key():
+    """THE DEFECT. The fallback was `till:{tenant}:{now}:{i}` — unique inside one request and NEW
+    on the next, so a till that lost the reply and re-sent two seconds later recorded every visit
+    a second time: doubled history, doubled reminders, doubled points."""
+    a = till_routes._key_for("t_1", _visit(lines=[{"name": "غسيل", "amount_minor": 5000}]))
+    b = till_routes._key_for("t_1", _visit(lines=[{"name": "غسيل", "amount_minor": 5000}]))
+    assert a == b
+
+
+def test_reordered_lines_are_the_same_sale():
+    """A till is free to reorder the lines of one invoice between retries, and an unsorted
+    fingerprint would make the reorder look like a different sale."""
+    one = _visit(lines=[{"name": "غسيل", "amount_minor": 5000},
+                        {"name": "تلميع", "amount_minor": 2000}])
+    two = _visit(lines=[{"name": "تلميع", "amount_minor": 2000},
+                        {"name": "غسيل", "amount_minor": 5000}])
+    assert till_routes._key_for("t_1", one) == till_routes._key_for("t_1", two)
+
+
+def test_a_different_sale_produces_a_different_key():
+    """The other half: collapsing two real sales would lose one."""
+    a = till_routes._key_for("t_1", _visit(occurred_at=1_750_000_000))
+    b = till_routes._key_for("t_1", _visit(occurred_at=1_750_000_600))
+    assert a != b
+
+
+def test_one_shops_key_can_never_be_another_shops_key():
+    """The tenant is inside the digest, not only in the prefix — two shops selling the same thing
+    at the same second are two sales."""
+    v = _visit()
+    assert till_routes._key_for("t_1", v) != till_routes._key_for("t_2", v)
+
+
+def test_a_sale_with_nothing_stable_on_it_is_refused_with_a_sentence():
+    """A till that sends no key, no invoice number and no time of sale has given us no way to tell
+    a retry from a second sale — and inventing one from OUR clock is what doubled a shop's
+    history. The refusal names all three so their engineer reads instead of guessing."""
+    body = till_routes.TillBatchIn(visits=[till_routes.TillVisitIn(phone="0500000000")])
+    out = asyncio.run(till_routes.record_from_till(
+        _request(_Ops(), _Desk()), body, principal=_Principal()))
+    assert out["accepted"] == 0
+    assert out["results"][0]["status"] == "rejected"
+    for named in ("idempotency_key", "invoice_id", "occurred_at"):
+        assert named in out["results"][0]["reason"]
