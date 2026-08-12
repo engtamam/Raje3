@@ -190,8 +190,16 @@ header{
   .bar{padding:10px 0; gap:10px}
   .brand{font-size:1.15rem}
   .mark{width:32px; height:32px; border-radius:9px}
-  .nav .btn-ghost{display:none}          /* دخول lives in the footer and in the pinned bar */
-  .nav .btn{min-height:42px; padding:0 16px; font-size:.95rem}
+  /* THE HEADER CARRIES THE NAME AND NOTHING ELSE. Both of its buttons already exist in the bar
+     pinned at the bottom, so on a phone the same action appeared twice on one screen — and the
+     larger of the two crowded the brand until it was clipped by the edge. One action, one place,
+     and the place is the one the thumb reaches. «دخول» stays as plain text: a returning owner
+     looks for a word, not for a second button competing with the first. */
+  .nav .btn-primary{display:none}
+  .nav .btn-ghost{
+    display:inline-block; background:none; border:none; box-shadow:none;
+    color:var(--ink-2); font-weight:700; min-height:auto; padding:6px 4px;
+  }
   h1{font-size:clamp(1.8rem,7.6vw,2.4rem); line-height:1.28}
   h2{font-size:clamp(1.4rem,5.6vw,1.9rem)}
   .lead{font-size:1.02rem; line-height:1.75}

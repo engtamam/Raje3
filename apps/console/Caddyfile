@@ -14,7 +14,17 @@
 	# /app WITHOUT THE SLASH IS NOT /app/ — and the reader who types it, or the link that omits it,
 	# lands on the landing page instead of the console with no error anywhere. `handle /app/*` does
 	# not match the bare path; only a redirect makes the two names one place.
-	redir /app /app/ permanent
+	# AND THE QUERY SURVIVES THE REDIRECT. `redir /app /app/` drops everything after the question
+	# mark, so ?signup=1 — the one link on the landing page that means «I want an account» — arrived
+	# at the console as a plain visit, and the sign-up form never opened. Two matchers, because a
+	# bare /app must not redirect to a URL ending in a lonely question mark.
+	@app_bare path /app
+	@app_bare_q {
+		path /app
+		expression {query} != ""
+	}
+	redir @app_bare_q /app/?{query} permanent
+	redir @app_bare /app/ permanent
 
 	handle /app/* {
 		try_files {path} /app/index.html
