@@ -17,6 +17,7 @@
  * AND THE JOIN IS THE PSEUDONYM. reminders holds no names at all — deliberately — so the offers
  * are fetched by the `subject_ref` that arrives with this one record and with no list.
  */
+import { asLocal } from '../phone';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -42,17 +43,6 @@ interface Balance { balance: number; rewards?: { id: string; name: string; cost:
 interface Move { at?: number; delta?: number; reason?: string; kind?: string }
 interface Send { at?: number; template_type?: string; outcome?: string; reason?: string }
 
-/**
- * The number as HE knows it. Storage keeps E.164 — «966573579663» — because that is what the
- * network needs, and showing it raw asks an owner to translate his own customer's phone in his
- * head. He reads 05XXXXXXXX, so that is what the screen prints.
- */
-export function local(phone: string): string {
-  const d = (phone || '').replace(/\D/g, '');
-  if (d.startsWith('966')) return `0${d.slice(3)}`;
-  if (d.startsWith('05')) return d;
-  return phone;
-}
 
 /**
  * How long ago, in words a person uses. «قبل 0 يوماً» is not a sentence anyone says, and it was
@@ -248,13 +238,13 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         <span className="flex flex-col">
           <span className={c.name ? 'text-lg font-semibold' : 'text-lg font-semibold tabular-nums'}
                 dir={c.name ? undefined : 'ltr'}>
-            {c.name || local(c.phone)}
+            {c.name || asLocal(c.phone)}
           </span>
           <span
             dir={c.name ? 'ltr' : undefined}
             className="text-sm text-text-secondary tabular-nums"
           >
-            {c.name ? local(c.phone) : 'بلا اسم'}
+            {c.name ? asLocal(c.phone) : 'بلا اسم'}
           </span>
         </span>
         <Button variant="ghost" onClick={() => navigate('/customers')}>رجوع</Button>

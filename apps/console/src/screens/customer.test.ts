@@ -2,7 +2,8 @@
  * The two sentences on this page that were wrong for the customer an owner opens most often.
  */
 import { describe, expect, it } from 'vitest';
-import { ago, local } from './Customer';
+import { ago } from './Customer';
+import { asLocal as local } from '../phone';
 
 describe('local', () => {
   it('shows the number the way he knows it, not the way the network stores it', () => {

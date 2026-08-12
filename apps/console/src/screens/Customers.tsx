@@ -26,6 +26,7 @@ import { Badge } from '@base-ui/design-system/Badge';
 import { action, call, type Catalog } from '../catalog';
 import { suggestByPrefix, type CustomerHit } from '../api';
 import type { Session } from '../session';
+import { asLocal } from '../phone';
 
 const MIN_PREFIX = 3;
 
@@ -247,7 +248,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
               className="flex w-full items-center justify-between rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]"
             >
               <div className="flex flex-col">
-                <span dir="ltr" className="tabular-nums">{c.phone}</span>
+                <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                 <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
               </div>
               {/* THE CONSENT STATE IS SHOWN BECAUSE IT CHANGES WHAT HE MAY DO, not as decoration:

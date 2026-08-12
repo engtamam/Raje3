@@ -2,7 +2,8 @@
  * The plate formatter — because a wrong rule here splits one car into two customers.
  */
 import { describe, expect, it } from 'vitest';
-import { asLocal, formatPlate } from './Visit';
+import { formatPlate } from './Visit';
+import { asLocal } from '../phone';
 
 describe('formatPlate', () => {
   it('places the separator so he never types it', () => {

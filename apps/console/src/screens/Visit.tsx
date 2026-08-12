@@ -14,6 +14,7 @@ import {
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
 } from '../api';
+import { asLocal } from '../phone';
 import { Keypad } from '../Keypad';
 import { Button } from '@base-ui/design-system/Button';
 import { ServiceGrid } from '../ServiceGrid';
@@ -39,17 +40,6 @@ import { isSignedIn, useSession } from '../session';
  * The space is INSERTED, never typed. He types 1234ABC and reads 1234 ABC, which is also exactly
  * what gets stored and indexed — see seams.py.
  */
-/**
- * The number in the form this product uses everywhere a person reads or types one.
- *
- * Storage and the network want E.164; the operator, the validator and the display all want the
- * local form. Converting at the ONE boundary where a stored number enters the screen keeps the
- * rest of the file from having to know there are two.
- */
-export function asLocal(phone: string): string {
-  const d = (phone || '').replace(/\D/g, '');
-  return d.startsWith('966') ? `0${d.slice(3)}` : d;
-}
 
 export function formatPlate(raw: string): string {
   const clean = raw.replace(/[^0-9a-zA-Z]/g, '');
@@ -381,7 +371,7 @@ export function Visit() {
                       onClick={() => { setPhone(c.phone); setName(c.name ?? ''); }}
                       className="flex items-center justify-between rounded-xl bg-surface-1 px-3 py-2 text-start shadow-sm active:scale-95"
                     >
-                      <span dir="ltr" className="tabular-nums">{c.phone}</span>
+                      <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                       <span className="text-text-secondary">{c.name || '—'}</span>
                     </button>
                   ))}
@@ -636,7 +626,7 @@ export function Visit() {
               >
                 <span dir="ltr" className="text-base font-semibold tabular-nums">{h.plate}</span>
                 <span className="truncate text-sm text-text-secondary">
-                  {h.name || <span dir="ltr">{h.phone}</span>}
+                  {h.name || <span dir="ltr">{asLocal(h.phone)}</span>}
                 </span>
               </button>
             </li>

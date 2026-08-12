@@ -18,6 +18,7 @@ import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { asLocal } from '../phone';
 
 interface Today {
   messages: { sent_today: number; waiting: number };
@@ -156,7 +157,7 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
           <ul className="flex flex-col gap-2">
             {recent.map((c) => (
               <li key={c.id} className="flex items-center justify-between text-sm">
-                <span dir="ltr" className="tabular-nums">{c.phone}</span>
+                <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                 <span className="text-text-secondary">{c.name || '—'}</span>
               </li>
             ))}
