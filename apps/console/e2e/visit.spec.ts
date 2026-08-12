@@ -31,13 +31,21 @@ async function reach(page: Page, control: Locator): Promise<void> {
   // FORWARD, THEN BACK. A one-directional walk found the services and could never return to the
   // number — which is not how anyone uses this: he takes the services while the car is on the
   // lift and asks for the phone after. The journey allows both, so the test must too.
-  for (const label of ['التالي', 'السابق']) {
-    for (let i = 0; i < 4; i += 1) {
-      if (await control.isVisible().catch(() => false)) return;
-      const arrow = page.getByRole('button', { name: label });
-      if (await arrow.isDisabled().catch(() => true)) break;
-      await arrow.click();
-      await page.waitForTimeout(250);
+  // AND IT KEEPS WALKING. One pass forward-then-back was not enough: a step whose CONTENT arrives
+  // from the network — his points, his offer — is empty on the first sweep and present on the
+  // second, and the old version ended that sweep parked on step one, waiting fifteen seconds on a
+  // page the thing could never appear on. It reported «رصيده is missing» while the balance was one
+  // step away and already loaded.
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    for (const label of ['التالي', 'السابق']) {
+      for (let i = 0; i < 4; i += 1) {
+        if (await control.isVisible().catch(() => false)) return;
+        const arrow = page.getByRole('button', { name: label });
+        if (await arrow.isDisabled().catch(() => true)) break;
+        await arrow.click();
+        await page.waitForTimeout(250);
+      }
     }
   }
   await expect(control).toBeVisible({ timeout: 15_000 });
@@ -115,6 +123,59 @@ test('a visit is recorded and the customer becomes findable', async ({ shop }) =
   await open(shop, '/customers');
   await expect(shop.getByText(phone.slice(-4), { exact: false }).first())
     .toBeVisible({ timeout: 30_000 });
+});
+
+test('a partial plate finds the car — the operator reads four characters, not seven', async ({ shop }) => {
+  /**
+   * THE PREFIX WAS THE WHOLE POINT AND THE PREFIX WAS MISSING. `by-plate` matches EXACTLY — the
+   * store filters on equality, deliberately — so until the plate was typed perfectly, character
+   * for character, the screen said nothing. The state for the suggestion list was declared in the
+   * screen and filled by nothing: complete-looking code that no call reached.
+   *
+   * WHAT IT COSTS: he types what he read off the bumper, sees nothing, concludes the customer is
+   * new, and registers him a second time — the visit history splits and the reminders go to a
+   * record with one visit on it. The same failure the phone keypad has a suggest call to prevent.
+   */
+  const phone = customerPhone();
+  // RANDOM, NOT CLOCK-DERIVED. `Date.now()`'s last four digits repeat every ten seconds, so two
+  // runs minutes apart produced the SAME plate — and a plate is deliberately not unique (a car is
+  // sold, an operator mistypes), so the screen correctly offered two rows and the locator broke.
+  const plate = `${Math.floor(Math.random() * 9000) + 1000} ${'ABCDEFGHJK'[Math.floor(Math.random() * 10)]}XY`;
+
+  await open(shop, '/visit');
+  // THE TEXTBOX, NOT THE «؟» BESIDE IT — both carry the same accessible name, deliberately: the
+  // hint button is named for the field it explains. Ask for the role.
+  const plateField = shop.getByRole('textbox', { name: 'رقم اللوحة' });
+  // A SECTOR WITHOUT PLATES IS NOT A FAILURE (§13.2): a salon has no plate page, and the fields
+  // come from the catalogue rather than from a list in the app. Nothing to assert here, then.
+  if (!(await plateField.count())) test.skip(true, 'this sector has no plate field');
+
+  await plateField.fill(plate);
+  await keyIn(shop, phone);
+  await pickAnyService(shop);
+  await save(shop);
+  await expect(shop.getByText(/تم الحفظ/)).toBeVisible({ timeout: 30_000 });
+
+  // THE INDEX IS WRITTEN AFTER THE RESPONSE, so this polls rather than assuming. Reloading is the
+  // retry: the suggestion fires on a keystroke, and the screen has no other way to ask again.
+  const prefix = plate.slice(0, 3);
+  await expect(async () => {
+    await open(shop, '/visit');
+    await shop.getByRole('textbox', { name: 'رقم اللوحة' }).fill(prefix);
+    await expect(shop.getByRole('button', { name: new RegExp(plate) }).first()).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 60_000 });
+
+  // AND THE COMPLETE TOKEN STILL FINDS IT. /suggest omits the word already typed — an autocomplete
+  // convention — so the list appeared at three characters and VANISHED at four, at the exact
+  // keystroke that finishes the number on the bumper. The typed text is searched alongside the
+  // suggestions for this reason, and this is the assertion that says so.
+  await shop.getByRole('textbox', { name: 'رقم اللوحة' }).fill(plate.slice(0, 4));
+  await expect(shop.getByRole('button', { name: new RegExp(plate) }).first())
+    .toBeVisible({ timeout: 15_000 });
+
+  // AND ONE TAP FILLS THE OWNER, which is the reason the list exists at all.
+  await shop.getByRole('button', { name: new RegExp(plate) }).first().click();
+  await expect(shop.getByRole('textbox', { name: 'رقم اللوحة' })).toHaveValue(plate);
 });
 
 test('nothing on it asks who is recording this', async ({ shop }) => {

@@ -1183,3 +1183,36 @@ package being INSTALLED, not merely named in a pyproject that is always on disk.
 
 It is 4.35 again from the other side: there, a guard that cried too much got switched off; here, a
 test that cried for the wrong reason took five green suites down with it.
+
+### 4.45 A peer's response shape, assumed rather than read
+
+`/search/suggest` answers `{"suggestions": ["0527463428", …]}` — a list of **terms**, which is what
+an autocomplete is. The client mapped `r.phone` over each one, got `undefined` from a string, and
+dropped the row. Measured on the live cluster: «05» returned five numbers and the screen showed
+none. Every suggestion list in the product — the phone keypad and the plate alike — had been empty
+since the day it was written.
+
+**The failure renders as a truthful-looking answer.** «No customer found» is a sentence the screen
+is supposed to be able to say; nothing about an empty list looks like a defect. So the operator
+registers a customer he already has, the visit history splits in two, and the product's premise —
+bringing people back — quietly stops working for that shop.
+
+**And the fix is a second call, not a cleverer mapping.** Terms are not documents: `POST /search`
+with the suggested term (a whole token by construction) returns the records. Two round trips,
+bounded, and correct — which is the shape the peer's API actually offers.
+
+**The rule: read the peer's response in its source, and probe it live before building on it.** A
+field name that is merely plausible produces code that compiles, passes review, renders, and is
+wrong every single time.
+
+### 4.46 A label bound to nothing
+
+The design system's `Field` generates an id, points its `<label htmlFor>` at it, and leaves wiring
+that id onto the control to the caller. Omit it and the label renders perfectly — and is attached
+to nothing: unnamed to a screen reader, unfocusable by tap, and invisible to `getByLabel`, so the
+e2e test that fills it dies as a 60-second timeout with no clue why. Six shipped that way.
+
+**What makes it dangerous is that the eye cannot see it.** The screenshot is correct. Only a screen
+reader, a thumb, or a test locator notices — three users nobody was watching. It is now a guard
+(`ci/check_field_labels.py`): every `<Field label=…>` carries `htmlFor`, and a control under it
+carries that id.

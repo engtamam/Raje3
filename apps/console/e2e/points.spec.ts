@@ -50,6 +50,10 @@ test('a reward can be retired without being deleted', async ({ shop }) => {
   await shop.getByRole('button', { name: 'إضافة مكافأة' }).click();
   await shop.getByLabel('اسم المكافأة').fill(name);
   await shop.getByLabel('التكلفة بالنقاط').fill('999');
+  // «هدية», EXPLICITLY. The form opens on «من خدماتي», which makes «ما يحصل عليه» required — and
+  // the native block is silent to a test: the click lands, nothing submits, and the failure reads
+  // as a broken create path thirty seconds later. A gift needs no second choice.
+  await shop.getByLabel('النوع').selectOption({ label: 'هدية' });
   await shop.getByRole('button', { name: 'حفظ' }).click();
 
   const row = shop.locator('li', { hasText: name }).first();

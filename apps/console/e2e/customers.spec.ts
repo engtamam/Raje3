@@ -94,7 +94,9 @@ test('a customer row opens his record, and the record is not a dead end', async 
   await expect(shop).toHaveURL(/\/customers\/.+/);
   // The record answers all three of its questions — his offers included.
   await expect(shop.getByText('عروضه')).toBeVisible({ timeout: 30_000 });
-  await expect(shop.getByText('زياراته')).toBeVisible();
+  // THE HEADING, NOT THE WORD. «زياراته» appears twice on the record — once as the count's caption
+  // in the summary strip and once as the section heading — and both are correct.
+  await expect(shop.getByRole('heading', { name: 'زياراته' })).toBeVisible();
 });
 
 test('a customer who was sent nothing is told that, not shown an apology', async ({ shop }) => {

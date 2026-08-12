@@ -576,6 +576,37 @@ export function Visit() {
     setPlate(plateText.replace(/\s+/g, ' ').trim());
   }, [plateText]);
 
+  /**
+   * THE PARTIAL PLATE, ANSWERED WHILE HE TYPES — and this is the half that was missing.
+   *
+   * `by-plate` is an EXACT match (operations' store filters on equality, by design: a prefix scan
+   * over the datastore is a table scan). So until the operator had typed the plate perfectly,
+   * character for character, in the same script and the same order as it was stored, the screen
+   * said nothing — and «سيارة معروفة» never appeared for a car we have serviced ten times. He
+   * concludes the customer is new and registers him twice, which is the exact failure the phone
+   * keypad has a suggest call to prevent.
+   *
+   * SAME MECHANISM, THEN: search-service's /suggest, which matches prefixes and already indexes
+   * the plate on the customer document (seams.py). Two characters are enough to narrow a yard.
+   */
+  useEffect(() => {
+    const p = plate.trim();
+    if (!showPlate || changing || plateKnown || p.length < 2) { setPlateHits([]); return; }
+    let stale = false;
+    const id = window.setTimeout(() => {
+      suggestByPrefix(session, p)
+        .then((hits) => {
+          if (stale) return;
+          // ONLY THE CARS. The same index answers phone prefixes, and «12» is a plausible start
+          // for both — a list of people whose NUMBER begins with what he read off a bumper is
+          // noise standing between him and the one row he wants.
+          setPlateHits(hits.filter((h) => h.plate).slice(0, 4));
+        })
+        .catch(() => { if (!stale) setPlateHits([]); });
+    }, 250);
+    return () => { stale = true; window.clearTimeout(id); };
+  }, [changing, plate, plateKnown, session, showPlate]);
+
   const platePane = (
     <div className="flex h-full flex-col justify-center gap-3">
       <input
@@ -588,16 +619,58 @@ export function Visit() {
         className="h-[clamp(3.25rem,9dvh,4rem)] rounded-2xl bg-surface-1 px-4 text-center text-xl font-semibold uppercase tabular-nums shadow-sm placeholder:font-normal placeholder:normal-case placeholder:text-text-secondary"
       />
 
+      {/* THE MATCHES, TAPPABLE. He read four characters off a bumper; finishing the plate by hand
+          when we already hold it is work we can do for him — and one tap fills the owner too. */}
+      {plateHits.length > 0 && !plateKnown ? (
+        <ul className="flex flex-col gap-2">
+          {plateHits.map((h) => (
+            <li key={h.id || h.plate}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlateText(formatPlate(h.plate ?? ''));
+                  if (h.phone) setPhone(h.phone);
+                  if (h.name) setName(h.name);
+                }}
+                className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl bg-surface-1 px-4 shadow-sm"
+              >
+                <span dir="ltr" className="text-base font-semibold tabular-nums">{h.plate}</span>
+                <span className="truncate text-sm text-text-secondary">
+                  {h.name || <span dir="ltr">{h.phone}</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       <p className="text-center text-sm text-text-secondary">
         {plateKnown && !changing
           ? 'سيارة معروفة عندنا — صاحبها في الصفحة التالية.'
-          : 'الأرقام ثم الحروف — والفاصل يظهر وحده.'}
+          : plateHits.length > 0
+            ? 'سيارات تبدأ بما كتبت — اختر واحدة.'
+            : 'الأرقام ثم الحروف — والفاصل يظهر وحده.'}
       </p>
     </div>
   );
 
-  /** Is there anything on the entitlements page worth turning to? */
-  const hasPerks = Boolean(offer?.text) || Boolean(balance?.rewards?.length);
+  /**
+   * Is there anything on the entitlements page worth turning to?
+   *
+   * A BALANCE HE CANNOT SPEND YET IS STILL WORTH SEEING, and this is what the gate used to get
+   * wrong: it asked only whether he could afford something, so a customer with 30 points and a
+   * cheapest reward of 100 had his page removed from the journey entirely. The operator could not
+   * tell him where he stood, and the pane's own «تبقّى له … لأقرب مكافأة» — written precisely for
+   * that moment — was unreachable code.
+   *
+   * WHICH IS THE POINT OF A POINTS PROGRAMME: it works on the visit BEFORE the free one. Hiding
+   * the count until it is already enough removes the only thing that brings him back.
+   *
+   * A shop with no programme still shows nothing: `balance` is null there, and this stays false.
+   */
+  const hasPerks = Boolean(offer?.text)
+    || Boolean(balance?.rewards?.length)
+    || Boolean(balance && (balance.points > 0 || balance.to_next_reward > 0));
 
   const detailsPane = (
     <>

@@ -407,7 +407,14 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
           A single sector is preselected and shown rather than hidden: the person still needs to
           see what his shop was recorded as, and a question with one answer that answers itself is
           not the same as a question that was never asked. */}
-      <Field label="نوع النشاط" required>
+      {/* A GROUP, NOT A CONTROL — so it carries no <label>. `Field`'s label is a `htmlFor`, and a
+          card group has no single element to point at; the binding would resolve to nothing and a
+          screen reader would announce the cards nameless. `role="group"` + `aria-label` names the
+          set, which is what is actually being labelled here. */}
+      <div role="group" aria-label="نوع النشاط" className="flex flex-col gap-1.5">
+        <span className="text-label font-medium text-text-secondary">
+          نوع النشاط<span className="ms-1 text-danger" aria-hidden>*</span>
+        </span>
         {sectors === null ? (
           <Skeleton height={40} />
         ) : sectors.length === 0 ? (
@@ -423,7 +430,7 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         ) : (
           <SectorCards options={sectors} value={sector} onChange={setSector} />
         )}
-      </Field>
+      </div>
 
       <Terms agree={agree} onChange={setAgree} />
 

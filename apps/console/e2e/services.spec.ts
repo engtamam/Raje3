@@ -137,7 +137,9 @@ test('a service can leave its group, and a group can be deleted', async ({ shop 
   // the next run finds «مجموعة الإثبات» already on screen, selects «مجموعة جديدة…» to make it
   // again, and the assertions then race two identical headings. The test passed alone and failed
   // in the file, which is the signature of state left behind rather than a product fault.
-  const group = `مجموعة الإثبات ${Date.now().toString().slice(-5)}`;
+  // RANDOM, NOT CLOCK-DERIVED: the last five digits of `Date.now()` repeat every hundred seconds,
+  // so two runs in one afternoon collided on the very name this line exists to keep unique.
+  const group = `مجموعة الإثبات ${Math.floor(Math.random() * 90_000) + 10_000}`;
   await name.fill(group);
   await name.press('Enter');
 

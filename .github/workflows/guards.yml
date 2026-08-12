@@ -59,6 +59,12 @@ jobs:
       - name: every feature key is both sold and enforced
         run: python3 ci/check_entitlements.py
 
+      # The platform's Field owns the label and leaves the id to the caller. Forget it and the label
+      # renders perfectly, bound to nothing: unnamed to a screen reader, unfocusable by tap, and
+      # unfindable by getByLabel — which is how six of them shipped before an e2e timeout found one.
+      - name: every labelled field binds to a real control
+        run: python3 ci/check_field_labels.py
+
       # The price list lives in deploy/seed/plans.json and nowhere else. A price copied into code
       # is correct on the day it is written and silently wrong from the first time the list
       # changes — and then what a customer is shown is not what he is charged, which in a country

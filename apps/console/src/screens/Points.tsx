@@ -252,19 +252,20 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
           {adding ? (
             <form onSubmit={addReward} className="mb-4 flex flex-col gap-3">
-              <Field label="اسم المكافأة" hint="يظهر في رسالة واتساب للعميل — اجعله قصيراً">
-                <Input name="name" required maxLength={40} />
+              <Field label="اسم المكافأة" htmlFor="rw-name" hint="يظهر في رسالة واتساب للعميل — اجعله قصيراً">
+                <Input id="rw-name" name="name" required maxLength={40} />
               </Field>
-              <Field label="التكلفة بالنقاط">
-                <Input name="cost" type="number" min={1} required dir="ltr" />
+              <Field label="التكلفة بالنقاط" htmlFor="rw-cost">
+                <Input id="rw-cost" name="cost" type="number" min={1} required dir="ltr" />
               </Field>
               {/* THE HINT IS UNDER THE SELECT, NOT INSIDE IT. A native option list sizes itself to
                   its longest string and is drawn by the OS, outside our layout — on a phone
                   «خدمة من الكتالوج — تُسجَّل زيارة كاملة…» painted itself straight off the sheet.
                   The consequence still has to be readable, so it moves to where we control it and
                   follows the choice. */}
-              <Field label="النوع" hint={TYPES.find((t) => t.value === type)?.hint}>
+              <Field label="النوع" htmlFor="rw-type" hint={TYPES.find((t) => t.value === type)?.hint}>
                 <select
+                  id="rw-type"
                   name="type"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
@@ -280,12 +281,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   answer to. The server still refuses either mismatch by itself — the till reaches
                   this API without passing here (§9.4) — so this hides a question, never a rule. */}
               {type === 'discount' ? (
-                <Field label="مبلغ الخصم بالريال">
-                  <Input name="riyals" type="number" min={0} dir="ltr" required />
+                <Field label="مبلغ الخصم بالريال" htmlFor="rw-riyals">
+                  <Input id="rw-riyals" name="riyals" type="number" min={0} dir="ltr" required />
                 </Field>
               ) : type === 'service' ? (
-                <Field label="ما يحصل عليه" hint="مما تقدّمه — خدمةً كان أو منتجاً">
-                  <select name="service_id" required className="h-10 rounded-lg bg-surface-2 px-3">
+                <Field label="ما يحصل عليه" htmlFor="rw-service" hint="مما تقدّمه — خدمةً كان أو منتجاً">
+                  <select id="rw-service" name="service_id" required className="h-10 rounded-lg bg-surface-2 px-3">
                     <option value="">—</option>
                     {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
