@@ -78,8 +78,19 @@ fi
 
 # ── 1 ─────────────────────────────────────────────────────────────────────────────────────────
 step "preflight"
+# OURS FIRST, AND IT IS NOT A DUPLICATE. Upstream's proves the same property by reading its answer
+# over an interactive attach; on this host that attach fails under load and the check then reports
+# "the cluster's networking is broken" — while the same probe run by hand prints REACHABLE. A
+# security gate that can fail for a reason unrelated to what it measures is a gate people learn to
+# skip, and then the day enforcement is really off nobody finds out. Ours reads the result from pod
+# logs, which need no session.
+bash "$HERE/preflight-netpol.sh" || exit 1
+
+# THEIRS STILL RUNS, for the checks ours does not make — metrics-server and namespace labels — and
+# its network verdict is no longer the thing that stops the install, because we have just proven
+# that property ourselves, twice, in both directions.
 if [[ -x "$ROOT/platform/deploy/k3s/preflight.sh" ]]; then
-  bash "$ROOT/platform/deploy/k3s/preflight.sh"
+  bash "$ROOT/platform/deploy/k3s/preflight.sh"     || warn "upstream preflight reported a failure — network policy was already proven above; check the rest"
 else
   warn "no preflight in the submodule — skipping (check it out: git -C platform sparse-checkout disable)"
 fi
@@ -117,15 +128,43 @@ else
   if sudo k3s secrets-encrypt status 2>/dev/null | grep -qi "Encryption Status.*Enabled"; then
     ok "secrets are encrypted at rest"
   else
-    warn "STILL NOT ENABLED — every secret is base64 in etcd. Fix before this host holds data:"
-    warn "  sudo k3s secrets-encrypt enable && sudo k3s secrets-encrypt reencrypt"
+    # AND THE REMEDY IS AT INSTALL TIME, NOT HERE. `secrets-encrypt enable` reports success on
+    # this host and the status stays Disabled — the switch belongs to the k3s SERVER, and a
+    # cluster started without `--secrets-encryption` cannot be talked into it afterwards. Printing
+    # the runtime command was worse than printing nothing: somebody runs it, sees no error, and
+    # believes the secrets are encrypted.
+    warn "STILL NOT ENABLED — every secret is base64 in etcd, and this cannot be fixed at runtime."
+    warn "  the k3s server must be STARTED with --secrets-encryption (INSTALL_K3S_EXEC),"
+    warn "  then: sudo k3s secrets-encrypt reencrypt --force"
+    warn "  a cluster already holding customer data needs that restart planned, not improvised."
   fi
 fi
 
 # ── 2 ─────────────────────────────────────────────────────────────────────────────────────────
 step "datastores"
+# A NAMESPACE THAT IS STILL TERMINATING ACCEPTS NOTHING, and refuses with "object is being
+# deleted" — which the old `>/dev/null` swallowed, so the install carried on and failed one line
+# later on `statefulset postgres not found`, an error naming the symptom and not the cause. It
+# cost twenty minutes to read the second time. Wait for it, then apply LOUDLY.
+for _ in $(seq 1 60); do
+  phase="$(kubectl get namespace "$NS" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
+  [[ "$phase" == "Terminating" ]] || break
+  sleep 5
+done
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-kubectl apply -f "$ROOT/platform/deploy/k3s/platform/datastores.yaml" >/dev/null
+
+# NOT SILENCED. An apply that fails here leaves every following step failing for reasons that read
+# like unrelated faults; the one line it prints is the whole diagnosis.
+# `-n "$NS"` IS THE WHOLE LINE, and its absence was invisible for as long as an older install
+# existed. The manifest declares no namespace of its own, so a bare apply writes postgres and redis
+# into `default` — while every service, every secret and the rollout check that follows all look in
+# `base-services`. On a cluster that had been installed before, the resources were already in the
+# right place and `apply` reported "unchanged" about the wrong ones; the fault only surfaced on a
+# genuinely empty machine, which is exactly the case an install script exists for.
+if ! kubectl apply -n "$NS" -f "$ROOT/platform/deploy/k3s/platform/datastores.yaml"; then
+  echo "  the datastore manifest did not apply — nothing after this step can work" >&2
+  exit 1
+fi
 kubectl -n "$NS" rollout status statefulset/postgres --timeout=300s >/dev/null
 ok "postgres and redis are up"
 
