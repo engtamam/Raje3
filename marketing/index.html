@@ -171,6 +171,50 @@ header{
   border:1px solid var(--line-2); border-radius:24px; padding:clamp(32px,6vw,60px); text-align:center;
   box-shadow:var(--shadow-lg);
 }
+
+/* ── the phone, which is not the small case but the ONLY case ────────────────────────────────
+   Nearly every visitor arrives on one. The layout below the 720px line is not a fallback that
+   degrades gracefully — it is the design, and the desktop is the variation.
+
+   WHAT CHANGES, AND WHY EACH:
+   · the header keeps only the mark and one button. Four links in a 360px bar means four targets
+     too small to hit and a bar that wraps into two rows before the page has said anything.
+   · headings drop a step. A 3.4rem line at 360px is four words per line and a hero that needs
+     scrolling before the first sentence.
+   · sections and cards lose padding. Vertical space on a phone is the scarce thing; margin that
+     looks generous on a laptop is just distance between the reader and the next idea.
+   · and the primary action is pinned to the bottom, in the thumb's arc, because on a phone the
+     top-right corner is the hardest place on the screen to reach — and it was the only place
+     «ابدأ الآن» existed once the reader scrolled past the hero. */
+@media (max-width:719px){
+  .bar{padding:10px 0; gap:10px}
+  .brand{font-size:1.15rem}
+  .mark{width:32px; height:32px; border-radius:9px}
+  .nav .btn-ghost{display:none}          /* دخول lives in the footer and in the pinned bar */
+  .nav .btn{min-height:42px; padding:0 16px; font-size:.95rem}
+  h1{font-size:clamp(1.8rem,7.6vw,2.4rem); line-height:1.28}
+  h2{font-size:clamp(1.4rem,5.6vw,1.9rem)}
+  .lead{font-size:1.02rem; line-height:1.75}
+  .section{padding:clamp(40px,11vw,64px) 0}
+  .wrap{padding:0 18px}
+  .card,.step{padding:20px 18px}
+  .stat{padding:20px 12px}
+  .btn-lg{width:100%; justify-content:center}   /* a full-width target cannot be missed */
+  .phone{width:min(300px,86vw)}
+
+  /* THE PINNED ACTION. Height and safe-area are both accounted for below, so it never covers the
+     last line of the footer and never sits under an iPhone's home indicator. */
+  body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  .thumb{
+    display:flex; gap:10px; position:fixed; inset:auto 0 0 0; z-index:30;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--bg) 94%, transparent);
+    backdrop-filter:blur(10px); border-top:1px solid var(--line);
+  }
+  .thumb .btn{flex:1; min-height:50px}
+  .thumb .btn-ghost{flex:0 0 auto; padding:0 18px}
+}
+.thumb{display:none}
 footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); font-size:.95rem}
 .foot{display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; align-items:center}
 .foot a{text-decoration:none}
@@ -193,7 +237,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       <a class="quiet" href="#who">لمن</a>
       <a class="quiet" href="#price">الأسعار</a>
       <a class="btn btn-ghost" href="/app">دخول</a>
-      <a class="btn btn-primary" href="/app?signup=1">ابدأ الآن</a>
+      <a class="btn btn-primary" href="/app?signup=1">تسجيل جديد</a>
     </nav>
   </div>
 </header>
@@ -211,10 +255,10 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
         <strong>وإشعارٌ ذكي</strong> يعرف متى يسكت، فلا يتحوّل الاهتمام إلى إزعاج.
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدأ الآن</a>
+        <a class="btn btn-primary btn-lg" href="/app?signup=1">تسجيل جديد</a>
         <a class="btn btn-ghost btn-lg" href="#how">شوف كيف يشتغل</a>
       </div>
-      <p class="note">بلا بطاقة · تسجيل بدقيقة · تلغيه متى شئت</p>
+      <p class="note">تسجيل بدقيقة · تُدير كل شيء من حسابك</p>
     </div>
 
     <div class="phone" aria-label="مثال على رسالة واتساب يستقبلها عميل المحل">
@@ -451,7 +495,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       ونسبة العملاء الذين بقوا معك — وأدواراً لفريقك: كلٌّ يرى ما يخصّ عمله ولا يرى غيره.
       الأسعار كاملةً داخل الحساب، وما تدفعه اليوم هو ما تعرفه قبل أن تشترك.
     </p>
-    <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدأ الآن</a>
+    <a class="btn btn-primary btn-lg" href="/app?signup=1">تسجيل جديد</a>
   </div>
 </section>
 
@@ -461,7 +505,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
     <div class="close">
       <h2>أفضل عميلٍ لك… هو من جاءك من قبل.</h2>
       <p class="lead" style="margin:0 auto 26px">سجّل محلك اليوم، ودع راجِع يتذكّر عنك.</p>
-      <a class="btn btn-primary btn-lg" href="/app?signup=1">سجّل محلك</a>
+      <a class="btn btn-primary btn-lg" href="/app?signup=1">تسجيل جديد</a>
       <p class="note">تحتاج مساعدة؟ راسلنا على واتساب وقت الدوام.</p>
     </div>
   </div>
@@ -478,5 +522,12 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
   </div>
 </footer>
 
+
+<!-- The thumb bar. Rendered on every screen and shown only under 720px — a second copy of the
+     action, not a second decision. -->
+<div class="thumb">
+  <a class="btn btn-primary" href="/app?signup=1">تسجيل جديد</a>
+  <a class="btn btn-ghost" href="/app">دخول</a>
+</div>
 </body>
 </html>
