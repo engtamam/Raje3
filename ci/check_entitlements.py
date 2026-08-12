@@ -60,9 +60,28 @@ def gated() -> dict[str, list[str]]:
     return where
 
 
+def worded() -> set[str]:
+    """The keys the pricing page has an Arabic sentence for.
+
+    THE SCREEN READS THE PLAN FROM BILLING — every number, every limit, every feature — and the one
+    thing kept here is the wording, because printing `feature.roles.custom` raw is a glossary rather
+    than a page that sells. But a key with NO sentence is silently NOT RENDERED: sell a new feature
+    tomorrow and it is enforced everywhere, priced into the plan, and invisible on the page where
+    somebody decides to buy it. Nothing fails. It is the severed wire again, wearing a price tag.
+    """
+    text = (ROOT / "apps" / "console" / "src" / "screens" / "Plans.tsx").read_text(encoding="utf-8")
+    block = text.split("LIMIT_WORDS", 1)[-1].split("};", 1)[0]
+    return set(re.findall(r"['\"]?(feature\.[a-z_.]+)['\"]?\s*:", block))
+
+
 def main() -> int:
     s, g = sold(), gated()
     problems: list[str] = []
+
+    for key in sorted(s - worded()):
+        problems.append(f"{key} is sold in the price list and the plans page has no Arabic "
+                        f"sentence for it — a key with no wording is not rendered at all, so it is "
+                        f"charged for and invisible on the page where somebody decides to buy")
 
     for key in sorted(set(g) - s):
         problems.append(f"{key} is checked in {g[key][0]} and NO plan grants it — the feature is "
