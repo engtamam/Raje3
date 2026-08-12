@@ -210,7 +210,29 @@ export const test = base.extend<{ shop: Page }>({
       page = await context.newPage();
     }
 
+    // WHICH CALL FAILED — printed, once, per test.
+    //
+    // A REFUSED READ RENDERS AS AN EMPTY SCREEN, by design: every screen catches its own failure
+    // and shows nothing rather than a stack trace at a counter. That is right for the owner and
+    // blinding for a test — «جدول المكافآت فارغ» and «لا توجد خدمات» are the same picture whether
+    // the shop is empty or the request was refused, and a run that fails this way reports an
+    // imaginary product defect. So the response codes are watched here, where every spec gets it
+    // for free, and the failure names itself.
+    const refused: string[] = [];
+    page.on('response', (r) => {
+      const url = r.url();
+      if (r.status() >= 400 && url.includes('/api/')) {
+        refused.push(`${r.status()} ${r.request().method()} ${url.replace(/^https?:\/\/[^/]+/, '')}`);
+      }
+    });
+
     await use(page);
+
+    if (refused.length) {
+      // eslint-disable-next-line no-console
+      console.log(['  API refused ' + refused.length + ' call(s):', ...refused.slice(0, 8)]
+        .join('\n    '));
+    }
 
     // THE ROTATED TOKEN IS SAVED BACK, and this is what a ten-minute run costs without it.
     //

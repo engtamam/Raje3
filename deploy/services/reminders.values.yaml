@@ -82,6 +82,22 @@ metrics:
   serviceMonitor: false   # flipped on with the rest of the fleet; the flip restarts every pod
 
 env:
+  # ── The request budget per person (§1.1) ──────────────────────────────────────────────────
+  #
+  # EVERY SERVICE CARRIES ITS OWN LIMITER, and its default is 100 requests a minute per subject.
+  # None of our values files set it, so the gateway's generous field class was irrelevant: the
+  # service refused first. Measured on a real console session — a screen opens and fans out to
+  # six or seven reads, so an owner moving between sections crosses 100 in well under a minute.
+  #
+  # AND THE REFUSAL IS INVISIBLE. Every screen catches its own failure and renders nothing rather
+  # than a stack trace at a counter — correct for the owner, and indistinguishable from "you have
+  # no services": «جدول المكافآت فارغ» is the same picture whether the shop is empty or the read
+  # was refused. It took a response-code watcher in the e2e fixtures to see 429 at all.
+  #
+  # 600/min per SUBJECT — one human, keyed on his identity, not on a shared NAT address. It is a
+  # brake against a runaway loop, not against a busy morning.
+  RATELIMIT_MAX: "600"
+  RATELIMIT_WINDOW_SECONDS: "60"
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"

@@ -82,6 +82,15 @@ metrics:
   serviceMonitor: false
 
 env:
+  # ── The request budget (§1.1) ─────────────────────────────────────────────────────────────
+  #
+  # TIGHTER THAN THE CONSOLE'S, DELIBERATELY. Every other service is reached by a signed-in human
+  # keyed on his own subject; this page is opened from a WhatsApp link by a customer who has no
+  # session, so the key falls through to the IP — and one IP here can be a whole neighbourhood
+  # behind a carrier NAT. A generous per-IP budget is a generous budget for a scraper walking
+  # pseudonyms; a tight one costs a real visitor nothing, because he opens the page once.
+  RATELIMIT_MAX: "120"
+  RATELIMIT_WINDOW_SECONDS: "60"
   # ── the three peers ───────────────────────────────────────────────────────────────────────
   # `null` renders a shell: 200, the shop's colour, and every section saying it could not load —
   # for ever, to every customer, under the shop's name, with nothing in a log to say so.
