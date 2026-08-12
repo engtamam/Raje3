@@ -140,7 +140,31 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # REUSED, NOT REIMPLEMENTED. The batch handler holds the per-item outcome reporting, the
     # invoice resolution, the integration detection and the seams; a second copy here would be a
     # second set of behaviour to keep in step, and the one that drifts is always the newer.
-    return await record_visits_batch(request, forwarded)
+    out = await record_visits_batch(request, forwarded)
+
+    # AND THE LINK'S PULSE IS WRITTEN HERE, where a till is known to be a till.
+    #
+    # A shop whose point-of-sale stops posting believes its visits are being recorded and we
+    # believe the partner is healthy — every screen we own describes what arrived, not what
+    # stopped arriving. One counter on the hot path is what lets a panel name the shop that went
+    # quiet three weeks ago, instead of an owner discovering it in a month of missing reminders.
+    #
+    # NEVER AT THE COST OF THE SALE. The visits are already durable at this point; a health row
+    # that cannot be written is a health row we do without.
+    try:
+        from app.core.till_health import TillHealth
+        results = out.get("results") or []
+        rejected = [r for r in results if r.get("status") == "rejected"]
+        await TillHealth(request.app.state.container.datastore).record(
+            tenant,
+            accepted=int(out.get("accepted", 0)),
+            rejected=len(rejected),
+            duplicate=len([r for r in results if r.get("status") == "duplicate"]),
+            reason=(rejected[0].get("reason") or "") if rejected else "")
+    except Exception as exc:                                                    # noqa: BLE001
+        request.app.state.container.telemetry.event("till_health_write_failed",
+                                                    tenant=tenant, error=str(exc)[:200])
+    return out
 
 
 # ══════════════════════════════════════════════════════════════════════════════════════════════

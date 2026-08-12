@@ -122,6 +122,18 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "help": "يوقف الأختام الجديدة. محلاته تبقى مختومة ومستحقاته قائمة.",
     },
     # ── the operator surface, and it is declared in every service or in none ──────────────
+    {
+        "id": "operations.partner_health", "label": "صحة الربط", "method": "GET",
+        "path": "/api/v1/platform/partners/{partner_id}/health",
+        "capability": "platform.operations", "group": "الشركاء",
+        "params": [
+            {"name": "partner_id", "in": "path", "type": "string", "required": True},
+            {"name": "quiet_days", "in": "query", "type": "integer", "required": False,
+             "help": "بعد كم يوم صمت يُعدّ المحل متوقفاً — 7 افتراضاً"},
+        ],
+        "help": "ثلاث حالات وثلاث مكالمات مختلفة: لم يبدأ · توقّف · يرسل. "
+                "و«لم يبدأ» لا يظهر في أي شاشة أخرى لأنه لا يملك صفاً من الأساس.",
+    },
     # ── what we owe the partners, and whether we paid it (§7) ────────────────────────────
     {
         "id": "operations.list_statements", "label": "كشوف العمولات", "method": "GET",

@@ -166,6 +166,7 @@ def build_manifest(
             {"path": "/api/v1/platform/partners/{}", "tier": "user", "method": "DELETE"},
             # The statements, from our side. The partner could always read his own; we could read
             # nobody's — see the routes for what that cost.
+            {"path": "/api/v1/platform/partners/{}/health", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/statements", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/statements/{}/{}/paid", "tier": "user", "method": "POST"},
             {"path": "/api/v1/platform/statements/{}/{}/dispute", "tier": "user",

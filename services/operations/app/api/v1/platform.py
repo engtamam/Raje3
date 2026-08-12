@@ -395,3 +395,28 @@ async def dispute_statement(request: Request, partner_id: str, period_start: int
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     return {"ok": True, "statement": row}
+
+
+@router.get("/partners/{partner_id}/health", dependencies=[Depends(rate_limit)])
+async def partner_health(request: Request, partner_id: str, quiet_days: int = 7,
+                         principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Is this partner's link alive — shop by shop?
+
+    THE THREE STATES ARE THREE DIFFERENT PHONE CALLS. «لم يبدأ» is the vendor's integration never
+    finished; «توقّف» is a link that worked and stopped; «يرسل» needs nobody. A single health
+    light would collapse all three into a shrug, and the first of them — a shop enrolled weeks ago
+    that never sent anything — has no row of its own to be found by, which is why the list is
+    built from the partner's SHOPS rather than from what arrived.
+    """
+    from app.config import get_settings
+    from app.core.till_health import TillHealth
+
+    c = request.app.state.container
+    reg = PartnerRegistry(c.datastore, salt=get_settings().PII_SALT)
+    tenants = await reg.tenants_of(partner_id)
+    rows = await TillHealth(c.datastore).for_tenants(tenants,
+                                                     quiet_days=max(1, min(quiet_days, 90)))
+    counts = {"never": 0, "quiet": 0, "sending": 0}
+    for row in rows:
+        counts[row["state"]] = counts.get(row["state"], 0) + 1
+    return {"partner_id": partner_id, "shops": len(rows), "counts": counts, "health": rows}
