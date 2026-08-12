@@ -1,4 +1,3 @@
-
 !.env.example
 # Build artifacts — compiled from data/, never committed
 # Env / secrets — never commit real values
@@ -24,7 +23,6 @@ Thumbs.db
 __pycache__/
 build/
 deploy/server/manifests/**/*secrets*.json
-dist/
 node_modules/
 services/*/.pytest_cache/
 services/*/.venv/
@@ -32,8 +30,11 @@ services/operations/.venv/
 venv/
 node_modules/
 apps/*/dist/
-
 # Playwright artefacts — screenshots and traces of a run, never source.
 apps/console/test-results/
 apps/console/playwright-report/
 apps/console/e2e/.session.json
+
+# The deploy bundle pack.sh builds. A build artefact: it is rebuilt from the tree on
+# demand, and committing it would put a stale copy of every values file in the history.
+dist/
