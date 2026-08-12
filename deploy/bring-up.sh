@@ -492,6 +492,34 @@ bash "$HERE/seed/seed-roles.sh"  || echo "  (roles: see above)"
 bash "$HERE/seed/seed-plans.sh"  || echo "  (plans: see above)"
 bash "$HERE/seed/seed-legal.sh"  || echo "  (legal: see above)"
 
+# AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
+# operations seeds its sectors and its 78 templates on the first boot that finds an empty table.
+# On this install it booted before its database existed — the databases were being created in
+# another step — so it found nothing to seed and never looked again. Everything then reported
+# success: the pod was ready, the endpoint answered 200, and it answered `{"sectors":[]}`.
+#
+# The owner met it at the only place it shows: «نوع النشاط» on the sign-up form, empty, with a red
+# line under it. So we ask the service what it has, and if the answer is nothing we restart it once
+# — a boot with a database behind it seeds in under a second.
+if kubectl -n "$NS" get deploy operations >/dev/null 2>&1; then
+  SECTORS="$(kubectl -n "$NS" exec deploy/operations -- python -c "
+import urllib.request, json
+print(len(json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/signup/sectors'))['sectors']))
+" 2>/dev/null || echo 0)"
+  if [ "${SECTORS:-0}" -gt 0 ]; then
+    ok "sectors present ($SECTORS)"
+  else
+    echo "  no sectors — restarting operations so it seeds against a database that now exists"
+    kubectl -n "$NS" rollout restart deploy/operations >/dev/null
+    kubectl -n "$NS" rollout status deploy/operations --timeout=180s >/dev/null 2>&1 || true
+    SECTORS="$(kubectl -n "$NS" exec deploy/operations -- python -c "
+import urllib.request, json
+print(len(json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/signup/sectors'))['sectors']))
+" 2>/dev/null || echo 0)"
+    [ "${SECTORS:-0}" -gt 0 ] && ok "sectors seeded ($SECTORS)"       || warn "still no sectors — the sign-up form will show an empty «نوع النشاط»"
+  fi
+fi
+
 # ── 9 ─────────────────────────────────────────────────────────────────────────────────────────
 # THE EDGE, WHICH NOTHING USED TO APPLY. Every service could be healthy, every secret minted, every
 # database provisioned — and the domain answered nothing, because the one component that owns port
