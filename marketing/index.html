@@ -32,6 +32,9 @@
 <style>
 :root{
   --gold:#B8862B; --gold-hi:#a2761f; --gold-soft:#f6f0e6; --gold-on-soft:#7d5b18;
+  /* ONE LOOK, DELIBERATELY. This page had a dark inversion and it read heavy — a landing page is a
+     first impression, not a workspace somebody sits in for eight hours. Warm paper and gold, in
+     every theme, on every device. The console is where a dark mode belongs. */
   --ink:#1b1206; --ink-2:#5a4a33; --muted:#8a7a63;
   --bg:#fbf9f5; --card:#ffffff; --card-2:#f4efe6;
   --line:#e9e0d2; --line-2:#d8cbb4;
@@ -40,15 +43,6 @@
   --font:'SF Arabic','Dubai','Sakkal Majalla','Noto Kufi Arabic','Noto Naskh Arabic',Tahoma,sans-serif;
   --shadow:0 1px 2px rgba(27,18,6,.04), 0 8px 24px rgba(27,18,6,.06);
   --shadow-lg:0 2px 4px rgba(27,18,6,.05), 0 20px 50px rgba(27,18,6,.10);
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --ink:#f7f2e9; --ink-2:#d3c7b3; --muted:#a2947e;
-    --bg:#14100a; --card:#1d1810; --card-2:#241d13;
-    --line:#332a1c; --line-2:#463a26; --gold-soft:#2a2115; --gold-on-soft:#e6c98a;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
-    --shadow-lg:0 2px 4px rgba(0,0,0,.45), 0 20px 50px rgba(0,0,0,.5);
-  }
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -123,7 +117,6 @@ header{
   background:var(--ok-soft); color:#123; padding:12px 14px; border-radius:16px 16px 16px 4px;
   font-size:.95rem; line-height:1.75; border:1px solid color-mix(in srgb, var(--ok) 22%, transparent);
 }
-@media (prefers-color-scheme: dark){ .bubble{background:#16321f; color:#dff3e6} }
 .bubble strong{color:inherit}
 .bubble .time{display:block; font-size:.75rem; color:var(--muted); margin-top:6px}
 .chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px}
@@ -200,7 +193,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       <a class="quiet" href="#who">لمن</a>
       <a class="quiet" href="#price">الأسعار</a>
       <a class="btn btn-ghost" href="/app">دخول</a>
-      <a class="btn btn-primary" href="/app?signup=1">ابدأ مجاناً</a>
+      <a class="btn btn-primary" href="/app?signup=1">ابدأ الآن</a>
     </nav>
   </div>
 </header>
@@ -218,7 +211,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
         <strong>وإشعارٌ ذكي</strong> يعرف متى يسكت، فلا يتحوّل الاهتمام إلى إزعاج.
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary btn-lg" href="/app?signup=1">جرّب 14 يوماً مجاناً</a>
+        <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدأ الآن</a>
         <a class="btn btn-ghost btn-lg" href="#how">شوف كيف يشتغل</a>
       </div>
       <p class="note">بلا بطاقة · تسجيل بدقيقة · تلغيه متى شئت</p>
@@ -444,16 +437,21 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
   </div>
 </section>
 
+<!-- NO TRIAL, NO PRICE, NO DURATION ON THIS PAGE — EVER. What a trial is, whether one exists at
+     all, and for how long, is a decision the admin panel makes and changes; a page that prints
+     «14 يوماً مجاناً» is a promise that outlives the decision behind it and has to be honoured by
+     support. The page sells what the product DOES; the account shows what it costs today. -->
 <!-- ── price ────────────────────────────────────────────────────────────────────────────── -->
 <section class="section" id="price" style="background:var(--card-2)">
   <div class="wrap" style="text-align:center">
     <span class="eyebrow">الأسعار</span>
-    <h2>جرّب أولاً. وادفع إن رجّع لك عميلاً.</h2>
+    <h2>ثلاث باقات — تبدأ من محلٍّ واحد وتكبر معك.</h2>
     <p class="lead" style="margin:0 auto 26px">
-      أربع باقات تبدأ من محلٍّ واحد وتكبر معك — النقاط والعروض والحملات معها. التجربة أربعة
-      عشر يوماً بلا بطاقة، والأسعار كاملةً داخل الحساب بلا مفاجآت.
+      في كلٍّ منها برنامج النقاط والعروض الحصرية والحملات، ولوحةٌ تُريك مستوى الولاء
+      ونسبة العملاء الذين بقوا معك — وأدواراً لفريقك: كلٌّ يرى ما يخصّ عمله ولا يرى غيره.
+      الأسعار كاملةً داخل الحساب، وما تدفعه اليوم هو ما تعرفه قبل أن تشترك.
     </p>
-    <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدأ تجربتك</a>
+    <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدأ الآن</a>
   </div>
 </section>
 
@@ -463,7 +461,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
     <div class="close">
       <h2>أفضل عميلٍ لك… هو من جاءك من قبل.</h2>
       <p class="lead" style="margin:0 auto 26px">سجّل محلك اليوم، ودع راجِع يتذكّر عنك.</p>
-      <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدأ مجاناً — 14 يوماً</a>
+      <a class="btn btn-primary btn-lg" href="/app?signup=1">سجّل محلك</a>
       <p class="note">تحتاج مساعدة؟ راسلنا على واتساب وقت الدوام.</p>
     </div>
   </div>
