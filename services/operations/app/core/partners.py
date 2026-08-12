@@ -235,6 +235,18 @@ class PartnerRegistry:
     async def stamp_of(self, tenant: str) -> dict[str, Any] | None:
         return await self._s.get(STAMPS, f"{tenant}|stamp")
 
+    async def stamps_of(self, partner_id: str) -> list[dict[str, Any]]:
+        """The attribution ROWS, not just the ids — each carrying the rate agreed when the shop was
+        brought in.
+
+        The statement needs the rate FROM THE STAMP (core/commission.py): reading it off the
+        partner record would mean renegotiating a rate next year silently rewrites every statement
+        we ever issued. `tenants_of` drops exactly that field, so the sweep reads this instead.
+        """
+        rows, _ = await self._s.find(STAMPS, {"partner_id": partner_id}, limit=5000,
+                                     sort=("stamped_at", "asc"))
+        return [r for r in rows if r.get("tenant")]
+
     async def tenants_of(self, partner_id: str) -> list[str]:
         """Which establishments a partner brought — the input to its statement.
 

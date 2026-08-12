@@ -961,3 +961,52 @@ async def retention_sweep(request: Request) -> dict:
             "retention.swept", actor="", tenant="", resource="subject",
             ip=request.client.host if request.client else "")
     return out.to_dict()
+
+
+class StatementRunIn(BaseModel):
+    """An OPTIONAL body — the scheduler sends none.
+
+    A cron POSTs an empty request; a required model here is a 422 before a line of this code runs,
+    which is how every heartbeat in this product was found silently failing one night. The two
+    fields exist for the manual re-run of a closed month, and for nothing else.
+    """
+
+    period_start: int = Field(default=0, ge=0)
+    period_end: int = Field(default=0, ge=0)
+
+
+@router.post("/operations/partners/statements/run",
+             dependencies=[Depends(require_internal_token)])
+async def run_partner_statements(request: Request,
+                                 body: StatementRunIn | None = None) -> dict:
+    """Issue last month's commission statements — the call the engine never had.
+
+    DRIVEN BY THE CLOCK, NEVER BY A PARTNER. `api/v1/partner.py` is read-only for exactly this
+    reason: a disputed month a partner can re-run until the total suits them is not a statement.
+    An operator may re-run one from our own panel, which is a different thing with a name on it.
+
+    IDEMPOTENT. Keyed by partner and period, a second run overwrites with the same figures —
+    `build` is pure and takes its boundaries as arguments — unless the settlements themselves
+    moved, in which case the new number is the correct one.
+    """
+    body = body or StatementRunIn()
+    c = request.app.state.container
+    from app.core import statements_run
+
+    period = None
+    if body.period_start and body.period_end and body.period_end > body.period_start:
+        period = (body.period_start, body.period_end)
+
+    out = await statements_run.issue(
+        store=c.datastore, settlements_source=c.settlements, period=period)
+    if out.get("skipped"):
+        # LOUD IN TELEMETRY, EMPTY ON DISK. Issuing zeros because a peer was unreachable would put
+        # a number in front of a partner that we would have to withdraw next month.
+        c.telemetry.event("partner_statements_skipped", reason=out["skipped"],
+                          period_start=out["period_start"])
+    else:
+        await request.app.state.auditor.record(
+            "partner.statements_issued", actor="schedule", tenant="_platform",
+            resource=f"period:{out['period_start']}",
+            metadata={"issued": out.get("issued", 0)})
+    return out

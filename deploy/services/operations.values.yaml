@@ -281,6 +281,16 @@ cronJobs:
   - name: retention
     schedule: "17 1 * * *"
     path: /internal/operations/retention/sweep
+  # THE PARTNER STATEMENTS, on the second of the month — not the first.
+  #
+  # A statement is computed on money that ARRIVED, and a payment landing at 23:58 on the last day
+  # of the month is still settling somewhere while a first-of-the-month run reads the ledger. One
+  # day of margin costs a partner nothing and keeps us from issuing a number we correct later.
+  #
+  # 03:40 rather than a round hour: every scheduler in this fleet on :00 wakes the same minute.
+  - name: partner-statements
+    schedule: "40 3 2 * *"
+    path: /internal/operations/partners/statements/run
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

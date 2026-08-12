@@ -227,6 +227,12 @@ class Settings(BaseSettings):
     # of the signup saga, and a deployment that omits one can be seen in one place.
     TENANT_DATA_MAP: str = ""
     IDENTITY_SERVICE_URL: str = ""           # e.g. http://identity-service:8000
+    # OUR OWN MACHINE CREDENTIAL AT BILLING, held for one purpose: reading what every shop paid,
+    # so a partner's commission can be computed on money that actually arrived. It exists because
+    # billing publishes that list on the admin tier rather than the internal one — ESCALATED, and
+    # the day an internal aggregate exists these two go away with it.
+    BILLING_CLIENT_ID: str = ""
+    BILLING_CLIENT_SECRET: str = ""
     TENANT_SERVICE_URL: str = ""             # e.g. http://tenant-service:8000
     SIGNUP_TIMEOUT_SECONDS: int = 10
     # Saudi Arabia, and it MUST match identity's IDENTITY_PHONE_DEFAULT_CC. Our phone index folds
