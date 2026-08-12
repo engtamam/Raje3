@@ -111,7 +111,10 @@ test('a customer who was sent nothing is told that, not shown an apology', async
   await shop.getByRole('button').filter({ hasText: /05\d/ }).first().click();
   // WAIT FOR THE RECORD, do not re-open a URL: `open()` on the current path raced the navigation
   // and read the list again.
-  await expect(shop.getByText('عروضه')).toBeVisible({ timeout: 30_000 });
-  const body = await shop.locator('body').innerText();
-  expect(body).toMatch(/لم يصله أي عرض بعد|ساري|انتهى/);
+  // THE HEADING IS NOT THE ANSWER. «عروضه» renders with the section frame, before its own fetch
+  // resolves — so reading the body at that moment caught a heading with nothing under it and
+  // reported an empty offers list as a missing sentence. Wait for the CONTENT, which is the thing
+  // the test is actually about.
+  await expect(shop.getByText(/لم يصله أي عرض بعد|ساري|انتهى/).first())
+    .toBeVisible({ timeout: 30_000 });
 });

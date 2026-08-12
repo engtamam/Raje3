@@ -190,10 +190,14 @@ test('it opens on what he sells, with what he stopped one tap away', async ({ sh
   // cleanup and left services retired behind them — the tab already read «الموقوفة (2)» — and a
   // shop that accumulates dead lines run after run is a fixture rotting one failure at a time.
   for (let i = 0; i < 10; i += 1) {
-    const stoppedRow = shop.getByRole('button', { name: /موقوفة/ }).first();
-    if (!(await stoppedRow.isVisible().catch(() => false))) break;
-    await stoppedRow.click();
     const restore = shop.getByRole('button', { name: 'تفعيل' }).first();
+    // OPEN THE ROW ONLY IF IT IS SHUT. The header is a toggle: clicking one already expanded by
+    // the previous pass closes it, and «تفعيل» then belongs to nothing.
+    if (!(await restore.isVisible().catch(() => false))) {
+      const stoppedRow = shop.getByRole('button', { name: /موقوفة/ }).first();
+      if (!(await stoppedRow.isVisible().catch(() => false))) break;
+      await stoppedRow.click();
+    }
     await expect(restore).toBeVisible({ timeout: 30_000 });
     await restore.click();
     await shop.waitForTimeout(800);
