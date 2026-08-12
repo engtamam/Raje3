@@ -69,6 +69,43 @@ interface Branches {
   can_rank?: boolean;
 }
 
+/**
+ * A GROUP, AND NOT A TAB — the decision this screen turns on.
+ *
+ * It was one long scroll where a branch table and a suggested bundle carried the same weight, met
+ * in the order we happened to build them. Tabs were the obvious fix and the wrong one: a tab hides
+ * what he did not think to ask for, and the two most valuable things here — the bundle worth 340
+ * customers, and pairs he has never noticed — are exactly what nobody opens a tab to look for.
+ *
+ * So: three groups on one page, ordered by DECISION rather than subject. What needs him now, then
+ * how the shop is doing, then detail folded away one press from open. Folded, not absent —
+ * `<details>` keeps it in the page, in find-in-page, and in the reading order.
+ */
+function Group({ title, hint, children, folded = false }: {
+  title: string; hint?: string; children: React.ReactNode; folded?: boolean;
+}) {
+  if (folded) {
+    return (
+      <details className="rounded-card bg-surface-1 shadow-sm">
+        <summary className="cursor-pointer list-none p-4 text-sm font-medium">
+          {title}
+          {hint ? <span className="mr-2 text-xs font-normal text-text-secondary">{hint}</span> : null}
+        </summary>
+        <div className="flex flex-col gap-3 border-t border-border-subtle p-4">{children}</div>
+      </details>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium">
+        {title}
+        {hint ? <span className="mr-2 text-xs font-normal text-text-secondary">{hint}</span> : null}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 export function LocalScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [failed, setFailed] = useState(false);
@@ -162,13 +199,53 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         </label>
       ) : null}
 
-      <div className="flex items-center gap-2 text-sm text-text-secondary">
-        <span className="tabular-nums">
-          {data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}
-        </span>
-        {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
-      </div>
+      {/* ── 1 · what needs him now ───────────────────────────────────────────────────────
+          FIRST, BECAUSE IT IS THE ONLY GROUP WITH A VERB IN IT. A suggested bundle naming 340
+          customers is worth more than every percentage below it, and it used to sit under two
+          tables he had to scroll past. */}
+      <Group title="يحتاج تصرّفاً منك">
+      {/* ── the bundles ───────────────────────────────────────────────────────────────────
+            WE SAY WHERE, NEVER HOW MUCH (§10.6.2.1). The price is the shop's and nothing here
+            suggests one — a platform that prices a workshop's work is a platform that is wrong in
+            public. */}
+        {bundles && bundles.length ? (
+          <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+            <h2 className="text-sm text-text-secondary">باقات مقترحة</h2>
+            {bundles.slice(0, 4).map((b, i) => (
+              <div key={i} className="flex flex-col gap-1 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+                <span className="text-sm font-medium">{b.a_name} + {b.b_name}</span>
+                {b.why ? <span className="text-xs text-text-secondary">{b.why}</span> : null}
+                <div className="flex items-center justify-between gap-2">
+                  {b.action_label ? (
+                    <span className="text-xs text-accent-on-soft">{b.action_label}</span>
+                  ) : <span />}
+                  <span className="tabular-nums text-xs text-text-secondary">
+                    {b.customers} فرصة
+                  </span>
+                </div>
+              </div>
+            ))}
+          </section>
+        ) : null}
 
+      {data.audience ? (
+          // HIS OWN NUMBER, NOT AN ADVERT. Customers who explicitly agreed to receive his offers,
+          // sitting there while his plan cannot send one. It is the truest upgrade motivator in the
+          // product for exactly that reason, so it stays a LINE and never becomes a banner.
+          <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.audience.message}</p>
+        ) : null}
+
+      </Group>
+
+      {/* ── 2 · how the shop is doing ─────────────────────────────────────────────────────
+          THE AGE STAYS ATTACHED TO THE NUMBERS IT DESCRIBES. An owner comparing our figure to his
+          till at 2pm must see that ours was computed at 3am, or he stops trusting both — and a
+          freshness line floating above three sections describes none of them. */}
+      <Group
+        title="كيف يمشي محلك"
+        hint={data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}
+      >
+      {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {HEADLINE.map((h) => {
           const raw = data.values[h.key];
@@ -186,7 +263,13 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           );
         })}
       </div>
+      </Group>
 
+      {/* ── 3 · the detail, folded ─────────────────────────────────────────────────────────
+          FOLDED, NOT REMOVED. Pairs, branches and the indicators still too thin to be honest are
+          all worth reading — once, when he is looking for them — and none of them is worth the
+          top of the screen every time he opens it. */}
+      <Group title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
       {data.not_enabled && data.not_enabled.length > 0 ? (
         <section className="rounded-card bg-surface-1 p-4 shadow-sm">
           <h2 className="mb-2 text-sm text-text-secondary">مؤشرات تحتاج بيانات أكثر</h2>
@@ -198,13 +281,6 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
             ))}
           </ul>
         </section>
-      ) : null}
-
-      {data.audience ? (
-        // HIS OWN NUMBER, NOT AN ADVERT. Customers who explicitly agreed to receive his offers,
-        // sitting there while his plan cannot send one. It is the truest upgrade motivator in the
-        // product for exactly that reason, so it stays a LINE and never becomes a banner.
-        <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.audience.message}</p>
       ) : null}
 
       {/* ── what goes with what ───────────────────────────────────────────────────────────
@@ -230,30 +306,6 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
           ما زلنا نتعلّم ما يُطلب معاً في محلّك — {pairs.have ?? 0} زيارة من {pairs.need ?? 0}.
         </p>
-      ) : null}
-
-      {/* ── the bundles ───────────────────────────────────────────────────────────────────
-          WE SAY WHERE, NEVER HOW MUCH (§10.6.2.1). The price is the shop's and nothing here
-          suggests one — a platform that prices a workshop's work is a platform that is wrong in
-          public. */}
-      {bundles && bundles.length ? (
-        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-          <h2 className="text-sm text-text-secondary">باقات مقترحة</h2>
-          {bundles.slice(0, 4).map((b, i) => (
-            <div key={i} className="flex flex-col gap-1 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
-              <span className="text-sm font-medium">{b.a_name} + {b.b_name}</span>
-              {b.why ? <span className="text-xs text-text-secondary">{b.why}</span> : null}
-              <div className="flex items-center justify-between gap-2">
-                {b.action_label ? (
-                  <span className="text-xs text-accent-on-soft">{b.action_label}</span>
-                ) : <span />}
-                <span className="tabular-nums text-xs text-text-secondary">
-                  {b.customers} فرصة
-                </span>
-              </div>
-            </div>
-          ))}
-        </section>
       ) : null}
 
       {/* ── the branches ──────────────────────────────────────────────────────────────────
@@ -285,6 +337,8 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           ) : null}
         </section>
       ) : null}
+
+      </Group>
 
       {data.teaser?.message ? (
         <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.teaser.message}</p>
