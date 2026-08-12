@@ -182,7 +182,23 @@ test('it opens on what he sells, with what he stopped one tap away', async ({ sh
   await stopped.click();
   await expect(shop.getByText('موقوفة').first()).toBeVisible({ timeout: 30_000 });
 
-  // Put it back, so the next run starts where this one did.
-  await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
-  await shop.getByRole('button', { name: 'تفعيل' }).first().click();
+  // PUT IT BACK, so the next run starts where this one did — and reach for the row the way this
+  // tab actually renders it. The cycle line («كل 90 يوماً») belongs to the ACTIVE list; a retired
+  // row is headed by its name and its «موقوفة» badge, so filtering on a cycle here matched nothing
+  // and the cleanup hung for the full minute — leaving the service stopped for every later run.
+  // EVERY STOPPED LINE, not only the one this run stopped. Earlier runs died before their own
+  // cleanup and left services retired behind them — the tab already read «الموقوفة (2)» — and a
+  // shop that accumulates dead lines run after run is a fixture rotting one failure at a time.
+  for (let i = 0; i < 10; i += 1) {
+    const stoppedRow = shop.getByRole('button', { name: /موقوفة/ }).first();
+    if (!(await stoppedRow.isVisible().catch(() => false))) break;
+    await stoppedRow.click();
+    const restore = shop.getByRole('button', { name: 'تفعيل' }).first();
+    await expect(restore).toBeVisible({ timeout: 30_000 });
+    await restore.click();
+    await shop.waitForTimeout(800);
+  }
+  // AND PROVEN BACK: nothing is left retired. A cleanup that is not asserted is a cleanup that
+  // silently stopped working, which is exactly how this one was found.
+  await expect(shop.getByRole('radio', { name: /الموقوفة/ })).toBeHidden({ timeout: 30_000 });
 });
