@@ -28,13 +28,13 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { Connect } from './Connect';
-import { DataPane, InvoicesPane, LoginPane, ShopPane } from './AccountPanes';
+import { DataPane, InvoicesPane, KeysPane, LoginPane, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
 
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
 interface ConnectState { state: string; message: string }
 
-type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'login' | 'data';
+type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'keys' | 'login' | 'data';
 
 /**
  * The tabs, each with the sentence that says what is behind it.
@@ -52,6 +52,9 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   { id: 'invoices', label: 'فواتيري', hint: 'فواتيرك وإيصالاتك، جاهزة للتنزيل' },
   { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي' },
   { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك' },
+  // AFTER «منشأتي», BEFORE «دخولي»: both are about who may act in this shop, and a machine's key
+  // sits next to a person's password rather than under billing.
+  { id: 'keys', label: 'مفاتيح الربط', hint: 'برامج تكتب زيارات باسم محلك' },
   { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك' },
   // ONE WORD, BECAUSE THE HINT LINE CARRIES THE REST. «بياناتي وأوراقي» was the label that
   // pushed the strip past the screen and left the last tab sliced in half.
@@ -161,6 +164,7 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
         ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
         : null}
       {active === 'shop' ? <ShopPane session={session} catalog={catalog} /> : null}
+      {active === 'keys' ? <KeysPane session={session} catalog={catalog} /> : null}
       {active === 'login' ? <LoginPane /> : null}
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
     </div>

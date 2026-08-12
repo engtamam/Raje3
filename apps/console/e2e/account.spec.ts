@@ -110,3 +110,36 @@ test('nothing on it is an untranslated key', async ({ shop }) => {
 
   expect(body).not.toMatch(/[a-z]+\.[a-z]+\.[a-z]+/);
 });
+
+test('the keys to his shop are visible, and revocable', async ({ shop }) => {
+  /**
+   * A TILL COMPANY'S CREDENTIAL WRITES VISITS IN HIS NAME. It does not expire when an employee
+   * leaves, and it outlives the contract that created it — he changes point-of-sale vendor and the
+   * old key still posts sales into his shop. It is closer to a key to the building than a login.
+   *
+   * AND A KEY NOBODY CAN SEE IS A KEY NOBODY REVOKES. Issuing and rotating were both reachable in
+   * the product; the LIST was not, so «من يملك مفتاحاً لمحلي؟» had no answer anywhere.
+   */
+  await open(shop, '/account');
+  await shop.getByRole('radio', { name: 'مفاتيح الربط' }).click();
+
+  // EITHER A LIST OR A REASON — never a blank pane. A shop with no integration is the ordinary
+  // case and says so; an account that may not look says THAT instead, because «لا مفاتيح» would
+  // tell an owner his shop is closed to integrations when the truth is he is not the owner.
+  await expect(
+    shop.getByText(/لا يوجد برنامج مرتبط|يراها المالك وحده|آخر استعمال/).first(),
+  ).toBeVisible({ timeout: 30_000 });
+});
+
+test('the keys pane says when each was last used, not when it was issued', async ({ shop }) => {
+  /**
+   * «صدر في 2024» tells an owner nothing he can act on. «لم يُستعمل منذ 4 أشهر» is a key to revoke
+   * this afternoon — and the difference between the two sentences is the whole value of the pane.
+   */
+  await open(shop, '/account');
+  await shop.getByRole('radio', { name: 'مفاتيح الربط' }).click();
+  const body = await shop.locator('body').innerText();
+  if (body.includes('آخر استعمال')) {
+    expect(body).toMatch(/آخر استعمال: (اليوم|أمس|قبل \d+|لم يُستعمل قط)/);
+  }
+});

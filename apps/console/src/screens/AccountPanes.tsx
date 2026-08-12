@@ -482,3 +482,117 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
     </div>
   );
 }
+
+// ── مفاتيح الربط ─────────────────────────────────────────────────────────────────────────────
+
+interface MachineAccount {
+  client_id: string;
+  name?: string;
+  status?: string;
+  created?: number;
+  last_used_at?: number;
+  caps?: string[];
+}
+
+function whenAgo(ts?: number): string {
+  if (!ts) return 'لم يُستعمل قط';
+  const days = Math.floor((Date.now() / 1000 - ts) / 86_400);
+  if (days <= 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  if (days < 30) return `قبل ${days} يوماً`;
+  return `قبل ${Math.floor(days / 30)} شهراً`;
+}
+
+/**
+ * WHO HOLDS A KEY TO THIS SHOP — and the owner could not see it.
+ *
+ * A till company's credential writes visits in his name, does not expire when an employee leaves,
+ * and outlives the contract that created it: he changes point-of-sale vendor and the old key is
+ * still valid, still able to post sales into his shop. It is closer to a key to the building than
+ * to a login.
+ *
+ * AND A KEY NOBODY CAN SEE IS A KEY NOBODY REVOKES. Issuing and rotating were both reachable; the
+ * LIST was not, so the answer to «من يملك مفتاحاً لمحلي؟» was nowhere in the product.
+ *
+ * THE OWNER'S ALONE (deploy/seed/roles.json says why): a manager runs the shop day to day, and
+ * this is not a daily errand — it is the one thing that survives him.
+ */
+export function KeysPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [rows, setRows] = useState<MachineAccount[] | null | undefined>(undefined);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+
+  const canList = action(catalog, 'identity.list_service_accounts');
+  const canRevoke = action(catalog, 'identity.revoke_service_account');
+
+  const load = () => {
+    if (!canList) { setRows(null); return; }
+    call<{ service_accounts: MachineAccount[] }>(session, canList)
+      .then((x) => setRows(x.service_accounts ?? []))
+      .catch(() => setRows(null));
+  };
+  useEffect(load, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (rows === undefined) return <Skeleton height={140} />;
+  if (rows === null) {
+    // NOT AN EMPTY LIST. «لا مفاتيح» would tell an owner his shop is closed to integrations when
+    // the truth is that this account may not look.
+    return <Quiet>مفاتيح الربط يراها المالك وحده.</Quiet>;
+  }
+
+  const revoke = async (row: MachineAccount) => {
+    if (!canRevoke) return;
+    setBusy(row.client_id);
+    setError('');
+    try {
+      await call(session, canRevoke, { client_id: row.client_id });
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر السحب.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-3">
+      <p className="text-sm text-text-secondary">
+        برامج تكتب زيارات باسم محلك — نظام الكاشير مثلاً. المفتاح لا ينتهي بمرور الوقت،
+        فاسحب ما لم يعد يُستعمل.
+      </p>
+
+      {rows.length === 0 ? (
+        <Quiet>لا يوجد برنامج مرتبط بمحلك. تُصدَر المفاتيح عند ربط نظام الكاشير.</Quiet>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rows.map((row) => (
+            <li key={row.client_id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-1 p-3 shadow-sm">
+              <span className="flex flex-col">
+                <span>{row.name || row.client_id}</span>
+                <span className="text-sm text-text-secondary">
+                  {/* LAST USED IS THE WHOLE POINT. «صدر في 2024» tells him nothing he can act on;
+                      «لم يُستعمل منذ 4 أشهر» is a key to revoke this afternoon. */}
+                  آخر استعمال: {whenAgo(row.last_used_at)}
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                {row.status && row.status !== 'active'
+                  ? <Badge tone="neutral">موقوف</Badge>
+                  : null}
+                {canRevoke && row.status !== 'revoked' ? (
+                  <Button variant="danger" disabled={busy === row.client_id}
+                          onClick={() => revoke(row)}>
+                    سحب المفتاح
+                  </Button>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {error ? <p role="alert" className="text-danger">{error}</p> : null}
+    </section>
+  );
+}

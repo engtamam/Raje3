@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# ==================================================================================================
+#  patch-datastore-probes.sh — let postgres finish crash recovery before we kill it.
+# --------------------------------------------------------------------------------------------------
+#  WHAT HAPPENED, ON OUR OWN CLUSTER, AND IT TOOK THE WHOLE PRODUCT DOWN.
+#
+#  The node went NotReady (a laptop that sleeps is a node that stops), postgres came back from an
+#  unclean shutdown, and PostgreSQL did what it must: it fsynced the entire data directory before
+#  accepting a connection. On this disk that takes minutes — the log counts it out in ten-second
+#  steps, «syncing data directory (fsync), elapsed time: 80.00 s».
+#
+#  The platform's liveness probe allows sixty. So at second sixty Kubernetes sent a fast shutdown to
+#  a database that was 70% through its recovery, and the next attempt started the same recovery from
+#  the beginning — again, and again, eight restarts deep. NOTHING WAS WRONG WITH THE DATA. The
+#  timeout was the fault, and it presented as CrashLoopBackOff, which reads like corruption and
+#  invites exactly the wrong response: delete the volume and restore a backup.
+#
+#  AND EVERY SERVICE WENT 0/1 BEHIND IT — twenty-two pods, the gateway included, all reporting
+#  themselves unready and all of them correct to do so. One probe's failureThreshold was the entire
+#  outage.
+#
+#  WHY A PATCH AND NOT AN EDIT. `platform/deploy/k3s/platform/datastores.yaml` is base-services',
+#  and base-services is read-only to us (a fork we cannot merge is a fork we maintain for ever). So
+#  this is applied AFTER their manifest, from a script that lives with our deploy — and it is
+#  ESCALATED upstream, because a startup probe belongs in the manifest that declares the database.
+#
+#  IDEMPOTENT. Applying it twice changes nothing; a `kubectl patch` with the same body is a no-op.
+#
+#  Usage:  sudo bash deploy/patch-datastore-probes.sh
+# ==================================================================================================
+set -uo pipefail
+NS="${NS:-base-services}"
+export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
+
+C_G=$'\e[32m'; C_R=$'\e[31m'; C_D=$'\e[2m'; C_N=$'\e[0m'
+
+kubectl -n "$NS" get statefulset postgres >/dev/null 2>&1 || {
+  echo "${C_R}✖ no postgres statefulset in $NS${C_N}"; exit 2; }
+
+# A STARTUP PROBE IS THE RIGHT INSTRUMENT, and its absence is the actual gap. Liveness answers "is
+# it wedged"; startup answers "has it finished coming up" — and while a startup probe is running,
+# liveness is not consulted at all. 60 × 10s = ten minutes of recovery allowed, after which the
+# liveness rules resume unchanged at their normal sensitivity.
+#
+# TEN MINUTES IS NOT A GUESS: the observed fsync pass was past 80 seconds and still walking the
+# directory when it was killed, on a database this small. A ceiling that only just fits is a
+# ceiling that fails the first time the data grows.
+read -r -d '' PATCH <<'JSON'
+{"spec":{"template":{"spec":{"containers":[{
+  "name":"postgres",
+  "startupProbe":{
+    "exec":{"command":["pg_isready","-U","postgres"]},
+    "initialDelaySeconds":10,"periodSeconds":10,"timeoutSeconds":5,
+    "failureThreshold":60,"successThreshold":1}
+}]}}}}
+JSON
+
+if kubectl -n "$NS" patch statefulset postgres --type=strategic -p "$PATCH" >/dev/null; then
+  echo "${C_G}✔ postgres may now take up to ten minutes to recover before liveness applies${C_N}"
+  echo "  ${C_D}(escalated: this belongs in base-services' datastores.yaml)${C_N}"
+else
+  echo "${C_R}✖ patch failed${C_N}"; exit 1
+fi
+
+# The pod only picks it up on its next start. Deleting it is safe and is what makes the fix take
+# effect now rather than at the next unrelated restart — a patch nobody applied is a note.
+kubectl -n "$NS" delete pod postgres-0 --wait=false >/dev/null 2>&1 || true
+echo "  ${C_D}postgres-0 restarting with the new probe${C_N}"
