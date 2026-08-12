@@ -122,6 +122,20 @@ env:
   # mistake.
   GAUGE_DRIVER: "http"
   BILLING_SERVICE_URL: "http://billing-service:8000"
+  # ── the partner statement's one input (§7) ────────────────────────────────────────────────
+  #
+  # A commission is computed on money that ARRIVED, so the monthly sweep reads settled invoices
+  # across every tenant — and billing publishes that list on the ADMIN tier, not the internal one.
+  # A capability token is therefore required where the fleet's internal secret would have done,
+  # and it is minted per install from our own machine credential.
+  #
+  # LEFT EMPTY ON PURPOSE UNTIL THEN, AND THE SWEEP FAILS CLOSED: with no credential it issues
+  # NOTHING and says `SETTLEMENTS_UNAVAILABLE`. A statement of zero would be a number a partner
+  # reads, believes and plans around — and withdrawing it next month costs more than the silence.
+  #
+  # ESCALATED: an internal aggregate (`/internal/billing/settlements?since&until`) would delete
+  # both of these keys and the cross-tenant capability behind them.
+  BILLING_CLIENT_ID: ""
   BILLING_USAGE_SET_PATH: "/internal/billing/usage/set"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
 

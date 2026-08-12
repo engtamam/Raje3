@@ -1,0 +1,27 @@
+[Unit]
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  The development door to the gateway — 127.0.0.1:8090 on the server, reached over SSH from a
+#  laptop. It is a `kubectl port-forward`, and a port-forward is a process: it dies with the node,
+#  with the API server, with the pod it points at, and with the terminal that started it.
+#
+#  IT DIED ON US TODAY AND LOOKED LIKE A PRODUCT FAULT: sixty-odd end-to-end tests failed with
+#  ERR_CONNECTION_REFUSED, and the first hypothesis was a broken build. The tunnel was down.
+#
+#  NOT A PUBLIC DOOR. `--address 127.0.0.1` binds to loopback only, so this is reachable through an
+#  SSH tunnel and by nothing else. The public entrance is the ingress, and it stays that way.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+Description=Raje3 — local port-forward to api-gateway (development access)
+After=raje3-up.service k3s.service
+Wants=k3s.service
+
+[Service]
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+ExecStart=/usr/local/bin/kubectl -n base-services port-forward --address 127.0.0.1 svc/api-gateway 8090:8000
+# RESTART ALWAYS, AND THIS ONE IS RIGHT TO LOOP. A port-forward drops whenever the pod behind it is
+# replaced — a rollout, a node hiccup — and reconnecting is the whole job. Five seconds so a
+# rolling deploy does not produce a hundred attempts a minute.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

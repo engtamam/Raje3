@@ -62,7 +62,16 @@ else
   echo "${C_R}✖ patch failed${C_N}"; exit 1
 fi
 
-# The pod only picks it up on its next start. Deleting it is safe and is what makes the fix take
-# effect now rather than at the next unrelated restart — a patch nobody applied is a note.
-kubectl -n "$NS" delete pod postgres-0 --wait=false >/dev/null 2>&1 || true
-echo "  ${C_D}postgres-0 restarting with the new probe${C_N}"
+# The pod only picks the probe up on its next start — so a pod that is ALREADY WEDGED is restarted
+# now, and a healthy one is left alone.
+#
+# THE DIFFERENCE MATTERS BECAUSE THIS RUNS AT INSTALL TOO. Bouncing a database that has just come
+# up cleanly, to apply a probe that only changes what happens during a recovery, is a restart with
+# no reason — and on a fresh install it lands in the middle of the seeding that follows.
+READY="$(kubectl -n "$NS" get pod postgres-0           -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null || echo "")"
+if [ "$READY" = "true" ]; then
+  echo "  ${C_D}postgres is healthy — the probe applies on its next restart${C_N}"
+else
+  kubectl -n "$NS" delete pod postgres-0 --wait=false >/dev/null 2>&1 || true
+  echo "  ${C_D}postgres-0 was not ready — restarting it with the new probe${C_N}"
+fi

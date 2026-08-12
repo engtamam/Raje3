@@ -29,18 +29,52 @@
 #
 #  Idempotent throughout: run it again on a live cluster and it changes nothing it does not need to.
 #
-#  Usage:  sudo bash deploy/bring-up.sh
+#  Usage:  sudo bash deploy/bring-up.sh            # install or reconcile — safe on a live cluster
+#          sudo bash deploy/bring-up.sh --wipe     # DESTROY EVERYTHING FIRST, then install
+#
+#  --wipe DELETES THE PRODUCT'S DATA: every tenant, every customer, every visit, every invoice, and
+#  the secrets that decrypt the backups. It exists so that "does our install work from nothing" can
+#  be ANSWERED rather than believed — an install script that is only ever run on a machine it has
+#  already run on is a script nobody has tested.
+#
+#  AND IT WIPES THE HOST DIRECTORY, NOT ONLY THE PVC. Deleting a k3s local-path claim leaves the
+#  directory behind, so a "fresh" postgres reuses stale data, skips first-time init, and never
+#  creates the database — leaving every service 0/1 on a datastore that answers but has no schema.
+#  That is the trap this flag is written around.
 # ==================================================================================================
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 NS="${NS:-base-services}"
+STORAGE="${STORAGE:-/var/lib/rancher/k3s/storage}"
+WIPE=0
+for a in "$@"; do case "$a" in
+  --wipe) WIPE=1;;
+  -h|--help) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
+  *) echo "unknown flag: $a" >&2; exit 2;;
+esac; done
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G=$'\e[32m'; C_C=$'\e[36m'; C_Y=$'\e[33m'; C_N=$'\e[0m'
 step(){ echo -e "\n${C_C}━━━ $* ━━━${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
+
+# ── 0 ─────────────────────────────────────────────────────────────────────────────────────────
+# NOTHING, ON PURPOSE, unless --wipe. The default path must stay safe to run against production.
+if [[ $WIPE -eq 1 ]]; then
+  step "wipe"
+  echo "  deleting namespace $NS, its volumes, and their host directories"
+  # helm releases first: a namespace deleted out from under helm leaves its release metadata
+  # behind, and the next install refuses with "cannot re-use a name that is still in use".
+  helm list -n "$NS" -q 2>/dev/null | xargs -r -n1 helm uninstall -n "$NS" >/dev/null 2>&1 || true
+  kubectl delete namespace "$NS" --wait=true --timeout=180s >/dev/null 2>&1 || true
+  # AND THE DIRECTORIES. A PVC's local-path directory outlives the claim, and a postgres that finds
+  # a populated data dir does not initialise — which is the failure this whole flag exists to make
+  # impossible to reproduce by accident.
+  rm -rf "$STORAGE"/pvc-* 2>/dev/null || true
+  ok "namespace, volumes and host directories are gone"
+fi
 
 # ── 1 ─────────────────────────────────────────────────────────────────────────────────────────
 step "preflight"
@@ -94,6 +128,19 @@ kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/d
 kubectl apply -f "$ROOT/platform/deploy/k3s/platform/datastores.yaml" >/dev/null
 kubectl -n "$NS" rollout status statefulset/postgres --timeout=300s >/dev/null
 ok "postgres and redis are up"
+
+# AND THE PROBE THAT LETS IT SURVIVE ITS FIRST UNCLEAN SHUTDOWN.
+#
+# Applied here, at install, because the failure it prevents does not appear on a fresh database —
+# it appears the first time the node dies with the database running, weeks later, and then it is a
+# CrashLoopBackOff that looks exactly like corruption. On this cluster it took the whole fleet to
+# 0/1 for half an hour: postgres was fsyncing a recovered data directory, the liveness probe
+# allowed sixty seconds for a pass that needed minutes, and each kill restarted the recovery from
+# the beginning. Eight times.
+#
+# It patches upstream's statefulset rather than editing their manifest — theirs is read-only to us
+# — and it is idempotent, so a re-run of this script changes nothing.
+bash "$HERE/patch-datastore-probes.sh" || warn "postgres probe patch failed — a crash recovery may loop"
 
 # ── 3 ─────────────────────────────────────────────────────────────────────────────────────────
 # Upstream's, and it is a REFUSAL, not a report. It computes services x DATASTORE_POOL_MIN against

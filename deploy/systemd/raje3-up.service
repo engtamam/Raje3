@@ -1,0 +1,32 @@
+[Unit]
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+#  raje3-up — what has to happen after the machine comes back, and did not.
+#
+#  k3s is already enabled at boot, and every pod restarts on its own. That is NOT the same as the
+#  product being up, and this unit exists because we watched the difference: the node returned,
+#  every deployment was "Running", and the whole fleet sat at 0/1 for half an hour behind a
+#  database that was being killed mid-recovery. Nothing was wrong with k3s. Nothing reported
+#  anything. `systemctl status k3s` said active, and the product was down.
+#
+#  So this runs ONCE after k3s, applies the fixes that live outside base-services' manifests, and
+#  then WAITS for the fleet to actually be ready — so the boot either finishes with a working
+#  product or leaves a failed unit with the reason in the journal.
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+Description=Raje3 — bring the platform to ready after boot
+After=k3s.service network-online.target
+Wants=k3s.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+WorkingDirectory=/home/tamam/raje3
+ExecStart=/usr/bin/env bash /home/tamam/raje3/deploy/systemd/on-boot.sh
+# TEN MINUTES, BECAUSE THAT IS WHAT A CRASH RECOVERY COSTS. A shorter timeout would kill the very
+# wait that exists to survive it.
+TimeoutStartSec=900
+# NOT `Restart=on-failure`. A boot that could not reach ready is a fact somebody must see in the
+# journal — a unit that retries for ever turns a real fault into a quiet loop.
+
+[Install]
+WantedBy=multi-user.target
