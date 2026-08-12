@@ -135,13 +135,22 @@ env:
   # limit rather than removing the brakes at exactly the moment something is wrong.
   RATELIMIT_DEGRADE: "local"
   # The field-entry screen authorises on every save and must stay under five seconds (§1.1), so
-  # the operator path gets its own generous class. The auth surface gets a tight one — it is
+  # the operator path gets its own generous class.
+  #
+  # AND THE PREFIX HAS TO BE ONE A ROUTER SERVES. It read `/api/v1/operations` — the name of the
+  # SERVICE, not of any path it answers: operations mounts /api/v1/field, /api/v1/staff and
+  # /api/v1/till. So the generous class matched nothing, the counter screen ran on the default 300
+  # a minute, and the only symptom was a catalogue that arrived empty under load — a screen with no
+  # services on it and no error anywhere. A misspelt prefix here does not fail; it silently applies
+  # a different budget. The auth surface gets a tight one — it is
   # where an attacker knocks, and no human logs in twenty times a minute.
   RATELIMIT_ROUTES: |
     [
       {"prefix":"/api/v1/auth/login","class":"auth","limit":10,"window_s":60,"cost":1},
       {"prefix":"/api/v1/auth/register","class":"auth","limit":5,"window_s":300,"cost":1},
-      {"prefix":"/api/v1/operations","class":"field","limit":600,"window_s":60,"cost":1}
+      {"prefix":"/api/v1/field","class":"field","limit":600,"window_s":60,"cost":1},
+      {"prefix":"/api/v1/till","class":"field","limit":600,"window_s":60,"cost":1},
+      {"prefix":"/api/v1/staff","class":"field","limit":600,"window_s":60,"cost":1}
     ]
 
   # ── Admin panel aggregator (spec §15) ─────────────────────────────────────────────────────
