@@ -97,16 +97,38 @@ env:
   # thing that ends a relationship with a small business permanently.
   GRANDFATHER: "true"
 
-  # ── Dunning (§15.4 failed payments) ───────────────────────────────────────────────────────
-  # 4 attempts on a 24h doubling curve, then past_due with a 7-day grace. Auto-reactivate when
-  # payment lands, because the alternative is a shop that paid and still cannot work.
-  # The grace matters more here than in most products: suspending an establishment stops its
-  # reminders going out, which its customers feel before its owner does.
-  DUNNING_RETRY_BASE_HOURS: "24"
-  DUNNING_MAX_ATTEMPTS: "4"
-  GRACE_DAYS: "7"
+  # ── PREPAID. NO CREDIT, NO GRACE, NO DEBT — DECIDED ───────────────────────────────────────
+  #
+  # He subscribes and it works; the renewal does not go through and it stops the same day. That is
+  # the whole policy, and it is a business decision before it is a setting: the alternative is a
+  # ledger of small debts, a person chasing them, and a conversation with a shop owner about money
+  # he already spent. Every platform he already uses works this way, and none of them phones him.
+  #
+  # WHAT `GRACE_DAYS: 0` AND DROPPING `past_due` ACTUALLY DO. The service treats a subscription as
+  # billable only while it is `active` or `trialing`, so the moment a renewal fails the shop stops
+  # being entitled — no window in which we serve unpaid work and no state that means "owes us".
+  # It was 7 days of grace on top of ~4 days of retries: eleven days of credit we never decided to
+  # extend, sitting in a values file.
+  #
+  # AND WHAT STOPPING MEANS IS NARROW (§16.4.2): his reminders and campaigns stop. His data stays,
+  # his console opens, his customer pages keep working. We stop DOING work he has not paid for; we
+  # do not hold his customers hostage to collect.
+  GRACE_DAYS: "0"
+  BILLABLE_STATUSES: "active,trialing"
+
+  # THE RETRIES STAY, AND THEY ARE NOT A GRACE PERIOD. A card declines for reasons that have
+  # nothing to do with intent — a bank's fraud check on a first charge, an expired card the owner
+  # replaced last week, a network fault at the gateway. Refusing to try twice would cancel paying
+  # customers over a transient decline, which is a worse outcome than a day of retrying, and it
+  # costs nothing: entitlement is already off while they run. What we removed is the window in
+  # which he KEEPS the service without paying, not the attempt to take the payment he authorised.
+  DUNNING_RETRY_BASE_HOURS: "6"
+  DUNNING_MAX_ATTEMPTS: "3"
+
+  # AND HE COMES BACK THE INSTANT THE MONEY LANDS. Anything else means a shop that paid and still
+  # cannot work, waiting on somebody at our end to press a button — which is the debt-and-phone-call
+  # world this whole block exists to stay out of.
   BILLING_AUTO_REACTIVATE: "true"
-  BILLABLE_STATUSES: "active,trialing,past_due"
 
   # ── Entitlements — this is what makes the four plans real ─────────────────────────────────
   # An unknown key DENIES (0). Deny-by-default applied to plan limits: a capability nobody has

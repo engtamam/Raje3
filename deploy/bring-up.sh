@@ -186,8 +186,7 @@ if ! kubectl apply -n "$NS" -f "$ROOT/platform/deploy/k3s/platform/datastores.ya
   echo "  the datastore manifest did not apply — nothing after this step can work" >&2
   exit 1
 fi
-kubectl -n "$NS" rollout status statefulset/postgres --timeout=300s >/dev/null
-ok "postgres and redis are up"
+ok "datastore manifests applied"
 
 # AND THE PROBE THAT LETS IT SURVIVE ITS FIRST UNCLEAN SHUTDOWN.
 #
@@ -232,6 +231,22 @@ VALUES_DIR="$ROOT/deploy/services" bash "$ROOT/platform/deploy/server/preflight-
 step "secrets"
 python3 "$ROOT/platform/deploy/server/gen-secrets.py"
 ok "secrets minted (shared values identical across services)"
+
+# ── 4a ────────────────────────────────────────────────────────────────────────────────────────
+# AND ONLY NOW CAN POSTGRES START, which is why the wait moved here from the datastores step.
+#
+# Its StatefulSet reads the postgres password out of `platform-secrets` — a secret this script
+# mints two steps later than it applied the manifest. So the old order waited five minutes for a
+# pod that could not possibly start, timed out, and carried on: `CreateContainerConfigError:
+# secret "platform-secrets" not found`, visible only in `describe pod`, while the install printed
+# a bare «timed out waiting for the condition» and moved to the next step.
+#
+# It was invisible on any machine that had been installed before, because the secret was already
+# there — the same shape as the namespace fault above, and the reason a fresh-machine test is the
+# only honest test of an installer.
+step "postgres"
+kubectl -n "$NS" rollout status statefulset/postgres --timeout=600s >/dev/null   || { echo "  postgres did not become ready — see: kubectl -n $NS describe pod postgres-0" >&2; exit 1; }
+ok "postgres and redis are up"
 
 # ── 4b ────────────────────────────────────────────────────────────────────────────────────────
 # THE RS256 KEYPAIR, WHICH UPSTREAM'S SCHEMA DOES NOT KNOW ABOUT.
