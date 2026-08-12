@@ -119,11 +119,13 @@ header{
 }
 .bubble strong{color:inherit}
 .bubble .time{display:block; font-size:.75rem; color:var(--muted); margin-top:6px}
-.chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px}
-.chip{
-  font-size:.85rem; font-weight:700; padding:8px 12px; border-radius:999px;
-  background:var(--gold-soft); color:var(--gold-on-soft); border:1px solid var(--line-2);
-}
+
+/* the phone mock's own chrome: a name at the top, so two green bubbles read as WhatsApp rather
+   than as decoration, and a caption that says where the words came from. */
+.waline{display:flex; align-items:center; gap:8px; padding:2px 4px 12px; border-bottom:1px solid var(--line); margin-bottom:14px}
+.wa-av{width:28px; height:28px; border-radius:50%; background:var(--gold); color:#fff; display:grid; place-items:center; font-weight:800; font-size:.85rem}
+.wa-name{font-weight:800; color:var(--ink); font-size:.98rem}
+.wa-note{margin:14px 2px 0; color:var(--muted); font-size:.82rem; line-height:1.6}
 
 /* ── the numbers strip ────────────────────────────────────────────────────────────────────── */
 .strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--card)}
@@ -266,26 +268,29 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       <p class="note">تسجيل بدقيقة · تُدير كل شيء من حسابك</p>
     </div>
 
-    <div class="phone" aria-label="مثال على رسالة واتساب يستقبلها عميل المحل">
+    <div class="phone" aria-label="مثال على رسالتين يستقبلهما عميل المحل على واتساب">
       <div class="screen">
+        <!-- THE TEXT IS NOT WRITTEN FOR THIS PAGE. Both bubbles are templates from the library the
+             product ships — mkt_winback and per_points_expiring, in their warm tone, with the
+             variables filled. A landing page that invents nicer copy than the product sends is a
+             page that sells something we do not have. -->
+        <div class="waline">
+          <span class="wa-av" aria-hidden="true">م</span>
+          <span class="wa-name">اسم محلك</span>
+        </div>
         <div class="chat">
           <div class="bubble">
-            هلا 👋<br>
-            صار <strong>خمسة أسابيع</strong> على آخر زيارة لك عندنا في <strong>«اسم محلك»</strong>.
-            <br>نجهّز لك موعدك المعتاد هالأسبوع؟
+            صار لنا فترة ما شفناك يا <strong>أبو محمد</strong>! جهّزنا لك <strong>خصم 20%</strong>
+            في زيارتك الجاية لـ<strong>«اسم محلك»</strong>.
             <span class="time">10:42 ص</span>
           </div>
           <div class="bubble">
-            وعندك <strong>120 نقطة</strong> — تكفي لاستبدالٍ من قائمتك 🎁
+            ولا تفوّتها — عندك <strong>120 نقطة</strong> تنتهي <strong>25 سبتمبر</strong>،
+            وتقدر تستخدمها في نفس الزيارة 🎁
             <span class="time">10:42 ص</span>
           </div>
         </div>
-        <div class="chip-row">
-          <span class="chip">نقاط</span>
-          <span class="chip">عرض حصري</span>
-          <span class="chip">في وقتها لا في وقتنا</span>
-          <span class="chip">بلا تطبيق على عميلك</span>
-        </div>
+        <p class="wa-note">من مكتبة قوالبك: «استعادة غائب» و«رصيد يوشك أن ينتهي».</p>
       </div>
     </div>
   </div>
