@@ -1,0 +1,139 @@
+# ==================================================================================================
+#  images — build every image we ship, publish it to ghcr, and pin the values to its digest.
+# --------------------------------------------------------------------------------------------------
+#  BEFORE THIS FILE, OUR SIX SERVICE IMAGES EXISTED IN EXACTLY ONE PLACE: a registry running inside
+#  the old cluster, fed over an SSH tunnel from a laptop. Every value pinned `127.0.0.1:5055/raje3/…`,
+#  which resolves on precisely one machine on earth and on a new server resolves to `connection
+#  refused`. The product was, in a real sense, un-installable anywhere else — and nothing said so,
+#  because the one machine that mattered already had every layer cached.
+#
+#  So the build moves here. A push to main builds all seven images, pushes them to ghcr under the
+#  same account that already holds the platform's, and — the step that closes the loop — rewrites
+#  each values file with the DIGEST it just published and commits that back. The pin stays immutable
+#  and nobody types a sha256 by hand.
+#
+#  WHY DIGESTS AND NEVER A MOVING TAG. A tag is a name, and a name can be repointed after review: a
+#  pod then runs code nobody approved while `kubectl describe` shows the tag you expected. We were
+#  bitten by the reverse of this once already — a correct-looking pin whose image had been pruned
+#  from the registry entirely — and the lesson was the same both times: trust the digest, and make
+#  something other than a person responsible for writing it down.
+# ==================================================================================================
+name: images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/**'
+      - 'apps/console/**'
+      - 'marketing/**'
+      - '.github/workflows/images.yml'
+  workflow_dispatch:
+
+concurrency:
+  # ONE AT A TIME, AND DO NOT CANCEL A RUN MIDWAY. This job pushes images and then commits the pins;
+  # a cancelled run can leave an image published with nothing pointing at it, which is harmless, or
+  # two runs racing on the same branch, which is not.
+  group: images
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # to commit the repinned values
+  packages: write        # to push to ghcr
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # one service failing to build must not hide the state of the other six
+      matrix:
+        include:
+          - name: campaigns
+            context: services/campaigns
+          - name: insights
+            context: services/insights
+          - name: loyalty
+            context: services/loyalty
+          - name: operations
+            context: services/operations
+          - name: portal
+            context: services/portal
+          - name: reminders
+            context: services/reminders
+          - name: console
+            context: .
+            dockerfile: apps/console/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # scoped to this repo, expires with the run
+      - id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile || format('{0}/Dockerfile', matrix.context) }}
+          push: true
+          # The commit tag is what a human reads in the registry; the digest below is what ships.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/raje3/${{ matrix.name }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/raje3/${{ matrix.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: record the digest
+        run: |
+          mkdir -p /tmp/pins
+          printf '%s' '${{ steps.build.outputs.digest }}' > "/tmp/pins/${{ matrix.name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pin-${{ matrix.name }}
+          path: /tmp/pins/${{ matrix.name }}
+
+  pin:
+    # SEPARATE JOB, AFTER ALL SEVEN. Pinning one service at a time would mean seven commits per push
+    # and a window in which the fleet is half on the new build — which is the shape of a deploy that
+    # cannot be described in one sentence.
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { token: '${{ secrets.GITHUB_TOKEN }}' }
+      - uses: actions/download-artifact@v4
+        with: { path: /tmp/pins, pattern: 'pin-*', merge-multiple: true }
+      - name: rewrite the values with what was published
+        run: |
+          set -euo pipefail
+          owner='${{ github.repository_owner }}'
+          for f in /tmp/pins/*; do
+            svc="$(basename "$f")"; digest="$(cat "$f")"
+            values="deploy/services/$svc.values.yaml"
+            [ -f "$values" ] || { echo "  no values for $svc — image published, nothing deploys it"; continue; }
+            python3 - "$values" "$digest" "ghcr.io/$owner/raje3/$svc" <<'PY'
+          import re, sys
+          path, digest, repo = sys.argv[1:4]
+          src = open(path, encoding='utf-8').read()
+          src = re.sub(r'^  repository: .*$', f'  repository: {repo}', src, count=1, flags=re.M)
+          src = re.sub(r'^  digest: *"[^"]*".*$',
+                       f'  digest: "{digest}"   # published by CI; never a moving tag',
+                       src, count=1, flags=re.M)
+          open(path, 'w', encoding='utf-8', newline='\n').write(src)
+          PY
+            echo "  $svc -> ${digest:0:19}…"
+          done
+      - name: commit the pins
+        run: |
+          set -euo pipefail
+          git config user.name  'raje3-ci'
+          git config user.email 'ci@users.noreply.github.com'
+          git add deploy/services
+          # NOTHING TO SAY IS NOT A FAILURE. A rebuild that produces identical layers produces an
+          # identical digest, and a green run with no commit is exactly right.
+          git diff --cached --quiet && { echo "  pins unchanged"; exit 0; }
+          git commit -m "pin the services to the images this build published
+
+          Written by CI from the digests docker push returned, so no sha256 in this
+          repository was ever typed by a person."
+          git push

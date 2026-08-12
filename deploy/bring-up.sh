@@ -18,8 +18,10 @@
 #  the tooling existed and we reached past it.
 #
 #  ORDER IS THE POINT. Each step needs the one before it:
-#    1. preflight      refuse a host that cannot run this before touching it
-#    2. datastores     postgres and redis must exist before a secret can name a DSN
+#    1. cluster        k3s itself, encrypted at rest, before anything says the word kubectl
+#    2. datastores     postgres and redis must exist before a secret can name a DSN, and the
+#                      network preflight runs after them, because it measures a CNI that
+#                      does not exist until the bootstrap installs it
 #    3. pool preflight   refuse the install if the pools cannot fit before any of them is opened
 #    4. secrets        minted once, shared values byte-identical across every service
 #    5. databases      one per service; a service without one starts, passes /healthz, then fails
@@ -114,6 +116,19 @@ for _ in $(seq 1 60); do kubectl get --raw=/readyz >/dev/null 2>&1 && break; sle
 kubectl get --raw=/readyz >/dev/null 2>&1 || { echo "  the API server never became ready" >&2; exit 1; }
 ok "API server answering"
 
+# AND HELM, WHICH NOTHING ELSE ON THIS PATH INSTALLS. update.sh refuses without it and points at
+# `provision-server.sh` — a script for provisioning a bare host, which is not what a bundle install
+# runs. So the refusal arrived twenty minutes in, after the datastores, the secrets and the keypair
+# were all already on disk: the longest possible walk to a missing 40MB binary. Same source as
+# upstream's own install_helm, so the two cannot drift.
+if command -v helm >/dev/null 2>&1; then
+  ok "helm present ($(helm version --short 2>/dev/null || echo '?'))"
+else
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash >/dev/null 2>&1 \
+    || { echo "  helm install failed — nothing below can deploy a chart" >&2; exit 1; }
+  ok "helm installed ($(helm version --short 2>/dev/null || echo '?'))"
+fi
+
 # THE REGISTRY CREDENTIAL, HERE, because this is the first moment a cluster exists and the last
 # moment before anything pulls. Our images are private: without it every pod sits in
 # ImagePullBackOff, a failure that reads like a broken cluster and is a missing password.
@@ -122,25 +137,6 @@ if [[ -n "${GHCR_TOKEN:-}" ]]; then
   kubectl -n "$NS" create secret docker-registry ghcr \
     --docker-server=ghcr.io --docker-username="${GHCR_USER:-x}" --docker-password="$GHCR_TOKEN" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null && ok "ghcr credential in place"
-fi
-
-# ── 1 ─────────────────────────────────────────────────────────────────────────────────────────
-step "preflight"
-# OURS FIRST, AND IT IS NOT A DUPLICATE. Upstream's proves the same property by reading its answer
-# over an interactive attach; on this host that attach fails under load and the check then reports
-# "the cluster's networking is broken" — while the same probe run by hand prints REACHABLE. A
-# security gate that can fail for a reason unrelated to what it measures is a gate people learn to
-# skip, and then the day enforcement is really off nobody finds out. Ours reads the result from pod
-# logs, which need no session.
-bash "$HERE/preflight-netpol.sh" || exit 1
-
-# THEIRS STILL RUNS, for the checks ours does not make — metrics-server and namespace labels — and
-# its network verdict is no longer the thing that stops the install, because we have just proven
-# that property ourselves, twice, in both directions.
-if [[ -x "$ROOT/platform/deploy/k3s/preflight.sh" ]]; then
-  bash "$ROOT/platform/deploy/k3s/preflight.sh"     || warn "upstream preflight reported a failure — network policy was already proven above; check the rest"
-else
-  warn "no preflight in the submodule — skipping (check it out: git -C platform sparse-checkout disable)"
 fi
 
 # ── 1b ────────────────────────────────────────────────────────────────────────────────────────
@@ -248,6 +244,32 @@ NAMESPACE="$NS" OBJECTSTORE_ENABLED=1 bash "$ROOT/platform/deploy/k3s/bootstrap.
 # database running, and then it is a CrashLoopBackOff that looks exactly like corruption. It took
 # this whole fleet to 0/1 for half an hour.
 bash "$HERE/patch-datastore-probes.sh" || warn "postgres probe patch failed — a crash recovery may loop"
+
+# ── 2c ────────────────────────────────────────────────────────────────────────────────────────
+# THE NETWORK PROOF, AFTER THE CNI THAT MAKES IT MEANINGFUL — and this order was learned on a
+# fresh machine. It used to run first, which was fine on every host that had been installed
+# before: Calico was already there. On a virgin box the node is NotReady, no pod gets an address
+# at all, and the check reports «the server pod never became ready» — a sentence that reads as a
+# broken cluster and means the CNI has not been installed yet. It cannot run earlier: what it
+# measures IS the policy CNI, which upstream's bootstrap installs in the step above.
+step "preflight"
+# OURS FIRST, AND IT IS NOT A DUPLICATE. Upstream's proves the same property by reading its answer
+# over an interactive attach; on this host that attach fails under load and the check then reports
+# "the cluster's networking is broken" — while the same probe run by hand prints REACHABLE. A
+# security gate that can fail for a reason unrelated to what it measures is a gate people learn to
+# skip, and then the day enforcement is really off nobody finds out. Ours reads the result from pod
+# logs, which need no session.
+bash "$HERE/preflight-netpol.sh" || exit 1
+
+# THEIRS STILL RUNS, for the checks ours does not make — metrics-server and namespace labels — and
+# its network verdict is no longer the thing that stops the install, because we have just proven
+# that property ourselves, twice, in both directions.
+if [[ -x "$ROOT/platform/deploy/k3s/preflight.sh" ]]; then
+  bash "$ROOT/platform/deploy/k3s/preflight.sh"     || warn "upstream preflight reported a failure — network policy was already proven above; check the rest"
+else
+  warn "no preflight in the submodule — skipping (check it out: git -C platform sparse-checkout disable)"
+fi
+
 
 # ── 3 ─────────────────────────────────────────────────────────────────────────────────────────
 # Upstream's, and it is a REFUSAL, not a report. It computes services x DATASTORE_POOL_MIN against
@@ -399,6 +421,32 @@ else
 ' | base64 -w0)"
   kubectl -n "$NS" patch secret audit-service-secrets --type=merge     -p "{\"data\":{\"INTEGRITY_HMAC_KEY\":\"$HMAC_B64\"}}" >/dev/null
   ok "audit chain key minted"
+fi
+
+# ── 4d ────────────────────────────────────────────────────────────────────────────────────────
+# AUTHZ_INTERNAL_TOKEN — A KEY UPSTREAM'S SCHEMA DOES NOT KNOW, FOR A CHOICE ONLY WE MADE.
+# We set IDENTITY_CAPS_SOURCE=authz, so identity asks authz what a role means instead of guessing,
+# and that call goes to /internal/authz/effective — which authz guards with INTERNAL_SERVICE_TOKEN.
+# Two different values and every login 401s; no value at all and identity refuses to BOOT, which is
+# the better failure and the one that met us here: CrashLoopBackOff on a fleet that was otherwise
+# healthy, with the reason legible only in the logs.
+#
+# gen-secrets.py has no AUTHZ_INTERNAL_TOKEN in its schema — it cannot, the key exists because of a
+# configuration decision of ours. So it is the SAME shared token, copied here rather than generated:
+# a fresh random value would be a second secret that must match a first one, which is the exact
+# shape of the bug this copy prevents. On the old cluster this was a kubectl patch somebody ran by
+# hand, and it survived every reinstall by being invisible.
+step "authz internal token"
+IST="$(kubectl -n "$NS" get secret identity-service-secrets -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null || true)"
+CUR="$(kubectl -n "$NS" get secret identity-service-secrets -o jsonpath='{.data.AUTHZ_INTERNAL_TOKEN}'   2>/dev/null || true)"
+if [[ -z "$IST" ]]; then
+  warn "INTERNAL_SERVICE_TOKEN not in identity-service-secrets — cannot derive AUTHZ_INTERNAL_TOKEN"
+elif [[ "$IST" == "$CUR" ]]; then
+  ok "already matches the shared internal token"
+else
+  kubectl -n "$NS" patch secret identity-service-secrets --type=merge \
+    -p "{\"data\":{\"AUTHZ_INTERNAL_TOKEN\":\"$IST\"}}" >/dev/null
+  ok "identity may now ask authz what a role means"
 fi
 
 # ── 5 & 6 ─────────────────────────────────────────────────────────────────────────────────────
