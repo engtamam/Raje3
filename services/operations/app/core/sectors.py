@@ -250,9 +250,15 @@ class SectorCatalogue:
         # RECORDED EVEN WHEN NOTHING WAS CREATED. A re-run adds no services (it is idempotent by
         # name) but must still leave the sector written down, or a retried provisioning step ends
         # with a full catalogue and a screen that does not know whether to render a plate.
+        # THE SANDBOX FLAG IS PRESERVED ACROSS A RE-SEED. A vendor's test shop that lost its flag
+        # would start earning its partner real commission and appear in our revenue as a customer
+        # — which is how a demo account becomes a line in a board report.
+        prior = await self._s.get(TENANT_SECTOR, tenant) or {}
         await self._s.put(TENANT_SECTOR, tenant,
                           {"id": tenant, "tenant": tenant, "sector": sector_key,
-                           "integrated": bool(integrated), "updated": now})
+                           "integrated": bool(integrated),
+                           "sandbox": bool(prior.get("sandbox", False)),
+                           "updated": now})
         return created
 
     async def rewards_for(self, *, tenant: str, sector_key: str) -> list[dict[str, Any]]:
@@ -291,6 +297,28 @@ class SectorCatalogue:
         salon, or retires a catalogue nobody asked us to touch.
         """
         return await self._s.get(TENANT_SECTOR, tenant)
+
+    async def mark_sandbox(self, tenant: str, *, expires_at: int = 0) -> bool:
+        """Mark an establishment as a vendor's test shop, with a date it stops being one.
+
+        A SANDBOX IS A REAL TENANT WITH A LABEL, not a second code path. Every branch that says
+        "if this is the test system" is a branch nobody exercises against production, and the
+        integration a vendor proves in it is then the integration that fails on their first real
+        shop. So it is the same routes, the same validation, the same refusals — and the label
+        exists for exactly two things: it earns nobody commission, and it does not count as a
+        customer.
+        """
+        row = await self.tenant_row(tenant)
+        if row is None:
+            return False
+        row["sandbox"] = True
+        # AN EXPIRY, BECAUSE A TEST SHOP IS NEVER CLEANED UP BY THE PERSON WHO MADE IT. Without a
+        # date, a demo tenant from a sales call two years ago is still on the cluster holding
+        # somebody's phone number in a customer row.
+        if expires_at:
+            row["sandbox_until"] = int(expires_at)
+        await self._s.put(TENANT_SECTOR, tenant, row)
+        return True
 
     async def mark_integrated(self, tenant: str) -> bool:
         """Record that this shop's till talks to us. Idempotent; False when there was no row.

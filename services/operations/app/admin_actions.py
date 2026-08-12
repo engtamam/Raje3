@@ -123,6 +123,18 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     },
     # ── the operator surface, and it is declared in every service or in none ──────────────
     {
+        "id": "operations.mark_sandbox", "label": "محل تجريبي لشركة كاشير", "method": "POST",
+        "path": "/api/v1/platform/sandbox", "capability": "platform.operations",
+        "group": "الشركاء", "confirm": True,
+        "params": [
+            {"name": "tenant", "in": "body", "type": "string", "required": True},
+            {"name": "days", "in": "body", "type": "integer", "required": False,
+             "help": "بعدها ينتهي وصفه تجريبياً — محل تجربة بلا تاريخ يبقى سنتين"},
+        ],
+        "help": "نفس المسارات ونفس القواعد بلا مال: لا عمولة عليه ولا يُحسب عميلاً. "
+                "ومسارٌ تجريبي منفصل يُثبت طريقاً لا تسلكه المنصة الحقيقية.",
+    },
+    {
         "id": "operations.partner_health", "label": "صحة الربط", "method": "GET",
         "path": "/api/v1/platform/partners/{partner_id}/health",
         "capability": "platform.operations", "group": "الشركاء",

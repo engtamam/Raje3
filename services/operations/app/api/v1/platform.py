@@ -420,3 +420,39 @@ async def partner_health(request: Request, partner_id: str, quiet_days: int = 7,
     for row in rows:
         counts[row["state"]] = counts.get(row["state"], 0) + 1
     return {"partner_id": partner_id, "shops": len(rows), "counts": counts, "health": rows}
+
+
+class SandboxIn(BaseModel):
+    """Turn an establishment into a vendor's test shop."""
+
+    tenant: str = Field(min_length=1, max_length=128)
+    # DAYS, and bounded. A test shop with no end date is a demo tenant from a sales call two years
+    # ago, still on the cluster, still holding somebody's phone number in a customer row.
+    days: int = Field(default=30, ge=1, le=180)
+
+
+@router.post("/sandbox", dependencies=[Depends(rate_limit)])
+async def mark_sandbox(request: Request, body: SandboxIn,
+                       principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Label a shop as a sandbox — same routes, same rules, no money.
+
+    A SANDBOX IS A REAL TENANT WITH A LABEL, never a second code path. Every «if this is the test
+    system» branch is one nobody exercises against production, and then the integration a vendor
+    proved in it is the one that fails on their first real shop. The label does exactly two
+    things: it earns its partner no commission, and it is not a customer in our numbers.
+
+    THE CREDENTIAL IS THE ORDINARY ONE. A till talks to a sandbox with the same machine account it
+    would hold for a real shop (§16.6) — a special test key would prove a path production does not
+    take.
+    """
+    import time as _time
+
+    await request.app.state.auditor.record(
+        "tenant.sandboxed", actor=principal.subject, tenant=body.tenant, resource="tenant",
+        ip=request.client.host if request.client else "")
+    ok = await request.app.state.container.sectors.mark_sandbox(
+        body.tenant, expires_at=int(_time.time()) + body.days * 86_400)
+    if not ok:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return {"tenant": body.tenant, "sandbox": True, "days": body.days,
+            "note": "لا عمولة على محل تجريبي، ولا يُحسب عميلاً."}
