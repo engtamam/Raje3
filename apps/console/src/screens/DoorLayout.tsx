@@ -42,10 +42,16 @@ export function DoorLayout({ children }: { children: ReactNode }) {
         className="relative hidden overflow-hidden p-12 lg:flex lg:flex-col lg:justify-between"
         style={HERO}
       >
-        <div className="flex items-center gap-3 text-[#f4efe2]">
+        {/* THE MARK IS THE WAY OUT. This screen has no navigation at all — a person who opens it
+            and changes his mind, or wants to read the page once more before committing, has
+            nothing to press but the browser's back button, and on a link opened from WhatsApp
+            there is no page behind it. So the mark leaves, which is where every site on earth
+            puts that door. It is a plain <a> to '/' and not a router link: the landing page is
+            served outside this bundle. */}
+        <a href="/" className="flex items-center gap-3 text-[#f4efe2]" aria-label="العودة إلى الصفحة الرئيسية">
           <Mark size={40} />
           <Wordmark className="text-lg" />
-        </div>
+        </a>
 
         <div className="max-w-md">
           {/* ONE SENTENCE, AND IT IS THE PRODUCT. Not a feature list — a person deciding whether to
@@ -66,10 +72,13 @@ export function DoorLayout({ children }: { children: ReactNode }) {
         <div className="w-full max-w-sm">
           {/* The mark again, for the phone — where the hero does not exist and the page would
               otherwise open on a segmented control with no idea what product it belongs to. */}
-          <div className="mb-8 flex items-center gap-2 lg:hidden">
+          {/* And on the phone, where the hero panel does not exist, this is the ONLY mark on the
+              screen — so it carries the whole burden of saying both what this is and how to leave.
+              A dead logo on a page with no other exit is a page people abandon. */}
+          <a href="/" className="mb-8 flex items-center gap-2 lg:hidden" aria-label="العودة إلى الصفحة الرئيسية">
             <Mark size={32} />
             <Wordmark className="text-base" />
-          </div>
+          </a>
           {children}
         </div>
       </main>
