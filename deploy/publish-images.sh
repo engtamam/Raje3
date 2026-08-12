@@ -103,10 +103,12 @@ for name in "${TARGETS[@]}"; do
       python3 - "$HERE/edge/console.yaml" "$d" <<'PYCON'
 import re, sys
 path, digest = sys.argv[1:3]
-src = open(path, encoding='utf-8').read()
-src = re.sub(r'image: (ghcr\.io/\S+/console)@sha256:[0-9a-f]+', rf'image: @{digest}', src, count=1)
-open(path, 'w', encoding='utf-8', newline='
-').write(src)
+src = open(path, encoding="utf-8").read()
+old = re.search(r"(image: \S+/console)@sha256:[0-9a-f]+", src)
+if not old:
+    sys.exit("no console image line to pin — the manifest changed shape")
+open(path, "w", encoding="utf-8", newline="\n").write(
+    src[:old.start()] + old.group(1) + "@" + digest + src[old.end():])
 PYCON
       ok "pinned in edge/console.yaml"
       continue

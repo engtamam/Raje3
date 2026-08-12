@@ -32,12 +32,28 @@ ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }
 # stops a migration in one service from locking a table in another.
 SERVICES="tenant authz identity audit gateway job file compliance notification featureflag analytics wallet billing ticket onboarding backup search webhook connector operations reminders campaigns loyalty insights"
 
-info "provisioning databases"
+# THE SUPERUSER IS READ, NOT ASSUMED. This loop said `-U platform` and postgres has no such role,
+# so every psql and every createdb failed — and `2>/dev/null || true` swallowed all of it, then the
+# next line announced "databases present". Twenty-four databases that do not exist, reported as
+# provisioned, and the first sign of it was a service whose /readyz says `datastore: down` while
+# /healthz says 200. The name comes from the DSN the platform actually uses.
+PGUSER_ADMIN="$(kubectl -n "$NS" get secret tenant-service-secrets -o jsonpath='{.data.DATASTORE_DSN}' 2>/dev/null | base64 -d | cut -d/ -f3 | cut -d: -f1)"
+# The DSN is postgresql://user:pass@host:port/db, so the third slash-field is user:pass@host:port
+# and its first colon-field is the user — two cuts, and no pattern to get subtly wrong.
+[ -n "$PGUSER_ADMIN" ] || { echo "  cannot read the postgres user from any DSN — is gen-secrets done?" >&2; exit 1; }
+
+info "provisioning databases (as $PGUSER_ADMIN)"
+FAILED=""
 for db in $SERVICES; do
-  kubectl -n "$NS" exec postgres-0 -- psql -U platform -d postgres -tc \
-    "SELECT 1 FROM pg_database WHERE datname='$db'" 2>/dev/null | grep -q 1 \
-    || kubectl -n "$NS" exec postgres-0 -- createdb -U platform "$db" 2>/dev/null || true
+  if kubectl -n "$NS" exec postgres-0 -- psql -U "$PGUSER_ADMIN" -d postgres -tAc        "SELECT 1 FROM pg_database WHERE datname='$db'" 2>/dev/null | grep -q 1; then
+    continue
+  fi
+  # AND A FAILURE IS COLLECTED, NOT DISCARDED. A database that cannot be created is a service that
+  # will start, pass /healthz, and fail on its first write — the exact failure this hook exists to
+  # prevent, and the one it was hiding.
+  kubectl -n "$NS" exec postgres-0 -- createdb -U "$PGUSER_ADMIN" "$db" >/dev/null 2>&1 || FAILED="$FAILED $db"
 done
+[ -z "$FAILED" ] || { echo -e "\e[31m  ✖ could not create:$FAILED\e[0m" >&2; exit 1; }
 ok "databases present"
 
 # Object-store buckets. SEPARATE buckets for application files and backups, deliberately: a restore
