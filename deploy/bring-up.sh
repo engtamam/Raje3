@@ -141,64 +141,64 @@ else
 fi
 
 # ── 2 ─────────────────────────────────────────────────────────────────────────────────────────
-step "datastores"
-# A NAMESPACE THAT IS STILL TERMINATING ACCEPTS NOTHING, and refuses with "object is being
-# deleted" — which the old `>/dev/null` swallowed, so the install carried on and failed one line
-# later on `statefulset postgres not found`, an error naming the symptom and not the cause. It
-# cost twenty minutes to read the second time. Wait for it, then apply LOUDLY.
-for _ in $(seq 1 60); do
-  phase="$(kubectl get namespace "$NS" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")"
-  [[ "$phase" == "Terminating" ]] || break
-  sleep 5
-done
+# THEIRS, CALLED — NOT REBUILT. And this file spent an afternoon learning why.
+#
+# `platform/deploy/k3s/bootstrap.sh` installs k3s with flannel off, Calico, metrics-server, the
+# namespace with the label the chart's policies select on, THE POSTGRES TLS CERT, the datastore
+# manifests pinned to the namespace, and the optional object store. We had reimplemented the
+# middle of that list and silently dropped the rest — every one of which was invisible on a
+# machine that had been installed before:
+#
+#   * the datastores landed in `default`, because their manifest declares no namespace and our
+#     apply had no -n. Every service then looked for postgres.base-services.svc;
+#   * `postgres-tls` was never minted, so the pod sat in ContainerCreating for ever and the only
+#     place that said so was `describe pod`;
+#   * the object store was never installed at all — ours is not the optional case, our values say
+#     OBJECTSTORE_DRIVER=s3 — so backup-service answered `"object_store":"down"` for ever.
+#
+# THE RULE THIS ENCODES: call upstream's step or own it deliberately. What we do NOT do is write a
+# second copy that starts equal and drifts, because the copy is always the one missing the fix.
+#
+# WHAT STAYS OURS, BELOW: the things base-services cannot know — our values, our seeds, the rs256
+# keypair we chose over their shared secret, the audit chain key our driver choice requires, and a
+# network preflight that does not depend on an attach this host cannot hold.
+
+# THE OBJECT STORE'S CREDENTIAL, MINTED BEFORE THE BOOTSTRAP THAT LOOKS FOR IT.
+# Their bootstrap applies the store only when OBJECTSTORE_ENABLED is set AND the secret exists —
+# it refuses loudly otherwise, which is right: an object store with an example key in it is worse
+# than none. One credential, generated here, used by the store and by every service that talks to
+# it (the second half of that is below, after gen-secrets has created the service secrets).
+step "object store credential"
 kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-
-# THE TLS CERT POSTGRES MOUNTS, MINTED BEFORE THE STATEFULSET THAT MOUNTS IT.
-#
-# Without it the pod sits in ContainerCreating for ever — «MountVolume.SetUp failed for volume
-# "tls": secret "postgres-tls" not found» — and the only place that says so is `describe pod`. The
-# rollout above just times out. It is upstream's function, in their bootstrap, and our install
-# never called it: on this cluster the secret already existed from an older install, so the gap was
-# invisible until the machine was truly empty.
-#
-# IDEMPOTENT AND STICKY: an existing secret is left alone, so a re-run neither rotates the cert nor
-# bounces the database for no reason.
-if ! kubectl -n "$NS" get secret postgres-tls >/dev/null 2>&1; then
-  command -v openssl >/dev/null 2>&1 || { echo "  openssl is required to mint the postgres TLS cert" >&2; exit 1; }
-  TLSDIR="$(mktemp -d)"
-  # SANs COVER THE IN-CLUSTER NAMES, so the same cert still works if a later deployment tightens
-  # from `require` to `verify-full` — no re-mint, and no CA to run.
-  openssl req -new -x509 -nodes -days 3650 -subj "/CN=postgres"     -addext "subjectAltName=DNS:postgres,DNS:postgres.${NS}.svc,DNS:postgres.${NS}.svc.cluster.local"     -keyout "$TLSDIR/tls.key" -out "$TLSDIR/tls.crt" >/dev/null 2>&1     || { echo "  openssl could not mint the postgres TLS cert" >&2; exit 1; }
-  kubectl -n "$NS" create secret tls postgres-tls --cert="$TLSDIR/tls.crt" --key="$TLSDIR/tls.key" >/dev/null
-  rm -rf "$TLSDIR"
-  ok "postgres TLS cert minted"
+if kubectl -n "$NS" get secret objectstore-secrets >/dev/null 2>&1; then
+  ok "already present — reused, never rotated (rotating orphans every object already written)"
+else
+  OSDIR="$(mktemp -d)"
+  cat > "$OSDIR/s3.json" <<JSON
+{
+  "identities": [
+    {
+      "name": "base-services",
+      "credentials": [{ "accessKey": "$(openssl rand -hex 16)", "secretKey": "$(openssl rand -base64 32 | tr -d '
+')" }],
+      "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+    }
+  ]
+}
+JSON
+  kubectl -n "$NS" create secret generic objectstore-secrets --from-file=s3.json="$OSDIR/s3.json" >/dev/null
+  rm -rf "$OSDIR"
+  ok "credential minted"
 fi
 
-# NOT SILENCED. An apply that fails here leaves every following step failing for reasons that read
-# like unrelated faults; the one line it prints is the whole diagnosis.
-# `-n "$NS"` IS THE WHOLE LINE, and its absence was invisible for as long as an older install
-# existed. The manifest declares no namespace of its own, so a bare apply writes postgres and redis
-# into `default` — while every service, every secret and the rollout check that follows all look in
-# `base-services`. On a cluster that had been installed before, the resources were already in the
-# right place and `apply` reported "unchanged" about the wrong ones; the fault only surfaced on a
-# genuinely empty machine, which is exactly the case an install script exists for.
-if ! kubectl apply -n "$NS" -f "$ROOT/platform/deploy/k3s/platform/datastores.yaml"; then
-  echo "  the datastore manifest did not apply — nothing after this step can work" >&2
-  exit 1
-fi
-ok "datastore manifests applied"
+step "bootstrap (k3s · calico · metrics · datastores · tls · object store)"
+NAMESPACE="$NS" OBJECTSTORE_ENABLED=1 bash "$ROOT/platform/deploy/k3s/bootstrap.sh"   || { echo "  bootstrap failed — nothing after this point can work" >&2; exit 1; }
 
-# AND THE PROBE THAT LETS IT SURVIVE ITS FIRST UNCLEAN SHUTDOWN.
-#
-# Applied here, at install, because the failure it prevents does not appear on a fresh database —
-# it appears the first time the node dies with the database running, weeks later, and then it is a
-# CrashLoopBackOff that looks exactly like corruption. On this cluster it took the whole fleet to
-# 0/1 for half an hour: postgres was fsyncing a recovered data directory, the liveness probe
-# allowed sixty seconds for a pass that needed minutes, and each kill restarted the recovery from
-# the beginning. Eight times.
-#
-# It patches upstream's statefulset rather than editing their manifest — theirs is read-only to us
-# — and it is idempotent, so a re-run of this script changes nothing.
+# AND THE PROBE THAT LETS POSTGRES SURVIVE ITS FIRST UNCLEAN SHUTDOWN. Applied after their
+# manifest, every time, because a re-applied statefulset carries their probe again. The failure it
+# prevents does not appear on a fresh database — it appears the first time the node dies with the
+# database running, and then it is a CrashLoopBackOff that looks exactly like corruption. It took
+# this whole fleet to 0/1 for half an hour.
 bash "$HERE/patch-datastore-probes.sh" || warn "postgres probe patch failed — a crash recovery may loop"
 
 # ── 3 ─────────────────────────────────────────────────────────────────────────────────────────
@@ -299,6 +299,59 @@ for f in "$HERE"/services/*.values.yaml; do
   verifiers=$((verifiers + 1))
 done
 ok "public key distributed to $verifiers verifying service(s)"
+
+# ── 4b3 ───────────────────────────────────────────────────────────────────────────────────────
+# THE SAME OBJECT-STORE KEY INTO EVERY SERVICE THAT TALKS TO THE STORE.
+#
+# The store's identity file was written before the bootstrap (which refuses to install the store
+# without it); the services that use it only got their secrets a moment ago, from gen-secrets. So
+# the second half happens here, reading the credential back out of the store's own secret — ONE
+# source, so the copies cannot disagree. Three hand-copied values produce a 403 that reads like a
+# bug in the uploader.
+#
+# WHICH SERVICES, read off the values files rather than listed here: a service that starts using
+# the store tomorrow is covered by declaring the driver, not by editing this loop.
+step "object store credential — shared out"
+S3JSON="$(kubectl -n "$NS" get secret objectstore-secrets -o jsonpath="{.data.s3\.json}" | base64 -d)"
+OS_ACCESS="$(printf %s "$S3JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["identities"][0]["credentials"][0]["accessKey"])')"
+OS_SECRET="$(printf %s "$S3JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["identities"][0]["credentials"][0]["secretKey"])')"
+A_B64="$(printf %s "$OS_ACCESS" | base64 -w0)"
+S_B64="$(printf %s "$OS_SECRET" | base64 -w0)"
+shared=0
+for f in "$ROOT"/deploy/services/*.values.yaml; do
+  grep -q 'OBJECTSTORE_DRIVER: *"s3"' "$f" || continue
+  svc="$(basename "$f" .values.yaml)"
+  kubectl -n "$NS" get secret "${svc}-secrets" >/dev/null 2>&1 || continue
+  kubectl -n "$NS" patch secret "${svc}-secrets" --type=merge     -p "{\"data\":{\"OBJECTSTORE_ACCESS_KEY\":\"$A_B64\",\"OBJECTSTORE_SECRET_KEY\":\"$S_B64\"}}" >/dev/null
+  shared=$((shared+1))
+done
+ok "object store credential shared with $shared service(s)"
+
+# ── 4c ────────────────────────────────────────────────────────────────────────────────────────
+# THE AUDIT CHAIN'S KEY — ours for the same reason the keypair is.
+#
+# Upstream's schema declares no INTEGRITY_HMAC_KEY, because their default integrity driver needs
+# none. We set `INTEGRITY_DRIVER: hmac-chain` in audit-service's values on purpose: every audit
+# row is chained to the one before it under a key, so a row cannot be altered or removed later
+# without the chain saying so — which is the difference between a log and evidence.
+#
+# Choosing it made the key ours to provide, and nothing did. On a fresh install audit-service
+# refuses to start at all — «INTEGRITY_HMAC_KEY must be set (>= 16 chars)» — and since every
+# write-ahead audit in this product is fail-closed, a fleet without it is a fleet where the
+# dangerous actions refuse. It was invisible on this cluster because the key was put there by
+# hand months ago.
+#
+# IDEMPOTENT, AND NEVER ROTATED. A new key breaks the chain at the row it changes, and a broken
+# chain cannot be told from a tampered one — which destroys the only property it has.
+step "audit chain key"
+if kubectl -n "$NS" get secret audit-service-secrets      -o jsonpath='{.data.INTEGRITY_HMAC_KEY}' 2>/dev/null | grep -q .; then
+  ok "already present — reused, never rotated (a new key breaks the chain)"
+else
+  HMAC_B64="$(openssl rand -base64 48 | tr -d '
+' | base64 -w0)"
+  kubectl -n "$NS" patch secret audit-service-secrets --type=merge     -p "{\"data\":{\"INTEGRITY_HMAC_KEY\":\"$HMAC_B64\"}}" >/dev/null
+  ok "audit chain key minted"
+fi
 
 # ── 5 & 6 ─────────────────────────────────────────────────────────────────────────────────────
 step "databases and buckets"

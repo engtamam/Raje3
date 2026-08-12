@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>راجِع — منصة الاحتفاظ بالعميل</title>
+<meta name="description" content="عميلٌ جاءك مرة يستحق أن يرجع. راجِع منصة الاحتفاظ بالعميل: تذكيرٌ في وقته باسم نشاطك على واتساب، ونقاطٌ ترجّعه — لصالونات النساء والكافيهات وكل نشاطٍ يتكرّر عميله.">
+<meta name="theme-color" content="#B8862B">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23B8862B'/%3E%3Cpath d='M9 22V10h7a4 4 0 0 1 0 8h-3l5 4' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+<meta property="og:title" content="راجِع — منصة الاحتفاظ بالعميل">
+<meta property="og:description" content="نحن متخصّصون في شيء واحد: أن يرجع عميلك. تذكيرٌ في وقته، ونقاطٌ تُصرف عندك، وصفحةٌ يفتحها من الرسالة.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ar_SA">
+
+<!-- ══════════════════════════════════════════════════════════════════════════════════════════
+     THE LANDING PAGE — one self-contained file, no build step, no CDN, no fonts to fetch.
+     Serving it is `cp index.html`; a page that needs a toolchain to publish is a page nobody
+     republishes. Every colour comes from the brand accent (#B8862B) — never a hand-picked hex.
+
+     WHO IT IS WRITTEN FOR: the OWNER of any business a customer returns to — a women's salon,
+     a café, a clinic, a workshop. On a phone, between two customers. Not a procurement committee.
+     So: no jargon, no dashboard screenshots, and the first sentence is her problem in her words.
+
+     AND IT NAMES NO TRADE IN THE HEADLINE. An early draft opened on a tyre shop and an engine oil
+     interval, and every salon owner who read it concluded — correctly — that the product was not
+     for her. The category is RETENTION; the trades are examples, and they belong in a list far
+     enough down the page that nobody mistakes one of them for the whole product.
+     ══════════════════════════════════════════════════════════════════════════════════════════ -->
+<style>
+:root{
+  --gold:#B8862B; --gold-hi:#a2761f; --gold-soft:#f6f0e6; --gold-on-soft:#7d5b18;
+  --ink:#1b1206; --ink-2:#5a4a33; --muted:#8a7a63;
+  --bg:#fbf9f5; --card:#ffffff; --card-2:#f4efe6;
+  --line:#e9e0d2; --line-2:#d8cbb4;
+  --ok:#0f7b4f; --ok-soft:#e3f5ec;
+  --radius:18px;
+  --font:'SF Arabic','Dubai','Sakkal Majalla','Noto Kufi Arabic','Noto Naskh Arabic',Tahoma,sans-serif;
+  --shadow:0 1px 2px rgba(27,18,6,.04), 0 8px 24px rgba(27,18,6,.06);
+  --shadow-lg:0 2px 4px rgba(27,18,6,.05), 0 20px 50px rgba(27,18,6,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ink:#f7f2e9; --ink-2:#d3c7b3; --muted:#a2947e;
+    --bg:#14100a; --card:#1d1810; --card-2:#241d13;
+    --line:#332a1c; --line-2:#463a26; --gold-soft:#2a2115; --gold-on-soft:#e6c98a;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    --shadow-lg:0 2px 4px rgba(0,0,0,.45), 0 20px 50px rgba(0,0,0,.5);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink-2);
+  font-family:var(--font); font-size:17px; line-height:1.85;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{color:var(--ink); line-height:1.35; margin:0 0 .5em; font-weight:800; letter-spacing:-.01em}
+h1{font-size:clamp(2rem,5.5vw,3.4rem)}
+h2{font-size:clamp(1.5rem,3.6vw,2.25rem)}
+h3{font-size:1.15rem; font-weight:700}
+p{margin:0 0 1em}
+a{color:inherit}
+.wrap{max-width:1080px; margin:0 auto; padding:0 20px}
+.section{padding:clamp(56px,9vw,110px) 0}
+.eyebrow{
+  display:inline-block; font-size:.9rem; font-weight:700; color:var(--gold-on-soft);
+  background:var(--gold-soft); border:1px solid var(--line-2);
+  padding:6px 14px; border-radius:999px; margin-bottom:18px;
+}
+.lead{font-size:clamp(1.05rem,2.2vw,1.3rem); color:var(--ink-2); max-width:56ch}
+
+/* ── the bar ─────────────────────────────────────────────────────────────────────────────── */
+header{
+  position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(180%) blur(12px); border-bottom:1px solid var(--line);
+}
+.bar{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0}
+.brand{display:flex; align-items:center; gap:10px; font-weight:800; color:var(--ink); font-size:1.35rem; text-decoration:none}
+.mark{width:38px; height:38px; border-radius:11px; background:var(--gold); display:grid; place-items:center; flex:0 0 auto}
+.mark svg{width:22px; height:22px}
+.nav{display:flex; align-items:center; gap:8px}
+.nav a.quiet{display:none; color:var(--ink-2); text-decoration:none; padding:8px 12px; border-radius:10px; font-weight:600}
+@media(min-width:720px){ .nav a.quiet{display:inline-block} .nav a.quiet:hover{background:var(--card-2)} }
+
+/* ── buttons: 44px floor everywhere, because this is opened on a phone ───────────────────── */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:48px; padding:0 22px; border-radius:14px; border:1px solid transparent;
+  font:inherit; font-weight:700; text-decoration:none; cursor:pointer; white-space:nowrap;
+  transition:transform .12s ease, background .12s ease, border-color .12s ease;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--gold); color:#fff; box-shadow:var(--shadow)}
+.btn-primary:hover{background:var(--gold-hi)}
+.btn-ghost{background:var(--card); color:var(--ink); border-color:var(--line-2)}
+.btn-ghost:hover{background:var(--card-2)}
+.btn-lg{min-height:56px; padding:0 30px; font-size:1.05rem}
+
+/* ── hero ─────────────────────────────────────────────────────────────────────────────────── */
+.hero{position:relative; overflow:hidden}
+.hero::before{
+  content:""; position:absolute; inset:-40% -10% auto -10%; height:70vh; pointer-events:none;
+  background:radial-gradient(60% 60% at 70% 30%, color-mix(in srgb, var(--gold) 16%, transparent), transparent 70%);
+}
+.hero-grid{display:grid; gap:clamp(32px,5vw,56px); align-items:center; position:relative}
+@media(min-width:900px){ .hero-grid{grid-template-columns:1.05fr .95fr} }
+.hero h1 .accent{color:var(--gold)}
+.cta-row{display:flex; flex-wrap:wrap; gap:12px; margin-top:26px}
+.note{font-size:.95rem; color:var(--muted); margin-top:14px}
+
+/* the phone — the product's real face, and the only screenshot on the page */
+.phone{
+  justify-self:center; width:min(340px,90vw); border-radius:34px; padding:12px;
+  background:linear-gradient(160deg, var(--card-2), var(--card));
+  border:1px solid var(--line-2); box-shadow:var(--shadow-lg);
+}
+.screen{background:var(--card); border-radius:24px; padding:16px; border:1px solid var(--line)}
+.chat{display:flex; flex-direction:column; gap:10px}
+.bubble{
+  background:var(--ok-soft); color:#123; padding:12px 14px; border-radius:16px 16px 16px 4px;
+  font-size:.95rem; line-height:1.75; border:1px solid color-mix(in srgb, var(--ok) 22%, transparent);
+}
+@media (prefers-color-scheme: dark){ .bubble{background:#16321f; color:#dff3e6} }
+.bubble strong{color:inherit}
+.bubble .time{display:block; font-size:.75rem; color:var(--muted); margin-top:6px}
+.chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px}
+.chip{
+  font-size:.85rem; font-weight:700; padding:8px 12px; border-radius:999px;
+  background:var(--gold-soft); color:var(--gold-on-soft); border:1px solid var(--line-2);
+}
+
+/* ── the numbers strip ────────────────────────────────────────────────────────────────────── */
+.strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--card)}
+.strip-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:2px; background:var(--line)}
+@media(min-width:760px){ .strip-grid{grid-template-columns:repeat(4,1fr)} }
+.stat{background:var(--card); padding:26px 20px; text-align:center}
+.stat b{display:block; color:var(--ink); font-size:clamp(1.6rem,3.4vw,2.1rem); font-weight:800; line-height:1.2}
+.stat span{font-size:.95rem; color:var(--muted)}
+
+/* ── cards ────────────────────────────────────────────────────────────────────────────────── */
+.grid{display:grid; gap:18px}
+@media(min-width:760px){ .grid-3{grid-template-columns:repeat(3,1fr)} .grid-2{grid-template-columns:repeat(2,1fr)} }
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  padding:26px; box-shadow:var(--shadow);
+}
+.card .ico{
+  width:44px; height:44px; border-radius:12px; background:var(--gold-soft); color:var(--gold-on-soft);
+  display:grid; place-items:center; margin-bottom:14px; font-size:1.3rem;
+}
+.card p:last-child{margin-bottom:0}
+
+/* ── steps ────────────────────────────────────────────────────────────────────────────────── */
+.steps{counter-reset:s; display:grid; gap:14px}
+@media(min-width:860px){ .steps{grid-template-columns:repeat(3,1fr)} }
+.step{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:26px 24px; position:relative}
+.step::before{
+  counter-increment:s; content:counter(s);
+  position:absolute; inset-inline-start:24px; top:-16px;
+  width:34px; height:34px; border-radius:50%; background:var(--gold); color:#fff;
+  display:grid; place-items:center; font-weight:800; font-size:1rem; box-shadow:var(--shadow);
+}
+.step h3{margin-top:12px}
+
+/* ── sectors ──────────────────────────────────────────────────────────────────────────────── */
+.tags{display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
+.tag{
+  background:var(--card); border:1px solid var(--line-2); border-radius:999px;
+  padding:10px 18px; font-weight:700; color:var(--ink); box-shadow:var(--shadow)
+}
+
+/* ── close ────────────────────────────────────────────────────────────────────────────────── */
+.close{
+  background:linear-gradient(150deg, color-mix(in srgb, var(--gold) 14%, var(--card)), var(--card));
+  border:1px solid var(--line-2); border-radius:24px; padding:clamp(32px,6vw,60px); text-align:center;
+  box-shadow:var(--shadow-lg);
+}
+footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); font-size:.95rem}
+.foot{display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; align-items:center}
+.foot a{text-decoration:none}
+.foot a:hover{color:var(--ink)}
+[dir="rtl"] .ltr{direction:ltr; unicode-bidi:isolate}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="#top">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none"><path d="M9 22V10h7a4 4 0 0 1 0 8h-3l5 4" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      راجِع
+    </a>
+    <nav class="nav">
+      <a class="quiet" href="#how">كيف يعمل</a>
+      <a class="quiet" href="#who">لمن</a>
+      <a class="quiet" href="#price">الأسعار</a>
+      <a class="btn btn-ghost" href="/app">دخول</a>
+      <a class="btn btn-primary" href="/app?signup=1">ابدأ مجاناً</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ── hero ─────────────────────────────────────────────────────────────────────────────── -->
+<section class="hero section" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">منصة الاحتفاظ بالعميل</span>
+      <h1>عميلٌ جاءكِ مرة… <span class="accent">خلّيه يرجع</span>.</h1>
+      <p class="lead">
+        الأصعب أن تجذبي عميلاً جديداً. والأسهل — وأرخص بكثير — أن يرجع من جاءكِ فعلاً.
+        <strong>راجِع</strong> يجمع ما يرجّعه في مكانٍ واحد: <strong>نقاطٌ</strong> يكسبها ويصرفها عندكِ،
+        <strong>وعروضٌ حصرية</strong> لمن تختارينه، <strong>وحملاتٌ</strong> موجّهة —
+        <strong>وإشعارٌ ذكي</strong> يعرف متى يسكت فلا يتحوّل الاهتمام إلى إزعاج.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary btn-lg" href="/app?signup=1">جرّبي 14 يوماً مجاناً</a>
+        <a class="btn btn-ghost btn-lg" href="#how">شوفي كيف يشتغل</a>
+      </div>
+      <p class="note">بلا بطاقة · تسجيل بدقيقة · تلغينه متى شئتِ</p>
+    </div>
+
+    <div class="phone" aria-label="مثال على رسالة واتساب يستقبلها عميل النشاط">
+      <div class="screen">
+        <div class="chat">
+          <div class="bubble">
+            هلا سارة 👋<br>
+            صار <strong>خمسة أسابيع</strong> على آخر زيارة لكِ عندنا في <strong>صالون لمسة</strong>.
+            <br>نحجز لكِ موعدكِ المعتاد هالأسبوع؟
+            <span class="time">١٠:٤٢ ص</span>
+          </div>
+          <div class="bubble">
+            وعندكِ <strong>120 نقطة</strong> — تكفي جلسة عناية مجانية 🎁
+            <span class="time">١٠:٤٢ ص</span>
+          </div>
+        </div>
+        <div class="chip-row">
+          <span class="chip">نقاط</span>
+          <span class="chip">عرض حصري</span>
+          <span class="chip">في وقتها لا في وقتنا</span>
+          <span class="chip">بلا تطبيق على عميلك</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── the strip ────────────────────────────────────────────────────────────────────────── -->
+<section class="strip">
+  <div class="wrap"><div class="strip-grid">
+    <div class="stat"><b>نقاط</b><span>تُكسَب عندكِ وتُصرَف عندكِ</span></div>
+    <div class="stat"><b>عروض حصرية</b><span>لمن تختارين، بمدةٍ تنتهي</span></div>
+    <div class="stat"><b>حملات موجّهة</b><span>تعرفين عددها قبل الإرسال</span></div>
+    <div class="stat"><b>بلا إزعاج</b><span>سقفٌ ووقتٌ محترمان دائماً</span></div>
+  </div></div>
+</section>
+
+<!-- ── the problem, named ───────────────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="wrap">
+    <span class="eyebrow">المشكلة</span>
+    <h2>لا تخسرين عميلكِ بخلاف — تخسرينه بالنسيان.</h2>
+    <p class="lead" style="max-width:64ch">
+      نشاطكِ يعيش على من يعود: زيارةٌ كل شهر، جلسةٌ كل ثلاثة أسابيع، فنجانٌ كل صباح.
+      والدفتر يقول كم دخل اليوم — ولا يقول <strong>من كان يُفترض أن يجي ولم يجِ</strong>.
+    </p>
+    <div class="grid grid-3" style="margin-top:34px">
+      <div class="card">
+        <div class="ico" aria-hidden="true">🗒️</div>
+        <h3>ذاكرةٌ لا تتّسع</h3>
+        <p>تعرفين وجوه العشرة الأوائل. أما المئتان الباقون فلا يحفظهم أحد، ولا أحد يحسب من تأخّر.</p>
+      </div>
+      <div class="card">
+        <div class="ico" aria-hidden="true">📣</div>
+        <h3>إعلانٌ يشتري غريباً</h3>
+        <p>تدفعين لتجذبي عميلاً جديداً، ومن جاءكِ قبل شهرين — وهو أقرب وأرخص — يذهب لغيركِ بصمت.</p>
+      </div>
+      <div class="card">
+        <div class="ico" aria-hidden="true">⏱️</div>
+        <h3>وقتٌ ليس عندكِ</h3>
+        <p>لن تجلسي ترسلين مئتي رسالة واحدةً واحدة. ولو جلستِ مرة، لن تكرّريها الشهر القادم.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── how ──────────────────────────────────────────────────────────────────────────────── -->
+<section class="section" id="how" style="background:var(--card-2)">
+  <div class="wrap">
+    <span class="eyebrow">كيف يعمل</span>
+    <h2>ثلاث خطوات، وبعدها يشتغل وحده.</h2>
+    <div class="steps" style="margin-top:44px">
+      <div class="step">
+        <h3>سجّلي الزيارة</h3>
+        <p>رقم العميل، وما أخذه عندكِ. خمس ثوانٍ على جوال الموظف — وهي كل ما يفعله نشاطكِ يدوياً.</p>
+      </div>
+      <div class="step">
+        <h3>راجِع يعرف موعده</h3>
+        <p>لكل خدمةٍ إيقاعها: هذه كل ثلاثة أسابيع، وتلك كل شهر. يحسب متى يحين وقته بدلاً عنكِ.</p>
+      </div>
+      <div class="step">
+        <h3>الرسالة تصل باسمكِ</h3>
+        <p>على واتساب، من رقم نشاطكِ، في وقتها — ومعها نقاطه وعرضه إن كان له عرض.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── what she gets ────────────────────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="wrap">
+    <span class="eyebrow">ما الذي يجعله يرجع</span>
+    <h2>أربعة محرّكات، تعمل معاً — وكلها لهدفٍ واحد.</h2>
+    <p class="lead" style="max-width:62ch">
+      برنامج نقاط، وعروض حصرية، وحملات تسويق، وتذكيرٌ يعرف متى يسكت. أربعتها في مكانٍ واحد،
+      لأن الاحتفاظ لا يحدث بواحدةٍ منها وحدها.
+    </p>
+
+    <div class="grid grid-2" style="margin-top:36px">
+
+      <div class="card">
+        <div class="ico" aria-hidden="true">💎</div>
+        <h3>برنامج نقاط يُصرف عندكِ</h3>
+        <p>
+          يكسبها بزياراته — بزيارةٍ أو بمبلغ، وأنتِ تقرّرين — ويستبدلها في نشاطكِ:
+          خدمةً من قائمتكِ، أو هديةً، أو خصماً.
+        </p>
+        <p style="color:var(--muted); font-size:.95rem; margin-bottom:0">
+          <strong>ولماذا يرجع فعلاً:</strong> رصيده يخصّكِ وحدكِ ولا يُنقَل معه إلى غيركِ —
+          فكل زيارةٍ تزيد ما يخسره لو ذهب.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="ico" aria-hidden="true">🎟️</div>
+        <h3>عروض حصرية، لا مناشير</h3>
+        <p>
+          العرض يصل لمن اخترتِه وحده، وله نهايةٌ إلزامية وعدّادٌ حيّ — يظهر لموظفكِ لحظة
+          يقف العميل أمامه، فيُطبَّق ولا يُنسى.
+        </p>
+        <p style="color:var(--muted); font-size:.95rem; margin-bottom:0">
+          <strong>وحمايةُ هامشكِ مبنيّة فيه:</strong> عرضٌ واحد للزيارة الواحدة، ولا تنزل الأسعار
+          لمن كان سيرجع أصلاً.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="ico" aria-hidden="true">📣</div>
+        <h3>حملات موجّهة — لا رسائل عشوائية</h3>
+        <p>
+          تختارين الهدف: من لم يزُر منذ شهرين، أو أصحاب خدمةٍ بعينها. ونقول لكِ قبل الإرسال
+          <strong>كم شخصاً ستصل</strong> ومن استُثني ولماذا.
+        </p>
+        <p style="color:var(--muted); font-size:.95rem; margin-bottom:0">
+          <strong>وتُوزَّع على أيام</strong> بدل دفعةٍ واحدة، لأن ألف رسالةٍ في دقيقة هي أسرع
+          طريقٍ لحظر رقمكِ.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="ico" aria-hidden="true">🤫</div>
+        <h3>إشعارٌ ذكي — يعرف متى يسكت</h3>
+        <p>
+          لا رسالتان في يوم، ولا تذكيرٌ لمن زاركِ أمس، ولا شيء خارج أوقات مناسبة. ومن قال
+          «إيقاف» تُحترم كلمته فوراً.
+        </p>
+        <p style="color:var(--muted); font-size:.95rem; margin-bottom:0">
+          <strong>وهذه ليست ميزةً جانبية:</strong> الإزعاج يُفقدكِ العميل والرقم معاً — وحمايتكِ
+          منه مكتوبةٌ في المحرك، لا متروكةٌ لانتباهكِ.
+        </p>
+      </div>
+
+    </div>
+
+    <div class="grid grid-3" style="margin-top:18px">
+      <div class="card">
+        <div class="ico" aria-hidden="true">🔔</div>
+        <h3>تذكيرٌ في وقته</h3>
+        <p>لكل خدمة إيقاعها، ولكل عميل موعده. ومن تأخّر يظهر في قائمة واحدة — تعرفين من تكلّمين اليوم.</p>
+      </div>
+      <div class="card">
+        <div class="ico" aria-hidden="true">📱</div>
+        <h3>صفحةٌ لعميلكِ</h3>
+        <p>يفتحها من الرسالة: زياراته ونقاطه وعروضه — باسم نشاطكِ ولونه، وبلا تطبيقٍ يحمّله.</p>
+      </div>
+      <div class="card">
+        <div class="ico" aria-hidden="true">📊</div>
+        <h3>أرقامٌ تُقرأ</h3>
+        <p>من رجع بعد التذكير، وأي خدمةٍ تجرّ أختها، ومن على وشك أن يخرج — بجملةٍ لا بجدول.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── who ──────────────────────────────────────────────────────────────────────────────── -->
+<section class="section" id="who" style="background:var(--card-2)">
+  <div class="wrap" style="text-align:center">
+    <span class="eyebrow">لمن</span>
+    <h2>لكل نشاطٍ يعود إليه عميله.</h2>
+    <p class="lead" style="margin:0 auto 30px">
+      لا فرق بين صالونٍ وكافيه وعيادة: من يعود هو من يبني الدخل، والمنسيّ هو من يذهب.
+      وأي نشاطٍ يملك واتساب أعمال يبدأ اليوم — منشأةً كان أو عملاً حرّاً.
+    </p>
+    <div class="tags">
+      <span class="tag">صالونات نسائية</span>
+      <span class="tag">كافيهات ومقاهي</span>
+      <span class="tag">عيادات وتجميل</span>
+      <span class="tag">سبا وعناية</span>
+      <span class="tag">مطاعم</span>
+      <span class="tag">حلاقة رجالية</span>
+      <span class="tag">نوادي ولياقة</span>
+      <span class="tag">مغاسل وورش</span>
+      <span class="tag">…وكل ما يتكرّر</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── trust ────────────────────────────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="wrap">
+    <span class="eyebrow">الثقة</span>
+    <h2>بياناتكِ بياناتكِ، وعملاؤكِ عملاؤكِ.</h2>
+    <div class="grid grid-3" style="margin-top:34px">
+      <div class="card">
+        <div class="ico" aria-hidden="true">🇸🇦</div>
+        <h3>داخل السعودية</h3>
+        <p>بيانات عملائكِ تُخزَّن في المملكة، ونعمل وفق نظام حماية البيانات الشخصية.</p>
+      </div>
+      <div class="card">
+        <div class="ico" aria-hidden="true">✋</div>
+        <h3>من رفض لا يُراسَل</h3>
+        <p>«إيقاف» بكلمةٍ واحدة، وتُحترم في حينها. رسائلكِ ترجّع الناس ولا تطاردهم.</p>
+      </div>
+      <div class="card">
+        <div class="ico" aria-hidden="true">🚪</div>
+        <h3>تخرجين متى شئتِ</h3>
+        <p>تصدّرين بياناتكِ وتُغلقين حسابكِ بنفسكِ. لا عقدَ يحبسكِ ولا مكالمة إلغاء.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── price ────────────────────────────────────────────────────────────────────────────── -->
+<section class="section" id="price" style="background:var(--card-2)">
+  <div class="wrap" style="text-align:center">
+    <span class="eyebrow">الأسعار</span>
+    <h2>جرّبي أولاً. وادفعي إن رجّع لكِ عميلاً.</h2>
+    <p class="lead" style="margin:0 auto 26px">
+      أربع باقات تبدأ من نشاطٍ واحد وتكبر معكِ — النقاط والعروض والحملات معها. التجربة أربعة
+      عشر يوماً بلا بطاقة، والأسعار كاملةً داخل الحساب بلا مفاجآت.
+    </p>
+    <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدئي تجربتكِ</a>
+  </div>
+</section>
+
+<!-- ── close ────────────────────────────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="wrap">
+    <div class="close">
+      <h2>أفضل عميلٍ لكِ… هو من جاءكِ من قبل.</h2>
+      <p class="lead" style="margin:0 auto 26px">سجّلي نشاطكِ اليوم، ودعي راجِع يتذكّر عنكِ.</p>
+      <a class="btn btn-primary btn-lg" href="/app?signup=1">ابدئي مجاناً — 14 يوماً</a>
+      <p class="note">تحتاج مساعدة؟ راسلنا على واتساب وقت الدوام.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span>© راجِع — جميع الحقوق محفوظة</span>
+    <span style="display:flex; gap:16px; flex-wrap:wrap">
+      <a href="/terms">الشروط</a>
+      <a href="/privacy">الخصوصية</a>
+      <a href="/app">دخول</a>
+    </span>
+  </div>
+</footer>
+
+</body>
+</html>
