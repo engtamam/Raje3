@@ -328,3 +328,73 @@ def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
             return {"reserve": cap, "basis": "capped", "weekday": weekday,
                     "samples": len(counts), "wanted": want}
     return {"reserve": want, "basis": basis, "weekday": weekday, "samples": len(counts)}
+
+
+def retention_series(visits: list[dict], *, now: int, points: int = 6,
+                     window_days: int = 180, step_days: int = 30,
+                     min_customers: int = 20) -> dict[str, Any]:
+    """Return rate as a LINE, not a snapshot (spec: proof 1).
+
+    EVERY OTHER NUMBER ON THIS SCREEN ANSWERS «كم الآن» AND NONE OF THEM ANSWERS «كم كان». An owner
+    deciding whether to keep paying is asking the second question, and until now the product's own
+    answer to it was a shrug — he had one figure with nothing to compare it against, so a return
+    rate of 46% was neither good news nor bad.
+
+    THE MEASUREMENT MUST NOT MOVE WHILE THE THING IT MEASURES DOES. Each point is the same
+    calculation — `return_rate` over a trailing window of the same length — ending one step earlier
+    than the point after it. Anything else (all visits to date, say) makes the early points a
+    different measurement from the late ones, and the line then shows the method changing rather
+    than the shop.
+
+    A WINDOW WIDE ENOUGH TO CONTAIN A CYCLE. A workshop's customer returns every three months; a
+    thirty-day window would call every one of them a one-time visitor and draw a flat line at zero
+    for a shop doing fine. 180 days holds two cycles for most trades, and a step of 30 gives a
+    point a month without the points being independent — which is the intent: this is a trend, and
+    a trend is smoothed by construction.
+
+    AND A POINT WITH TOO FEW PEOPLE IN IT IS NOT DRAWN. Six customers in a window make a rate that
+    swings twenty points when one of them returns, and a line that jumps like that teaches its
+    reader to ignore it. Those points are `None` — a gap in the line, not a zero, because a zero
+    here reads as «nobody came back» which is a different and much worse sentence.
+    """
+    times = sorted(int(v.get("occurred_at") or v.get("created_at") or 0) for v in visits)
+    if not times:
+        return {"points": [], "learning": True, "have": 0, "need": min_customers}
+
+    window = window_days * DAY
+    step = step_days * DAY
+    out: list[dict[str, Any]] = []
+    for i in range(points - 1, -1, -1):
+        end = now - i * step
+        start = end - window
+        slice_ = [v for v in visits
+                  if start <= int(v.get("occurred_at") or v.get("created_at") or 0) <= end]
+        people = len(_by_customer(slice_))
+        out.append({
+            "at": end,
+            "customers": people,
+            # None, never 0.0 — see the docstring. The screen draws a gap.
+            "value": round(return_rate(slice_), 3) if people >= min_customers else None,
+        })
+
+    drawn = [p for p in out if p["value"] is not None]
+    if not drawn:
+        # STILL LEARNING IS A STATE, NOT AN ABSENCE — the same contract the association engine
+        # uses, so the screen can render both with one component and one sentence.
+        newest = out[-1]["customers"] if out else 0
+        return {"points": [], "learning": True, "have": newest, "need": min_customers}
+
+    first, last = drawn[0], drawn[-1]
+    delta = round(last["value"] - first["value"], 3)
+    return {
+        "points": out,
+        "learning": False,
+        "first": first["value"],
+        "last": last["value"],
+        "delta": delta,
+        # THE BASELINE IS THE OLDEST POINT WE CAN DEFEND, not the day he signed up: a shop that
+        # joined last week has no before, and inventing one from three visits would make our own
+        # improvement look enormous. When the history is short, first == last and delta is 0 —
+        # honest, and it fixes itself as months accumulate.
+        "months": len(drawn),
+    }

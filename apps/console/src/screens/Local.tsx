@@ -30,6 +30,11 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
 interface Blocked { indicator: string; message?: string; reason?: string }
+/** The return rate as a line — one point a month, `null` where the window held too few people. */
+interface Series {
+  points?: { at: number; customers: number; value: number | null }[];
+  learning?: boolean; first?: number; last?: number; delta?: number; months?: number;
+}
 interface Dashboard {
   computing: boolean;
   message?: string;
@@ -89,6 +94,65 @@ interface Branches {
  * how the shop is doing, then detail folded away one press from open. Folded, not absent —
  * `<details>` keeps it in the page, in find-in-page, and in the reading order.
  */
+
+/**
+ * THE TREND, DRAWN SMALL AND SAID IN WORDS.
+ *
+ * A shop owner does not read charts, and this is not one: it is a line the width of the card with
+ * a sentence under it — «كان 20% · صار 60%» — because the sentence is what he repeats to himself
+ * and the line is only what makes him believe it.
+ *
+ * A GAP IS A GAP, NEVER A ZERO. A window with too few customers in it produces `null`, and the
+ * path breaks there. Painting it at zero would say «nobody came back that month», which is a
+ * different and much worse sentence than «we do not know».
+ *
+ * NO AXES, NO GRID, NO TOOLTIP. Every one of those would ask him to study the picture, and the
+ * moment a number needs studying he stops reading it.
+ */
+function Trend({ series }: { series: Series }) {
+  const pts = (series.points ?? []).map((p) => p.value);
+  const drawn = pts.filter((v): v is number => typeof v === 'number');
+  if (drawn.length < 2) return null;
+
+  const W = 260, H = 44, PAD = 3;
+  const lo = Math.min(...drawn), hi = Math.max(...drawn);
+  const span = hi - lo || 1;
+  const x = (i: number) => PAD + (i * (W - PAD * 2)) / (pts.length - 1);
+  const y = (v: number) => H - PAD - ((v - lo) / span) * (H - PAD * 2);
+
+  // Segments, not one path: a break in the data must be a break in the line.
+  const segs: string[] = [];
+  let cur: string[] = [];
+  pts.forEach((v, i) => {
+    if (typeof v === 'number') cur.push(`${cur.length ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+    else { if (cur.length > 1) segs.push(cur.join(' ')); cur = []; }
+  });
+  if (cur.length > 1) segs.push(cur.join(' '));
+
+  const up = (series.delta ?? 0) > 0;
+  const flat = Math.abs(series.delta ?? 0) < 0.01;
+  const stroke = flat ? 'var(--text-muted)' : up ? 'var(--success)' : 'var(--danger)';
+
+  return (
+    <div className="flex w-full flex-col items-center gap-1 px-5">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[280px]" role="img"
+           aria-label={`الاحتفاظ: كان ${Math.round((series.first ?? 0) * 100)}% وصار ${Math.round((series.last ?? 0) * 100)}%`}>
+        {segs.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke={stroke} strokeWidth={2.5}
+                strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+      </svg>
+      <p className="text-xs text-text-secondary">
+        <span className="tabular-nums">{Math.round((series.first ?? 0) * 100)}%</span>
+        {' '}قبل {series.months} أشهر{' · '}
+        <span className="tabular-nums font-semibold text-text-primary">
+          {Math.round((series.last ?? 0) * 100)}%
+        </span>{' '}اليوم
+      </p>
+    </div>
+  );
+}
+
 function Group({ title, hint, children, folded = false }: {
   title: string; hint?: string; children: React.ReactNode; folded?: boolean;
 }) {
@@ -272,6 +336,12 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           <p className="px-6 text-center text-xs leading-relaxed text-text-secondary">
             من عملائك رجعوا لك مرة ثانية.
           </p>
+          {/* AND WHETHER IT IS MOVING — the question the ring alone cannot answer, and the one he
+              is actually asking when he decides whether to keep paying. */}
+          {(() => {
+            const series = data.values['retention_series'] as Series | undefined;
+            return series && !series.learning ? <Trend series={series} /> : null;
+          })()}
         </div>
       ) : null}
 

@@ -92,6 +92,10 @@ class Tick:
 
         values: dict[str, Any] = {
             "return_rate": indicators.return_rate(visits),
+            # THE SAME NUMBER AS A LINE. Computed beside its own snapshot rather than in a second
+            # job: one read of `visits`, one clock, and no chance of the headline figure and the
+            # last point of the trend disagreeing — which is exactly the bug an owner screenshots.
+            "retention_series": indicators.retention_series(visits, now=now),
             "return_cycle_days": indicators.return_cycle_days(visits),
             "churn_rate": indicators.churn_rate(visits, now=now),
             "active_customers": indicators.active_customers(visits, now=now),
