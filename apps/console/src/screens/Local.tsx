@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { KpiCard } from '@base-ui/design-system/KpiCard';
+import { Ring } from '@base-ui/design-system/Ring';
 import { TrendingUp, Users, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -42,11 +43,18 @@ interface Dashboard {
 }
 
 /** The headline four, by the names the snapshot stores them under. */
-const HEADLINE: { key: string; label: string; icon: typeof Users; percent?: boolean; suffix?: string }[] = [
+const HEADLINE: {
+  key: string; label: string; icon: typeof Users; percent?: boolean; suffix?: string;
+  tone?: 'neutral' | 'accent' | 'success' | 'warning' | 'danger';
+}[] = [
+  // return_rate is rendered as the ring above — it stays in this list so the "absent is not zero"
+  // rule keeps one home, and the grid filters it out rather than a second list drifting from this.
   { key: 'return_rate', label: 'نسبة العودة', icon: RefreshCw, percent: true },
-  { key: 'active_customers', label: 'عملاء نشطون', icon: Users },
+  { key: 'active_customers', label: 'عملاء نشطون', icon: Users, tone: 'accent' },
   { key: 'return_cycle_days', label: 'دورة العودة', icon: TrendingUp, suffix: 'يوماً' },
-  { key: 'churn_rate', label: 'نسبة التسرّب', icon: AlertTriangle, percent: true },
+  // THE ONLY ONE WHERE A RISE IS BAD, and the only one wearing a warning colour. Painting all four
+  // the same taught the eye that none of them mattered.
+  { key: 'churn_rate', label: 'التسرّب', icon: AlertTriangle, percent: true, tone: 'warning' },
 ];
 
 /** Two services that arrive together, and how sure the engine is. */
@@ -246,8 +254,29 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         hint={data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}
       >
       {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {HEADLINE.map((h) => {
+
+      {/* ── ONE NUMBER, LARGE ────────────────────────────────────────────────────────────────
+          FOUR EQUAL TILES ARE FOUR NUMBERS NOBODY REMEMBERS. On a phone they became two rows of
+          small type with no order between them, and the owner left knowing none of them.
+          نسبة العودة is the one this whole product is about, so it is a jewel at the top and the
+          rest are its supporting cast. The ring animates from zero on mount and respects
+          prefers-reduced-motion — the kit's own behaviour, not a flourish added here. */}
+      {typeof data.values['return_rate'] === 'number' ? (
+        <div className="flex flex-col items-center gap-1 rounded-card border border-border-subtle bg-surface-1 py-7 shadow-sm">
+          <Ring
+            value={Math.round((data.values['return_rate'] as number) * 100)}
+            size={148}
+            stroke={11}
+            caption="نسبة العودة"
+          />
+          <p className="px-6 text-center text-xs leading-relaxed text-text-secondary">
+            من عملائك رجعوا لك مرة ثانية.
+          </p>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-3 gap-2">
+        {HEADLINE.filter((h) => h.key !== 'return_rate').map((h) => {
           const raw = data.values[h.key];
           // ABSENT IS NOT ZERO. A key his plan withheld, or one the snapshot could not compute, is
           // skipped entirely rather than rendered as 0 — see the module note.
@@ -256,7 +285,8 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           return (
             <KpiCard
               key={h.key}
-              icon={<h.icon size={18} />}
+              icon={<h.icon size={16} />}
+              tone={h.tone}
               label={h.label}
               value={h.suffix ? `${shown} ${h.suffix}` : shown}
             />
