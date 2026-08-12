@@ -540,6 +540,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           </div>
           <Setting
             label="دورة التذكير"
+            name="دورة التذكير العامة"
             meaning="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة."
             value={settings?.general?.interval_days}
             preview={(n) => `تذكير بعد ${n} يوماً من كل زيارة`}
@@ -548,6 +549,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           />
           <Setting
             label="الاطمئنان"
+            name="الاطمئنان العام"
             meaning="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها."
             value={settings?.general?.follow_up_days}
             preview={(n) => `سؤال بعد ${n} يوماً من الزيارة`}
@@ -964,9 +966,11 @@ function Row({ label, hint, children }:
  * real setting that would really send. So the preview follows the box and the write waits for blur.
  */
 function Setting({
-  label, meaning, value, preview, zero, onSave,
+  label, meaning, value, preview, zero, onSave, name,
 }: {
   label: string;
+  /** The accessible name, when two cards on the page carry the same visible label. */
+  name?: string;
   meaning: string;
   value?: number;
   preview: (n: number) => string;
@@ -1001,7 +1005,11 @@ function Setting({
             const raw = e.target.value.trim();
             if (raw !== '') onSave(Number(raw));
           }}
-          aria-label={`${label} (بالأيام)`}
+          // TWO CARDS, TWO NAMES. The general card and a service's card both say «دورة التذكير»
+          // on screen — correctly, it is the same setting at two levels — and an accessible name
+          // repeated twice on one page is a screen reader announcing two identical fields and a
+          // person unable to tell which one he is in.
+          aria-label={`${name || label} (بالأيام)`}
           dir="ltr"
           className="ms-auto h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
         />

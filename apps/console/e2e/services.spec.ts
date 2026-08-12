@@ -89,11 +89,20 @@ test('each reminder field says what it sends, and previews when', async ({ shop 
   await open(shop, '/services');
   await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
 
+  // THE CONSEQUENCE IS ON THE CARD; THE EXPLANATION MOVED BEHIND «؟». Two paragraphs per field
+  // filled a phone screen with prose an owner reads once in his life, so the sentence is one tap
+  // away and the line that CHANGES AS HE TYPES stayed where it was. This asserts both: the
+  // preview visible, and the explanation reachable.
   const body = await shop.locator('body').innerText();
-  expect(body).toMatch(/الرسالة التي تُرجعه/);
-  expect(body).toMatch(/تسأل إن كان كل شيء تمام/);
-  // The consequence of the number now in the box, shown before he leaves the field.
-  expect(body).toMatch(/تذكير بعد \d+ يوماً من كل زيارة|لا تذكير لهذه الخدمة/);
+  expect(body).toMatch(/تذكير بعد \d+ يوماً من كل زيارة|لا تذكير لهذه الخدمة|لا تذكير — إلا لخدمة خصّصتها/);
+
+  // THE «؟» OF THE FIELD, not the first one on the page — the general card carries one of its own
+  // about inheritance, and `.first()` picked that. Two controls with the same accessible name on
+  // one page is exactly what an index-based click gets wrong, so this one is scoped to the row.
+  const field = shop.locator('div').filter({ hasText: /^دورة التذكير/ }).first();
+  await field.getByRole('button', { name: 'شرح' }).first().click();
+  expect(await shop.locator('body').innerText())
+    .toMatch(/الرسالة التي تُرجعه|كل كم يوماً يحتاج العميل/);
 });
 
 test('a service can be put in a group directly, not only when the system offers', async ({ shop }) => {
@@ -124,11 +133,16 @@ test('a service can leave its group, and a group can be deleted', async ({ shop 
   await picker.selectOption({ label: 'مجموعة جديدة…' });
   const name = shop.getByLabel('اسم المجموعة الجديدة');
   await expect(name).toBeVisible();
-  await name.fill('مجموعة الإثبات');
+  // A NAME OF ITS OWN, EVERY RUN. A fixed name is a group that survives the run that made it —
+  // the next run finds «مجموعة الإثبات» already on screen, selects «مجموعة جديدة…» to make it
+  // again, and the assertions then race two identical headings. The test passed alone and failed
+  // in the file, which is the signature of state left behind rather than a product fault.
+  const group = `مجموعة الإثبات ${Date.now().toString().slice(-5)}`;
+  await name.fill(group);
   await name.press('Enter');
 
   // It is a heading now, and the heading carries the act that unmakes it.
-  await expect(shop.getByRole('heading', { name: /مجموعة الإثبات/ })).toBeVisible({ timeout: 30_000 });
+  await expect(shop.getByRole('heading', { name: new RegExp(group) })).toBeVisible({ timeout: 30_000 });
   await expect(shop.getByRole('button', { name: 'حذف المجموعة' })).toBeVisible();
 
   // AND THE SERVICE CAN WALK OUT ON ITS OWN, without taking the group with it.
@@ -140,7 +154,7 @@ test('a service can leave its group, and a group can be deleted', async ({ shop 
     await shop.getByRole('button').filter({ hasText: /كل \d+ يوماً|بلا دورة/ }).first().click();
   }
   await shop.getByLabel(/^مجموعة /).first().selectOption('');
-  await expect(shop.getByRole('heading', { name: /مجموعة الإثبات/ })).toHaveCount(0, { timeout: 30_000 });
+  await expect(shop.getByRole('heading', { name: new RegExp(group) })).toHaveCount(0, { timeout: 30_000 });
 });
 
 test('it opens on what he sells, with what he stopped one tap away', async ({ shop }) => {
