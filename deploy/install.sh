@@ -167,7 +167,38 @@ fi
 phase "3 · الإقلاع"
 bash "$HERE/systemd/install.sh" || warn "لم تُسجَّل وحدات الإقلاع"
 
-# ── 4 · what to do next, and the one thing shown only once ────────────────────────────────────
+# ── 4 · THE LAST QUESTION, ASKED BY THE INSTALLER ITSELF ──────────────────────────────────────
+# «هل يفتح النطاق؟» is the only question the owner will ask, and until today nothing in this script
+# asked it. Every layer reported success — 24 services ready, a certificate issued, an edge applied
+# — while the site was dark, because a liveness probe was killing the one pod that owns 443 every
+# thirty-five seconds. Twenty-four green lines and a domain that refused connections.
+#
+# So the install ends by being a visitor: a real request over the public name, from this machine.
+# Nothing below is inferred from cluster state — a pod can be Running and answer nothing.
+phase "الفحص الأخير"
+if [ -n "${DOMAIN:-}" ]; then
+  EDGE_OK=0
+  for _ in $(seq 1 30); do
+    code="$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "https://${DOMAIN}/" 2>/dev/null || true)"
+    case "$code" in 200|301|302|308) EDGE_OK=1; break;; esac
+    sleep 5
+  done
+  if [ "$EDGE_OK" = "1" ]; then
+    # AND THE CERTIFICATE SEPARATELY, because a page served over a self-signed or expired cert is a
+    # browser warning, which for a shop owner is the same as being down.
+    if curl -s -o /dev/null --max-time 15 "https://${DOMAIN}/" 2>/dev/null; then
+      ok "https://${DOMAIN} يجيب، وشهادته صالحة"
+    else
+      warn "الموقع يجيب لكن الشهادة غير موثوقة بعد — قد تحتاج ACME دقائق"
+    fi
+  else
+    warn "https://${DOMAIN} لا يجيب — الخدمات جاهزة لكن الحافة لا تخدم:
+       kubectl -n $NS get pods -l app=edge
+       kubectl -n $NS logs -l app=edge --tail=30"
+  fi
+fi
+
+# ── 5 · what to do next, and the one thing shown only once ────────────────────────────────────
 phase "تم"
 [ "$WARNED" -eq 0 ] && ok "اكتمل التثبيت" || warn "اكتمل التثبيت مع $WARNED تحذيراً"
 if [ -n "${GENERATED:-}" ]; then

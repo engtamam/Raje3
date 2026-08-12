@@ -53,10 +53,20 @@ spec:
               # an error that says nothing about ports. Binding 80 and 443 as a non-root user is
               # precisely what this permits, and nothing else.
               add: [NET_BIND_SERVICE]
+          # TCP, NOT HTTP, AND THE REASON IS WHAT THIS PROBE IS FOR. It asked for GET /health on port
+          # 80 — a path the rendered config does not define, on a request carrying no Host header
+          # that matches our one site block. Caddy answered it the only way it could, the kubelet
+          # read that as death, and killed a perfectly healthy edge every thirty-five seconds:
+          # the whole domain went dark while every log line said "serving initial configuration".
+          #
+          # A reverse proxy's liveness is whether it holds its socket. What is BEHIND it has its own
+          # probes, and an edge that reports itself unhealthy because an upstream is down takes the
+          # other upstreams with it.
           livenessProbe:
-            httpGet: { path: /health, port: 80 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            tcpSocket: { port: 443 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
           volumeMounts:
             - { name: caddyfile, mountPath: /etc/caddy }
             # THE CERTIFICATES MUST SURVIVE A RESTART. On an emptyDir every restart discards the
