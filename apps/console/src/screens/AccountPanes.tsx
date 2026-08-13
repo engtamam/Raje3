@@ -179,34 +179,45 @@ function BrandCard({ tenant, onSave }:
         </p>
       </div>
 
-      {/* EIGHT CELLS IN FOUR COLUMNS: seven colours and the picker, which is exactly two full
-          rows. Seven chips wrapping freely left a half-empty second row with the «+» stranded in
-          the middle of it — the ragged block on the screenshot. The count is chosen to fit the
-          grid rather than the grid stretched around an awkward count. */}
+      {/* ── his colour, chosen directly ─────────────────────────────────────────────────────
+          A PALETTE IS OUR TASTE OFFERED AS HIS CHOICE. Seven swatches asked a shop owner to
+          approve one of our colours instead of entering his own — and rendered as eight circles
+          the size of a fist, a full screen of decoration for one field. His brand colour is a
+          fact he already knows; the control's job is to accept it, not to propose alternatives.
+
+          THE NATIVE PICKER IS THE ONE CONTROL HERE BETTER THAN ANYTHING WE WOULD DRAW: it knows
+          the platform's own colour UI, and it accepts a pasted hex from his brand book. */}
       <div className="flex flex-col gap-2">
         <span className="text-sm text-text-secondary">لون علامتك</span>
-        <div className="grid grid-cols-4 gap-2">
-          {SWATCHES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-label={`اللون ${c}`}
-              aria-pressed={colour.toLowerCase() === c.toLowerCase()}
-              onClick={() => setColour(c)}
-              style={{ background: c }}
-              className={`aspect-square w-full rounded-full ${
-                colour.toLowerCase() === c.toLowerCase()
-                  ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface-1' : ''
-              }`}
-            />
-          ))}
-          {/* AND ANY OTHER COLOUR, for a shop that has a brand book. The native picker is the one
-              control on this screen genuinely better than anything we would draw. */}
-          <label className="grid aspect-square w-full cursor-pointer place-items-center rounded-full border border-dashed border-border-subtle text-lg text-text-secondary">
-            +
-            <input type="color" value={colour} className="sr-only"
+        <div className="flex items-center gap-3">
+          <label className="relative size-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border border-border-subtle"
+                 style={{ background: colour }}>
+            <input type="color" value={colour} aria-label="اختر لون علامتك"
+                   className="absolute inset-0 cursor-pointer opacity-0"
                    onChange={(e) => setColour(e.target.value)} />
           </label>
+          {/* THE CODE ITSELF, TYPEABLE. A designer hands over «#1F6F5C», and hunting for it in a
+              colour wheel is a worse experience than a text box. Normalised on the way in so a
+              missing «#» or lower case does not read as a different colour to the preview. */}
+          <input
+            value={colour}
+            aria-label="رمز اللون"
+            dir="ltr"
+            maxLength={7}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              const hex = raw.startsWith('#') ? raw : `#${raw}`;
+              setColour(/^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toUpperCase() : raw);
+            }}
+            className="h-11 w-32 rounded-xl bg-surface-2 px-3 text-center tabular-nums"
+          />
+          <button
+            type="button"
+            onClick={() => setColour(DEFAULT_COLOUR)}
+            className="min-h-11 rounded-xl px-3 text-sm text-text-secondary"
+          >
+            العودة للافتراضي
+          </button>
         </div>
       </div>
 
@@ -217,10 +228,8 @@ function BrandCard({ tenant, onSave }:
   );
 }
 
-/** Our own gold, and five that sit beside it without fighting the page. */
+/** Our own gold — what a shop that has never thought about this gets, and a place to return to. */
 const DEFAULT_COLOUR = '#B08A3E';
-const SWATCHES = [DEFAULT_COLOUR, '#1F6F5C', '#2B4C7E', '#8C3B3B',
-                  '#7A5C9E', '#4A4A4A', '#111827'];
 
 /** The longest side, in pixels, a stored logo is reduced to. See BrandCard for why. */
 const LOGO_PX = 256;

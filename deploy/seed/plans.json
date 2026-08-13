@@ -121,7 +121,7 @@
         "feature.loyalty": {"kind": "boolean", "limit": 1},
         "feature.insights.engine": {"kind": "boolean", "limit": 1},
         "feature.roles.custom": {"kind": "boolean", "limit": 1},
-        "templates.custom": {"kind": "counter", "limit": -1, "period": "month",
+        "templates.custom": {"kind": "counter", "limit": 10, "period": "month",
                              "overage": "block"},
         "feature.api": {"kind": "boolean", "limit": 0}
       }

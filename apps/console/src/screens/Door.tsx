@@ -294,7 +294,15 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   }), [v]);
 
   /** What the state can see. Never a gate — only the button's appearance; see the button. */
-  const looksComplete = !errs.phone && !errs.password && !errs.shopName
+  /**
+   * THE SHOP NAME IS NOT THE PASSWORD, and this is a cross-field check because no single field
+   * can see it. A manager that fills the name with the generated password produces a form where
+   * every field is individually valid — and the result is printed in large type on the page the
+   * shop's customers open, and sent inside every WhatsApp message it signs.
+   */
+  const nameIsPassword = v.shopName.length > 0 && v.shopName === v.password;
+
+  const looksComplete = !nameIsPassword && !errs.phone && !errs.password && !errs.shopName
     && Boolean(sector) && agree;
 
   const set = (k: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -392,8 +400,18 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       ) : null}
 
       <Field label="اسم المحل" required htmlFor="shop" error={shown('shopName')}>
+        {/* `organization` IS THE FIX FOR A REAL ACCIDENT. With no autocomplete hint a password
+            manager sees a bare text input sitting after a new-password field and fills it with
+            the password it just generated — the owner in the screenshot found «Cacad$453453»
+            printed as his shop name on the page his customers see. Naming the field tells every
+            manager what belongs in it. */}
         <Input id="shop" name="shopName" value={v.shopName} onChange={set('shopName')}
-               onBlur={blur('shopName')} />
+               autoComplete="organization" onBlur={blur('shopName')} />
+        {nameIsPassword ? (
+          <p className="text-sm text-danger">
+            هذا اسم محلّك كما يراه عملاؤك — ويبدو أنه كلمة مرورك. اكتب اسم المحل.
+          </p>
+        ) : null}
       </Field>
 
       {/* THE FOURTH VALUE, AND THE ONLY ONE NOT ABOUT HIM. His catalogue is seeded from it — without
