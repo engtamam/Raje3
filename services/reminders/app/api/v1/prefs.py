@@ -22,13 +22,15 @@ unthrottled unauthenticated write is an invitation regardless of what it writes.
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.api.ratelimit import rate_limit
 from app.core.consent import Consent, GRANTED, WITHDRAWN
-from app.core.models import CLASSES, Preferences, as_row
-from app.core.stores import PrefsStore
+from app.core.models import SendLog, CLASSES, Preferences, as_row
+from app.core.stores import PrefsStore, SendLogStore
 
 router = APIRouter(prefix="/prefs", tags=["prefs"])
 
@@ -101,6 +103,27 @@ async def set_prefs(request: Request, ref: str, body: PrefsIn) -> dict:
     was_stopped = dict((row or {}).get("stopped") or {})
     row["stopped"] = stopped
     await store.put(tenant, subject, row)
+
+    # ── THE STOP IS AN EVENT, NOT ONLY A FLAG (proof 4) ────────────────────────────────────────
+    # The preference row says who is switched off; nothing said WHEN, so «هل ارتفع الإزعاج بعد
+    # حملة الخميس؟» had no answer anywhere in the product. A rate needs a moment.
+    #
+    # Written into the SEND LOG rather than a table of its own: that ledger already exists, is
+    # already append-only, already trimmed by the same retention, and already keyed by customer.
+    # A second store for the same fact is a second thing to erase on a deletion request and a
+    # second place for a count to drift.
+    #
+    # ONLY THE NEWLY-STOPPED CLASSES. Saving the page without touching anything must not append a
+    # row — a history of identical refusals would inflate the very number it is meant to warn
+    # about, and the warning would then fire on nothing.
+    newly = [c for c in stopped if not was_stopped.get(c, False)]
+    if newly:
+        log = SendLogStore(ds)
+        now = int(time.time())
+        for c in newly:
+            await log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=c, at=now,
+                outcome="opt_out", reason="العميل أوقف هذا النوع من صفحته")))
     await request.app.state.auditor.record(
         "reminders.preferences_changed", actor=subject, tenant=tenant,
         resource="notification_prefs", ip=request.client.host if request.client else "")

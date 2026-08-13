@@ -30,6 +30,14 @@ import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
 interface Blocked { indicator: string; message?: string; reason?: string }
+/** Visits credited to a message, and stops per thousand — what the engine moved, and what it cost. */
+interface Effect { visits?: number; window_days?: number }
+interface OptOut { ready?: boolean; rate?: number; per?: number; sent?: number; need?: number; opt_outs?: number }
+/** The two groups: what the tenth we leave alone did, against what everyone else did. */
+interface Holdout {
+  ready?: boolean; reason?: string; held?: number; reached?: number; need?: number;
+  held_rate?: number; reached_rate?: number; gap?: number; window_days?: number;
+}
 /** The return rate as a line — one point a month, `null` where the window held too few people. */
 interface Series {
   points?: { at: number; customers: number; value: number | null }[];
@@ -150,6 +158,59 @@ function Trend({ series }: { series: Series }) {
         </span>{' '}اليوم
       </p>
     </div>
+  );
+}
+
+
+/**
+ * THE ONE CARD THAT IS NOT OUR WORD FOR OUR OWN WORK.
+ *
+ * Every other number here says how his shop is doing. This one says what we did to it, measured
+ * against the tenth of his customers our engine deliberately never messages — so «هل الرسائل تنفع
+ * أم تزعج؟» is answered by his data instead of by us.
+ *
+ * IT SAYS THE TWO RATES AND STOPS. No «راجِع رفع احتفاظك 27 نقطة», because a gap is evidence and a
+ * claim is a sentence he did not write — and the day the gap is negative, a product that had been
+ * boasting has nothing honest left to say. Reporting both numbers works in both directions, which
+ * is the only reason to trust it in either.
+ */
+function HoldoutCard({ h }: { h: Holdout }) {
+  if (!h?.ready) {
+    // LEARNING IS A STATE, NOT AN ABSENCE — the same contract the pairs use, so the screen tells
+    // one story about waiting rather than three.
+    const held = h?.held ?? 0, reached = h?.reached ?? 0, need = h?.need ?? 15;
+    if (!held && !reached) return null;
+    return (
+      <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
+        ما زلنا نقيس أثر الرسائل على محلّك — {Math.min(held, reached)} من {need} في أصغر المجموعتين.
+      </p>
+    );
+  }
+  const pct = (v?: number) => `${Math.round((v ?? 0) * 100)}%`;
+  const better = (h.gap ?? 0) > 0;
+  return (
+    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+      <h3 className="text-sm font-medium">أثر الرسائل، مقيساً</h3>
+      <div className="flex items-stretch gap-2">
+        <div className="flex flex-1 flex-col items-center gap-0.5 rounded-xl bg-surface-2 p-3">
+          <span className="text-xl font-bold tabular-nums">{pct(h.held_rate)}</span>
+          <span className="text-center text-[11px] leading-tight text-text-secondary">
+            بلا رسائل<br />({h.held} عميلاً)
+          </span>
+        </div>
+        <div className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl p-3 ${
+          better ? 'bg-success-soft text-success-on-soft' : 'bg-surface-2'}`}>
+          <span className="text-xl font-bold tabular-nums">{pct(h.reached_rate)}</span>
+          <span className="text-center text-[11px] leading-tight opacity-80">
+            وصلتهم رسائلك<br />({h.reached} عميلاً)
+          </span>
+        </div>
+      </div>
+      <p className="text-xs leading-relaxed text-text-secondary">
+        نترك {Math.round(((h.held ?? 0) / ((h.held ?? 0) + (h.reached ?? 1))) * 100)}% من عملائك
+        بلا حملات ولا عروض — لتقارن بنفسك، لا لتصدّقنا. تُوقفه من إعدادات محلّك.
+      </p>
+    </section>
   );
 }
 
@@ -345,6 +406,58 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         </div>
       ) : null}
 
+      {(() => {
+        const h = data.values['holdout_comparison'] as Holdout | undefined;
+        return h ? <HoldoutCard h={h} /> : null;
+      })()}
+
+      {/* ── what the messages moved, and what they cost ───────────────────────────────────────
+          TWO SENTENCES, SIDE BY SIDE, AND NEITHER IS A BOAST. The first is a COUNT of visits and
+          not a percentage: every honest denominator (people messaged? due? alive?) is arguable,
+          and a count is not. He multiplies by the average bill only he knows — we hold no prices
+          and never will.
+
+          The second is the one that protects him from us: stops per thousand messages, rising
+          before a number is blocked. A blocked number does not lose a message, it loses the
+          channel for every customer of the shop, for good. */}
+      {(() => {
+        const eff = data.values['returned_after_reminder'] as Effect | undefined;
+        const opt = data.values['opt_out_rate'] as OptOut | undefined;
+        if (!eff && !opt) return null;
+        return (
+          <div className="grid grid-cols-2 gap-2">
+            {eff ? (
+              <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
+                <span className="text-2xl font-bold tabular-nums text-accent-on-soft">
+                  {eff.visits ?? 0}
+                </span>
+                <span className="text-xs leading-relaxed text-text-secondary">
+                  زيارة عادت بعد رسالة، خلال {eff.window_days ?? 30} يوماً
+                </span>
+              </div>
+            ) : null}
+            {opt ? (
+              <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
+                {opt.ready ? (
+                  <>
+                    <span className={`text-2xl font-bold tabular-nums ${
+                      (opt.rate ?? 0) > 20 ? 'text-warning-on-soft' : 'text-text-primary'}`}>
+                      {opt.rate}
+                    </span>
+                    <span className="text-xs leading-relaxed text-text-secondary">
+                      إيقافاً لكل ألف رسالة{(opt.rate ?? 0) > 20 ? ' — راجع حملاتك' : ''}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs leading-relaxed text-text-secondary">
+                    نقيس الإزعاج بعد {opt.need ?? 200} رسالة — أرسلت {opt.sent ?? 0}.
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+        );
+      })()}
       <div className="grid grid-cols-3 gap-2">
         {HEADLINE.filter((h) => h.key !== 'return_rate').map((h) => {
           const raw = data.values[h.key];

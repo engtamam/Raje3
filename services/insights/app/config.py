@@ -291,6 +291,9 @@ class Settings(BaseSettings):
     # is already going out, so it costs no message: a notice of its own would come out of the very
     # ceiling it reports on, at the moment there is none left.
     REMINDERS_CEILING_PRESSURE_PATH: str = "/internal/reminders/ceiling-pressure"
+    # What went out and what it cost — the send log, which only reminders holds. Two indicators
+    # read it: visits credited to a reminder, and stops per thousand messages.
+    REMINDERS_EFFECT_PATH: str = "/internal/reminders/effect"
 
     # ── the engine's share of the daily sending ceiling (spec §8.4.3) ─────────
     # How much of the day to hold back for messages nobody can predict — a visitor this evening,

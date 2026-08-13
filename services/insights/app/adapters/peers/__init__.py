@@ -67,6 +67,9 @@ class NullPeers:
     async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
         return dict(self.extras)
 
+    async def effect(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
+        return {"sends": [], "sent_count": 0, "opt_outs": 0}
+
     async def consented(self, tenant: str) -> int:
         return int(self.extras.get("consented") or 0)
 
@@ -77,6 +80,7 @@ class HttpPeers:
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
                  reminders_url: str, send_path: str, consent_count_path: str,
                  ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
+                 effect_path: str = "/internal/reminders/effect",
                  billing_url: str, entitlement_path: str,
                  usage_path: str, loyalty_url: str, loyalty_report_path: str,
                  tenant_url: str, tenant_read_path: str,
@@ -88,6 +92,8 @@ class HttpPeers:
         self._consent_url = reminders_url.rstrip("/") + consent_count_path
         self._usage_url = billing_url.rstrip("/") + usage_path
         self._pressure_url = reminders_url.rstrip("/") + ceiling_pressure_path
+        self._reminders_url = reminders_url.rstrip("/")
+        self._effect_path = effect_path
         self._loyalty_url = loyalty_url.rstrip("/") + loyalty_report_path
         self._tenant_url = tenant_url.rstrip("/")
         self._tenant_path = tenant_read_path
@@ -185,6 +191,23 @@ class HttpPeers:
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return 0
 
+    async def effect(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
+        """What went out and what it cost — from the only service that holds a send log.
+
+        A FAILURE HERE COSTS TWO INDICATORS AND NOTHING ELSE. The snapshot is computed for every
+        tenant on a tick; a reminders that is slow or restarting must not take the whole dashboard
+        with it, so this answers empty and the two surfaces that need it render their «not yet»
+        state rather than a wrong number.
+        """
+        try:
+            q = urllib.parse.urlencode({"tenant": tenant, "since": since})
+            req = urllib.request.Request(self._reminders_url + self._effect_path + "?" + q,
+                                         headers={"X-Internal-Token": self._token})
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
+                return json.loads(resp.read() or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return {"sends": [], "sent_count": 0, "opt_outs": 0}
+
     async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
         """The FOUR things the weekly report needs and this service does not hold.
 
@@ -272,6 +295,7 @@ def build_peers(settings) -> Any:
                      send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,
                      ceiling_pressure_path=settings.REMINDERS_CEILING_PRESSURE_PATH,
+                     effect_path=settings.REMINDERS_EFFECT_PATH,
                      billing_url=settings.BILLING_SERVICE_URL,
                      entitlement_path=settings.BILLING_ENTITLEMENT_PATH,
                      usage_path=settings.BILLING_USAGE_PATH,

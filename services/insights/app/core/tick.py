@@ -73,7 +73,16 @@ class Tick:
         """
         visits = await self.peers.visits(tenant, since=since)
         catalogue = await self.peers.catalogue(tenant)
-        snap = await self._compute_scope(tenant, visits, catalogue, now=now, branch_id="")
+        # THE SEND LOG, ONCE PER TENANT. Read here rather than inside _compute_scope: a branch
+        # snapshot would otherwise re-fetch the whole shop's messages for every branch, and the
+        # engine's effect is a property of the shop in any case (the log carries no branch).
+        # ASKED FOR, NOT DEMANDED. A peers driver without this method is an older reminders behind
+        # a rolling deploy — insights rolls first — and two indicators rendering «not yet» for an
+        # hour is the right cost. Crashing the whole snapshot pass over it is not.
+        read = getattr(self.peers, "effect", None)
+        effect = await read(tenant, since=now - 90 * 86400) if read else {}
+        snap = await self._compute_scope(tenant, visits, catalogue, now=now, branch_id="",
+                                         effect=effect)
 
         branches = sorted({str(v.get("branch_id") or "") for v in visits if v.get("branch_id")})
         # ONLY FOR A SHOP WITH MORE THAN ONE. A single-branch establishment gets no branch
@@ -82,11 +91,13 @@ class Tick:
         if len(branches) > 1:
             for b in branches:
                 scoped = [v for v in visits if str(v.get("branch_id") or "") == b]
-                await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b)
+                await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
+                                          effect=effect)
         return snap
 
     async def _compute_scope(self, tenant: str, visits: list[dict], catalogue: list[dict],
-                             *, now: int, branch_id: str) -> Snapshot:
+                             *, now: int, branch_id: str,
+                             effect: dict[str, Any] | None = None) -> Snapshot:
         cycles = {s.get("id", ""): int(s.get("cycle_days") or 0) for s in catalogue}
         names = {s.get("id", ""): s.get("name", "") for s in catalogue}
 
@@ -96,6 +107,20 @@ class Tick:
             # job: one read of `visits`, one clock, and no chance of the headline figure and the
             # last point of the trend disagreeing — which is exactly the bug an owner screenshots.
             "retention_series": indicators.retention_series(visits, now=now),
+            # AND WHAT THE ENGINE DID — measured against the tenth of his customers it leaves
+            # alone. Tenant-scoped because the group is: the same person at two shops is not in
+            # both holdouts, or a low-hashing customer would be under-served platform-wide.
+            "holdout_comparison": indicators.holdout_comparison(visits, tenant=tenant, now=now),
+            # WHAT THE MESSAGES ACTUALLY MOVED, in the only unit we hold: visits. No prices live in
+            # this product, so «هل سدّدت الباقة نفسها» stays his arithmetic — we hand him the
+            # count and he multiplies by an average bill only he knows.
+            "returned_after_reminder": indicators.returned_after_reminder(
+                visits, (effect or {}).get("sends") or [], now=now),
+            # AND WHAT THEY COST. Stops per thousand messages: the signal that precedes a blocked
+            # number, which loses the channel rather than a message.
+            "opt_out_rate": indicators.opt_out_rate(
+                int((effect or {}).get("sent_count") or 0),
+                int((effect or {}).get("opt_outs") or 0)),
             "return_cycle_days": indicators.return_cycle_days(visits),
             "churn_rate": indicators.churn_rate(visits, now=now),
             "active_customers": indicators.active_customers(visits, now=now),

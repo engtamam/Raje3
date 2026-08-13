@@ -398,3 +398,124 @@ def retention_series(visits: list[dict], *, now: int, points: int = 6,
         # honest, and it fixes itself as months accumulate.
         "months": len(drawn),
     }
+
+
+def holdout_comparison(visits: list[dict], *, tenant: str, now: int,
+                       window_days: int = 180, share: int = 10,
+                       min_each: int = 15) -> dict[str, Any]:
+    """The two groups, side by side (proof 2).
+
+    THE ONLY NUMBER IN THIS PRODUCT THAT IS NOT OUR WORD FOR OUR OWN WORK. Everything else says how
+    his shop is doing; this says what our engine did to it, measured against the tenth of his
+    customers it deliberately left alone.
+
+    IT REFUSES FAR MORE OFTEN THAN IT SPEAKS, and that is the design. Fifteen people on each side is
+    already a thin comparison, and below it a single returning customer moves the answer by seven
+    points — which would let us claim a triumph, or confess a disaster, on the strength of one man
+    changing his oil. When either side is too small the answer is «لم يكتمل القياس» and a count of
+    how far along it is, exactly as the association engine does while it learns.
+
+    NO VERDICT IS WRITTEN HERE. The function reports two rates and the gap between them; whether
+    that gap is good news is a sentence for the screen, and one the owner is entitled to read
+    against his own judgement rather than have asserted at him.
+    """
+    from app.core import holdout as H          # local: the module is a shared contract, not a dep
+
+    cutoff = now - window_days * DAY
+    recent = [v for v in visits
+              if int(v.get("occurred_at") or v.get("created_at") or 0) >= cutoff]
+    if not recent:
+        return {"ready": False, "reason": "no_visits", "held": 0, "reached": 0, "need": min_each}
+
+    held: list[dict] = []
+    reached: list[dict] = []
+    for v in recent:
+        ref = str(v.get("subject_ref") or "")
+        if not ref:
+            continue
+        (held if H.is_holdout(tenant, ref, share=share) else reached).append(v)
+
+    held_people = len(_by_customer(held))
+    reached_people = len(_by_customer(reached))
+    if held_people < min_each or reached_people < min_each:
+        return {"ready": False, "reason": "learning", "held": held_people,
+                "reached": reached_people, "need": min_each}
+
+    held_rate = round(return_rate(held), 3)
+    reached_rate = round(return_rate(reached), 3)
+    return {
+        "ready": True,
+        "held": held_people,
+        "reached": reached_people,
+        "held_rate": held_rate,
+        "reached_rate": reached_rate,
+        "gap": round(reached_rate - held_rate, 3),
+        "window_days": window_days,
+    }
+
+
+def returned_after_reminder(visits: list[dict], sends: list[dict], *, now: int,
+                            window_days: int = 30, attribute_days: int = 14) -> dict[str, Any]:
+    """Visits that followed a reminder closely enough to be credited to it (proof 3).
+
+    THE HONEST UNIT IS A VISIT, NOT A RIYAL. We hold no prices — the amount lives in his till and
+    we deliberately never stored it — so «سدّدت الباقة نفسها» is his arithmetic to do: we say 64
+    visits came back after a reminder, and he multiplies by the average bill only he knows.
+
+    ATTRIBUTION IS DELIBERATELY MEAN TO US. A visit counts only if it happened within `attribute_days`
+    of a message AND the customer had no visit in the same window before it. Anything looser starts
+    crediting the engine with people who were coming anyway — which is the same self-flattery the
+    ladder's own lock exists to prevent, arriving through the reporting side instead.
+
+    IT IS A COUNT, NOT A RATE, on purpose. A percentage invites the question "of what?", and every
+    honest denominator here (people messaged? people due? people alive?) is arguable. A count is
+    not.
+    """
+    cutoff = now - window_days * DAY
+    win = attribute_days * DAY
+
+    by_customer: dict[str, list[int]] = {}
+    for v in visits:
+        ref = str(v.get("subject_ref") or "")
+        at = int(v.get("occurred_at") or v.get("created_at") or 0)
+        if ref and at:
+            by_customer.setdefault(ref, []).append(at)
+    for times in by_customer.values():
+        times.sort()
+
+    credited = 0
+    for msg in sends:
+        ref = str(msg.get("subject_ref") or "")
+        sent_at = int(msg.get("at") or 0)
+        if not ref or sent_at < cutoff:
+            continue
+        times = by_customer.get(ref) or []
+        # the first visit after the message, inside the window
+        after = next((t for t in times if sent_at <= t <= sent_at + win), 0)
+        if not after:
+            continue
+        # AND NOBODY WHO WAS ALREADY IN THE SHOP. A visit the same week as the message, but BEFORE
+        # it, means the person had already come back; crediting the message would be counting our
+        # own confirmation as a return.
+        before = any(sent_at - win <= t < sent_at for t in times)
+        if not before:
+            credited += 1
+    return {"visits": credited, "window_days": window_days, "attribute_days": attribute_days}
+
+
+def opt_out_rate(sent_count: int, opt_outs: int, *, per: int = 1000,
+                 min_sends: int = 200) -> dict[str, Any]:
+    """Stops per thousand messages — the warning that arrives before a number is blocked (proof 4).
+
+    A BLOCKED NUMBER DOES NOT LOSE A MESSAGE, IT LOSES THE CHANNEL — for every customer of that
+    shop, for good. The signal that precedes it is people pressing stop, and until now that fact
+    was a flag on a preference row with no moment attached to it, so nobody could see it rising.
+
+    NOT COMPUTED UNDER TWO HUNDRED SENDS. One stop in fifty messages is twenty per thousand, which
+    would light a warning on a shop that has done nothing wrong — and a warning that cries wolf in
+    the first week is one nobody reads in the month it matters.
+    """
+    if sent_count < min_sends:
+        return {"ready": False, "sent": sent_count, "need": min_sends}
+    rate = round((opt_outs / sent_count) * per, 1)
+    return {"ready": True, "sent": sent_count, "opt_outs": opt_outs, "per": per, "rate": rate}

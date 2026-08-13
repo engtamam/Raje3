@@ -282,6 +282,8 @@ def build_container(settings: Settings) -> Container:
                           eng_cfg=eng_cfg, batch=settings.TICK_BATCH_SIZE,
                           telemetry=container.telemetry, quota=container.quota,
                           approved=container.approved_templates,
+                          holdout_enabled=settings.HOLDOUT_ENABLED,
+                          holdout_share=settings.HOLDOUT_SHARE_PERCENT,
                           reach_window=settings.REACH_WINDOW_SECONDS,
                           ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS,
                           ceiling=container.ceiling)

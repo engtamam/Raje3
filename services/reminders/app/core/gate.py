@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.core import engagement as E
+from app.core import holdout as H
 
 DAY = 86400
 
@@ -91,7 +92,9 @@ class Decision:
 def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
              prefs_stopped: dict[str, bool], engagement_score: float, engagement_at: int,
              recent_sends: list[dict[str, Any]], eng_cfg: E.EngagementConfig,
-             class_enabled: bool = True, marketing_consent: str = "never_asked") -> Decision:
+             class_enabled: bool = True, marketing_consent: str = "never_asked",
+             tenant: str = "", subject_ref: str = "",
+             holdout_share: int = H.DEFAULT_SHARE, holdout_enabled: bool = False) -> Decision:
     """The one decision. Pure — every input is passed in, nothing is fetched.
 
     Pure on purpose: this is the function whose behaviour we must be able to reason about at 2am,
@@ -121,6 +124,23 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
         if marketing_consent == "withdrawn":
             return Decision(False, "العميل سحب موافقته على العروض — لا تُرسَل ولا يُعاد سؤاله.")
         return Decision(False, "لا توجد موافقة صريحة على العروض — «لم يرفض» ليست موافقة.")
+
+    # ── 1c. the measurement group (proof 2) ──────────────────────────────────────────────────
+    # AFTER THE CUSTOMER'S OWN CHOICES, BEFORE EVERYTHING ELSE. Someone who switched the messages
+    # off is not evidence about our engine, and asking whether he is in the holdout first would put
+    # a research decision above a person's stated wish — the wrong order in every sense.
+    #
+    # It is checked here rather than in the tick because THIS is the one place every send passes
+    # through: a rule enforced upstream is a rule some future caller forgets, and a holdout with a
+    # leak is worse than no holdout — it produces a comparison that looks rigorous and is not.
+    #
+    # DEFAULT OFF IN THE SIGNATURE, ON IN THE PRODUCT. A caller that has not been taught about the
+    # holdout must not silently withhold a tenth of a shop's messages; the composition root passes
+    # the establishment's real setting.
+    if holdout_enabled and H.withholds(cls) and H.is_holdout(
+            tenant, subject_ref, share=holdout_share, enabled=True):
+        return Decision(False, H.refusal(holdout_share),
+                        details={"holdout": True, "share": holdout_share})
 
     # ── 2. is the class even sendable ─────────────────────────────────────────────────────────
     # The warning class ships with no templates today (spec 8.4.1). A schedule that reaches here

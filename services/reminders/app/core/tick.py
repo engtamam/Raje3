@@ -105,7 +105,8 @@ class TickResult:
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
                  batch: int = 100, telemetry=None, quota=None, approved=None,
-                 reach_window: int = 0, ceiling_defer_seconds: int = 0, ceiling=None) -> None:
+                 reach_window: int = 0, ceiling_defer_seconds: int = 0, ceiling=None,
+                 holdout_enabled: bool = False, holdout_share: int = 10) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
@@ -135,6 +136,11 @@ class Tick:
         self._approved = approved or R.ApprovedTemplates()
         self._limits = limits
         self._eng_cfg = eng_cfg
+        # THE MEASUREMENT GROUP (proof 2). Held here rather than read per message: it is one
+        # establishment-level answer, and reading it inside the loop would be a store call per
+        # customer for a value that cannot change mid-pass.
+        self._holdout_enabled = holdout_enabled
+        self._holdout_share = holdout_share
         self._batch = batch
         self._t = telemetry
 
@@ -279,6 +285,8 @@ class Tick:
             engagement_at=int(eng.get("scored_at") or 0),
             recent_sends=recent, eng_cfg=self._eng_cfg,
             marketing_consent=consent,
+            tenant=tenant, subject_ref=subject,
+            holdout_enabled=self._holdout_enabled, holdout_share=self._holdout_share,
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))
 
         if not decision.allowed:
@@ -376,6 +384,8 @@ class Tick:
             engagement_at=int(eng.get("scored_at") or 0),
             recent_sends=recent, eng_cfg=self._eng_cfg,
             marketing_consent=consent,
+            tenant=tenant, subject_ref=subject,
+            holdout_enabled=self._holdout_enabled, holdout_share=self._holdout_share,
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))
 
         if not decision.allowed:

@@ -210,6 +210,52 @@ async def ceiling_pressure(request: Request, limit: int = 200) -> dict:
     return {"establishments": rows, "count": len(rows)}
 
 
+@router.get("/reminders/effect", dependencies=[Depends(require_internal_token)])
+async def effect(request: Request, tenant: str, since: int = 0, limit: int = 5000) -> dict:
+    """What the engine sent, and what it cost — the two facts only this service holds (proofs 3, 4).
+
+    ONE READ FOR TWO INDICATORS, deliberately. «كم زيارة عادت بعد تذكير» needs the moment each
+    reminder went out; «كم إيقافاً لكل ألف رسالة» needs the count of sends and of stops over the
+    same window. Two endpoints over one collection would be two scans, two paginations and two
+    chances for the numbers under one screen to disagree about the same week.
+
+    THE SENDS COME BACK AS (customer, when), AND NOTHING ELSE. insights joins them against visits
+    it already holds; sending it the template, the text or the reason would be handing another
+    service a copy of the message log to keep in step with this one.
+
+    BOUNDED, AND IT SAYS SO. `truncated` is not decoration: an indicator computed over the first
+    five thousand rows of a busier week is a number that quietly describes a different period than
+    its label claims, and the caller must be able to tell.
+    """
+    from app.core.stores import SEND_LOG
+
+    # TENANT-FILTERED AT THE STORE, not after. A scan of the whole collection would read every
+    # shop's log to answer one shop's question — the shape of query that is fine on the pilot and
+    # is the outage on the hundredth establishment.
+    store = request.app.state.container.datastore
+    capped = max(1, min(20_000, limit))
+    rows, _ = await store.find(SEND_LOG, {"tenant": tenant}, limit=capped, sort=("at", "desc"))
+    rows = [r for r in (rows or []) if int(r.get("at") or 0) >= since]
+
+    sends: list[dict] = []
+    opt_outs = 0
+    for r in rows:
+        outcome = str(r.get("outcome") or "")
+        if outcome == "opt_out":
+            opt_outs += 1
+        elif outcome == "sent":
+            sends.append({"subject_ref": str(r.get("subject_ref") or ""),
+                          "at": int(r.get("at") or 0),
+                          "cls": str(r.get("cls") or "")})
+    return {
+        "tenant": tenant,
+        "sends": sends,
+        "sent_count": len(sends),
+        "opt_outs": opt_outs,
+        "truncated": len(rows) >= capped,
+    }
+
+
 class RedemptionIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)

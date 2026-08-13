@@ -185,6 +185,18 @@ class Settings(BaseSettings):
     # this morning with its whole library pending.
     NOTIFICATION_TEMPLATES_PATH: str = "/internal/whatsapp/templates"
 
+    # ── the measurement group (proof 2) ──────────────────────────────────────────────────────
+    # A tenth of each shop's customers receive no reminder, offer or campaign, so that «هل الرسائل
+    # تنفع؟» has an answer the owner measures instead of one we assert. OFF BY DEFAULT AT THE
+    # PLATFORM LEVEL and switched on per establishment from his own settings: withholding a shop's
+    # product from its customers is not a decision a config default should make for him.
+    #
+    # The share is here rather than per-tenant on purpose. It is a statistical choice, not a
+    # business one, and a shop that sets it to 40% has not customised anything — it has stopped
+    # sending to nearly half its people while believing it bought a report.
+    HOLDOUT_ENABLED: bool = False
+    HOLDOUT_SHARE_PERCENT: int = 10
+
     # ── WhatsApp's own ceiling — THEIR numbers, so none of them lives in code ──
     # The rolling window a business-initiated conversation counts against. Meta's, and Meta has
     # changed its messaging rules more than once.
