@@ -223,8 +223,9 @@ header{
 .facts{display:flex; flex-direction:column; gap:10px; margin-top:22px; font-size:1.05rem}
 .facts p{margin:0}
 
-/* ── steps: numbered, flat, no card chrome ───────────────────────────────────────────────── */
-.step{padding:0 4px}
+/* THE LATER RULE WINS, SO THERE IS NO SECOND `.step` PADDING HERE. An override that keeps the card's
+   border and removes its padding is how three steps ended up as cramped boxes with the number badge
+   sitting on the text. The card chrome above is the whole style; this block only tunes the text. */
 .step h3{margin-bottom:.35em}
 .step p{margin:0; color:var(--ink-2)}
 
@@ -356,7 +357,7 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
   <div class="wrap">
     <span class="eyebrow">كيف يشتغل</span>
     <h2>ثلاث خطوات، وبعدها يشتغل وحده.</h2>
-    <div class="grid grid-3" style="margin-top:34px">
+    <div class="steps" style="margin-top:44px">
       <div class="step">
         <h3>سجّل الزيارة</h3>
         <p>رقمه، وخمس ثوانٍ من موظفك. لا أكثر.</p>
