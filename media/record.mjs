@@ -60,15 +60,19 @@ const flag = (name, fallback) => {
 // المدّة تُقرأ من الصفحة (`window.__duration`) — والراية للتجربة وحدها: أردتَ أول خمس
 // ثوانٍ لتفحص المقدّمة؟ مرّرها وتجاوز الإعلان.
 const SECONDS_OVERRIDE = flag('seconds', 0);
-const PORTRAIT = args.includes('--portrait') || basename(target).startsWith('ad-')
-  || target.includes('/ads/');
+// المسار يُوحَّد قبل فحصه: على ويندوز يأتي بشرطاتٍ خلفية، فـ`includes('/ads/')` تفشل
+// بصمت — ويُصيَّر الإعلان أفقياً 1920×1080، فيحسب المسرح نفسه على ارتفاعٍ قصير ويخرج
+// 608×1080. ملفٌ سليمٌ تماماً وبمقاسٍ لا يصلح لأي منصّة.
+const path_ = target.replace(/\/g, '/');
+const PORTRAIT = args.includes('--portrait') || path_.includes('/ads/')
+  || basename(target).startsWith('ad-');
 
 // الإعلان رأسيّ 9:16، والشرح أفقيّ — والافتراض يُشتقّ من المجلد فلا يُنسى.
 const WIDTH = PORTRAIT ? 1080 : CONFIG.width;
 const HEIGHT = PORTRAIT ? 1920 : CONFIG.height;
 const FPS = CONFIG.fps;
 
-const OUT_DIR = join(HERE, target.includes('ads') ? 'ads/out' : 'out');
+const OUT_DIR = join(HERE, path_.includes('/ads/') ? 'ads/out' : 'out');
 const OUT = join(OUT_DIR, basename(target, extname(target)) + '.mp4');
 
 // ── العثور على ffmpeg بلا تدخّل ────────────────────────────────────────────────────
@@ -139,13 +143,18 @@ async function main() {
   const FRAMES = Math.round(seconds * FPS);
   console.log(`${basename(target)} · ${seconds.toFixed(1)} ث · ${WIDTH}×${HEIGHT} · ${FPS} إطار/ث`);
 
+  // ── ما يُصوَّر: المسرح، لا الصفحة ────────────────────────────────────────────────
+  // الصفحة أوسع من المسرح — حوله ورقٌ هو خلفية الجسم، وتصويرُ الصفحة يحشره في وسط
+  // إطارٍ عريض بأشرطة على جانبيه داخل الملف نفسه. والتقاط العنصر يجعل ما نراه على
+  // الشاشة هو ما في الملف بالضبط، مهما تغيّر تخطيط الصفحة لاحقاً.
+  const stage = await page.$('#stage');
+  const shoot = (path) => (stage ? stage.screenshot({ path, animations: 'disabled' })
+                                 : page.screenshot({ path, animations: 'disabled' }));
+
   const step = Math.round(1000 / FPS);
   for (let i = 0; i < FRAMES; i++) {
     await page.evaluate((ms) => window.__advance(ms), step);
-    await page.screenshot({
-      path: join(frames, String(i).padStart(5, '0') + '.png'),
-      animations: 'disabled',
-    });
+    await shoot(join(frames, String(i).padStart(5, '0') + '.png'));
   }
   await browser.close();
 

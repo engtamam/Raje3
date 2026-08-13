@@ -15,9 +15,9 @@
   الشريط كإعلان. والورقة تُوقِف الإبهام لأنها غريبةٌ في مكانها — ولأن صفحة هبوطنا
   بيضاء دافئة، فإعلانٌ أسود يقود إليها يقطع الخيط.
 
-  ولا صورة خلف الأرقام: الرقم يحتاج صمتاً بصرياً حوله، والصورة تسحب العين إلى تفاصيلها
-  وتشيخ — محلٌّ مصوَّر اليوم يبدو قديماً بعد سنتين، والأرقام لا تشيخ. فاللقطة الحقيقية
-  في مكانٍ واحد: أول ثانيتين، مطموسةً، ثم تنسحب. تربط الإعلان بعالمه ثم تخرج منه.
+  ولا صورة في المقطع إطلاقاً — ولا حتى لقطةً افتتاحية. جُرّبت ثانيتان مطموستان في
+  البداية فكانتا ضريبةً تُدفع قبل أول كلمة: المشاهد في الشريط يقرّر في أقل من ثانية،
+  فأيّ شيء قبل السؤال الأول هو تأخيرٌ لِما جاء لأجله. المقطع يبدأ بالسؤال، فوراً.
 
   التزم بعالمٍ فاتح واحد ولا يتبع سمة القارئ: هذا إعلانٌ يُصوَّر، لا صفحةٌ تُقرأ.
 -->
@@ -36,6 +36,9 @@
     --gold-soft: #C7B48A;
     --alarm: #C0392B;
 
+    /* عند العرض في نافذة: أعرض ما يسمح به الطول. وعند التصيير: اللوحة نفسها 9:16،
+       فيملأها. `dvh` وحدها لا تكفي — المتصفّحات تختلف في حسابها بضعة بكسلات، فيظهر
+       شريطٌ رفيع من ورق الجسم داخل الملف. */
     --stage-w: min(100vw, calc(100dvh * 9 / 16));
     /* ── وحدة القياس: عرض المسرح نفسه، لا عرض النافذة ────────────────────────────
        كل مقاسٍ تحت يُشتقّ من `--u`. الصياغة الأولى استعملت `clamp(…, 6.4vw, 2.9rem)`
@@ -68,6 +71,8 @@
     width: var(--stage-w);
     height: calc(var(--stage-w) * 16 / 9);
     max-height: 100dvh;
+    /* الحدّ الأدنى يمنع الشريط: عند التصيير اللوحة 9:16 تماماً، فيملأ المسرح عرضها. */
+    min-width: min(100vw, calc(100dvh * 9 / 16));
     background: var(--ground);
     overflow: hidden;
     display: grid;
@@ -81,27 +86,6 @@
       radial-gradient(90% 60% at 50% 100%, rgba(156, 117, 38, .06), transparent 65%);
     box-shadow: inset 0 0 min(20vh, 180px) rgba(27, 42, 58, .07);
   }
-
-  /* ── اللقطة الافتتاحية ────────────────────────────────────────────────────────
-     ثانيتان من عالمه هو — طاولة محل، رفٌّ، بابٌ يُفتح — مطموسةٌ حتى لا تُقرأ تفاصيلها،
-     ثم تنسحب مع السؤال الأول فلا تزاحم شيئاً بعدها.
-
-     رُسمت بالتدرّجات لا بصورة: لا نملك لقطةً حقيقية بعد، والمكان محجوزٌ لها — ضع ملفاً
-     في `brand/opening.jpg` وسيحلّ محلها بلا تغييرٍ آخر. */
-  .opening {
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(180deg, rgba(27, 42, 58, .35), rgba(27, 42, 58, .1)),
-      radial-gradient(60% 40% at 30% 30%, #C9A465, transparent 70%),
-      radial-gradient(50% 45% at 75% 65%, #6B7F8C, transparent 70%),
-      linear-gradient(140deg, #2E3A46, #7A6A52);
-    filter: blur(22px) saturate(.85);
-    transform: scale(1.12);
-    opacity: 0;
-    transition: opacity .8s ease;
-  }
-  .opening.on { opacity: 1; }
 
   .beat {
     position: absolute;
@@ -120,9 +104,10 @@
   .ask {
     font-size: calc(var(--u) * .088);
     font-weight: 700;
-    line-height: 1.35;
+    line-height: 1.5;
     text-wrap: balance;
-    letter-spacing: -.01em;
+    /* لا تباعد سالب على العربية أبداً: الحروف موصولة، والتضييق يقضم الوصلات ويجعل
+       «راجِع» تبدو مكسورة. السالب لغةٌ لاتينية، والأرقام وحدها تحتمله. */
   }
   .reply {
     font-size: calc(var(--u) * .046);
@@ -141,16 +126,24 @@
     gap: 3.4vh;
     width: 100%;
   }
+  /* عمودان: الوصف يميناً والرقم يساراً، بحافةٍ واحدة لكل الأرقام.
+     التمركز لكل سطرٍ على حدة كان يبعثر حواف 312 و41% و47 و28 — فتضيع المقارنة، وهي
+     كلّ ما في هذه اللقطة. */
   .fig {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: baseline;
-    justify-content: center;
-    gap: .5em;
+    width: min(78%, calc(var(--u) * .78));
+    margin-inline: auto;
+    gap: .6em;
     opacity: 0;
     transform: translateY(14px);
   }
   .fig.in { animation: rise .5s cubic-bezier(.2, .7, .3, 1) forwards; }
   @keyframes rise { to { opacity: 1; transform: none; } }
+
+  .fig .unit { text-align: start; }
+  .fig .num { justify-self: end; }
 
   .num {
     font-size: calc(var(--u) * .175);
@@ -158,7 +151,7 @@
     line-height: 1;
     color: var(--gold);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -.02em;
+    letter-spacing: -.02em;   /* أرقامٌ لاتينية، والتضييق هنا يشدّها ككتلة */
   }
   .unit {
     font-size: calc(var(--u) * .048);
@@ -168,6 +161,82 @@
   /* الأحمر مرة واحدة في المقطع كله، على السطر الذي يجعله يضغط. */
   .fig.warn .num { color: var(--alarm); }
   .fig.warn .unit { color: #8C3226; }
+
+  /* ── الـ28: نقاطٌ تنطفئ ─────────────────────────────────────────────────────────
+     الرقم يُقرأ، والنقاط تُحَسّ. ثمانٍ وعشرون دائرة تخفت واحدةً واحدة تحت السطر الأحمر،
+     فيصير «على وشك يروحون» شيئاً يراه لا جملةً يمرّ عليها. ولا شيء غيرها يتحرّك في
+     تلك اللحظة. */
+  .dots {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: calc(var(--u) * .014);
+    width: min(70%, calc(var(--u) * .7));
+    margin: calc(var(--u) * .02) auto 0;
+    opacity: 0;
+    transition: opacity .4s ease;
+  }
+  .fig.in ~ .dots, .dots.in { opacity: 1; }
+  .dot {
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--alarm);
+    opacity: .9;
+    transition: opacity .5s ease, transform .5s ease;
+  }
+  .dot.gone { opacity: .12; transform: scale(.55); }
+
+  /* ── خطُّ العودة ────────────────────────────────────────────────────────────────
+     المنتج نفسه يرسم هذا الخط في «محلّي» — فليس زخرفة، بل ما يشتريه. يُرسم بسكتةٍ
+     واحدة عبر `stroke-dashoffset`، ويقف عند نقطة النهاية فتنبض مرة. */
+  .chart { width: min(76%, calc(var(--u) * .76)); margin: 0 auto; display: block; }
+  .chart .line {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+  }
+  .chart.draw .line { transition: stroke-dashoffset 2.2s cubic-bezier(.3, .7, .3, 1); stroke-dashoffset: 0; }
+  .chart .base { stroke: rgba(27, 42, 58, .12); stroke-width: 2; }
+  .chart .tip { fill: var(--alarm); opacity: 0; transition: opacity .4s ease .6s; }
+  .chart.draw .tip { opacity: 1; }
+
+  /* ── فقاعة واتساب ───────────────────────────────────────────────────────────────
+     آخر ما يراه: ما يشتريه فعلاً. تصل من أسفل كما تصل رسالةٌ على هاتف. */
+  .bubble {
+    width: min(80%, calc(var(--u) * .8));
+    margin: 0 auto;
+    background: #FFFFFF;
+    border: 1px solid rgba(27, 42, 58, .08);
+    border-radius: calc(var(--u) * .045);
+    border-end-end-radius: calc(var(--u) * .012);
+    padding: calc(var(--u) * .045);
+    text-align: start;
+    box-shadow: 0 calc(var(--u) * .01) calc(var(--u) * .03) rgba(27, 42, 58, .07);
+    font-size: calc(var(--u) * .042);
+    line-height: 1.7;
+    opacity: 0;
+    transform: translateY(calc(var(--u) * .06));
+    transition: opacity .5s ease, transform .5s cubic-bezier(.2, .8, .3, 1);
+  }
+  .bubble.in { opacity: 1; transform: none; }
+  .bubble .who {
+    display: block;
+    font-size: calc(var(--u) * .032);
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: .4em;
+  }
+  .bubble .when {
+    display: block;
+    font-size: calc(var(--u) * .026);
+    color: var(--muted);
+    text-align: end;
+    margin-top: .5em;
+    direction: ltr;
+  }
 
   /* ── الخاتمة ────────────────────────────────────────────────────────────────── */
   .close-1, .close-2 {
@@ -179,15 +248,16 @@
 
   .mark {
     display: grid;
-    gap: 1.6vh;
+    gap: calc(var(--u) * .03);
     place-items: center;
   }
   .wordmark {
     font-size: calc(var(--u) * .2);
     font-weight: 900;
     color: var(--gold);
-    letter-spacing: -.03em;
-    line-height: 1;
+    /* الاسم عربيّ: بلا تضييق، وبسطرٍ يتّسع للكسرة تحت الجيم — وإلا اصطدمت بما تحتها. */
+    line-height: 1.45;
+    padding-bottom: .08em;
   }
   .site {
     font-size: calc(var(--u) * .038);
@@ -232,9 +302,6 @@
 </style>
 
 <div class="stage" id="stage">
-  <!-- عالمه، ثانيتين، ثم يخرج -->
-  <div class="opening" id="opening"></div>
-
   <!-- 1 · سؤالٌ يعرف جوابه، فيرتاح -->
   <div class="beat" data-beat="1">
     <p class="ask">كم عميل دخل محلك هالشهر؟</p>
@@ -255,13 +322,47 @@
       <div class="fig" data-fig="1"><span class="num" data-to="41" data-suffix="%">0</span><span class="unit">رجعوا لك</span></div>
       <div class="fig" data-fig="2"><span class="num" data-to="47">0</span><span class="unit">يوم بين زيارة وزيارة</span></div>
       <div class="fig warn" data-fig="3"><span class="num" data-to="28">0</span><span class="unit">على وشك يروحون</span></div>
+      <div class="dots" id="dots"></div>
     </div>
+  </div>
+
+  <!-- 4ب · قلب المعنى ────────────────────────────────────────────────────────────
+       المشهد الذي يجعل الأرقام قبله تعني شيئاً آخر. صاحب المحل يرى «41% رجعوا» فيقول
+       «ما هي سيّئة» — وهذه الجملة تقلبها: ليست 41% نجاحاً، بل 59% تشتريهم كل شهر من
+       جديد. وهي تصف حال أكثر المحلات فعلاً: الشغل ماشي، ومعظمه وجوهٌ جديدة.
+
+       ولا رقم هنا عمداً. «الجديد أغلى بخمس مرات» يردّده الجميع ولا يثبته أحد، وأول من
+       يسألنا عنه نسقط. والمقارنة أدناه لا تحتاج إثباتاً: هو يعرف كم دفع على آخر إعلان،
+       ويعرف أن الرسالة قروش. -->
+  <div class="beat" data-beat="9">
+    <p class="ask">شغلك ماشي…</p>
+    <p class="ask">بس على وجوهٍ جديدة كل شهر.</p>
+    <p class="reply">والجديد يكلّفك إعلاناً وخصماً وجهد موظف. والراجع… يكلّفك رسالة.</p>
+  </div>
+
+  <!-- 4ج · الخط الذي يرسمه المنتج -->
+  <div class="beat" data-beat="7">
+    <p class="ask">وعودتهم… تنزل من غير ما تحس.</p>
+    <svg class="chart" id="chart" viewBox="0 0 300 150" aria-hidden="true">
+      <path class="base" d="M10 140 H290" />
+      <path class="line" d="M14 46 L62 40 L110 52 L158 74 L206 96 L254 118 L286 128" />
+      <circle class="tip" cx="286" cy="128" r="7" />
+    </svg>
   </div>
 
   <!-- 5 · الضربة -->
   <div class="beat" data-beat="5">
     <p class="close-1">محلك يحكي من زمان.</p>
     <p class="close-2">بس ما فيه أحد يسمع.</p>
+  </div>
+
+  <!-- 5ب · وهذا ما يشتريه -->
+  <div class="beat" data-beat="8">
+    <div class="bubble" id="bubble">
+      <span class="who">متجر الواحة</span>
+      صار لنا فترة ما شفناك يا أبو محمد! جهّزنا لك خصم 20% في زيارتك الجاية 🎁
+      <span class="when">10:42 ص</span>
+    </div>
   </div>
 
   <!-- 6 · الاسم -->
@@ -282,15 +383,20 @@
   // مكتوبٌ كأزمنة مطلقة بالمللي، لا كسلسلة تأخيرات: التأخيرات المتتابعة تتراكم أخطاؤها
   // ويصير الصمت في التسجيل أقصر مما قُصد — وهو أهم لحظة في المقطع.
   const T = [
-    { at:     0, do: () => open_(true) },
-    { at:  1900, do: () => { open_(false); show(1); } },
-    { at:  3400, do: () => beat(1).classList.add('said') },   // «تعرف.»
-    { at:  4900, do: () => show(2) },
-    { at:  7100, do: () => show(null) },                       // الصمت
-    { at:  8700, do: () => { show(4); countUp(); } },
-    { at: 14500, do: () => show(5) },
-    { at: 17300, do: () => show(6) },
-    { at: 20500, do: () => end() },
+    { at:     0, do: () => show(1) },
+    { at:  1500, do: () => beat(1).classList.add('said') },   // «تعرف.»
+    { at:  3000, do: () => show(2) },
+    { at:  5200, do: () => show(null) },                       // الصمت
+    { at:  6800, do: () => { show(4); countUp(); } },
+    { at: 11100, do: () => fadeDots() },
+    // قلب المعنى: بعد أن يرى 41% ويطمئن إليها.
+    { at: 13300, do: () => show(9) },
+    { at: 15100, do: () => beat(9).classList.add('said') },
+    { at: 17800, do: () => { show(7); drawChart(); } },
+    { at: 21600, do: () => show(5) },
+    { at: 24400, do: () => { show(8); bubbleIn(); } },
+    { at: 28000, do: () => show(6) },
+    { at: 31200, do: () => end() },
   ];
 
   // ── الطول، معلَناً من الشريط نفسه ────────────────────────────────────────────────
@@ -303,8 +409,6 @@
   const controls = document.getElementById('controls');
   const play = document.getElementById('play');
   const beat = (n) => stage.querySelector(`[data-beat="${n}"]`);
-  const opening = document.getElementById('opening');
-  const open_ = (on) => opening.classList.toggle('on', on);
   const beats = [...stage.querySelectorAll('.beat')];
   let timers = [];
 
@@ -312,6 +416,31 @@
     beats.forEach((b) => b.classList.remove('on'));
     if (n) beat(n).classList.add('on');
   }
+
+  // ── الـ28 ────────────────────────────────────────────────────────────────────
+  // تُبنى مرة، وتنطفئ واحدةً كل 90 مللي: بطيئةٌ بما يكفي ليشعر بالعدّ، وسريعةٌ بما
+  // يكفي ألّا يملّ. الترتيب عشوائيٌّ ظاهرياً — انطفاءٌ من اليمين لليسار يبدو آلةً،
+  // ومن هنا وهناك يبدو ناساً.
+  const dots = document.getElementById('dots');
+  const ORDER = [3, 17, 8, 24, 1, 12, 27, 5, 19, 9, 22, 0, 14, 26,
+                 6, 20, 11, 2, 25, 15, 7, 21, 13, 4, 23, 16, 10, 18];
+  for (let i = 0; i < 28; i++) {
+    const d = document.createElement('span');
+    d.className = 'dot';
+    dots.appendChild(d);
+  }
+  function fadeDots() {
+    dots.classList.add('in');
+    ORDER.forEach((idx, i) => {
+      timers.push(setTimeout(() => dots.children[idx].classList.add('gone'), i * 90));
+    });
+  }
+
+  const chart = document.getElementById('chart');
+  const drawChart = () => chart.classList.add('draw');
+
+  const bubble = document.getElementById('bubble');
+  const bubbleIn = () => timers.push(setTimeout(() => bubble.classList.add('in'), 300));
 
   // الأرقام تعدّ صعوداً — والعدّ نفسه هو ما يقول «هذا يُحسب الآن من بياناتك».
   function countUp() {
@@ -339,8 +468,12 @@
     timers.forEach(clearTimeout);
     timers = [];
     show(null);
-    open_(false);
     beat(1).classList.remove('said');
+    beat(9).classList.remove('said');
+    dots.classList.remove('in');
+    [...dots.children].forEach((d) => d.classList.remove('gone'));
+    chart.classList.remove('draw');
+    bubble.classList.remove('in');
     stage.querySelectorAll('[data-fig]').forEach((f) => {
       f.classList.remove('in');
       const el = f.querySelector('.num');
