@@ -26,6 +26,58 @@ export const SESSION_RENEWED = 'raje3:session-renewed';
 
 let inFlight: Promise<string> | null = null;
 
+/**
+ * HOW LONG BEFORE EXPIRY WE STOP TRUSTING A TOKEN.
+ *
+ * Sixty seconds covers a slow connection and a clock that disagrees with the server's by a little,
+ * which is the ordinary case on a phone that has been asleep in a pocket.
+ */
+const EARLY_SECONDS = 60;
+
+/**
+ * When this token stops being accepted, read from the token itself.
+ *
+ * NO EXTRA FIELD AND NO SEPARATE CLOCK. `exp` is already inside every JWT the platform mints, and
+ * storing our own copy beside it would be a second number to keep in step — which is how a session
+ * comes to believe it is valid for longer than the server does.
+ *
+ * A token we cannot parse returns 0, which reads as "expired" and simply falls back to the old
+ * behaviour: fire, get a 401, renew, retry. Never the other way round.
+ */
+function expiresAt(token: string): number {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return 0;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    return Number((JSON.parse(json) as { exp?: number }).exp || 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * The token to send RIGHT NOW — renewed first if it is about to die.
+ *
+ * WHY THIS EXISTS AT ALL, GIVEN THE 401 PATH ALREADY WORKS. It works, and it is loud: the browser
+ * prints every 401 in red whatever we catch, because it is the network's answer and not an
+ * exception of ours. An owner reading his console sees what looks like a broken product every
+ * fifteen minutes — and a real failure hides among them.
+ *
+ * It also costs a round trip. Every fifteen minutes, the first action a person takes goes out,
+ * comes back refused, renews, and goes out again — at the counter, with a customer waiting.
+ */
+export async function fresh(token: string): Promise<string> {
+  if (!token) return token;
+  const exp = expiresAt(token);
+  if (!exp) return token;
+  const left = exp - Math.floor(Date.now() / 1000);
+  if (left > EARLY_SECONDS) return token;
+  // SHARED WITH THE 401 PATH. `renew()` holds one in-flight promise for the whole app, so several
+  // screens arriving here together spend the refresh token once rather than racing each other into
+  // a real sign-out.
+  return (await renew()) || token;
+}
+
 function stored(): Session | null {
   try {
     return JSON.parse(localStorage.getItem(KEY) || 'null') as Session | null;

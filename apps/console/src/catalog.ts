@@ -17,7 +17,7 @@
  * manifest, so a service that is down appears in `unreachable` instead of failing the whole load.
  * A nav that vanishes because one backend restarted would be worse than a nav with one gap.
  */
-import { renew } from './renew';
+import { fresh, renew } from './renew';
 import type { Session } from './session';
 
 export interface Action {
@@ -117,7 +117,7 @@ export async function fetchCatalog(session: Session): Promise<Catalog> {
   const held = cached(session.token);
   if (held) return held;
 
-  let token = session.token;
+  let token = await fresh(session.token);
   let res = await fetch(`${BASE}/api/v1/app/catalog`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -196,9 +196,15 @@ export async function call<T>(
     return encodeURIComponent(String(v ?? ''));
   });
 
+  // RENEWED BEFORE IT IS SENT, NOT AFTER IT IS REFUSED. See renew.ts: waiting for the 401 costs a
+  // wasted round trip at the counter and prints a red line in the owner's console every quarter of
+  // an hour. The 401 path below stays — it is the answer to a token revoked early, a clock that is
+  // wrong, and a server that disagrees with us — but it is no longer the ordinary case.
+  const bearer = await fresh(session.token);
+
   const init: RequestInit = {
     method: a.method,
-    headers: { Authorization: `Bearer ${session.token}` },
+    headers: { Authorization: `Bearer ${bearer}` },
   };
   if (a.method === 'GET' || a.method === 'DELETE') {
     const q = new URLSearchParams();
