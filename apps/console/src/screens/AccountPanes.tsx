@@ -23,7 +23,7 @@ interface Tenant {
   // `accent`, NOT `colour` — the name is portal's, and portal is the only reader: it derives the
   // customer page's whole palette from this one field. A prettier name here writes to a field
   // nothing reads, which is how a colour picker becomes decoration.
-  branding?: { logo_url?: string; accent?: string };
+  branding?: { logo_url?: string; accent?: string; display_name?: string };
   config?: { locale?: string; timezone?: string; calendar?: string };
 }
 
@@ -54,7 +54,7 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
   if (t === undefined) return <Skeleton height={160} />;
   if (!t) return <Quiet>لا تملك صلاحية عرض بيانات المنشأة.</Quiet>;
 
-  const saveBranding = async (branding: { logo_url: string; accent: string }) => {
+  const saveBranding = async (branding: { logo_url: string; accent: string; display_name: string }) => {
     if (!canBrand) throw new Error('لا تملك صلاحية تعديل الهوية.');
     // MERGED, NOT REPLACED. `branding` is a free-form record on the tenant and other things live
     // in it; sending our two fields alone would quietly drop whatever else is there.
@@ -99,7 +99,23 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
  * page draws, which covers a dense display, and small enough that a record stays a record.
  */
 function BrandCard({ tenant, onSave }:
-    { tenant: Tenant; onSave: (b: { logo_url: string; accent: string }) => Promise<void> }) {
+    { tenant: Tenant;
+      onSave: (b: { logo_url: string; accent: string; display_name: string }) => Promise<void> }) {
+  /**
+   * THE NAME HIS CUSTOMER READS, and it could not be edited anywhere.
+   *
+   * It is captured once at signup and printed in large type at the top of the page his customers
+   * open, and it signs every WhatsApp message that goes out. A typo there — or, as happened, a
+   * password autofilled into the field — was permanent from the console's point of view.
+   *
+   * `branding.display_name`, NOT THE TENANT'S `name`. The tenant record's name is the account's
+   * own and there is no self-service route upstream to change it; `display_name` is the shop's
+   * public face, it already existed, and portal and campaigns already preferred it. The two
+   * services that read them in the other order were corrected in the same change — one shop with
+   * two names is worse than one shop with an old name.
+   */
+  const [name, setName] = useState(
+    tenant.branding?.display_name ?? tenant.name ?? '');
   const [logo, setLogo] = useState(tenant.branding?.logo_url ?? '');
   const [colour, setColour] = useState(tenant.branding?.accent || DEFAULT_COLOUR);
   const [busy, setBusy] = useState(false);
@@ -122,7 +138,7 @@ function BrandCard({ tenant, onSave }:
     e.preventDefault();
     setBusy(true); setError(''); setSaid('');
     try {
-      await onSave({ logo_url: logo, accent: colour });
+      await onSave({ logo_url: logo, accent: colour, display_name: name.trim() });
       setSaid('حُفظ. هذا ما يراه عميلك.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
@@ -149,10 +165,23 @@ function BrandCard({ tenant, onSave }:
                className="size-14 rounded-2xl bg-white/15 object-contain" />
         ) : null}
         <span className="max-w-full truncate text-lg font-semibold text-white">
-          {tenant.name || 'محلّك'}
+          {name || tenant.name || 'محلّك'}
         </span>
         <span className="text-xs text-white/75">صفحتك لدى المتجر</span>
       </div>
+
+      {/* THE NAME, DIRECTLY UNDER THE PREVIEW THAT SHOWS IT. Editing a field and watching the
+          band above it change is the whole explanation of what this name is for. */}
+      <label className="flex flex-col gap-1">
+        <span className="text-sm text-text-secondary">اسم محلّك كما يراه عميلك</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+          autoComplete="organization"
+          className="h-11 rounded-xl bg-surface-2 px-3"
+        />
+      </label>
 
       {/* FULL WIDTH, BECAUSE IT IS THE ACTION OF THIS CARD. A short pill floating at one end of
           a wide card reads as a footnote, and it is the one thing on the card he came here to

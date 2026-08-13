@@ -141,7 +141,8 @@ class HttpIdentity:
             data = _get(f"{self._url}{path}", self._token, self._timeout)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return hit[1] if hit else ""
-        name = str(data.get("name") or data.get("display_name") or "")
+        branding = data.get("branding") or {}
+        name = str(branding.get("display_name") or data.get("name") or "")
         if name:
             self._cache[tenant] = (now, name)
             return name

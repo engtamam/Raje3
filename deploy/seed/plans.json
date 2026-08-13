@@ -115,7 +115,7 @@
       "limits": {
         "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
                              "overage": "allow_and_bill"},
-        "staff.seats": {"kind": "gauge", "limit": -1},
+        "staff.seats": {"kind": "gauge", "limit": 80},
         "branches": {"kind": "gauge", "limit": 8},
         "feature.campaigns": {"kind": "boolean", "limit": 1},
         "feature.loyalty": {"kind": "boolean", "limit": 1},

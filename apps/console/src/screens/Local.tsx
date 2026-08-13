@@ -50,6 +50,8 @@ interface Dashboard {
   values: Record<string, unknown>;
   audience?: { consented: number; message: string } | null;
   as_of_hours_ago?: number;
+  /** OUR keys this shop holds — the console draws every lock from an absence here. */
+  entitlements?: string[];
   stale?: boolean;
   visits?: number;
   not_enabled?: Blocked[];
@@ -275,28 +277,42 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
   useEffect(() => {
     // EACH ONE ON ITS OWN, and a failure in one leaves the others. They are three separate
     // answers, and a shop whose branch table cannot be read should still see its pairs.
-    const assoc = action(catalog, 'insights.associations');
-    if (assoc) {
-      call<Pairs>(session, assoc).then(setPairs).catch((e: Error & { status?: number }) => {
-        setPairs(null);
-        if (e?.status === 402) setLocked((p) => ({ ...p, associations: e.message }));
-      });
-    }
-    const bun = action(catalog, 'insights.bundles');
-    if (bun) {
-      call<{ bundles: Bundle[] }>(session, bun)
-        .then((r) => setBundles(r.bundles ?? []))
-        .catch((e: Error & { status?: number }) => {
-          setBundles(null);
-          if (e?.status === 402) setLocked((p) => ({ ...p, bundles: e.message }));
-        });
-    }
-    const br = action(catalog, 'insights.branches');
-    if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
-
+    // ── THE DASHBOARD FIRST, AND IT SAYS WHAT THIS SHOP HOLDS ──────────────────────────────
+    // A DOOMED REQUEST IS NOT A GRACEFUL DEGRADATION. The page used to fire all four reads at
+    // once; two of them are engine-only, so a shop on the entry plan got two 402s printed in red
+    // in its console on every visit — the browser prints them whatever we catch, because they are
+    // the server's answer and not an exception of ours.
+    //
+    // The dashboard already answers with `entitlements`, precisely so the console renders a lock
+    // from the ABSENCE OF A KEY rather than from a plan name it would have to know the ladder of.
+    // So it is read first, and the paid surfaces are asked for only when they will answer.
     const a = action(catalog, 'insights.dashboard');
     if (!a) { setFailed(true); return; }
-    call<Dashboard>(session, a).then(setData).catch(() => setFailed(true));
+    call<Dashboard>(session, a)
+      .then((d) => {
+        setData(d);
+        const engine = (d.entitlements ?? []).includes('feature.insights.engine');
+        if (!engine) {
+          // NOT ASKED, AND STILL SHOWN. The lock is drawn from what he does not hold; nothing is
+          // hidden, and no request is made that we know will be refused.
+          setPairs(null);
+          setBundles(null);
+          return;
+        }
+        const assoc = action(catalog, 'insights.associations');
+        if (assoc) call<Pairs>(session, assoc).then(setPairs).catch(() => setPairs(null));
+        const bun = action(catalog, 'insights.bundles');
+        if (bun) {
+          call<{ bundles: Bundle[] }>(session, bun)
+            .then((r) => setBundles(r.bundles ?? [])).catch(() => setBundles(null));
+        }
+      })
+      .catch(() => setFailed(true));
+
+    // BRANCHES IS NOT ENGINE-GATED — it follows the branch count he bought, and a one-branch shop
+    // simply gets an empty comparison rather than a refusal.
+    const br = action(catalog, 'insights.branches');
+    if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
   }, [session, catalog]);
 
   if (failed) {
@@ -400,7 +416,7 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         {/* LOCKED, NOT ABSENT — the same shape «حملاتي» uses. It names what the surface DOES for
             his shop, never the tier: "بعض خدماتك تُطلب معاً" is a fact about him, "هذه في باقة
             أعلى" is a fact about our price list. */}
-        {locked.bundles ? (
+        {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
           <section className="flex items-start gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
             <Lock size={18} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
             <div className="flex flex-col gap-1">
@@ -408,7 +424,7 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
               <p className="text-sm text-text-secondary">
                 نكتشف الخدمات التي تُطلب معاً في محلّك، ونقول لك أين الفرصة — والسعر سعرك.
               </p>
-              <p className="text-xs text-text-secondary">{locked.bundles}</p>
+              <p className="text-xs text-text-secondary">هذه في باقة أعلى.</p>
             </div>
           </section>
         ) : bundles && bundles.length ? (

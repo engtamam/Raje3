@@ -227,7 +227,8 @@ class HttpPeers:
                                          headers={"X-Internal-Token": self._token})
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
                 data = json.loads(resp.read() or b"{}")
-            out["shop"] = str(data.get("name") or data.get("display_name") or "")
+            branding = data.get("branding") or {}
+            out["shop"] = str(branding.get("display_name") or data.get("name") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass
 
