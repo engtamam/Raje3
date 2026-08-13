@@ -16,7 +16,7 @@
  * would have to find. Inheritance, not copying: a service either FOLLOWS the general value or
  * holds its own, which is why "return to general" is a DELETE and not a write of today's default.
  */
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
@@ -708,251 +708,322 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             )
           ) : null}
 
+      {/* ── the table ────────────────────────────────────────────────────────────────────────
+          ONE QUESTION PER COLUMN, ASKED ONCE AT THE TOP. Every service used to carry its own «؟»
+          beside every field, so a shop with sixteen services rendered the same four explanations
+          sixteen times — and none of them could be read without opening a card first. A column
+          header is the natural place for «ما معنى هذا الرقم؟»: it is asked once, answered once,
+          and applies to everything under it.
+
+          AND THE ROW IS THE SERVICE. Editing happens in the cell; the actions live in one column
+          at the end, so scanning down a column compares the same number across the whole
+          catalogue — which is the act this screen exists for and a stack of cards made
+          impossible. */}
+      <div className="overflow-x-auto rounded-card border border-border-subtle bg-surface-1">
+        <table className="w-full min-w-[44rem] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
+              <Th>الخدمة</Th>
+              <Th hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
+                الدورة
+              </Th>
+              <Th hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
+                الاطمئنان
+              </Th>
+              {earnAction ? (
+                <Th hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
+                  النقاط
+                </Th>
+              ) : null}
+              {action(catalog, 'reminders.set_group') ? (
+                <Th hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
+                  المجموعة
+                </Th>
+              ) : null}
+              <Th>إجراءات</Th>
+            </tr>
+          </thead>
+          <tbody>
       {shown.map(([group, inGroup]) => (
-        <section key={group || 'ungrouped'} className="flex flex-col gap-2">
+        <Fragment key={group || 'ungrouped'}>
           {/* THE HEADING CARRIES THE GROUP'S OWN CYCLE, because that is what the services under it
               follow — a heading that is only a name leaves the owner reading each service to work
               out what the group actually does. The remainder bin has no settings and says so by
               carrying no number. */}
-          <div className="flex items-center justify-between gap-3 px-1 pt-2">
-            <h2 className="min-w-0 text-sm font-semibold text-text-secondary">
-              {group === UNGROUPED ? 'غير مجمّعة' : group}
-              {group !== UNGROUPED && settings?.groups?.[group]?.interval_days
-                ? ` · كل ${settings.groups[group].interval_days} يوماً`
-                : ''}
-            </h2>
-            {/* THE GROUP CAN BE UNMADE. It could be created and never removed, so an owner who
-                grouped his services wrongly was stuck with the mistake on every future screen.
-                Not offered on the remainder bin: «خدمات غير مجمّعة» is not a group, it is what is
-                left over, and a delete button on it would be a delete of nothing. */}
-            {group !== UNGROUPED && action(catalog, 'reminders.delete_group') ? (
-              <Button variant="ghost" disabled={saving} onClick={() => deleteGroup(group)}>
-                حذف المجموعة
-              </Button>
-            ) : null}
-          </div>
+          {/* A HEADING ROW INSIDE THE TABLE, so the columns never break alignment. Hidden when the
+              whole table is one bin: a single heading over everything is a label for the screen,
+              not a division of it. */}
+          {shown.length > 1 ? (
+            <tr className="border-b border-border-subtle bg-surface-2/30">
+              <td colSpan={9} className="px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-sm font-semibold text-text-secondary">
+                    {group === UNGROUPED ? 'غير مجمّعة' : group}
+                    {group !== UNGROUPED && settings?.groups?.[group]?.interval_days
+                      ? ` · كل ${settings.groups[group].interval_days} يوماً`
+                      : ''}
+                  </span>
+                  {/* THE GROUP CAN BE UNMADE. It could be created and never removed, so an owner
+                      who grouped his services wrongly was stuck with the mistake on every future
+                      screen. Not offered on the remainder bin: «غير مجمّعة» is not a group, it is
+                      what is left over, and a delete button on it would delete nothing. */}
+                  {group !== UNGROUPED && action(catalog, 'reminders.delete_group') ? (
+                    <Button variant="ghost" disabled={saving} onClick={() => deleteGroup(group)}>
+                      حذف المجموعة
+                    </Button>
+                  ) : null}
+                </div>
+              </td>
+            </tr>
+          ) : null}
           {inGroup.map((svc) => {
         const { value, own } = settingFor(svc.id);
-        const isOpen = open === svc.id;
+        const stopped = svc.active === false;
+        const editing = open === svc.id;
         return (
-          <div key={svc.id} className="overflow-hidden rounded-card border border-border-subtle bg-surface-1">
-            {/* ONE LINE PER SERVICE. Seven services filled three screens: every row was a floating
-                card with its own shadow, its own gap and a lot of white to the left of two short
-                words. A list of things a shop sells should read as a list. */}
-            <button
-              type="button"
-              onClick={() => setOpen(isOpen ? null : svc.id)}
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-2"
-            >
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate font-medium">{svc.name}</span>
-                {/* BOTH NUMBERS, BECAUSE HE SET BOTH. The line used to read only the cycle, so an
-                    owner who typed 15 into «الاطمئنان», closed the row and saw «كل 10 يوماً» had
-                    every reason to believe it had not saved — it had. A summary that reports one
-                    of two saved values is worse than no summary: it is a confident wrong answer. */}
-                <span className="text-xs text-text-secondary tabular-nums">
-                  {summarise(value)}
+          <Fragment key={svc.id}>
+          {/* ONE ROW PER SERVICE, AND THE COLUMNS ARE THE COMPARISON. A stack of cards could only
+              ever answer "what is this service set to"; the owner's real question is "which of my
+              services is set differently", and that is a column read top to bottom. */}
+          <tr className={[
+            'border-b border-border-subtle last:border-0 align-middle',
+            stopped ? 'opacity-55' : '',
+          ].join(' ')}>
+            <td className="px-3 py-2">
+              {editing && action(catalog, 'operations.update_service') ? (
+                <input
+                  defaultValue={svc.name}
+                  autoFocus
+                  aria-label={`اسم ${svc.name}`}
+                  maxLength={128}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v && v !== svc.name) patchService(svc.id, { name: v });
+                  }}
+                  className="h-9 w-full min-w-[9rem] rounded-lg bg-surface-2 px-2"
+                />
+              ) : (
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium">{svc.name}</span>
+                  {stopped ? <Badge tone="neutral">موقوفة</Badge> : null}
                 </span>
-              </span>
-              {/* SHOWN WHERE IT HAPPENED. Without this the owner cannot tell which services he has
-                  customised, and a general change that "did not work" is really a service holding
-                  its own value. */}
-              <span className="flex items-center gap-2">
-                {svc.active === false ? <Badge tone="neutral">موقوفة</Badge> : null}
-                {own ? <Badge tone="accent">إعداد خاص</Badge> : null}
-              </span>
-            </button>
+              )}
+            </td>
 
-            {isOpen ? (
-              <div className="flex flex-col gap-3 border-t border-border-subtle px-4 py-3">
-                {/* THE REMINDER FIELDS ARE A SECOND CAPABILITY. The name and the price are
-                    operations'; the cycle and the follow-up are reminders' — and a role can hold
-                    one without the other. Rendering an input that will be refused teaches the
-                    person the product is broken, so it is absent instead. */}
-                {action(catalog, 'reminders.set_service_settings') ? (
-                <>
-                {/* TWO MESSAGES, AND THEY ARE NOT THE SAME MESSAGE. Rendered as two identical
-                    number boxes they looked like one setting asked twice, and «الاطمئنان» was a
-                    word with no meaning attached — the owner in the screenshot typed a number into
-                    it without being told what it would send. Each now carries the sentence that
-                    says what goes out and when, and a preview of the actual timing. */}
-                <Setting
-                  label="دورة التذكير"
-                  meaning="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة."
-                  value={value.interval_days}
-                  preview={(n) => `تذكير بعد ${n} يوماً من كل زيارة`}
-                  zero="لا تذكير لهذه الخدمة"
-                  // A BLANK FIELD IS NOT A ZERO. `Number('')` is 0, which would silently turn
-                  // "I have not decided" into "this service has no cycle" — so an empty box
-                  // saves nothing and leaves the value where it was.
-                  onSave={(n) => setService(svc.id, { interval_days: n })}
-                />
-                <Setting
-                  label="الاطمئنان بعد الزيارة"
-                  meaning="رسالة قصيرة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها."
-                  value={value.follow_up_days}
-                  preview={(n) => `سؤال بعد ${n} يوماً من الزيارة`}
-                  zero="لا نسأل بعد هذه الخدمة"
-                  onSave={(n) => setService(svc.id, { follow_up_days: n })}
-                />
-
-                </>
-                ) : null}
-
-                {/* THE SERVICE ITSELF — its name, and whether the shop still sells it. Above the
-                    reminder settings because it is the more basic fact: what this thing is comes
-                    before when we message about it. */}
-                {action(catalog, 'operations.update_service') ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    <label className="flex min-w-0 flex-1 items-center gap-2">
-                      <span className="text-sm text-text-secondary">الاسم</span>
-                      <input
-                        defaultValue={svc.name}
-                        aria-label={`اسم ${svc.name}`}
-                        maxLength={128}
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== svc.name) patchService(svc.id, { name: v });
-                        }}
-                        className="h-10 flex-1 rounded-lg bg-surface-2 px-3"
-                      />
-                    </label>
-                    {/* STOPPED, NOT DELETED — and the button says which. Deleting a service would
-                        orphan every visit that names it. */}
-                    {/* IT LOOKS LIKE WHAT IT DOES. As a ghost button «إيقاف» was a word floating
-                        in the middle of the card — indistinguishable from a label, and no warmer
-                        than the group heading under it. Stopping a service takes it off the
-                        operator's grid and silences its reminders, so it carries the colour of a
-                        withdrawal; «تفعيل», which restores, is an ordinary outline. */}
-                    <Button
-                      variant={svc.active === false ? 'outline' : 'danger'}
-                      disabled={saving}
-                      onClick={() => patchService(svc.id, { active: svc.active === false })}
-                    >
-                      {svc.active === false ? 'تفعيل' : 'إيقاف'}
-                    </Button>
-                  </div>
-                ) : null}
-
-                {/* PUTTING A SERVICE IN A GROUP, DIRECTLY.
-                    Until now a group could only come into existence when the system NOTICED the
-                    owner repeating himself across three services and offered to make one. That
-                    proposal is good and it stays — nobody is asked to design a taxonomy on day one
-                    — but it was the ONLY way, so an owner who already knew «هذه كلها خدمات محرك»
-                    had no way to say it. He had to set the same number three times and wait to be
-                    asked. The suggestion is now the shortcut, not the gate. */}
-                {action(catalog, 'reminders.set_group') ? (
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                    {/* BEHIND «؟» LIKE THE REST. Same reason: read once, then furniture. */}
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="text-sm">المجموعة</span>
-                      <Hint>ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.</Hint>
-                    </span>
-                    <select
-                      aria-label={`مجموعة ${svc.name}`}
-                      value={settings?.service_group?.[svc.id] ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === '__new__') { setNaming(svc.id); return; }
-                        // «بلا مجموعة» IS AN ACT NOW. It was an option in this list with nothing
-                        // behind it — the service had `leave_group` missing entirely, so an owner
-                        // who grouped something could never ungroup it.
-                        if (!v) { leaveGroup(svc.id); return; }
-                        joinGroup(svc.id, v);
-                      }}
-                      className="h-10 w-full shrink-0 rounded-lg bg-surface-2 px-3 sm:w-auto"
-                    >
-                      <option value="">بلا مجموعة</option>
-                      {Object.keys(settings?.groups ?? {}).map((g) => (
-                        <option key={g} value={g}>{g}</option>
-                      ))}
-                      <option value="__new__">مجموعة جديدة…</option>
-                    </select>
-                  </div>
-                ) : null}
-
-                {naming === svc.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      aria-label="اسم المجموعة الجديدة"
-                      placeholder="مثال: خدمات المحرك"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') joinGroup(svc.id, e.currentTarget.value);
-                        if (e.key === 'Escape') setNaming(null);
-                      }}
-                      className="h-10 flex-1 rounded-lg bg-surface-2 px-3"
-                    />
-                    <Button variant="ghost" onClick={() => setNaming(null)}>إلغاء</Button>
-                  </div>
-                ) : null}
-
-                {/* HIS POINTS FOR THIS SERVICE, HERE. The number lived in «نقاطي» alone, so an
-                    owner setting up a service had to leave the screen he was on, find the same
-                    service in another list, set one number, and come back — for the one field
-                    that belongs to the thing he is already looking at. The screen that owns the
-                    setting keeps owning it; this is the same action, reachable where the question
-                    is actually asked.
-
-                    IT SHOWS THE INHERITED NUMBER AS WELL AS AN OWN ONE (§9.2: inherit, never
-                    copy), so «إعداد عام» is visible rather than looking like a zero he forgot. */}
-                {earnAction ? (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2/60 p-3">
-                    <span className="text-sm">نقاط هذه الخدمة</span>
-                    <Hint>
-                      كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. اتركها كما هي لتتبع الإعداد
-                      العام — وتغييرها هنا يجعلها خاصة بهذه الخدمة وحدها.
-                    </Hint>
-                    {!earnFor(svc.id).own ? (
-                      <span className="text-xs text-text-secondary">تتبع العام</span>
-                    ) : null}
-                    <input
-                      type="number"
-                      min={0}
-                      dir="ltr"
-                      defaultValue={String(earnFor(svc.id).points)}
-                      aria-label={`نقاط ${svc.name}`}
-                      onBlur={(e) => {
-                        const raw = e.target.value.trim();
-                        if (raw === '') return;
-                        const n = Number(raw);
-                        if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n);
-                      }}
-                      className="ms-auto h-10 w-24 shrink-0 rounded-lg bg-surface-1 px-3 text-center tabular-nums"
-                    />
-                  </div>
-                ) : null}
-
-                {own && action(catalog, 'reminders.follow_general') ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-text-secondary">
-                      هذه الخدمة لها إعدادها الخاص.
-                    </span>
-                    {/* A DELETE, NOT A WRITE OF TODAY'S DEFAULT. Following the general value means
-                        this service tracks it from now on — writing the current number would
-                        freeze it, and the next general change would skip this service silently. */}
-                    <Button variant="ghost" disabled={saving} onClick={() => followGeneral(svc.id)}>
-                      العودة إلى العام
-                    </Button>
-                  </div>
-                ) : null}
-                {/* CLOSED FROM THE BOTTOM, WHERE HIS THUMB ALREADY IS. The only way out of an
-                    open service was the header — which by then is a full screen above him, so
-                    closing a card meant scrolling back up past everything he had just read. */}
-                <Button variant="ghost" onClick={() => setOpen(null)}>إغلاق</Button>
-              </div>
+            {/* THE CELL EDITS IN PLACE, AND A BLANK BOX SAVES NOTHING. `Number('')` is 0, which
+                would silently turn "I have not decided" into "this service has no cycle". */}
+            <Num
+              value={value.interval_days}
+              own={own}
+              editable={editing && !!action(catalog, 'reminders.set_service_settings')}
+              label={`دورة ${svc.name}`}
+              onSave={(n) => setService(svc.id, { interval_days: n })}
+            />
+            <Num
+              value={value.follow_up_days}
+              own={own}
+              editable={editing && !!action(catalog, 'reminders.set_service_settings')}
+              label={`اطمئنان ${svc.name}`}
+              onSave={(n) => setService(svc.id, { follow_up_days: n })}
+            />
+            {earnAction ? (
+              <Num
+                value={earnFor(svc.id).points}
+                own={earnFor(svc.id).own}
+                editable={editing}
+                label={`نقاط ${svc.name}`}
+                onSave={(n) => { if (n !== earnFor(svc.id).points) setServicePoints(svc.id, n); }}
+              />
             ) : null}
-          </div>
+
+            {action(catalog, 'reminders.set_group') ? (
+              <td className="px-3 py-2">
+                {editing ? (
+                  <select
+                    aria-label={`مجموعة ${svc.name}`}
+                    value={settings?.service_group?.[svc.id] ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '__new__') { setNaming(svc.id); return; }
+                      // «بلا مجموعة» IS AN ACT. It was an option with nothing behind it, so an
+                      // owner who grouped something could never ungroup it.
+                      if (!v) { leaveGroup(svc.id); return; }
+                      joinGroup(svc.id, v);
+                    }}
+                    className="h-9 w-full min-w-[7rem] rounded-lg bg-surface-2 px-2 text-sm"
+                  >
+                    <option value="">بلا مجموعة</option>
+                    {Object.keys(settings?.groups ?? {}).map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                    <option value="__new__">مجموعة جديدة…</option>
+                  </select>
+                ) : (
+                  <span className="text-text-secondary">
+                    {settings?.service_group?.[svc.id] || '—'}
+                  </span>
+                )}
+              </td>
+            ) : null}
+
+            {/* ── the actions column ───────────────────────────────────────────────────────
+                TWO ICONS, AND NEITHER OF THEM DELETES. A service cannot be deleted at all: every
+                visit ever recorded names one, and removing the row would leave last year's
+                history pointing at nothing. «إيقاف» is the whole of what "remove" means here —
+                it leaves the operator's grid and its reminders go silent, and the record stays
+                readable. So the second icon is a power switch rather than a bin, because an icon
+                that promises deletion and performs retirement is a lie told in one glyph. */}
+            <td className="px-3 py-2">
+              <div className="flex items-center justify-end gap-1">
+                {own && action(catalog, 'reminders.follow_general') ? (
+                  <IconButton
+                    title="العودة إلى الإعداد العام"
+                    disabled={saving}
+                    onClick={() => followGeneral(svc.id)}
+                  >↺</IconButton>
+                ) : null}
+                <IconButton
+                  title={editing ? 'إنهاء التعديل' : 'تعديل'}
+                  onClick={() => setOpen(editing ? null : svc.id)}
+                  active={editing}
+                >{editing ? '✓' : '✎'}</IconButton>
+                {action(catalog, 'operations.update_service') ? (
+                  <IconButton
+                    title={stopped ? 'تفعيل' : 'إيقاف — تختفي من شاشة الزيارة وتسكت تذكيراتها'}
+                    disabled={saving}
+                    danger={!stopped}
+                    onClick={() => patchService(svc.id, { active: stopped })}
+                  >{stopped ? '⏻' : '⏻'}</IconButton>
+                ) : null}
+              </div>
+            </td>
+          </tr>
+
+          {/* THE NEW-GROUP BOX, on its own full-width row so it cannot squeeze a column. */}
+          {naming === svc.id ? (
+            <tr className="border-b border-border-subtle bg-surface-2/40">
+              <td colSpan={9} className="px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    aria-label="اسم المجموعة الجديدة"
+                    placeholder="مثال: خدمات المحرك"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') joinGroup(svc.id, e.currentTarget.value);
+                      if (e.key === 'Escape') setNaming(null);
+                    }}
+                    className="h-9 flex-1 rounded-lg bg-surface-1 px-3"
+                  />
+                  <Button variant="ghost" onClick={() => setNaming(null)}>إلغاء</Button>
+                </div>
+              </td>
+            </tr>
+          ) : null}
+          </Fragment>
         );
           })}
-        </section>
+        </Fragment>
       ))}
+          </tbody>
+        </table>
+      </div>
         </div>
       </div>
       </div>
         );
       })()}
     </div>
+  );
+}
+
+/**
+ * A column header, and the «؟» that explains the WHOLE column.
+ *
+ * THIS IS THE ONE REAL SAVING OF THE TABLE. The same four explanations used to be rendered once
+ * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
+ * card was opened. Asked once at the top, the question is answered before he reads a single row.
+ */
+function Th({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <th scope="col" className="whitespace-nowrap px-3 py-2 text-start text-xs font-medium">
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {hint ? <Hint wide>{hint}</Hint> : null}
+      </span>
+    </th>
+  );
+}
+
+/**
+ * A number cell: read as text, edited in place, and PALE WHEN IT IS INHERITED.
+ *
+ * The paleness is the whole of «إعداد خاص» in a table — a badge per row would be a column of
+ * badges, while a number that is dimmer than its neighbours says "this one follows the general
+ * rule" without spending a column or a word. And it matters: an owner who cannot tell inherited
+ * from own retypes the number he is already following, which freezes it (§9.2 — inherit, never
+ * copy) and makes the next general change skip that service in silence.
+ */
+function Num({ value, own, editable, label, onSave }: {
+  value?: number;
+  own: boolean;
+  editable: boolean;
+  label: string;
+  onSave: (n: number) => void;
+}) {
+  const n = value ?? 0;
+  return (
+    <td className="px-3 py-2 tabular-nums">
+      {editable ? (
+        <input
+          type="number"
+          min={0}
+          dir="ltr"
+          defaultValue={String(n)}
+          aria-label={label}
+          onBlur={(e) => {
+            const raw = e.target.value.trim();
+            // A BLANK BOX SAVES NOTHING. `Number('')` is 0, and 0 is a real instruction here.
+            if (raw !== '' && Number(raw) !== n) onSave(Number(raw));
+          }}
+          className="h-9 w-16 rounded-lg bg-surface-2 px-2 text-center tabular-nums"
+        />
+      ) : (
+        <span className={own ? '' : 'text-text-secondary/60'}>{n > 0 ? n : '—'}</span>
+      )}
+    </td>
+  );
+}
+
+/** One square action. A title on every one, because a glyph alone is a guess. */
+function IconButton({ children, title, onClick, disabled, danger, active }: {
+  children: React.ReactNode;
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        // 40px, WHICH IS A THUMB. Icon buttons that fit the glyph fit nothing else, and this
+        // screen is used standing at a counter.
+        'grid h-10 w-10 shrink-0 place-items-center rounded-lg text-base transition-colors',
+        'disabled:opacity-40',
+        active
+          ? 'bg-accent-soft text-accent-on-soft'
+          : danger
+            ? 'text-danger hover:bg-danger/10'
+            : 'text-text-secondary hover:bg-surface-2',
+      ].join(' ')}
+    >
+      {children}
+    </button>
   );
 }
 
