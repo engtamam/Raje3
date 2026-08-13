@@ -804,7 +804,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     const v = e.target.value.trim();
                     if (v && v !== svc.name) patchService(svc.id, { name: v });
                   }}
-                  className="h-9 w-full min-w-[9rem] rounded-lg bg-surface-2 px-2"
+                  // NO MINIMUM WIDTH. A `min-w` inside a fixed-width cell does not widen the
+                  // column — it overflows it, which is what put the name box outside its own row
+                  // on a phone. The column is half the table; the input takes exactly that.
+                  className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2"
                 />
               ) : (
                 <span className="flex min-w-0 items-center gap-2">
@@ -856,7 +859,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                       if (!v) { leaveGroup(svc.id); return; }
                       joinGroup(svc.id, v);
                     }}
-                    className="h-9 w-full min-w-[7rem] rounded-lg bg-surface-2 px-2 text-sm"
+                    className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-2 text-sm"
                   >
                     <option value="">بلا مجموعة</option>
                     {Object.keys(settings?.groups ?? {}).map((g) => (
@@ -1074,7 +1077,7 @@ function Num({ value, own, editable, label, onSave, wide }: {
             // A BLANK BOX SAVES NOTHING. `Number('')` is 0, and 0 is a real instruction here.
             if (raw !== '' && Number(raw) !== n) onSave(Number(raw));
           }}
-          className="h-9 w-16 rounded-lg bg-surface-2 px-2 text-center tabular-nums"
+          className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
         />
       ) : (
         <span className={own ? '' : 'text-text-secondary/60'}>{n > 0 ? n : '—'}</span>
