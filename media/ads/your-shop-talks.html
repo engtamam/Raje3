@@ -37,6 +37,11 @@
     --alarm: #C0392B;
 
     --stage-w: min(100vw, calc(100dvh * 9 / 16));
+    /* ── وحدة القياس: عرض المسرح نفسه، لا عرض النافذة ────────────────────────────
+       كل مقاسٍ تحت يُشتقّ من `--u`. الصياغة الأولى استعملت `clamp(…, 6.4vw, 2.9rem)`
+       وهي تُقرأ صحيحةً على جوال بعرض 430 — وتُصيَّر على لوحة عرضها 1080، فيقف السقف
+       عند 46 بكسل ويخرج النصّ ذرّةً في وسط فراغ. المقاس يجب أن يتبع الإطار لا الشاشة. */
+    --u: var(--stage-w);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -44,7 +49,12 @@
   body {
     background: var(--ground);
     color: var(--ink);
-    font-family: "SF Arabic", "Segoe UI", "Noto Naskh Arabic", "IBM Plex Sans Arabic", system-ui, sans-serif;
+    /* ── الخط ───────────────────────────────────────────────────────────────────
+       الترتيب مقصود: خطٌّ عربي **غير مشبك** وثقيل. أول صياغةٍ وضعت "Noto Naskh Arabic"
+       في القائمة، وهو نسخيّ مشبك بوزنٍ واحد — فاختاره المتصفّح عند التصيير وخرج النصّ
+       رفيعاً كخطّ كتاب، لا كإعلان. وTahoma هنا لأنه أثقل خطٍّ عربي مضمونٌ على ويندوز،
+       وهو ما يُصيَّر به فعلاً. */
+    font-family: "SF Arabic", "Segoe UI", Tahoma, "Arial", system-ui, sans-serif;
     display: grid;
     place-items: center;
     min-height: 100dvh;
@@ -108,14 +118,14 @@
   .beat.on { opacity: 1; }
 
   .ask {
-    font-size: clamp(1.6rem, 6.4vw, 2.9rem);
-    font-weight: 800;
+    font-size: calc(var(--u) * .088);
+    font-weight: 700;
     line-height: 1.35;
     text-wrap: balance;
     letter-spacing: -.01em;
   }
   .reply {
-    font-size: clamp(1rem, 3.4vw, 1.4rem);
+    font-size: calc(var(--u) * .046);
     font-weight: 500;
     color: var(--muted);
     opacity: 0;
@@ -143,7 +153,7 @@
   @keyframes rise { to { opacity: 1; transform: none; } }
 
   .num {
-    font-size: clamp(2.6rem, 12vw, 5rem);
+    font-size: calc(var(--u) * .175);
     font-weight: 900;
     line-height: 1;
     color: var(--gold);
@@ -151,7 +161,7 @@
     letter-spacing: -.02em;
   }
   .unit {
-    font-size: clamp(.95rem, 3.6vw, 1.35rem);
+    font-size: calc(var(--u) * .048);
     font-weight: 600;
     color: var(--ink);
   }
@@ -161,8 +171,8 @@
 
   /* ── الخاتمة ────────────────────────────────────────────────────────────────── */
   .close-1, .close-2 {
-    font-size: clamp(1.5rem, 6vw, 2.6rem);
-    font-weight: 800;
+    font-size: calc(var(--u) * .082);
+    font-weight: 700;
     line-height: 1.4;
   }
   .close-2 { color: var(--muted); }
@@ -173,14 +183,14 @@
     place-items: center;
   }
   .wordmark {
-    font-size: clamp(3rem, 14vw, 5.5rem);
+    font-size: calc(var(--u) * .2);
     font-weight: 900;
     color: var(--gold);
     letter-spacing: -.03em;
     line-height: 1;
   }
   .site {
-    font-size: clamp(.85rem, 3.2vw, 1.1rem);
+    font-size: calc(var(--u) * .038);
     color: var(--muted);
     letter-spacing: .04em;
     direction: ltr;
