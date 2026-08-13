@@ -23,6 +23,8 @@
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
+import { KpiCard } from '@base-ui/design-system/KpiCard';
+import { Coins, Gift, Power, Users } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Field, Input } from '@base-ui/design-system/Field';
@@ -204,31 +206,30 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-5 p-4">
+      {/* ── what the programme is costing him ────────────────────────────────────────────────
+          THREE NUMBERS, AND ONLY THE LAST ONE IS MONEY. Points outstanding are a debt the shop
+          has already promised and not yet paid (§9.1) — an owner who cannot see its size cannot
+          price the programme — so it carries the accent and the other two are context for it.
+
+          THE OLD ROW WAS THREE IDENTICAL GREY SPANS at one type size, and the eye had no reason
+          to stop anywhere. A screen where everything is equally important is a screen where
+          nothing is. */}
       {report ? (
-        <div className="flex gap-6 rounded-card bg-surface-1 p-4 shadow-sm">
-          <span className="flex flex-col">
-            <span className="text-2xl tabular-nums">{report.customers ?? 0}</span>
-            <span className="text-sm text-text-secondary">عميلاً يجمع نقاطاً</span>
-          </span>
-          <span className="flex flex-col">
-            <span className="text-2xl tabular-nums">{report.redemptions ?? 0}</span>
-            <span className="text-sm text-text-secondary">استبدال</span>
-          </span>
-          {/* THE NUMBER WITH MONEY BEHIND IT (§9.1). Points are a deferred financial obligation,
-              and an owner who cannot see the size of what he promised cannot price the programme. */}
-          <span className="flex flex-col">
-            <span className="text-2xl tabular-nums">{report.outstanding ?? 0}</span>
-            <span className="text-sm text-text-secondary">نقطة لم تُستبدل بعد</span>
-          </span>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <KpiCard icon={<Users size={18} />} label="عميل يجمع نقاطاً"
+                   value={String(report.customers ?? 0)} />
+          <KpiCard icon={<Gift size={18} />} label="استبدال"
+                   value={String(report.redemptions ?? 0)} />
+          <KpiCard icon={<Coins size={18} />} label="نقطة لم تُستبدل بعد"
+                   value={String(report.outstanding ?? 0)}
+                   hint="ما وعدت به ولم يُصرف — وهو التزام على محلّك." />
         </div>
       ) : null}
 
       <Segmented
-        // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
-        // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
-        // ragged block half the screen wide. It takes a className and merges with
-        // tailwind-merge, so this is a fix at the call site rather than a fork of the kit.
+        // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is `inline-flex flex-wrap`,
+        // which on a phone stacks two long Arabic labels into a ragged block half the screen wide.
         className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
         ariaLabel="أقسام النقاط"
         value={tab}
@@ -242,16 +243,16 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       {error ? <p className="text-danger">{error}</p> : null}
 
       {tab === 'rewards' ? (
-        <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm text-text-secondary">جدول المكافآت</h2>
-            {canAdd && !adding ? (
-              <Button variant="ghost" onClick={() => setAdding(true)}>إضافة مكافأة</Button>
-            ) : null}
-          </div>
+        <section className="flex flex-col gap-3">
+          <Head title="جدول المكافآت"
+                said="ما يستبدله عميلك بنقاطه — ويصل معبّأً لقطاعك."
+                action={canAdd && !adding
+                  ? <Button onClick={() => setAdding(true)}>إضافة مكافأة</Button>
+                  : null} />
 
           {adding ? (
-            <form onSubmit={addReward} className="mb-4 flex flex-col gap-3">
+            <form onSubmit={addReward}
+                  className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
               <Field label="اسم المكافأة" htmlFor="rw-name" hint="يظهر في رسالة واتساب للعميل — اجعله قصيراً">
                 <Input id="rw-name" name="name" required maxLength={40} />
               </Field>
@@ -259,34 +260,24 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                 <Input id="rw-cost" name="cost" type="number" min={1} required dir="ltr" />
               </Field>
               {/* THE HINT IS UNDER THE SELECT, NOT INSIDE IT. A native option list sizes itself to
-                  its longest string and is drawn by the OS, outside our layout — on a phone
-                  «خدمة من الكتالوج — تُسجَّل زيارة كاملة…» painted itself straight off the sheet.
-                  The consequence still has to be readable, so it moves to where we control it and
-                  follows the choice. */}
+                  its longest string and is drawn by the OS, outside our layout. */}
               <Field label="النوع" htmlFor="rw-type" hint={TYPES.find((t) => t.value === type)?.hint}>
-                <select
-                  id="rw-type"
-                  name="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="h-10 rounded-lg bg-surface-2 px-3"
-                >
-                  {TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
+                <select id="rw-type" name="type" value={type}
+                        onChange={(e) => setType(e.target.value)}
+                        className="h-10 rounded-lg bg-surface-2 px-3">
+                  {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </Field>
               {/* ONE FIELD AT A TIME. Showing both and labelling each with the case it belongs to
-                  («لمكافأة من نوع خصم») asks the owner to do the branching we already know the
-                  answer to. The server still refuses either mismatch by itself — the till reaches
-                  this API without passing here (§9.4) — so this hides a question, never a rule. */}
+                  asks the owner to do the branching we already know the answer to. */}
               {type === 'discount' ? (
                 <Field label="مبلغ الخصم بالريال" htmlFor="rw-riyals">
                   <Input id="rw-riyals" name="riyals" type="number" min={0} dir="ltr" required />
                 </Field>
               ) : type === 'service' ? (
                 <Field label="ما يحصل عليه" htmlFor="rw-service" hint="مما تقدّمه — خدمةً كان أو منتجاً">
-                  <select id="rw-service" name="service_id" required className="h-10 rounded-lg bg-surface-2 px-3">
+                  <select id="rw-service" name="service_id" required
+                          className="h-10 rounded-lg bg-surface-2 px-3">
                     <option value="">—</option>
                     {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -301,55 +292,79 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
           {rewards.length === 0 ? (
             // A FAULT, NOT AN INVITATION. The table is seeded for his sector at creation, so empty
-            // means the seeding did not run — and telling him to build one from scratch would hide
-            // our failure behind his effort.
+            // means the seeding did not run.
             <EmptyState
               title="جدول المكافآت فارغ"
               description="يصل معبّأً لقطاعك عند إنشاء الحساب — تواصل معنا إن بقي فارغاً."
             />
           ) : (
             <ul className="flex flex-col gap-2">
-              {rewards.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex flex-col">
-                    <span>{r.name}</span>
-                    <span className="text-sm text-text-secondary">{typeLabel(r.type)}</span>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {canEdit ? (
+              {/* CHEAPEST FIRST, because that is the order his customer meets them in: the first
+                  reward within reach is the one that brings him back a fourth time. A list in
+                  creation order is a list in OUR order. */}
+              {[...rewards].sort((a, b) => a.cost - b.cost).map((r) => (
+                <li key={r.id}
+                    className={[
+                      'flex items-center gap-3 rounded-card border border-border-subtle bg-surface-1 p-3',
+                      r.active === false ? 'opacity-60' : '',
+                    ].join(' ')}>
+                  {/* THE COST AS A COIN, NOT AS A NUMBER IN A ROW OF NUMBERS. It is the one thing
+                      the owner compares between rewards and the one thing his customer counts
+                      towards, so it is the shape the eye lands on first. */}
+                  {canEdit ? (
+                    <label className="flex shrink-0 flex-col items-center gap-0.5">
                       <input
                         type="number"
                         min={1}
                         defaultValue={r.cost}
                         aria-label={`تكلفة ${r.name} بالنقاط`}
+                        dir="ltr"
                         // A BLANK FIELD IS NOT A ZERO, and here it would also be a refusal: cost
-                        // must be greater than zero. An empty box saves nothing.
+                        // must be greater than zero.
                         onBlur={(e) => {
                           const raw = e.target.value.trim();
                           if (raw !== '' && Number(raw) !== r.cost) {
                             patchReward(r.id, { cost: Number(raw) });
                           }
                         }}
-                        dir="ltr"
-                        className="h-10 w-24 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                        className="h-11 w-20 rounded-xl bg-accent-soft px-1 text-center text-lg font-semibold tabular-nums text-accent-on-soft"
                       />
-                    ) : (
-                      <span className="tabular-nums text-text-secondary">{r.cost}</span>
-                    )}
-                    <span className="text-sm text-text-secondary">نقطة</span>
-                    {r.active === false ? <Badge tone="neutral">موقوفة</Badge> : null}
-                    {/* RETIRED, NEVER DELETED. Every redemption in history references a reward,
-                        and a receipt must not restate itself when the menu changes. */}
-                    {canEdit ? (
-                      <Button
-                        variant="ghost"
-                        disabled={saving}
-                        onClick={() => patchReward(r.id, { active: r.active === false })}
-                      >
-                        {r.active === false ? 'تفعيل' : 'إيقاف'}
-                      </Button>
-                    ) : null}
+                      <span className="text-[0.65rem] text-text-secondary">نقطة</span>
+                    </label>
+                  ) : (
+                    <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-accent-soft text-lg font-semibold tabular-nums text-accent-on-soft">
+                      {r.cost}
+                    </span>
+                  )}
+
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate font-medium">{r.name}</span>
+                    <span className="flex items-center gap-2">
+                      <Badge tone="neutral">{typeLabel(r.type)}</Badge>
+                      {r.active === false ? <Badge tone="warning">موقوفة</Badge> : null}
+                    </span>
                   </span>
+
+                  {/* RETIRED, NEVER DELETED. Every redemption in history references a reward, and
+                      a receipt must not restate itself when the menu changes. */}
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      title={r.active === false ? 'تفعيل' : 'إيقاف — يختفي من قائمة الاستبدال'}
+                      aria-label={r.active === false ? 'تفعيل' : 'إيقاف'}
+                      disabled={saving}
+                      onClick={() => patchReward(r.id, { active: r.active === false })}
+                      className={[
+                        'grid size-11 shrink-0 place-items-center rounded-lg transition-colors',
+                        'disabled:opacity-40',
+                        r.active === false
+                          ? 'text-text-secondary hover:bg-surface-2'
+                          : 'text-danger hover:bg-danger/10',
+                      ].join(' ')}
+                    >
+                      <Power size={18} aria-hidden />
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -361,8 +376,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               grants twice for one transaction — an error that does not show on the screen but at
               the end of the month, as an obligation double what he expected. */}
           {canSetMode ? (
-            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
-              <h2 className="mb-3 text-sm text-text-secondary">طريقة الاحتساب</h2>
+            <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+              <Head title="طريقة الاحتساب"
+                    said="بالخدمات: كل خدمة نقاطها. بقيمة الفاتورة: نقطة لكل ريال." />
               <Segmented
                 // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
                 // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
@@ -408,7 +424,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
           ) : null}
 
           {canSetGeneral ? (
-            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
+            <div className="rounded-card border border-border-subtle bg-surface-1 p-4">
               <label className="flex items-center justify-between gap-3">
                 <span className="flex flex-col">
                   <span className="text-sm">نقاط لكل زيارة (عام)</span>
@@ -451,11 +467,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               settings the engine returns, so there is no second place to define a group and no way
               for the two to disagree. */}
           {canSetGroup && groupNames.length > 0 ? (
-            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
-              <h2 className="mb-1 text-sm text-text-secondary">نقاط مجموعة</h2>
-              <p className="mb-3 text-sm text-text-secondary">
-                تسري على كل خدمة في المجموعة لم تُخصَّص وحدها.
-              </p>
+            <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+              <Head title="نقاط مجموعة"
+                    said="تسري على كل خدمة في المجموعة لم تُخصَّص وحدها." />
               <ul className="flex flex-col gap-2">
                 {groupNames.map((g) => (
                   <li key={g} className="flex items-center justify-between gap-3">
@@ -497,8 +511,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
           ) : null}
 
           {canSetService && services.length > 0 ? (
-            <div className="rounded-card bg-surface-1 p-4 shadow-sm">
-              <h2 className="mb-3 text-sm text-text-secondary">نقاط خدمة بعينها</h2>
+            <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
+              <Head title="نقاط خدمة بعينها"
+                    said="رقمٌ خاص يتقدّم على المجموعة وعلى العام." />
               <ul className="flex flex-col gap-2">
                 {services.map((s) => {
                   const { points, own } = earnFor(s.id);
@@ -553,6 +568,28 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
           ) : null}
         </section>
       )}
+    </div>
+  );
+}
+
+
+/**
+ * A section's heading: a title, the sentence that says what the section is for, and its one act.
+ *
+ * WHY THIS EXISTS AS A COMPONENT. Every heading on this screen was «text-sm text-text-secondary» —
+ * the same weight, size and colour as the labels inside the cards under it. The owner's own words
+ * were that he could not tell a section's head from its branches, and he was right: nothing on the
+ * page was drawn as a heading, so the page had no structure to read.
+ */
+function Head({ title, said, action }:
+    { title: string; said?: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-2 px-1">
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <h2 className="text-base font-semibold">{title}</h2>
+        {said ? <span className="text-sm text-text-secondary">{said}</span> : null}
+      </span>
+      {action}
     </div>
   );
 }
