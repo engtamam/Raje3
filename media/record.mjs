@@ -63,7 +63,7 @@ const SECONDS_OVERRIDE = flag('seconds', 0);
 // المسار يُوحَّد قبل فحصه: على ويندوز يأتي بشرطاتٍ خلفية، فـ`includes('/ads/')` تفشل
 // بصمت — ويُصيَّر الإعلان أفقياً 1920×1080، فيحسب المسرح نفسه على ارتفاعٍ قصير ويخرج
 // 608×1080. ملفٌ سليمٌ تماماً وبمقاسٍ لا يصلح لأي منصّة.
-const path_ = target.replace(/\/g, '/');
+const path_ = target.split('\\').join('/');
 const PORTRAIT = args.includes('--portrait') || path_.includes('/ads/')
   || basename(target).startsWith('ad-');
 
