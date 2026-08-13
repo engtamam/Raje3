@@ -218,6 +218,50 @@ header{
   .thumb .btn-ghost{flex:0 0 auto; padding:0 18px}
 }
 .thumb{display:none}
+
+/* ── the problem, as three lines ─────────────────────────────────────────────────────────── */
+.facts{display:flex; flex-direction:column; gap:10px; margin-top:22px; font-size:1.05rem}
+.facts p{margin:0}
+
+/* ── steps: numbered, flat, no card chrome ───────────────────────────────────────────────── */
+.step{padding:0 4px}
+.step h3{margin-bottom:.35em}
+.step p{margin:0; color:var(--ink-2)}
+
+/* ── the calculator ──────────────────────────────────────────────────────────────────────── */
+.calc{
+  margin-top:26px; background:var(--card); border:1px solid var(--line-2);
+  border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);
+}
+.calc-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 0}
+.calc-row + .calc-row{border-top:1px solid var(--line)}
+.calc-row span{font-weight:600; color:var(--ink)}
+.calc-row input{
+  width:8rem; min-height:48px; padding:0 12px; text-align:center;
+  font:inherit; font-weight:700; color:var(--ink);
+  background:var(--card-2); border:1px solid var(--line-2); border-radius:12px;
+}
+.calc-out{
+  display:block; margin-top:16px; padding:18px; border-radius:14px;
+  background:var(--gold-soft); border:1px solid var(--line-2);
+  color:var(--gold-on-soft); font-size:1.15rem; font-weight:700; line-height:1.7; text-align:center;
+}
+.calc-out b{font-size:1.5rem}
+.calc-note{margin:12px 2px 0; font-size:.9rem; color:var(--muted)}
+
+/* ── FAQ ─────────────────────────────────────────────────────────────────────────────────── */
+.faq{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  margin-top:10px; overflow:hidden;
+}
+.faq summary{
+  cursor:pointer; list-style:none; padding:16px 18px;
+  font-weight:700; color:var(--ink);
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq[open] summary{border-bottom:1px solid var(--line)}
+.faq p{margin:0; padding:16px 18px; color:var(--ink-2)}
+
 footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); font-size:.95rem}
 .foot{display:flex; flex-wrap:wrap; gap:14px; justify-content:space-between; align-items:center}
 .foot a{text-decoration:none}
@@ -264,30 +308,22 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
       <span class="eyebrow">منصة الاحتفاظ بالعميل</span>
       <h1>عميلك جاك مرة… <span class="accent">خلّه يرجع لك كل مرة</span>.</h1>
       <p class="lead">
-        تخفيضاتك تروح على الفاضي: توصل لمن هو عند الباب، وما توصل لمن غاب.
-        <strong>راجِع</strong> يوصّلها لمن غاب.
+        يرجّع عملاءك على واتساب باسم محلك — في وقتهم، بلا إزعاج، وبلا ما تفتح شي.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary btn-lg" href="/app?signup=1">تسجيل جديد</a>
-        <a class="btn btn-ghost btn-lg" href="#how">شوف كيف يشتغل</a>
+        <a class="btn btn-ghost btn-lg" href="#calc">احسب كم عميل غايب عندك</a>
       </div>
-      <p class="note">تسجيل بدقيقة · تُدير كل شيء من حسابك</p>
+      <p class="note">تسجيل بدقيقة · يشتغل جنب الكاشير حقك · بلا تغيير أنظمتك</p>
     </div>
 
-    <div class="phone" aria-label="مثال على رسالتين يستقبلهما عميل المحل على واتساب">
+    <div class="phone" aria-label="مثال على رسالة يستقبلها عميل المحل على واتساب">
       <div class="screen">
-        <!-- THE TEXT IS NOT WRITTEN FOR THIS PAGE. Both bubbles are templates from the library the
-             product ships — mkt_winback and per_points_expiring, in their warm tone, with the
-             variables filled. A landing page that invents nicer copy than the product sends is a
-             page that sells something we do not have. -->
         <div class="waline">
           <span class="wa-av" aria-hidden="true">و</span>
           <span class="wa-name">متجر الواحة</span>
         </div>
         <div class="chat">
-          <!-- ONE BUBBLE, WHICH IS ALSO THE TRUTH. The product merges what would otherwise be two
-               messages into one (§5.8) — two bubbles a minute apart is the exact thing the merge
-               rule exists to prevent, and showing it here contradicted the promise two cards down. -->
           <div class="bubble">
             صار لنا فترة ما شفناك يا <strong>أبو محمد</strong>! جهّزنا لك <strong>خصم 20%</strong>
             في زيارتك الجاية لـ<strong>متجر الواحة</strong> — وعندك <strong>120 نقطة</strong>
@@ -301,37 +337,26 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
   </div>
 </section>
 
-<!-- ── the problem, named ───────────────────────────────────────────────────────────────── -->
-<section class="section">
-  <div class="wrap">
-    <span class="eyebrow">المشكلة</span>
+<!-- ── the problem, in three lines ──────────────────────────────────────────────────────── -->
+<!-- THREE LINES, NOT THREE CARDS. The problem is one he already knows; the page's job is to name
+     it in his words and move on. Arguing it at length insults a reader who lives it daily. -->
+<section class="section" style="background:var(--card-2)">
+  <div class="wrap" style="text-align:center">
     <h2>ما تخسر عميلك بخلاف — تخسره بالنسيان.</h2>
-    <div class="grid grid-3" style="margin-top:34px">
-      <div class="card">
-        <div class="ico" aria-hidden="true">🗒️</div>
-        <h3>ذاكرةٌ لا تتّسع</h3>
-        <p>أول عشرة تحفظهم. والباقي ما أحد يحصيهم.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true">📣</div>
-        <h3>إعلانٌ يشتري غريباً</h3>
-        <p>تدفع لواحد ما يعرفك، وتنسى اللي يعرفك.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true">⏱️</div>
-        <h3>وقتٌ ليس عندك</h3>
-        <p>مئتين رسالة باليد؟ ما ترسلها مرة، ولا تعيدها كل شهر.</p>
-      </div>
+    <div class="facts">
+      <p><strong>أول عشرة تحفظهم</strong>، والباقي ما أحد يحصيهم.</p>
+      <p><strong>تدفع لواحد ما يعرفك</strong>، وتنسى اللي يعرفك.</p>
+      <p><strong>عرضك ما وصله</strong>، لأنه ما عاد يجيك.</p>
     </div>
   </div>
 </section>
 
-<!-- ── how ──────────────────────────────────────────────────────────────────────────────── -->
-<section class="section" id="how" style="background:var(--card-2)">
+<!-- ── how it works ─────────────────────────────────────────────────────────────────────── -->
+<section class="section" id="how">
   <div class="wrap">
-    <span class="eyebrow">كيف يعمل</span>
+    <span class="eyebrow">كيف يشتغل</span>
     <h2>ثلاث خطوات، وبعدها يشتغل وحده.</h2>
-    <div class="steps" style="margin-top:44px">
+    <div class="grid grid-3" style="margin-top:34px">
       <div class="step">
         <h3>سجّل الزيارة</h3>
         <p>رقمه، وخمس ثوانٍ من موظفك. لا أكثر.</p>
@@ -348,11 +373,54 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
   </div>
 </section>
 
-<!-- ── what she gets ────────────────────────────────────────────────────────────────────── -->
+<!-- ── the calculator ───────────────────────────────────────────────────────────────────── -->
+<!-- HIS NUMBERS, NEVER OURS. Every calculator on a landing page is built to flatter the product:
+     it assumes a return rate nobody can promise, multiplies it by an invented basket, and prints
+     a figure the first month disproves. This one asks him for BOTH inputs — how many customers he
+     serves, and what his average bill is — and then answers the only question that is pure
+     arithmetic: what one returning customer a day is worth to him in a month.
+
+     WE PROMISE NOTHING. The sentence under the result says so plainly: this is his own bill times
+     his own guess, and whether they come back is what the product is for. -->
+<section class="section" id="calc" style="background:var(--card-2)">
+  <div class="wrap" style="max-width:760px">
+    <span class="eyebrow">احسبها بنفسك</span>
+    <h2>وش تسوى عندك زيارة راجعة؟</h2>
+    <p class="lead" style="max-width:none">
+      حطّ أرقامك أنت — كم عميل يجيك في الشهر، وكم متوسط الفاتورة — وشوف الفرق اللي يسويه
+      رجوع عميل واحد كل يوم.
+    </p>
+
+    <div class="calc">
+      <label class="calc-row">
+        <span>عملاؤك في الشهر</span>
+        <input id="c-customers" type="number" inputmode="numeric" min="0" value="300">
+      </label>
+      <label class="calc-row">
+        <span>متوسط الفاتورة (ريال)</span>
+        <input id="c-ticket" type="number" inputmode="numeric" min="0" value="120">
+      </label>
+      <label class="calc-row">
+        <span>كم واحد ترجّعه في اليوم؟</span>
+        <input id="c-daily" type="number" inputmode="numeric" min="0" value="1">
+      </label>
+
+      <output class="calc-out" id="c-out" aria-live="polite"></output>
+      <p class="calc-note">
+        حسابك أنت، لا وعدٌ منّا: متوسط فاتورتك × من يرجع. ومهمّة راجِع أن يرجعوا.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ── what he buys ─────────────────────────────────────────────────────────────────────── -->
+<!-- EVERY NUMBER HERE IS THE PRODUCT'S OWN, taken from the spec rather than invented for the
+     page. A landing page that invents its examples sells something the first customer will not
+     find. -->
 <section class="section">
   <div class="wrap">
-    <span class="eyebrow">ما الذي يرجّعه</span>
-    <h2>كل اللي يرجّع عميلك، في مكانٍ واحد.</h2>
+    <span class="eyebrow">ما الذي تشتريه</span>
+    <h2>يشتغل عنك، ويقول لك وين فلوسك.</h2>
 
     <div class="grid grid-2" style="margin-top:36px">
 
@@ -380,130 +448,79 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
         <p>سقف يومي، وأوقات مناسبة، و«إيقاف» تُحترم على طول.</p>
       </div>
 
-    </div>
-
-    </div>
-  </div>
-</section>
-
-
-<!-- ── what he buys ───────────────────────────────────────────────────────────────────────── -->
-<!-- EVERY NUMBER HERE IS THE PRODUCT'S OWN, taken from the spec rather than invented for the page:
-     the suggested-bundle card (§10.6.2.1), the campaign preview (§10.9), the Sunday report
-     (§10.6.5), the customer page carrying no mark of ours (§8.6.1). A landing page that invents
-     its examples sells something the first customer will not find. -->
-<section class="section">
-  <div class="wrap">
-    <span class="eyebrow">ما الذي تشتريه فعلاً</span>
-    <h2>يشتغل عنك، ويقول لك وين فلوسك.</h2>
-
-    <div class="grid grid-2" style="margin-top:36px">
-
       <div class="card">
         <div class="ico" aria-hidden="true">🧩</div>
         <h3>فرصٌ ما تشوفها</h3>
-        <p>يقارن ما يطلبه عملاؤك ببعضه، ويطلع لك بالفجوة:
-           <strong>خدمتان تُطلبان معاً ضِعف المتوقّع</strong> —
-           و<strong>340 عميلاً</strong> أخذوا الأولى ولا مرة أخذوا الثانية.
-           الفرصة بالاسم والعدد، والسعر عليك.</p>
+        <p>يقارن ما يطلبه عملاؤك ببعضه: <strong>خدمتان تُطلبان معاً ضِعف المتوقّع</strong> —
+           و<strong>340 عميلاً</strong> أخذوا الأولى ولا مرة أخذوا الثانية.</p>
       </div>
 
       <div class="card">
         <div class="ico" aria-hidden="true">📨</div>
         <h3>تقرير الأحد على واتساب</h3>
-        <p>تسعة أسطر تُقرأ في عشر ثوانٍ: من زار، ومن تأخّر، وكم استُبدل — وزرٌّ واحد
-           <strong>[أرسل للمتأخرين]</strong>. ما تحتاج تفتح لوحة.</p>
-      </div>
-
-      <div class="card">
-        <div class="ico" aria-hidden="true">🛡️</div>
-        <h3>قبل ما ترسل، تعرف</h3>
-        <p>«تصل 47 عميلاً · <strong>استُثني 112 لأنهم أخذوا الخدمة قريباً</strong>» — ما تدفع
-           تخفيضاً على بيعةٍ كانت راجعة لك بلا تخفيض.</p>
+        <p>تسعة أسطر في عشر ثوانٍ، وزرٌّ واحد <strong>[أرسل للمتأخرين]</strong>.
+           ما تحتاج تفتح لوحة.</p>
       </div>
 
       <div class="card">
         <div class="ico" aria-hidden="true">🧾</div>
         <h3>مربوط بالكاشير</h3>
-        <p>فاتورتك تصير زيارة، والباقي عليه: الموعد والنقاط والتذكير.
-           <strong>تربط، وتنام.</strong></p>
+        <p>فاتورتك تصير زيارة، والباقي عليه. <strong>تربط، وتنام.</strong></p>
       </div>
 
       <div class="card">
         <div class="ico" aria-hidden="true">📱</div>
         <h3>صفحة باسم محلك</h3>
-        <p>يفتحها عميلك من الرسالة: نقاطه وعروضه وموعده — بلونك واسمك،
-           <strong>بلا اسمنا ولا شعارنا</strong>. يشوف محلّه، لا برنامجاً اشتريته.</p>
-      </div>
-
-      <div class="card">
-        <div class="ico" aria-hidden="true">📊</div>
-        <h3>مؤشرات تُقرأ</h3>
-        <p>مين رجع، ومين انقطع، وأي منتج يجرّ الثاني — عشرين مؤشراً، أحد عشر منها تشتغل من يوم تسجيلك.</p>
-      </div>
-
-      <div class="card">
-        <div class="ico" aria-hidden="true">👥</div>
-        <h3>أدوار لفريقك</h3>
-        <p>كلٌّ يشوف شغله وبس، والزيارة باسم اللي سجّلها.</p>
-      </div>
-
-      <div class="card">
-        <div class="ico" aria-hidden="true">⚡</div>
-        <h3>جاهز من أول يوم</h3>
-        <p>خدماتك ومنتجاتك جاهزة من قطاعك، ورسائلك مكتوبة، وجدول مكافآتك يوصلك معبّأ.
-           تعدّل بس، ما تبني من الصفر.</p>
+        <p>يفتحها عميلك من الرسالة — بلونك واسمك، <strong>بلا اسمنا ولا شعارنا</strong>.</p>
       </div>
 
     </div>
   </div>
 </section>
 
-<!-- ── who ──────────────────────────────────────────────────────────────────────────────── -->
-<section class="section" id="who" style="background:var(--card-2)">
-  <div class="wrap" style="text-align:center">
-    <span class="eyebrow">لمن</span>
-    <h2>لكل محلٍّ يعود إليه عميله.</h2>
-    <p class="lead" style="margin:0 auto 30px">
-      الصنعة تختلف والقاعدة واحدة: من يعود هو من يبني الدخل، والمنسيّ هو من يذهب.
-      وأي نشاطٍ يملك واتساب أعمال يبدأ اليوم — منشأةً كان أو عملاً حرّاً.
-    </p>
-    <div class="tags">
-      <span class="tag">صالونات نسائية</span>
-      <span class="tag">كافيهات ومقاهي</span>
-      <span class="tag">عيادات وتجميل</span>
-      <span class="tag">سبا وعناية</span>
-      <span class="tag">مطاعم</span>
-      <span class="tag">حلاقة رجالية</span>
-      <span class="tag">نوادي ولياقة</span>
-      <span class="tag">مغاسل وورش</span>
-      <span class="tag">…وكل ما يتكرّر</span>
-    </div>
+<!-- ── FAQ ──────────────────────────────────────────────────────────────────────────────── -->
+<!-- FOUR QUESTIONS, AND EACH ONE IS AN OBJECTION THAT ACTUALLY STOPS A SALE. Not «ما هي المنصة؟»,
+     which nobody asks — «بيعطّل عمّالي؟» and «بيتعارض مع الكاشير؟», which everybody does. -->
+<section class="section" style="background:var(--card-2)">
+  <div class="wrap" style="max-width:820px">
+    <span class="eyebrow">أسئلة تتكرّر</span>
+    <h2>قبل ما تسأل.</h2>
+
+    <details class="faq">
+      <summary>بيعطّل شغل موظفي؟</summary>
+      <p>شاشة واحدة: رقمه، والخدمة، وحفظ — تحت خمس ثوانٍ. ولا أسماء ولا فواتير ولا تدريب.</p>
+    </details>
+
+    <details class="faq">
+      <summary>يشتغل جنب الكاشير حقي؟</summary>
+      <p>نعم، ومعه أفضل: تربطه فتصير فاتورتك زيارة تلقائياً. ولو ما ربطته يشتغل وحده بلا تغيير
+         أي شي عندك.</p>
+    </details>
+
+    <details class="faq">
+      <summary>نشاطي يناسبه؟</summary>
+      <p>أي نشاط يتكرّر عميله — يجي، ويرجع بعد مدة. والخدمات والمنتجات عندنا سواء: الدورة
+         خاصية السطر اللي تضبطه أنت، لا اسم القسم.</p>
+    </details>
+
+    <details class="faq">
+      <summary>الرسائل ما تزعج عملائي؟</summary>
+      <p>سقف يومي لكل عميل، وأوقات مناسبة، ورسالة واحدة بدل ثلاث، و«إيقاف» تُحترم في حينها.
+         حماية عميلك من الإزعاج هي نفسها حماية رقمك من الحظر.</p>
+    </details>
   </div>
 </section>
 
 <!-- ── trust ────────────────────────────────────────────────────────────────────────────── -->
+<!-- ONE LINE, NOT THREE CARDS. Trust is stated and moved past: a reader who wants the detail
+     opens the policy, and a reader who does not was never going to read three cards about it. -->
 <section class="section">
-  <div class="wrap">
-    <span class="eyebrow">الثقة</span>
+  <div class="wrap" style="text-align:center">
     <h2>بياناتك بياناتك، وعملاؤك عملاؤك.</h2>
-    <div class="grid grid-3" style="margin-top:34px">
-      <div class="card">
-        <div class="ico" aria-hidden="true">🇸🇦</div>
-        <h3>داخل السعودية</h3>
-        <p>بيانات عملائك في المملكة، ووفق نظام حماية البيانات الشخصية.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true">✋</div>
-        <h3>من رفض لا يُراسَل</h3>
-        <p>حقُّ عميلك، لا إعدادٌ عندك.</p>
-      </div>
-      <div class="card">
-        <div class="ico" aria-hidden="true">🚪</div>
-        <h3>تخرج متى شئت</h3>
-        <p>تصدّر بياناتك وتُغلق حسابك بنفسك.</p>
-      </div>
-    </div>
+    <p class="lead" style="margin:0 auto">
+      بيانات عملائك في المملكة ووفق نظام حماية البيانات الشخصية · ومن رفض لا يُراسَل ·
+      وتصدّر بياناتك وتُغلق حسابك بنفسك متى شئت.
+    </p>
   </div>
 </section>
 
@@ -553,5 +570,31 @@ footer{border-top:1px solid var(--line); padding:34px 0; color:var(--muted); fon
   <a class="btn btn-primary" href="/app?signup=1">تسجيل جديد</a>
   <a class="btn btn-ghost" href="/app">دخول</a>
 </div>
+
+<script>
+  /* THE ONLY SCRIPT ON THIS PAGE, and it does arithmetic he could do on paper — which is exactly
+     why it is trustworthy. It reads three numbers HE typed and multiplies two of them. No
+     assumed return rate, no industry average, nothing that could be wrong. */
+  (function () {
+    var ids = ['c-customers', 'c-ticket', 'c-daily'];
+    var out = document.getElementById('c-out');
+    if (!out) return;
+    function n(id) { var v = parseInt(document.getElementById(id).value || '0', 10); return isFinite(v) && v > 0 ? v : 0; }
+    function render() {
+      var ticket = n('c-ticket'), daily = n('c-daily'), customers = n('c-customers');
+      var monthly = daily * 30 * ticket;
+      out.innerHTML = daily === 0 || ticket === 0
+        ? 'حطّ متوسط فاتورتك وكم عميل ترجّعه في اليوم.'
+        : 'رجوع <b>' + daily + '</b> عميل كل يوم = <b>' + monthly.toLocaleString('en-US') +
+          '</b> ريال في الشهر' +
+          (customers ? '، وهم <b>' + Math.round((daily * 30 / customers) * 100) + '%</b> فوق عملائك الحاليين.' : '.');
+    }
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      el.addEventListener('input', render);
+    });
+    render();
+  })();
+</script>
 </body>
 </html>
