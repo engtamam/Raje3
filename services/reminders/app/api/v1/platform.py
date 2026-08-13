@@ -125,3 +125,46 @@ async def clear_limits(request: Request, tenant: str = "",
     await request.app.state.container.datastore.delete(
         LIMITS_COLLECTION, f"{PLATFORM_TENANT}|{tenant}")
     return {"scope": tenant, "cleared": True}
+
+
+@router.get("/silent", dependencies=[Depends(rate_limit)])
+async def silent_shops(request: Request, limit: int = 200,
+                       principal: Principal = Depends(_PLATFORM)) -> dict:
+    """Establishments with messages queued that CANNOT send — ours, for the panel.
+
+    THE OUTAGE THIS EXISTS FOR HAPPENED, AND NOBODY KNEW. A shop whose establishment name cannot be
+    read is skipped whole by the tick — before the send log, before any refusal is recorded — so
+    the owner's screens showed a calm zero and our panel showed nothing at all. Real visits were
+    recorded for a day against an engine that was never going to send.
+
+    A DAILY TOTAL OF SENDS IS NOT A MONITOR. "0 sent today" is also what a quiet Friday looks like;
+    the alarm is the CONJUNCTION — work waiting, and a reason it cannot move. That is what this
+    returns, one row per shop, with the reason named.
+
+    READ-ONLY AND CHEAP. It walks pending schedules, which is the same read the tick starts from,
+    and asks identity for each distinct tenant — a cached call per tenant per five minutes.
+    """
+    c = request.app.state.container
+    rows, _ = await c.datastore.find("schedules", {"state": "pending"},
+                                     limit=max(1, min(limit, 2000)), sort=("due_at", "asc"))
+    waiting: dict[str, int] = {}
+    for r in rows:
+        t = str(r.get("tenant") or "")
+        if t:
+            waiting[t] = waiting.get(t, 0) + 1
+
+    stuck = []
+    for tenant, count in waiting.items():
+        shop = await c.identity.get(tenant)
+        if shop.usable:
+            continue
+        stuck.append({
+            "tenant": tenant,
+            "waiting": count,
+            # THE SAME SENTENCE THE OWNER SEES. Support and the owner reading two different
+            # descriptions of one fault is how a five-minute call becomes an hour.
+            "reason": "اسم المنشأة غير مقروء — لا تخرج أي رسالة",
+        })
+
+    stuck.sort(key=lambda x: -int(x["waiting"]))
+    return {"stuck": stuck, "count": len(stuck), "tenants_with_work": len(waiting)}

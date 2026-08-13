@@ -17,7 +17,7 @@
  * `campaigns === null` rendered nothing at all — and a section that disappears reads as a fault,
  * while a capability nobody can see is one nobody can buy.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Segmented } from '@base-ui/design-system/Segmented';
@@ -122,6 +122,18 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
    * unknown ref is simply absent from the answer and its row falls back to «عميل».
    */
   const [who, setWho] = useState<Record<string, Who>>({});
+  /**
+   * WHAT WE HAVE ALREADY ASKED FOR — and it cannot be derived from `who`.
+   *
+   * THE LOOP THIS PREVENTS, WHICH RAN IN PRODUCTION. The effect below filtered its refs by "not in
+   * `who`" and depended on `who`. A pseudonym operations does not return — an erased customer, or
+   * one whose row moved — never lands in the map, so the filter kept selecting it, the effect kept
+   * firing, and the console hammered `/customers/resolve` until the gateway answered 429.
+   *
+   * An unanswered ref is still an ASKED ref. A set of what we sent, in a ref rather than state, so
+   * recording it cannot itself trigger the effect that reads it.
+   */
+  const asked = useRef<Set<string>>(new Set());
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
   // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
@@ -167,8 +179,12 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
     const refs = [
       ...(schedule?.schedule ?? []).map((r) => r.subject_ref),
       ...(log ?? []).map((r) => r.subject_ref),
-    ].filter((r): r is string => Boolean(r) && !(r! in who));
+    ].filter((r): r is string => Boolean(r) && !asked.current.has(r!));
     if (refs.length === 0) return;
+    // MARKED BEFORE THE CALL, not after it. A failed request must not put the ref back in the
+    // queue: the next render would ask again, and a service that is down would be asked on every
+    // keystroke of the screen's life.
+    for (const r of refs) asked.current.add(r);
 
     let stale = false;
     call<{ customers: Who[] }>(session, resolve, { refs: [...new Set(refs)].slice(0, 200) })
@@ -184,7 +200,7 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
       // fall back to «عميل» for the name, which is worse than a name and far better than nothing.
       .catch(() => null);
     return () => { stale = true; };
-  }, [schedule, log, who, session, catalog]);
+  }, [schedule, log, session, catalog]);
 
   /** Re-read what is queued — after a cancel, so the row he just stopped is gone. */
   const loadSchedule = () => {

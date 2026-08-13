@@ -35,6 +35,12 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # OURS, NOT AN ESTABLISHMENT'S. The caps in spec 8.4.2 protect every number on the product,
     # so a shop cannot raise its own — the damage from a blocked number is not the shop's alone.
     {
+        "id": "reminders.silent", "label": "محلات لا ترسل", "method": "GET",
+        "path": "/api/v1/platform/silent", "capability": "platform.reminders",
+        # ONE ROW PER SHOP THAT HAS WORK WAITING AND CANNOT MOVE IT. «0 أُرسلت اليوم» is also what
+        # a quiet Friday looks like; the conjunction is the alarm.
+    },
+    {
         "id": "reminders.get_limits", "label": "حدود الإرسال", "method": "GET",
         "path": "/api/v1/platform/limits", "capability": "platform.reminders",
         "group": "المنصة",

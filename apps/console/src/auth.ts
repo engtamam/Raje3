@@ -100,7 +100,42 @@ export async function openShop(shop: NewShop): Promise<Session> {
     shop_name: shop.shopName,
     sector: shop.sector,
   });
-  return signIn(shop.phone, shop.password);
+  const session = await signIn(shop.phone, shop.password);
+
+  // ── THE NAME, WRITTEN WHERE THE ENGINE READS IT ─────────────────────────────────────────────
+  //
+  // THIS ONE LINE IS WHY A LIVE SHOP SENT NOTHING FOR A DAY, IN SILENCE.
+  //
+  // The signup saga hands the name to the tenant registry as `name`. The registry's INTERNAL read
+  // — the only one our services may call — answers with id, slug, status, config and branding, and
+  // no name at all. reminders therefore read a blank establishment; a blank name is the one thing
+  // that must stop a send (a message signed by nobody is worse than a late one), so the tick
+  // skipped the whole shop with «no establishment identity» BEFORE reaching the send log. Nothing
+  // sent, nothing suppressed, nothing written down: «رسائلي» stayed empty and said the system was
+  // calm.
+  //
+  // `branding.display_name` IS THE FIELD THE PLATFORM DOES RETURN, and every one of our services
+  // already prefers it. There is no internal route that writes branding — only the tenant's OWN
+  // `PUT /api/v1/tenant/branding`, which is exactly what this session now holds the capability
+  // for. So the write happens here, one call after the door opens, rather than in a saga that
+  // cannot reach it.
+  //
+  // FAILURE IS NOT FATAL TO SIGNUP. His account exists and every screen works; what he loses is
+  // sending, which «اليوم» now says out loud and «حسابي» repairs in one field.
+  try {
+    await fetch(`${BASE}/api/v1/tenant/branding`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.token}`,
+      },
+      body: JSON.stringify({ branding: { display_name: shop.shopName.trim() } }),
+    });
+  } catch {
+    // Swallowed on purpose: see above. The shop is open either way.
+  }
+
+  return session;
 }
 
 // ── proving the number ─────────────────────────────────────────────────────────────────────────

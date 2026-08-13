@@ -448,7 +448,27 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
     day = now - 86_400
     sent_today = [r for r in sent if int(r.get("sent_at") or r.get("due_at") or 0) >= day]
 
+    # ── CAN THIS SHOP SEND AT ALL? ────────────────────────────────────────────────────────────
+    # THE OUTAGE THAT LOOKED LIKE CALM. The tick skips an establishment whose name it cannot read —
+    # correctly, because a message signed by nobody is worse than a late one — and it skips it
+    # BEFORE the send log exists, so every screen the owner has said the same thing as a shop with
+    # nothing due: zero sent, N waiting, no refusals. He recorded real visits for a day and
+    # concluded the product was working.
+    #
+    # A SCREEN NAMED «هل كل شيء يعمل؟» MUST ANSWER THE ONE CASE WHERE NOTHING DOES. This reads the
+    # same adapter the tick reads, so the two cannot disagree, and it names the repair rather than
+    # the fault: he does not care that a peer omits a field, he cares that his name is missing and
+    # that one screen fixes it.
+    shop = await c.identity.get(tenant)
+    blocked_reason = "" if shop.usable else (
+        "اسم محلّك غير مضبوط، ولا تخرج أي رسالة باسم فارغ — اكتبه في «حسابي» وتُستأنف رسائلك تلقائياً."
+    )
+
     return {
+        "can_send": bool(shop.usable),
+        # EMPTY WHEN ALL IS WELL. A field that always carries a sentence is a field the screen
+        # learns to render unconditionally, and then a real warning looks like furniture.
+        "blocked": blocked_reason,
         "messages": {
             "sent_today": len(sent_today),
             "waiting": len(pending),

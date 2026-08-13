@@ -136,6 +136,8 @@ def build_manifest(
             {"path": "/api/v1/prefs/{}", "tier": "user", "method": "PUT"},
             # ── the platform console: the caps themselves ─────────────────────────────────
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "GET"},
+            # THE ALARM THAT DID NOT EXIST: shops with work queued and no way to send it.
+            {"path": "/api/v1/platform/silent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/limits", "tier": "user", "method": "DELETE"},
             {"path": "/api/v1/operator/secrets", "tier": "user", "method": "GET"},

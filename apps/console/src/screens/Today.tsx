@@ -21,6 +21,10 @@ import type { Session } from '../session';
 import { asLocal } from '../phone';
 
 interface Today {
+  /** Whether anything can go out at all. False is a stop, not a warning. */
+  can_send?: boolean;
+  /** The service's own sentence for why nothing can go out — shown whole, never re-worded. */
+  blocked?: string;
   messages: { sent_today: number; waiting: number };
   ceiling: {
     known: boolean;
@@ -113,6 +117,24 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      {/* ── THE STOP, ABOVE EVERYTHING ────────────────────────────────────────────────────
+          NOT AMBER. Amber is «something needs attention soon»; this is «nothing you record today
+          reaches anybody», which the screen used to render as a perfectly calm «0 خرجت · 3
+          بانتظار» — three tiles that describe a working shop. A day of real visits went past on
+          that screen and the owner concluded the product was fine.
+
+          IT NAMES THE REPAIR, NOT THE FAULT. He does not care which field a peer omits; he cares
+          that his name is missing and that one screen fixes it. */}
+      {today.blocked ? (
+        <div className="flex flex-col gap-2 rounded-card border border-danger bg-danger/10 px-4 py-3">
+          <span className="font-semibold text-danger">رسائلك متوقّفة</span>
+          <span className="text-sm">{today.blocked}</span>
+          <a href="/app/account" className="text-sm font-medium text-accent-on-soft underline">
+            افتح «حسابي»
+          </a>
+        </div>
+      ) : null}
+
       {warning ? (
         // Amber, and only amber, because the palette reserves it for "something needs attention
         // soon" — the kit's own comment forbids using it for anything else.
