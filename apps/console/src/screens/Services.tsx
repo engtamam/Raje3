@@ -727,7 +727,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         <table className="w-full table-fixed border-collapse text-sm">
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
-              <Th>الخدمة</Th>
+              <Th className="w-1/2">الخدمة</Th>
               <Th narrow hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
                 الدورة
               </Th>
@@ -744,7 +744,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   المجموعة
                 </Th>
               ) : null}
-              <Th narrow className="w-28">إجراءات</Th>
+              <Th narrow className="w-24">إجراءات</Th>
             </tr>
           </thead>
           <tbody>
@@ -880,7 +880,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 readable. So the second icon is a power switch rather than a bin, because an icon
                 that promises deletion and performs retirement is a lie told in one glyph. */}
             <td className="px-3 py-2">
-              <div className="flex items-center justify-end gap-1">
+              <div className="flex items-center justify-end gap-0.5 md:gap-1">
                 {own && action(catalog, 'reminders.follow_general') ? (
                   <IconButton
                     title="العودة إلى الإعداد العام"
@@ -1030,7 +1030,7 @@ function Th({ children, hint, wide, narrow, className = '' }: {
   return (
     <th scope="col" className={[
       'whitespace-nowrap px-3 py-2 text-start text-xs font-medium',
-      narrow ? 'w-20' : '',
+      narrow ? 'w-16' : '',
       wide ? 'hidden md:table-cell' : '',
       className,
     ].join(' ')}>
@@ -1112,7 +1112,7 @@ function IconButton({ children, title, onClick, disabled, danger, active }: {
       className={[
         // 40px, WHICH IS A THUMB. Icon buttons that fit the glyph fit nothing else, and this
         // screen is used standing at a counter.
-        'grid h-10 w-10 shrink-0 place-items-center rounded-lg text-base transition-colors',
+        'grid h-10 w-9 shrink-0 place-items-center rounded-lg text-base transition-colors md:w-10',
         'disabled:opacity-40',
         active
           ? 'bg-accent-soft text-accent-on-soft'
