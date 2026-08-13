@@ -163,3 +163,29 @@ def test_the_send_log_survives_the_erasure(st):
                                             at=100))))
     run(RemindersErasure(store=st).erase("t1", "sub_a"))
     assert len(run(log.since("t1", "sub_a", since=0))) == 1
+
+
+def test_a_row_can_be_found_by_the_id_a_screen_was_given(st):
+    """THE «أوقفها» BUTTON WAS A 404 FROM THE DAY IT WAS BUILT.
+
+    Rows go into the store under their NATURAL key — «tenant|subject|service|kind» — while every
+    list this service answers with carries `id` («sch_…»), which is the only handle a screen has.
+    The delete route took the key, the console sent the id, and every press returned NOT_FOUND: an
+    owner stopping a reminder watched it go out anyway.
+
+    The route now resolves an id inside the caller's own tenant, which is only possible because a
+    find on `id` returns the row. This pins that.
+    """
+    store = S.ScheduleStore(st)
+    s = _sched(kind="reminder")
+    row = M.as_row(s)
+    run(store.upsert("t1", s.key, row))
+
+    found, _ = run(store._find("t1", {"id": row["id"]}, limit=1))
+    assert found and found[0]["id"] == row["id"]
+    assert S._sched_key(found[0]) == s.key
+
+    # AND NOT ACROSS ESTABLISHMENTS. The same id asked for by another tenant finds nothing, which
+    # is what makes accepting an id off the request safe.
+    other, _ = run(store._find("t2", {"id": row["id"]}, limit=1))
+    assert other == []

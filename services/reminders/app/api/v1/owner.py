@@ -17,7 +17,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.reach import Reach
 from app.core.spent import SpentUnknown, spent_refs
-from app.core.stores import RuleStore, ScheduleStore, SendLogStore
+from app.core.stores import RuleStore, ScheduleStore, SendLogStore, _sched_key
 
 
 def _ops_url(request: Request) -> str:
@@ -62,6 +62,22 @@ async def cancel(request: Request, schedule_key: str,
     """
     store = ScheduleStore(request.app.state.container.datastore)
     row = await store.get(schedule_key)
+    key = schedule_key
+
+    # ── AN ID IS ALSO A HANDLE ────────────────────────────────────────────────────────────────
+    # THE BUTTON NEVER WORKED, FROM THE DAY IT WAS BUILT. This route takes the NATURAL key —
+    # «tenant|subject|service|kind» — while every list this service answers with carries `id`
+    # («sch_66eba7…»), which is what a screen has to send. Every «أوقفها» press was a 404, and the
+    # row stayed pending: an owner stopping a message he did not want watched it go out anyway.
+    #
+    # THE ID IS RESOLVED, NOT ACCEPTED BLINDLY. It is looked up inside the caller's own tenant, so
+    # an id belonging to another establishment finds nothing here rather than being cancelled.
+    if row is None:
+        found, _ = await store._find(principal.tenant, {"id": schedule_key}, limit=1)
+        if found:
+            row = found[0]
+            key = _sched_key(row)
+
     # THE TENANT CHECK IS EXPLICIT, because this key comes off the request. The store prefixes keys
     # by tenant, so a forged key from another establishment cannot be read — but relying on a key
     # format for authorisation is relying on a convention, and this makes it a check.
@@ -73,7 +89,7 @@ async def cancel(request: Request, schedule_key: str,
         ip=request.client.host if request.client else "")
     row["state"] = "cancelled"
     row["reason"] = "ألغاه المالك"
-    await store.upsert(principal.tenant, schedule_key, row)
+    await store.upsert(principal.tenant, key, row)
     return {"cancelled": True, "id": row.get("id", "")}
 
 
