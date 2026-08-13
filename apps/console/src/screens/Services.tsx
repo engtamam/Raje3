@@ -117,6 +117,16 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * he sells, one tap to what he stopped, one tap to everything.
    */
   const [show, setShow] = useState<'active' | 'stopped'>('active');
+  /**
+   * WHICH COLUMN'S EXPLANATION IS OPEN — held here, and shown ABOVE the table.
+   *
+   * The «؟» used to open its sentence inside its own `<th>`. A header cell is sixty-four pixels
+   * wide, so the paragraph rendered one word per line and pushed the whole header taller than the
+   * rows under it: the answer was technically on screen and unreadable. A table cell is the wrong
+   * container for prose, and no amount of styling fixes that — the text belongs to the width of
+   * the table, not to the width of one column.
+   */
+  const [asked, setAsked] = useState<string | null>(null);
 
   const load = () => {
     // THE OWNER'S LIST WHEN HE HAS IT, and it includes what he has retired. The field grid is
@@ -728,19 +738,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th className="w-1/2">الخدمة</Th>
-              <Th narrow hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
+              <Th narrow onAsk={setAsked} asked={asked} hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
                 الدورة
               </Th>
-              <Th narrow wide hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
+              <Th narrow wide onAsk={setAsked} asked={asked} hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
                 الاطمئنان
               </Th>
               {earnAction ? (
-                <Th narrow wide hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
+                <Th narrow wide onAsk={setAsked} asked={asked} hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
                   النقاط
                 </Th>
               ) : null}
               {action(catalog, 'reminders.set_group') ? (
-                <Th narrow wide hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
+                <Th narrow wide onAsk={setAsked} asked={asked} hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
                   المجموعة
                 </Th>
               ) : null}
@@ -1019,12 +1029,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
  * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
  * card was opened. Asked once at the top, the question is answered before he reads a single row.
  */
-function Th({ children, hint, wide, narrow, className = '' }: {
+function Th({ children, hint, wide, narrow, className = '', onAsk, asked }: {
   children: React.ReactNode;
   /** An explicit width when the default narrow one does not fit. */
   className?: string;
-  /** The explanation, opened from the «؟». */
+  /** The explanation, opened from the «؟» — rendered above the table, never in this cell. */
   hint?: string;
+  onAsk?: (hint: string | null) => void;
+  /** The explanation currently open, whichever column it belongs to. */
+  asked?: string | null;
   /** Only on a screen wide enough for it — the phone reaches this field from the edit row. */
   wide?: boolean;
   /** As wide as its content and no wider; the name column absorbs what is left. */
@@ -1039,7 +1052,20 @@ function Th({ children, hint, wide, narrow, className = '' }: {
     ].join(' ')}>
       <span className="inline-flex items-center gap-1">
         {children}
-        {hint ? <Hint wide>{hint}</Hint> : null}
+        {hint && onAsk ? (
+          <button
+            type="button"
+            aria-label={`شرح ${typeof children === 'string' ? children : ''}`}
+            aria-expanded={asked === hint}
+            onClick={() => onAsk(asked === hint ? null : hint)}
+            className="grid size-8 shrink-0 place-items-center rounded-full"
+          >
+            <span aria-hidden className={[
+              'grid size-5 place-items-center rounded-full text-[0.7rem]',
+              asked === hint ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
+            ].join(' ')}>؟</span>
+          </button>
+        ) : null}
       </span>
     </th>
   );
