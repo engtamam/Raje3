@@ -94,6 +94,9 @@ def build_manifest(
              "erasure_category": "subject"},
             # ── the owner's dashboard ─────────────────────────────────────────────────────
             {"path": "/api/v1/insights/dashboard", "tier": "user", "method": "GET"},
+            # THE OWNER'S OWN RECOMPUTE. Recomputing existed for support only, so a shop that
+            # recorded visits this morning had to wait for the sweep to see them.
+            {"path": "/api/v1/insights/refresh", "tier": "user", "method": "POST"},
             {"path": "/api/v1/insights/associations", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/bundles", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/branches", "tier": "user", "method": "GET"},

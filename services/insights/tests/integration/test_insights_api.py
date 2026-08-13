@@ -93,13 +93,15 @@ def visits(n, ref="c", services=("wash",), tenant=TENANT, **kw):
 
 
 # ── the dashboard ──────────────────────────────────────────────────────────────────────────────
-def test_a_shop_with_no_snapshot_is_told_we_are_computing_not_shown_a_blank(client, owner):
-    """An empty dashboard reads as broken, and an owner who concludes that on his first day does
-    not return on his second."""
+def test_a_shop_with_no_snapshot_gets_one_computed_on_the_spot(client, owner):
+    """«تظهر خلال ساعات» WAS THE FIRST SENTENCE A NEW SHOP READ, on the screen meant to prove the
+    product works. A shop with no snapshot has no history either, so it is computed inline — the
+    sweep's cost argument is about years of visits, and this shop is minutes old."""
     r = client.get("/api/v1/insights/dashboard", headers=_auth("insights.read",
                                                                tenant="brand-new-shop"))
     assert r.status_code == 200
-    assert r.json()["computing"] is True and r.json()["message"]
+    assert r.json().get("computing") is not True
+    assert "values" in r.json()
 
 
 def test_the_dashboard_carries_its_as_of_time(client, owner):
@@ -162,10 +164,15 @@ def test_a_token_with_no_establishment_is_refused(client):
 
 
 def test_another_establishment_sees_none_of_this(client, owner):
+    """ISOLATION IS THE ASSERTION, NOT «computing». The neighbour now gets a snapshot of his own
+    computed on the spot; what must never happen is that it carries the first shop's numbers."""
     _seed(client, visits(20))
     got = client.get("/api/v1/insights/dashboard",
                      headers=_auth("insights.read", tenant="other-shop")).json()
-    assert got["computing"] is True
+    values = got.get("values") or {}
+    assert not got.get("computing") or values == {}
+    assert int(values.get("visits") or 0) == 0
+    assert int(values.get("customers") or 0) == 0
 
 
 # ── the paid surface, through the door ─────────────────────────────────────────────────────────

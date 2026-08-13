@@ -21,10 +21,11 @@
  */
 import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
+import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { KpiCard } from '@base-ui/design-system/KpiCard';
 import { Ring } from '@base-ui/design-system/Ring';
-import { TrendingUp, Users, RefreshCw, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Users, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -242,6 +243,9 @@ function Group({ title, hint, children, folded = false }: {
 export function LocalScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [failed, setFailed] = useState(false);
+  /** The recompute in flight, and whatever the service said about it. */
+  const [refreshing, setRefreshing] = useState(false);
+  const [note, setNote] = useState('');
   /** Whether HE receives the weekly report. Optimistic, and reverted if the save fails. */
   const [digest, setDigest] = useState(true);
   /**
@@ -258,16 +262,35 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
    */
   const [pairs, setPairs] = useState<Pairs | null>(null);
   const [bundles, setBundles] = useState<Bundle[] | null>(null);
+  /**
+   * THE PAID SURFACES THIS PLAN DOES NOT INCLUDE, and what the service said about each.
+   *
+   * The gate works — `bundles` and `associations` answer 402 with a sentence. The SCREEN did not:
+   * it caught every failure into `null` and rendered nothing, so the owner saw a section silently
+   * missing and a red 402 in his console. A capability nobody can see is one nobody can buy.
+   */
+  const [locked, setLocked] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<Branches | null>(null);
 
   useEffect(() => {
     // EACH ONE ON ITS OWN, and a failure in one leaves the others. They are three separate
     // answers, and a shop whose branch table cannot be read should still see its pairs.
     const assoc = action(catalog, 'insights.associations');
-    if (assoc) call<Pairs>(session, assoc).then(setPairs).catch(() => setPairs(null));
+    if (assoc) {
+      call<Pairs>(session, assoc).then(setPairs).catch((e: Error & { status?: number }) => {
+        setPairs(null);
+        if (e?.status === 402) setLocked((p) => ({ ...p, associations: e.message }));
+      });
+    }
     const bun = action(catalog, 'insights.bundles');
-    if (bun) call<{ bundles: Bundle[] }>(session, bun)
-      .then((r) => setBundles(r.bundles ?? [])).catch(() => setBundles(null));
+    if (bun) {
+      call<{ bundles: Bundle[] }>(session, bun)
+        .then((r) => setBundles(r.bundles ?? []))
+        .catch((e: Error & { status?: number }) => {
+          setBundles(null);
+          if (e?.status === 402) setLocked((p) => ({ ...p, bundles: e.message }));
+        });
+    }
     const br = action(catalog, 'insights.branches');
     if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
 
@@ -287,12 +310,45 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
   // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
   if (!data) return <Waiting what="نقرأ مؤشرات محلّك" />;
 
+  /**
+   * «حدّث الآن» — the owner asking for today's numbers rather than this morning's.
+   *
+   * THE SNAPSHOT IS A CACHE, AND A CACHE NEEDS A WAY TO BE MISSED ON PURPOSE. The sweep exists so
+   * the page opens instantly; the cost is that an owner who recorded five visits an hour ago is
+   * reading a shop that is a few hours old, with no way to say so. The service refuses politely
+   * inside its own cooldown and says when — so pressing twice is answered, not ignored.
+   */
+  const refreshNow = async () => {
+    const a = action(catalog, 'insights.refresh');
+    const d = action(catalog, 'insights.dashboard');
+    if (!a || !d || refreshing) return;
+    setRefreshing(true);
+    setNote('');
+    try {
+      const r = await call<{ ok?: boolean; message?: string }>(session, a);
+      if (r?.message) setNote(r.message);
+      // RE-READ WHETHER OR NOT IT RECOMPUTED. A refusal inside the cooldown still means the
+      // numbers on screen may be older than the ones stored.
+      setData(await call<Dashboard>(session, d));
+    } catch {
+      setNote('تعذّر التحديث الآن — حاول بعد قليل.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (data.computing) {
     // NOT AN EMPTY DASHBOARD. A first-day shop that sees zeros concludes the product does not
     // work; the server sends a sentence saying the first pass is running, and we show it whole.
     return (
-      <div className="p-4">
+      <div className="flex flex-col items-center gap-3 p-4">
         <EmptyState title="نحسب مؤشرات محلك" description={data.message || ''} />
+        {action(catalog, 'insights.refresh') ? (
+          <Button disabled={refreshing} onClick={refreshNow}>
+            {refreshing ? 'نحسب…' : 'احسبها الآن'}
+          </Button>
+        ) : null}
+        {note ? <p className="text-sm text-text-secondary">{note}</p> : null}
       </div>
     );
   }
@@ -341,7 +397,21 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
             WE SAY WHERE, NEVER HOW MUCH (§10.6.2.1). The price is the shop's and nothing here
             suggests one — a platform that prices a workshop's work is a platform that is wrong in
             public. */}
-        {bundles && bundles.length ? (
+        {/* LOCKED, NOT ABSENT — the same shape «حملاتي» uses. It names what the surface DOES for
+            his shop, never the tier: "بعض خدماتك تُطلب معاً" is a fact about him, "هذه في باقة
+            أعلى" is a fact about our price list. */}
+        {locked.bundles ? (
+          <section className="flex items-start gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+            <Lock size={18} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
+            <div className="flex flex-col gap-1">
+              <h2 className="text-sm font-medium">باقات مقترحة</h2>
+              <p className="text-sm text-text-secondary">
+                نكتشف الخدمات التي تُطلب معاً في محلّك، ونقول لك أين الفرصة — والسعر سعرك.
+              </p>
+              <p className="text-xs text-text-secondary">{locked.bundles}</p>
+            </div>
+          </section>
+        ) : bundles && bundles.length ? (
           <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
             <h2 className="text-sm text-text-secondary">باقات مقترحة</h2>
             {bundles.slice(0, 4).map((b, i) => (
@@ -378,7 +448,19 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         title="كيف يمشي محلك"
         hint={data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}
       >
-      {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
+      {/* THE AGE IS NOW ACTIONABLE. Telling an owner the numbers were computed six hours ago and
+          leaving him nothing to do about it is a complaint on our behalf; the button beside it is
+          the answer, and the service's own cooldown keeps it honest. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
+        {action(catalog, 'insights.refresh') ? (
+          <Button variant="ghost" disabled={refreshing} onClick={refreshNow}>
+            <RefreshCw size={16} aria-hidden className="me-1" />
+            {refreshing ? 'نحدّث…' : 'حدّث الآن'}
+          </Button>
+        ) : null}
+        {note ? <span className="text-sm text-text-secondary">{note}</span> : null}
+      </div>
 
       {/* ── ONE NUMBER, LARGE ────────────────────────────────────────────────────────────────
           FOUR EQUAL TILES ARE FOUR NUMBERS NOBODY REMEMBERS. On a phone they became two rows of

@@ -28,6 +28,12 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         # phone, and the screen would paint itself in pieces.
     },
     {
+        "id": "insights.refresh", "label": "حدّث المؤشرات", "method": "POST",
+        "path": "/api/v1/insights/refresh", "capability": "insights.read", "group": "المؤشرات",
+        # SAME CAPABILITY AS READING, deliberately: it computes nothing new about the shop, it
+        # only computes it EARLIER. Whoever may see the numbers may ask for today's.
+    },
+    {
         "id": "insights.associations", "label": "الترابطات", "method": "GET",
         "path": "/api/v1/insights/associations", "capability": "insights.read",
         "group": "المؤشرات",

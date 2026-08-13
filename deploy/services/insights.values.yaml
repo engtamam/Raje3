@@ -150,7 +150,12 @@ env:
 # and the same hour every week so it becomes a habit rather than a surprise.
 cronJobs:
   - name: tick
-    schedule: "0 4 * * *"
+    # EVERY THREE HOURS, NOT ONCE A DAY — and 04:00 is still one of the passes, so the ordering
+    # against loyalty's 03:10 expiry sweep is unchanged. A daily snapshot meant an owner who
+    # recorded ten visits this morning saw yesterday's shop until tomorrow, and read that as the
+    # product not counting his work. The pass is bounded and resumable by design, so running it
+    # eight times a day costs eight small passes rather than one large one.
+    schedule: "0 1,4,7,10,13,16,19,22 * * *"
     path: /internal/insights/tick
   - name: digest
     schedule: "0 9 * * 0"

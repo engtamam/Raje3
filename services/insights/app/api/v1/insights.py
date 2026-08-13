@@ -78,10 +78,29 @@ async def dashboard(request: Request, branch_id: str = "",
     snap = await _snapshot(c, tenant, branch_id)
 
     if not snap:
-        # NOT an empty dashboard. See the module docstring.
-        return {"computing": True,
-                "message": "أحسب مؤشرات محلك الآن — تظهر خلال ساعات",
-                "values": {}, "as_of": 0}
+        # ── COMPUTED HERE AND NOW, ON THE FIRST OPEN ────────────────────────────────────────
+        # THE «تظهر خلال ساعات» MESSAGE WAS THE FIRST THING A NEW SHOP SAW. It was written to
+        # prevent a blank dashboard, and it prevented one — by replacing it with a sentence that
+        # says the product is not ready yet, on the very screen that is supposed to prove the
+        # product works. An owner who has just signed up and recorded his first visits reads it
+        # as "nothing was counted".
+        #
+        # AND THE COST ARGUMENT DOES NOT APPLY TO THE CASE THAT HITS IT. The sweep exists because
+        # 26 indicators over years of visits must not run on every page open; a shop with NO
+        # snapshot has no years — it is minutes old, its history is a handful of rows, and
+        # computing it inline is cheaper than the round trip that fetched nothing.
+        #
+        # ONLY WHEN THERE IS NOTHING. An existing snapshot is served as it is, however old — the
+        # sweep owns refreshing it, and «حدّث الآن» below is how an owner asks for it early.
+        try:
+            await c.tick.compute(tenant, now=int(time.time()))
+            snap = await _snapshot(c, tenant, branch_id)
+        except Exception:               # noqa: BLE001 — a failed compute is not a failed screen
+            snap = None
+        if not snap:
+            return {"computing": True,
+                    "message": "أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل",
+                    "values": {}, "as_of": 0}
 
     now = int(time.time())
     age_hours = (now - int(snap.get("computed_at") or 0)) // 3600
@@ -233,6 +252,38 @@ async def set_digest(request: Request, body: DigestIn,
     if not subject:
         return _refuse("لا يمكن تحديد المشترك")
     return await c.subscriptions.set(_tenant(principal), subject, on=body.on)
+
+
+# HOW OFTEN AN OWNER MAY ASK FOR A FRESH ONE. Long enough that the button cannot be used as a
+# denial-of-service against our own datastore, short enough to cover "I just recorded five visits
+# and want to see them" — which is the only reason anybody presses it.
+REFRESH_COOLDOWN_SECONDS = 15 * 60
+
+
+@router.post("/refresh", dependencies=[Depends(rate_limit)])
+async def refresh(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Recompute THIS establishment's snapshot now.
+
+    THE OWNER COULD NOT ASK. Recomputing existed as a support route that needs a platform
+    capability, so the answer to «سجّلت زيارات اليوم وما ظهرت» was "wait for the sweep" — for a
+    number the shop can see with its own eyes at the counter. This is the same computation,
+    scoped to the tenant in the token, and it names its own limit rather than failing silently.
+    """
+    c = request.app.state.container
+    tenant = _tenant(principal)
+    now = int(time.time())
+
+    snap = await _snapshot(c, tenant)
+    computed_at = int((snap or {}).get("computed_at") or 0)
+    waited = now - computed_at
+    if snap and waited < REFRESH_COOLDOWN_SECONDS:
+        minutes = max(1, (REFRESH_COOLDOWN_SECONDS - waited) // 60)
+        # A REFUSAL THAT IS RETURNED, NOT RAISED, and that says when rather than "later".
+        return {"ok": False, "computed_at": computed_at,
+                "message": f"حُدّثت قبل قليل — جرّب بعد {minutes} دقيقة."}
+
+    fresh = await c.tick.compute(tenant, now=now)
+    return {"ok": True, "computed_at": fresh.computed_at, "visits": fresh.visits}
 
 
 @router.post("/platform/recompute", dependencies=[Depends(rate_limit)])

@@ -233,7 +233,13 @@ export async function call<T>(
     // switching to invoice earning saw an uncaught 400 and no explanation.
     const r = body as { reason?: string; message?: string; detail?: string } | null;
     const said = r?.reason ?? r?.message ?? r?.detail;
-    throw new Error(said || `${a.method} ${a.path} → ${res.status}`);
+    const err = new Error(said || `${a.method} ${a.path} → ${res.status}`);
+    // THE STATUS TRAVELS WITH THE MESSAGE. A screen cannot tell «الباقة لا تشمل هذا» from «تعذّر
+    // القراءة» out of a sentence, so a locked surface and a broken one rendered identically —
+    // which is to say, as nothing at all, with a red line in the console. 402 is a decision we
+    // made and sold; it deserves a card that says so.
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
   }
   return body as T;
 }
