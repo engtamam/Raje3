@@ -25,6 +25,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core import erase_customer as E
+from app.core import plate as P
 from app.core.operations import OperationError, Operations
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -78,6 +79,25 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
                        principal: Principal = Depends(_RECORD)) -> dict:
     """Record a visit. This endpoint is the product, as far as the shop floor is concerned."""
     tenant = _tenant(principal)
+
+    # ── THE PLATE IS REQUIRED WHERE THE VEHICLE IS THE ASSET ──────────────────────────────────
+    # A tyre shop could record a visit with the plate box empty, and the row was then unfindable
+    # by the one thing that counter searches by: the car. Its cycle is the car's, its reminder says
+    # «سيارتك», and its screen looks the customer up by plate before phone — so a plateless visit
+    # is half a visit, and nobody notices until a returning customer cannot be found months later.
+    #
+    # CHECKED HERE, NOT IN core/operations.py, because «is this sector a vehicle sector» is a fact
+    # the core does not hold and should not fetch — it takes what it is given and stays pure.
+    #
+    # AND THE RULE IS ONE LETTER AND ONE DIGIT, NOT THE SAUDI FORMAT (see core/plate.py): a format
+    # check refuses temporary, transit, Gulf and diplomatic plates, and the man with a customer
+    # waiting types «1» and moves on — which leaves the field required AND meaningless.
+    sectors = request.app.state.container.sectors
+    sector_key = await sectors.sector_of(tenant)
+    if sector_key and await sectors.tracks_vehicle(sector_key) and not P.is_plausible(body.plate):
+        # RETURNED, NOT RAISED — the platform strips a refusal's detail, and this refusal is the
+        # entire value of the answer to the person holding the phone.
+        return {"recorded": False, "reason": P.REFUSAL, "field": "plate"}
 
     # Write-ahead. Critical: a visit the log cannot witness must not happen.
     await request.app.state.auditor.record(

@@ -246,6 +246,21 @@ export interface EarnSettings {
   groups?: Record<string, { points?: number }>;
   services?: Record<string, { points?: number }>;
   service_group?: Record<string, string>;
+  /**
+   * THE PLATFORM'S OWN FLOOR, AND THE LEVEL THIS TYPE USED TO OMIT.
+   *
+   * loyalty resolves a number over FOUR levels — service, its group, the shop's general figure,
+   * then this — and nothing is written into a shop at signup on purpose: a service stores only
+   * what its owner overrode, so raising the general figure later actually moves every service
+   * that was following it. (Copy the number in at signup and it looks identical on day one, then
+   * the owner raises the general number on day thirty, twenty services keep their copies, nothing
+   * changes and nothing errors — see loyalty/core/earning.py.)
+   *
+   * The server sent `defaults` all along. This type did not name it, so `pointsByService`
+   * resolved three levels and fell to 0 — and the grid hides a badge at 0, which is why a new
+   * shop's tiles showed no points while the API was answering 10.
+   */
+  defaults?: { points?: number };
 }
 
 export function earnSettings(session: Session): Promise<EarnSettings> {
@@ -267,7 +282,10 @@ export function pointsByService(earn: EarnSettings | null, ids: string[]): Recor
     if (own !== undefined) { out[id] = own; continue; }
     const group = earn.service_group?.[id];
     const fromGroup = group ? earn.groups?.[group]?.points : undefined;
-    out[id] = fromGroup ?? earn.general?.points ?? 0;
+    // FOUR LEVELS, IN THE SERVER'S OWN ORDER — service, group, the shop's general, the platform
+    // default. Stopping at three made every shop that had customised nothing look like a shop
+    // where nothing earns.
+    out[id] = fromGroup ?? earn.general?.points ?? earn.defaults?.points ?? 0;
   }
   return out;
 }

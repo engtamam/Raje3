@@ -247,12 +247,28 @@ export function Visit() {
   // a nine-digit typo saved happily and the reminder went nowhere for ever — nothing failed, and
   // the shop learned about it the day a customer said he never hears from them.
   const phoneOk = /^05\d{8}$/.test(phone);
-  const ready = chosen.length > 0 && phoneOk;
+  // THE PLATE IS REQUIRED WHERE THE SECTOR SHOWS IT — one letter and one digit, in either script.
+  // A tyre shop that saves a visit with the box empty has recorded a row its own counter cannot
+  // find again: that screen looks a car up by plate before it looks a person up by phone.
+  //
+  // WE DO NOT CHECK THE SAUDI FORMAT, and the server does not either (operations/core/plate.py):
+  // temporary, transit, Gulf and diplomatic plates are all real and none of them matches it, and a
+  // refusal the operator cannot satisfy with a customer waiting becomes «1» typed into the box.
+  const plateOk = !showPlate || (/[0-9٠-٩]/.test(plate) && /\p{L}/u.test(plate));
+  const ready = chosen.length > 0 && phoneOk && plateOk;
 
   const save = useCallback(() => {
     // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
     // at this point is the expensive kind: the visit looks saved, the customer is never reached,
     // and nobody learns why for months.
+    if (chosen.length > 0 && showPlate && !plateOk) {
+      // SAID BEFORE THE REQUEST, not after it. The server refuses this too — it must, since the
+      // till and any other client reach the same endpoint — but a round trip to be told about a
+      // box on the screen in front of him is a round trip that reads as a bug.
+      setNote('اكتب رقم اللوحة — حرفٌ واحد ورقمٌ واحد على الأقل');
+      window.setTimeout(() => setNote(null), 4000);
+      return;
+    }
     if (chosen.length > 0 && !phoneOk) {
       setNote('الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05');
       window.setTimeout(() => setNote(null), 4000);
@@ -293,7 +309,7 @@ export function Visit() {
     setMeter('');
     setNote('تم الحفظ ✓');
     window.setTimeout(() => setNote(null), 1500);
-  }, [applying, chosen, meter, name, phone, plate, ready, session, showMeter, showPlate, subject]);
+  }, [applying, chosen, meter, name, phone, plate, plateOk, ready, session, showMeter, showPlate, subject]);
 
   if (!isSignedIn(session)) {
     // SAYS SO PLAINLY RATHER THAN INVENTING A TENANT. A placeholder establishment would let every
