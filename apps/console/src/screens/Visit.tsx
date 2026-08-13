@@ -688,7 +688,11 @@ export function Visit() {
     || Boolean(balance && (balance.points > 0 || balance.to_next_reward > 0));
 
   const detailsPane = (
-    <>
+    /* THE SAME LIMIT AS THE OTHER TWO PANES, and one width wider because a tile grid genuinely
+       uses it. Unbounded, this page put six services on one line across a desktop and left two
+       thirds of the window empty under them — the eye travels the whole width to read a menu that
+       would read better in three columns. */
+    <div className="mx-auto flex w-full max-w-2xl flex-col">
       {/* WHAT HE TOOK — the last page, and the one he spends the most time on. */}
       {/* AND ONE TAP TO UNDO ALL OF IT. A customer changes his mind and walks out with the car
           half-quoted; without this the operator un-taps six tiles one by one while the next car
@@ -771,7 +775,10 @@ export function Visit() {
               : 'عميل جديد — أول زيارة له عندك.'}
         </p>
       ) : null}
-            <div className="flex flex-col gap-2">
+            {/* SEPARATED FROM THE TILES. Glued directly under the grid it read as another tile
+                that had lost its border — a text box and a row of buttons need a gap between them
+                or they look like one broken control. */}
+            <div className="mt-4 flex flex-col gap-2 border-t border-border-subtle pt-4">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -790,7 +797,7 @@ export function Visit() {
                 />
               ) : null}
             </div>
-    </>
+    </div>
   );
 
   return (
