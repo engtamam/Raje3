@@ -719,7 +719,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             table spread four dashes across a desktop — a metre of white between a service and the
             one number about it. `w-full` on the first cell and `w-px` on the others is the CSS
             way to say "one column is the content, the rest are labels". */}
-        <table className="w-full table-auto border-collapse text-sm">
+        {/* FIXED, NOT AUTO — and this is what broke it on a phone. With `table-auto` the browser
+            sizes columns from their content, so seven service names plus five headers asked for
+            more width than the card had and the rows simply ran out past its edges: a list whose
+            right side was cut off by the screen. Fixed widths mean the table can never be wider
+            than its container, and a long name truncates instead of pushing the table off. */}
+        <table className="w-full table-fixed border-collapse text-sm">
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th>الخدمة</Th>
@@ -739,7 +744,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   المجموعة
                 </Th>
               ) : null}
-              <Th narrow>إجراءات</Th>
+              <Th narrow className="w-28">إجراءات</Th>
             </tr>
           </thead>
           <tbody>
@@ -838,7 +843,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             ) : null}
 
             {action(catalog, 'reminders.set_group') ? (
-              <td className="hidden w-px whitespace-nowrap px-3 py-2 md:table-cell">
+              <td className="hidden truncate px-3 py-2 md:table-cell">
                 {editing ? (
                   <select
                     aria-label={`مجموعة ${svc.name}`}
@@ -874,7 +879,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 it leaves the operator's grid and its reminders go silent, and the record stays
                 readable. So the second icon is a power switch rather than a bin, because an icon
                 that promises deletion and performs retirement is a lie told in one glyph. */}
-            <td className="w-px px-3 py-2">
+            <td className="px-3 py-2">
               <div className="flex items-center justify-end gap-1">
                 {own && action(catalog, 'reminders.follow_general') ? (
                   <IconButton
@@ -1011,8 +1016,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
  * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
  * card was opened. Asked once at the top, the question is answered before he reads a single row.
  */
-function Th({ children, hint, wide, narrow }: {
+function Th({ children, hint, wide, narrow, className = '' }: {
   children: React.ReactNode;
+  /** An explicit width when the default narrow one does not fit. */
+  className?: string;
   /** The explanation, opened from the «؟». */
   hint?: string;
   /** Only on a screen wide enough for it — the phone reaches this field from the edit row. */
@@ -1023,8 +1030,9 @@ function Th({ children, hint, wide, narrow }: {
   return (
     <th scope="col" className={[
       'whitespace-nowrap px-3 py-2 text-start text-xs font-medium',
-      narrow ? 'w-px' : '',
+      narrow ? 'w-20' : '',
       wide ? 'hidden md:table-cell' : '',
+      className,
     ].join(' ')}>
       <span className="inline-flex items-center gap-1">
         {children}
@@ -1053,7 +1061,7 @@ function Num({ value, own, editable, label, onSave, wide }: {
 }) {
   const n = value ?? 0;
   return (
-    <td className={['w-px whitespace-nowrap px-3 py-2 tabular-nums', wide ? 'hidden md:table-cell' : ''].join(' ')}>
+    <td className={['px-3 py-2 tabular-nums', wide ? 'hidden md:table-cell' : ''].join(' ')}>
       {editable ? (
         <input
           type="number"
