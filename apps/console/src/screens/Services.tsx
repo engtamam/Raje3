@@ -66,6 +66,11 @@ function summarise(v: ServiceSetting): string {
 /** loyalty's settings tree, in the shape it answers with: a number per level, and where it came from. */
 interface EarnSettings {
   general?: { points?: number };
+  /** THE PLATFORM'S OWN DEFAULT — the fourth level, and the one this screen used to miss. The
+   *  visit grid showed «+10» on every tile while this table showed «—» beside every service,
+   *  because the engine resolves service → group → general → defaults and the table stopped one
+   *  short. Two screens disagreeing about the same number is worse than either being wrong. */
+  defaults?: { points?: number };
   groups?: Record<string, { points?: number }>;
   services?: Record<string, { points?: number }>;
   service_group?: Record<string, string>;
@@ -159,7 +164,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     if (own !== undefined) return { points: own, own: true };
     const group = earn?.service_group?.[id];
     const fromGroup = group ? earn?.groups?.[group]?.points : undefined;
-    return { points: fromGroup ?? earn?.general?.points ?? 0, own: false };
+    return {
+      points: fromGroup ?? earn?.general?.points ?? earn?.defaults?.points ?? 0,
+      own: false,
+    };
   };
 
   const setServicePoints = async (serviceId: string, points: number) => {
@@ -525,114 +533,100 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         const shown = only === null ? bins : bins.filter(([g]) => g === only);
         return (
       <div className="flex flex-col gap-3">
-      {/* ── the general setting, which nothing could set ────────────────────────────────────
-          FIRST, because it is what most services actually use: a shop sets one cycle and one
-          follow-up, and customises the two or three that differ. Reading it here also tells him
-          what «العودة إلى العام» on a service card will give back. */}
+      {/* ── one toolbar, and nothing beside the table ───────────────────────────────────────
+          THE SIDE RAIL IS GONE. A column of group chips beside a table is a second navigation for
+          a page that already has one — it took 11rem of every desktop screen, stacked into a
+          scrolling strip on a phone, and all it did was filter a list short enough to read. It is
+          a dropdown now: same filter, one line, and no furniture.
+
+          THE GENERAL SETTING IS A LINE, NOT A CARD. As a bordered box with a folded panel it read
+          like an input at the top of the screen — the owner's own words were that it looked like a
+          field he had to fill. It states what it is and opens only when he asks. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {action(catalog, 'reminders.set_group') && bins.length > 1 ? (
+          <select
+            aria-label="تصفية بالمجموعة"
+            value={only ?? ''}
+            onChange={(e) => setOnly(e.target.value === '' ? null : e.target.value)}
+            className="h-10 rounded-lg border border-border-subtle bg-surface-1 px-3 text-sm"
+          >
+            <option value="">كل المجموعات ({visible.length})</option>
+            {bins.map(([g, list]) => (
+              <option key={g || 'ungrouped'} value={g}>
+                {`${g === UNGROUPED ? 'غير مجمّعة' : g} (${list.length})`}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
+        {stoppedCount > 0 ? (
+          <Segmented
+            ariaLabel="عرض الخدمات والمنتجات"
+            value={view}
+            onChange={(v) => setShow(v as 'active' | 'stopped')}
+            options={[
+              // TWO, NOT THREE. «الكل» mixes what he sells with what he stopped, which is the one
+              // view that answers no question.
+              { value: 'active', label: 'المفعّلة' },
+              { value: 'stopped', label: `الموقوفة (${stoppedCount})` },
+            ]}
+          />
+        ) : null}
+
+        {action(catalog, 'operations.create_service') && !adding ? (
+          <Button className="ms-auto" onClick={() => setAdding(true)}>إضافة خدمة أو منتج</Button>
+        ) : null}
+      </div>
+
       {action(catalog, 'reminders.set_general') ? (
-        <details className="rounded-card border border-border-subtle bg-surface-1">
-          {/* FOLDED, BECAUSE IT IS SET ONCE AND READ RARELY. Open, it took the whole first screen
-              of a phone — two number boxes and their explanations — and pushed the LIST, which is
-              what this section is named after, below the fold. The summary keeps the two values
-              visible, so folding hides the controls and not the answer. */}
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3">
-            <span className="text-sm font-medium">الإعداد العام</span>
-            <span className="text-xs text-text-secondary tabular-nums">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-1 py-1 text-sm text-text-secondary">
+            <span className="font-medium text-text-primary">الإعداد العام</span>
+            <span className="tabular-nums">
               {summarise({
                 interval_days: settings?.general?.interval_days,
                 follow_up_days: settings?.general?.follow_up_days,
               })}
             </span>
+            <span className="text-xs opacity-70 group-open:hidden">تغيير</span>
           </summary>
-          <div className="flex flex-col gap-2 border-t border-border-subtle p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-text-secondary">يسري على كل خدمة لم تُخصَّص</span>
-            <Hint>
-              يسري على كل خدمة لم تُخصَّص. وما خصّصته يبقى كما هو — تغيير هذا الرقم لا يلغي ما
-              ضبطته بنفسك على خدمة بعينها.
-            </Hint>
-          </div>
-          <Setting
-            label="دورة التذكير"
-            name="دورة التذكير العامة"
-            meaning="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة."
-            value={settings?.general?.interval_days}
-            preview={(n) => `تذكير بعد ${n} يوماً من كل زيارة`}
-            zero="لا تذكير — إلا لخدمة خصّصتها"
-            onSave={(n) => setGeneral({ interval_days: n })}
-          />
-          <Setting
-            label="الاطمئنان"
-            name="الاطمئنان العام"
-            meaning="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها."
-            value={settings?.general?.follow_up_days}
-            preview={(n) => `سؤال بعد ${n} يوماً من الزيارة`}
-            zero="لا نسأل — إلا لخدمة خصّصتها"
-            onSave={(n) => setGeneral({ follow_up_days: n })}
-          />
+          <div className="mt-2 flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-secondary">يسري على كل خدمة لم تُخصَّص</span>
+              <Hint>
+                يسري على كل خدمة لم تُخصَّص. وما خصّصته يبقى كما هو — تغيير هذا الرقم لا يلغي ما
+                ضبطته بنفسك على خدمة بعينها.
+              </Hint>
+            </div>
+            <Setting
+              label="دورة التذكير"
+              name="دورة التذكير العامة"
+              meaning="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة."
+              value={settings?.general?.interval_days}
+              preview={(n) => `تذكير بعد ${n} يوماً من كل زيارة`}
+              zero="لا تذكير — إلا لخدمة خصّصتها"
+              onSave={(n) => setGeneral({ interval_days: n })}
+            />
+            <Setting
+              label="الاطمئنان"
+              name="الاطمئنان العام"
+              meaning="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها."
+              value={settings?.general?.follow_up_days}
+              preview={(n) => `سؤال بعد ${n} يوماً من الزيارة`}
+              zero="لا نسأل — إلا لخدمة خصّصتها"
+              onSave={(n) => setGeneral({ follow_up_days: n })}
+            />
           </div>
         </details>
       ) : null}
 
-      {/* SHOWN ONLY WHEN HE HAS STOPPED SOMETHING. A filter offering «الموقوفة» to a shop with
-          none is a control that answers a question nobody asked, and it costs a line on a phone. */}
-      {stoppedCount > 0 ? (
-        <Segmented
-          ariaLabel="عرض الخدمات والمنتجات"
-          value={view}
-          onChange={(v) => setShow(v as 'active' | 'stopped')}
-          className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
-          options={[
-            // TWO, NOT THREE. «الكل» mixes what he sells with what he stopped, which is the
-            // one view that answers no question: every ordinary edit becomes a matter of reading
-            // past the dead lines, and finding a stopped one is what the second tab is for.
-            { value: 'active', label: 'المفعّلة' },
-            { value: 'stopped', label: `الموقوفة (${stoppedCount})` },
-          ]}
-        />
-      ) : null}
+      <div className="flex flex-col gap-3">
 
-      {/* CHIPS, NOT A COLUMN OF CARDS. On a phone this rendered as two full-width boxes that read
-          like inputs and ate a third of the first screen — for a control that only filters. Chips
-          scroll sideways, cost one line, and look like what they are. */}
-      <div className="grid gap-4 md:grid-cols-[11rem_1fr]">
-        <nav aria-label="مجموعات الخدمات"
-             className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0">
-          <button
-            type="button"
-            onClick={() => setOnly(null)}
-            className={[
-              'shrink-0 rounded-full px-3 py-1.5 text-start text-sm transition-colors',
-              only === null
-                ? 'bg-accent-soft font-medium text-accent-on-soft'
-                : 'border border-border-subtle bg-surface-1 text-text-secondary',
-            ].join(' ')}
-          >
-            الكل <span className="tabular-nums opacity-70">{visible.length}</span>
-          </button>
-          {bins.map(([g, list]) => (
-            <button
-              key={g || 'ungrouped'}
-              type="button"
-              onClick={() => setOnly(g)}
-              className={[
-                'shrink-0 rounded-full px-3 py-1.5 text-start text-sm transition-colors',
-                only === g
-                  ? 'bg-accent-soft font-medium text-accent-on-soft'
-                  : 'border border-border-subtle bg-surface-1 text-text-secondary',
-              ].join(' ')}
-            >
-              {g === UNGROUPED ? 'غير مجمّعة' : g}{' '}
-              <span className="tabular-nums opacity-70">{list.length}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="flex flex-col gap-3">
-          {/* THE ACT THIS SCREEN IS NAMED FOR, and it was missing. «خدماتي» listed a catalogue and
-              offered no way to add to it — a shop selling something new had nowhere to say so. */}
-          {action(catalog, 'operations.create_service') ? (
-            adding ? (
+          {/* THE FORM, WHOSE BUTTON NOW LIVES IN THE TOOLBAR ABOVE. «خدماتي» once listed a
+              catalogue and offered no way to add to it — a shop selling something new had nowhere
+              to say so. */}
+          {action(catalog, 'operations.create_service') && adding ? (
+            (
               <form
                 className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm"
                 onSubmit={(e) => {
@@ -701,10 +695,6 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   <Button type="button" variant="ghost" onClick={() => setAdding(false)}>إلغاء</Button>
                 </div>
               </form>
-            ) : (
-              <div>
-                <Button onClick={() => setAdding(true)}>إضافة خدمة أو منتج</Button>
-              </div>
             )
           ) : null}
 
@@ -725,27 +715,31 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           that answer «ما عندي، وكل كم يوماً، وماذا أفعل بها», and the other three appear stacked
           under the row the moment he taps ✎. Nothing is unreachable; it is only unasked. */}
       <div className="rounded-card border border-border-subtle bg-surface-1">
-        <table className="w-full border-collapse text-sm">
+        {/* THE NAME TAKES THE SLACK, THE NUMBERS STAY NARROW. With every column an equal share the
+            table spread four dashes across a desktop — a metre of white between a service and the
+            one number about it. `w-full` on the first cell and `w-px` on the others is the CSS
+            way to say "one column is the content, the rest are labels". */}
+        <table className="w-full table-auto border-collapse text-sm">
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th>الخدمة</Th>
-              <Th hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
+              <Th narrow hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
                 الدورة
               </Th>
-              <Th wide hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
+              <Th narrow wide hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
                 الاطمئنان
               </Th>
               {earnAction ? (
-                <Th wide hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
+                <Th narrow wide hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
                   النقاط
                 </Th>
               ) : null}
               {action(catalog, 'reminders.set_group') ? (
-                <Th wide hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
+                <Th narrow wide hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
                   المجموعة
                 </Th>
               ) : null}
-              <Th>إجراءات</Th>
+              <Th narrow>إجراءات</Th>
             </tr>
           </thead>
           <tbody>
@@ -844,7 +838,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             ) : null}
 
             {action(catalog, 'reminders.set_group') ? (
-              <td className="hidden px-3 py-2 md:table-cell">
+              <td className="hidden w-px whitespace-nowrap px-3 py-2 md:table-cell">
                 {editing ? (
                   <select
                     aria-label={`مجموعة ${svc.name}`}
@@ -880,7 +874,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 it leaves the operator's grid and its reminders go silent, and the record stays
                 readable. So the second icon is a power switch rather than a bin, because an icon
                 that promises deletion and performs retirement is a lie told in one glyph. */}
-            <td className="px-3 py-2">
+            <td className="w-px px-3 py-2">
               <div className="flex items-center justify-end gap-1">
                 {own && action(catalog, 'reminders.follow_general') ? (
                   <IconButton
@@ -1002,7 +996,6 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           </tbody>
         </table>
       </div>
-        </div>
       </div>
       </div>
         );
@@ -1018,16 +1011,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
  * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
  * card was opened. Asked once at the top, the question is answered before he reads a single row.
  */
-function Th({ children, hint, wide }: {
+function Th({ children, hint, wide, narrow }: {
   children: React.ReactNode;
   /** The explanation, opened from the «؟». */
   hint?: string;
   /** Only on a screen wide enough for it — the phone reaches this field from the edit row. */
   wide?: boolean;
+  /** As wide as its content and no wider; the name column absorbs what is left. */
+  narrow?: boolean;
 }) {
   return (
     <th scope="col" className={[
       'whitespace-nowrap px-3 py-2 text-start text-xs font-medium',
+      narrow ? 'w-px' : '',
       wide ? 'hidden md:table-cell' : '',
     ].join(' ')}>
       <span className="inline-flex items-center gap-1">
@@ -1057,7 +1053,7 @@ function Num({ value, own, editable, label, onSave, wide }: {
 }) {
   const n = value ?? 0;
   return (
-    <td className={['px-3 py-2 tabular-nums', wide ? 'hidden md:table-cell' : ''].join(' ')}>
+    <td className={['w-px whitespace-nowrap px-3 py-2 tabular-nums', wide ? 'hidden md:table-cell' : ''].join(' ')}>
       {editable ? (
         <input
           type="number"

@@ -38,6 +38,7 @@ interface LogRow {
   reason?: string;
   template_name?: string;
   cls?: string;
+  subject_ref?: string;
 }
 /** When it happened, in the words an owner uses. Same shape as «عملائي» — one habit, not two. */
 function when(at: number): string {
@@ -50,7 +51,13 @@ function when(at: number): string {
 
 interface Run { at?: number; sent?: number; suppressed?: number; reason?: string }
 
-interface Schedule { schedule: { id?: string; kind?: string; due_at?: number }[]; count: number }
+interface Schedule {
+  schedule: { id?: string; kind?: string; due_at?: number; subject_ref?: string }[];
+  count: number;
+}
+
+/** A customer as operations answers with him — the only service on the platform that holds names. */
+interface Who { id: string; name?: string; phone?: string; subject_ref?: string }
 
 /**
  * The occasions, by their names rather than by their template ids.
@@ -60,12 +67,27 @@ interface Schedule { schedule: { id?: string; kind?: string; due_at?: number }[]
  * does not appear here — which is the safe direction: a missed row is a gap, an invented one is a
  * promise the engine does not keep.
  */
-const OCCASIONS: { kind: string; label: string; help: string }[] = [
-  { kind: 'reminder', label: 'تذكير الموعد', help: 'قبل موعد الخدمة القادمة بأيام.' },
-  { kind: 'follow_up', label: 'الاطمئنان بعد الزيارة', help: 'بعد الزيارة بأيام — يسأل إن كان كل شيء تمام.' },
-  { kind: 'review_request', label: 'طلب التقييم', help: 'بعد زيارة ناجحة.' },
-  { kind: 'campaign', label: 'الحملات', help: 'ما تُطلقه أنت على شريحة من عملائك.' },
-];
+const OCCASION: Record<string, string> = {
+  reminder: 'تذكير موعد',
+  follow_up: 'اطمئنان بعد الزيارة',
+  review_request: 'طلب تقييم',
+  campaign: 'حملة',
+};
+
+/** How far off it is, in the words he would use — «بعد 3 أيام», not a date he has to subtract. */
+function dueIn(at: number): string {
+  const days = Math.round((at - Date.now() / 1000) / 86_400);
+  if (days < 0) return 'تأخّرت';
+  if (days === 0) return 'اليوم';
+  if (days === 1) return 'بكرة';
+  return `بعد ${days} أيام`;
+}
+
+/** 966xxxxxxxxx → 05xxxxxxxx. The form he reads on his own phone. */
+function asLocal(phone: string): string {
+  const d = (phone || '').replace(/\D/g, '');
+  return d.startsWith('966') ? `0${d.slice(3)}` : d;
+}
 
 export function MessagesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [tab, setTab] = useState<'auto' | 'campaigns' | 'log'>('auto');
@@ -87,8 +109,19 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
   const [launching, setLaunching] = useState(false);
   /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
   const [runs, setRuns] = useState<Run[] | null>(null);
-  /** Which occasion's queue is open. One at a time — this is a list, not a dashboard. */
-  const [openKind, setOpenKind] = useState('');
+  /**
+   * PSEUDONYM → THE CUSTOMER, and this is what made the whole section useless without it.
+   *
+   * reminders holds no names by design (see operations' resolve route), so every row it answers
+   * with is an opaque `subject_ref`. The screen therefore had nothing person-shaped to show and
+   * fell back on counting message TYPES — «تذكير الموعد: 1 بانتظار الإرسال» — which answers a
+   * question no shop owner has ever asked. He wants to know WHO is about to be messaged, and
+   * whether he should stop it.
+   *
+   * ONE JOIN, WHERE THE NAMES ALREADY ARE. Same call «عملائي» uses for its overdue list; an
+   * unknown ref is simply absent from the answer and its row falls back to «عميل».
+   */
+  const [who, setWho] = useState<Record<string, Who>>({});
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
   // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
@@ -121,6 +154,38 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
     }
   }, [session, catalog]);
 
+  /**
+   * THE JOIN, RUN WHENEVER EITHER LIST CHANGES.
+   *
+   * One call for both lists: the queue and the log draw from the same pool of customers, and two
+   * separate resolutions would ask operations for the same person twice on every tab switch.
+   * Refs already resolved are not asked for again — the map only grows.
+   */
+  useEffect(() => {
+    const resolve = action(catalog, 'operations.customers_by_refs');
+    if (!resolve) return;
+    const refs = [
+      ...(schedule?.schedule ?? []).map((r) => r.subject_ref),
+      ...(log ?? []).map((r) => r.subject_ref),
+    ].filter((r): r is string => Boolean(r) && !(r! in who));
+    if (refs.length === 0) return;
+
+    let stale = false;
+    call<{ customers: Who[] }>(session, resolve, { refs: [...new Set(refs)].slice(0, 200) })
+      .then((x) => {
+        if (stale) return;
+        setWho((prev) => {
+          const next = { ...prev };
+          for (const c of x.customers ?? []) if (c.subject_ref) next[c.subject_ref] = c;
+          return next;
+        });
+      })
+      // A FAILED JOIN IS NOT A FAILED SCREEN. The rows still say what goes out and when; they
+      // fall back to «عميل» for the name, which is worse than a name and far better than nothing.
+      .catch(() => null);
+    return () => { stale = true; };
+  }, [schedule, log, who, session, catalog]);
+
   /** Re-read what is queued — after a cancel, so the row he just stopped is gone. */
   const loadSchedule = () => {
     const a = action(catalog, 'reminders.list_schedule');
@@ -147,9 +212,6 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
       .catch(() => setCampaigns([]));
   };
 
-  const waitingOf = (kind: string) =>
-    (schedule?.schedule ?? []).filter((r) => r.kind === kind).length;
-
   return (
     <div className="flex flex-col gap-4 p-4">
       <Segmented
@@ -169,77 +231,69 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
       />
 
       {tab === 'auto' ? (
-      <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-        <h2 className="mb-3 text-sm text-text-secondary">ما يُرسَل تلقائياً</h2>
+      <section className="flex flex-col gap-3">
+        {/* ── the queue, as PEOPLE ────────────────────────────────────────────────────────────
+            «مين بيوصله إيش، ومتى» — and the one act that belongs here, which is stopping one of
+            them. The old shape was four fixed rows, one per message TYPE, each carrying a count
+            and three dashes: a shop with one queued reminder read «تذكير الموعد … 1» and «—» three
+            times, and could not tell whose reminder it was without opening a nested panel. Nothing
+            on the screen was about a customer, which is the only thing this section is about. */}
         {schedule === null ? (
-          <Skeleton height={140} />
+          <Skeleton height={160} />
+        ) : (schedule.schedule ?? []).length === 0 ? (
+          <EmptyState
+            title="ما في رسائل بانتظار الخروج"
+            description="كل زيارة تُسجَّل تجدول تذكيرها واطمئنانها — وتظهر هنا قبل أن تخرج، فتوقف ما تريد."
+          />
         ) : (
-          <ul className="flex flex-col gap-2">
-            {OCCASIONS.map((o) => {
-              const waiting = waitingOf(o.kind);
-              const rows = (schedule?.schedule ?? []).filter((r) => r.kind === o.kind);
-              return (
-                <li key={o.kind} className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex flex-col">
-                      <span>{o.label}</span>
-                      <span className="text-sm text-text-secondary">{o.help}</span>
-                    </span>
-                    {/* THE STATE, NOT A SWITCH. Turning an occasion off is a per-service setting
-                        in the tree, and it lives in «خدماتي» where he is looking at the service it
-                        belongs to. A global switch here would be a second place to change one
-                        thing, and the two would disagree.
-
-                        BUT THE COUNT OPENS NOW. Seeing comes before acting — the route says so in
-                        its own note — and the count used to be the end of the road: an owner who
-                        knew one particular reminder should not go out could not reach it. */}
-                    <button
-                      type="button"
-                      disabled={waiting === 0}
-                      onClick={() => setOpenKind(openKind === o.kind ? '' : o.kind)}
-                      // A COUNT THAT OPENS IS A BUTTON, and a button on this screen answers to the
-                      // same 44px floor as every other. Bare text passed review because it looks
-                      // like a label — which is exactly why the thumb misses it.
-                      className="grid min-h-11 shrink-0 place-items-center px-2 tabular-nums text-text-secondary disabled:opacity-60"
-                    >
-                      {waiting > 0 ? `${waiting} بانتظار الإرسال` : '—'}
-                    </button>
-                  </div>
-
-                  {openKind === o.kind ? (
-                    <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
-                      {rows.slice(0, 20).map((r, i) => (
-                        <div key={r.id || i} className="flex items-center justify-between gap-2">
-                          <span className="text-sm tabular-nums text-text-secondary">
-                            {r.due_at ? `يخرج ${when(r.due_at)}` : 'بانتظار موعده'}
-                          </span>
-                          {/* CANCELS THE MESSAGE, NOT THE RULE — the route's own words, repeated
-                              here so he is not surprised: the next visit schedules a new one,
-                              which is what he almost always means. */}
-                          {action(catalog, 'reminders.cancel') && r.id ? (
-                            <Button
-                              variant="ghost"
-                              onClick={async () => {
-                                const a2 = action(catalog, 'reminders.cancel');
-                                if (!a2 || !r.id) return;
-                                await call(session, a2, { id: r.id }).catch(() => null);
-                                loadSchedule();
-                              }}
-                            >
-                              ألغِه
-                            </Button>
-                          ) : null}
-                        </div>
-                      ))}
-                      <p className="text-xs text-text-secondary">
-                        الإلغاء يوقف هذه الرسالة وحدها — والزيارة القادمة تجدول واحدة جديدة.
-                      </p>
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <p className="px-1 text-sm text-text-secondary">
+              {`${schedule.schedule.length} رسالة بانتظار الخروج — أوقف أياً منها قبل موعدها.`}
+            </p>
+            <ul className="flex flex-col gap-2">
+              {[...schedule.schedule]
+                .sort((a, b) => (a.due_at ?? 0) - (b.due_at ?? 0))
+                .slice(0, 100)
+                .map((r, i) => {
+                  const person = r.subject_ref ? who[r.subject_ref] : undefined;
+                  return (
+                    <li key={r.id || i}
+                        className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
+                      <span className="flex min-w-0 flex-col">
+                        {/* THE NAME IF HE WROTE ONE, THE NUMBER IF HE DID NOT — never a
+                            pseudonym. Names are optional at the counter (§4.3), so the phone is
+                            the fallback that always identifies somebody. */}
+                        <span className="truncate font-medium">
+                          {person?.name || (person?.phone ? asLocal(person.phone) : 'عميل')}
+                        </span>
+                        <span className="truncate text-sm text-text-secondary">
+                          {OCCASION[r.kind ?? ''] ?? 'رسالة'}
+                          {r.due_at ? ` · ${dueIn(r.due_at)}` : ''}
+                        </span>
+                      </span>
+                      {/* CANCELS THE MESSAGE, NOT THE RULE — the route's own words, repeated here
+                          so he is not surprised: the next visit schedules a new one. */}
+                      {action(catalog, 'reminders.cancel') && r.id ? (
+                        <Button
+                          variant="ghost"
+                          onClick={async () => {
+                            const a2 = action(catalog, 'reminders.cancel');
+                            if (!a2 || !r.id) return;
+                            await call(session, a2, { id: r.id }).catch(() => null);
+                            loadSchedule();
+                          }}
+                        >
+                          أوقفها
+                        </Button>
+                      ) : null}
+                    </li>
+                  );
+                })}
+            </ul>
+            <p className="px-1 text-xs text-text-secondary">
+              الإيقاف يوقف هذه الرسالة وحدها — والزيارة القادمة تجدول واحدة جديدة.
+            </p>
+          </>
         )}
       </section>
       ) : tab === 'log' ? (
@@ -278,8 +332,20 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
               {log.map((r) => (
                 <li key={r.id} className="rounded-card bg-surface-1 p-3 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-text-secondary tabular-nums">
-                      {r.at ? new Date(r.at * 1000).toLocaleString('ar-SA-u-ca-gregory') : ''}
+                    {/* WHO IT WAS ABOUT, FIRST. A log line that says only «لم تخرج» and a reason
+                        leaves the owner unable to act: he cannot call the customer, cannot check
+                        the number, cannot tell whether it matters. */}
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate font-medium">
+                        {(() => {
+                          const person = r.subject_ref ? who[r.subject_ref] : undefined;
+                          return person?.name
+                            || (person?.phone ? asLocal(person.phone) : 'عميل');
+                        })()}
+                      </span>
+                      <span className="text-xs text-text-secondary tabular-nums">
+                        {r.at ? `${when(r.at)} · ${OCCASION[r.cls ?? ''] ?? 'رسالة'}` : ''}
+                      </span>
                     </span>
                     <Badge tone={r.outcome === 'sent' ? 'success' : 'warning'}>
                       {r.outcome === 'sent' ? 'خرجت' : 'لم تخرج'}
