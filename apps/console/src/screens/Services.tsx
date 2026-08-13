@@ -721,6 +721,24 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             )
           ) : null}
 
+      {/* THE LEGEND, AT THE TABLE'S OWN WIDTH. Prose does not fit in a header cell; four
+          sentences at the width of the page do. */}
+      {asked ? (
+        <dl className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-2/60 px-4 py-3 text-sm leading-relaxed">
+          {[
+            ['الدورة', 'الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.'],
+            ['الاطمئنان', 'رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.'],
+            ['النقاط', 'كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.'],
+            ['المجموعة', 'ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.'],
+          ].map(([term, said]) => (
+            <div key={term} className="flex flex-wrap gap-x-2">
+              <dt className="font-medium">{term}</dt>
+              <dd className="min-w-0 flex-1 text-text-secondary">{said}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
       {/* ── the table ────────────────────────────────────────────────────────────────────────
           ONE QUESTION PER COLUMN, ASKED ONCE AT THE TOP. Every service used to carry its own «؟»
           beside every field, so a shop with sixteen services rendered the same four explanations
