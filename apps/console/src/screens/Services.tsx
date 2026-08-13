@@ -583,6 +583,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           />
         ) : null}
 
+        {/* ONE «؟» FOR THE TABLE, NOT ONE PER COLUMN. Four marks across a header sixty-four
+            pixels per column wide crowded into each other and spilled onto the neighbouring
+            label — «النقاط؟» reading as one word. A legend answers all four at once, in a
+            sentence each, and the header goes back to being four words. */}
+        <button
+          type="button"
+          aria-expanded={Boolean(asked)}
+          onClick={() => setAsked(asked ? null : 'legend')}
+          className="grid h-10 place-items-center rounded-lg px-3 text-sm text-text-secondary"
+        >
+          {asked ? 'إخفاء الشرح' : 'شرح الأعمدة'}
+        </button>
+
         {action(catalog, 'operations.create_service') && !adding ? (
           <Button className="ms-auto" onClick={() => setAdding(true)}>إضافة خدمة أو منتج</Button>
         ) : null}
@@ -738,18 +751,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th className="w-1/2">الخدمة</Th>
-              <Th narrow>الدورة
-              </Th>
-              <Th narrow wide>الاطمئنان
-              </Th>
-              {earnAction ? (
-                <Th narrow wide>النقاط
-                </Th>
-              ) : null}
-              {action(catalog, 'reminders.set_group') ? (
-                <Th narrow wide>المجموعة
-                </Th>
-              ) : null}
+              <Th narrow>الدورة</Th>
+              <Th narrow wide>الاطمئنان</Th>
+              {earnAction ? <Th narrow wide>النقاط</Th> : null}
+              {action(catalog, 'reminders.set_group') ? <Th narrow wide>المجموعة</Th> : null}
               <Th narrow className="w-24">إجراءات</Th>
             </tr>
           </thead>
