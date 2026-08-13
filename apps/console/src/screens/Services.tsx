@@ -768,11 +768,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         <table className="w-full table-fixed border-collapse text-sm">
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
-              <Th className="w-1/2">الخدمة</Th>
+              <Th className="w-[38%]">الخدمة</Th>
               <Th narrow>الدورة</Th>
               <Th narrow wide>الاطمئنان</Th>
               {earnAction ? <Th narrow wide>النقاط</Th> : null}
-              {action(catalog, 'reminders.set_group') ? <Th narrow wide>المجموعة</Th> : null}
+              {action(catalog, 'reminders.set_group') ? (
+                // WIDER THAN THE NUMBER COLUMNS, because it holds a name and a dropdown arrow.
+                // At 64px «بلا مجموعة» rendered as «بلا» — a truncation that reads as a value.
+                <Th wide className="w-36">المجموعة</Th>
+              ) : null}
               <Th narrow className="w-24">إجراءات</Th>
             </tr>
           </thead>
