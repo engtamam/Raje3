@@ -21,6 +21,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Check, Pencil, Power, RotateCcw } from 'lucide-react';
 import { Hint } from '../Hint';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -922,20 +923,26 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     title="العودة إلى الإعداد العام"
                     disabled={saving}
                     onClick={() => followGeneral(svc.id)}
-                  >↺</IconButton>
+                  ><RotateCcw size={18} aria-hidden /></IconButton>
                 ) : null}
                 <IconButton
                   title={editing ? 'إنهاء التعديل' : 'تعديل'}
                   onClick={() => setOpen(editing ? null : svc.id)}
                   active={editing}
-                >{editing ? '✓' : '✎'}</IconButton>
+                >{editing ? <Check size={18} aria-hidden /> : <Pencil size={18} aria-hidden />}</IconButton>
                 {action(catalog, 'operations.update_service') ? (
                   <IconButton
                     title={stopped ? 'تفعيل' : 'إيقاف — تختفي من شاشة الزيارة وتسكت تذكيراتها'}
                     disabled={saving}
                     danger={!stopped}
                     onClick={() => patchService(svc.id, { active: stopped })}
-                  >{stopped ? '⏻' : '⏻'}</IconButton>
+                  >
+                    {/* AN SVG, NOT A CHARACTER. «⏻» (U+23FB) is a text glyph most phone fonts do
+                        not carry, so the button rendered as an empty box that pressed and did
+                        something — the worst possible state for the one action that takes a
+                        service off the operator's grid. */}
+                    <Power size={18} aria-hidden />
+                  </IconButton>
                 ) : null}
               </div>
             </td>
