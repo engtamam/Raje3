@@ -738,20 +738,16 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th className="w-1/2">الخدمة</Th>
-              <Th narrow onAsk={setAsked} asked={asked} hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
-                الدورة
+              <Th narrow>الدورة
               </Th>
-              <Th narrow wide onAsk={setAsked} asked={asked} hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
-                الاطمئنان
+              <Th narrow wide>الاطمئنان
               </Th>
               {earnAction ? (
-                <Th narrow wide onAsk={setAsked} asked={asked} hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
-                  النقاط
+                <Th narrow wide>النقاط
                 </Th>
               ) : null}
               {action(catalog, 'reminders.set_group') ? (
-                <Th narrow wide onAsk={setAsked} asked={asked} hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
-                  المجموعة
+                <Th narrow wide>المجموعة
                 </Th>
               ) : null}
               <Th narrow className="w-24">إجراءات</Th>
@@ -1029,15 +1025,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
  * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
  * card was opened. Asked once at the top, the question is answered before he reads a single row.
  */
-function Th({ children, hint, wide, narrow, className = '', onAsk, asked }: {
+function Th({ children, wide, narrow, className = '' }: {
   children: React.ReactNode;
   /** An explicit width when the default narrow one does not fit. */
   className?: string;
-  /** The explanation, opened from the «؟» — rendered above the table, never in this cell. */
-  hint?: string;
-  onAsk?: (hint: string | null) => void;
-  /** The explanation currently open, whichever column it belongs to. */
-  asked?: string | null;
   /** Only on a screen wide enough for it — the phone reaches this field from the edit row. */
   wide?: boolean;
   /** As wide as its content and no wider; the name column absorbs what is left. */
@@ -1050,23 +1041,7 @@ function Th({ children, hint, wide, narrow, className = '', onAsk, asked }: {
       wide ? 'hidden md:table-cell' : '',
       className,
     ].join(' ')}>
-      <span className="inline-flex items-center gap-1">
-        {children}
-        {hint && onAsk ? (
-          <button
-            type="button"
-            aria-label={`شرح ${typeof children === 'string' ? children : ''}`}
-            aria-expanded={asked === hint}
-            onClick={() => onAsk(asked === hint ? null : hint)}
-            className="grid size-8 shrink-0 place-items-center rounded-full"
-          >
-            <span aria-hidden className={[
-              'grid size-5 place-items-center rounded-full text-[0.7rem]',
-              asked === hint ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
-            ].join(' ')}>؟</span>
-          </button>
-        ) : null}
-      </span>
+      {children}
     </th>
   );
 }
