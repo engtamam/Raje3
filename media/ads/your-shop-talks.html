@@ -1,0 +1,353 @@
+<title>محلك يحكي</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!--
+  «محلك يحكي» — الإعلان الأول، رأسيّ 9:16، يُشغَّل ويُسجَّل شاشةً ليصير mp4.
+
+  قرارٌ واحد يحكم كل ما تحت: الصمت هو الإعلان. السؤال الأول يعرف صاحبُ المحل جوابه
+  فيرتاح، والثاني لا يعرفه — والثانية ونصف التي تليه بلا صورة ولا صوت هي التي تبيع.
+  فلا شيء يتحرّك في تلك اللحظة، ولا مؤثّر يملأ الفراغ.
+
+  والأرقام تمرّ أسرع من أن تُقرأ كلّها عمداً: المطلوب انطباع «هناك ما يُعرف عن محلي»،
+  لا أن يحفظها. والأحمر يظهر مرة واحدة في المقطع كلّه، على السطر الذي يجعله يضغط.
+
+  والأرض ورقٌ دافئ لا سواد، عن قصد: الأسود خلفية كل إعلانٍ تقني في العالم، ويمرّ في
+  الشريط كإعلان. والورقة تُوقِف الإبهام لأنها غريبةٌ في مكانها — ولأن صفحة هبوطنا
+  بيضاء دافئة، فإعلانٌ أسود يقود إليها يقطع الخيط.
+
+  ولا صورة خلف الأرقام: الرقم يحتاج صمتاً بصرياً حوله، والصورة تسحب العين إلى تفاصيلها
+  وتشيخ — محلٌّ مصوَّر اليوم يبدو قديماً بعد سنتين، والأرقام لا تشيخ. فاللقطة الحقيقية
+  في مكانٍ واحد: أول ثانيتين، مطموسةً، ثم تنسحب. تربط الإعلان بعالمه ثم تخرج منه.
+
+  التزم بعالمٍ فاتح واحد ولا يتبع سمة القارئ: هذا إعلانٌ يُصوَّر، لا صفحةٌ تُقرأ.
+-->
+
+<style>
+  :root {
+    /* ورقٌ دافئ، هو نفسه ورق صفحة الهبوط — فالإعلان والصفحة عالمٌ واحد. */
+    --ground: #F5F1E9;
+    --ground-lift: #EDE7DA;
+    /* حبرٌ مزرقّ داكن لا أسود: الأسود على الورق قاسٍ، وهذا يقرأ أدفأ ويطبع أنظف. */
+    --ink: #1B2A3A;
+    /* رماديٌّ مائل إلى الذهب — لا رمادي محايد، فالمحايد يقول إن أحداً لم يختره. */
+    --muted: #8A8377;
+    /* ذهبٌ أغمق قليلاً من ذهب الشاشة: على الفاتح يحتاج ثقلاً ليقرأ من مسافة. */
+    --gold: #9C7526;
+    --gold-soft: #C7B48A;
+    --alarm: #C0392B;
+
+    --stage-w: min(100vw, calc(100dvh * 9 / 16));
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "SF Arabic", "Segoe UI", "Noto Naskh Arabic", "IBM Plex Sans Arabic", system-ui, sans-serif;
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    direction: rtl;
+    overflow: hidden;
+  }
+
+  /* ── المسرح: 9:16 مهما كانت النافذة، فما يُسجَّل هو ما يُرى ──────────────────────── */
+  .stage {
+    position: relative;
+    width: var(--stage-w);
+    height: calc(var(--stage-w) * 16 / 9);
+    max-height: 100dvh;
+    background: var(--ground);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    /* ── خامة الورق ─────────────────────────────────────────────────────────────
+       نسيجٌ لا يُرى ويُحَسّ: بقعتان متباعدتان جداً بلونٍ أفتح، فتكسران التسطيح الرقمي
+       وتمنعان التدرّج من التشريط بعد الضغط. لا صورة ولا ملف — فالإعلان يبقى ملفاً
+       واحداً يفتح في أي مكان. */
+    background-image:
+      radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .55), transparent 60%),
+      radial-gradient(90% 60% at 50% 100%, rgba(156, 117, 38, .06), transparent 65%);
+    box-shadow: inset 0 0 min(20vh, 180px) rgba(27, 42, 58, .07);
+  }
+
+  /* ── اللقطة الافتتاحية ────────────────────────────────────────────────────────
+     ثانيتان من عالمه هو — طاولة محل، رفٌّ، بابٌ يُفتح — مطموسةٌ حتى لا تُقرأ تفاصيلها،
+     ثم تنسحب مع السؤال الأول فلا تزاحم شيئاً بعدها.
+
+     رُسمت بالتدرّجات لا بصورة: لا نملك لقطةً حقيقية بعد، والمكان محجوزٌ لها — ضع ملفاً
+     في `brand/opening.jpg` وسيحلّ محلها بلا تغييرٍ آخر. */
+  .opening {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(27, 42, 58, .35), rgba(27, 42, 58, .1)),
+      radial-gradient(60% 40% at 30% 30%, #C9A465, transparent 70%),
+      radial-gradient(50% 45% at 75% 65%, #6B7F8C, transparent 70%),
+      linear-gradient(140deg, #2E3A46, #7A6A52);
+    filter: blur(22px) saturate(.85);
+    transform: scale(1.12);
+    opacity: 0;
+    transition: opacity .8s ease;
+  }
+  .opening.on { opacity: 1; }
+
+  .beat {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    gap: 2.2vh;
+    padding: 0 8%;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .32s ease;
+  }
+  .beat.on { opacity: 1; }
+
+  .ask {
+    font-size: clamp(1.6rem, 6.4vw, 2.9rem);
+    font-weight: 800;
+    line-height: 1.35;
+    text-wrap: balance;
+    letter-spacing: -.01em;
+  }
+  .reply {
+    font-size: clamp(1rem, 3.4vw, 1.4rem);
+    font-weight: 500;
+    color: var(--muted);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .beat.said .reply { opacity: 1; transform: none; }
+
+  /* ── الأرقام: تتساقط واحداً واحداً، ولا تُقرأ كلها ─────────────────────────────── */
+  .figures {
+    display: flex;
+    flex-direction: column;
+    gap: 3.4vh;
+    width: 100%;
+  }
+  .fig {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: .5em;
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  .fig.in { animation: rise .5s cubic-bezier(.2, .7, .3, 1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  .num {
+    font-size: clamp(2.6rem, 12vw, 5rem);
+    font-weight: 900;
+    line-height: 1;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .unit {
+    font-size: clamp(.95rem, 3.6vw, 1.35rem);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  /* الأحمر مرة واحدة في المقطع كله، على السطر الذي يجعله يضغط. */
+  .fig.warn .num { color: var(--alarm); }
+  .fig.warn .unit { color: #8C3226; }
+
+  /* ── الخاتمة ────────────────────────────────────────────────────────────────── */
+  .close-1, .close-2 {
+    font-size: clamp(1.5rem, 6vw, 2.6rem);
+    font-weight: 800;
+    line-height: 1.4;
+  }
+  .close-2 { color: var(--muted); }
+
+  .mark {
+    display: grid;
+    gap: 1.6vh;
+    place-items: center;
+  }
+  .wordmark {
+    font-size: clamp(3rem, 14vw, 5.5rem);
+    font-weight: 900;
+    color: var(--gold);
+    letter-spacing: -.03em;
+    line-height: 1;
+  }
+  .site {
+    font-size: clamp(.85rem, 3.2vw, 1.1rem);
+    color: var(--muted);
+    letter-spacing: .04em;
+    direction: ltr;
+  }
+
+  /* ── التحكّم: خارج الإطار المسجَّل بصرياً — يختفي أثناء العرض ─────────────────── */
+  .controls {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 3.5vh;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    transition: opacity .3s ease;
+  }
+  .controls.hide { opacity: 0; pointer-events: none; }
+
+  button {
+    font: inherit;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--ground-lift);
+    border: 1px solid var(--gold-soft);
+    border-radius: 999px;
+    padding: .7em 1.6em;
+    cursor: pointer;
+    transition: background .2s ease, transform .1s ease;
+  }
+  button:hover { background: #E3DCCB; }
+  button:active { transform: scale(.97); }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+  /* من يطلب تقليل الحركة يرى المشاهد بلا انزلاق — النصّ نفسه، بلا حركة. */
+  @media (prefers-reduced-motion: reduce) {
+    .beat, .reply { transition: none; }
+    .fig.in { animation: none; opacity: 1; transform: none; }
+  }
+</style>
+
+<div class="stage" id="stage">
+  <!-- عالمه، ثانيتين، ثم يخرج -->
+  <div class="opening" id="opening"></div>
+
+  <!-- 1 · سؤالٌ يعرف جوابه، فيرتاح -->
+  <div class="beat" data-beat="1">
+    <p class="ask">كم عميل دخل محلك هالشهر؟</p>
+    <p class="reply">تعرف.</p>
+  </div>
+
+  <!-- 2 · وسؤالٌ لا يعرفه — وبعده صمت -->
+  <div class="beat" data-beat="2">
+    <p class="ask">وكم واحد منهم رجع؟</p>
+  </div>
+
+  <!-- 3 · الصمت. لا نصّ ولا حركة: هذه اللحظة هي الإعلان. -->
+
+  <!-- 4 · محله يتكلّم -->
+  <div class="beat" data-beat="4">
+    <div class="figures">
+      <div class="fig" data-fig="0"><span class="num" data-to="312">0</span><span class="unit">عميل زارك</span></div>
+      <div class="fig" data-fig="1"><span class="num" data-to="41" data-suffix="%">0</span><span class="unit">رجعوا لك</span></div>
+      <div class="fig" data-fig="2"><span class="num" data-to="47">0</span><span class="unit">يوم بين زيارة وزيارة</span></div>
+      <div class="fig warn" data-fig="3"><span class="num" data-to="28">0</span><span class="unit">على وشك يروحون</span></div>
+    </div>
+  </div>
+
+  <!-- 5 · الضربة -->
+  <div class="beat" data-beat="5">
+    <p class="close-1">محلك يحكي من زمان.</p>
+    <p class="close-2">بس ما فيه أحد يسمع.</p>
+  </div>
+
+  <!-- 6 · الاسم -->
+  <div class="beat" data-beat="6">
+    <div class="mark">
+      <p class="wordmark">راجِع</p>
+      <p class="site">kobo-cloud.com</p>
+    </div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button id="play" type="button">شغّل الإعلان</button>
+  </div>
+</div>
+
+<script>
+  // ── الشريط الزمني ───────────────────────────────────────────────────────────────
+  // مكتوبٌ كأزمنة مطلقة بالمللي، لا كسلسلة تأخيرات: التأخيرات المتتابعة تتراكم أخطاؤها
+  // ويصير الصمت في التسجيل أقصر مما قُصد — وهو أهم لحظة في المقطع.
+  const T = [
+    { at:     0, do: () => open_(true) },
+    { at:  1900, do: () => { open_(false); show(1); } },
+    { at:  3400, do: () => beat(1).classList.add('said') },   // «تعرف.»
+    { at:  4900, do: () => show(2) },
+    { at:  7100, do: () => show(null) },                       // الصمت
+    { at:  8700, do: () => { show(4); countUp(); } },
+    { at: 14500, do: () => show(5) },
+    { at: 17300, do: () => show(6) },
+    { at: 20500, do: () => end() },
+  ];
+
+  // ── الطول، معلَناً من الشريط نفسه ────────────────────────────────────────────────
+  // مصدرٌ واحد: آخر لحظةٍ في الشريط زائد ذيلٌ قصير يبقى فيه الاسم على الشاشة. من غيره
+  // يُكتب الطول مرتين — هنا وفي أمر التصيير — وتضيف مشهداً فيُقطع المقطع قبل نهايته،
+  // أو تحذف مشهداً فيُسجَّل السواد بعده. والملف يخرج «بنجاح» في الحالتين.
+  window.__duration = T[T.length - 1].at + 1200;
+
+  const stage = document.getElementById('stage');
+  const controls = document.getElementById('controls');
+  const play = document.getElementById('play');
+  const beat = (n) => stage.querySelector(`[data-beat="${n}"]`);
+  const opening = document.getElementById('opening');
+  const open_ = (on) => opening.classList.toggle('on', on);
+  const beats = [...stage.querySelectorAll('.beat')];
+  let timers = [];
+
+  function show(n) {
+    beats.forEach((b) => b.classList.remove('on'));
+    if (n) beat(n).classList.add('on');
+  }
+
+  // الأرقام تعدّ صعوداً — والعدّ نفسه هو ما يقول «هذا يُحسب الآن من بياناتك».
+  function countUp() {
+    stage.querySelectorAll('#stage [data-fig]').forEach((fig, i) => {
+      timers.push(setTimeout(() => {
+        fig.classList.add('in');
+        const el = fig.querySelector('.num');
+        const to = Number(el.dataset.to);
+        const suffix = el.dataset.suffix || '';
+        const started = performance.now();
+        const DURATION = 700;
+        const tick = (now) => {
+          const p = Math.min(1, (now - started) / DURATION);
+          // تباطؤٌ في النهاية: الرقم يستقرّ ولا يتوقّف فجأة.
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(to * eased) + suffix;
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }, i * 1150));
+    });
+  }
+
+  function reset() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    show(null);
+    open_(false);
+    beat(1).classList.remove('said');
+    stage.querySelectorAll('[data-fig]').forEach((f) => {
+      f.classList.remove('in');
+      const el = f.querySelector('.num');
+      el.textContent = '0';
+    });
+  }
+
+  function end() {
+    controls.classList.remove('hide');
+    play.textContent = 'شغّله مرة ثانية';
+  }
+
+  function run() {
+    reset();
+    controls.classList.add('hide');
+    T.forEach((step) => timers.push(setTimeout(step.do, step.at)));
+  }
+
+  play.addEventListener('click', run);
+</script>
