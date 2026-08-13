@@ -719,24 +719,29 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           at the end, so scanning down a column compares the same number across the whole
           catalogue — which is the act this screen exists for and a stack of cards made
           impossible. */}
-      <div className="overflow-x-auto rounded-card border border-border-subtle bg-surface-1">
-        <table className="w-full min-w-[44rem] border-collapse text-sm">
+      {/* NO HORIZONTAL SCROLL, AND NO SHRUNKEN COPY OF THE DESKTOP TABLE. Six columns cannot fit a
+          phone: forcing them produces a sideways-scrolling grid where the numbers he came to
+          compare are off-screen — the worst of both shapes. So the phone gets the three columns
+          that answer «ما عندي، وكل كم يوماً، وماذا أفعل بها», and the other three appear stacked
+          under the row the moment he taps ✎. Nothing is unreachable; it is only unasked. */}
+      <div className="rounded-card border border-border-subtle bg-surface-1">
+        <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th>الخدمة</Th>
               <Th hint="الرسالة التي تُرجعه: تُرسَل حين يحين وقت الخدمة القادمة. و0 تعني لا تذكير لها.">
                 الدورة
               </Th>
-              <Th hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
+              <Th wide hint="رسالة قصيرة بعد الزيارة تسأل إن كان كل شيء تمام — تُلغى تلقائياً إن عاد قبل موعدها. و0 تعني لا نسأل.">
                 الاطمئنان
               </Th>
               {earnAction ? (
-                <Th hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
+                <Th wide hint="كم نقطة يكسبها عميلك من هذه الخدمة في كل زيارة. الرقم الباهت يعني أنها تتبع إعدادك العام.">
                   النقاط
                 </Th>
               ) : null}
               {action(catalog, 'reminders.set_group') ? (
-                <Th hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
+                <Th wide hint="ما في مجموعة واحدة يأخذ إعداداً واحداً — تغيّره مرة لها كلها.">
                   المجموعة
                 </Th>
               ) : null}
@@ -820,6 +825,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               onSave={(n) => setService(svc.id, { interval_days: n })}
             />
             <Num
+              wide
               value={value.follow_up_days}
               own={own}
               editable={editing && !!action(catalog, 'reminders.set_service_settings')}
@@ -828,6 +834,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             />
             {earnAction ? (
               <Num
+                wide
                 value={earnFor(svc.id).points}
                 own={earnFor(svc.id).own}
                 editable={editing}
@@ -837,7 +844,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             ) : null}
 
             {action(catalog, 'reminders.set_group') ? (
-              <td className="px-3 py-2">
+              <td className="hidden px-3 py-2 md:table-cell">
                 {editing ? (
                   <select
                     aria-label={`مجموعة ${svc.name}`}
@@ -899,6 +906,74 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             </td>
           </tr>
 
+          {/* ── the phone's edit row ──────────────────────────────────────────────────────
+              THE THREE COLUMNS THE PHONE DOES NOT SHOW, STACKED, AND ONLY WHILE HE IS EDITING.
+              Hiding a column on a narrow screen is only honest if the field is reachable
+              somewhere; this is that somewhere. It costs nothing until ✎ is tapped, and then it
+              is a short labelled form under the row it belongs to — which is what a phone is
+              good at, and what a six-column grid squeezed into 380px never is. */}
+          {editing ? (
+            <tr className="border-b border-border-subtle bg-surface-2/40 md:hidden">
+              <td colSpan={3} className="px-3 py-3">
+                <div className="flex flex-col gap-2">
+                  {action(catalog, 'reminders.set_service_settings') ? (
+                    <Field label="الاطمئنان">
+                      <input
+                        type="number" min={0} dir="ltr"
+                        defaultValue={String(value.follow_up_days ?? 0)}
+                        aria-label={`اطمئنان ${svc.name}`}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          if (raw !== '' && Number(raw) !== (value.follow_up_days ?? 0)) {
+                            setService(svc.id, { follow_up_days: Number(raw) });
+                          }
+                        }}
+                        className="h-10 w-20 rounded-lg bg-surface-1 px-2 text-center tabular-nums"
+                      />
+                    </Field>
+                  ) : null}
+                  {earnAction ? (
+                    <Field label="النقاط">
+                      <input
+                        type="number" min={0} dir="ltr"
+                        defaultValue={String(earnFor(svc.id).points)}
+                        aria-label={`نقاط ${svc.name}`}
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          if (raw !== '' && Number(raw) !== earnFor(svc.id).points) {
+                            setServicePoints(svc.id, Number(raw));
+                          }
+                        }}
+                        className="h-10 w-20 rounded-lg bg-surface-1 px-2 text-center tabular-nums"
+                      />
+                    </Field>
+                  ) : null}
+                  {action(catalog, 'reminders.set_group') ? (
+                    <Field label="المجموعة">
+                      <select
+                        aria-label={`مجموعة ${svc.name}`}
+                        value={settings?.service_group?.[svc.id] ?? ''}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === '__new__') { setNaming(svc.id); return; }
+                          if (!v) { leaveGroup(svc.id); return; }
+                          joinGroup(svc.id, v);
+                        }}
+                        className="h-10 rounded-lg bg-surface-1 px-2 text-sm"
+                      >
+                        <option value="">بلا مجموعة</option>
+                        {Object.keys(settings?.groups ?? {}).map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                        <option value="__new__">مجموعة جديدة…</option>
+                      </select>
+                    </Field>
+                  ) : null}
+                </div>
+              </td>
+            </tr>
+          ) : null}
+
           {/* THE NEW-GROUP BOX, on its own full-width row so it cannot squeeze a column. */}
           {naming === svc.id ? (
             <tr className="border-b border-border-subtle bg-surface-2/40">
@@ -943,9 +1018,18 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
  * per service — sixteen services, sixty-four hints — and every one of them was invisible until a
  * card was opened. Asked once at the top, the question is answered before he reads a single row.
  */
-function Th({ children, hint }: { children: React.ReactNode; hint?: string }) {
+function Th({ children, hint, wide }: {
+  children: React.ReactNode;
+  /** The explanation, opened from the «؟». */
+  hint?: string;
+  /** Only on a screen wide enough for it — the phone reaches this field from the edit row. */
+  wide?: boolean;
+}) {
   return (
-    <th scope="col" className="whitespace-nowrap px-3 py-2 text-start text-xs font-medium">
+    <th scope="col" className={[
+      'whitespace-nowrap px-3 py-2 text-start text-xs font-medium',
+      wide ? 'hidden md:table-cell' : '',
+    ].join(' ')}>
       <span className="inline-flex items-center gap-1">
         {children}
         {hint ? <Hint wide>{hint}</Hint> : null}
@@ -963,16 +1047,17 @@ function Th({ children, hint }: { children: React.ReactNode; hint?: string }) {
  * from own retypes the number he is already following, which freezes it (§9.2 — inherit, never
  * copy) and makes the next general change skip that service in silence.
  */
-function Num({ value, own, editable, label, onSave }: {
+function Num({ value, own, editable, label, onSave, wide }: {
   value?: number;
   own: boolean;
   editable: boolean;
   label: string;
   onSave: (n: number) => void;
+  wide?: boolean;
 }) {
   const n = value ?? 0;
   return (
-    <td className="px-3 py-2 tabular-nums">
+    <td className={['px-3 py-2 tabular-nums', wide ? 'hidden md:table-cell' : ''].join(' ')}>
       {editable ? (
         <input
           type="number"
@@ -991,6 +1076,16 @@ function Num({ value, own, editable, label, onSave }: {
         <span className={own ? '' : 'text-text-secondary/60'}>{n > 0 ? n : '—'}</span>
       )}
     </td>
+  );
+}
+
+/** One labelled control in the phone's edit row: the name on the right, the control on the left. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="text-sm text-text-secondary">{label}</span>
+      {children}
+    </label>
   );
 }
 

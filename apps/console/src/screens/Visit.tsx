@@ -331,7 +331,12 @@ export function Visit() {
                in a space of their own, then the keypad taking what is left. The matches used to
                live on the LAST page — the operator typed a number here and the customer he was
                looking for appeared two swipes away. */
-            <div className="flex h-full flex-col gap-2">
+            /* A COLUMN, AND A LIMIT ON HOW WIDE IT MAY GET. On a desk this pane spread to the full
+               width of the window: a phone-number box a metre across, and keys the size of playing
+               cards with a hand's worth of dead space under them. Ten digits do not need more
+               width than a phone gives them — the extra pixels made every target further from the
+               last one, which is slower, not roomier. */
+            <div className="mx-auto flex h-full w-full max-w-sm flex-col gap-2">
               {/* A REAL INPUT, NOT A DISPLAY — and this was a defect I introduced.
                   The number used to be a <div> because the keypad below was the only way to type
                   it. Then the keypad became touch-only, correctly: it is a thumb's tool and it was
@@ -412,7 +417,11 @@ export function Visit() {
               </button>
             ) : null}
 
-            <div className="touch-only min-h-0 flex-1">
+            {/* CENTRED IN WHAT IS LEFT, AND NEVER TALLER THAN A HAND. `flex-1` alone made the pad
+                eat every spare pixel on a tall window — four rows stretched into slabs, sitting
+                high with a void beneath them. It takes the space it needs and gives the rest
+                back. */}
+            <div className="touch-only my-auto min-h-0 w-full flex-1 self-center" style={{ maxHeight: '22rem' }}>
                 <Keypad value={phone} onChange={setPhone} />
               </div>
             </div>
