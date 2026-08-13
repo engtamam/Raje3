@@ -530,9 +530,23 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           follow-up, and customises the two or three that differ. Reading it here also tells him
           what «العودة إلى العام» on a service card will give back. */}
       {action(catalog, 'reminders.set_general') ? (
-        <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-          <div className="flex items-center gap-2">
+        <details className="rounded-card border border-border-subtle bg-surface-1">
+          {/* FOLDED, BECAUSE IT IS SET ONCE AND READ RARELY. Open, it took the whole first screen
+              of a phone — two number boxes and their explanations — and pushed the LIST, which is
+              what this section is named after, below the fold. The summary keeps the two values
+              visible, so folding hides the controls and not the answer. */}
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3">
             <span className="text-sm font-medium">الإعداد العام</span>
+            <span className="text-xs text-text-secondary tabular-nums">
+              {summarise({
+                interval_days: settings?.general?.interval_days,
+                follow_up_days: settings?.general?.follow_up_days,
+              })}
+            </span>
+          </summary>
+          <div className="flex flex-col gap-2 border-t border-border-subtle p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-text-secondary">يسري على كل خدمة لم تُخصَّص</span>
             <Hint>
               يسري على كل خدمة لم تُخصَّص. وما خصّصته يبقى كما هو — تغيير هذا الرقم لا يلغي ما
               ضبطته بنفسك على خدمة بعينها.
@@ -556,7 +570,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
             zero="لا نسأل — إلا لخدمة خصّصتها"
             onSave={(n) => setGeneral({ follow_up_days: n })}
           />
-        </section>
+          </div>
+        </details>
       ) : null}
 
       {/* SHOWN ONLY WHEN HE HAS STOPPED SOMETHING. A filter offering «الموقوفة» to a shop with
@@ -577,17 +592,23 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         />
       ) : null}
 
+      {/* CHIPS, NOT A COLUMN OF CARDS. On a phone this rendered as two full-width boxes that read
+          like inputs and ate a third of the first screen — for a control that only filters. Chips
+          scroll sideways, cost one line, and look like what they are. */}
       <div className="grid gap-4 md:grid-cols-[11rem_1fr]">
-        <nav aria-label="مجموعات الخدمات" className="flex gap-2 overflow-x-auto md:flex-col md:overflow-visible">
+        <nav aria-label="مجموعات الخدمات"
+             className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:mx-0 md:flex-col md:overflow-visible md:px-0">
           <button
             type="button"
             onClick={() => setOnly(null)}
             className={[
-              'shrink-0 rounded-card px-3 py-2 text-start text-sm',
-              only === null ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-1',
+              'shrink-0 rounded-full px-3 py-1.5 text-start text-sm transition-colors',
+              only === null
+                ? 'bg-accent-soft font-medium text-accent-on-soft'
+                : 'border border-border-subtle bg-surface-1 text-text-secondary',
             ].join(' ')}
           >
-            الكل <span className="tabular-nums text-text-secondary">{visible.length}</span>
+            الكل <span className="tabular-nums opacity-70">{visible.length}</span>
           </button>
           {bins.map(([g, list]) => (
             <button
@@ -595,12 +616,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               type="button"
               onClick={() => setOnly(g)}
               className={[
-                'shrink-0 rounded-card px-3 py-2 text-start text-sm',
-                only === g ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-1',
+                'shrink-0 rounded-full px-3 py-1.5 text-start text-sm transition-colors',
+                only === g
+                  ? 'bg-accent-soft font-medium text-accent-on-soft'
+                  : 'border border-border-subtle bg-surface-1 text-text-secondary',
               ].join(' ')}
             >
               {g === UNGROUPED ? 'غير مجمّعة' : g}{' '}
-              <span className="tabular-nums text-text-secondary">{list.length}</span>
+              <span className="tabular-nums opacity-70">{list.length}</span>
             </button>
           ))}
         </nav>
@@ -686,7 +709,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           ) : null}
 
       {shown.map(([group, inGroup]) => (
-        <section key={group || 'ungrouped'} className="flex flex-col gap-3">
+        <section key={group || 'ungrouped'} className="flex flex-col gap-2">
           {/* THE HEADING CARRIES THE GROUP'S OWN CYCLE, because that is what the services under it
               follow — a heading that is only a name leaves the owner reading each service to work
               out what the group actually does. The remainder bin has no settings and says so by
@@ -712,19 +735,22 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         const { value, own } = settingFor(svc.id);
         const isOpen = open === svc.id;
         return (
-          <div key={svc.id} className="rounded-card bg-surface-1 shadow-sm">
+          <div key={svc.id} className="overflow-hidden rounded-card border border-border-subtle bg-surface-1">
+            {/* ONE LINE PER SERVICE. Seven services filled three screens: every row was a floating
+                card with its own shadow, its own gap and a lot of white to the left of two short
+                words. A list of things a shop sells should read as a list. */}
             <button
               type="button"
               onClick={() => setOpen(isOpen ? null : svc.id)}
-              className="flex w-full items-center justify-between px-4 py-3 text-start"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start transition-colors hover:bg-surface-2"
             >
-              <span className="flex flex-col">
-                <span>{svc.name}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate font-medium">{svc.name}</span>
                 {/* BOTH NUMBERS, BECAUSE HE SET BOTH. The line used to read only the cycle, so an
                     owner who typed 15 into «الاطمئنان», closed the row and saw «كل 10 يوماً» had
                     every reason to believe it had not saved — it had. A summary that reports one
                     of two saved values is worse than no summary: it is a confident wrong answer. */}
-                <span className="text-sm text-text-secondary tabular-nums">
+                <span className="text-xs text-text-secondary tabular-nums">
                   {summarise(value)}
                 </span>
               </span>
