@@ -23,6 +23,7 @@ import { Segmented } from '@base-ui/design-system/Segmented';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Check, Pencil, Power, RotateCcw } from 'lucide-react';
 import { Hint } from '../Hint';
+import { Toggle } from '@base-ui/design-system/Toggle';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -31,8 +32,11 @@ interface Service { id: string; name: string; cycle_days: number; price_minor: n
 
 /** One service's entry in the tree, and whether it is its own or inherited. */
 interface ServiceSetting { interval_days?: number; lead_days?: number; follow_up_days?: number; enabled?: boolean }
+/** What may be written at the general level, and nowhere else. */
+type GeneralPatch = ServiceSetting & { confirm_visit?: boolean };
 interface Settings {
-  general: ServiceSetting;
+  /** The general row also carries `confirm_visit` — the one setting that is NOT per service. */
+  general: ServiceSetting & { confirm_visit?: boolean };
   /** Only what a service OVERRIDES. Absent means it follows — following is not a value. */
   services: Record<string, ServiceSetting>;
   /** Group name → its settings, and service id → its group. Two maps, exactly as the tree holds
@@ -416,7 +420,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * IT LEAVES CUSTOMISATIONS ALONE, and the route says so: an owner who spent a minute setting the
    * oil change to 60 days has not asked us to undo that minute.
    */
-  const setGeneral = async (patch: ServiceSetting) => {
+  const setGeneral = async (patch: GeneralPatch) => {
     const a = action(catalog, 'reminders.set_general');
     if (!a) return;
     setSaving(true); setError('');
@@ -640,6 +644,41 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               zero="لا نسأل — إلا لخدمة خصّصتها"
               onSave={(n) => setGeneral({ follow_up_days: n })}
             />
+
+            {/* ── the confirmation of the visit itself ──────────────────────────────────────
+                NOT A NUMBER, SO NOT A `Setting`. The other two rows answer "after how many
+                days"; this one answers "at all?" — and it had no answer anywhere. Every shop
+                got a message on the day of the visit, and the only escape was cancelling them
+                one by one in «رسائلي».
+
+                AND IT IS NOT PER SERVICE, deliberately: a visit carrying an oil change and a
+                tyre rotation is one event and gets one message, so a per-service switch would
+                be a control the engine can never honour. */}
+            <div className="flex items-start justify-between gap-3 border-t border-border-subtle pt-3">
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  تأكيد الزيارة
+                  <Hint>
+                    رسالة تصل عميلك بعد تسجيل زيارته مباشرة. تناسب من يترك شيئاً عندك — ورشة أو
+                    مغسلة — وقد لا تناسب من يدفع ويمشي.
+                  </Hint>
+                </span>
+                <span className="text-xs text-text-secondary">
+                  {settings?.general?.confirm_visit === false
+                    ? 'لا نرسل شيئاً عند تسجيل الزيارة.'
+                    : 'نرسل رسالة قصيرة بعد تسجيل الزيارة.'}
+                </span>
+              </span>
+              <Toggle
+                label="تأكيد الزيارة"
+                disabled={saving}
+                // PRESENCE, NOT TRUTH. `undefined` means the shop never chose, and the engine's
+                // answer for that is «نرسل» — rendering it as off would show a switch that
+                // disagrees with what actually goes out.
+                checked={settings?.general?.confirm_visit !== false}
+                onChange={(on) => setGeneral({ confirm_visit: on })}
+              />
+            </div>
           </div>
         </details>
       ) : null}

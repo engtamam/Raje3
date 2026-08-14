@@ -183,6 +183,9 @@ class SettingsIn(BaseModel):
     lead_days: float | None = Field(default=None, ge=0, le=60)
     follow_up_days: int | None = Field(default=None, ge=0, le=180)
     enabled: bool | None = None
+    # GENERAL ONLY — the store drops it anywhere else, because the confirmation belongs to the
+    # visit and a visit carrying three services is still one message.
+    confirm_visit: bool | None = None
 
     def values(self) -> dict:
         # `exclude_none` is the whole contract: an omitted field means "leave it", NOT "clear it".
@@ -198,7 +201,8 @@ def _settings(request: Request):
         "interval_days": s.DEFAULT_INTERVAL_DAYS,
         "lead_days": s.DEFAULT_LEAD_DAYS,
         "follow_up_days": 0,
-        "enabled": True})
+        "enabled": True,
+        "confirm_visit": True})
 
 
 @router.get("/offer", dependencies=[Depends(rate_limit)])

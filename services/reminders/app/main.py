@@ -88,8 +88,12 @@ def create_app() -> FastAPI:
         # work — five minutes slower. If the catch-up failed, customers would silently never be
         # reminded.
         async def _on_visit(event) -> None:
-            await container.ingest.on_event(event, now=int(time.time()),
-                                            service_config={})
+            from app.api.internal import _confirms_visits
+            await container.ingest.on_event(
+                event, now=int(time.time()), service_config={},
+                # The fast path must honour the same switch as the tick, or an owner who turned
+                # confirmations off would still see them whenever the bus delivered.
+                confirm_visits=lambda t: _confirms_visits(container, t))
 
         try:
             await container.event_bus.subscribe("operations.visit.recorded", _on_visit)

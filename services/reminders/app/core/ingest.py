@@ -27,6 +27,16 @@ from typing import Any
 WATERMARKS = "watermarks"
 
 
+async def _resolve(flag: Any, tenant: str) -> bool:
+    """A bool stays a bool; a callable is asked about this tenant, and may be async."""
+    if callable(flag):
+        out = flag(tenant)
+        if hasattr(out, "__await__"):
+            out = await out
+        return bool(out)
+    return bool(flag)
+
+
 class Ingest:
     """Both paths into the scheduler."""
 
@@ -37,7 +47,8 @@ class Ingest:
         self._t = telemetry
 
     async def on_event(self, event: Any, *, now: int,
-                       service_config: dict[str, dict[str, Any]] | None = None) -> None:
+                       service_config: dict[str, dict[str, Any]] | None = None,
+                       confirm_visits: Any = True) -> None:
         """Handle one `operations.visit.recorded`.
 
         NEVER RAISES. The bus swallows subscriber exceptions anyway, so raising here buys nothing
@@ -45,7 +56,9 @@ class Ingest:
         """
         payload = getattr(event, "payload", None) or (event if isinstance(event, dict) else {})
         try:
-            await self._sched.on_visit(payload, now=now, service_config=service_config or {})
+            confirm = await _resolve(confirm_visits, str(payload.get("tenant") or ""))
+            await self._sched.on_visit(payload, now=now, service_config=service_config or {},
+                                       confirm_visits=confirm)
             # The watermark advances on the event path too. Without this the catch-up re-reads
             # everything the events already handled — harmless, because on_visit is idempotent on
             # the visit id, but it grows into a full-table read on every cron tick.
@@ -57,6 +70,7 @@ class Ingest:
 
     async def discover(self, *, now: int,
                        service_config: dict[str, Any] | None = None,
+                       confirm_visits: Any = True,
                        max_batches: int = 5) -> dict[str, int]:
         """Catch up across EVERY tenant, from a single global watermark.
 
@@ -71,10 +85,12 @@ class Ingest:
         tenant name.
         """
         return await self.catch_up("", now=now, service_config=service_config,
+                                   confirm_visits=confirm_visits,
                                    max_batches=max_batches)
 
     async def catch_up(self, tenant: str, *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None,
+                       confirm_visits: Any = True,
                        max_batches: int = 5) -> dict[str, int]:
         """Read visits since our watermark and schedule whatever the events missed.
 
@@ -94,8 +110,14 @@ class Ingest:
             if not visits:
                 break
             for v in visits:
+                # RESOLVED PER VISIT, not per call. discover() reads across EVERY tenant from one
+                # global cursor, so a single boolean here would apply one shop's answer to another
+                # shop's customer. A resolver keeps the setting owned by the establishment it
+                # belongs to; a plain bool still works for the single-tenant path.
+                confirm = await _resolve(confirm_visits, str(v.get("tenant") or tenant))
                 out = await self._sched.on_visit(v, now=now,
-                                                 service_config=service_config or {})
+                                                 service_config=service_config or {},
+                                                 confirm_visits=confirm)
                 read += 1
                 if not out.duplicate:
                     scheduled += len(out.scheduled)

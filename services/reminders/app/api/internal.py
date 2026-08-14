@@ -129,7 +129,8 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
     # by the time the list is read.
     if not body.tenant:
         try:
-            got = await c.ingest.discover(now=now, service_config={})
+            got = await c.ingest.discover(now=now, service_config={},
+                                          confirm_visits=lambda t: _confirms_visits(c, t))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)
         except Exception as exc:                                            # noqa: BLE001
@@ -142,7 +143,8 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
     for tenant in tenants[:s.TICK_MAX_TENANTS]:
         cfg = await _service_config(c, tenant)
         try:
-            got = await c.ingest.catch_up(tenant, now=now, service_config=cfg)
+            got = await c.ingest.catch_up(tenant, now=now, service_config=cfg,
+                                          confirm_visits=await _confirms_visits(c, tenant))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)
         except Exception as exc:                                            # noqa: BLE001
@@ -355,6 +357,21 @@ async def _active_tenants(c) -> list[str]:
         if t and t not in seen:
             seen.append(t)
     return seen
+
+
+async def _confirms_visits(c, tenant: str) -> bool:
+    """Does this establishment still answer the customer on the day of the visit?
+
+    READ SEPARATELY from _service_config, because it is not a per-service value: the confirmation
+    belongs to the visit, and a visit carrying three services is still one message. The workshop
+    wants it (the customer is leaving a car behind); the barber does not (the customer is standing
+    at the till, and a message about the haircut they just had is noise).
+    """
+    from app.core.settings_tree import SettingsStore
+    if not tenant:
+        return True
+    tree = await SettingsStore(c.datastore).load(tenant)
+    return tree.confirms_visits()
 
 
 async def _service_config(c, tenant: str) -> dict:

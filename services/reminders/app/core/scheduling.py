@@ -73,12 +73,17 @@ class Scheduler:
         self._confirm_delay = int(confirm_delay_seconds)
 
     async def on_visit(self, event: dict[str, Any], *, now: int,
-                       service_config: dict[str, dict[str, Any]] | None = None) -> VisitOutcome:
+                       service_config: dict[str, dict[str, Any]] | None = None,
+                       confirm_visits: bool = True) -> VisitOutcome:
         """Consume one `operations.visit.recorded`.
 
         `service_config` maps service_id -> {cycle_days, lead_days, follow_up_days, min_days,
         max_days}. Passed in rather than fetched: it comes from the tenant's own catalogue in
         operations, and a core function that calls a peer is a core function that cannot be tested.
+
+        `confirm_visits` is the shop's own answer to "does a visit get a message on the day?".
+        Passed in for the same reason — and it is a TENANT setting, not a per-service one, because
+        the confirmation is keyed to the visit and a visit has several services.
         """
         tenant = event.get("tenant") or ""
         subject = event.get("subject_ref") or ""
@@ -133,13 +138,19 @@ class Scheduler:
         # AND A SECOND VISIT REPLACES IT rather than adding to it — the schedule's natural key is
         # (tenant, customer, service, kind), so the upsert is the mechanism: a customer who comes
         # back within the ten minutes gets one confirmation, for the later visit.
-        confirm = Schedule(
-            tenant=tenant, subject_ref=subject, service_id="", kind="visit_confirmation",
-            due_at=occurred + self._confirm_delay, cls="service",
-            template_type="svc_visit_confirmation", visit_id=visit_id,
-            branch_id=event.get("branch_id") or "")
-        await self._sched.upsert(tenant, confirm.key, as_row(confirm))
-        outcome.scheduled.append(confirm.key)
+        # AND THE SHOP MAY SWITCH IT OFF. A barber whose customer walks out two minutes after
+        # sitting down does not want a message about it; a workshop that keeps the car three days
+        # does. The engine had no opinion to offer here and no switch either — every shop got the
+        # confirmation whether it fit or not, and the only escape was cancelling messages one by
+        # one in «رسائلي». It is a tenant setting because the confirmation belongs to the visit.
+        if confirm_visits:
+            confirm = Schedule(
+                tenant=tenant, subject_ref=subject, service_id="", kind="visit_confirmation",
+                due_at=occurred + self._confirm_delay, cls="service",
+                template_type="svc_visit_confirmation", visit_id=visit_id,
+                branch_id=event.get("branch_id") or "")
+            await self._sched.upsert(tenant, confirm.key, as_row(confirm))
+            outcome.scheduled.append(confirm.key)
 
         # ── schedule ONE merged reminder ───────────────────────────────────────────────────────
         # The lead service is the one whose reminder falls EARLIEST. Not the first in the list:

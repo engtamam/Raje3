@@ -244,3 +244,18 @@ def test_a_sector_without_cars_keeps_the_key_it_always_had(st, sch):
     shape would orphan every row already scheduled and re-send what was already sent."""
     out = run(sch.on_visit(visit(visit_id="v3"), now=NOW, service_config=CFG))
     assert service_rows(out) == ["t1|sub_a|oil|reminder"]
+
+
+def test_the_shop_can_switch_the_confirmation_off(st, sch):
+    """No row at all — not a row that is later suppressed.
+
+    A suppressed row still occupies «رسائلي» as «بانتظار», and the owner who turned the switch off
+    would read it as the switch not working. Off means nothing is created.
+    """
+    out = run(sch.on_visit(visit(), now=NOW, service_config=CFG, confirm_visits=False))
+    assert not [k for k in out.scheduled if k.endswith("|visit_confirmation")]
+    rows = run(ScheduleStore(st).pending_for_subject("t1", "sub_a"))
+    assert [r for r in rows if r["kind"] == "visit_confirmation"] == []
+    # AND THE REMINDER SURVIVES. Switching off the acknowledgement of today's visit says nothing
+    # about the reminder due in three months — collapsing the two would silence the product.
+    assert len(service_rows(out)) == 1
