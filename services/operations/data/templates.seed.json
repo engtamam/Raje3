@@ -34,7 +34,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_visit_confirmation_warm",
@@ -57,7 +57,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_visit_confirmation_formal",
@@ -80,7 +80,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_visit_redeemed_brief",
@@ -109,7 +109,7 @@
       ],
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_visit_redeemed_warm",
@@ -138,7 +138,7 @@
       ],
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_visit_redeemed_formal",
@@ -167,7 +167,7 @@
       ],
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_follow_up_brief",
@@ -192,7 +192,7 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_follow_up_warm",
@@ -217,7 +217,7 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_follow_up_formal",
@@ -242,7 +242,7 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_service_reminder_brief",
@@ -267,7 +267,7 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_service_reminder_warm",
@@ -292,7 +292,7 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_service_reminder_formal",
@@ -317,7 +317,7 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_appointment_reminder_brief",
@@ -344,7 +344,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_appointment_reminder_warm",
@@ -371,7 +371,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_appointment_reminder_formal",
@@ -398,7 +398,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_booking_confirmation_brief",
@@ -425,7 +425,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_booking_confirmation_warm",
@@ -452,7 +452,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_booking_confirmation_formal",
@@ -479,7 +479,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_ready_for_pickup_brief",
@@ -504,7 +504,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_ready_for_pickup_warm",
@@ -529,7 +529,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_ready_for_pickup_formal",
@@ -554,7 +554,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_review_request_brief",
@@ -577,7 +577,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_review_request_warm",
@@ -600,7 +600,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_review_request_formal",
@@ -623,7 +623,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_receipt_brief",
@@ -650,7 +650,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_receipt_warm",
@@ -677,7 +677,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "svc_receipt_formal",
@@ -704,7 +704,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_account_notice_brief",
@@ -731,7 +731,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_account_notice_warm",
@@ -758,7 +758,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_account_notice_formal",
@@ -785,7 +785,7 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_points_expiring_brief",
@@ -808,11 +808,11 @@
         "system",
         "system",
         "system",
-        "system"
+        "date"
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_points_expiring_warm",
@@ -835,11 +835,11 @@
         "system",
         "system",
         "system",
-        "system"
+        "date"
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_points_expiring_formal",
@@ -862,1103 +862,11 @@
         "system",
         "system",
         "system",
-        "system"
+        "date"
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "awr_seasonal_care_brief",
-      "type": "awr_seasonal_care",
-      "tone": "brief",
-      "label": "نصيحة موسمية",
-      "class": "awareness",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "مرحباً {{1}}، مع {{3}} ننصح بـ{{4}}. من {{2}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "awr_seasonal_care_warm",
-      "type": "awr_seasonal_care",
-      "tone": "warm",
-      "label": "نصيحة موسمية",
-      "class": "awareness",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "هلا {{1}}، {{3}} على الأبواب و{{4}} يفرق. تذكير من {{2}} لا أكثر.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "awr_seasonal_care_formal",
-      "type": "awr_seasonal_care",
-      "tone": "formal",
-      "label": "نصيحة موسمية",
-      "class": "awareness",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، مع {{3}} يوصي {{2}} بـ{{4}} حفاظاً على السلامة.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "awr_care_tip_brief",
-      "type": "awr_care_tip",
-      "tone": "brief",
-      "label": "إرشاد يخصّ ما يملكه",
-      "class": "awareness",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "مرحباً {{1}}، معلومة من {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "awr_care_tip_warm",
-      "type": "awr_care_tip",
-      "tone": "warm",
-      "label": "إرشاد يخصّ ما يملكه",
-      "class": "awareness",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "هلا {{1}}، معلومة تفيدك من {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "awr_care_tip_formal",
-      "type": "awr_care_tip",
-      "tone": "formal",
-      "label": "إرشاد يخصّ ما يملكه",
-      "class": "awareness",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يسر {{2}} مشاركتكم: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_offer_brief",
-      "type": "mkt_offer",
-      "tone": "brief",
-      "label": "عرض أو خصم",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، عرض من {{2}}: {{3}}. ساري حتى {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_offer_warm",
-      "type": "mkt_offer",
-      "tone": "warm",
-      "label": "عرض أو خصم",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، جهّزنا لك عرض في {{2}}: {{3}} — ساري لين {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_offer_formal",
-      "type": "mkt_offer",
-      "tone": "formal",
-      "label": "عرض أو خصم",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يسر {{2}} تقديم {{3}} حتى تاريخ {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_winback_brief",
-      "type": "mkt_winback",
-      "tone": "brief",
-      "label": "استعادة غائب",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، لك {{3}} في زيارتك القادمة لـ{{2}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_winback_warm",
-      "type": "mkt_winback",
-      "tone": "warm",
-      "label": "استعادة غائب",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "صار لنا فترة ما شفناك {{1}}! جهّزنا لك {{3}} في زيارتك الجاية لـ{{2}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_winback_formal",
-      "type": "mkt_winback",
-      "tone": "formal",
-      "label": "استعادة غائب",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، نتشرف بعودتكم إلى {{2}}، ولكم {{3}} في زيارتكم القادمة.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_loyalty_activation_brief",
-      "type": "mkt_loyalty_activation",
-      "tone": "brief",
-      "label": "رصيد اقترب من الاستبدال",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، رصيدك {{3}} نقطة في {{2}}، ويكفي لـ{{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_loyalty_activation_warm",
-      "type": "mkt_loyalty_activation",
-      "tone": "warm",
-      "label": "رصيد اقترب من الاستبدال",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "بشارة {{1}}، جمّعت {{3}} نقطة في {{2}}، وتقدر تستبدلها بـ{{4}} في زيارتك الجاية.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_loyalty_activation_formal",
-      "type": "mkt_loyalty_activation",
-      "tone": "formal",
-      "label": "رصيد اقترب من الاستبدال",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، بلغ رصيدكم لدى {{2}} ما مقداره {{3}} نقطة، ويمكنكم استبدالها بـ{{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_cross_sell_brief",
-      "type": "mkt_cross_sell",
-      "tone": "brief",
-      "label": "خدمة مكمّلة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، مع {{3}} قد يناسبك {{4}} في {{2}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "catalogue"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_cross_sell_warm",
-      "type": "mkt_cross_sell",
-      "tone": "warm",
-      "label": "خدمة مكمّلة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، بما إنك مهتم بـ{{3}}، كثير من عملاء {{2}} يضيفون معها {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "catalogue"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_cross_sell_formal",
-      "type": "mkt_cross_sell",
-      "tone": "formal",
-      "label": "خدمة مكمّلة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، نوصي بإضافة {{4}} إلى {{3}} لدى {{2}} لضمان أفضل النتائج.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "catalogue"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_package_brief",
-      "type": "mkt_package",
-      "tone": "brief",
-      "label": "باقة أو اشتراك",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، باقة {{3}} من {{2}}: {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_package_warm",
-      "type": "mkt_package",
-      "tone": "warm",
-      "label": "باقة أو اشتراك",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، وفّر أكثر مع باقة {{3}} من {{2}} — {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_package_formal",
-      "type": "mkt_package",
-      "tone": "formal",
-      "label": "باقة أو اشتراك",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يقدم {{2}} باقة {{3}} بقيمة {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "owner"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_referral_brief",
-      "type": "mkt_referral",
-      "tone": "brief",
-      "label": "إحالة صديق",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، رشّح {{2}} لصديقك، ولكما {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_referral_warm",
-      "type": "mkt_referral",
-      "tone": "warm",
-      "label": "إحالة صديق",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، إذا عجبتك خدمتنا في {{2}} رشّحنا لصاحبك — لك وله {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_referral_formal",
-      "type": "mkt_referral",
-      "tone": "formal",
-      "label": "إحالة صديق",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، بترشيح {{2}} لأصدقائكم تحصلون أنتم وهم على {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_announcement_brief",
-      "type": "mkt_announcement",
-      "tone": "brief",
-      "label": "جديد",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، جديد في {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_announcement_warm",
-      "type": "mkt_announcement",
-      "tone": "warm",
-      "label": "جديد",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، عندنا جديد في {{2}} — {{3}}. عساه يعجبك.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_announcement_formal",
-      "type": "mkt_announcement",
-      "tone": "formal",
-      "label": "جديد",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يسر {{2}} الإعلان عن {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_personal_occasion_brief",
-      "type": "mkt_personal_occasion",
-      "tone": "brief",
-      "label": "مناسبة شخصية",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "كل عام وأنت بخير {{1}}. من {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_personal_occasion_warm",
-      "type": "mkt_personal_occasion",
-      "tone": "warm",
-      "label": "مناسبة شخصية",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "كل عام وأنت بخير {{1}}، وهديتنا لك من {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_personal_occasion_formal",
-      "type": "mkt_personal_occasion",
-      "tone": "formal",
-      "label": "مناسبة شخصية",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يتقدم {{2}} بأطيب التهاني، ولكم {{3}} بهذه المناسبة.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "owner"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": false
-    },
-    {
-      "name": "mkt_seasonal_brief",
-      "type": "mkt_seasonal",
-      "tone": "brief",
-      "label": "مناسبة عامة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، بمناسبة {{3}} من {{2}} لك {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_seasonal_warm",
-      "type": "mkt_seasonal",
-      "tone": "warm",
-      "label": "مناسبة عامة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "كل عام وأنت بخير {{1}}، بمناسبة {{3}} جهزنا لك في {{2}}: {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_seasonal_formal",
-      "type": "mkt_seasonal",
-      "tone": "formal",
-      "label": "مناسبة عامة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، بمناسبة {{3}} يقدم {{2}} لكم {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "owner"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل القطاعات.",
-      "active": false
-    },
-    {
-      "name": "mkt_slot_available_brief",
-      "type": "mkt_slot_available",
-      "tone": "brief",
-      "label": "موعد شاغر",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، موعد شاغر اليوم الساعة {{3}} في {{2}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_slot_available_warm",
-      "type": "mkt_slot_available",
-      "tone": "warm",
-      "label": "موعد شاغر",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، انفتح موعد اليوم الساعة {{3}} في {{2}} — إذا يناسبك احجزه.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "mkt_slot_available_formal",
-      "type": "mkt_slot_available",
-      "tone": "formal",
-      "label": "موعد شاغر",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يتوفر موعد شاغر لدى {{2}} اليوم الساعة {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "stop_promos",
-      "fills": [
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": false
-    },
-    {
-      "name": "per_weekly_digest_brief",
-      "type": "per_weekly_digest",
-      "tone": "brief",
-      "label": "تقرير الأسبوع للمالك",
-      "class": "personal",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "مرحباً {{1}}، أسبوعك في {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
-      "active": false
-    },
-    {
-      "name": "per_weekly_digest_warm",
-      "type": "per_weekly_digest",
-      "tone": "warm",
-      "label": "تقرير الأسبوع للمالك",
-      "class": "personal",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "هلا {{1}}، هذا ملخّص أسبوعك في {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
-      "active": false
-    },
-    {
-      "name": "per_weekly_digest_formal",
-      "type": "per_weekly_digest",
-      "tone": "formal",
-      "label": "تقرير الأسبوع للمالك",
-      "class": "personal",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، تقرير الأسبوع لمنشأة {{2}}: {{3}}.",
-      "variables": [
-        1,
-        2,
-        3
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
-      "active": false
-    },
-    {
-      "name": "wrn_safety_notice_brief",
-      "type": "wrn_safety_notice",
-      "tone": "brief",
-      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
-      "class": "warning",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "مرحباً {{1}}، من {{2}}: {{3}}. يخص {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "تنبيه",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
-      "active": false
-    },
-    {
-      "name": "wrn_safety_notice_warm",
-      "type": "wrn_safety_notice",
-      "tone": "warm",
-      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
-      "class": "warning",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "مرحباً {{1}}، من {{2}}: {{3}}. يخص {{4}}، ونحب نطمّنك.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "تنبيه",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
-      "active": false
-    },
-    {
-      "name": "wrn_safety_notice_formal",
-      "type": "wrn_safety_notice",
-      "tone": "formal",
-      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
-      "class": "warning",
-      "category": "UTILITY",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يفيدكم {{2}}: {{3}}، ويخص {{4}}.",
-      "variables": [
-        1,
-        2,
-        3,
-        4
-      ],
-      "header": "تنبيه",
-      "button": "my_page",
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "system"
-      ],
-      "model": "both",
-      "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_dsar_code_brief",
@@ -1985,7 +893,7 @@
       ],
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_dsar_code_warm",
@@ -2012,7 +920,7 @@
       ],
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
-      "active": false
+      "active": true
     },
     {
       "name": "per_dsar_code_formal",
@@ -2039,7 +947,1222 @@
       ],
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
-      "active": false
+      "active": true
+    },
+    {
+      "name": "awr_seasonal_care_brief",
+      "type": "awr_seasonal_care",
+      "tone": "brief",
+      "label": "نصيحة موسمية",
+      "class": "awareness",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "مرحباً {{1}}، مع {{3}} ننصح بـ{{4}}. من {{2}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "awr_seasonal_care_warm",
+      "type": "awr_seasonal_care",
+      "tone": "warm",
+      "label": "نصيحة موسمية",
+      "class": "awareness",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "هلا {{1}}، {{3}} على الأبواب و{{4}} يفرق. تذكير من {{2}} لا أكثر.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "awr_seasonal_care_formal",
+      "type": "awr_seasonal_care",
+      "tone": "formal",
+      "label": "نصيحة موسمية",
+      "class": "awareness",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، مع {{3}} يوصي {{2}} بـ{{4}} حفاظاً على السلامة.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "awr_care_tip_brief",
+      "type": "awr_care_tip",
+      "tone": "brief",
+      "label": "إرشاد يخصّ ما يملكه",
+      "class": "awareness",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "مرحباً {{1}}، معلومة من {{2}}: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "awr_care_tip_warm",
+      "type": "awr_care_tip",
+      "tone": "warm",
+      "label": "إرشاد يخصّ ما يملكه",
+      "class": "awareness",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "هلا {{1}}، معلومة تفيدك من {{2}}: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "awr_care_tip_formal",
+      "type": "awr_care_tip",
+      "tone": "formal",
+      "label": "إرشاد يخصّ ما يملكه",
+      "class": "awareness",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يسر {{2}} مشاركتكم: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "per_weekly_digest_brief",
+      "type": "per_weekly_digest",
+      "tone": "brief",
+      "label": "تقرير الأسبوع للمالك",
+      "class": "personal",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "مرحباً {{1}}، أسبوعك في {{2}}: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
+      "active": true
+    },
+    {
+      "name": "per_weekly_digest_warm",
+      "type": "per_weekly_digest",
+      "tone": "warm",
+      "label": "تقرير الأسبوع للمالك",
+      "class": "personal",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "هلا {{1}}، هذا ملخّص أسبوعك في {{2}}: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
+      "active": true
+    },
+    {
+      "name": "per_weekly_digest_formal",
+      "type": "per_weekly_digest",
+      "tone": "formal",
+      "label": "تقرير الأسبوع للمالك",
+      "class": "personal",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، تقرير الأسبوع لمنشأة {{2}}: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
+      "active": true
+    },
+    {
+      "name": "wrn_safety_notice_brief",
+      "type": "wrn_safety_notice",
+      "tone": "brief",
+      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
+      "class": "warning",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "مرحباً {{1}}، من {{2}}: {{3}}. يخص {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "تنبيه",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
+      "active": true
+    },
+    {
+      "name": "wrn_safety_notice_warm",
+      "type": "wrn_safety_notice",
+      "tone": "warm",
+      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
+      "class": "warning",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "مرحباً {{1}}، من {{2}}: {{3}}. يخص {{4}}، ونحب نطمّنك.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "تنبيه",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
+      "active": true
+    },
+    {
+      "name": "wrn_safety_notice_formal",
+      "type": "wrn_safety_notice",
+      "tone": "formal",
+      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
+      "class": "warning",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يفيدكم {{2}}: {{3}}، ويخص {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "تنبيه",
+      "button": "my_page",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "both",
+      "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
+      "active": true
+    },
+    {
+      "name": "mkt_offer_brief",
+      "type": "mkt_offer",
+      "tone": "brief",
+      "label": "عرض أو خصم",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، من {{2}} لك خصم {{3}} على {{4}}. ساري حتى {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "catalogue",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_offer_warm",
+      "type": "mkt_offer",
+      "tone": "warm",
+      "label": "عرض أو خصم",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، جهّزنا لك خصم {{3}} على {{4}} في {{2}} — ساري لين {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "catalogue",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_offer_formal",
+      "type": "mkt_offer",
+      "tone": "formal",
+      "label": "عرض أو خصم",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يسر {{2}} تقديم خصم {{3}} على {{4}} حتى تاريخ {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "catalogue",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_coupon_brief",
+      "type": "mkt_coupon",
+      "tone": "brief",
+      "label": "قسيمة برمز",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، من {{2}} لك خصم {{3}} برمز {{4}}. ساري حتى {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "code",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_coupon_warm",
+      "type": "mkt_coupon",
+      "tone": "warm",
+      "label": "قسيمة برمز",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، هذي قسيمتك من {{2}}: خصم {{3}} برمز {{4}} — ساري لين {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "code",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_coupon_formal",
+      "type": "mkt_coupon",
+      "tone": "formal",
+      "label": "قسيمة برمز",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يقدم {{2}} لكم قسيمة خصم {{3}} برمز {{4}} حتى تاريخ {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "code",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_winback_brief",
+      "type": "mkt_winback",
+      "tone": "brief",
+      "label": "استعادة غائب",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، لك خصم {{3}} في زيارتك القادمة لـ{{2}}، ساري حتى {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_winback_warm",
+      "type": "mkt_winback",
+      "tone": "warm",
+      "label": "استعادة غائب",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "صار لنا فترة ما شفناك {{1}}! جهّزنا لك خصم {{3}} في زيارتك الجاية لـ{{2}} — ساري لين {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_winback_formal",
+      "type": "mkt_winback",
+      "tone": "formal",
+      "label": "استعادة غائب",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، نتشرف بعودتكم إلى {{2}}، ولكم خصم {{3}} في زيارتكم القادمة حتى تاريخ {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_loyalty_activation_brief",
+      "type": "mkt_loyalty_activation",
+      "tone": "brief",
+      "label": "رصيد اقترب من الاستبدال",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، رصيدك {{3}} نقطة في {{2}}، ويكفي لـ{{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_loyalty_activation_warm",
+      "type": "mkt_loyalty_activation",
+      "tone": "warm",
+      "label": "رصيد اقترب من الاستبدال",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "بشارة {{1}}، جمّعت {{3}} نقطة في {{2}}، وتقدر تستبدلها بـ{{4}} في زيارتك الجاية.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_loyalty_activation_formal",
+      "type": "mkt_loyalty_activation",
+      "tone": "formal",
+      "label": "رصيد اقترب من الاستبدال",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، بلغ رصيدكم لدى {{2}} ما مقداره {{3}} نقطة، ويمكنكم استبدالها بـ{{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_cross_sell_brief",
+      "type": "mkt_cross_sell",
+      "tone": "brief",
+      "label": "خدمة مكمّلة",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، مع {{3}} قد يناسبك {{4}} في {{2}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "catalogue"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_cross_sell_warm",
+      "type": "mkt_cross_sell",
+      "tone": "warm",
+      "label": "خدمة مكمّلة",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، بما إنك مهتم بـ{{3}}، كثير من عملاء {{2}} يضيفون معها {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "catalogue"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_cross_sell_formal",
+      "type": "mkt_cross_sell",
+      "tone": "formal",
+      "label": "خدمة مكمّلة",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، نوصي بإضافة {{4}} إلى {{3}} لدى {{2}} لضمان أفضل النتائج.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "catalogue"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_package_brief",
+      "type": "mkt_package",
+      "tone": "brief",
+      "label": "باقة أو اشتراك",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، باقة {{3}} من {{2}} بـ{{4}}. ساري حتى {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "amount",
+        "date"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_package_warm",
+      "type": "mkt_package",
+      "tone": "warm",
+      "label": "باقة أو اشتراك",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، وفّر أكثر مع باقة {{3}} من {{2}} بـ{{4}} — ساري لين {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "amount",
+        "date"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_package_formal",
+      "type": "mkt_package",
+      "tone": "formal",
+      "label": "باقة أو اشتراك",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يقدم {{2}} باقة {{3}} بقيمة {{4}} حتى تاريخ {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "amount",
+        "date"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_referral_brief",
+      "type": "mkt_referral",
+      "tone": "brief",
+      "label": "إحالة صديق",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، رشّح {{2}} لصديقك، ولكما خصم {{3}}. ساري حتى {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_referral_warm",
+      "type": "mkt_referral",
+      "tone": "warm",
+      "label": "إحالة صديق",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، إذا عجبتك خدمتنا في {{2}} رشّحنا لصاحبك — لك وله خصم {{3}} حتى {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_referral_formal",
+      "type": "mkt_referral",
+      "tone": "formal",
+      "label": "إحالة صديق",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، بترشيح {{2}} لأصدقائكم تحصلون أنتم وهم على خصم {{3}} حتى تاريخ {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_announcement_brief",
+      "type": "mkt_announcement",
+      "tone": "brief",
+      "label": "جديد",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، جديد في {{2}}: {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_announcement_warm",
+      "type": "mkt_announcement",
+      "tone": "warm",
+      "label": "جديد",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، عندنا جديد في {{2}} — {{3}}. عساه يعجبك.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_announcement_formal",
+      "type": "mkt_announcement",
+      "tone": "formal",
+      "label": "جديد",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يسر {{2}} الإعلان عن {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "owner"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_personal_occasion_brief",
+      "type": "mkt_personal_occasion",
+      "tone": "brief",
+      "label": "مناسبة شخصية",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنت بخير {{1}}. من {{2}} لك خصم {{3}} حتى {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_personal_occasion_warm",
+      "type": "mkt_personal_occasion",
+      "tone": "warm",
+      "label": "مناسبة شخصية",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنت بخير {{1}}، وهديتنا لك من {{2}}: خصم {{3}} ساري لين {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_personal_occasion_formal",
+      "type": "mkt_personal_occasion",
+      "tone": "formal",
+      "label": "مناسبة شخصية",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يتقدم {{2}} بأطيب التهاني، ولكم خصم {{3}} بهذه المناسبة حتى تاريخ {{4}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "loyalty",
+      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
+      "active": true
+    },
+    {
+      "name": "mkt_seasonal_brief",
+      "type": "mkt_seasonal",
+      "tone": "brief",
+      "label": "مناسبة عامة",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، بمناسبة {{3}} من {{2}} لك خصم {{4}}. ساري حتى {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_seasonal_warm",
+      "type": "mkt_seasonal",
+      "tone": "warm",
+      "label": "مناسبة عامة",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "كل عام وأنت بخير {{1}}، بمناسبة {{3}} جهزنا لك في {{2}} خصم {{4}} — ساري لين {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_seasonal_formal",
+      "type": "mkt_seasonal",
+      "tone": "formal",
+      "label": "مناسبة عامة",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، بمناسبة {{3}} يقدم {{2}} لكم خصم {{4}} حتى تاريخ {{5}}.",
+      "variables": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "amount",
+        "date"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل القطاعات.",
+      "active": true
+    },
+    {
+      "name": "mkt_slot_available_brief",
+      "type": "mkt_slot_available",
+      "tone": "brief",
+      "label": "موعد شاغر",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "أهلاً {{1}}، موعد شاغر اليوم الساعة {{3}} في {{2}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_slot_available_warm",
+      "type": "mkt_slot_available",
+      "tone": "warm",
+      "label": "موعد شاغر",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "هلا {{1}}، انفتح موعد اليوم الساعة {{3}} في {{2}} — إذا يناسبك احجزه.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
+    },
+    {
+      "name": "mkt_slot_available_formal",
+      "type": "mkt_slot_available",
+      "tone": "formal",
+      "label": "موعد شاغر",
+      "class": "marketing",
+      "category": "MARKETING",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، يتوفر موعد شاغر لدى {{2}} اليوم الساعة {{3}}.",
+      "variables": [
+        1,
+        2,
+        3
+      ],
+      "header": "",
+      "button": "stop_promos",
+      "fills": [
+        "system",
+        "system",
+        "system"
+      ],
+      "model": "cycle",
+      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
+      "active": true
     }
   ]
 }

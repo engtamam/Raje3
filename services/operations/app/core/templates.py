@@ -39,7 +39,13 @@ TONES = ("brief", "warm", "formal")
 # bills at the marketing rate.
 CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
 # Where a variable's value comes from. Only `owner` is a blank page — see upsert().
-FILLS = ("system", "catalogue", "owner")
+#
+# AND THREE OF THEM ARE TYPED, DELIBERATELY. `amount`, `code` and `date` were `owner` free text
+# until an offer template made the cost visible: an owner writing «خصم كبير» promises nothing a
+# customer can hold us to, «٢٠٪» arrives in digits half our own screens refuse, and a discount
+# with no end is a discount for ever. A typed slot is validated at send (reminders/rendering.py)
+# and phrased by us, so the sentence reads the same in every shop.
+FILLS = ("system", "catalogue", "owner", "amount", "code", "date")
 # WHICH REMINDER MODEL A TEMPLATE SERVES (spec 16.6.5). Not a second taxonomy competing with the
 # five classes: the class says what a message IS to the regulator, the model says which kind of
 # business it is FOR. A cafe customer returns in days and there is no such thing as "time for your

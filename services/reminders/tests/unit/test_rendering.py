@@ -178,3 +178,41 @@ def test_a_paused_or_disabled_template_is_not_sendable():
         # Only the paused one exists in the library; it is absent from the approved set.
         choose(template_type="svc_x", tone="brief",
                  library=[LIB_A[0]], approved={"svc_other"})
+
+
+# ── the typed blanks: an offer is not free text ────────────────────────────────────────────────
+COUPON = {"name": "mkt_coupon_brief", "type": "mkt_coupon", "tone": "brief", "class": "marketing",
+          "variables": [1, 2, 3, 4, 5],
+          "fills": ["system", "system", "amount", "code", "date"], "active": True}
+
+
+def _coupon(**over):
+    system = {"1": "محمد", "2": "مغسلة النخيل", "3": "20%", "4": "RJ-4F2K", "5": "21 أغسطس"}
+    system.update(over)
+    return render(template=COUPON, system=system, catalogue={}, owner={})
+
+
+def test_a_typed_offer_goes_out_whole():
+    assert _coupon().variables == ["محمد", "مغسلة النخيل", "20%", "RJ-4F2K", "21 أغسطس"]
+    assert _coupon(**{"3": "50 ريال"}).variables[2] == "50 ريال"
+
+
+@pytest.mark.parametrize("bad", ["خصم كبير", "٢٠٪", "20 %", "120%", "0%", "50 ريال فقط", ""])
+def test_a_discount_that_is_not_a_number_never_leaves(bad):
+    """«خصم كبير» promises nothing anybody can be held to, and Arabic-Indic digits are unreadable
+    on half the phones our customers hold. Refused here rather than at the till."""
+    with pytest.raises(RenderError):
+        _coupon(**{"3": bad})
+
+
+def test_an_offer_with_no_end_is_refused():
+    """An offer with no last day is an offer for ever, and the shop honours it long after it meant
+    to stop. Refusing the send is the cheaper failure."""
+    with pytest.raises(RenderError):
+        _coupon(**{"5": ""})
+
+
+@pytest.mark.parametrize("bad", ["rj-4f2k", "RJ 4F2K", "", "RJ-4F2K-99-11"])
+def test_a_coupon_code_the_till_cannot_read_never_leaves(bad):
+    with pytest.raises(RenderError):
+        _coupon(**{"4": bad})

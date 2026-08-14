@@ -53,6 +53,14 @@ jobs:
       - name: both template libraries carry the same words
         run: python3 ci/check_template_libraries.py
 
+      # AND WHO FILLS EACH BLANK, which neither of the two above can see: they compare the words,
+      # and the words are identical whether a blank is a service name or whatever an owner typed.
+      # This gate refuses a discount with no end date, a promotional blank inside a utility
+      # template, and — the one that cost us most — a library where every row is `active: false`
+      # and therefore sends nothing at all while looking complete.
+      - name: every blank has a source, and every discount an end
+        run: python3 ci/check_template_fills.py
+
       # The price list and the gates are two halves of one promise, in two files. A key gated and
       # not sold is a feature dead for everyone including the customers paying most; a key sold and
       # not gated is a price list that is fiction. Both are silent, and a typo is the whole gap.

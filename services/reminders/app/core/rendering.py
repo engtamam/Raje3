@@ -11,6 +11,14 @@ supplies each variable:
   system      from the record — the customer's name, the establishment, a date, an amount.
   catalogue   from the tenant's own service list — a tap, not a sentence.
   owner       the single free-text field, written once when the message was set up.
+  amount      a discount or a price — «20%» or «50 ريال», nothing else.
+  code        a coupon code, one per customer, machine-made.
+  date        the day an offer ends, phrased by us.
+
+THE LAST THREE ARE TYPED, AND THAT IS THE WHOLE POINT. They used to be `owner` free text, which
+let a shop promise «خصم كبير» (nothing a customer can hold anybody to), write «٢٠٪» in digits our
+own screens refuse, or run an offer with no end at all. A typed slot is checked against its shape
+here — where a bad value stops one message rather than reaching a customer under the shop's name.
 
 AND THE OWNER'S FIELD IS SANITISED, ALWAYS. This is the security boundary of the whole messaging
 path: a free variable inside a template Meta approved is an injection channel that goes out under
@@ -37,6 +45,14 @@ from typing import Any
 FALLBACK_NAME = "عميلنا العزيز"
 
 MAX_OWNER_FIELD = 60
+
+# ── the shapes the typed slots accept ────────────────────────────────────────────────────────
+# WESTERN DIGITS ONLY, here as everywhere: Arabic-Indic digits render inconsistently across the
+# phones our customers actually hold, and a discount nobody can read is worse than no discount.
+_AMOUNT = re.compile(r"^(?:(?:[1-9][0-9]?|90)%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
+# Uppercase Latin and digits, hyphen-separated. Not a free string: the code is read aloud at a
+# till and typed back by somebody who is not looking at the message.
+_CODE = re.compile(r"^[A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})?$")
 
 # What may not appear in an owner-written value. Deliberately blunt and refusing rather than clever
 # and escaping: this list guards a channel that carries somebody else's brand.
@@ -176,7 +192,28 @@ def render(*, template: dict[str, Any], system: dict[str, str],
     for i, number in enumerate(variables):
         key = str(number)
         source = fills[i] if i < len(fills) else "system"
-        if source == "owner":
+        if source == "amount":
+            value = (system.get(key) or "").strip()
+            if not _AMOUNT.fullmatch(value):
+                raise RenderError(
+                    f"قيمة الخصم «{value}» غير مقبولة — اكتبها نسبةً مثل 20% أو مبلغاً مثل "
+                    f"50 ريال.")
+            out.append(value)
+        elif source == "code":
+            value = (system.get(key) or "").strip()
+            if not _CODE.fullmatch(value):
+                # NOT AN OWNER MISTAKE. We generate this one, so a bad shape is our defect and the
+                # message must stop rather than carry a code the till will not recognise.
+                raise RenderError(f"رمز القسيمة «{value}» غير صالح.")
+            out.append(value)
+        elif source == "date":
+            value = (system.get(key) or "").strip()
+            if not value:
+                # AN OFFER WITHOUT AN END IS AN OFFER FOR EVER, and the shop honours it at the
+                # till long after it meant to stop. Refusing the send is the cheaper failure.
+                raise RenderError("العرض بلا تاريخ انتهاء — لا تُرسَل رسالة تعِد بخصمٍ بلا نهاية.")
+            out.append(value)
+        elif source == "owner":
             out.append(sanitise_owner_text(owner.get(key, "")))
         elif source == "catalogue":
             value = (catalogue.get(key) or "").strip()
