@@ -254,6 +254,9 @@ export function Visit() {
   // WE DO NOT CHECK THE SAUDI FORMAT, and the server does not either (operations/core/plate.py):
   // temporary, transit, Gulf and diplomatic plates are all real and none of them matches it, and a
   // refusal the operator cannot satisfy with a customer waiting becomes «1» typed into the box.
+  // arabic-indic-digits: intentional — a plate is typed on an Arabic keyboard as often as a
+  // Latin one, and operations normalises both to 0-9. Refusing them here would refuse a
+  // correct plate at the one screen used a hundred times a day.
   const plateOk = !showPlate || (/[0-9٠-٩]/.test(plate) && /\p{L}/u.test(plate));
   const ready = chosen.length > 0 && phoneOk && plateOk;
 

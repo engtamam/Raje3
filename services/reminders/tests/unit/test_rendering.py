@@ -34,6 +34,7 @@ def t(name):
 def test_an_owner_cannot_smuggle_anything_into_an_approved_template(bad):
     """A free variable inside a template Meta approved goes out under the ESTABLISHMENT'S name and
     counts against OUR quality rating."""
+# arabic-indic-digits: intentional — fed in as a value the renderer must refuse.
     with pytest.raises(RenderError):
         sanitise_owner_text(bad)
 

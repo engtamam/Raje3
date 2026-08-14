@@ -24,6 +24,7 @@ not know or care; refusing it would be our own defect wearing the shape of a rul
 normalised to Western digits on the way in, once, here — because a plate stored twice in two
 scripts is a car nobody can find.
 """
+# arabic-indic-digits: intentional — this module converts them to 0-9, so it must name them.
 from __future__ import annotations
 
 # ٠١٢٣٤٥٦٧٨٩ → 0123456789. Done at the edge so everything downstream — search, comparison, the

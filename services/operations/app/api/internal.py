@@ -963,6 +963,52 @@ async def retention_sweep(request: Request) -> dict:
     return out.to_dict()
 
 
+@router.post("/operations/templates/sync-approvals",
+             dependencies=[Depends(require_internal_token)])
+async def sync_template_approvals(request: Request) -> dict:
+    """Ask Meta — through notification-service — what became of every connected shop's templates.
+
+    THE MISSING CALLER. notification-service holds a correct per-tenant sweep and said in its own
+    docstring that the scheduler drives it; nothing ever did. So a template Meta approved within
+    the hour stayed `pending` with us for ever, and the send path — which rightly prefers an
+    approved template — refused every message with «ما زالت قيد مراجعة واتساب». The engine was not
+    broken and nothing was logged as wrong: it was waiting on a fact nobody went to read.
+
+    NO TENANT ARGUMENT, like the retention sweep above and for the same reason: the internal token
+    is held by every service in the mesh, and a sweep that takes a tenant is a per-shop endpoint
+    with a filter on it. This one only does what the clock already decided.
+
+    ONE SHOP'S FAILURE IS NOT THE PASS'S. An unreachable account, a revoked token, a WABA deleted
+    at Meta's end — each is counted and named in telemetry, and the sweep moves to the next shop.
+    Anything else lets one broken establishment keep the whole fleet's statuses stale.
+    """
+    from app.core.approvals import build_approvals
+    from app.core.connect import ConnectionStore
+
+    c = request.app.state.container
+    s = get_settings()
+    approvals = build_approvals(s)
+    if getattr(approvals, "driver", "null") == "null":
+        # HONEST, NOT QUIET. "0 tenants" from an unconfigured sweep looks exactly like a fleet
+        # with nothing to do — and that is the shape of the bug this whole route exists to fix.
+        return {"ok": False, "configured": False, "tenants": 0, "synced": 0, "failed": 0}
+
+    tenants = await ConnectionStore(c.datastore).live_tenants(limit=s.TEMPLATE_SYNC_MAX_TENANTS)
+    synced = failed = 0
+    for tenant in tenants:
+        out = await approvals.sync(tenant)
+        if out.get("ok", False) is False:
+            failed += 1
+            c.telemetry.event("template_sync_failed", tenant=tenant,
+                              reason=str(out.get("reason", ""))[:120])
+            continue
+        synced += 1
+    if failed:
+        c.telemetry.event("template_sync_pass", tenants=len(tenants), synced=synced, failed=failed)
+    return {"ok": True, "configured": True, "tenants": len(tenants),
+            "synced": synced, "failed": failed}
+
+
 class StatementRunIn(BaseModel):
     """An OPTIONAL body — the scheduler sends none.
 

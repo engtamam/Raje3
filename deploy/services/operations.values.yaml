@@ -247,6 +247,14 @@ env:
   # connection that had not happened — the failure that would have a shop recording visits all week
   # and wondering where its messages went.
   WHATSAPP_ONBOARDING_DRIVER: "http"
+  # AND THE PEER IT TALKS TO — which was missing while the driver said `http`, so the exchange
+  # built a RELATIVE url, urllib raised before the request was made, and the owner's connect
+  # request 500'd with Meta's thirty-second code in it. Nothing logged it as a configuration
+  # fault; it read as "WhatsApp connection is broken".
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  # Reconciling Meta's verdict: our list of connected shops, notification-service's read.
+  NOTIFICATION_TEMPLATE_SYNC_PATH: "/internal/whatsapp/templates/sync"
+  TEMPLATE_SYNC_MAX_TENANTS: "200"
 
   # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
   # THE ENTITLEMENT KEY IS WHAT MAKES THE SECOND CLOCK RUN. Billing publishes no subscription-end
@@ -305,6 +313,19 @@ cronJobs:
   - name: partner-statements
     schedule: "40 3 2 * *"
     path: /internal/operations/partners/statements/run
+  # META'S VERDICT, READ HOURLY — the caller that never existed.
+  #
+  # notification-service holds a correct per-tenant sweep and its docstring says the scheduler
+  # drives it. Nothing did. So a template Meta approved within the hour stayed `pending` with us
+  # for ever, and the send path — which rightly prefers an approved template — refused every
+  # message with «ما زالت قيد مراجعة واتساب». Nothing was logged as broken: the engine was waiting
+  # on a fact nobody went to read.
+  #
+  # HOURLY, AND AT :23. Meta's review runs up to 24 hours, so hourly is as fine-grained as the
+  # answer ever gets; and an off-minute keeps this off the same wake-up as every other job here.
+  - name: template-approvals
+    schedule: "23 * * * *"
+    path: /internal/operations/templates/sync-approvals
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

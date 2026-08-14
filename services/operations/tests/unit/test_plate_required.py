@@ -1,5 +1,6 @@
 """A vehicle sector must not be able to record a visit with no plate — and the rule must be one a
 man with a customer waiting can actually satisfy."""
+# arabic-indic-digits: intentional — a plate typed in Arabic-Indic digits is the input under test.
 from app.core import plate as P
 
 

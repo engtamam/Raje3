@@ -35,6 +35,7 @@ name is optional in our own model — a customer recorded by phone alone has non
 to a greeting rather than an empty string, which is a rejection three days later blaming the
 wording.
 """
+# arabic-indic-digits: intentional — named in a refusal message, as the shape we do NOT accept.
 from __future__ import annotations
 
 import re

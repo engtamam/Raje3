@@ -159,6 +159,32 @@ class ConnectionStore:
                        detail=str(row.get("detail") or ""), at=int(row.get("at") or 0))
 
 
+    async def live_tenants(self, *, limit: int = 500) -> list[str]:
+        """Every establishment whose connection reached WhatsApp — the sweep's work list.
+
+        BOTH LIVE STATES, and the second is the one that matters. `finished_unconfirmed` means the
+        popup closed on Meta's final screen: the account EXISTS and we did not hear the code. A
+        sweep that read only `connected` would skip exactly the shops whose state we are least sure
+        of, which is the opposite of what a reconciliation is for.
+
+        A cap rather than a full scan: a sweep is a repair pass that runs again in an hour, and
+        progress beats completeness on a repair path.
+        """
+        # ONE QUERY PER STATE, not one scan filtered in memory: the datastore refuses an empty
+        # `where` on purpose (scan_all exists for whole-collection reads and is not what a sweep
+        # of live connections wants), and a filtered read stays cheap as the fleet grows.
+        cap = max(1, min(2000, limit))
+        out: list[str] = []
+        for state in (STATE_CONNECTED, STATE_FINISHED_UNCONFIRMED):
+            rows, _ = await self._s.find(CONNECTIONS, {"state": state}, limit=cap,
+                                         sort=("at", "desc"))
+            for row in rows:
+                tenant = str(row.get("tenant") or "")
+                if tenant and tenant not in out:
+                    out.append(tenant)
+        return out[:cap]
+
+
 class NullExchange:
     """No Tech Provider credentials wired, or no route to reach them with.
 
@@ -224,7 +250,12 @@ class HttpExchange:
 
 def build_exchange(settings: Any) -> Any:
     driver = (getattr(settings, "WHATSAPP_ONBOARDING_DRIVER", "") or "null").lower()
-    if driver == "null":
+    # DRIVER `http` WITH NO PEER URL IS NOT A DRIVER, and it fails in the worst possible place.
+    # `"" + "/internal/…"` is a relative URL, and urllib raises ValueError building the Request —
+    # a bare exception, outside the try below, so the owner's connect request 500s and Meta's
+    # thirty-second code dies with it. He is told nothing, and the whole popup journey is lost.
+    # The deployment shipped exactly this state: driver http, NOTIFICATION_SERVICE_URL unset.
+    if driver == "null" or not (getattr(settings, "NOTIFICATION_SERVICE_URL", "") or ""):
         return NullExchange()
     return HttpExchange(base_url=settings.NOTIFICATION_SERVICE_URL,
                         path=settings.WHATSAPP_ONBOARDING_PATH,

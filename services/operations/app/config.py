@@ -278,6 +278,12 @@ class Settings(BaseSettings):
     SIGNUP_OWNER_ROLE: str = "owner"
     NOTIFICATION_SERVICE_URL: str = ""       # e.g. http://notification-service:8000
     NOTIFICATION_MESSAGING_LIMIT_PATH: str = "/internal/whatsapp/messaging-limit"
+    # WHERE WE ASK WHAT META DECIDED. Empty disables the sweep entirely rather than pointing it at
+    # a guessed path — a sweep that 404s on every shop reports failures that look like Meta's.
+    NOTIFICATION_TEMPLATE_SYNC_PATH: str = "/internal/whatsapp/templates/sync"
+    # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
+    # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
+    TEMPLATE_SYNC_MAX_TENANTS: int = 200
     PEER_TIMEOUT_SECONDS: int = 8
 
     # WhatsApp connection (Embedded Signup). The exchange itself belongs to notification-service,

@@ -283,6 +283,14 @@ for p in sorted(ROOT.rglob("*")):
         text = p.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
         continue                                  # binary, or unreadable: not prose
+    # ── the one legitimate reason to WRITE these characters ──────────────────────────────────
+    # Code that REFUSES or CONVERTS Arabic-Indic digits has to name them: the plate normaliser
+    # maps them to 0-9, the renderer refuses «٢٠%» as a discount, and their tests feed
+    # exactly those strings in. This gate flagged all five, so it failed on every run — and a gate
+    # that is always red is a gate nobody reads, which is worse than not having it. A file opts out
+    # by SAYING SO, once, in a comment; there is no path list here to drift out of date.
+    if "arabic-indic-digits: intentional" in text:
+        continue
     hits = sorted({c for c in text if any(lo <= ord(c) <= hi for lo, hi in _ARABIC_INDIC)})
     if hits:
         fail(str(p.relative_to(ROOT)),

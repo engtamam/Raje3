@@ -20,6 +20,7 @@ WHAT THIS IS NOT. It is not the per-tenant WhatsApp registry — notification-se
 including submission to Meta and the approval sweep. This is the CURATED SET we push into a
 tenant's registry when they connect, and the place we edit it before we do.
 """
+# arabic-indic-digits: intentional — named in a refusal message, as the shape we do NOT accept.
 from __future__ import annotations
 
 import json

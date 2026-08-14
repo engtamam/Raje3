@@ -83,3 +83,44 @@ def test_an_unconfigured_exchange_reports_failure_rather_than_success():
 
 def test_no_establishment_has_ever_connected_by_default():
     assert run(connect.ConnectionStore(MemoryDataStore()).get("t")) is None
+
+
+# ── the sweep's work list ──────────────────────────────────────────────────────────────────────
+def _store_with(states):
+    st = MemoryDataStore()
+    store = connect.ConnectionStore(st)
+    for i, state in enumerate(states):
+        run(store.record(connect.Attempt(tenant=f"t{i}", state=state)))
+    return store
+
+
+def test_the_sweep_reads_both_live_states():
+    """`finished_unconfirmed` is the shop we are LEAST sure of — the popup closed on Meta's final
+    screen, so the account exists and we never heard the code. A sweep that read only `connected`
+    would skip exactly those."""
+    store = _store_with([connect.STATE_CONNECTED, connect.STATE_FINISHED_UNCONFIRMED,
+                         connect.STATE_STOPPED, connect.STATE_FAILED])
+    assert sorted(run(store.live_tenants())) == ["t0", "t1"]
+
+
+def test_no_connections_is_an_empty_list_not_an_error():
+    assert run(connect.ConnectionStore(MemoryDataStore()).live_tenants()) == []
+
+
+# ── the misconfiguration that killed the connect request ───────────────────────────────────────
+class _S:
+    WHATSAPP_ONBOARDING_DRIVER = "http"
+    WHATSAPP_ONBOARDING_PATH = "/internal/whatsapp/embedded-signup"
+    NOTIFICATION_SERVICE_URL = ""
+    INTERNAL_SERVICE_TOKEN = "t"
+    PEER_TIMEOUT_SECONDS = 8
+
+
+def test_driver_http_with_no_peer_url_falls_back_instead_of_building_a_relative_url():
+    """`"" + "/internal/…"` is a relative URL, and urllib raises ValueError building the Request —
+    outside the exchange's own try, so the owner's connect request 500s and Meta's thirty-second
+    code dies with it. The deployment shipped exactly this state."""
+    assert connect.build_exchange(_S()).configured is False
+
+    _S.NOTIFICATION_SERVICE_URL = "http://notification-service:8000"
+    assert connect.build_exchange(_S()).configured is True
