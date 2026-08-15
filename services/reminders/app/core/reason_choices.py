@@ -1,7 +1,7 @@
-"""What THIS shop decided about each trigger: does it run, and in whose words.
+"""What THIS shop decided about each reason: does it run, and in whose words.
 
-TWO DECISIONS AND NO MORE. Whether a trigger sends at all, and which text answers it — ours or one
-of his own that Meta approved. Everything else about a trigger (when it fires, what class it is,
+TWO DECISIONS AND NO MORE. Whether a reason sends at all, and which text answers it — ours or one
+of his own that Meta approved. Everything else about a reason (when it fires, what class it is,
 which blanks it can fill) is the product's and is not a per-shop setting.
 
 PRESENCE DECIDES, NOT TRUTH — the same rule the settings tree runs on, and for the same reason it
@@ -18,9 +18,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.core import triggers as T
+from app.core import reasons as T
 
-CHOICES = "trigger_choices"
+CHOICES = "reason_choices"
 
 
 @dataclass
@@ -30,34 +30,34 @@ class Choices:
     tenant: str
     rows: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-    def enabled(self, trigger_id: str) -> bool:
-        """Does this trigger send for this shop?
+    def enabled(self, reason_id: str) -> bool:
+        """Does this reason send for this shop?
 
         A TRIGGER HE MAY NOT SWITCH IS ALWAYS ON, whatever is stored. The privacy code answers a
         statutory clock; a row written by a future bug must not be able to silence it.
         """
-        t = T.get(trigger_id)
+        t = T.get(reason_id)
         if t is None:
-            # UNKNOWN MEANS ON. A trigger removed from the registry while rows for it are still in
+            # UNKNOWN MEANS ON. A reason removed from the registry while rows for it are still in
             # the datastore is our mistake, and silently dropping the messages would hide it.
             return True
         if not t.owner_can_switch:
             return True
-        row = self.rows.get(trigger_id) or {}
+        row = self.rows.get(reason_id) or {}
         if "on" in row:
             return bool(row["on"])
         return t.default_on
 
-    def template_name(self, trigger_id: str) -> str:
-        """His own approved template for this trigger, or empty for ours.
+    def template_name(self, reason_id: str) -> str:
+        """His own approved template for this reason, or empty for ours.
 
         A NAME, NOT A BODY. The text lives in his WhatsApp account, approved under this name; a
         copy here would be the version that drifts.
         """
-        t = T.get(trigger_id)
+        t = T.get(reason_id)
         if t is None or not t.owner_can_retext:
             return ""
-        return str((self.rows.get(trigger_id) or {}).get("template") or "")
+        return str((self.rows.get(reason_id) or {}).get("template") or "")
 
     def public(self) -> list[dict[str, Any]]:
         """The whole registry with his answers folded in — what one screen call returns.
@@ -67,7 +67,7 @@ class Choices:
         time a default changed.
         """
         out = []
-        for t in T.TRIGGERS:
+        for t in T.REASONS:
             row = T.public(t)
             row["on"] = self.enabled(t.id)
             row["template"] = self.template_name(t.id)
@@ -80,27 +80,27 @@ class ChoiceStore:
         self._s = store
 
     async def load(self, tenant: str) -> Choices:
-        row = await self._s.get(CHOICES, f"{tenant}|triggers") or {}
-        return Choices(tenant=tenant, rows=dict(row.get("triggers") or {}))
+        row = await self._s.get(CHOICES, f"{tenant}|reasons") or {}
+        return Choices(tenant=tenant, rows=dict(row.get("reasons") or {}))
 
-    async def set(self, tenant: str, trigger_id: str, *,
+    async def set(self, tenant: str, reason_id: str, *,
                   on: bool | None = None, template: str | None = None) -> Choices:
-        """Change one trigger. Everything not named is left exactly as it was.
+        """Change one reason. Everything not named is left exactly as it was.
 
         REFUSES WHAT THE REGISTRY FORBIDS rather than storing it and ignoring it later. A stored
         setting that does nothing is the shape of every "I turned it off and it kept sending"
         support call this product will ever get.
         """
-        t = T.get(trigger_id)
+        t = T.get(reason_id)
         if t is None:
-            raise ValueError(f"لا يوجد محفّز باسم {trigger_id}.")
+            raise ValueError(f"لا يوجد داعٍ للإرسال باسم {reason_id}.")
         if on is not None and not t.owner_can_switch:
             raise ValueError(f"«{t.label}» لا يمكن إيقافه — هو حقٌّ لعميلك لا إعدادٌ لك.")
         if template is not None and not t.owner_can_retext:
             raise ValueError(f"«{t.label}» يُرسَل بصياغتنا — نصّه مرتبط بحقٍّ نظامي.")
 
         choices = await self.load(tenant)
-        row = dict(choices.rows.get(trigger_id) or {})
+        row = dict(choices.rows.get(reason_id) or {})
         if on is not None:
             row["on"] = bool(on)
         if template is not None:
@@ -112,10 +112,10 @@ class ChoiceStore:
             else:
                 row.pop("template", None)
         if row:
-            choices.rows[trigger_id] = row
+            choices.rows[reason_id] = row
         else:
-            choices.rows.pop(trigger_id, None)
-        await self._s.put(CHOICES, f"{tenant}|triggers", {
-            "id": f"{tenant}|triggers", "tenant": tenant,
-            "triggers": choices.rows, "updated": int(time.time())})
+            choices.rows.pop(reason_id, None)
+        await self._s.put(CHOICES, f"{tenant}|reasons", {
+            "id": f"{tenant}|reasons", "tenant": tenant,
+            "reasons": choices.rows, "updated": int(time.time())})
         return choices

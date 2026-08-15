@@ -45,7 +45,7 @@ C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 # GREPPING THE SOURCE WAS NOT ENOUGH, and it was quietly wrong. A type named anywhere counted as
 # reachable — so `svc_booking_confirmation`, which appeared only in a list of window exemptions,
 # passed this check while nothing in the fleet could send it. The question is not "is this string
-# mentioned" but "is there a trigger that fires it", and that now has an answer: the registry.
+# mentioned" but "is there a reason that fires it", and that now has an answer: the registry.
 #
 # A LINE HERE IS A DECISION, not a silencer. Anything not fired and not listed is a text we pay
 # Meta to review for every establishment and that no customer can ever receive.
@@ -66,25 +66,25 @@ SLEEPING = {
 }
 
 
-def trigger_types() -> set[str]:
-    """Every template type the trigger registry can fire.
+def reason_types() -> set[str]:
+    """Every template type the reason registry can fire.
 
     THE REGISTRY, NOT A GREP — it is the one place that answers "what makes a message go out",
     and it is the same answer the engine acts on.
     """
-    src = (SERVICES / "reminders" / "app" / "core" / "triggers.py").read_text(encoding="utf-8")
+    src = (SERVICES / "reminders" / "app" / "core" / "reasons.py").read_text(encoding="utf-8")
     return set(re.findall(r'template_type="([a-z_]+)"', src))
 
 
 def campaign_types() -> set[str]:
-    """And the goals, which fire without a trigger row of their own."""
+    """And the goals, which fire without a reason row of their own."""
     src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
     return set(re.findall(r'\("([a-z_]+)",\s*"(?:marketing|awareness|service|personal)"\)', src))
 
 
 def main() -> int:
     rows = json.loads(CURATED.read_text(encoding="utf-8"))["templates"]
-    fired = trigger_types() | campaign_types()
+    fired = reason_types() | campaign_types()
     problems: list[str] = []
     warnings: list[str] = []
 
@@ -133,7 +133,7 @@ def main() -> int:
         if reason:
             warnings.append(f"{type_name}: asleep on purpose — {reason}")
             continue
-        problems.append(f"{type_name}: no trigger and no goal fires it, and no reason is written "
+        problems.append(f"{type_name}: no reason and no goal fires it, and no reason is written "
                         f"down. It is submitted to Meta for every establishment and can reach "
                         f"nobody — wire it, delete it, or say here why it sleeps")
 

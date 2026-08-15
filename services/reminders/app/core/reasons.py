@@ -4,14 +4,14 @@ THE PROBLEM THIS SOLVES. "When does the system send?" had no answer anywhere. Th
 is decided in `scheduling.py`, the cycle reminder beside it, the ladder in `tick.py`, the points
 notices in the loyalty service, the weekly report in insights, the standing campaigns in campaigns,
 and the trial notice in operations. Seven files in five services, each holding a template name as a
-literal — so adding a trigger meant editing four services, nobody could list what a shop actually
+literal — so adding a reason meant editing four services, nobody could list what a shop actually
 sends, and the owner's screen could not offer a switch for something the product could not
 enumerate.
 
 SO A TRIGGER IS A THING NOW. Each one says: what happens in the world, which message answers it,
 what class it is, and WHICH BLANKS IT CAN FILL. That last field is the one that pays for the rest:
 it is what lets an owner write his own text without writing an unsendable one — the editor offers
-the blanks his trigger can supply and no others, so «رمز القسيمة» never appears while writing a
+the blanks his reason can supply and no others, so «رمز القسيمة» never appears while writing a
 visit confirmation, and a template that would have failed at render is impossible to compose.
 
 WHAT IS NOT HERE. The firing itself. This is a registry, not a scheduler: `scheduling.py` still
@@ -29,9 +29,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# ── the blanks a trigger can fill ──────────────────────────────────────────────────────────────
+# ── the blanks a reason can fill ──────────────────────────────────────────────────────────────
 # Named for the OWNER, because these strings are what his editor shows on a chip. `customer` and
-# `shop` are on every trigger and are not listed per trigger: slot 1 and slot 2 of every template
+# `shop` are on every reason and are not listed per reason: slot 1 and slot 2 of every template
 # in the library, always available, never a choice.
 CUSTOMER = "customer"
 SHOP = "shop"
@@ -72,7 +72,7 @@ SLOT_LABEL = {
 
 
 @dataclass(frozen=True)
-class Trigger:
+class Reason:
     """One reason a message exists."""
 
     id: str
@@ -83,12 +83,12 @@ class Trigger:
     # is here rather than in the screen so that the answer cannot drift from the behaviour.
     when: str
     cls: str
-    # The default template type. The owner may point the trigger at his own approved text instead
+    # The default template type. The owner may point the reason at his own approved text instead
     # (#235); this is what it does until he does.
     template_type: str
     # Beyond the customer's name and the shop's — see ALWAYS.
     slots: tuple[str, ...] = ()
-    # Which service decides this one has happened. Recorded so a silent trigger can be traced to
+    # Which service decides this one has happened. Recorded so a silent reason can be traced to
     # the thing that should have fired it, rather than searched for across five repositories.
     source: str = "reminders"
     # ON FOR A SHOP THAT HAS SET NOTHING. The engine is what he bought; a product whose messages
@@ -101,91 +101,91 @@ class Trigger:
     owner_can_retext: bool = True
 
 
-TRIGGERS: tuple[Trigger, ...] = (
-    Trigger(
+REASONS: tuple[Reason, ...] = (
+    Reason(
         id="visit_recorded",
         label="سُجّلت زيارة",
         when="بعد تسجيل الزيارة بعشر دقائق — حين يكون قد غادر",
         cls="service", template_type="svc_visit_confirmation",
     ),
-    Trigger(
+    Reason(
         id="visit_redeemed",
         label="زيارة استُبدلت فيها نقاط",
         when="مع تأكيد الزيارة نفسه، حين يستبدل نقاطه عند الصندوق",
         cls="service", template_type="svc_visit_redeemed",
         slots=(REWARD, POINTS, BALANCE),
     ),
-    Trigger(
+    Reason(
         id="service_due",
         label="حان وقت الخدمة",
         when="حين تحين دورة العميل نفسه لهذه الخدمة — دورةٌ يتعلّمها النظام منه",
         cls="service", template_type="svc_service_reminder",
         slots=(SERVICE,),
     ),
-    Trigger(
+    Reason(
         id="after_visit",
         label="الاطمئنان بعد الزيارة",
         when="بعد الزيارة بأيام — ويُلغى تلقائياً إن عاد قبل موعده",
         cls="service", template_type="svc_follow_up",
         slots=(SERVICE,),
     ),
-    Trigger(
+    Reason(
         id="no_response",
         label="لم يردّ على التذكير",
         when="رسالة أو رسالتان بعد التذكير الأول، بنبرة أخرى — ثم تتوقف",
         cls="service", template_type="svc_service_reminder",
         slots=(SERVICE,),
     ),
-    Trigger(
+    Reason(
         id="balance_changed",
         label="تغيّر رصيده بلا زيارة",
         when="حين يستبدل نقاطه ولا تكون له زيارة مسجّلة تحمل الخبر",
         cls="personal", template_type="per_account_notice",
         slots=(ACTION, BALANCE), source="loyalty",
     ),
-    Trigger(
+    Reason(
         id="points_expiring",
         label="نقاطه على وشك الانتهاء",
         when="قبل انتهاء صلاحية نقاطه بمهلة",
         cls="personal", template_type="per_points_expiring",
         slots=(POINTS, ENDS_AT), source="loyalty",
     ),
-    Trigger(
+    Reason(
         id="reward_within_reach",
         label="رصيده صار يكفي مكافأة",
         when="حين يبلغ رصيده أول مكافأة يستطيع استبدالها",
         cls="marketing", template_type="mkt_loyalty_activation",
         slots=(POINTS, REWARD), source="campaigns",
     ),
-    Trigger(
+    Reason(
         id="gone_missing",
         label="تجاوز دورته ولم يعد",
         when="حين يمضي على زيارته مرّة ونصف دورته المعتادة",
         cls="marketing", template_type="mkt_winback",
         slots=(OFFER_VALUE, ENDS_AT), source="campaigns",
     ),
-    Trigger(
+    Reason(
         id="loyal_customer",
         label="بلغ عدد زيارات",
         when="حين يبلغ عدد زياراته الحدّ الذي اخترته",
         cls="marketing", template_type="mkt_loyalty_activation",
         slots=(POINTS, REWARD), source="campaigns",
     ),
-    Trigger(
+    Reason(
         id="personal_occasion",
         label="حلّت مناسبته",
         when="في تاريخه — ميلاده، أو سنة على أول زيارة",
         cls="marketing", template_type="mkt_personal_occasion",
         slots=(OFFER_VALUE, ENDS_AT), source="campaigns",
     ),
-    Trigger(
+    Reason(
         id="weekly_digest",
         label="ملخّصك الأسبوعي",
         when="مرة كل أسبوع — تقريرك أنت، لا رسالة لعميلك",
         cls="personal", template_type="per_weekly_digest",
         slots=(DIGEST,), source="insights",
     ),
-    Trigger(
+    Reason(
         id="privacy_code",
         label="رمز طلب البيانات",
         when="حين يطلب عميلك نسخة من بياناته أو حذفها",
@@ -197,31 +197,31 @@ TRIGGERS: tuple[Trigger, ...] = (
     ),
 )
 
-BY_ID = {t.id: t for t in TRIGGERS}
+BY_ID = {t.id: t for t in REASONS}
 BY_TEMPLATE_TYPE: dict[str, tuple[str, ...]] = {}
-for _t in TRIGGERS:
+for _t in REASONS:
     BY_TEMPLATE_TYPE.setdefault(_t.template_type, ())
     BY_TEMPLATE_TYPE[_t.template_type] += (_t.id,)
 
 
-def get(trigger_id: str) -> Trigger | None:
-    return BY_ID.get(trigger_id)
+def get(reason_id: str) -> Reason | None:
+    return BY_ID.get(reason_id)
 
 
-def slots_for(trigger_id: str) -> tuple[str, ...]:
-    """Every blank this trigger can fill, including the two on every message.
+def slots_for(reason_id: str) -> tuple[str, ...]:
+    """Every blank this reason can fill, including the two on every message.
 
     THE EDITOR'S WHOLE GUARD RAIL. An owner writing his own text is offered these and nothing else,
     so a template that asks for a value nobody can supply cannot be composed — which is the failure
     that would otherwise appear weeks later as a message that silently never goes out.
     """
-    t = BY_ID.get(trigger_id)
+    t = BY_ID.get(reason_id)
     return ALWAYS + t.slots if t else ()
 
 
-# ── from a scheduled row back to the trigger that made it ────────────────────────────────────
+# ── from a scheduled row back to the reason that made it ────────────────────────────────────
 # The row records `kind` (what the scheduler called it) and `template_type` (what it will send).
-# Neither alone is enough: two triggers share `svc_service_reminder` — the cycle reminder and the
+# Neither alone is enough: two reasons share `svc_service_reminder` — the cycle reminder and the
 # ladder rung that follows it — and they are separate switches because an owner who wants
 # reminders may not want to be reminded of the reminder.
 _BY_KIND = {
@@ -232,10 +232,10 @@ _BY_KIND = {
 
 
 def for_row(kind: str, template_type: str) -> str:
-    """Which trigger produced this schedule. Empty when we cannot tell.
+    """Which reason produced this schedule. Empty when we cannot tell.
 
     EMPTY IS NOT A FAILURE HERE. An unrecognised row keeps sending — a switch we cannot attribute
-    must not silence a message the shop is expecting, and the alternative (guess a trigger) would
+    must not silence a message the shop is expecting, and the alternative (guess a reason) would
     apply somebody else's switch to it.
     """
     if kind.startswith("ladder_"):
@@ -247,12 +247,12 @@ def for_row(kind: str, template_type: str) -> str:
 
 
 def candidates(kind: str, template_type: str) -> tuple[str, ...]:
-    """Every trigger this message could belong to — for the paths that only know a template type.
+    """Every reason this message could belong to — for the paths that only know a template type.
 
     A PEER SEND CARRIES NO `kind`. loyalty, insights and campaigns hand us a template type and a
-    class, and one type can serve two triggers (`mkt_loyalty_activation` answers both "his balance
+    class, and one type can serve two reasons (`mkt_loyalty_activation` answers both "his balance
     reaches a reward" and "he became a regular"). So the switch is honoured only when EVERY
-    trigger that could have produced this message is off — silencing on a guess would switch off a
+    reason that could have produced this message is off — silencing on a guess would switch off a
     message the owner never touched.
     """
     one = for_row(kind, template_type)
@@ -307,7 +307,7 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     return out
 
 
-def public(t: Trigger) -> dict:
+def public(t: Reason) -> dict:
     """What a screen may read. The class and the template name are ours, not his (§10.8.1.2)."""
     return {"id": t.id, "label": t.label, "when": t.when,
             # ID AND LABEL TOGETHER. The editor stores the id and shows the label; sending only
@@ -319,5 +319,5 @@ def public(t: Trigger) -> dict:
 
 
 # Kept out of `public()` on purpose — see its docstring. This is for our own screens and gates.
-def internal(t: Trigger) -> dict:
+def internal(t: Reason) -> dict:
     return {**public(t), "cls": t.cls, "template_type": t.template_type, "source": t.source}

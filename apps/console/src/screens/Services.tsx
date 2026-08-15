@@ -45,7 +45,7 @@ interface Settings {
 }
 
 /** One row of «رسائلي التلقائية» — this screen reads only the visit confirmation from it. */
-interface TriggerRow { id: string; on: boolean }
+interface ReasonRow { id: string; on: boolean }
 
 /** The one proposal this screen ever makes: several services already share a value. */
 interface Suggestion { field: string; value: number | boolean; services: string[] }
@@ -163,10 +163,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     const es = action(catalog, 'loyalty.settings.read');
     if (es) call<EarnSettings>(session, es).then(setEarn).catch(() => setEarn(null));
 
-    const tg = action(catalog, 'reminders.triggers');
+    const tg = action(catalog, 'reminders.reasons');
     if (tg) {
-      call<{ triggers: TriggerRow[] }>(session, tg)
-        .then((x) => applyTriggers(x.triggers))
+      call<{ reasons: ReasonRow[] }>(session, tg)
+        .then((x) => applyReasons(x.reasons))
         // A FAILED READ LEAVES THE SWITCH AS IT WAS. Rendering it off would tell an owner his
         // confirmations are stopped because a request timed out.
         .catch(() => {});
@@ -432,7 +432,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * oil change to 60 days has not asked us to undo that minute.
    */
   /**
-   * «تأكيد الزيارة» — the one trigger this screen owns.
+   * «تأكيد الزيارة» — the one reason this screen owns.
    *
    * IT IS THE TRIGGER STORE, NOT THE SETTINGS TREE. The behaviour has exactly one switch and one
    * home; the twelve others live in «رسائلي», and this one is repeated here because this is the
@@ -440,23 +440,23 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    */
   const [visitOn, setVisitOn] = useState(true);
 
-  const applyTriggers = (rows?: TriggerRow[]) => {
+  const applyReasons = (rows?: ReasonRow[]) => {
     const row = (rows || []).find((r) => r.id === 'visit_recorded');
     if (row) setVisitOn(row.on !== false);
   };
 
   const setVisitConfirmation = async (on: boolean) => {
-    const a = action(catalog, 'reminders.set_trigger');
+    const a = action(catalog, 'reminders.set_reason');
     if (!a) return;
     setSaving(true); setError('');
     // OPTIMISTIC, AND CORRECTED BY THE ANSWER. A toggle that waits for a round trip before it
     // moves reads as broken on a phone.
     setVisitOn(on);
     try {
-      const out = await call<{ ok?: boolean; error?: string; triggers?: TriggerRow[] }>(
-        session, a, { trigger_id: 'visit_recorded', on });
+      const out = await call<{ ok?: boolean; error?: string; reasons?: ReasonRow[] }>(
+        session, a, { reason_id: 'visit_recorded', on });
       if (out?.error) { setError(out.error); }
-      applyTriggers(out?.triggers);
+      applyReasons(out?.reasons);
     } catch (e) {
       setVisitOn(!on);
       setError(e instanceof Error ? e.message : 'تعذّر حفظ الإعداد.');
@@ -717,7 +717,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               <Toggle
                 label="تأكيد الزيارة"
                 disabled={saving}
-                // PRESENCE, NOT TRUTH — the server answers with the trigger's own state, and
+                // PRESENCE, NOT TRUTH — the server answers with the reason's own state, and
                 // «لم يختر» is «نرسل». Rendering undefined as off would show a switch that
                 // disagrees with what actually goes out.
                 checked={visitOn}

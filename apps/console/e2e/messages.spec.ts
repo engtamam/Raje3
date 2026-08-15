@@ -11,7 +11,7 @@ import { expect, open, test } from './fixtures';
 test('automatic and deliberate are two different lists, named as such', async ({ shop }) => {
   const body = await open(shop, '/messages');
 
-  expect(body).toMatch(/ما يُرسَل/);
+  expect(body).toMatch(/متى نرسل/);
   expect(body).toMatch(/حملاتي/);
 });
 
@@ -48,7 +48,7 @@ test('a shop that has launched nothing is told what a campaign is for', async ({
    * nobody can seed a campaign for him. So it explains the act rather than apologising for a gap.
    */
   await open(shop, '/messages');
-  // The screen opens on «ما يُرسَل» — everything the engine does by itself, which is what most
+  // The screen opens on «متى نرسل» — everything the engine does by itself, which is what most
   // days are. Campaigns are the deliberate act, and they live behind their own tab.
   await shop.getByRole('radio', { name: 'حملاتي' }).click();
   const body = (await shop.locator('body').innerText()).trim();

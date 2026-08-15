@@ -137,28 +137,28 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "نصٌّ من عندك لرسالة بعينها — يُحفظ مسودّة حتى ترفعه.",
     },
     {
-        "id": "reminders.triggers", "label": "رسائلي التلقائية", "method": "GET",
-        "path": "/api/v1/reminders/triggers", "capability": "reminders.read",
+        "id": "reminders.reasons", "label": "متى نرسل", "method": "GET",
+        "path": "/api/v1/reminders/reasons", "capability": "reminders.read",
         "group": "الإعدادات",
         # THE CATALOGUE AND HIS ANSWERS IN ONE CALL. A screen that fetched the list and the
         # settings separately would hold the defaults itself, and the two would disagree the
         # first time a default changed.
-        "help": "كل ما يرسله النظام باسمك: متى يرسل، وهل هو مشغّل، وبأي نص.",
+        "help": "دواعي الإرسال: ما الذي يخرج باسمك، ومتى، وهل هو مشغّل، وبأي نص.",
     },
     {
-        "id": "reminders.preview_trigger", "label": "معاينة الرسالة", "method": "GET",
-        "path": "/api/v1/reminders/triggers/{trigger_id}/preview",
+        "id": "reminders.preview_reason", "label": "معاينة الرسالة", "method": "GET",
+        "path": "/api/v1/reminders/reasons/{reason_id}/preview",
         "capability": "reminders.read",
-        "params": [{"name": "trigger_id", "in": "path", "type": "string", "required": True}],
+        "params": [{"name": "reason_id", "in": "path", "type": "string", "required": True}],
         "group": "الإعدادات",
         # Rendered by the engine with example values, so a wording he cannot send is one he is
         # never offered — and what he reads is what leaves the building.
         "help": "نصّ الرسالة كما تصل عميلك، بالصيغ المتاحة لها.",
     },
     {
-        "id": "reminders.set_trigger", "label": "تشغيل أو إيقاف رسالة", "method": "PUT",
-        "path": "/api/v1/reminders/triggers/{trigger_id}", "capability": "reminders.manage",
-        "params": [{"name": "trigger_id", "in": "path", "type": "string", "required": True}],
+        "id": "reminders.set_reason", "label": "تشغيل أو إيقاف رسالة", "method": "PUT",
+        "path": "/api/v1/reminders/reasons/{reason_id}", "capability": "reminders.manage",
+        "params": [{"name": "reason_id", "in": "path", "type": "string", "required": True}],
         "confirm": True, "group": "الإعدادات",
         "help": "يقرّر هل يخرج هذا النوع من الرسائل، وبنصّك أم بنصّنا.",
     },

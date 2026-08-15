@@ -781,10 +781,10 @@ def test_a_follow_up_has_no_ladder(st):
 
 
 # ── the switch the owner throws ────────────────────────────────────────────────────────────────
-def test_a_trigger_the_shop_switched_off_sends_nothing_and_does_not_come_back(st):
+def test_a_reason_the_shop_switched_off_sends_nothing_and_does_not_come_back(st):
     """CLOSED, NOT LEFT PENDING. A schedule that stays pending is retried on every tick for ever,
     and «رسائلي» would show a queue that never drains for a switch he deliberately threw."""
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
     sched(st)
     store = ChoiceStore(st)
     run(store.set("t1", "service_due", on=False))
@@ -799,10 +799,10 @@ def test_a_trigger_the_shop_switched_off_sends_nothing_and_does_not_come_back(st
     assert res2.scanned == 0
 
 
-def test_the_switch_is_read_per_trigger_not_per_template(st):
+def test_the_switch_is_read_per_reason_not_per_template(st):
     """The cycle reminder and the ladder rung share a template type. Switching the ladder off must
     not silence the reminder that produces it."""
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
     sched(st)
     store = ChoiceStore(st)
     run(store.set("t1", "no_response", on=False))

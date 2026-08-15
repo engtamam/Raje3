@@ -36,7 +36,7 @@ from app.core import quota as Q
 from app.core import ceiling as C
 from app.core import coupons as COUPONS
 from app.core import ladder as L
-from app.core import triggers as TR
+from app.core import reasons as TR
 from app.core import merge as M
 from app.core import ceiling_notice as CN
 from app.core.reach import Reach
@@ -411,8 +411,8 @@ class Tick:
         # ever, and «رسائلي» would show a queue that never drains for a switch he deliberately
         # threw. It reappears the moment he switches it back on, because the next visit schedules
         # a new one — the switch decides the future, not the past.
-        trigger = TR.for_row(str(row.get("kind", "")), str(row.get("template_type", "")))
-        if trigger and choices is not None and not choices.enabled(trigger):
+        reason = TR.for_row(str(row.get("kind", "")), str(row.get("template_type", "")))
+        if reason and choices is not None and not choices.enabled(reason):
             await self._close(tenant, row, "suppressed", "أوقفتَ هذا النوع من الرسائل", now)
             res.suppressed += 1
             res.reasons["أوقفتَ هذا النوع من الرسائل"] = (

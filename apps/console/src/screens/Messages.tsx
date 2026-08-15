@@ -88,9 +88,9 @@ interface Run { at?: number; sent?: number; suppressed?: number; reason?: string
 /**
  * One thing the system does in his name. Every field is the SERVER'S — the label, and the sentence
  * saying when it fires. A screen that held its own copy of either would drift from the engine the
- * first time a trigger changed, and the owner would be reading a promise nothing keeps.
+ * first time a reason changed, and the owner would be reading a promise nothing keeps.
  */
-interface TriggerRow {
+interface ReasonRow {
   id: string;
   label: string;
   when: string;
@@ -139,7 +139,7 @@ function asLocal(phone: string): string {
 }
 
 export function MessagesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [tab, setTab] = useState<'triggers' | 'auto' | 'campaigns' | 'log'>('triggers');
+  const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>('reasons');
 
   /**
    * WHAT SENDS IN HIS NAME — the question this whole section is named after, and the one it could
@@ -147,10 +147,10 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
    * never said WHAT THE SYSTEM SENDS AT ALL, so the only way to stop a kind of message was to
    * cancel its rows one at a time, for ever, as they appeared.
    */
-  const [triggers, setTriggers] = useState<TriggerRow[] | null>(null);
+  const [reasons, setReasons] = useState<ReasonRow[] | null>(null);
   const [busy, setBusy] = useState('');
   /** The row he opened to read its wording. `null` is closed — it is not a screen of its own. */
-  const [reading, setReading] = useState<TriggerRow | null>(null);
+  const [reading, setReading] = useState<ReasonRow | null>(null);
   const [switchError, setSwitchError] = useState('');
 
   /**
@@ -192,7 +192,7 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
    * firing, and the console hammered `/customers/resolve` until the gateway answered 429.
    *
    * An unanswered ref is still an ASKED ref. A set of what we sent, in a ref rather than state, so
-   * recording it cannot itself trigger the effect that reads it.
+   * recording it cannot itself fire the effect that reads it.
    */
   const asked = useRef<Set<string>>(new Set());
 
@@ -200,33 +200,33 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
   // so paying for it on open costs nothing and paying for it on a tab switch would show a
   // skeleton to somebody who is already looking at the answer.
   useEffect(() => {
-    const a = action(catalog, 'reminders.triggers');
-    if (!a) { setTriggers([]); return; }
-    call<{ triggers: TriggerRow[] }>(session, a)
-      .then((x) => setTriggers(x.triggers ?? []))
+    const a = action(catalog, 'reminders.reasons');
+    if (!a) { setReasons([]); return; }
+    call<{ reasons: ReasonRow[] }>(session, a)
+      .then((x) => setReasons(x.reasons ?? []))
       // A FAILED READ IS NOT AN EMPTY SYSTEM. `[]` here would tell an owner his shop sends
       // nothing, which is the one sentence that must never be shown by mistake.
-      .catch(() => setTriggers(null));
+      .catch(() => setReasons(null));
   }, [session, catalog]);
 
-  const flip = async (row: TriggerRow, on: boolean) => {
-    const a = action(catalog, 'reminders.set_trigger');
+  const flip = async (row: ReasonRow, on: boolean) => {
+    const a = action(catalog, 'reminders.set_reason');
     if (!a) return;
     setBusy(row.id); setSwitchError('');
     // OPTIMISTIC, AND CORRECTED BY THE ANSWER. A switch that waits for a round trip before moving
     // reads as broken on a phone, and this screen is opened on a phone.
-    setTriggers((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on } : r)));
+    setReasons((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on } : r)));
     try {
-      const out = await call<{ ok?: boolean; error?: string; triggers?: TriggerRow[] }>(
-        session, a, { trigger_id: row.id, on });
+      const out = await call<{ ok?: boolean; error?: string; reasons?: ReasonRow[] }>(
+        session, a, { reason_id: row.id, on });
       if (out?.error) {
         setSwitchError(out.error);
-        setTriggers((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
-      } else if (out?.triggers) {
-        setTriggers(out.triggers);
+        setReasons((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
+      } else if (out?.reasons) {
+        setReasons(out.reasons);
       }
     } catch (e) {
-      setTriggers((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
+      setReasons((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
       setSwitchError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
     } finally {
       setBusy('');
@@ -338,32 +338,32 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'triggers', label: 'ما يُرسَل' },
+          { value: 'reasons', label: 'متى نرسل' },
           { value: 'auto', label: 'بانتظار الخروج' },
           { value: 'campaigns', label: 'حملاتي' },
           { value: 'log', label: 'السجل' },
         ]}
       />
 
-      {tab === 'triggers' ? (
+      {tab === 'reasons' ? (
         <section className="flex flex-col gap-3">
           {/* ── everything that sends in his name, and the switch for each ──────────────────
               THE ROW IS A SENTENCE, NOT A SETTING. «سُجّلت زيارة» with «بعد تسجيل الزيارة
               بعشر دقائق» under it answers the two questions he has — what and when — before he
               touches anything. Both come from the server: a label kept here would drift from the
-              engine the first time a trigger changed, and he would be reading a promise nothing
+              engine the first time a reason changed, and he would be reading a promise nothing
               keeps. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
-          {triggers === null ? (
+          {reasons === null ? (
             <Skeleton height={200} />
-          ) : triggers.length === 0 ? (
+          ) : reasons.length === 0 ? (
             <EmptyState
               title="تعذّر قراءة رسائلك"
               description="حسابك سليم. حاول بعد قليل."
             />
           ) : (
             <ul className="flex flex-col gap-2">
-              {triggers.map((t) => (
+              {reasons.map((t) => (
                 <li key={t.id}
                     className={[
                       'flex items-start justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm',
@@ -409,7 +409,7 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
             <MessagePreview
               session={session}
               catalog={catalog}
-              triggerId={reading.id}
+              reasonId={reading.id}
               label={reading.label}
               when={reading.when}
               canRetext={reading.can_retext}
@@ -417,10 +417,10 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
               // The chosen text changed, so the row's «بنصّك أنت» badge has to be re-read from
               // the server rather than guessed at here.
               onChosen={() => {
-                const a = action(catalog, 'reminders.triggers');
+                const a = action(catalog, 'reminders.reasons');
                 if (a) {
-                  call<{ triggers: TriggerRow[] }>(session, a)
-                    .then((x) => setTriggers(x.triggers ?? []))
+                  call<{ reasons: ReasonRow[] }>(session, a)
+                    .then((x) => setReasons(x.reasons ?? []))
                     .catch(() => {});
                 }
               }}

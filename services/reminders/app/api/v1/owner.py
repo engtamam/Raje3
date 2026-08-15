@@ -172,8 +172,8 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     return {"log": rows, "count": len(rows)}
 
 
-# ── the triggers: what goes out in his name, and whether it goes at all ───────────────────────
-class TriggerIn(BaseModel):
+# ── the reasons: what goes out in his name, and whether it goes at all ───────────────────────
+class ReasonIn(BaseModel):
     """Two decisions, both optional — an owner switching one off has not asked to change its text.
 
     `None` MEANS "LEAVE IT". A model that required both would make every switch a two-field
@@ -182,26 +182,26 @@ class TriggerIn(BaseModel):
     """
 
     on: bool | None = None
-    # His own approved template for this trigger. Empty string means "back to ours", which is a
+    # His own approved template for this reason. Empty string means "back to ours", which is a
     # deletion rather than a stored blank — see ChoiceStore.set.
     template: str | None = Field(default=None, max_length=512)
 
 
-@router.get("/triggers", dependencies=[Depends(rate_limit)])
-async def list_triggers(request: Request, principal: Principal = Depends(_READ)) -> dict:
+@router.get("/reasons", dependencies=[Depends(rate_limit)])
+async def list_reasons(request: Request, principal: Principal = Depends(_READ)) -> dict:
     """Everything that sends in this shop's name, with his answers folded in.
 
     THE SCREEN HAD NOTHING TO SHOW BEFORE THIS. «رسائلي» listed the send log and the campaigns —
     so the one question an owner actually has, «ما الذي يخرج باسمي، ومتى؟», had no answer anywhere
     in the product, and the only way to stop a message was to cancel it one row at a time.
     """
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
     choices = await ChoiceStore(request.app.state.container.datastore).load(principal.tenant)
-    return {"triggers": choices.public()}
+    return {"reasons": choices.public()}
 
 
-@router.put("/triggers/{trigger_id}", dependencies=[Depends(rate_limit)])
-async def set_trigger(request: Request, trigger_id: str, body: TriggerIn,
+@router.put("/reasons/{reason_id}", dependencies=[Depends(rate_limit)])
+async def set_reason(request: Request, reason_id: str, body: ReasonIn,
                       principal: Principal = Depends(_MANAGE)) -> dict:
     """Switch one on or off, or point it at his own text.
 
@@ -209,23 +209,23 @@ async def set_trigger(request: Request, trigger_id: str, body: TriggerIn,
     stored setting that does nothing is the shape of every "I turned it off and it kept sending"
     call this product will ever get.
     """
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
     await request.app.state.auditor.record(
         "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
-        resource=f"trigger:{trigger_id}", ip=request.client.host if request.client else "")
+        resource=f"reason:{reason_id}", ip=request.client.host if request.client else "")
     store = ChoiceStore(request.app.state.container.datastore)
     try:
-        choices = await store.set(principal.tenant, trigger_id,
+        choices = await store.set(principal.tenant, reason_id,
                                   on=body.on, template=body.template)
     except ValueError as exc:
         # RETURNED, NOT RAISED. The platform's handler strips an HTTPException's detail, and the
         # sentence is the whole answer here.
         return {"ok": False, "error": str(exc)}
-    return {"ok": True, "triggers": choices.public()}
+    return {"ok": True, "reasons": choices.public()}
 
 
-@router.get("/triggers/{trigger_id}/preview", dependencies=[Depends(rate_limit)])
-async def preview_trigger(request: Request, trigger_id: str,
+@router.get("/reasons/{reason_id}/preview", dependencies=[Depends(rate_limit)])
+async def preview_reason(request: Request, reason_id: str,
                           principal: Principal = Depends(_READ)) -> dict:
     """The three wordings of this message, as the customer will read them.
 
@@ -237,13 +237,13 @@ async def preview_trigger(request: Request, trigger_id: str,
     HIS OWN APPROVED TEXTS COME BACK BESIDE OURS, in the same shape and marked as his. This is the
     list «رسائلي» offers him: three of ours, and whatever he has written and Meta approved.
     """
-    from app.core import triggers as TR
+    from app.core import reasons as TR
     from app.core.custom_templates import APPROVED, CustomTemplateStore
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
 
-    trigger = TR.get(trigger_id)
-    if trigger is None:
-        return {"ok": False, "error": "لا يوجد محفّز بهذا الاسم."}
+    reason = TR.get(reason_id)
+    if reason is None:
+        return {"ok": False, "error": "لا يوجد داعٍ للإرسال بهذا الاسم."}
 
     c = request.app.state.container
     shop = await c.identity.get(principal.tenant)
@@ -252,7 +252,7 @@ async def preview_trigger(request: Request, trigger_id: str,
 
     options: list[dict] = []
     for row in library:
-        if row.get("type") != trigger.template_type or not row.get("active", True):
+        if row.get("type") != reason.template_type or not row.get("active", True):
             continue
         try:
             rendered = R.render(template=row,
@@ -268,7 +268,7 @@ async def preview_trigger(request: Request, trigger_id: str,
         options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
                         "text": body, "mine": False})
 
-    mine = await CustomTemplateStore(c.datastore).list(principal.tenant, trigger_id=trigger_id)
+    mine = await CustomTemplateStore(c.datastore).list(principal.tenant, reason_id=reason_id)
     for row in mine:
         if row.get("status") != APPROVED:
             continue
@@ -277,14 +277,14 @@ async def preview_trigger(request: Request, trigger_id: str,
                         # his numbering is his, not the library's.
                         "text": _fill_custom(row, establishment=establishment)})
 
-    chosen = (await ChoiceStore(c.datastore).load(principal.tenant)).template_name(trigger_id)
-    return {"trigger": TR.public(trigger), "options": options, "chosen": chosen,
+    chosen = (await ChoiceStore(c.datastore).load(principal.tenant)).template_name(reason_id)
+    return {"reason": TR.public(reason), "options": options, "chosen": chosen,
             "tone": getattr(shop, "tone", "") or "brief"}
 
 
 def _fill_custom(row: dict, *, establishment: str) -> str:
     """Show one of HIS texts filled in. Blank meanings, not blank numbers — see custom_templates."""
-    from app.core import triggers as TR
+    from app.core import reasons as TR
     body = row.get("body", "")
     for i, kind in enumerate(list(row.get("fills") or []), start=1):
         value = establishment if kind == TR.SHOP else TR.SAMPLE.get(kind, "")
@@ -294,7 +294,7 @@ def _fill_custom(row: dict, *, establishment: str) -> str:
 
 # ── his own texts (§6.7, and the owner's decision that there is no review of ours) ────────────
 class CustomTemplateIn(BaseModel):
-    trigger_id: str = Field(min_length=2, max_length=64)
+    reason_id: str = Field(min_length=2, max_length=64)
     body: str = Field(min_length=1, max_length=1024)
     # WHAT EACH BLANK MEANS, in position order. Not derived from the text and not derivable: Meta
     # numbers blanks and names nothing, so `{{2}}` is a customer's name in one template and a
@@ -310,14 +310,14 @@ class CustomTemplateIn(BaseModel):
 
 
 @router.get("/templates", dependencies=[Depends(rate_limit)])
-async def list_custom_templates(request: Request, trigger_id: str = "",
+async def list_custom_templates(request: Request, reason_id: str = "",
                                 principal: Principal = Depends(_READ)) -> dict:
     """His own texts and where each one stands."""
     from app.core.custom_templates import CustomTemplateStore
     store = CustomTemplateStore(request.app.state.container.datastore)
-    rows = await store.list(principal.tenant, trigger_id=trigger_id)
+    rows = await store.list(principal.tenant, reason_id=reason_id)
     return {"templates": [{k: r.get(k) for k in
-                           ("name", "trigger_id", "body", "fills", "status", "reason",
+                           ("name", "reason_id", "body", "fills", "status", "reason",
                             "version", "updated")} for r in rows]}
 
 
@@ -327,13 +327,13 @@ async def write_custom_template(request: Request, body: CustomTemplateIn,
     """Write one. It is a DRAFT — nothing reaches Meta until he says so.
 
     REFUSES WHAT META WOULD REFUSE, and what our own renderer would: a link, a numbering gap, or a
-    blank this trigger cannot fill. The last is the one that matters — it would pass Meta's review
+    blank this reason cannot fill. The last is the one that matters — it would pass Meta's review
     and then fail at send, once, for one shop, with nothing to read.
     """
     from app.core.custom_templates import CustomTemplateError, CustomTemplateStore
     store = CustomTemplateStore(request.app.state.container.datastore)
     try:
-        row = await store.draft(principal.tenant, trigger_id=body.trigger_id, body=body.body,
+        row = await store.draft(principal.tenant, reason_id=body.reason_id, body=body.body,
                                 fills=list(body.fills), cls=body.cls, replaces=body.replaces)
     except CustomTemplateError as exc:
         # RETURNED, NOT RAISED — the platform's handler strips an HTTPException's detail, and the

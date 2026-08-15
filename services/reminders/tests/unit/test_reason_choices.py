@@ -1,4 +1,4 @@
-"""The shop's own answers: does this trigger run, and in whose words."""
+"""The shop's own answers: does this reason run, and in whose words."""
 from __future__ import annotations
 
 import asyncio
@@ -6,8 +6,8 @@ import asyncio
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core import triggers as T
-from app.core.trigger_choices import ChoiceStore
+from app.core import reasons as T
+from app.core.reason_choices import ChoiceStore
 
 
 def run(c):
@@ -23,7 +23,7 @@ def test_a_shop_that_has_chosen_nothing_still_sends():
     """The engine is what he bought. A product whose messages all arrive switched off does
     nothing on the day it is installed."""
     choices = run(ChoiceStore(MemoryDataStore()).load("t1"))
-    assert all(choices.enabled(t.id) for t in T.TRIGGERS)
+    assert all(choices.enabled(t.id) for t in T.REASONS)
 
 
 def test_switching_off_survives_because_presence_is_what_counts(store):
@@ -70,23 +70,23 @@ def test_a_row_written_by_some_future_bug_cannot_silence_a_right(store):
     assert c.enabled("privacy_code") is True
 
 
-def test_an_unknown_trigger_is_refused_rather_than_stored(store):
+def test_an_unknown_reason_is_refused_rather_than_stored(store):
     with pytest.raises(ValueError):
-        run(store.set("t1", "no_such_trigger", on=True))
+        run(store.set("t1", "no_such_reason", on=True))
 
 
 def test_the_screen_gets_the_catalogue_and_the_answers_together(store):
     run(store.set("t1", "after_visit", on=False))
     rows = run(store.load("t1")).public()
-    assert len(rows) == len(T.TRIGGERS)
+    assert len(rows) == len(T.REASONS)
     off = next(r for r in rows if r["id"] == "after_visit")
     assert off["on"] is False and off["label"] and off["when"]
     # And never our vocabulary — he has no use for a class or a template type (§10.8.1.2).
     assert "cls" not in off and "template_type" not in off
 
 
-# ── the row → trigger mapping the engine enforces the switch through ───────────────────────────
-def test_a_ladder_rung_is_its_own_trigger_not_the_reminder_that_made_it():
+# ── the row → reason mapping the engine enforces the switch through ───────────────────────────
+def test_a_ladder_rung_is_its_own_reason_not_the_reminder_that_made_it():
     """They share a template type, and they are separate switches: an owner who wants reminders
     may not want to be reminded of the reminder."""
     assert T.for_row("reminder", "svc_service_reminder") == "service_due"
@@ -96,12 +96,12 @@ def test_a_ladder_rung_is_its_own_trigger_not_the_reminder_that_made_it():
 
 def test_a_row_we_cannot_attribute_keeps_sending():
     """A switch we cannot attribute must not silence a message the shop expects — and guessing a
-    trigger would apply somebody else's switch to it."""
+    reason would apply somebody else's switch to it."""
     assert T.for_row("something_new", "svc_service_reminder") == ""
 
 
 # ── the peer paths: loyalty, insights and every campaign come through send_one ─────────────────
-def test_a_template_serving_two_triggers_is_silenced_only_when_both_are_off():
+def test_a_template_serving_two_reasons_is_silenced_only_when_both_are_off():
     """`mkt_loyalty_activation` answers both "his balance reaches a reward" and "he became a
     regular". Silencing on a guess would switch off a message the owner never touched."""
     assert T.candidates("campaign", "mkt_loyalty_activation") == (

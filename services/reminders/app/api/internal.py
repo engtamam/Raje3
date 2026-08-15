@@ -160,7 +160,7 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
             c.telemetry.event("tick_skipped_no_identity", tenant=tenant)
             reasons["no establishment identity"] = reasons.get("no establishment identity", 0) + 1
             continue
-        from app.core.trigger_choices import ChoiceStore
+        from app.core.reason_choices import ChoiceStore
         res = await c.tick.run(
             tenant, now=now, library=await _library(c, tenant),
             service_names={k: v.get("name", k) for k, v in cfg.items()},
@@ -367,14 +367,14 @@ async def _confirms_visits(c, tenant: str) -> bool:
     """Does this establishment still answer the customer on the day of the visit?
 
     IT IS THE `visit_recorded` TRIGGER'S SWITCH, and not a setting of its own. It was a key in the
-    settings tree for a day — which meant two switches for one behaviour the moment the trigger
+    settings tree for a day — which meant two switches for one behaviour the moment the reason
     registry arrived, and two switches for one behaviour is one of them that quietly does nothing.
 
-    ASKED HERE RATHER THAN AT SEND TIME, and this trigger alone: switched off it must not CREATE a
+    ASKED HERE RATHER THAN AT SEND TIME, and this reason alone: switched off it must not CREATE a
     row at all (§5.5.1). A row created and then suppressed sits in «رسائلي» as «بانتظار» and reads,
     to the owner who threw the switch, exactly like a switch that did not work.
     """
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
     if not tenant:
         return True
     return (await ChoiceStore(c.datastore).load(tenant)).enabled("visit_recorded")
@@ -574,7 +574,7 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
     approved = await c.approved_templates.names(body.tenant)
     names = {sid: name for sid, name in
              zip(body.offer_services, body.service_names, strict=False)}
-    from app.core.trigger_choices import ChoiceStore
+    from app.core.reason_choices import ChoiceStore
     res = await c.tick.send_one(body.tenant, schedule, now=now, library=library,
                                 service_names=names, establishment=shop.name, tone=shop.tone,
                                 approved=approved,

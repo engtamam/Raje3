@@ -12,13 +12,13 @@
  *
  * AND THE PALETTE OFFERS ONLY WHAT THIS MESSAGE CAN FILL. A visit confirmation knows the customer
  * and the shop; it does not know a coupon code. Offering one would let him write a text that
- * passes Meta's review and then renders nothing — the exact failure the trigger registry exists
+ * passes Meta's review and then renders nothing — the exact failure the reason registry exists
  * to prevent, made impossible here rather than caught later.
  *
  * THE CARET TRICK IS BORROWED, and it is the one thing a hand-rolled contentEditable always gets
  * wrong: re-rendering on every keystroke moves the caret to the end. The element keeps a copy of
  * what it is showing in `data-src`, and we only rewrite it when the OUTSIDE value differs from
- * that copy — so typing never triggers a rewrite, and an external change still lands.
+ * that copy — so typing never causes a rewrite, and an external change still lands.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Modal } from '@base-ui/design-system/Modal';
@@ -70,11 +70,11 @@ function readBack(root: HTMLElement): { body: string; fills: string[] } {
 }
 
 export function TextEditor({
-  session, catalog, triggerId, label, slots, onClose, onSaved,
+  session, catalog, reasonId, label, slots, onClose, onSaved,
 }: {
   session: Session;
   catalog: Catalog;
-  triggerId: string;
+  reasonId: string;
   label: string;
   slots: Slot[];
   onClose: () => void;
@@ -130,7 +130,7 @@ export function TextEditor({
     setSaving(true); setError('');
     try {
       const out = await call<{ ok?: boolean; error?: string }>(
-        session, a, { trigger_id: triggerId, body, fills });
+        session, a, { reason_id: reasonId, body, fills });
       // THE SERVER'S OWN SENTENCE, never re-worded here. It knows why it refused — a link, a blank
       // this message cannot fill, a plan limit — and two vocabularies for one refusal is how an
       // owner comes to believe there are two problems.

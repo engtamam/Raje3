@@ -45,11 +45,11 @@ const TONE: Record<string, string> = {
 };
 
 export function MessagePreview({
-  session, catalog, triggerId, label, when, canRetext, onClose, onChosen,
+  session, catalog, reasonId, label, when, canRetext, onClose, onChosen,
 }: {
   session: Session;
   catalog: Catalog;
-  triggerId: string;
+  reasonId: string;
   label: string;
   when: string;
   canRetext: boolean;
@@ -61,7 +61,7 @@ export function MessagePreview({
   const [reload, setReload] = useState(0);
   /** The shop's tone — what it sends today when it has chosen no text of its own. */
   const [tone, setTone] = useState('brief');
-  /** His own approved text, when he pointed this trigger at one. Empty means ours. */
+  /** His own approved text, when he pointed this reason at one. Empty means ours. */
   const [chosen, setChosen] = useState('');
   const [saving, setSaving] = useState('');
   const [error, setError] = useState('');
@@ -76,36 +76,36 @@ export function MessagePreview({
   const [mine, setMine] = useState<Mine[]>([]);
 
   useEffect(() => {
-    const a = action(catalog, 'reminders.preview_trigger');
+    const a = action(catalog, 'reminders.preview_reason');
     if (!a) { setOptions([]); return; }
     call<{ options: Option[]; chosen?: string; tone?: string; error?: string;
-           trigger?: { slots?: Slot[] } }>(
-      session, a, { trigger_id: triggerId })
+           reason?: { slots?: Slot[] } }>(
+      session, a, { reason_id: reasonId })
       .then((x) => {
         if (x.error) { setError(x.error); setOptions([]); return; }
         setOptions(x.options ?? []);
         setChosen(x.chosen ?? '');
         setTone(x.tone ?? 'brief');
-        setSlots(x.trigger?.slots ?? []);
+        setSlots(x.reason?.slots ?? []);
       })
       .catch(() => setOptions([]));
-  }, [session, catalog, triggerId, reload]);
+  }, [session, catalog, reasonId, reload]);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.my_templates');
     if (!a) return;
-    call<{ templates: Mine[] }>(session, a, { trigger_id: triggerId })
+    call<{ templates: Mine[] }>(session, a, { reason_id: reasonId })
       .then((x) => setMine((x.templates ?? []).filter((t) => t.status !== 'approved')))
       .catch(() => setMine([]));
-  }, [session, catalog, triggerId, reload]);
+  }, [session, catalog, reasonId, reload]);
 
   const pick = async (option: Option) => {
-    const a = action(catalog, 'reminders.set_trigger');
+    const a = action(catalog, 'reminders.set_reason');
     if (!a || !option.mine) return;
     setSaving(option.name); setError('');
     try {
       const out = await call<{ error?: string }>(session, a,
-        { trigger_id: triggerId, template: option.name });
+        { reason_id: reasonId, template: option.name });
       if (out?.error) setError(out.error);
       else { setChosen(option.name); onChosen(); }
     } catch (e) {
@@ -116,11 +116,11 @@ export function MessagePreview({
   };
 
   const useOurs = async () => {
-    const a = action(catalog, 'reminders.set_trigger');
+    const a = action(catalog, 'reminders.set_reason');
     if (!a) return;
     setSaving('ours'); setError('');
     try {
-      await call(session, a, { trigger_id: triggerId, template: '' });
+      await call(session, a, { reason_id: reasonId, template: '' });
       setChosen('');
       onChosen();
     } catch (e) {
@@ -238,7 +238,7 @@ export function MessagePreview({
               <TextEditor
                 session={session}
                 catalog={catalog}
-                triggerId={triggerId}
+                reasonId={reasonId}
                 label={label}
                 slots={slots}
                 onClose={() => setWriting(false)}

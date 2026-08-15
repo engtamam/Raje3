@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core import adaptive, engagement
-from app.core import triggers as T
+from app.core import reasons as T
 from app.core.models import Schedule, SendLog, as_row
 from app.core.stores import EngagementStore, RuleStore, ScheduleStore
 
