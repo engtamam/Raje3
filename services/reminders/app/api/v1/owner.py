@@ -171,6 +171,58 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     return {"log": rows, "count": len(rows)}
 
 
+# ── the triggers: what goes out in his name, and whether it goes at all ───────────────────────
+class TriggerIn(BaseModel):
+    """Two decisions, both optional — an owner switching one off has not asked to change its text.
+
+    `None` MEANS "LEAVE IT". A model that required both would make every switch a two-field
+    decision, and a screen sending the current value back would race with a change made on his
+    phone a second earlier.
+    """
+
+    on: bool | None = None
+    # His own approved template for this trigger. Empty string means "back to ours", which is a
+    # deletion rather than a stored blank — see ChoiceStore.set.
+    template: str | None = Field(default=None, max_length=512)
+
+
+@router.get("/triggers", dependencies=[Depends(rate_limit)])
+async def list_triggers(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Everything that sends in this shop's name, with his answers folded in.
+
+    THE SCREEN HAD NOTHING TO SHOW BEFORE THIS. «رسائلي» listed the send log and the campaigns —
+    so the one question an owner actually has, «ما الذي يخرج باسمي، ومتى؟», had no answer anywhere
+    in the product, and the only way to stop a message was to cancel it one row at a time.
+    """
+    from app.core.trigger_choices import ChoiceStore
+    choices = await ChoiceStore(request.app.state.container.datastore).load(principal.tenant)
+    return {"triggers": choices.public()}
+
+
+@router.put("/triggers/{trigger_id}", dependencies=[Depends(rate_limit)])
+async def set_trigger(request: Request, trigger_id: str, body: TriggerIn,
+                      principal: Principal = Depends(_MANAGE)) -> dict:
+    """Switch one on or off, or point it at his own text.
+
+    REFUSES RATHER THAN STORING WHAT IT WILL IGNORE. A privacy code is not his to silence, and a
+    stored setting that does nothing is the shape of every "I turned it off and it kept sending"
+    call this product will ever get.
+    """
+    from app.core.trigger_choices import ChoiceStore
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"trigger:{trigger_id}", ip=request.client.host if request.client else "")
+    store = ChoiceStore(request.app.state.container.datastore)
+    try:
+        choices = await store.set(principal.tenant, trigger_id,
+                                  on=body.on, template=body.template)
+    except ValueError as exc:
+        # RETURNED, NOT RAISED. The platform's handler strips an HTTPException's detail, and the
+        # sentence is the whole answer here.
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, "triggers": choices.public()}
+
+
 # ── settings: general, group, and one service's own (spec §10.8.1) ────────────────────────────
 class SettingsIn(BaseModel):
     # Every field optional: an owner changing the lead time must not be forced to restate the
@@ -183,9 +235,6 @@ class SettingsIn(BaseModel):
     lead_days: float | None = Field(default=None, ge=0, le=60)
     follow_up_days: int | None = Field(default=None, ge=0, le=180)
     enabled: bool | None = None
-    # GENERAL ONLY — the store drops it anywhere else, because the confirmation belongs to the
-    # visit and a visit carrying three services is still one message.
-    confirm_visit: bool | None = None
 
     def values(self) -> dict:
         # `exclude_none` is the whole contract: an omitted field means "leave it", NOT "clear it".
@@ -201,8 +250,7 @@ def _settings(request: Request):
         "interval_days": s.DEFAULT_INTERVAL_DAYS,
         "lead_days": s.DEFAULT_LEAD_DAYS,
         "follow_up_days": 0,
-        "enabled": True,
-        "confirm_visit": True})
+        "enabled": True})
 
 
 @router.get("/offer", dependencies=[Depends(rate_limit)])

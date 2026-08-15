@@ -35,6 +35,7 @@ from app.core import gate as G
 from app.core import quota as Q
 from app.core import ceiling as C
 from app.core import ladder as L
+from app.core import triggers as TR
 from app.core import merge as M
 from app.core import ceiling_notice as CN
 from app.core.reach import Reach
@@ -147,7 +148,7 @@ class Tick:
     async def run(self, tenant: str, *, now: int, library: list[dict[str, Any]],
                   service_names: dict[str, str], establishment: str,
                   customer_names: dict[str, str] | None = None,
-                  tone: str = "brief") -> TickResult:
+                  tone: str = "brief", choices: Any = None) -> TickResult:
         """One pass over one tenant's due schedules.
 
         Per tenant rather than across all of them, so a single establishment with a large backlog
@@ -197,7 +198,7 @@ class Tick:
                 await self._one(tenant, row, now=now, res=res, library=library,
                                 service_names=service_names, establishment=establishment,
                                 customer_name=names.get(row.get("subject_ref", ""), ""),
-                                tone=tone, approved=approved, room=room)
+                                tone=tone, approved=approved, room=room, choices=choices)
             except Unsendable as exc:
                 # PERMANENT, not transient. There is nobody to send to — erased, or never there.
                 # Retrying would ask operations about a forgotten customer on every tick forever,
@@ -372,9 +373,28 @@ class Tick:
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,
                    library: list[dict[str, Any]], service_names: dict[str, str],
                    establishment: str, customer_name: str, tone: str,
-                   approved: set[str] | None = None, room: Room | None = None) -> None:
+                   approved: set[str] | None = None, room: Room | None = None,
+                   choices: Any = None) -> None:
         subject = row.get("subject_ref", "")
         cls = row.get("cls", "service")
+
+        # ── 0. did the shop switch this off? ──────────────────────────────────────────────────
+        # BEFORE THE CLAIM AND BEFORE THE GATE, because a message the owner turned off is not a
+        # message that lost a decision — it is one that was never his to send. Claiming it first
+        # would spend a row's state on it, and gating it first would count it against caps it is
+        # not part of.
+        #
+        # CLOSED, NOT LEFT PENDING. A schedule that stays pending is retried on every tick for
+        # ever, and «رسائلي» would show a queue that never drains for a switch he deliberately
+        # threw. It reappears the moment he switches it back on, because the next visit schedules
+        # a new one — the switch decides the future, not the past.
+        trigger = TR.for_row(str(row.get("kind", "")), str(row.get("template_type", "")))
+        if trigger and choices is not None and not choices.enabled(trigger):
+            await self._close(tenant, row, "suppressed", "أوقفتَ هذا النوع من الرسائل", now)
+            res.suppressed += 1
+            res.reasons["أوقفتَ هذا النوع من الرسائل"] = (
+                res.reasons.get("أوقفتَ هذا النوع من الرسائل", 0) + 1)
+            return
 
         # ── 1. claim ──────────────────────────────────────────────────────────────────────────
         # Two replicas run this cron. Without the claim they both read `pending` and both send.

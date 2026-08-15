@@ -41,13 +41,6 @@ SETTINGS = "reminder_settings"
 # decision somebody can be asked to make, and the whole point is that they are not asked.
 FIELDS = ("interval_days", "lead_days", "follow_up_days", "enabled")
 
-# ── the one setting that is NOT per service ──────────────────────────────────────────────────
-# The visit confirmation belongs to the VISIT, not to a service on it: a visit carrying an oil
-# change and a tyre rotation is one event and gets one message (scheduling.py). So it cannot be
-# resolved through the per-service ladder above — it is read from the tenant's general row and
-# nowhere else, and a per-service value for it would be a setting the engine can never honour.
-VISIT_CONFIRMATION = "confirm_visit"
-
 GENERAL = "_general"
 
 
@@ -113,16 +106,6 @@ class SettingsTree:
         """Just the values, for the engine that does not care where they came from."""
         return {f: r.value for f, r in self.resolve_all(service_id).items()}
 
-    def confirms_visits(self) -> bool:
-        """Whether a visit still answers the customer on the day.
-
-        ON UNLESS THE OWNER SAID OTHERWISE. A shop that records a visit and says nothing looks
-        broken to the customer, so the default is to confirm — and switching it off is a decision
-        we keep exactly as made, which is why the key's PRESENCE is what counts and not its truth.
-        """
-        if VISIT_CONFIRMATION in self.general:
-            return bool(self.general[VISIT_CONFIRMATION])
-        return bool(self.defaults.get(VISIT_CONFIRMATION, True))
 
     def is_customised(self, service_id: str) -> bool:
         """Whether this service has ANY value of its own — what the screen's note depends on."""
@@ -165,10 +148,7 @@ class SettingsStore:
         does not reach everywhere.
         """
         tree = await self.load(tenant)
-        # The visit confirmation is accepted HERE ONLY. It is not in FIELDS because it cannot be
-        # resolved per service, and letting it through set_service would store a value the engine
-        # never reads — a switch that appears to work and does nothing.
-        tree.general.update(_clean(values, allow=(VISIT_CONFIRMATION,)))
+        tree.general.update(_clean(values))
         await self._save(tree)
         return tree
 

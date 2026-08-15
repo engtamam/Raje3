@@ -33,10 +33,9 @@ interface Service { id: string; name: string; cycle_days: number; price_minor: n
 /** One service's entry in the tree, and whether it is its own or inherited. */
 interface ServiceSetting { interval_days?: number; lead_days?: number; follow_up_days?: number; enabled?: boolean }
 /** What may be written at the general level, and nowhere else. */
-type GeneralPatch = ServiceSetting & { confirm_visit?: boolean };
+type GeneralPatch = ServiceSetting;
 interface Settings {
-  /** The general row also carries `confirm_visit` — the one setting that is NOT per service. */
-  general: ServiceSetting & { confirm_visit?: boolean };
+  general: ServiceSetting;
   /** Only what a service OVERRIDES. Absent means it follows — following is not a value. */
   services: Record<string, ServiceSetting>;
   /** Group name → its settings, and service id → its group. Two maps, exactly as the tree holds
@@ -44,6 +43,9 @@ interface Settings {
   groups: Record<string, ServiceSetting>;
   service_group: Record<string, string>;
 }
+
+/** One row of «رسائلي التلقائية» — this screen reads only the visit confirmation from it. */
+interface TriggerRow { id: string; on: boolean }
 
 /** The one proposal this screen ever makes: several services already share a value. */
 interface Suggestion { field: string; value: number | boolean; services: string[] }
@@ -160,6 +162,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     // shown an organisational chore it has no reason for yet.
     const es = action(catalog, 'loyalty.settings.read');
     if (es) call<EarnSettings>(session, es).then(setEarn).catch(() => setEarn(null));
+
+    const tg = action(catalog, 'reminders.triggers');
+    if (tg) {
+      call<{ triggers: TriggerRow[] }>(session, tg)
+        .then((x) => applyTriggers(x.triggers))
+        // A FAILED READ LEAVES THE SWITCH AS IT WAS. Rendering it off would tell an owner his
+        // confirmations are stopped because a request timed out.
+        .catch(() => {});
+    }
 
     const sg = action(catalog, 'reminders.suggest_group');
     if (sg) {
@@ -420,6 +431,40 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * IT LEAVES CUSTOMISATIONS ALONE, and the route says so: an owner who spent a minute setting the
    * oil change to 60 days has not asked us to undo that minute.
    */
+  /**
+   * «تأكيد الزيارة» — the one trigger this screen owns.
+   *
+   * IT IS THE TRIGGER STORE, NOT THE SETTINGS TREE. The behaviour has exactly one switch and one
+   * home; the twelve others live in «رسائلي», and this one is repeated here because this is the
+   * screen where an owner asks what happens after a visit.
+   */
+  const [visitOn, setVisitOn] = useState(true);
+
+  const applyTriggers = (rows?: TriggerRow[]) => {
+    const row = (rows || []).find((r) => r.id === 'visit_recorded');
+    if (row) setVisitOn(row.on !== false);
+  };
+
+  const setVisitConfirmation = async (on: boolean) => {
+    const a = action(catalog, 'reminders.set_trigger');
+    if (!a) return;
+    setSaving(true); setError('');
+    // OPTIMISTIC, AND CORRECTED BY THE ANSWER. A toggle that waits for a round trip before it
+    // moves reads as broken on a phone.
+    setVisitOn(on);
+    try {
+      const out = await call<{ ok?: boolean; error?: string; triggers?: TriggerRow[] }>(
+        session, a, { trigger_id: 'visit_recorded', on });
+      if (out?.error) { setError(out.error); }
+      applyTriggers(out?.triggers);
+    } catch (e) {
+      setVisitOn(!on);
+      setError(e instanceof Error ? e.message : 'تعذّر حفظ الإعداد.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const setGeneral = async (patch: GeneralPatch) => {
     const a = action(catalog, 'reminders.set_general');
     if (!a) return;
@@ -647,13 +692,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
             {/* ── the confirmation of the visit itself ──────────────────────────────────────
                 NOT A NUMBER, SO NOT A `Setting`. The other two rows answer "after how many
-                days"; this one answers "at all?" — and it had no answer anywhere. Every shop
-                got a message on the day of the visit, and the only escape was cancelling them
-                one by one in «رسائلي».
+                days"; this one answers "at all?".
 
-                AND IT IS NOT PER SERVICE, deliberately: a visit carrying an oil change and a
-                tyre rotation is one event and gets one message, so a per-service switch would
-                be a control the engine can never honour. */}
+                AND IT IS A TRIGGER'S SWITCH, not a setting of its own. It lived in the settings
+                tree for a day — which became two switches for one behaviour the moment every
+                message got one, and two switches for one behaviour is one of them quietly doing
+                nothing. The other twelve live in «رسائلي»; this one stays here too because it is
+                where an owner asks "what happens after a visit". */}
             <div className="flex items-start justify-between gap-3 border-t border-border-subtle pt-3">
               <span className="flex min-w-0 flex-col gap-1">
                 <span className="flex items-center gap-2 text-sm font-medium">
@@ -664,19 +709,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   </Hint>
                 </span>
                 <span className="text-xs text-text-secondary">
-                  {settings?.general?.confirm_visit === false
-                    ? 'لا نرسل شيئاً عند تسجيل الزيارة.'
-                    : 'نرسل رسالة قصيرة بعد تسجيل الزيارة.'}
+                  {visitOn
+                    ? 'نرسل رسالة قصيرة بعد تسجيل الزيارة.'
+                    : 'لا نرسل شيئاً عند تسجيل الزيارة.'}
                 </span>
               </span>
               <Toggle
                 label="تأكيد الزيارة"
                 disabled={saving}
-                // PRESENCE, NOT TRUTH. `undefined` means the shop never chose, and the engine's
-                // answer for that is «نرسل» — rendering it as off would show a switch that
+                // PRESENCE, NOT TRUTH — the server answers with the trigger's own state, and
+                // «لم يختر» is «نرسل». Rendering undefined as off would show a switch that
                 // disagrees with what actually goes out.
-                checked={settings?.general?.confirm_visit !== false}
-                onChange={(on) => setGeneral({ confirm_visit: on })}
+                checked={visitOn}
+                onChange={setVisitConfirmation}
               />
             </div>
           </div>

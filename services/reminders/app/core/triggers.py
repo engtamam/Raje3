@@ -199,6 +199,33 @@ def slots_for(trigger_id: str) -> tuple[str, ...]:
     return ALWAYS + t.slots if t else ()
 
 
+# ── from a scheduled row back to the trigger that made it ────────────────────────────────────
+# The row records `kind` (what the scheduler called it) and `template_type` (what it will send).
+# Neither alone is enough: two triggers share `svc_service_reminder` — the cycle reminder and the
+# ladder rung that follows it — and they are separate switches because an owner who wants
+# reminders may not want to be reminded of the reminder.
+_BY_KIND = {
+    "visit_confirmation": "visit_recorded",
+    "reminder": "service_due",
+    "follow_up": "after_visit",
+}
+
+
+def for_row(kind: str, template_type: str) -> str:
+    """Which trigger produced this schedule. Empty when we cannot tell.
+
+    EMPTY IS NOT A FAILURE HERE. An unrecognised row keeps sending — a switch we cannot attribute
+    must not silence a message the shop is expecting, and the alternative (guess a trigger) would
+    apply somebody else's switch to it.
+    """
+    if kind.startswith("ladder_"):
+        return "no_response"
+    if kind in _BY_KIND:
+        return _BY_KIND[kind]
+    ids = BY_TEMPLATE_TYPE.get(template_type, ())
+    return ids[0] if len(ids) == 1 else ""
+
+
 def public(t: Trigger) -> dict:
     """What a screen may read. The class and the template name are ours, not his (§10.8.1.2)."""
     return {"id": t.id, "label": t.label, "when": t.when,

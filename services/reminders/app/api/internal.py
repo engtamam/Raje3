@@ -160,10 +160,14 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
             c.telemetry.event("tick_skipped_no_identity", tenant=tenant)
             reasons["no establishment identity"] = reasons.get("no establishment identity", 0) + 1
             continue
+        from app.core.trigger_choices import ChoiceStore
         res = await c.tick.run(
             tenant, now=now, library=await _library(c, tenant),
             service_names={k: v.get("name", k) for k, v in cfg.items()},
-            establishment=shop.name, customer_names={}, tone=shop.tone)
+            establishment=shop.name, customer_names={}, tone=shop.tone,
+            # ONE READ PER TENANT PER PASS, beside the library and the approved set — thirteen
+            # small answers that cannot change while this loop runs.
+            choices=await ChoiceStore(c.datastore).load(tenant))
         sent += res.sent
         suppressed += res.suppressed
         deferred += res.deferred
@@ -362,16 +366,18 @@ async def _active_tenants(c) -> list[str]:
 async def _confirms_visits(c, tenant: str) -> bool:
     """Does this establishment still answer the customer on the day of the visit?
 
-    READ SEPARATELY from _service_config, because it is not a per-service value: the confirmation
-    belongs to the visit, and a visit carrying three services is still one message. The workshop
-    wants it (the customer is leaving a car behind); the barber does not (the customer is standing
-    at the till, and a message about the haircut they just had is noise).
+    IT IS THE `visit_recorded` TRIGGER'S SWITCH, and not a setting of its own. It was a key in the
+    settings tree for a day — which meant two switches for one behaviour the moment the trigger
+    registry arrived, and two switches for one behaviour is one of them that quietly does nothing.
+
+    ASKED HERE RATHER THAN AT SEND TIME, and this trigger alone: switched off it must not CREATE a
+    row at all (§5.5.1). A row created and then suppressed sits in «رسائلي» as «بانتظار» and reads,
+    to the owner who threw the switch, exactly like a switch that did not work.
     """
-    from app.core.settings_tree import SettingsStore
+    from app.core.trigger_choices import ChoiceStore
     if not tenant:
         return True
-    tree = await SettingsStore(c.datastore).load(tenant)
-    return tree.confirms_visits()
+    return (await ChoiceStore(c.datastore).load(tenant)).enabled("visit_recorded")
 
 
 async def _service_config(c, tenant: str) -> dict:

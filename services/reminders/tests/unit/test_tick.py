@@ -62,10 +62,10 @@ def sched(st, **over):
     return s
 
 
-def go(st, sender, *, now=None, **kw):
+def go(st, sender, *, now=None, choices=None, **kw):
     return run(tick(st, sender, **kw).run(
         "t1", now=now or at(10), library=LIB, service_names=NAMES,
-        establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}))
+        establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}, choices=choices))
 
 
 def test_a_due_reminder_is_sent_once(st):
@@ -778,3 +778,34 @@ def test_a_follow_up_has_no_ladder(st):
     go(st, FakeSender())
 
     assert rungs_of(st) == []
+
+
+# ── the switch the owner throws ────────────────────────────────────────────────────────────────
+def test_a_trigger_the_shop_switched_off_sends_nothing_and_does_not_come_back(st):
+    """CLOSED, NOT LEFT PENDING. A schedule that stays pending is retried on every tick for ever,
+    and «رسائلي» would show a queue that never drains for a switch he deliberately threw."""
+    from app.core.trigger_choices import ChoiceStore
+    sched(st)
+    store = ChoiceStore(st)
+    run(store.set("t1", "service_due", on=False))
+    choices = run(store.load("t1"))
+
+    s = FakeSender()
+    res = go(st, s, choices=choices)
+    assert s.calls == [] and res.sent == 0 and res.suppressed == 1
+
+    # And a second pass finds nothing to do — the row was closed, not deferred.
+    res2 = go(st, FakeSender(), choices=choices)
+    assert res2.scanned == 0
+
+
+def test_the_switch_is_read_per_trigger_not_per_template(st):
+    """The cycle reminder and the ladder rung share a template type. Switching the ladder off must
+    not silence the reminder that produces it."""
+    from app.core.trigger_choices import ChoiceStore
+    sched(st)
+    store = ChoiceStore(st)
+    run(store.set("t1", "no_response", on=False))
+
+    s = FakeSender()
+    assert go(st, s, choices=run(store.load("t1"))).sent == 1

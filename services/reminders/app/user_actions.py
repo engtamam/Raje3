@@ -124,6 +124,22 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "ما أُرسل وما امتنع، ولماذا امتنع.",
     },
     {
+        "id": "reminders.triggers", "label": "رسائلي التلقائية", "method": "GET",
+        "path": "/api/v1/reminders/triggers", "capability": "reminders.read",
+        "group": "الإعدادات",
+        # THE CATALOGUE AND HIS ANSWERS IN ONE CALL. A screen that fetched the list and the
+        # settings separately would hold the defaults itself, and the two would disagree the
+        # first time a default changed.
+        "help": "كل ما يرسله النظام باسمك: متى يرسل، وهل هو مشغّل، وبأي نص.",
+    },
+    {
+        "id": "reminders.set_trigger", "label": "تشغيل أو إيقاف رسالة", "method": "PUT",
+        "path": "/api/v1/reminders/triggers/{trigger_id}", "capability": "reminders.manage",
+        "params": [{"name": "trigger_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "الإعدادات",
+        "help": "يقرّر هل يخرج هذا النوع من الرسائل، وبنصّك أم بنصّنا.",
+    },
+    {
         "id": "reminders.get_settings", "label": "إعدادات التذكير", "method": "GET",
         "path": "/api/v1/reminders/settings", "capability": "reminders.read",
         "group": "الإعدادات",

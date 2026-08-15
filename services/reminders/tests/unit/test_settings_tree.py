@@ -193,17 +193,3 @@ async def test_deleting_a_group_releases_its_members_rather_than_orphaning_them(
     # What a service holds OF ITS OWN survives — the group was the sharing, not the values.
     assert after.services["a"] == {"follow_up_days": 3}
 
-
-# ── the one setting that is not per service ────────────────────────────────────────────────────
-def test_the_visit_confirmation_is_on_until_the_owner_says_otherwise(store):
-    assert run(store.load("t1")).confirms_visits() is True
-
-
-def test_switching_it_off_survives_because_presence_is_what_counts(store):
-    """`enabled: False` taught us this once already: a falsy value read with `or` is a value lost."""
-    run(store.set_general("t1", {"confirm_visit": False}))
-    assert run(store.load("t1")).confirms_visits() is False
-    # AND IT DID NOT LEAK INTO THE PER-SERVICE LADDER, which cannot honour it.
-    run(store.set_service("t1", "oil", {"confirm_visit": True, "interval_days": 30}))
-    assert "confirm_visit" not in run(store.load("t1")).services["oil"]
-    assert run(store.load("t1")).confirms_visits() is False
