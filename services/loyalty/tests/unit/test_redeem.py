@@ -192,12 +192,16 @@ def test_the_receipt_is_personal_so_it_reaches_a_customer_who_stopped_marketing(
     assert call["idempotency_key"] == "loyalty:receipt:rdm_1"
 
 
-def test_the_expiry_warning_is_a_service_message_not_marketing():
-    """Classed as marketing, whoever refused marketing would lose points without being told."""
+def test_the_expiry_warning_is_never_marketing():
+    """Classed as marketing, whoever refused marketing would lose points without being told.
+
+    AND IT IS `personal`, WHICH IS WHAT THE LIBRARY SAYS. It was sent as `service` here while the
+    template declared `personal`, so the gate applied the wrong caps and the answer to "what class
+    is this message" depended on which file you read."""
     sender = Sender()
     run(Notifier(sender).expiry_warning(tenant=T, subject_ref=S, points=80, days=14,
                                         cycle_key="c1"))
-    assert sender.calls[0]["cls"] == "service"
+    assert sender.calls[0]["cls"] == "personal"
     assert sender.calls[0]["template_type"] == "per_points_expiring"
 
 

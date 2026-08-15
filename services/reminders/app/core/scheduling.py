@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core import adaptive, engagement
+from app.core import triggers as T
 from app.core.models import Schedule, SendLog, as_row
 from app.core.stores import EngagementStore, RuleStore, ScheduleStore
 
@@ -147,7 +148,7 @@ class Scheduler:
             confirm = Schedule(
                 tenant=tenant, subject_ref=subject, service_id="", kind="visit_confirmation",
                 due_at=occurred + self._confirm_delay, cls="service",
-                template_type="svc_visit_confirmation", visit_id=visit_id,
+                template_type=T.get("visit_recorded").template_type, visit_id=visit_id,
                 branch_id=event.get("branch_id") or "")
             await self._sched.upsert(tenant, confirm.key, as_row(confirm))
             outcome.scheduled.append(confirm.key)
@@ -179,7 +180,7 @@ class Scheduler:
             others = [s for s in cyclic if s != lead_sid]
             sch = Schedule(
                 tenant=tenant, subject_ref=subject, service_id=lead_sid, kind="reminder",
-                due_at=cyclic[lead_sid], cls="service", template_type="svc_service_reminder",
+                due_at=cyclic[lead_sid], cls="service", template_type=T.get("service_due").template_type,
                 also_services=others, visit_id=visit_id,
                 asset_id=event.get("asset_id") or "",
                 branch_id=event.get("branch_id") or "")
@@ -196,7 +197,7 @@ class Scheduler:
             sch = Schedule(
                 tenant=tenant, subject_ref=subject, service_id=sid, kind="follow_up",
                 due_at=occurred + days * DAY, cls="service",
-                template_type="svc_follow_up", visit_id=visit_id,
+                template_type=T.get("after_visit").template_type, visit_id=visit_id,
                 asset_id=event.get("asset_id") or "",
                 branch_id=event.get("branch_id") or "")
             await self._sched.upsert(tenant, sch.key, as_row(sch))

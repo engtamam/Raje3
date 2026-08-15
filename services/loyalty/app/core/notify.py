@@ -27,7 +27,7 @@ from typing import Any
 # The template types. Both already exist in the library (spec §8.4.1) — we are not inventing
 # message classes here, we are naming the two this service uses.
 RECEIPT = "per_account_notice"      # personal: the customer's own action
-WARNING = "per_points_expiring"     # service: preventing a loss, not selling anything
+WARNING = "per_points_expiring"     # personal: his own balance, not a sale
 
 
 def receipt_text(*, reward_name: str, cost: int, remaining: int) -> str:
@@ -99,6 +99,11 @@ class Notifier:
     async def expiry_warning(self, *, tenant: str, subject_ref: str, points: int,
                              days: int, cycle_key: str) -> dict:
         return await self.sender.send(
-            tenant=tenant, subject_ref=subject_ref, template_type=WARNING, cls="service",
+            # `personal`, WHICH IS WHAT THE LIBRARY SAYS THIS TEMPLATE IS. It was sent as
+            # `service` here, so the gate applied service rules — the daily service cap and the
+            # deferral policy — to a personal message, and the two answers disagreed depending on
+            # which file you read. The class decides consent, the window and the caps; it is not a
+            # field a caller may pick.
+            tenant=tenant, subject_ref=subject_ref, template_type=WARNING, cls="personal",
             owner_text=warning_text(points=points, days=days),
             idempotency_key=f"loyalty:expiring:{cycle_key}")
