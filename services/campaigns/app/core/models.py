@@ -42,11 +42,14 @@ GOAL_TEMPLATE = {
     "announce": ("mkt_announcement", "marketing"),
     "occasion": ("mkt_personal_occasion", "marketing"),
     "awareness": ("awr_care_tip", "awareness"),
-    # AN OFFER ON ONE SERVICE. The same announcement template the shop-wide goal uses — what makes
-    # it different is not the words but WHO it reaches: only customers who are 70% through their
-    # own cycle for that service (spec §10.9.1). A separate template would be a second thing to
-    # write, approve and keep in step for a difference that lives in the audience.
-    "service_offer": ("mkt_announcement", "marketing"),
+    # AN OFFER ON ONE SERVICE — and it sends the OFFER template, not the announcement.
+    #
+    # It borrowed «جديد في {{2}}: {{3}}» for as long as it existed, so a discount reached the
+    # customer wearing an announcement's words and the number was stuffed into the owner's one
+    # free line. `mkt_offer` declares the slots this goal actually has: a typed value, the service
+    # it covers, and the day it stops. The audience rule (§10.9.1) is unchanged — what changed is
+    # that the message now says what the campaign is.
+    "service_offer": ("mkt_offer", "marketing"),
 }
 
 # WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.

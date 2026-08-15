@@ -6,9 +6,9 @@
 # cannot see any of the following, because all of them live in fields the spec has no opinion
 # about — and every one of them was found by hand, late:
 #
-#   · a template nobody sends. Ten of twenty-six types were referenced by no code anywhere: a
-#     finished text, submitted to Meta for every establishment, that no code path can reach. It
-#     costs a review slot and reads, from the library screen, exactly like a working feature.
+#   · a template nobody sends. Eleven of twenty-six types could be fired by nothing: a finished
+#     text, submitted to Meta for every establishment, that no code path can reach. It costs a
+#     review slot and reads, from the library screen, exactly like a working feature.
 #   · a blank whose source is a lie. `fills` says `catalogue` and the caller passes free text;
 #     nothing fails, and the customer receives whatever the owner typed inside a template Meta
 #     approved on the strength of a service name.
@@ -40,19 +40,51 @@ CLASS_OF_FILL = {"amount": {"marketing"}, "code": {"marketing"}}
 C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 
 
-def sending_code() -> str:
-    """Every line of every service, so a type referenced anywhere counts as reachable."""
-    out = []
-    for path in SERVICES.rglob("*.py"):
-        if "tests" in path.parts or "__pycache__" in path.parts:
-            continue
-        out.append(path.read_text(encoding="utf-8", errors="ignore"))
-    return "\n".join(out)
+# ── the types that sleep on purpose, each with the reason and what would wake it ──────────────
+#
+# GREPPING THE SOURCE WAS NOT ENOUGH, and it was quietly wrong. A type named anywhere counted as
+# reachable — so `svc_booking_confirmation`, which appeared only in a list of window exemptions,
+# passed this check while nothing in the fleet could send it. The question is not "is this string
+# mentioned" but "is there a trigger that fires it", and that now has an answer: the registry.
+#
+# A LINE HERE IS A DECISION, not a silencer. Anything not fired and not listed is a text we pay
+# Meta to review for every establishment and that no customer can ever receive.
+SLEEPING = {
+    "wrn_safety_notice":
+        "بقرار (§8.4.1): تحذير السلامة لا يُطلَق ذاتياً — يُراجَع لكل حالة، والقالب معتمَد ونائم",
+    "mkt_cross_sell": "ينتظر هدفاً: «خدمة مكمّلة» — المحرك يعرف الاقترانات ولا بطاقة تطلقها",
+    "mkt_package": "ينتظر هدفاً: «باقة» — ولم نقرّر بعد كيف تُسعَّر الباقة داخل الحملة",
+    "mkt_referral": "ينتظر هدفاً: «ترشيح صديق» — ويحتاج أثراً يربط الصديق بمن رشّحه",
+    "mkt_seasonal": "ينتظر مُطلِقاً تقويمياً ومباعدةً بين المنشآت (§10.9): يومٌ وطني ترسل فيه كلها",
+    "mkt_coupon": "جاهز وينتظر خيار «قسيمة» في شاشة الحملة — الرمز والمولّد مبنيان",
+    "awr_seasonal_care": "ينتظر المُطلِق التقويمي نفسه الذي ينتظره mkt_seasonal",
+    # The receipt needs a total and a transaction reference. A VISIT DOES NOT CARRY EITHER: the
+    # price lives on the service in the catalogue, and nothing records what was actually charged
+    # — a visit is «من جاء وماذا أخذ», not an invoice. Wiring it would mean recording money at the
+    # counter, which is a decision about what this product is, not a missing call.
+    "svc_receipt": "ينتظر مبلغاً: الزيارة تسجّل مَن جاء وماذا أخذ، ولا تسجّل ما دُفع",
+}
+
+
+def trigger_types() -> set[str]:
+    """Every template type the trigger registry can fire.
+
+    THE REGISTRY, NOT A GREP — it is the one place that answers "what makes a message go out",
+    and it is the same answer the engine acts on.
+    """
+    src = (SERVICES / "reminders" / "app" / "core" / "triggers.py").read_text(encoding="utf-8")
+    return set(re.findall(r'template_type="([a-z_]+)"', src))
+
+
+def campaign_types() -> set[str]:
+    """And the goals, which fire without a trigger row of their own."""
+    src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
+    return set(re.findall(r'\("([a-z_]+)",\s*"(?:marketing|awareness|service|personal)"\)', src))
 
 
 def main() -> int:
     rows = json.loads(CURATED.read_text(encoding="utf-8"))["templates"]
-    code = sending_code()
+    fired = trigger_types() | campaign_types()
     problems: list[str] = []
     warnings: list[str] = []
 
@@ -95,9 +127,20 @@ def main() -> int:
                             f"tone is a switch the owner flips, not a different message")
 
     for type_name in sorted(by_type):
-        if f'"{type_name}"' not in code and f"'{type_name}'" not in code:
-            warnings.append(f"{type_name}: no service sends it. Submitted to Meta for every "
-                            f"establishment, reachable by nothing")
+        if type_name in fired:
+            continue
+        reason = SLEEPING.get(type_name)
+        if reason:
+            warnings.append(f"{type_name}: asleep on purpose — {reason}")
+            continue
+        problems.append(f"{type_name}: no trigger and no goal fires it, and no reason is written "
+                        f"down. It is submitted to Meta for every establishment and can reach "
+                        f"nobody — wire it, delete it, or say here why it sleeps")
+
+    for type_name in sorted(SLEEPING):
+        if type_name not in by_type:
+            problems.append(f"{type_name}: listed as sleeping and no longer in the library — "
+                            f"delete the line, or the next reader trusts a note about nothing")
 
     for w in warnings:
         print(f"{C_Y}  ! {w}{C_N}")
