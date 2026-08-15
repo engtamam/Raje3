@@ -26,6 +26,12 @@ export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1
+# UNLIST WHAT WE NO LONGER SELL. Separate from the seed and never implied by it: a listed plan is
+# a thing a shop can still buy, and hiding one is a commercial decision — so it is a flag somebody
+# types, not a side effect of correcting a price. It UNLISTS and never deletes: an establishment
+# already subscribed keeps its plan, its limits and its invoice; it simply stops being on offer.
+RETIRE=0
+[ "${1:-}" = "--retire-strays" ] && RETIRE=1
 
 red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
@@ -62,9 +68,9 @@ echo "seeding plans.json into billing-service"
 # NO BACKTICKS AND NO COMMAND SUBSTITUTION ANYWHERE BELOW THIS LINE, INCLUDING IN COMMENTS.
 # The heredoc is unquoted because it interpolates the file, so the SHELL evaluates any it finds
 # before python ever sees it. This has happened, mid-seed, from a word in a comment.
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$DRY" <<PY
+kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$DRY" "$RETIRE" <<PY
 import json, sys, urllib.error, urllib.request
-token, dry = sys.argv[1], sys.argv[2] == "1"
+token, dry, retire = sys.argv[1], sys.argv[2] == "1", sys.argv[3] == "1"
 H = "http://localhost:8000"
 LIB = json.loads('''$(cat "$FILE")''')
 CURRENCY = LIB["currency"]
@@ -168,7 +174,23 @@ if stray:
     print("  ON THE PUBLIC PRICING PAGE AND NOT IN plans.json:")
     for p in stray:
         print("    ? " + str(p.get("name")) + "  (" + str(p.get("id")) + ")")
-    print("    Retire what is a leftover; a negotiated plan should be unlisted, not listed.")
+    if not retire:
+        print("    Retire what is a leftover; a negotiated plan should be unlisted, not listed.")
+        print("    Run with --retire-strays to unlist them (nothing is deleted).")
+    for p in stray:
+        if not retire:
+            break
+        if dry:
+            print("    - " + str(p.get("name")) + " would be unlisted")
+            continue
+        s, _ = call("/api/v1/billing/plans/" + str(p.get("id")) + "/availability",
+                    {"listed": False})
+        if s < 300:
+            print("    - " + str(p.get("name")) + " unlisted")
+            corrected += 1
+        else:
+            print("    ! " + str(p.get("name")) + " could not be unlisted: " + str(s))
+            failed += 1
 
 print("")
 print("created=" + str(created) + " corrected=" + str(corrected)
