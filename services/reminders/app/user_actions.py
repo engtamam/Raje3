@@ -146,6 +146,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "كل ما يرسله النظام باسمك: متى يرسل، وهل هو مشغّل، وبأي نص.",
     },
     {
+        "id": "reminders.preview_trigger", "label": "معاينة الرسالة", "method": "GET",
+        "path": "/api/v1/reminders/triggers/{trigger_id}/preview",
+        "capability": "reminders.read",
+        "params": [{"name": "trigger_id", "in": "path", "type": "string", "required": True}],
+        "group": "الإعدادات",
+        # Rendered by the engine with example values, so a wording he cannot send is one he is
+        # never offered — and what he reads is what leaves the building.
+        "help": "نصّ الرسالة كما تصل عميلك، بالصيغ المتاحة لها.",
+    },
+    {
         "id": "reminders.set_trigger", "label": "تشغيل أو إيقاف رسالة", "method": "PUT",
         "path": "/api/v1/reminders/triggers/{trigger_id}", "capability": "reminders.manage",
         "params": [{"name": "trigger_id", "in": "path", "type": "string", "required": True}],

@@ -315,6 +315,57 @@ def merged_service_text(names: list[str]) -> str:
     return "، ".join(clean[:3]) + f" و{len(clean) - 3} غيرها"
 
 
+class PlatformLibrary:
+    """The 81 texts themselves, read from operations — the ONE thing the engine could not find.
+
+    WHAT WAS WRONG, AND IT IS THE THIRD OF ITS FAMILY IN THIS SERVICE. `_library()` read a
+    `tenant_cache` collection that NOTHING IN THE FLEET EVER WROTE, so it answered `[]` on every
+    tick, `choose()` found no template of any type, and every single message — every reminder,
+    confirmation, follow-up and campaign — failed with «لا يوجد قالب فعّال من نوع …». The engine
+    had no library at all. Its two siblings were the establishment's name and the settings tree,
+    both fixed the same way: read the owner of the fact rather than a cache nobody fills.
+
+    CACHED BRIEFLY, BECAUSE IT IS PLATFORM CONTENT. The library is the same for every tenant and
+    changes when WE edit it in the console — minutes of staleness cost nothing, and a read per
+    tenant per tick would be one HTTP call per shop per five minutes for a constant.
+
+    AN UNREACHABLE PEER KEEPS THE LAST ANSWER. Losing the library mid-outage would stop every
+    shop's messages; the texts do not change while operations restarts.
+    """
+
+    def __init__(self, *, url: str = "", path: str = "", token: str = "",
+                 timeout: int = 8, ttl: int = 300) -> None:
+        self._url = (url.rstrip("/") + path) if url else ""
+        self._token = token
+        self._timeout = timeout
+        self._ttl = ttl
+        self._rows: list[dict[str, Any]] = []
+        self._at = 0.0
+
+    async def all(self) -> list[dict[str, Any]]:
+        import json
+        import time as _time
+        import urllib.error
+        import urllib.request
+
+        if not self._url:
+            return list(self._rows)
+        now = _time.time()
+        if self._rows and (now - self._at) < self._ttl:
+            return list(self._rows)
+        req = urllib.request.Request(self._url, headers={"X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                out = json.loads(resp.read() or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            return list(self._rows)          # the last good answer, never an empty library
+        rows = out.get("templates")
+        if isinstance(rows, list) and rows:
+            self._rows = rows
+            self._at = now
+        return list(self._rows)
+
+
 class ApprovedTemplates:
     """Which template names WhatsApp has approved for one tenant.
 

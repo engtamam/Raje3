@@ -148,6 +148,10 @@ env:
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   OPERATIONS_RECIPIENT_PATH: "/internal/operations/recipient"
   OPERATIONS_VISITS_SINCE_PATH: "/internal/operations/visits/since"
+  # THE TEXTS. Without this the engine reads an empty library and refuses every message it was
+  # asked to send — which is what it did, for as long as it existed.
+  OPERATIONS_TEMPLATES_PATH: "/internal/operations/templates"
+  TEMPLATE_LIBRARY_TTL_SECONDS: "300"
 
   # THE MESSAGE QUOTA — the second most important line in this file, for the same reason as the
   # first. Every plan sells a monthly WhatsApp allowance (§16.4.1) and nothing decremented it: an

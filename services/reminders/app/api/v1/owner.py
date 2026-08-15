@@ -17,6 +17,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.reach import Reach
 from app.core.spent import SpentUnknown, spent_refs
+from app.core import rendering as R
 from app.core.stores import RuleStore, ScheduleStore, SendLogStore, _sched_key
 
 
@@ -221,6 +222,74 @@ async def set_trigger(request: Request, trigger_id: str, body: TriggerIn,
         # sentence is the whole answer here.
         return {"ok": False, "error": str(exc)}
     return {"ok": True, "triggers": choices.public()}
+
+
+@router.get("/triggers/{trigger_id}/preview", dependencies=[Depends(rate_limit)])
+async def preview_trigger(request: Request, trigger_id: str,
+                          principal: Principal = Depends(_READ)) -> dict:
+    """The three wordings of this message, as the customer will read them.
+
+    RENDERED BY THE ENGINE, NOT BY THE SCREEN. It goes through the same `render()` a send goes
+    through, with example values — so a wording that cannot render is one he cannot choose, and
+    what he reads here is what leaves the building. A screen that assembled the text itself would
+    show a message that works on his phone and fails on the customer's.
+
+    HIS OWN APPROVED TEXTS COME BACK BESIDE OURS, in the same shape and marked as his. This is the
+    list «رسائلي» offers him: three of ours, and whatever he has written and Meta approved.
+    """
+    from app.core import triggers as TR
+    from app.core.custom_templates import APPROVED, CustomTemplateStore
+    from app.core.trigger_choices import ChoiceStore
+
+    trigger = TR.get(trigger_id)
+    if trigger is None:
+        return {"ok": False, "error": "لا يوجد محفّز بهذا الاسم."}
+
+    c = request.app.state.container
+    shop = await c.identity.get(principal.tenant)
+    establishment = getattr(shop, "name", "") or "محلّك"
+    library = await c.library.all()
+
+    options: list[dict] = []
+    for row in library:
+        if row.get("type") != trigger.template_type or not row.get("active", True):
+            continue
+        try:
+            rendered = R.render(template=row,
+                                system=TR.sample_slots(row, establishment=establishment),
+                                catalogue={}, owner={})
+        except R.RenderError:
+            # A TEXT WE CANNOT RENDER IS NOT OFFERED. Listing it would let him choose a wording
+            # that silently never sends — the failure this whole preview exists to make visible.
+            continue
+        body = row.get("body", "")
+        for i, value in enumerate(rendered.variables, start=1):
+            body = body.replace("{{" + str(i) + "}}", value)
+        options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
+                        "text": body, "mine": False})
+
+    mine = await CustomTemplateStore(c.datastore).list(principal.tenant, trigger_id=trigger_id)
+    for row in mine:
+        if row.get("status") != APPROVED:
+            continue
+        options.append({"name": row.get("name", ""), "tone": "", "mine": True,
+                        # HIS OWN WORDS WITH THE BLANKS SHOWN FILLED, by what each blank MEANS —
+                        # his numbering is his, not the library's.
+                        "text": _fill_custom(row, establishment=establishment)})
+
+    chosen = (await ChoiceStore(c.datastore).load(principal.tenant)).template_name(trigger_id)
+    return {"trigger": TR.public(trigger), "options": options, "chosen": chosen,
+            "tone": getattr(shop, "tone", "") or "brief"}
+
+
+def _fill_custom(row: dict, *, establishment: str) -> str:
+    """Show one of HIS texts filled in. Blank meanings, not blank numbers — see custom_templates."""
+    from app.core import triggers as TR
+    body = row.get("body", "")
+    for i, kind in enumerate(list(row.get("fills") or []), start=1):
+        value = establishment if kind == TR.SHOP else TR.SAMPLE.get(kind, "")
+        body = body.replace("{{" + str(i) + "}}", value)
+    return body
 
 
 # ── his own texts (§6.7, and the owner's decision that there is no review of ours) ────────────

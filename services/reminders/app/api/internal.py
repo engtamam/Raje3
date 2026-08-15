@@ -424,8 +424,14 @@ async def _service_config(c, tenant: str) -> dict:
 
 
 async def _library(c, tenant: str) -> list:
-    row = await c.datastore.get("tenant_cache", f"{tenant}|templates")
-    return (row or {}).get("templates") or []
+    """The platform's texts. THE TENANT IS NOT A FILTER — every shop sends the same 81.
+
+    It read a `tenant_cache` row that nothing in the fleet ever wrote, so it answered `[]` for
+    every tenant on every tick and `choose()` refused every message with «لا يوجد قالب فعّال».
+    The engine has never had a library. `tenant` stays in the signature because the per-shop
+    approval set is what actually differs, and that is read separately (ApprovedTemplates).
+    """
+    return await c.library.all()
 
 
 async def _establishment(c, tenant: str):

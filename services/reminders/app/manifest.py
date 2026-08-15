@@ -126,6 +126,7 @@ def build_manifest(
             # What sends in the shop's name, and whether it sends at all (core/triggers.py).
             {"path": "/api/v1/reminders/triggers", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/triggers/{}", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/reminders/triggers/{}/preview", "tier": "user", "method": "GET"},
             # Settings, three levels deep (spec 10.8.1). The owner never picks a level — they edit
             # a service and it becomes an override, with the way back offered where it happened.
             {"path": "/api/v1/reminders/settings", "tier": "user", "method": "GET"},

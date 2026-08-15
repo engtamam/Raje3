@@ -257,6 +257,14 @@ def build_container(settings: Settings) -> Container:
     container.ceiling = build_ceiling(settings)
     # Absent when notification-service is not configured, and ApprovedTemplates then answers None
     # — NOT KNOWN, which skips the filter. An empty set would silence every establishment.
+    # THE LIBRARY, FROM THE SERVICE THAT OWNS IT (see R.PlatformLibrary for what it replaces).
+    container.library = R.PlatformLibrary(
+        url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_TEMPLATES_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN,
+        timeout=settings.PEER_TIMEOUT_SECONDS,
+        ttl=settings.TEMPLATE_LIBRARY_TTL_SECONDS)
+
     container.approved_templates = R.ApprovedTemplates(
         url=settings.NOTIFICATION_SERVICE_URL,
         path=settings.NOTIFICATION_TEMPLATES_PATH,

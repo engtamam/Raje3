@@ -34,6 +34,7 @@ import { Toggle } from '@base-ui/design-system/Toggle';
 import { Lock } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Launch } from './Launch';
+import { MessagePreview } from './MessagePreview';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -124,6 +125,8 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
    */
   const [triggers, setTriggers] = useState<TriggerRow[] | null>(null);
   const [busy, setBusy] = useState('');
+  /** The row he opened to read its wording. `null` is closed — it is not a screen of its own. */
+  const [reading, setReading] = useState<TriggerRow | null>(null);
   const [switchError, setSwitchError] = useState('');
 
   /**
@@ -342,7 +345,12 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
                       'flex items-start justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm',
                       t.on ? '' : 'opacity-70',
                     ].join(' ')}>
-                  <span className="flex min-w-0 flex-col gap-1">
+                  {/* THE WHOLE ROW OPENS IT, not a small "preview" link. What the message SAYS is
+                      the thing he came to see; the switch is the smaller act, and it keeps its own
+                      hit area on the other side. */}
+                  <button type="button"
+                          onClick={() => setReading(t)}
+                          className="flex min-w-0 flex-1 flex-col gap-1 text-start">
                     <span className="truncate font-medium">{t.label}</span>
                     <span className="text-sm text-text-secondary">{t.when}</span>
                     {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a line
@@ -350,7 +358,7 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
                     {t.template ? (
                       <Badge tone="neutral">بنصّك أنت</Badge>
                     ) : null}
-                  </span>
+                  </button>
                   {t.can_switch ? (
                     <Toggle
                       label={t.label}
@@ -373,6 +381,27 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
           <p className="px-1 text-xs text-text-secondary">
             الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
           </p>
+          {reading ? (
+            <MessagePreview
+              session={session}
+              catalog={catalog}
+              triggerId={reading.id}
+              label={reading.label}
+              when={reading.when}
+              canRetext={reading.can_retext}
+              onClose={() => setReading(null)}
+              // The chosen text changed, so the row's «بنصّك أنت» badge has to be re-read from
+              // the server rather than guessed at here.
+              onChosen={() => {
+                const a = action(catalog, 'reminders.triggers');
+                if (a) {
+                  call<{ triggers: TriggerRow[] }>(session, a)
+                    .then((x) => setTriggers(x.triggers ?? []))
+                    .catch(() => {});
+                }
+              }}
+            />
+          ) : null}
         </section>
       ) : tab === 'auto' ? (
       <section className="flex flex-col gap-3">

@@ -241,6 +241,52 @@ def candidates(kind: str, template_type: str) -> tuple[str, ...]:
     return BY_TEMPLATE_TYPE.get(template_type, ())
 
 
+# ── what a preview puts in each blank ────────────────────────────────────────────────────────
+# EXAMPLE VALUES, AND THEY ARE NOT DECORATION. The owner is choosing between three wordings; a
+# preview showing «أهلاً {{1}}» asks him to imagine the message rather than read it. Values that
+# look like a real customer's are also the ones Meta's own review requires at submission.
+SAMPLE = {
+    CUSTOMER: "محمد",
+    SERVICE: "غيار الزيت",
+    REWARD: "غسيل مجاني",
+    POINTS: "40",
+    BALANCE: "60",
+    ACTION: "استبدال نقاطك",
+    DIGEST: "3 زيارات هذا الأسبوع",
+    OFFER_VALUE: "20%",
+    COUPON: "RJ-4F2K",
+    ENDS_AT: "21 أغسطس",
+    FREE_TEXT: "افتتحنا فرعاً جديداً",
+    CODE: "4821",
+    MINUTES: "15",
+}
+
+
+def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
+    """Fill a library template's numbered slots with example values, by each slot's own source.
+
+    THE PREVIEW GOES THROUGH THE SAME `render()` THE SEND USES. A screen that formatted the body
+    itself would show a message that renders here and fails there — and the one place that must
+    never lie is the place he decides what his customers read.
+    """
+    fills = list(template.get("fills") or [])
+    variables = list(template.get("variables") or [])
+    by_source = {"system": "", "catalogue": SAMPLE[SERVICE], "owner": SAMPLE[FREE_TEXT],
+                 "amount": SAMPLE[OFFER_VALUE], "code": SAMPLE[COUPON], "date": SAMPLE[ENDS_AT]}
+    # Slot 3 of the library's own numbering is «الخدمة أو المحتوى», 4 «تفصيل», 5 «الرصيد» — the
+    # positional meanings the texts were written against (deploy/seed/templates.json).
+    by_number = {1: SAMPLE[CUSTOMER], 2: establishment, 3: SAMPLE[SERVICE],
+                 4: SAMPLE[POINTS], 5: SAMPLE[BALANCE]}
+    out: dict[str, str] = {}
+    for i, number in enumerate(variables):
+        source = fills[i] if i < len(fills) else "system"
+        value = by_source.get(source) or ""
+        if not value:
+            value = by_number.get(number, SAMPLE[FREE_TEXT])
+        out[str(number)] = value
+    return out
+
+
 def public(t: Trigger) -> dict:
     """What a screen may read. The class and the template name are ours, not his (§10.8.1.2)."""
     return {"id": t.id, "label": t.label, "when": t.when,

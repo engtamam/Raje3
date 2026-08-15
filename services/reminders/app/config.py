@@ -225,6 +225,13 @@ class Settings(BaseSettings):
     # The catch-up read. The event bus is at-most-once (see ports/event_bus.py), so a missed visit
     # is a reminder that never exists — for ever. This is the readable path that repairs it.
     OPERATIONS_VISITS_SINCE_PATH: str = "/internal/operations/visits/since"
+    # THE TEXTS THEMSELVES. Read from the service that owns them; the alternative was a cache
+    # collection nothing wrote, which answered "no templates" on every tick for as long as it
+    # existed. Empty here means the engine keeps whatever it last read and never an empty library.
+    OPERATIONS_TEMPLATES_PATH: str = "/internal/operations/templates"
+    # Platform content, identical for every tenant, edited by us. Minutes of staleness cost
+    # nothing; a read per tenant per tick would be one call per shop per five minutes.
+    TEMPLATE_LIBRARY_TTL_SECONDS: int = 300
 
     # ── who the establishment is ──────────────────────────────────────────────
     # Every message renders {{2}} as the shop's name. `null` answers nothing, which means every
