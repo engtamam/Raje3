@@ -722,6 +722,31 @@ for _sh in sorted(ROOT.glob("deploy/**/*.sh")) + sorted(ROOT.glob("scripts/*.sh"
              "re-checkout the file")
 
 
+# ── every channel still on the bring-up driver, said out loud on every run ───────────────────
+#
+# `console` is a driver that ALWAYS SUCCEEDS and records what it would have sent. That is right
+# during bring-up and fatal after it: a genuine provider outage then looks exactly like a
+# delivered message, and the send log agrees.
+#
+# THE VALUES FILE ALREADY SAYS SO, IN A COMMENT — and a comment is not a mechanism. Proven on the
+# cluster today: notification-service answered a real send with 200 and `status: failed,
+# provider: ""`, because WHATSAPP_CHAIN is `console`. Nothing in the fleet said that out loud.
+#
+# A NOTE RATHER THAN A FAILURE, deliberately: this is the correct state until Meta credentials
+# exist (#167), and a guard that blocks every ship during bring-up is a guard somebody disables.
+_console = []
+for _vals in sorted(ROOT.glob("deploy/services/*.values.yaml")):
+    _svc = _vals.name.replace(".values.yaml", "")
+    for _line in _vals.read_text(encoding="utf-8").splitlines():
+        _bare = _line.split("#", 1)[0]
+        if "_CHAIN:" in _bare and "console" in _bare:
+            _console.append(f"{_svc}: {_bare.strip()}")
+if _console:
+    notes.append("channels still on the bring-up driver — `console` always succeeds, so a real "
+                 "outage reads as delivered. Remove before real customers: "
+                 + " · ".join(_console))
+
+
 # ── report ───────────────────────────────────────────────────────────────────────────────────
 for n in notes:
     print(f"{C_Y}  ~ {n}{C_N}")
