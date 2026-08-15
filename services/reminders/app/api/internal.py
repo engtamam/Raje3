@@ -505,6 +505,15 @@ class CampaignSendIn(BaseModel):
     offer_expires_at: int = Field(default=0, ge=0)
     # Which services the offer covers. Empty is "the whole shop".
     offer_services: list[str] = Field(default_factory=list, max_length=100)
+    # ── the typed parts of an offer ───────────────────────────────────────────────────────────
+    # A discount is «20%» or «50 ريال» and nothing else, and a coupon code is machine-made. They
+    # travel as their own fields rather than inside the owner's sentence, because a template slot
+    # declared `amount` or `code` is validated at render and a sentence is not.
+    offer_value: str = Field(default="", max_length=32)
+    coupon_code: str = Field(default="", max_length=24)
+    # The services the offer covers, NAMED — this service holds ids, and «خصم على svc_9f2» is not
+    # a message. The caller owns the catalogue, so the caller sends the words.
+    service_names: list[str] = Field(default_factory=list, max_length=100)
 
     model_config = {"populate_by_name": True}
 
@@ -542,10 +551,20 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "offer_text": body.owner_text if body.offer_expires_at else "",
         "offer_expires_at": body.offer_expires_at,
         "offer_services": list(body.offer_services),
+        "offer_value": body.offer_value,
+        "coupon_code": body.coupon_code,
     }
     library = await _library(c, body.tenant)
+    # THE APPROVED SET, WHICH THIS PATH NEVER READ. The reminder tick has always preferred a
+    # template Meta approved; the campaign path did not, so it chose by `active` alone and the
+    # send failed at notification-service — one wasted resolution of a phone number per recipient,
+    # and a run report full of a failure the shop could do nothing about.
+    approved = await c.approved_templates.names(body.tenant)
+    names = {sid: name for sid, name in
+             zip(body.offer_services, body.service_names, strict=False)}
     res = await c.tick.send_one(body.tenant, schedule, now=now, library=library,
-                                service_names={}, establishment=shop.name, tone=shop.tone)
+                                service_names=names, establishment=shop.name, tone=shop.tone,
+                                approved=approved)
     return res
 
 

@@ -237,6 +237,67 @@ def render(*, template: dict[str, Any], system: dict[str, str],
                     template.get("class", "service"), out)
 
 
+AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+             "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
+
+
+def arabic_date(epoch: int) -> str:
+    """The last day of an offer, as a person reads it — in Riyadh, in Western digits.
+
+    RIYADH AND NOT UTC: an offer ending at 01:00 UTC ends the previous evening for the customer
+    reading it, and a message that names the wrong day is a message the shop honours for a day it
+    did not intend.
+    """
+    if not epoch:
+        return ""
+    from datetime import datetime, timedelta, timezone
+    d = datetime.fromtimestamp(int(epoch), timezone(timedelta(hours=3)))
+    return f"{d.day} {AR_MONTHS[d.month - 1]}"
+
+
+def campaign_slots(template: dict[str, Any], *, establishment: str, owner_text: str,
+                   service_text: str = "", offer_value: str = "",
+                   coupon_code: str = "", expires_at: int = 0) -> dict[str, str]:
+    """What goes in each numbered slot of a CAMPAIGN message, decided by the slot's own source.
+
+    THE OLD ANSWER WAS TO PUT THE SAME STRING IN EVERYTHING. The campaign path filled slots 3 and
+    4 with `owner_text` in all three source dicts, so a four-variable template emitted the owner's
+    one sentence twice in a row — «باقة تنظيف كامل من مغسلة النخيل: تنظيف كامل» — and slot 1 was
+    passed empty, which greeted every customer «عميلنا العزيز» although we hold their names.
+
+    So the template says who fills each slot (`fills`), and this answers slot by slot. A template
+    that asks for something a campaign cannot supply gets an empty string and the renderer refuses
+    the send — which is right: a discount with no value and an offer with no end are exactly the
+    messages that must not go out.
+
+    SLOT 1 IS LEFT EMPTY ON PURPOSE. The customer's name is personal data this service does not
+    hold; it is filled at the very last moment, beside the phone number, in the sender.
+    """
+    fills = list(template.get("fills") or [])
+    variables = list(template.get("variables") or [])
+    out: dict[str, str] = {}
+    for i, number in enumerate(variables):
+        key = str(number)
+        source = fills[i] if i < len(fills) else "system"
+        if number == 1:
+            out[key] = ""
+        elif number == 2:
+            out[key] = establishment
+        elif source == "amount":
+            out[key] = offer_value
+        elif source == "code":
+            out[key] = coupon_code
+        elif source == "date":
+            out[key] = arabic_date(expires_at)
+        elif source == "catalogue":
+            # The services the offer covers, named. Empty when it covers the whole shop — and the
+            # renderer then refuses, because «خصم على » is not a sentence.
+            out[key] = service_text
+        else:
+            out[key] = owner_text
+    return out
+
+
 def merged_service_text(names: list[str]) -> str:
     """Three services in one message, as one readable phrase (spec 5.8).
 

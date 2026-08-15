@@ -217,3 +217,57 @@ def test_an_offer_with_no_end_is_refused():
 def test_a_coupon_code_the_till_cannot_read_never_leaves(bad):
     with pytest.raises(RenderError):
         _coupon(**{"4": bad})
+
+
+# ── the campaign path: one slot, one answer ────────────────────────────────────────────────────
+from app.core.rendering import arabic_date, campaign_slots   # noqa: E402
+
+OFFER = {"name": "mkt_offer_brief", "type": "mkt_offer", "class": "marketing",
+         "variables": [1, 2, 3, 4, 5],
+         "fills": ["system", "system", "amount", "catalogue", "date"], "active": True}
+ANNOUNCE = {"name": "mkt_announcement_brief", "type": "mkt_announcement", "class": "marketing",
+            "variables": [1, 2, 3], "fills": ["system", "system", "owner"], "active": True}
+
+
+def test_the_owners_sentence_no_longer_lands_in_two_slots_at_once():
+    """It used to fill 3 AND 4 through all three source dicts, so a four-variable template said
+    the same thing twice — «باقة تنظيف كامل من مغسلة النخيل: تنظيف كامل»."""
+    slots = campaign_slots(OFFER, establishment="مغسلة النخيل", owner_text="عرض الصيف",
+                           service_text="غسيل خارجي", offer_value="20%",
+                           expires_at=1_755_000_000)
+    assert slots["3"] == "20%"
+    assert slots["4"] == "غسيل خارجي"
+    assert slots["4"] != slots["3"]
+    assert slots["5"] == arabic_date(1_755_000_000)
+
+
+def test_slot_one_is_left_for_the_sender_because_the_name_is_not_ours_to_hold():
+    """This service holds a pseudonym. The name is resolved beside the phone number, at the last
+    moment, and nowhere else."""
+    assert campaign_slots(ANNOUNCE, establishment="م", owner_text="جديدنا")["1"] == ""
+
+
+def test_an_offer_with_no_value_refuses_rather_than_sending_a_hole():
+    slots = campaign_slots(OFFER, establishment="مغسلة النخيل", owner_text="عرض",
+                           service_text="غسيل", offer_value="", expires_at=1_755_000_000)
+    with pytest.raises(RenderError):
+        render(template=OFFER, system=slots, catalogue=slots, owner=slots)
+
+
+def test_an_offer_with_no_end_refuses_too():
+    slots = campaign_slots(OFFER, establishment="مغسلة النخيل", owner_text="عرض",
+                           service_text="غسيل", offer_value="20%", expires_at=0)
+    with pytest.raises(RenderError):
+        render(template=OFFER, system=slots, catalogue=slots, owner=slots)
+
+
+def test_a_plain_announcement_still_carries_the_owners_one_sentence():
+    slots = campaign_slots(ANNOUNCE, establishment="مغسلة النخيل", owner_text="افتتحنا فرعاً")
+    out = render(template=ANNOUNCE, system=slots, catalogue=slots, owner=slots)
+    assert out.variables == [FALLBACK_NAME, "مغسلة النخيل", "افتتحنا فرعاً"]
+
+
+def test_the_end_date_is_riyadh_not_utc():
+    """An offer ending at 01:00 UTC ends the previous evening for the person reading it."""
+    # 2025-08-14 22:30 UTC is already the 15th in Riyadh.
+    assert arabic_date(1_755_210_600) == "15 أغسطس"

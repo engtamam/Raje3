@@ -257,7 +257,7 @@ def test_a_two_hundred_carrying_a_failed_record_is_not_a_send():
 
     s = HttpSender(notify_url="http://n", notify_path="/internal/notify",
                    operations_url="http://o", recipient_path="/r", token="t")
-    with patch.object(s, "_recipient", return_value="+966500000000"), \
+    with patch.object(s, "_recipient", return_value=("+966500000000", "نورة")), \
          patch("urllib.request.urlopen", return_value=Resp()):
         with pytest.raises(SendFailed) as exc:
             asyncio.run(s.send(tenant="t", subject_ref="ref_x", template_name="svc_x_brief",
@@ -285,7 +285,7 @@ def test_a_queued_delivery_counts_as_sent_and_is_not_retried():
 
     s = HttpSender(notify_url="http://n", notify_path="/internal/notify",
                    operations_url="http://o", recipient_path="/r", token="t")
-    with patch.object(s, "_recipient", return_value="+966500000000"), \
+    with patch.object(s, "_recipient", return_value=("+966500000000", "نورة")), \
          patch("urllib.request.urlopen", return_value=Resp()):
         asyncio.run(s.send(tenant="t", subject_ref="ref_x", template_name="svc_x_brief",
                            variables=["a"], cls="service", idempotency_key="k2"))

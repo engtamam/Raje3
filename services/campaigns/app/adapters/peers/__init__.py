@@ -163,7 +163,9 @@ class HttpSender:
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
                    owner_text: str, idempotency_key: str,
                    offer_expires_at: int = 0,
-                   offer_services: list[str] | None = None) -> dict[str, Any]:
+                   offer_services: list[str] | None = None,
+                   offer_value: str = "", coupon_code: str = "",
+                   service_names: list[str] | None = None) -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -179,6 +181,12 @@ class HttpSender:
                 # message that offers nothing, which is most of them.
                 "offer_expires_at": offer_expires_at,
                 "offer_services": list(offer_services or []),
+                # THE TYPED PARTS. A discount is «20%» or «50 ريال», a coupon code is machine-made,
+                # and the covered services travel as WORDS because reminders holds ids and cannot
+                # name anything.
+                "offer_value": offer_value,
+                "coupon_code": coupon_code,
+                "service_names": list(service_names or []),
             }, self._token, self._timeout)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode()[:200]

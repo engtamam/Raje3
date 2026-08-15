@@ -37,6 +37,11 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+# The greeting a template falls back to when nobody knows the customer's name. Imported rather
+# than repeated: two copies of this string is a message that greets one way here and another way
+# in the renderer, and only one of them is the one Meta approved.
+from app.core.rendering import FALLBACK_NAME
+
 
 # A DEFAULT, NOT A CONSTANT. These are Meta's codes; they add and retire them, and a set of
 # somebody else's identifiers frozen into our code is a branch that stops matching without
@@ -84,12 +89,31 @@ class HttpSender:
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
                    variables: list[str], cls: str, idempotency_key: str) -> None:
-        recipient = self._recipient(tenant, subject_ref)
+        recipient, name = self._recipient(tenant, subject_ref)
         if not recipient:
             # NOT AN ERROR, and not a retry. The subject was erased, or never existed. Raising
             # would put this schedule into the retry loop forever, and every tick would ask
             # operations about a customer who asked to be forgotten.
             raise Unsendable(f"no recipient for {subject_ref} — erased or unknown")
+
+        # ── THE CUSTOMER'S NAME, AND THE ONLY PLACE IT MAY BE READ ───────────────────────────
+        # Slot 1 is the customer's name in every one of our templates, and NOTHING was putting a
+        # name in it: the tick passes `customer_names={}` and the campaign path passed `""`, so
+        # every message this product has ever rendered said «عميلنا العزيز» — to customers whose
+        # names we hold. The greeting is the first four words a customer reads, and it was the
+        # same four words for everyone.
+        #
+        # AND IT IS FIXED HERE RATHER THAN IN THE TICK, deliberately. This service holds a
+        # PSEUDONYM and no personal data (see the recipient route's own docstring): resolving a
+        # name earlier would put it in a schedule row, a render, a log and a backup. The phone
+        # number already lives for the length of this one call, and the name rides the same
+        # response — no second read, and nothing new at rest.
+        #
+        # ONLY OVER THE FALLBACK. A caller that supplied a real name (the redemption path names
+        # the person from the visit) keeps it; this fills the blank rather than overruling anyone.
+        variables = list(variables)
+        if name and variables and variables[0] in ("", FALLBACK_NAME):
+            variables[0] = name
 
         body = json.dumps({
             "recipient": recipient,
@@ -134,7 +158,7 @@ class HttpSender:
                 raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
             raise SendFailed(f"{status}: {result.get('error') or 'no reason given'}")
 
-    def _recipient(self, tenant: str, subject_ref: str) -> str:
+    def _recipient(self, tenant: str, subject_ref: str) -> tuple[str, str]:
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()
         req = urllib.request.Request(
             self._resolve, data=body, method="POST",
@@ -146,7 +170,7 @@ class HttpSender:
             raise SendFailed(f"recipient lookup returned {exc.code}") from exc
         except (urllib.error.URLError, OSError) as exc:
             raise SendFailed(f"recipient lookup unreachable: {exc}") from exc
-        return str(data.get("recipient") or "")
+        return str(data.get("recipient") or ""), str(data.get("name") or "")
 
 
 # What counts as "it went". `queued` is included deliberately: the peer has taken responsibility

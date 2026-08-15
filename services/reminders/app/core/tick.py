@@ -300,12 +300,24 @@ class Tick:
         try:
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                                 library=library, approved=approved)
-            owner_text = row.get("owner_text", "")
-            rendered = R.render(
-                template=template,
-                system={"1": "", "2": establishment, "3": owner_text, "4": owner_text},
-                catalogue={"3": owner_text, "4": owner_text},
-                owner={"3": owner_text, "4": owner_text})
+            # SLOT BY SLOT, FROM THE TEMPLATE'S OWN DECLARATION. The previous version put the
+            # owner's single sentence into slots 3 AND 4 through all three source dicts, so a
+            # four-variable template said the same thing twice; and it passed slot 1 empty, which
+            # greeted every customer «عميلنا العزيز» although we hold their names. A typed slot
+            # (a discount, a coupon code, an end date) had no value to take at all.
+            values = R.campaign_slots(
+                template,
+                establishment=establishment,
+                owner_text=row.get("owner_text", ""),
+                service_text=R.merged_service_text(
+                    [service_names.get(s, s) for s in (row.get("offer_services") or [])]),
+                offer_value=str(row.get("offer_value", "")),
+                coupon_code=str(row.get("coupon_code", "")),
+                expires_at=int(row.get("offer_expires_at") or 0))
+            # ONE DICT, PASSED AS ALL THREE. `campaign_slots` has already answered per source, so
+            # handing the renderer three different maps would be deciding the same thing twice and
+            # inviting them to disagree.
+            rendered = R.render(template=template, system=values, catalogue=values, owner=values)
         except R.RenderError as exc:
             return {"sent": False, "reason": str(exc)}
 
