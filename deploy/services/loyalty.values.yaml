@@ -39,6 +39,8 @@ networkPolicy:
   egress:
     dns: true
     datastore: true
+    # No internet. It calls reminders, operations, tenant-service, billing-service and
+    # audit-service — all in-cluster.
     internet: false
 
 metrics:
@@ -87,6 +89,17 @@ env:
   TENANT_SERVICE_URL: "http://tenant-service:8000"
   TENANT_LOOKUP_PATH: "/internal/tenants/{id}"
   PEER_TIMEOUT_SECONDS: "8"
+
+  # ── what the shop bought ─────────────────────────────────────────────────────────────────
+  # WITHOUT THIS THE SERVICE REFUSES TO START in production, and that is the point: it had no
+  # billing settings at all, so `feature.loyalty` was enforced by nothing and every plan got the
+  # points programme free. The failure was invisible — nothing errored and nothing logged.
+  #
+  # ASKED ONLY WHEN THE SHOP WOULD OWE MORE: earning on a visit, minting by hand, editing rewards
+  # and rules. Never asked to read a balance or to REDEEM one — a customer standing at the till
+  # holding points the shop already promised is not part of the shop's invoice dispute.
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
 
   # ── the programme's defaults ──────────────────────────────────────────────────────────────
   # What a shop that has configured nothing gets. Not zero: a first visit awarding nothing is a

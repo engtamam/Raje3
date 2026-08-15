@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import LoyaltyError, Overdraft
 from app.core.notify import to_next_reward
 
@@ -63,6 +64,28 @@ def _tenant(principal: Principal) -> str:
 
 
 # ── the field screen ───────────────────────────────────────────────────────────────────────────
+
+async def _may_grow(request: Request, principal: Principal) -> JSONResponse | None:
+    """Refuse to GROW the programme when the shop has not bought it — and only to grow it.
+
+    `feature.loyalty` is on the price list and nothing ever checked it: every plan earned points
+    and edited rewards. The check lives here rather than on a decorator because the line is not
+    "loyalty routes" — it is «ما يجعل المحل يَدين بأكثر»: earning, adjusting, and editing the
+    rewards or the rules. Reading a balance and REDEEMING what is already owed never ask; a debt
+    is paid whether or not the shop renewed this month, and his customer's own page — which may
+    not consult billing at all — is showing that balance right now.
+
+    RETURNED, NEVER RAISED: the platform strips `detail` off HTTPException (CWE-209), so a raised
+    refusal reaches the screen empty.
+    """
+    licence = getattr(request.app.state.container, "licence", None)
+    if licence is None:
+        return None
+    if await licence.allowed(_tenant(principal)):
+        return None
+    return _refuse(LICENCE_NOT_INCLUDED, status.HTTP_402_PAYMENT_REQUIRED)
+
+
 @router.get("/balance/{subject_ref}", dependencies=[Depends(rate_limit)])
 async def balance(request: Request, subject_ref: str,
                   principal: Principal = Depends(_READ)) -> dict:
@@ -231,6 +254,10 @@ async def adjust(request: Request, body: AdjustIn,
     AUDITED BEFORE THE WRITE. A balance moved by hand with no record of who moved it is the one
     entry in this ledger nobody can defend.
     """
+    # GROWS THE PROGRAMME: minting points by hand is the shop owing more.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     tenant = _tenant(principal)
     actor = getattr(principal, "subject", "") or ""
@@ -265,6 +292,10 @@ async def adjust(request: Request, body: AdjustIn,
 @router.post("/rewards", dependencies=[Depends(rate_limit)])
 async def create_reward(request: Request, body: RewardIn,
                         principal: Principal = Depends(_MANAGE)) -> dict:
+    # GROWS THE PROGRAMME: a new reward is a new promise.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     try:
         r = await c.rewards.create(_tenant(principal), name=body.name, cost=body.cost,
@@ -286,6 +317,10 @@ class RewardPatch(BaseModel):
 @router.patch("/rewards/{reward_id}", dependencies=[Depends(rate_limit)])
 async def update_reward(request: Request, reward_id: str, body: RewardPatch,
                         principal: Principal = Depends(_MANAGE)) -> dict:
+    # EDITS THE PROMISE. Retiring one is also an edit — and a lapsed shop keeps what it has.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     changes = {k: v for k, v in body.model_dump().items() if v is not None}
     try:
@@ -336,6 +371,10 @@ async def read_settings(request: Request, principal: Principal = Depends(_READ))
 @router.put("/settings/general", dependencies=[Depends(rate_limit)])
 async def set_general(request: Request, body: GeneralIn,
                       principal: Principal = Depends(_MANAGE)) -> dict:
+    # CHANGES THE EARNING RULE — how fast the shop starts owing.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     tenant = _tenant(principal)
     tree = await c.earn_settings.set_general(tenant, {"points": body.points})
@@ -350,6 +389,10 @@ async def set_general(request: Request, body: GeneralIn,
 @router.put("/settings/group", dependencies=[Depends(rate_limit)])
 async def set_group(request: Request, body: GroupIn,
                     principal: Principal = Depends(_MANAGE)) -> dict:
+    # CHANGES THE EARNING RULE for several services at once.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     tree = await c.earn_settings.set_group(_tenant(principal), body.group,
                                            {"points": body.points}, body.service_ids)
@@ -359,6 +402,10 @@ async def set_group(request: Request, body: GroupIn,
 @router.put("/settings/service/{service_id}", dependencies=[Depends(rate_limit)])
 async def set_service(request: Request, service_id: str, body: ServiceIn,
                       principal: Principal = Depends(_MANAGE)) -> dict:
+    # CHANGES THE EARNING RULE for one service.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     tree = await c.earn_settings.set_service(_tenant(principal), service_id,
                                              {"points": body.points})
@@ -374,6 +421,10 @@ async def follow_again(request: Request, service_id: str,
     following, and the NEXT general edit would skip it — a bug appearing a month afterwards with
     nothing connecting it to this button.
     """
+    # ALSO AN EARNING-RULE EDIT — removing an override changes what a visit is worth.
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     tree = await c.earn_settings.follow_again(_tenant(principal), service_id)
     return {"services": tree.services}
@@ -387,6 +438,10 @@ async def set_mode(request: Request, body: ConfigIn,
     Refused with the reason when `invoice` is asked for by an establishment with no till: the
     manual screen records no amounts, so the mode would silently earn nothing.
     """
+    # SWITCHES THE PROGRAMME'S MODE — visits or invoices (§9.3).
+    refusal = await _may_grow(request, principal)
+    if refusal is not None:
+        return refusal
     c = request.app.state.container
     try:
         tree = await c.earn_settings.set_config(_tenant(principal), mode=body.mode,

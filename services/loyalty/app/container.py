@@ -253,6 +253,11 @@ def build_container(settings: Settings) -> Container:
     container.earner = Earner(container.ledger, container.earn_settings)
     container.rewards = Rewards(container.datastore)
     container.redeemer = Redeemer(container.datastore, container.ledger, container.rewards)
+    # WHAT THE SHOP BOUGHT. Consulted only where the programme GROWS — earning, adjusting, and
+    # editing the rewards or the rules. Redemption and every read go around it on purpose: a
+    # lapsed subscription must not strand points a customer already holds (core/licence.py).
+    from app.core.licence import build_licence
+    container.licence = build_licence(settings)
     container.expiry = Expiry(container.datastore, container.ledger,
                               days=settings.EXPIRY_DAYS, warn_days=settings.EXPIRY_WARN_DAYS)
     container.notifier = Notifier(container.sender)

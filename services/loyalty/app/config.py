@@ -258,6 +258,13 @@ class Settings(BaseSettings):
     TENANT_LOOKUP_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── what the shop bought ──────────────────────────────────────────────────
+    # THIS SERVICE HAD NO BILLING SETTINGS, and `feature.loyalty` is on the price list. Every shop
+    # on every plan earned points and edited rewards. Empty means `NullLicence` — allowed in
+    # development, refused in production by the guard below.
+    BILLING_SERVICE_URL: str = ""            # e.g. http://billing-service:8000
+    BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
+
     # ── the programme's own defaults ──────────────────────────────────────────
     # What a tenant who has configured nothing gets. The general level of the tree (spec §9.2)
     # falls back to this, so a shop that switches loyalty on before touching settings still earns
@@ -378,6 +385,22 @@ class Settings(BaseSettings):
                 "ever be told, which removes the only audit a redemption has (spec §9.6). Set it "
                 "to 'http' with REMINDERS_SERVICE_URL, OPERATIONS_SERVICE_URL and "
                 "TENANT_SERVICE_URL.")
+
+    def assert_licence_config_ok(self) -> None:
+        """Boot guard. Refuse production that cannot ask what the shop bought.
+
+        Without billing wired, every establishment earns points free — silently, and for as long
+        as nobody compares the price list to the code. That is the state this service shipped in.
+
+        AND THE REFUSAL IS ONLY ON THE GROWING HALF: redeeming and reading never ask, so this
+        guard cannot strand a customer's balance even when it fires.
+        """
+        if not self.is_production:
+            return
+        if not self.BILLING_SERVICE_URL or not self.BILLING_CHECK_PATH:
+            raise ValueError(
+                "BILLING_SERVICE_URL/BILLING_CHECK_PATH empty in production: the loyalty "
+                "programme would be given away to every plan, quietly. Set them.")
         missing = [n for n in ("REMINDERS_SERVICE_URL", "OPERATIONS_SERVICE_URL",
                                "TENANT_SERVICE_URL") if not getattr(self, n)]
         if self.PEERS_DRIVER == "http" and missing:

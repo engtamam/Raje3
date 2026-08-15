@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import TemplateErasure
+from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import LoyaltyError, Overdraft
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
@@ -251,6 +252,23 @@ async def earn(request: Request, body: EarnIn) -> dict:
     settings screen the first time somebody changes one of them.
     """
     c = request.app.state.container
+
+    # ── has this shop bought the programme? ──────────────────────────────────────────────────
+    # THE ONE THAT MATTERS MOST, because nobody presses it: every recorded visit arrives here on
+    # the bus. `feature.loyalty` is on the price list and was enforced nowhere, so every shop on
+    # every plan has been earning points since the day this route existed.
+    #
+    # AND IT IS THE GROWING HALF: refusing here stops the debt from increasing. Redemption and
+    # every read go around the licence on purpose — a lapsed subscription must not strand points
+    # a customer already holds, and his own page (which may not consult billing at all) is showing
+    # that balance right now.
+    licence = getattr(c, "licence", None)
+    if licence is not None and not await licence.allowed(body.tenant):
+        # NOT AN ERROR, AND NOT A RETRY. The bus swallows exceptions and the catch-up would call
+        # this again for ever; `earned: 0` with a reason is a fact the caller can record.
+        return {"earned": 0, "balance": 0, "repeated": False,
+                "reason": LICENCE_NOT_INCLUDED}
+
     return await c.earner.from_visit(
         body.tenant, visit_id=body.visit_id, subject_ref=body.subject_ref,
         service_ids=body.service_ids, amount_halalas=body.amount_halalas, actor=body.actor,

@@ -47,6 +47,8 @@ def create_app() -> FastAPI:
     settings.assert_cors_config_ok()
     # A programme that deducts points and tells nobody has no audit (spec §9.6).
     settings.assert_peers_config_ok()
+    # A service that cannot ask what the shop bought must not give away what the shop pays for.
+    settings.assert_licence_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
 
