@@ -304,7 +304,19 @@ ship_one() {
   # In that order, always. A rollout reads the values file on the SERVER; syncing afterwards means
   # helm renders the previous pin and reports success about it.
   say "$svc · 5/6 sync + roll"
-  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks deploy/server 2>/dev/null \
+  # THE CHART TRAVELS WITH THE VALUES, and forgetting it is why every rollout failed for days.
+  # The command below tells helm `CHART=platform/deploy/chart`, and nothing ever sent that path
+  # to the server: the tarball carried the values file, the hooks and our update script, and the
+  # chart lives in the platform SUBMODULE, which is part of none of them. helm answered "path not
+  # found", the run reported a failure with no obvious cause, and the cluster kept serving an
+  # image from weeks earlier.
+  #
+  # IT IS 92K. Re-sending it on every ship is cheaper than one failed rollout, and it closes a
+  # second failure nobody had reached yet: the day the platform is upgraded (v0.16.7 today), a
+  # chart left on the server from an older release renders yesterday's templates against today's
+  # values.
+  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks deploy/server \
+         platform/deploy/chart 2>/dev/null \
        | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh \
          && grep -q '$digest' deploy/services/$svc.values.yaml"; then
     red "$svc: the values file on the server does not carry the new digest"; return 1
@@ -500,7 +512,10 @@ ship_many() {
     files+=("deploy/services/$svc.values.yaml")
     list="${list:+$list,}$svc"
   done
-  if ! tar czf - -C "$ROOT" "${files[@]}" deploy/hooks deploy/server 2>/dev/null \
+  # THE CHART, HERE TOO — see the note on the single-service path above. Two sync sites is
+  # two chances to fix one of them and believe the bug is gone.
+  if ! tar czf - -C "$ROOT" "${files[@]}" deploy/hooks deploy/server platform/deploy/chart \
+       2>/dev/null \
        | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh"; then
     red "the values files did not reach the server"; rm -rf "$tmp"; return 1
   fi
