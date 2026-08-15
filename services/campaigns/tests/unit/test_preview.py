@@ -34,6 +34,7 @@ def preview(**kw):
 def test_the_message_is_rendered_not_described():
     """An owner who sees {{1}} does not know what their customer will see, so they either send
     blind or do not send."""
+# arabic-indic-digits: intentional — fed in as a value the preview must refuse.
     p = preview()
     assert "{{" not in p.message
     assert "ورشة النخبة" in p.message and "خصم 20%" in p.message
@@ -135,3 +136,28 @@ def test_the_preview_does_not_compute_its_own_audience():
     src = inspect.getsource(mod.build)
     assert "resolve(" not in src
     assert "audience.count" in src
+
+
+# ── the discount, typed ────────────────────────────────────────────────────────────────────────
+from app.core.preview import sanitise_offer_value   # noqa: E402
+
+
+@pytest.mark.parametrize("good", ["20%", "5%", "90%", "50 ريال", "12.50 ريال"])
+def test_a_discount_that_can_be_honoured_is_accepted(good):
+    assert sanitise_offer_value(good, required=True) == good
+
+
+@pytest.mark.parametrize("bad", ["خصم كبير", "٢٠٪", "20 %", "120%", "0%", "50 ريال فقط", "50"])
+def test_a_discount_that_is_not_a_number_never_reaches_a_customer(bad):
+    """«خصم كبير» promises nothing anybody can be held to, and Arabic-Indic digits are unreadable
+    on half the phones in this market. Refused while he is looking at the field."""
+    with pytest.raises(PreviewError):
+        sanitise_offer_value(bad, required=True)
+
+
+def test_a_goal_with_nowhere_to_put_a_discount_does_not_demand_one():
+    """«أعلن جديدك» promises nothing — refusing it for a missing discount would be refusing a
+    field it has no slot for."""
+    assert sanitise_offer_value("", required=False) == ""
+    with pytest.raises(PreviewError):
+        sanitise_offer_value("", required=True)

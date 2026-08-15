@@ -137,6 +137,17 @@ class Campaign:
     # it until this moment and no longer; whoever did not receive it never held it. The send log
     # says who, and this says until when — no second table, and nothing to argue about at the till.
     expires_at: int = 0
+    # ── the discount itself, typed ────────────────────────────────────────────────────────────
+    # «20%» or «50 ريال». It travelled inside `owner_text` — one free line carrying a number, a
+    # scope and a promise all at once — so the send could not validate it, could not put it in a
+    # template slot declared `amount`, and could not phrase it the same way twice. A shop wrote
+    # «خصم كبير» and the customer read a promise nobody could be held to.
+    offer_value: str = ""
+    # The same services as `scope_service_ids`, by name — carried so the send can say «خصم على
+    # غسيل خارجي» instead of an id. Names live in operations; this is the copy the message needs
+    # at the moment it is written, and it is deliberately a snapshot: renaming a service later
+    # must not rewrite an offer a customer already received.
+    scope_service_names: list[str] = field(default_factory=list)
     # For `standing`: the last day it was evaluated, as an epoch. THE GUARD against a five-minute
     # cron evaluating a daily rule twelve times an hour — see core/tick.py. On the campaign rather
     # than in a side table, because a flag somewhere else is the flag that gets lost.

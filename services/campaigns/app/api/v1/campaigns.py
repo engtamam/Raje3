@@ -41,6 +41,11 @@ class CampaignIn(BaseModel):
     # The owner's ONE free-text field. Bounded here as well as sanitised in core — the model is
     # the door, and a rule enforced only in the core is a rule pydantic can drop on the way in.
     owner_text: str = Field(default="", max_length=200)
+    # «20%» or «50 ريال» — typed, and validated against the same shape the send validates. It
+    # travelled inside `owner_text` before this, which is why a shop could promise «خصم كبير».
+    offer_value: str = Field(default="", max_length=32)
+    # The chosen service's NAME. The screen has it (it lists the catalogue) and we do not.
+    service_name: str = Field(default="", max_length=120)
     # For `occasion` only. Ignored for every other goal rather than rejected: a console that sends
     # a spare field must not fail a campaign over it.
     fire_at: int = Field(default=0, ge=0)
@@ -102,6 +107,12 @@ async def preview(request: Request, body: CampaignIn,
             goal=body.goal, template=template,
             establishment=await c.identity.name(principal.tenant),
             owner_text=body.owner_text, audience=audience,
+            offer_value=body.offer_value,
+            ends_at=arabic_date(body.expires_at or 0),
+            # NAMED BY THE CALLER, and it has to be: this service holds service IDs and the
+            # catalogue belongs to operations. «خصم على svc_9f2» is not a message, and an empty
+            # name makes the renderer refuse rather than send a hole in a sentence.
+            service_text=body.service_name,
             when=describe_when(trigger=spec["trigger"],
                                inside_window=c.gate.inside_window(_now())))
     except PreviewError as exc:
@@ -117,7 +128,9 @@ async def preview(request: Request, body: CampaignIn,
     share = await _todays_share(c, principal.tenant)
     if share.known:
         sp = plan_spread(audience=audience.count, available_per_day=share.per_day,
-                         expires_at=body.expires_at or 0, now=_now())
+                         expires_at=body.expires_at or 0,
+                        offer_value=(body.offer_value or "").strip(),
+                        scope_service_names=([body.service_name] if body.service_name else []), now=_now())
         out["spread"] = sp.to_dict()
         out["spread_says"] = spread_sentence(sp)
     else:
@@ -175,6 +188,15 @@ async def create(request: Request, body: CampaignIn,
     # REFUSED, NOT DEFAULTED. A silent "thirty days" would be a discount the shop never chose,
     # discovered a month later in the margin.
     if offers_something(body.goal):
+        try:
+            from app.core.preview import sanitise_offer_value
+            # REQUIRED ONLY WHEN THE TEMPLATE HAS A SLOT FOR IT. «أعلن جديدك» promises nothing and
+            # would refuse for a field it has nowhere to put.
+            offer_value = sanitise_offer_value(
+                body.offer_value,
+                required=any(f == "amount" for f in (template.get("fills") or [])))
+        except PreviewError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
         if not body.expires_at:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                 "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم.")
@@ -186,6 +208,8 @@ async def create(request: Request, body: CampaignIn,
                         template_type=spec["template_type"], cls=spec["cls"],
                         trigger=spec["trigger"], state="active", fire_at=body.fire_at,
                         expires_at=body.expires_at or 0,
+                        offer_value=(body.offer_value or "").strip(),
+                        scope_service_names=([body.service_name] if body.service_name else []),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
                         # people who are 70% through their cycle for one service; an offer that
                         # arrived because of a service and then did not cover it would be the
@@ -269,6 +293,20 @@ async def _locks(c, tenant: str) -> dict[str, int]:
         if until and goal in CARDS:
             out[goal] = max(out.get(goal, 0), until)
     return out
+
+
+_AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+              "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
+
+
+def arabic_date(epoch: int) -> str:
+    """The last day, as a person reads it — in Riyadh, because an offer ending at 01:00 UTC ends
+    the previous evening for whoever is reading the message."""
+    if not epoch:
+        return ""
+    from datetime import datetime, timedelta, timezone
+    d = datetime.fromtimestamp(int(epoch), timezone(timedelta(hours=3)))
+    return f"{d.day} {_AR_MONTHS[d.month - 1]}"
 
 
 def _now() -> int:

@@ -23,6 +23,7 @@ AND THE OWNER'S TEXT IS SANITISED HERE, at the point they can still fix it. Refu
 would mean a campaign they believed was scheduled quietly failing — the refusal has to happen while
 they are looking at the screen.
 """
+# arabic-indic-digits: intentional — named in a refusal message, as the shape we do NOT accept.
 from __future__ import annotations
 
 import re
@@ -37,6 +38,24 @@ _PHONE = re.compile(r"(?:\+?\d[\s-]?){7,}")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f​-‏‪-‮]")
 
 MAX_OWNER_TEXT = 60
+
+# ── the discount, TYPED ────────────────────────────────────────────────────────────────────────
+# «20%» or «50 ريال», and nothing else. It used to live inside the owner's one free line, which
+# meant «خصم كبير» (a promise nobody can be held to), «٢٠٪» in digits half the phones our
+# customers hold render badly, or an offer that never named a number at all. The same shape the
+# send validates (reminders/core/rendering.py) — checked here so he learns while looking at it.
+_OFFER = re.compile(r"^(?:(?:[1-9][0-9]?|90)%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
+
+
+def sanitise_offer_value(value: str, *, required: bool) -> str:
+    v = (value or "").strip()
+    if not v:
+        if required:
+            raise PreviewError("حدّد قيمة الخصم — نسبة مثل 20% أو مبلغاً مثل 50 ريال.")
+        return ""
+    if not _OFFER.fullmatch(v):
+        raise PreviewError(f"«{v}» ليست قيمة خصم — اكتبها نسبةً مثل 20% أو مبلغاً مثل 50 ريال.")
+    return v
 
 FALLBACK_NAME = "عميلنا العزيز"
 
@@ -107,7 +126,8 @@ def sanitise_owner_text(value: str, *, required: bool) -> str:
 
 
 def render_message(*, template: dict[str, Any], establishment: str, owner_text: str,
-                   sample_name: str = "") -> str:
+                   sample_name: str = "", offer_value: str = "", ends_at: str = "",
+                   service_text: str = "") -> str:
     """The template filled, as one line of text.
 
     Rendered with a REAL customer's name when we have one and the fallback when we do not — the
@@ -127,6 +147,12 @@ def render_message(*, template: dict[str, Any], establishment: str, owner_text: 
             values[number] = establishment
         elif source == "owner":
             values[number] = owner_text
+        elif source == "amount" and offer_value:
+            values[number] = offer_value
+        elif source == "date" and ends_at:
+            values[number] = ends_at
+        elif source == "catalogue" and service_text:
+            values[number] = service_text
         else:
             # A system value we cannot know at preview time — a date, an amount, a service name.
             # Rendered as a readable placeholder rather than left as {{4}}: the owner is judging
@@ -140,14 +166,20 @@ def render_message(*, template: dict[str, Any], establishment: str, owner_text: 
 
 
 def build(*, goal: str, template: dict[str, Any], establishment: str, owner_text: str,
-          audience, when: str) -> Preview:
+          audience, when: str, offer_value: str = "", ends_at: str = "",
+          service_text: str = "") -> Preview:
     """The whole screen. Raises PreviewError on anything the owner must fix first."""
-    needs_text = any(f == "owner" for f in (template.get("fills") or []))
+    fills = list(template.get("fills") or [])
+    needs_text = any(f == "owner" for f in fills)
     clean = sanitise_owner_text(owner_text, required=needs_text)
+    # THE DISCOUNT IS CHECKED WHILE HE IS LOOKING AT IT, not at the launch. «خصم كبير» typed into
+    # the value field and discovered a screen later is a screen later than it needed to be.
+    value = sanitise_offer_value(offer_value, required=any(f == "amount" for f in fills))
 
     return Preview(
         message=render_message(template=template, establishment=establishment,
-                               owner_text=clean),
+                               owner_text=clean, offer_value=value, ends_at=ends_at,
+                               service_text=service_text),
         reaches=audience.count,
         excluded=getattr(audience, "excluded", 0),
         too_recent=getattr(audience, "too_recent", 0),

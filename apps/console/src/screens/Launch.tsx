@@ -26,6 +26,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
+import { Segmented } from '@base-ui/design-system/Segmented';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -70,6 +71,14 @@ export function Launch({ session, catalog, onDone }:
    * that had no field to answer with. Half the campaign engine was unreachable.
    */
   const [endsOn, setEndsOn] = useState('');
+  /**
+   * THE DISCOUNT, AS A VALUE RATHER THAN A SENTENCE. It used to live inside his one free line, so
+   * «خصم كبير» reached customers as a promise nobody could be held to, and «٢٠٪» reached them in
+   * digits half the phones in this market render badly. Typed, we phrase it the same way every
+   * time and refuse a number that cannot be honoured.
+   */
+  // arabic-indic-digits: intentional — «٢٠٪» appears in the note above as the shape we refuse.
+  const [offerValue, setOfferValue] = useState('');
   const [services, setServices] = useState<Service[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -110,6 +119,8 @@ export function Launch({ session, catalog, onDone }:
     try {
       setPreview(await call<Preview>(session, previewAction, {
         goal: goal.goal, owner_text: ownerText, service_id: serviceId,
+        offer_value: offerValue,
+        service_name: services.find((x) => x.id === serviceId)?.name ?? '',
         // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
         // would still be sending after the offer has ended, and that refusal is only useful
         // BEFORE he presses.
@@ -168,6 +179,44 @@ export function Launch({ session, catalog, onDone }:
             {ownerText.length} / 60
           </span>
         </label>
+
+        {/* ── how much ────────────────────────────────────────────────────────────────────
+            TWO BUTTONS AND A NUMBER, not a free field. He taps «نسبة» or «مبلغ» and types the
+            number; we build «20%» or «50 ريال». A field that accepts anything accepts «خصم كبير»,
+            and the send refuses it after he has already decided he is done. */}
+        {picked.offers ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-sm">قيمة الخصم</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={90}
+                dir="ltr"
+                value={offerValue.replace(/[^0-9.]/g, '')}
+                onChange={(e) => {
+                  const n = e.target.value.replace(/[^0-9.]/g, '');
+                  setOfferValue(n ? (offerValue.includes('ريال') ? `${n} ريال` : `${n}%`) : '');
+                  setPreview(null);
+                }}
+                className="h-11 w-24 rounded-lg bg-surface-2 px-3 text-center text-sm tabular-nums"
+              />
+              <Segmented
+                ariaLabel="نوع الخصم"
+                value={offerValue.includes('ريال') ? 'sar' : 'pct'}
+                onChange={(kind) => {
+                  const n = offerValue.replace(/[^0-9.]/g, '');
+                  setOfferValue(n ? (kind === 'sar' ? `${n} ريال` : `${n}%`) : '');
+                  setPreview(null);
+                }}
+                options={[{ value: 'pct', label: '%' }, { value: 'sar', label: 'ريال' }]}
+              />
+            </div>
+            <span className="text-xs text-text-secondary">
+              يظهر في الرسالة كما هو — {offerValue || '20%'}.
+            </span>
+          </div>
+        ) : null}
 
         {/* ── when it stops ────────────────────────────────────────────────────────────────
             NO DEFAULT, DELIBERATELY (§10.9.1). A date we picked is a date he honours at the till
@@ -243,7 +292,7 @@ export function Launch({ session, catalog, onDone }:
           {!preview ? (
             // REFUSED HERE RATHER THAN BY THE SERVER. He is looking at the field; a round trip to
             // be told to fill it in is a round trip that teaches him nothing.
-            <Button disabled={busy || (picked.offers && !endsOn)}
+            <Button disabled={busy || (picked.offers && (!endsOn || !offerValue))}
                     onClick={() => void ask(picked)}>اعرض ما سيصل</Button>
           ) : (
             <Button
@@ -254,6 +303,8 @@ export function Launch({ session, catalog, onDone }:
                 try {
                   await call(session, createAction, {
                     goal: picked.goal, owner_text: ownerText, service_id: serviceId,
+                    offer_value: offerValue,
+                    service_name: services.find((x) => x.id === serviceId)?.name ?? '',
                     expires_at: expiresAt,
                   });
                   setSent(preview.spread_says
