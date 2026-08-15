@@ -58,7 +58,7 @@ jobs:
       # This gate refuses a discount with no end date, a promotional blank inside a utility
       # template, and — the one that cost us most — a library where every row is `active: false`
       # and therefore sends nothing at all while looking complete.
-      - name: every blank has a source, and every discount an end
+      - name: every blank has a source, every discount an end, and every text a reason to exist
         run: python3 ci/check_template_fills.py
 
       # The price list and the gates are two halves of one promise, in two files. A key gated and

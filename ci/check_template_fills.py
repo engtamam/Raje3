@@ -17,6 +17,11 @@
 #   · `active: false` across the whole file. `choose()` filters on it, so the library looks
 #     complete and NOTHING sends — the failure is a Arabic sentence in a log, once per message.
 #
+#   · a class that two files disagree about. The send carries the CALLER'S word for what class a
+#     message is — and that word decides consent, the quiet window and the monthly cap. A goal
+#     filing a marketing text as `awareness` sends advertising under an exemption, and nothing
+#     downstream can tell.
+#
 # Run:  python ci/check_template_fills.py
 # =============================================================================
 from __future__ import annotations
@@ -76,15 +81,31 @@ def reason_types() -> set[str]:
     return set(re.findall(r'template_type="([a-z_]+)"', src))
 
 
-def campaign_types() -> set[str]:
-    """And the goals, which fire without a reason row of their own."""
+def campaign_types() -> dict[str, str]:
+    """And the goals, which fire without a reason row of their own — type → the class they claim.
+
+    THE CLASS TRAVELS WITH THE SEND, and it decides consent, the quiet window and the monthly cap.
+    A goal that files a marketing template as `awareness` would send advertising under an
+    exemption; the library is the authority, and this is the only place the two are compared.
+    """
     src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
-    return set(re.findall(r'\("([a-z_]+)",\s*"(?:marketing|awareness|service|personal)"\)', src))
+    return dict(re.findall(r'\("([a-z_]+)",\s*"(marketing|awareness|service|personal)"\)', src))
+
+
+def reason_classes() -> dict[str, str]:
+    """Each reason's template type and the class IT claims — same comparison, other service."""
+    src = (SERVICES / "reminders" / "app" / "core" / "reasons.py").read_text(encoding="utf-8")
+    out: dict[str, str] = {}
+    for cls, template in re.findall(r'cls="([a-z]+)",\s*template_type="([a-z_]+)"', src):
+        out[template] = cls
+    return out
 
 
 def main() -> int:
     rows = json.loads(CURATED.read_text(encoding="utf-8"))["templates"]
-    fired = reason_types() | campaign_types()
+    goals = campaign_types()
+    claims = {**goals, **reason_classes()}
+    fired = reason_types() | set(goals)
     problems: list[str] = []
     warnings: list[str] = []
 
@@ -136,6 +157,23 @@ def main() -> int:
         problems.append(f"{type_name}: no reason and no goal fires it, and no reason is written "
                         f"down. It is submitted to Meta for every establishment and can reach "
                         f"nobody — wire it, delete it, or say here why it sleeps")
+
+    # ── the class a caller CLAIMS must be the class the text IS ──────────────────────────────
+    # It decides consent, the quiet window and the monthly cap. A goal filing a marketing text as
+    # `awareness` would send advertising under an exemption, and nothing downstream would notice:
+    # the send carries the caller's word for it. The library is the authority, and this is the
+    # only place the two are ever compared.
+    for type_name, claimed in sorted(claims.items()):
+        rows_for = by_type.get(type_name)
+        if not rows_for:
+            problems.append(f"{type_name}: named by a reason or a goal and absent from the "
+                            f"library — the send picks no template and refuses, once, per shop")
+            continue
+        actual = rows_for[0]["class"]
+        if actual != claimed:
+            problems.append(f"{type_name}: sent as {claimed!r} and written as {actual!r}. The "
+                            f"class decides consent, the quiet window and the monthly cap — the "
+                            f"two answers cannot differ by which file you read")
 
     for type_name in sorted(SLEEPING):
         if type_name not in by_type:
