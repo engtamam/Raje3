@@ -223,6 +223,59 @@ async def set_trigger(request: Request, trigger_id: str, body: TriggerIn,
     return {"ok": True, "triggers": choices.public()}
 
 
+# ── his own texts (§6.7, and the owner's decision that there is no review of ours) ────────────
+class CustomTemplateIn(BaseModel):
+    trigger_id: str = Field(min_length=2, max_length=64)
+    body: str = Field(min_length=1, max_length=1024)
+    # WHAT EACH BLANK MEANS, in position order. Not derived from the text and not derivable: Meta
+    # numbers blanks and names nothing, so `{{2}}` is a customer's name in one template and a
+    # service in another. The editor knows, because he inserted the chip.
+    fills: list[str] = Field(default_factory=list, max_length=10)
+    # HIS ANSWER TO ONE QUESTION — «متى تُرسَل؟» — and never our analysis of his words. The class
+    # decides consent, the window and the monthly cap, and Meta re-categorises what it disagrees
+    # with; there is no checker of ours between him and them.
+    cls: str = Field(default="service", max_length=32)
+    # The approved text this one replaces. A new NAME every time: Meta freezes a name at approval,
+    # so reusing it would take his messages off the air for a day over one word.
+    replaces: str = Field(default="", max_length=512)
+
+
+@router.get("/templates", dependencies=[Depends(rate_limit)])
+async def list_custom_templates(request: Request, trigger_id: str = "",
+                                principal: Principal = Depends(_READ)) -> dict:
+    """His own texts and where each one stands."""
+    from app.core.custom_templates import CustomTemplateStore
+    store = CustomTemplateStore(request.app.state.container.datastore)
+    rows = await store.list(principal.tenant, trigger_id=trigger_id)
+    return {"templates": [{k: r.get(k) for k in
+                           ("name", "trigger_id", "body", "fills", "status", "reason",
+                            "version", "updated")} for r in rows]}
+
+
+@router.post("/templates", dependencies=[Depends(rate_limit)])
+async def write_custom_template(request: Request, body: CustomTemplateIn,
+                                principal: Principal = Depends(_MANAGE)) -> dict:
+    """Write one. It is a DRAFT — nothing reaches Meta until he says so.
+
+    REFUSES WHAT META WOULD REFUSE, and what our own renderer would: a link, a numbering gap, or a
+    blank this trigger cannot fill. The last is the one that matters — it would pass Meta's review
+    and then fail at send, once, for one shop, with nothing to read.
+    """
+    from app.core.custom_templates import CustomTemplateError, CustomTemplateStore
+    store = CustomTemplateStore(request.app.state.container.datastore)
+    try:
+        row = await store.draft(principal.tenant, trigger_id=body.trigger_id, body=body.body,
+                                fills=list(body.fills), cls=body.cls, replaces=body.replaces)
+    except CustomTemplateError as exc:
+        # RETURNED, NOT RAISED — the platform's handler strips an HTTPException's detail, and the
+        # sentence is the whole answer.
+        return {"ok": False, "error": str(exc)}
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"template:{row.name}", ip=request.client.host if request.client else "")
+    return {"ok": True, "template": row.public()}
+
+
 # ── settings: general, group, and one service's own (spec §10.8.1) ────────────────────────────
 class SettingsIn(BaseModel):
     # Every field optional: an owner changing the lead time must not be forced to restate the

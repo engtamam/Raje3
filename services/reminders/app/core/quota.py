@@ -69,6 +69,9 @@ from typing import Any
 # second counter with no entitlement behind it, which resolves deny-by-default and would refuse
 # every send — the one way this file can still stop a shop.
 KEY = "messages.monthly"
+# The other metered thing this service owns: a text the shop wrote and we submitted to Meta on its
+# behalf. Counted at SUBMISSION and never at draft — a draft costs nobody anything.
+CUSTOM_TEMPLATE_KEY = "templates.custom"
 
 
 class QuotaError(Exception):
@@ -87,6 +90,12 @@ class NullQuota:
     def __init__(self) -> None:
         self.consumed: list[dict[str, Any]] = []
         self.released: list[dict[str, Any]] = []
+
+    async def take(self, *, tenant: str, key: str, idempotency_key: str) -> None:
+        """No billing wired: nothing is metered, and nothing is refused for a plan that is not
+        being read. The strict direction would refuse every custom template in a deployment
+        without billing, which is a development environment, not a shop."""
+        return
 
     async def consume(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
         self.consumed.append({"tenant": tenant, "idempotency_key": idempotency_key,
@@ -154,6 +163,27 @@ class HttpQuota:
             # Anything else is billing declining for a reason we did not ask about. Refusing the
             # send on an answer we cannot explain to the owner would be worse than not counting it.
             return
+
+    async def take(self, *, tenant: str, key: str, idempotency_key: str) -> None:
+        """Spend one unit of a counter that IS a limit — and refuse when it is exhausted.
+
+        THE OPPOSITE OF `consume` ABOVE, deliberately. Messages are measured and never refused,
+        because we do not own the ceiling. `templates.custom` we DO sell: 0 on الأساسية, 1, 10,
+        unlimited — and a plan limit that fails open is not a plan limit, it is a label.
+
+        UNREACHABLE REFUSES HERE. Failing open on a message loses a measurement; failing open on
+        this hands Meta a submission the shop did not buy, against a name that cannot be reused.
+        """
+        try:
+            status, out = self._post(self._consume, {"tenant": tenant, "key": key, "amount": 1,
+                                                     "idempotency_key": idempotency_key})
+        except QuotaError as exc:
+            raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.") from exc
+        if status >= 400 or not out.get("allowed"):
+            error = str(out.get("error") or "")
+            if error == "NOT_ENTITLED":
+                raise QuotaError("لا يوجد اشتراك فعّال.")
+            raise QuotaError("بلغت حدّ باقتك من النصوص الخاصة هذا الشهر.")
 
     async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
         """Give the unit back after a send that did not happen. Best-effort, never raises."""

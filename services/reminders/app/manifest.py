@@ -120,6 +120,9 @@ def build_manifest(
             {"path": "/api/v1/reminders/rules", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/rules/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/reminders/log", "tier": "user", "method": "GET"},
+            # His own texts: written here, submitted from here, never edited by us.
+            {"path": "/api/v1/reminders/templates", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/reminders/templates", "tier": "user", "method": "POST"},
             # What sends in the shop's name, and whether it sends at all (core/triggers.py).
             {"path": "/api/v1/reminders/triggers", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/triggers/{}", "tier": "user", "method": "PUT"},

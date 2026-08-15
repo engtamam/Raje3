@@ -124,6 +124,19 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "ما أُرسل وما امتنع، ولماذا امتنع.",
     },
     {
+        "id": "reminders.my_templates", "label": "نصوصي", "method": "GET",
+        "path": "/api/v1/reminders/templates", "capability": "reminders.read",
+        "group": "الإعدادات",
+        "help": "النصوص التي كتبتها بنفسك، وأين وصل كلٌّ منها عند واتساب.",
+    },
+    {
+        "id": "reminders.write_template", "label": "اكتب نصّك", "method": "POST",
+        "path": "/api/v1/reminders/templates", "capability": "reminders.manage",
+        "group": "الإعدادات",
+        # A draft, and nothing reaches Meta until he submits it.
+        "help": "نصٌّ من عندك لرسالة بعينها — يُحفظ مسودّة حتى ترفعه.",
+    },
+    {
         "id": "reminders.triggers", "label": "رسائلي التلقائية", "method": "GET",
         "path": "/api/v1/reminders/triggers", "capability": "reminders.read",
         "group": "الإعدادات",
