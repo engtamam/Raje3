@@ -48,7 +48,11 @@ const ROLES: { value: string; label: string; can: string }[] = [
   { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات' },
   { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب' },
 ];
-interface Branch { id: string; name: string }
+interface Branch { id: string; name: string; active?: boolean }
+
+/** The one branch every shop has from its first minute. Ours to create, his to rename, and it
+ *  cannot be closed — it is where an unrecognised branch lands (services/operations/core/branches.py). */
+const MAIN_BRANCH = 'brn-main';
 
 export function TeamScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [tab, setTab] = useState<'people' | 'branches'>('people');
@@ -59,6 +63,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
   const addOperator = action(catalog, 'operations.create_operator');
   const addBranch = action(catalog, 'operations.create_branch');
+  const editBranch = action(catalog, 'operations.update_branch');
   const listBranches = action(catalog, 'operations.list_branches');
 
   const load = () => {
@@ -111,6 +116,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
             session={session}
             branches={branches}
             add={addBranch}
+            edit={editBranch}
             available={Boolean(listBranches)}
             onChanged={load}
           />}
@@ -249,6 +255,7 @@ function Branches({ session, branches, add, available, onChanged }: {
   session: Session;
   branches: Branch[] | null;
   add: ReturnType<typeof action>;
+  edit: ReturnType<typeof action>;
   available: boolean;
   onChanged: () => void;
 }) {
@@ -293,10 +300,17 @@ function Branches({ session, branches, add, available, onChanged }: {
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       {branches.length === 0 ? (
-        <EmptyState title="فرع واحد" description="أضف فرعاً حين تفتح الثاني." />
+        // AN EMPTY LIST IS NOW A FAILURE, NOT A STATE. Every establishment owns its main branch
+        // from signup, and the read repairs a shop that somehow has none — so nothing left here
+        // means the request did not answer, and «أضف فرعاً حين تفتح الثاني» would be us blaming
+        // his shop for our outage.
+        <EmptyState title="تعذّر قراءة الفروع" description="حاول بعد قليل." />
       ) : (
         <ul className="flex flex-col gap-2">
-          {branches.map((b) => <li key={b.id}>{b.name}</li>)}
+          {branches.map((b) => (
+            <BranchRow key={b.id} session={session} branch={b} edit={edit}
+                       onChanged={onChanged} />
+          ))}
         </ul>
       )}
 
@@ -319,5 +333,97 @@ function Branches({ session, branches, add, available, onChanged }: {
         </form>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * One branch, and the two things an owner may do to it.
+ *
+ * RENAME AND CLOSE — NEVER DELETE. Visits, points movements and reminder schedules all carry a
+ * branch id as a plain string, so a deleted branch would leave a year of records pointing at a
+ * place with no name, and the comparison table would report them under an id nobody recognises.
+ * The server refuses a delete by not having one; this screen offers what exists.
+ *
+ * THE MAIN BRANCH HAS NO CLOSE BUTTON, and the reason is written where he can read it: it is
+ * where a visit with an unrecognised branch lands, so a shop that closed it would be recording
+ * visits against nothing. Renaming it is his — «الفرع الرئيسي» is our word, not his shop's.
+ *
+ * AND REOPENING IS REFUSED BY THE SERVER when the plan is full, with the number in the sentence:
+ * putting a place back into service is an addition, and a plan of one branch must not be passed
+ * by closing and reopening.
+ */
+function BranchRow({ session, branch, edit, onChanged }: {
+  session: Session;
+  branch: Branch;
+  edit: ReturnType<typeof action>;
+  onChanged: () => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(branch.name);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const main = branch.id === MAIN_BRANCH;
+  const live = branch.active !== false;
+
+  async function save(patch: Record<string, unknown>) {
+    if (!edit) return;
+    setBusy(true);
+    setError('');
+    try {
+      await call(session, edit, { id: branch.id, ...patch });
+      setRenaming(false);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر حفظ التعديل.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+      {renaming ? (
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(e: FormEvent) => { e.preventDefault(); save({ name: name.trim() }); }}
+        >
+          <Field label="اسم الفرع" required htmlFor={`br-${branch.id}`}>
+            <Input id={`br-${branch.id}`} value={name} autoFocus
+                   onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={busy || name.trim().length === 0}>
+              {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+            </Button>
+            <Button type="button" variant="ghost"
+                    onClick={() => { setRenaming(false); setName(branch.name); setError(''); }}>
+              إلغاء
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex flex-col">
+            <span>{branch.name}</span>
+            {/* CLOSED IS SAID, NOT GREYED. A branch that only looks faint reads as a rendering
+                accident; the word is what tells him why it is absent from the pickers. */}
+            {!live ? <span className="text-xs text-text-secondary">مغلق</span> : null}
+            {main ? <span className="text-xs text-text-secondary">الفرع الرئيسي — لا يُغلق</span> : null}
+          </span>
+          {edit ? (
+            <span className="flex gap-2">
+              <Button variant="ghost" onClick={() => setRenaming(true)}>تسمية</Button>
+              {main ? null : (
+                <Button variant="ghost" disabled={busy}
+                        onClick={() => save({ active: !live })}>
+                  {live ? 'إغلاق' : 'إعادة فتح'}
+                </Button>
+              )}
+            </span>
+          ) : null}
+        </div>
+      )}
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+    </li>
   );
 }

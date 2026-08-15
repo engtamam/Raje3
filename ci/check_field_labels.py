@@ -50,7 +50,12 @@ def main() -> int:
                     continue
                 total += 1
                 line = text.count("\n", 0, m.start()) + 1
-                htmlfor = re.search(r'htmlFor="([^"]+)"', attrs)
+                # A COMPUTED ID IS STILL AN ID. A list renders one Field per row, so its id has to
+                # carry the row's key — `htmlFor={`br-${branch.id}`}` — and a guard that only
+                # understands quoted strings would push the author into a constant id repeated
+                # once per row, which is the accessibility bug this file exists to catch.
+                htmlfor = (re.search(r'htmlFor="([^"]+)"', attrs)
+                           or re.search(r'htmlFor=(\{[^}]*\})', attrs))
                 if not htmlfor:
                     problems.append(f"{rel}:{line} — <Field label=…> with no htmlFor: the label is "
                                     f"bound to a generated id no control carries, so it names "
@@ -58,7 +63,12 @@ def main() -> int:
                     continue
                 # the control has to carry that same id, and it lives in the children right after.
                 body = text[m.end():m.end() + 800]
-                if f'id="{htmlfor.group(1)}"' not in body:
+                want = htmlfor.group(1)
+                # The same shape either way: a literal must appear as id="…", an expression as
+                # id={…} spelled identically — different spellings of "the same" id are how a
+                # binding silently breaks.
+                bound = f'id={want}' if want.startswith("{") else f'id="{want}"'
+                if bound not in body:
                     problems.append(f"{rel}:{line} — htmlFor=\"{htmlfor.group(1)}\" and no control "
                                     f"under it carries that id")
 
