@@ -342,7 +342,7 @@ ship_one() {
   # thing it adds is fetching the images in parallel before the sequential loop needs them — a single
   # image took 3m50s on this link, and nineteen in single file took over an hour. The rollout logic
   # underneath is unchanged, so a diff against theirs stays short.
-  "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart \
+  "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart PRUNE_IMAGES=${FAST:-1} \
      VALUES_DIR=deploy/services bash deploy/server/update.sh --only $svc 2>&1 | tail -2"
 
   # ── 6. verify the ARTIFACT, not the report ───────────────────────────────────────────────────
@@ -547,7 +547,7 @@ ship_many() {
   done
   [ "$rc" -eq 0 ] || { rm -rf "$tmp"; return 1; }
 
-  "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart \
+  "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart PRUNE_IMAGES=${FAST:-1} \
      VALUES_DIR=deploy/services bash deploy/server/update.sh --only $list 2>&1 | tail -3"
 
   # ── E. verify each ARTIFACT, in parallel ─────────────────────────────────────────────────────

@@ -256,7 +256,21 @@ kubectl -n "$NS" get pods --no-headers 2>/dev/null \
 # PRUNE superseded node images now that every deployment is on the new digest and healthy — the old
 # tags are no longer referenced by any pod, which is what slowly fills a long-lived box. Only on a
 # fully-successful rollout (a rollback might still need the previous image). Best-effort.
-if command -v crictl >/dev/null 2>&1; then
+#
+# ── AND NEVER WHEN THE IMAGES WERE SIDE-LOADED, WHICH IS WHAT PRUNE_IMAGES GUARDS ────────────
+#
+# `crictl rmi --prune` deletes every image no RUNNING pod references. On the registry road that is
+# harmless — the node can fetch it again. On the TARBALL road the node holds the ONLY copy, and a
+# pod that is still pulling (or restarting) does not count as a reference: the prune deletes the
+# image we just shipped, and the pod can never recover, because there is nowhere left to pull from.
+#
+# IT COST TWO FULL DEPLOYS TO SEE. Both reported «rolled — every service on its pinned digest»,
+# both ended in ImagePullBackOff, and the second left containerd with NO image for the service at
+# all — which is what finally named the culprit. A cleanup that destroys the artefact it was
+# cleaning up around is the worst kind of green report.
+if [ "${PRUNE_IMAGES:-1}" != "1" ]; then
+  echo -e "  images kept — side-loaded, and the node holds the only copy"
+elif command -v crictl >/dev/null 2>&1; then
   crictl rmi --prune >/dev/null 2>&1 && echo -e "  ${C_G}✔ pruned superseded node images${C_N}" || true
 elif command -v k3s >/dev/null 2>&1; then
   k3s crictl rmi --prune >/dev/null 2>&1 && echo -e "  ${C_G}✔ pruned superseded node images${C_N}" || true
