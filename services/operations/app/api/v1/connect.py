@@ -18,6 +18,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core import connect
+from app.core import sending_identity as SI
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -43,6 +44,10 @@ class SignupResultIn(BaseModel):
     phone_number_id: str = Field(default="", max_length=128)
     business_id: str = Field(default="", max_length=128)
     step: str = Field(default="", max_length=64)
+    # WHICH BRANCH'S NUMBER THIS IS — empty is the establishment's own, which is every shop in the
+    # default mode. Ignored entirely while the shop is central: see `sending_identity.resolve`,
+    # which drops it rather than letting one screen decide differently from another.
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.post("/connect", dependencies=[Depends(rate_limit)])
@@ -65,10 +70,20 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     store = connect.ConnectionStore(c.datastore)
     ip = request.client.host if request.client else ""
 
+    # ── WHICH NUMBER IS BEING CONNECTED, AND UNDER WHAT NAME ───────────────────────────────────
+    # The identity is what the platform seals the credentials against. `tenant` for a central shop
+    # — byte for byte what it has always sent — and `tenant:branch` only for a chain that has
+    # deliberately moved to a number per branch (core/shop_mode.py).
+    #
+    # RESOLVED ONCE, HERE. The branch is dropped for a central shop in that one function, so the
+    # row, the seal and the screen cannot disagree about which number this is.
+    identity = await SI.resolve(c.datastore, tenant, body.branch_id)
+    branch_id = SI.split(identity)[1]
+
     if (body.event or "").upper() == "CANCEL":
         state = connect.classify_cancel(body.step)
         attempt = await store.record(connect.Attempt(
-            tenant=tenant, state=state, step=(body.step or "").upper()))
+            tenant=tenant, state=state, step=(body.step or "").upper(), branch_id=branch_id))
         await request.app.state.auditor.record(
             "whatsapp.connect_stopped", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource="whatsapp_connection", ip=ip)
@@ -97,7 +112,7 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         attempt = await store.record(connect.Attempt(
             tenant=tenant, state=connect.STATE_FINISHED_UNCONFIRMED,
             waba_id=body.waba_id, business_id=body.business_id,
-            detail="finish carried no phone_number_id"))
+            detail="finish carried no phone_number_id", branch_id=branch_id))
         await request.app.state.auditor.record(
             "whatsapp.connect_failed", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource=f"waba:{body.waba_id}", ip=ip)
@@ -105,15 +120,18 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
             **attempt.public(),
             "message": "أنشأتَ الحساب ولم يُوثَّق رقمك بعد. وثّق الرقم في واتساب ثم أعد الربط."})
 
+    # SEALED AGAINST THE SENDING IDENTITY, NOT THE TENANT. The platform treats this as an opaque
+    # key — it never learns what a branch is — so a second number under the same establishment gets
+    # its own credentials instead of overwriting the first shop-wide seal.
     ok, detail = await connect.build_exchange(s).exchange(
-        tenant=tenant, code=body.code, waba_id=body.waba_id,
+        tenant=identity, code=body.code, waba_id=body.waba_id,
         phone_number_id=body.phone_number_id)
 
     attempt = await store.record(connect.Attempt(
         tenant=tenant,
         state=connect.STATE_CONNECTED if ok else connect.STATE_FAILED,
         waba_id=body.waba_id, phone_number_id=body.phone_number_id,
-        business_id=body.business_id,
+        business_id=body.business_id, branch_id=branch_id,
         # KEPT AND NOT SHOWN. Support needs "Meta rejected the code" to tell it apart from "our app
         # secret is wrong"; the owner needs neither, and one of the two is about us.
         detail="" if ok else detail))

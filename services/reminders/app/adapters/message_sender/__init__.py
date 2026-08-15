@@ -63,8 +63,13 @@ class NullSender:
         self.sent: list[dict[str, Any]] = []
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
-                   variables: list[str], cls: str, idempotency_key: str) -> None:
-        self.sent.append({"tenant": tenant, "subject_ref": subject_ref,
+                   variables: list[str], cls: str, idempotency_key: str,
+                   sending_identity: str = "") -> None:
+        self.sent.append({"tenant": tenant,
+                          # RECORDED BY THE FAKE TOO, so a test that targets a branch can assert
+                          # which number it would have gone out from.
+                          "sending_identity": sending_identity or tenant,
+                          "subject_ref": subject_ref,
                           "template_name": template_name, "variables": variables,
                           "cls": cls, "idempotency_key": idempotency_key})
 
@@ -88,7 +93,8 @@ class HttpSender:
         self._timeout = timeout
 
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
-                   variables: list[str], cls: str, idempotency_key: str) -> None:
+                   variables: list[str], cls: str, idempotency_key: str,
+                   sending_identity: str = "") -> None:
         recipient, name = self._recipient(tenant, subject_ref)
         if not recipient:
             # NOT AN ERROR, and not a retry. The subject was erased, or never existed. Raising
@@ -122,6 +128,14 @@ class HttpSender:
             # WITHOUT THIS, every consent-gated send resolves against an empty tenant and denies
             # permanently. Documented as a past outage in the peer's own request model.
             "tenant": tenant,
+            # WHICH NUMBER THIS LEAVES FROM (spec 12.7.1). `tenant` for a shop that sends from one
+            # number — which is every shop today — and `tenant:branch` for a chain that moved to a
+            # number per branch. The peer treats it as an opaque key: it selects the credentials
+            # sealed under it and never learns what a branch is.
+            #
+            # ABSENT MEANS THE ESTABLISHMENT, so a caller that has not been taught this yet keeps
+            # behaving exactly as before rather than sending from nowhere.
+            "sending_identity": sending_identity or tenant,
             # A DICT KEYED BY NUMBER. A list is dropped silently and renders every variable empty.
             "variables": {str(i + 1): v for i, v in enumerate(variables)},
             "idempotency_key": idempotency_key,

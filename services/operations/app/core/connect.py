@@ -99,18 +99,37 @@ class Attempt:
     business_id: str = ""
     detail: str = ""
     at: int = field(default_factory=_now)
+    # WHICH BRANCH THIS NUMBER BELONGS TO — empty for the establishment's own number, which is
+    # every shop today and every shop in the default mode (spec 12.2).
+    branch_id: str = ""
+
+    @property
+    def key(self) -> str:
+        """The row's id — and the defect it closes.
+
+        THE SECOND CONNECT USED TO ERASE THE FIRST. The row was keyed on the tenant alone, so a
+        chain connecting its Jeddah number overwrote Riyadh's `waba_id` and `phone_number_id` —
+        gone, with no copy anywhere and no way to send from the first number again. Nothing failed:
+        the screen said «تم الربط» about the number that had just replaced the other one.
+
+        AND THE ESTABLISHMENT'S OWN ROW KEEPS ITS OLD KEY, byte for byte. A shop with no branch on
+        its connection is stored under its tenant id exactly as before, so every existing row is
+        found by the same lookup and nothing is migrated.
+        """
+        return f"{self.tenant}|{self.branch_id}" if self.branch_id else self.tenant
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.tenant, "tenant": self.tenant, "state": self.state, "step": self.step,
+        return {"id": self.key, "tenant": self.tenant, "state": self.state, "step": self.step,
                 "waba_id": self.waba_id, "phone_number_id": self.phone_number_id,
-                "business_id": self.business_id, "detail": self.detail, "at": self.at}
+                "business_id": self.business_id, "detail": self.detail, "at": self.at,
+                "branch_id": self.branch_id}
 
     def public(self) -> dict[str, Any]:
         """What the owner's screen may see. NO identifiers of Meta's — they are ours to hold and
         his to never need, and a WABA id on a screen is one more thing that can be pasted into a
         support chat."""
         return {"state": self.state, "step": self.step, "message": sentence_for(self),
-                "at": self.at}
+                "at": self.at, "branch_id": self.branch_id}
 
 
 def sentence_for(attempt: Attempt) -> str:
@@ -145,18 +164,35 @@ class ConnectionStore:
         self._s = store
 
     async def record(self, attempt: Attempt) -> Attempt:
-        await self._s.put(CONNECTIONS, attempt.tenant, attempt.to_dict())
+        await self._s.put(CONNECTIONS, attempt.key, attempt.to_dict())
         return attempt
 
-    async def get(self, tenant: str) -> Attempt | None:
-        row = await self._s.get(CONNECTIONS, tenant)
+    async def get(self, tenant: str, branch_id: str = "") -> Attempt | None:
+        key = f"{tenant}|{branch_id}" if branch_id else tenant
+        row = await self._s.get(CONNECTIONS, key)
         if not row:
             return None
         return Attempt(tenant=str(row.get("tenant") or tenant), state=str(row.get("state") or ""),
                        step=str(row.get("step") or ""), waba_id=str(row.get("waba_id") or ""),
                        phone_number_id=str(row.get("phone_number_id") or ""),
                        business_id=str(row.get("business_id") or ""),
-                       detail=str(row.get("detail") or ""), at=int(row.get("at") or 0))
+                       detail=str(row.get("detail") or ""), at=int(row.get("at") or 0),
+                       branch_id=str(row.get("branch_id") or branch_id))
+
+    async def for_tenant(self, tenant: str, *, limit: int = 50) -> list[Attempt]:
+        """Every number this establishment has connected — the shop's own and its branches'.
+
+        FOR THE SCREEN THAT ASKS «which of my places can send», which cannot exist while the store
+        answers one row per shop.
+        """
+        rows, _ = await self._s.find(CONNECTIONS, {"tenant": tenant}, limit=max(1, limit),
+                                     sort=("at", "desc"))
+        return [Attempt(tenant=str(r.get("tenant") or tenant), state=str(r.get("state") or ""),
+                        step=str(r.get("step") or ""), waba_id=str(r.get("waba_id") or ""),
+                        phone_number_id=str(r.get("phone_number_id") or ""),
+                        business_id=str(r.get("business_id") or ""),
+                        detail=str(r.get("detail") or ""), at=int(r.get("at") or 0),
+                        branch_id=str(r.get("branch_id") or "")) for r in rows]
 
 
     async def live_tenants(self, *, limit: int = 500) -> list[str]:

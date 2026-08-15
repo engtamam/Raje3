@@ -53,6 +53,20 @@ from app.core.stores import (EngagementStore, PrefsStore, RuleStore, ScheduleSto
                              SendLogStore)
 
 
+def _sending_identity(tenant: str, row: dict) -> str:
+    """`tenant` or `tenant:branch` — see operations/core/sending_identity.py, which owns the shape.
+
+    RESOLVED FROM THE SCHEDULE, NOT RE-DERIVED. The row was written when the visit was ingested and
+    already holds the branch that visit belongs to; asking again here would be a second opinion
+    that disagrees the day an owner reassigns a branch.
+
+    AND A ROW WITH NO BRANCH SENDS FROM THE ESTABLISHMENT, which is every shop that has not moved
+    to a number per branch — so this changes nothing for them.
+    """
+    branch = str(row.get("branch_id") or "").strip()
+    return f"{tenant}:{branch}" if branch else tenant
+
+
 @dataclass
 class Room:
     """Today's remaining allowance, shared across one tenant's pass.
@@ -377,7 +391,12 @@ class Tick:
         try:
             await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
-                variables=rendered.variables, cls=cls, idempotency_key=key)
+                variables=rendered.variables, cls=cls, idempotency_key=key,
+                # WHICH NUMBER IT LEAVES FROM. The schedule already carries the branch the visit
+                # happened at; this is the one line that turns it into the credentials the message
+                # is actually sent with. `""` — every shop in the default mode — resolves to the
+                # establishment inside the sender, exactly as before.
+                sending_identity=_sending_identity(tenant, row))
         except Unsendable as exc:
             # GIVE THE UNIT BACK. The consume had to come first to be atomic, so a send that did
             # not happen leaves a unit spent — and an erased recipient is not something the shop
@@ -582,7 +601,12 @@ class Tick:
         try:
             await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
-                variables=rendered.variables, cls=cls, idempotency_key=key)
+                variables=rendered.variables, cls=cls, idempotency_key=key,
+                # WHICH NUMBER IT LEAVES FROM. The schedule already carries the branch the visit
+                # happened at; this is the one line that turns it into the credentials the message
+                # is actually sent with. `""` — every shop in the default mode — resolves to the
+                # establishment inside the sender, exactly as before.
+                sending_identity=_sending_identity(tenant, row))
         except CeilingReached as exc:
             # WHATSAPP WILL NOT TAKE ANOTHER MESSAGE FROM THIS SHOP RIGHT NOW (spec §8.4.3).
             # Nothing left, so nothing is counted — and what happens next is the TEMPLATE's

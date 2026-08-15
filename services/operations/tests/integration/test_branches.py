@@ -395,3 +395,57 @@ def test_a_customers_page_says_which_branch_each_visit_was_at(client):
     visits = r.json()["visits"]
     assert [v["branch"] for v in visits] == ["فرع العليا", ""]
     assert bid not in r.text
+
+
+def test_a_second_branch_connection_does_not_erase_the_first(client):
+    """THE DEFECT: the connection row was keyed on the tenant alone.
+
+    A chain connecting its Jeddah number overwrote Riyadh's `waba_id` and `phone_number_id` — gone,
+    with no copy anywhere and no way to send from the first number again. Nothing failed: the
+    screen said «تم الربط» about the number that had just replaced the other one.
+    """
+    import asyncio
+
+    from app.core import connect
+
+    store = connect.ConnectionStore(client.app.state.container.datastore)
+    tenant = "tnt_two_numbers"
+
+    async def go():
+        await store.record(connect.Attempt(
+            tenant=tenant, state=connect.STATE_CONNECTED, waba_id="waba_ruh",
+            phone_number_id="pn_ruh", branch_id="brn-ruh"))
+        await store.record(connect.Attempt(
+            tenant=tenant, state=connect.STATE_CONNECTED, waba_id="waba_jed",
+            phone_number_id="pn_jed", branch_id="brn-jed"))
+        return (await store.get(tenant, "brn-ruh"),
+                await store.get(tenant, "brn-jed"),
+                await store.for_tenant(tenant))
+
+    ruh, jed, both = asyncio.run(go())
+    assert ruh is not None and ruh.phone_number_id == "pn_ruh"
+    assert jed is not None and jed.phone_number_id == "pn_jed"
+    assert {a.branch_id for a in both} == {"brn-ruh", "brn-jed"}
+
+
+def test_the_establishments_own_connection_keeps_its_old_key(client):
+    """Every row written before this change is keyed on the tenant alone, and must still be found
+    by the same lookup — nothing is migrated."""
+    import asyncio
+
+    from app.core import connect
+
+    store = connect.ConnectionStore(client.app.state.container.datastore)
+    tenant = "tnt_one_number"
+
+    async def go():
+        await store.record(connect.Attempt(
+            tenant=tenant, state=connect.STATE_CONNECTED, waba_id="waba_1",
+            phone_number_id="pn_1"))
+        raw = await client.app.state.container.datastore.get("whatsapp_connections", tenant)
+        return raw, await store.get(tenant)
+
+    raw, got = asyncio.run(go())
+    assert raw is not None, "a central shop's row must still be stored under its tenant id"
+    assert got is not None and got.phone_number_id == "pn_1"
+    assert got.branch_id == ""
