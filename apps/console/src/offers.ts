@@ -15,6 +15,8 @@ export interface Offer {
    *  whether an offer is live is a support call nobody can settle, and the browser's is the one
    *  that can be wrong on purpose. */
   live: boolean;
+  /** The code the customer holds, when the offer carries one. Empty for the older ones. */
+  code?: string;
 }
 
 /**

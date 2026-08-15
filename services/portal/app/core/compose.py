@@ -188,7 +188,11 @@ def _normalise_offers(raw: Any) -> list[dict[str, Any]]:
                     "sent_at": int(r.get("sent_at") or 0),
                     # Which services it covers. Empty means the whole shop, which is a real answer
                     # and not a missing one — the page says so in words rather than showing a gap.
-                    "services": [str(s) for s in (r.get("services") or []) if s]})
+                    "services": [str(s) for s in (r.get("services") or []) if s],
+                    # THE CODE HE READS OUT AT THE COUNTER. It is the only handle the till has on
+                    # this offer, and a customer holding an offer he cannot name is a customer
+                    # arguing with an operator who has nothing to check.
+                    "code": str(r.get("code") or "")})
     return sorted(out, key=lambda o: o["expires_at"])
 
 

@@ -34,6 +34,7 @@ from app.core import engagement as E
 from app.core import gate as G
 from app.core import quota as Q
 from app.core import ceiling as C
+from app.core import coupons as COUPONS
 from app.core import ladder as L
 from app.core import triggers as TR
 from app.core import merge as M
@@ -320,6 +321,11 @@ class Tick:
             # four-variable template said the same thing twice; and it passed slot 1 empty, which
             # greeted every customer «عميلنا العزيز» although we hold their names. A typed slot
             # (a discount, a coupon code, an end date) had no value to take at all.
+            # THE COUPON, DERIVED HERE AND NOWHERE ELSE. Same send, same code — a retry after a
+            # timeout must not hand the customer a second one, and a random code would need a
+            # write on the send path for no gain.
+            coupon = (COUPONS.code_for(str(row.get("idempotency_key") or ""))
+                      if int(row.get("offer_expires_at") or 0) else "")
             values = R.campaign_slots(
                 template,
                 establishment=establishment,
@@ -327,7 +333,7 @@ class Tick:
                 service_text=R.merged_service_text(
                     [service_names.get(s, s) for s in (row.get("offer_services") or [])]),
                 offer_value=str(row.get("offer_value", "")),
-                coupon_code=str(row.get("coupon_code", "")),
+                coupon_code=coupon,
                 expires_at=int(row.get("offer_expires_at") or 0))
             # ONE DICT, PASSED AS ALL THREE. `campaign_slots` has already answered per source, so
             # handing the renderer three different maps would be deciding the same thing twice and
@@ -381,7 +387,10 @@ class Tick:
             outcome="sent", idempotency_key=key,
             offer_text=row.get("offer_text", ""),
             offer_expires_at=int(row.get("offer_expires_at") or 0),
-            offer_services=list(row.get("offer_services") or []))))
+            offer_services=list(row.get("offer_services") or []),
+            # RECORDED WITH THE OFFER IT BELONGS TO. The customer will read it back to an operator
+            # who has to find this row from that string alone.
+            offer_code=coupon)))
         return {"sent": True, "reason": ""}
 
     async def _one(self, tenant: str, row: dict[str, Any], *, now: int, res: TickResult,

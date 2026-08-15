@@ -180,6 +180,10 @@ class SendLog:
     # the screens say so in words rather than showing a gap. The sentence persuades and cannot be
     # enforced; this is the part a screen can act on.
     offer_services: list[str] = field(default_factory=list)
+    # THE CODE THE CUSTOMER READS OUT AT THE COUNTER. Derived from the send's own key rather than
+    # stored separately (core/coupons.py), and kept on the row because this row IS the entitlement
+    # — the till looks the offer up by what the customer says, and «عرض وصلني» is not a handle.
+    offer_code: str = ""
 
 
 @dataclass

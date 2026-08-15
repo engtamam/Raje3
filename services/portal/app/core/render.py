@@ -128,6 +128,10 @@ def _css(theme: Theme) -> str:
         "opacity:.07;pointer-events:none}"
         ".offer > *{position:relative}"
         ".offer .txt{font-size:1.18rem;font-weight:640;line-height:1.5}"
+        ".offer .code{margin-top:.5rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;"
+        "font-size:1.05rem;letter-spacing:.16em;color:var(--accent-on-soft);"
+        "background:var(--accent-soft);border-radius:.5rem;padding:.35rem .6rem;"
+        "display:inline-block}"
         ".offer .scope{color:var(--text-muted);font-size:.88rem;margin-top:.35rem}"
         # ── the countdown ─────────────────────────────────────────────────────────────────
         # Four cells, largest first in reading order. `tabular-nums` so the width does not shiver
@@ -222,6 +226,11 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
                 parts.append(f"<p class='scope'>على: {names}</p>")
             else:
                 parts.append("<p class='scope'>على كل الخدمات</p>")
+            # THE CODE, BIG ENOUGH TO READ FROM A PHONE HELD AT ARM'S LENGTH across a counter.
+            # `dir=ltr` because it is Latin and digits: without it the dash and the letters swap
+            # sides, and he reads it back across the counter in the wrong order.
+            if o.get("code"):
+                parts.append(f"<p class='code' dir='ltr'>{_e(o['code'])}</p>")
             # The countdown's cells, and beneath them the plain date for a device with no script.
             #
             # THE WORD "device" RATHER THAN THE OBVIOUS ONE IS NOT AN ACCIDENT. A trap in this

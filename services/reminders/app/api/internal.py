@@ -698,6 +698,7 @@ async def choose_offer(request: Request, body: ChooseOfferIn) -> dict:
         return {"offer": None, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
     return {"offer": {"ref": str(row.get("id") or ""),
                       "text": row.get("offer_text", ""),
+                      "code": row.get("offer_code", ""),
                       "expires_at": int(row.get("offer_expires_at") or 0)}}
 
 

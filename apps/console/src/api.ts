@@ -199,6 +199,8 @@ export interface FieldOffer {
   text?: string;
   expires_at?: number;
   service_ids?: string[];
+  /** The code the customer reads off his phone — shown so both sides quote the same string. */
+  code?: string;
 }
 
 export async function offerFor(session: Session, subjectRef: string): Promise<FieldOffer | null> {

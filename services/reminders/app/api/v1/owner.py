@@ -406,7 +406,10 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
         return {"offer": None}
     return {"offer": {"text": row.get("offer_text", ""),
                       "expires_at": int(row.get("offer_expires_at") or 0),
-                      "sent_at": int(row.get("at") or 0)}}
+                      "sent_at": int(row.get("at") or 0),
+                      # THE CODE THE CUSTOMER IS HOLDING. Shown to the operator so the two are
+                      # looking at the same string when one of them reads it aloud.
+                      "code": row.get("offer_code", "")}}
 
 
 class DsarCodeOut(BaseModel):
@@ -461,6 +464,7 @@ async def customer_offers(request: Request, subject_ref: str = Query(min_length=
             continue
         out.append({"text": r.get("offer_text", ""), "expires_at": expires,
                     "sent_at": int(r.get("at") or 0),
+                    "code": r.get("offer_code", ""),
                     "services": list(r.get("offer_services") or []),
                     # Said by the server rather than derived by the screen: two clocks disagreeing
                     # about whether an offer is live is a support call nobody can settle.

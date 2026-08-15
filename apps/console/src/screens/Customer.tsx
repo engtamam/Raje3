@@ -335,10 +335,18 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 <p className="mt-1 text-sm text-text-secondary">
                   {o.services.length > 0 ? `على: ${o.services.join('، ')}` : 'على كل الخدمات'}
                 </p>
-                <p className="mt-2 flex items-center gap-2 text-sm">
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                   <Badge tone="accent">ساري</Badge>
                   <span className="text-text-secondary">{remaining(o.expires_at)}</span>
                   <span className="text-text-secondary">· وصله {when(o.sent_at)}</span>
+                  {/* THE SAME STRING HE IS HOLDING. The owner is often the one who answers when a
+                      customer calls to ask about an offer, and «الرمز اللي عندك؟» only works if
+                      this screen shows what was sent. */}
+                  {o.code ? (
+                    <span dir="ltr" className="font-mono tracking-wider text-text-secondary">
+                      {o.code}
+                    </span>
+                  ) : null}
                 </p>
               </li>
             ))}
