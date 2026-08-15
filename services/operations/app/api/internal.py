@@ -447,21 +447,27 @@ async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
     page either way, and a 404 here would travel through it as an oracle.
     """
     c = request.app.state.container
-    rows, _ = await c.datastore.find(
-        VISITS, {"tenant": body.tenant}, limit=200, sort=("created", "desc"))
-    cust = None
     crows, _ = await c.datastore.find(
         CUSTOMERS, {"tenant": body.tenant, "subject_ref": body.subject_ref}, limit=1)
     cust = crows[0] if crows else None
     if cust is None:
         return {"visits": [], "count": 0}
 
+    # HIS OWN VISITS, ASKED FOR BY NAME — not the shop's last 200 filtered down to him.
+    #
+    # THE BUG THAT WAS: this read the tenant's most recent 200 visits and then dropped every row
+    # whose customer was somebody else. A quiet shop was fine. A shop recording 200 visits in two
+    # days served its month-old customer an EMPTY history — on the page we send him a link to,
+    # from a message in the shop's name. Nothing failed: the list was simply the wrong list, and
+    # the busier the establishment the more certainly it was empty.
+    rows = [v.__dict__ for v in await VisitStore(c.datastore).for_customer(
+        body.tenant, str(cust.get("id") or ""), limit=max(body.limit, 1))]
+    rows.sort(key=lambda r: int(r.get("occurred_at") or r.get("created") or 0), reverse=True)
+
     names = {s.id: s.name for s in await ServiceStore(c.datastore).list(body.tenant,
                                                                        active_only=False)}
     out = []
     for r in rows:
-        if r.get("customer_id") != cust.get("id"):
-            continue
         labels = [names.get(sid, "") for sid in (r.get("service_ids") or [])]
         labels = [x for x in labels if x] or [r.get("custom_service") or "زيارة"]
         out.append({"services": "، ".join(labels[:3]),

@@ -114,3 +114,35 @@ def test_a_closed_branch_stops_counting_against_the_plan(client):
     reported = [v for (t, k, v) in gauges.reported if t == "tnt_gauge" and k == "branches"]
     # 2 when the second was added, 1 once it was closed.
     assert reported[-2:] == [2, 1]
+
+
+def test_a_customers_page_shows_HIS_visits_even_in_a_busy_shop(client):
+    """THE READ USED TO BE THE SHOP'S LAST 200 VISITS, FILTERED. So a customer of a busy
+    establishment opened the page we messaged him a link to and found no history at all — the
+    busier the shop, the more certainly empty."""
+    from app.core.models import Customer, Visit
+    from app.core.stores import CustomerStore, VisitStore
+
+    store = client.app.state.container.datastore
+    tenant = "tnt_busy"
+    mine = Customer(id="cus_mine", tenant=tenant, phone="+966500000009",
+                    subject_ref="sub_mine", created=1)
+    import asyncio
+
+    async def seed():
+        await CustomerStore(store).save(mine)
+        vs = VisitStore(store)
+        # His visit is the OLDEST, and then 250 visits by other people bury it.
+        await vs.save(Visit(id="vis_mine", tenant=tenant, customer_id="cus_mine",
+                            service_ids=["srv_1"], created=1, occurred_at=1))
+        for i in range(250):
+            await vs.save(Visit(id=f"vis_o{i}", tenant=tenant, customer_id="cus_other",
+                                service_ids=["srv_1"], created=100 + i, occurred_at=100 + i))
+
+    asyncio.run(seed())
+
+    r = client.post("/internal/operations/customer-visits",
+                    json={"tenant": tenant, "subject_ref": "sub_mine", "limit": 10},
+                    headers={"X-Internal-Token": "t" * 40})
+    assert r.status_code == 200, r.text
+    assert r.json()["count"] == 1
