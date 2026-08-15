@@ -102,6 +102,11 @@ env:
   TEMPLATES_PATH: "/internal/operations/templates"
   CUSTOMERS_PATH: "/internal/operations/customers"
   REMINDERS_SERVICE_URL: "http://reminders:8000"
+  # WHERE THE SPREAD PROMISE GETS ITS TWO NUMBERS. Today's ceiling and what the engine has already
+  # spent come from reminders; the share the engine keeps back comes from insights. Neither was
+  # configured, so the peer that reads them did not exist and «this will reach everyone in five
+  # days» never rendered once.
+  INSIGHTS_SERVICE_URL: "http://insights:8000"
   ELIGIBILITY_PATH: "/internal/reminders/eligibility"
   # THE ONLY WAY THIS SERVICE SENDS ANYTHING. There is no WhatsApp client here and no channel
   # config — reminders owns the gate and the send, and a second path would be a second set of

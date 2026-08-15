@@ -182,6 +182,11 @@ class Settings(BaseSettings):
     # sends anything.
     ELIGIBILITY_PATH: str = "/internal/reminders/eligibility"
     SEND_PATH: str = "/internal/reminders/send"
+    # The two numbers behind the spread promise — see adapters/peers/HttpRoom. Paths, not a URL
+    # each: they are OUR services and their names are already here.
+    REMINDERS_ROOM_PATH: str = "/internal/reminders/room"
+    INSIGHTS_SERVICE_URL: str = ""           # e.g. http://insights:8000
+    INSIGHTS_RESERVE_PATH: str = "/internal/insights/engine-reserve"
     TENANT_SERVICE_URL: str = ""
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8

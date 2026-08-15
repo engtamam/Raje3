@@ -206,3 +206,67 @@ def test_an_offer_must_carry_an_end_date():
     # A care tip gives nothing away and expires by being read. Demanding a date for it would be a
     # field with no meaning that somebody fills in with a guess.
     assert not offers_something("awareness")
+
+
+# ── the wires the container asks for by name ──────────────────────────────────────────────────
+def test_the_peer_builder_answers_every_key_the_container_reads():
+    """THE DEFECT THIS CATCHES HAD RUN IN PRODUCTION SINCE THE FEATURE WAS WRITTEN.
+
+    `container.py` reads `peers.get("ceiling")` and `peers.get("engine")`. `build_peers` returned
+    neither, `.get` answered None, and both fell back to "unknown" — so `share.known` was False on
+    every request, the owner never once saw «this will reach everyone in five days», and the
+    engine's reserve was subtracted from nothing. A missing key in a dict is the quietest possible
+    wire to cut: nothing raises, nothing logs, and the screen simply renders one sentence less.
+
+    So the keys are asserted against the SOURCE that reads them rather than against a list here —
+    a second list would drift from the container the first time somebody adds a peer.
+    """
+    import re
+    from pathlib import Path
+
+    from app.adapters.peers import build_peers
+
+    class S:
+        PEERS_DRIVER = "http"
+        PEER_TIMEOUT_SECONDS = 8
+        INTERNAL_SERVICE_TOKEN = "t" * 40
+        OPERATIONS_SERVICE_URL = "http://operations:8000"
+        REMINDERS_SERVICE_URL = "http://reminders:8000"
+        TENANT_SERVICE_URL = "http://tenant-service:8000"
+        INSIGHTS_SERVICE_URL = "http://insights:8000"
+        TEMPLATES_PATH = "/internal/operations/templates"
+        CUSTOMERS_PATH = "/internal/operations/customers"
+        ELIGIBILITY_PATH = "/internal/reminders/eligibility"
+        SEND_PATH = "/internal/reminders/send"
+        REMINDERS_ROOM_PATH = "/internal/reminders/room"
+        INSIGHTS_RESERVE_PATH = "/internal/insights/engine-reserve"
+        TENANT_READ_PATH = "/internal/tenants/{id}"
+        SEND_WINDOW_START_HOUR = 9
+        SEND_WINDOW_END_HOUR = 21
+
+    built = set(build_peers(S()))
+    src = Path(__file__).resolve().parents[2].joinpath("app", "container.py").read_text(
+        encoding="utf-8")
+    wanted = set(re.findall(r'peers\[?\.?get?\(?["\']([a-z_]+)["\']\)?\]?', src))
+    wanted &= {"templates", "audience", "sender", "identity", "window", "ceiling", "engine"}
+    missing = wanted - built
+    assert not missing, f"container reads peers the builder never returns: {sorted(missing)}"
+
+
+def test_the_ceiling_peer_answers_the_shape_the_share_reads():
+    """`share.compute` reads `.limit` off whatever the ceiling peer returns, and `engine_load`
+    must answer a mapping with `reserved` and `used`. A peer that answers a different shape fails
+    exactly where the previous version failed: silently, into the "unknown" branch."""
+    import asyncio
+
+    from app.adapters.peers import HttpRoom
+
+    peer = HttpRoom(reminders_url="http://nowhere.invalid", room_path="/internal/reminders/room",
+                    insights_url="http://nowhere.invalid",
+                    reserve_path="/internal/insights/engine-reserve", token="t", timeout=1)
+    # UNREACHABLE IS THE INTERESTING CASE: it must still answer the shape, with the sentinel that
+    # means "unknown" — 0 — rather than raising into a 500 on the composer.
+    read = asyncio.run(peer.read("t1"))
+    assert read.limit == 0 and isinstance(read.used, int)
+    load = asyncio.run(peer.engine_load("t1"))
+    assert load == {"reserved": 0, "used": 0}

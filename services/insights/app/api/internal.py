@@ -253,3 +253,26 @@ async def digest(request: Request, body: TickIn | None = None) -> dict:
                                 f"{int(snap.get('computed_at', 0)) // 604800}")
             sent += 1 if res.get("sent") else 0
     return {"sent": sent, "skipped": skipped, "tenants": len(tenants)}
+
+
+@router.get("/insights/engine-reserve", dependencies=[Depends(require_internal_token)])
+async def engine_reserve(request: Request, tenant: str) -> dict:
+    """How many of today's messages the automatic engine needs kept back for itself (§8.4.3).
+
+    FOR CAMPAIGNS, which must subtract it before promising an owner that his campaign reaches
+    everyone in five days. Without it that promise is made against the shop's WHOLE allowance, and
+    the reminders it displaces are the confirmations and service reminders the product exists for.
+
+    THE NUMBER IS ALREADY COMPUTED — it sits in the establishment's snapshot, derived from the
+    visits this service holds — so this is a read, not a second calculation. A second one made in
+    campaigns from data it does not have would be a guess dressed as a figure.
+
+    ZERO WHEN THERE IS NO SNAPSHOT YET, and that is the honest answer for a shop whose first sweep
+    has not run: nothing is reserved because nothing is known about its traffic. campaigns treats a
+    peer that cannot answer the same way, so a new shop is not held back by a number nobody has.
+    """
+    from app.core.models import SNAPSHOTS
+
+    snap = await request.app.state.container.datastore.get(SNAPSHOTS, f"{tenant}|_all")
+    values = (snap or {}).get("values") or {}
+    return {"reserved": int(values.get("engine_reserve") or 0)}

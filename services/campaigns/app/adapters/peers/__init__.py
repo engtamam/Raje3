@@ -13,6 +13,8 @@ the first half twice.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -103,6 +105,61 @@ class NullAudience:
     async def allows(self, tenant: str, subject_ref: str, cls: str) -> bool:
         return True
 
+
+class HttpRoom:
+    """Today's ceiling and what the engine has already spent — from the two services that own them.
+
+    THIS PEER DID NOT EXIST, AND THAT IS THE WHOLE DEFECT. `build_peers` returned five keys;
+    `container.py` asked for `ceiling` and `engine`, got None for both, and fell back to "the
+    ceiling is unknown". So `share.known` was False on every request the product has ever served,
+    the spread sentence never rendered once, and the engine's reserve was never subtracted from
+    anything. Everything reported success; the feature simply was not there.
+
+    FAILS SOFT, BOTH HALVES. An unreadable ceiling is «we do not know», which the share treats as
+    "promise nothing and send as before" — and an unreadable reserve contributes zero rather than
+    holding a campaign back on a number nobody could fetch. A campaign refused because insights
+    was restarting would be a worse answer than a campaign that runs.
+    """
+
+    driver = "http"
+
+    def __init__(self, *, reminders_url: str, room_path: str, insights_url: str,
+                 reserve_path: str, token: str, timeout: int = 8) -> None:
+        self._room = reminders_url.rstrip("/") + room_path
+        self._reserve = (insights_url.rstrip("/") + reserve_path) if insights_url else ""
+        self._token = token
+        self._timeout = timeout
+
+    async def read(self, tenant: str) -> Any:
+        """The ceiling, in notification-service's own shape: -1 unlimited, 0 unknown."""
+        try:
+            data = _get(f"{self._room}?tenant={urllib.parse.quote(tenant)}",
+                        self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return _RoomRead()
+        return _RoomRead(limit=int(data.get("limit") or 0), tier=str(data.get("tier") or ""),
+                         used=int(data.get("used") or 0))
+
+    async def engine_load(self, tenant: str) -> dict[str, int]:
+        """`reserved` from insights, `used` from the same room read — one number each, no guesses."""
+        reserved = 0
+        if self._reserve:
+            try:
+                reserved = int((_get(f"{self._reserve}?tenant={urllib.parse.quote(tenant)}",
+                                     self._token, self._timeout)).get("reserved") or 0)
+            except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+                reserved = 0
+        used = (await self.read(tenant)).used
+        return {"reserved": reserved, "used": used}
+
+
+@dataclass(frozen=True)
+class _RoomRead:
+    """What `share.compute` reads off a ceiling: the limit, and nothing it has to interpret."""
+
+    limit: int = 0
+    tier: str = ""
+    used: int = 0
 
 class HttpAudience:
     driver = "http"
@@ -263,6 +320,19 @@ def build_peers(settings) -> dict[str, Any]:
                                  token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "sender": HttpSender(url=settings.REMINDERS_SERVICE_URL, path=settings.SEND_PATH,
                              token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+        # THE TWO KEYS THE CONTAINER ASKS FOR BY NAME. One object answers both because the two
+        # numbers come from one read of reminders plus one of insights — and because two objects
+        # would be two chances to wire only one of them, which is how this got lost the first time.
+        "ceiling": HttpRoom(reminders_url=settings.REMINDERS_SERVICE_URL,
+                            room_path=settings.REMINDERS_ROOM_PATH,
+                            insights_url=settings.INSIGHTS_SERVICE_URL,
+                            reserve_path=settings.INSIGHTS_RESERVE_PATH,
+                            token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+        "engine": HttpRoom(reminders_url=settings.REMINDERS_SERVICE_URL,
+                           room_path=settings.REMINDERS_ROOM_PATH,
+                           insights_url=settings.INSIGHTS_SERVICE_URL,
+                           reserve_path=settings.INSIGHTS_RESERVE_PATH,
+                           token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "identity": HttpIdentity(url=settings.TENANT_SERVICE_URL,
                                  path=settings.TENANT_READ_PATH,
                                  token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),

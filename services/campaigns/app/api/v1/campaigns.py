@@ -129,10 +129,14 @@ async def preview(request: Request, body: CampaignIn,
     out = vars(p)
     share = await _todays_share(c, principal.tenant)
     if share.known:
+        # FOUR ARGUMENTS, WHICH IS ALL `plan` TAKES. It was being called with `offer_value=` and
+        # `scope_service_names=` as well — a TypeError on every preview where the ceiling was
+        # known. It never fired because the ceiling was NEVER known (the peer was missing), so one
+        # dead wire hid the other: repairing the ceiling alone would have replaced a silent
+        # omission with a 500 on the owner's screen. The spread sentence takes the plan and says
+        # only what the plan knows; the offer's own words belong to the campaign, not to it.
         sp = plan_spread(audience=audience.count, available_per_day=share.per_day,
-                         expires_at=body.expires_at or 0,
-                        offer_value=(body.offer_value or "").strip(),
-                        scope_service_names=([body.service_name] if body.service_name else []), now=_now())
+                         expires_at=body.expires_at or 0, now=_now())
         out["spread"] = sp.to_dict()
         out["spread_says"] = spread_sentence(sp)
     else:
@@ -376,7 +380,7 @@ async def set_audience_cap(request: Request, body: AudienceCapIn, tenant: str = 
 @router.get("/platform/audience-cap", dependencies=[Depends(rate_limit)])
 async def get_audience_cap(request: Request, tenant: str = "",
                            principal: Principal = Depends(_PLATFORM)) -> dict:
-    from app.core.audience import MAX_AUDIENCE
+    from app.core.audience import DEFAULT_MAX_AUDIENCE
     row = await request.app.state.container.datastore.get(
         "audience_caps", f"_platform|{tenant or '_global'}")
-    return {"scope": tenant or "_global", "default": MAX_AUDIENCE, "override": row}
+    return {"scope": tenant or "_global", "default": DEFAULT_MAX_AUDIENCE, "override": row}

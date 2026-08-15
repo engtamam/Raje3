@@ -857,3 +857,39 @@ async def backup_import(request: Request, body: BackupImportIn,
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+@router.get("/reminders/room", dependencies=[Depends(require_internal_token)])
+async def room(request: Request, tenant: str) -> dict:
+    """Today's WhatsApp ceiling for this shop, and how much of it the engine has already spent.
+
+    THE TWO NUMBERS CAMPAIGNS COULD NOT GET, and their absence is why «this will reach everyone in
+    five days» has never once appeared on an owner's screen: `campaigns` builds its share from a
+    ceiling and an engine load, its peer builder returned neither key, and the container fell back
+    to "unknown" on every request — silently, for ever, with the sentence simply not rendering.
+
+    BOTH FROM THE SERVICE THAT OWNS THEM. The ceiling is Meta's, read through notification-service
+    by this service's own Ceiling; `used` is the count of people this engine has already reached in
+    the current window, which is the only place that number exists. Computing either inside
+    campaigns would be a second version of somebody else's figure, drifting from it quietly — the
+    thing the container's own docstring says it refuses to do.
+
+    THE WINDOW IS THE CONFIGURED ONE, not the default. `/today` builds its own `Reach()` and gets
+    `DEFAULT_WINDOW`; a deployment that tunes REACH_WINDOW_SECONDS therefore shows the owner one
+    number and gates his sends on another. Reading it off settings here keeps this answer and the
+    tick's answer the same answer.
+
+    `limit` KEEPS notification-service's SHAPE: -1 unlimited, 0 unknown. campaigns' share.compute
+    reads exactly those two sentinels, and translating them here would put the meaning of "unknown"
+    in two places.
+    """
+    from app.core.reach import Reach
+
+    c = request.app.state.container
+    s = get_settings()
+    ceiling = await c.ceiling.read(tenant)
+    now = int(time.time())
+    used = await Reach(c.datastore, window=s.REACH_WINDOW_SECONDS).count(tenant, now=now)
+    return {"limit": int(getattr(ceiling, "limit", 0) or 0),
+            "tier": str(getattr(ceiling, "tier", "") or ""),
+            "used": int(used or 0)}
