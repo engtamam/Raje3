@@ -408,11 +408,38 @@ async def _service_config(c, tenant: str) -> dict:
                                      sort=("updated", "desc")) if tenant else ([], None)
     known |= {r.get("service_id", "") for r in rows if r.get("service_id")}
 
+    # HIS CATALOGUE, WHICH IS WHERE THE REAL CYCLES LIVE. The tree answers with OUR default when
+    # the owner never set anything — and that default (90 days) was being applied to every service
+    # of every shop, including a car wash whose catalogue says 10. So the catalogue is read here
+    # and consulted where the tree is silent.
+    #
+    # AND IT ADDS SERVICES THE TREE HAS NEVER HEARD OF. `known` is built from configured services
+    # and live rules, so a shop that configured nothing produced an EMPTY config — every service
+    # falling through to the default. A service the owner sells is a service the engine must know
+    # the cycle of.
+    cycles: dict[str, float] = {}
+    try:
+        cycles = await c.catalogue.cycles(tenant) if tenant else {}
+    except Exception:                                                        # noqa: BLE001
+        cycles = {}
+    # ZERO IS NOT A CYCLE, and it is filtered HERE as well as in the reader. A service with no
+    # natural rhythm (a puncture repair) must not be added to the known set — added, it resolves to
+    # our default and starts reminding people about a repair that never repeats.
+    cycles = {sid: days for sid, days in cycles.items() if days > 0}
+    known |= set(cycles)
+
     out: dict[str, dict] = {}
     for sid in sorted(x for x in known if x):
         v = tree.effective(sid)
+        # THE ORDER, AND IT IS THE WHOLE FIX. `resolve` already reports WHERE each value came
+        # from: "service", "group:…" and "general" are the owner's own decisions and outrank
+        # everything. Only "default" means «nobody said» — and that is precisely where his
+        # catalogue must answer instead of our 90.
+        chosen = tree.resolve(sid, "interval_days")
+        cycle = (float(cycles.get(sid) or 0) if chosen.source == "default"
+                 else float(chosen.value or 0))
         out[sid] = {
-            "cycle_days": v.get("interval_days") or 0,
+            "cycle_days": cycle or (v.get("interval_days") or 0),
             "lead_days": v.get("lead_days") or 0,
             "follow_up_days": v.get("follow_up_days") or 0,
             # A service switched off schedules nothing NEW. Existing schedules are left alone: the

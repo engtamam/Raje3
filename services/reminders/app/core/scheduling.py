@@ -225,7 +225,13 @@ class Scheduler:
 
         last = int(row.get("last_visit_at") or 0)
         gap_days = (occurred - last) / DAY if last else 0.0
-        current = float(row.get("interval_days") or default)
+        # AN ESTIMATE NOBODY LEARNED FOLLOWS THE CONFIGURED CYCLE, rather than freezing the guess
+        # it was born with. A row created while the engine still defaulted to 90 days would
+        # otherwise keep 90 for ever for a customer of a shop whose catalogue says 10 — the guess
+        # outliving the correction that replaced it. Once there is a real observation the customer's
+        # own rhythm owns the number and this stops applying.
+        stored = float(row.get("interval_days") or default)
+        current = default if int(row.get("observations") or 0) <= 0 else stored
         obs = int(row.get("observations") or 0)
 
         new, anomaly = adaptive.observe(current_days=current, observed_days=gap_days,

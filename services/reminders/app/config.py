@@ -233,6 +233,13 @@ class Settings(BaseSettings):
     # collection nothing wrote, which answered "no templates" on every tick for as long as it
     # existed. Empty here means the engine keeps whatever it last read and never an empty library.
     OPERATIONS_TEMPLATES_PATH: str = "/internal/operations/templates"
+    # THE SHOP'S OWN SERVICE CYCLES. Not a preference of ours — the number the owner sees in
+    # «خدماتي», seeded from his sector at signup. Unread until today, so every shop that never
+    # edited a service had every reminder scheduled on the 90-day default.
+    OPERATIONS_CATALOGUE_PATH: str = "/internal/operations/catalogue"
+    # Per tenant, per tick at most. A catalogue changes when its owner edits it; a minute of
+    # staleness costs a reminder scheduled a day early at worst.
+    CATALOGUE_TTL_SECONDS: int = 300
     # Platform content, identical for every tenant, edited by us. Minutes of staleness cost
     # nothing; a read per tenant per tick would be one call per shop per five minutes.
     TEMPLATE_LIBRARY_TTL_SECONDS: int = 300

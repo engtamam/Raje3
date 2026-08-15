@@ -384,6 +384,73 @@ class PlatformLibrary:
         return list(self._rows)
 
 
+class ShopCatalogue:
+    """Each service's own cycle, read from the shop that owns it — the number the OWNER set.
+
+    THE DEFECT THIS CLOSES, AND IT IS THE FOURTH OF ITS FAMILY HERE. The scheduler resolves a
+    service's cycle through the settings tree, whose default is DEFAULT_INTERVAL_DAYS — 90. But an
+    establishment's real cycles live in its CATALOGUE (operations), seeded from its sector the day
+    it registered: a car wash's «غسيل خارجي» is 10 days, a workshop's oil change is 90, a barber's
+    haircut is 21. Nothing ever read that. So every shop that never hand-edited a service — which
+    is every new shop — had every first reminder scheduled at 90 days.
+
+    Found on the cluster, not by a test: a real wash shop's visit scheduled its reminder 83 days
+    out (90 minus a 7-day lead) for a service whose catalogue says 10. Nothing failed. The owner
+    sees «10» on his own screen and no customer ever comes back.
+
+    WHERE IT SITS IN THE ORDER: the settings tree WINS — what the owner set explicitly for a
+    service, or its group, or his shop, is his decision and outranks everything. This answers only
+    where the tree has nothing to say, and our platform default answers only where this cannot.
+
+    ONE READ PER TENANT PER TICK, cached briefly. A catalogue changes when the owner edits it, and
+    a minute of staleness costs a reminder scheduled a day early at worst.
+
+    AN UNREACHABLE PEER KEEPS THE LAST ANSWER, and an empty one is treated as "unknown" rather than
+    "no cycles": answering zero would push every shop back onto the 90-day default, which is the
+    exact defect this exists to end.
+    """
+
+    def __init__(self, *, url: str = "", path: str = "", token: str = "",
+                 timeout: int = 8, ttl: int = 300) -> None:
+        self._url = (url.rstrip("/") + path) if url else ""
+        self._token = token
+        self._timeout = timeout
+        self._ttl = ttl
+        self._by_tenant: dict[str, tuple[float, dict[str, float]]] = {}
+
+    async def cycles(self, tenant: str) -> dict[str, float]:
+        """`{service_id: cycle_days}` for one establishment. Empty when unknown."""
+        import json
+        import time as _time
+        import urllib.error
+        import urllib.request
+
+        if not self._url or not tenant:
+            return {}
+        now = _time.time()
+        hit = self._by_tenant.get(tenant)
+        if hit and (now - hit[0]) < self._ttl:
+            return dict(hit[1])
+        body = json.dumps({"tenant": tenant}).encode()
+        req = urllib.request.Request(
+            self._url, data=body, method="POST",
+            headers={"X-Internal-Token": self._token, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                out = json.loads(resp.read() or b"{}")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return dict(hit[1]) if hit else {}
+        rows = out.get("services")
+        if not isinstance(rows, list):
+            return dict(hit[1]) if hit else {}
+        # A service with no cycle (a puncture repair) is left OUT rather than stored as zero: zero
+        # means «no natural cycle» to the scheduler, and it must keep meaning that.
+        cycles = {str(r.get("id") or ""): float(r.get("cycle_days") or 0)
+                  for r in rows if r.get("id") and float(r.get("cycle_days") or 0) > 0}
+        self._by_tenant[tenant] = (now, cycles)
+        return dict(cycles)
+
+
 class ApprovedTemplates:
     """Which template names WhatsApp has approved for one tenant.
 

@@ -269,6 +269,15 @@ def build_container(settings: Settings) -> Container:
         timeout=settings.PEER_TIMEOUT_SECONDS,
         ttl=settings.TEMPLATE_LIBRARY_TTL_SECONDS)
 
+    # HIS OWN CYCLES. Without this the settings tree's default (90 days) is every shop's cycle
+    # for every service it never hand-edited — see R.ShopCatalogue.
+    container.catalogue = R.ShopCatalogue(
+        url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_CATALOGUE_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN,
+        timeout=settings.PEER_TIMEOUT_SECONDS,
+        ttl=settings.CATALOGUE_TTL_SECONDS)
+
     container.approved_templates = R.ApprovedTemplates(
         url=settings.NOTIFICATION_SERVICE_URL,
         path=settings.NOTIFICATION_TEMPLATES_PATH,
