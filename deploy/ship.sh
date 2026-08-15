@@ -291,12 +291,29 @@ ship_one() {
       python3 "$ROOT/ci/check_deploy_wiring.py" 2>&1 | tail -8
       return 1
     }
-  elif ! docker save "raje3/$svc:ship" | "${SSH[@]}" \
+  else
+    # ── TAGGED UNDER THE REPOSITORY THE VALUES FILE PINS, and this line is the whole bug that
+    # made a "successful" ship land an ImagePullBackOff.
+    #
+    # The tarball road used to tag `docker.io/raje3/$svc@$digest` and then VERIFY that same
+    # address — while the values file pins `ghcr.io/engtamam/raje3/$svc@…`. So the check passed on
+    # a reference nobody uses: containerd held the image under a name kubelet never asks for, and
+    # kubelet went to ghcr for a digest that was never pushed there. The step reported
+    # «every image present under its digest», helm rolled, and the pod sat in ImagePullBackOff
+    # with the previous digest still serving.
+    #
+    # THE REPOSITORY IS READ FROM THE VALUES FILE, never assumed. Two places naming the image is
+    # exactly how the two drifted apart in the first place.
+    local repo
+    repo="$(awk '/^  repository:/{print $2; exit}' "$values")"
+    [ -n "$repo" ] || { red "$svc: no repository in $values"; return 1; }
+    if ! docker save "raje3/$svc:ship" | "${SSH[@]}" \
         "cat > /tmp/$svc.tar && sudo -n k3s ctr images import /tmp/$svc.tar >/dev/null 2>&1 \
-         && sudo -n k3s ctr images tag docker.io/raje3/$svc:ship docker.io/raje3/$svc@$digest \
-            >/dev/null 2>&1; sudo -n k3s ctr images ls -q | grep -qx docker.io/raje3/$svc@$digest"; then
-    red "$svc: the image is NOT in containerd under $digest — the pod would ImagePullBackOff"
-    return 1
+         && sudo -n k3s ctr images tag docker.io/raje3/$svc:ship $repo@$digest \
+            >/dev/null 2>&1; sudo -n k3s ctr images ls -q | grep -qx $repo@$digest"; then
+      red "$svc: the image is NOT in containerd under $repo@$digest — the pod would ImagePullBackOff"
+      return 1
+    fi
   fi
   grn "image present under its digest"
 
@@ -462,11 +479,16 @@ ship_many() {
       if [ "${FAST:-1}" = "1" ]; then
         m="$(ship_image_fast "$svc" "${DIGEST[$svc]}")" && printf '%s' "$m" > "$tmp/$svc.manifest"
       else
+        # UNDER THE REPOSITORY THE VALUES FILE PINS — see the note on the single-service path.
+        # Two sync sites is two chances to fix one of them and believe the bug is gone, and this
+        # one ships nineteen services at once: getting it wrong here is nineteen pods pulling an
+        # address that does not exist, after a run that reported success.
+        r="$(awk '/^  repository:/{print $2; exit}' "$ROOT/deploy/services/$svc.values.yaml")"
         docker save "raje3/$svc:ship" | "${SSH[@]}" \
           "cat > /tmp/$svc.tar && sudo -n k3s ctr images import /tmp/$svc.tar >/dev/null 2>&1 \
            && sudo -n k3s ctr images tag docker.io/raje3/$svc:ship \
-              docker.io/raje3/$svc@${DIGEST[$svc]} >/dev/null 2>&1; \
-           sudo -n k3s ctr images ls -q | grep -qx docker.io/raje3/$svc@${DIGEST[$svc]}" \
+              $r@${DIGEST[$svc]} >/dev/null 2>&1; \
+           sudo -n k3s ctr images ls -q | grep -qx $r@${DIGEST[$svc]}" \
           && printf '%s' "${DIGEST[$svc]}" > "$tmp/$svc.manifest"
       fi
     ) &
