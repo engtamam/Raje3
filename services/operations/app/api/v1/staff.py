@@ -101,8 +101,15 @@ async def create_operator(request: Request, body: OperatorIn,
         ip=request.client.host if request.client else "")
 
     settings = request.app.state.container_settings
+    # HIS BRANCH, IF THE SHOP HAS ONE BY THAT ID. Unlike a visit this is a field on a form we
+    # serve, so a bad value here is our bug rather than a till's — but the same rule applies: an
+    # employee is not refused over a label, he is recorded without one.
+    branch_id = ""
+    if body.branch_id.strip():
+        branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
+                                    tenant, body.branch_id)
     op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
-                  branch_id=body.branch_id, created=int(time.time()))
+                  branch_id=branch_id, created=int(time.time()))
     op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
     await store.save(op)
     # REPORTED AFTER THE WRITE, and as the whole count rather than a delta. Before the write it

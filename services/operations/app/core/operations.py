@@ -31,10 +31,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core import branches as B
 from app.core.models import Asset, Customer, Visit
 from app.core.pii import subject_ref
-from app.core.stores import (AssetStore, CustomerStore, PrivacyRequestStore, ServiceStore,
-                             VisitStore, new_id)
+from app.core.stores import (AssetStore, BranchStore, CustomerStore, PrivacyRequestStore,
+                             ServiceStore, VisitStore, new_id)
 
 
 class OperationError(Exception):
@@ -76,6 +77,9 @@ class Operations:
         self._assets = AssetStore(store)
         self._services = ServiceStore(store)
         self._visits = VisitStore(store)
+        # WHICH PLACES THIS SHOP ACTUALLY HAS — read on the write path so an id nobody recognises
+        # cannot invent a branch that then appears in every report (core/branches.py).
+        self._branches = BranchStore(store)
         # WHAT HIS CUSTOMERS ASKED HIM FOR, from their own pages. Recorded here rather than acted
         # on, because the establishment is the controller and the right is exercised against it —
         # see core/privacy_requests.py.
@@ -87,6 +91,17 @@ class Operations:
         # How far back a claimed visit time may be before it is a broken clock. A shop migrating a
         # year of its own history needs more, and that must not require a release.
         self._max_backdate = int(max_backdate)
+
+    async def resolve_branch(self, tenant: str, branch_id: str) -> str:
+        """The branch check, offered to the routes that take one outside the visit path.
+
+        ONE OWNER FOR THE QUESTION. The till's redemption and the visit are two doors into the same
+        shop, and a second place that decides what an unrecognised branch means is a second place
+        that would drift from this one.
+        """
+        if not (branch_id or "").strip():
+            return ""
+        return await B.resolve(self._branches, tenant, branch_id)
 
     # ── his customers' privacy requests ───────────────────────────────────────────────────────
     async def record_privacy_request(self, tenant: str, subject_ref: str, kind: str):
@@ -216,6 +231,14 @@ class Operations:
                     service_ids = service_ids + [catch.id]
                 if not custom_service:
                     custom_service = ", ".join(unknown)[:200]
+
+        # THE BRANCH IS CHECKED, AND THE VISIT IS NEVER REFUSED OVER IT. An id this shop does not
+        # have is dropped to «غير محدد» rather than written through — see core/branches.py for the
+        # trade, which is the same one the unknown-service path above makes.
+        # Asked only when there is something to ask about: most visits carry no branch, and none of
+        # them should pay for a branch-list read.
+        if branch_id.strip():
+            branch_id = await B.resolve(self._branches, tenant, branch_id)
 
         asset_id = ""
         if plate.strip():

@@ -50,6 +50,11 @@ class _Ops:
         self.asked_tenant = tenant
         return self._customer
 
+    async def resolve_branch(self, tenant, branch_id):
+        # The real one drops an id the shop does not have; here every id is taken at its word —
+        # what these tests are about is the redemption, not the branch check.
+        return branch_id
+
 
 class _Desk:
     def __init__(self, *, balance=None, redeem=None, configured=True) -> None:

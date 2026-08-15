@@ -364,3 +364,41 @@ def test_a_customer_is_findable_by_plate_by_name_and_by_the_number_he_types():
     assert f["phone"].startswith("966")          # what the network needs
     assert f["local"] == "0501234567"            # what the operator types
     assert f["name"] == "محمد"
+
+
+# ── the branch on a visit: checked, never a reason to lose the visit ───────────────────────────
+def test_an_unknown_branch_is_dropped_and_the_visit_is_kept(ops):
+    """A till with a typo in its branch field must not invent a place that lives for ever.
+
+    An id nobody recognises would appear in the branch table, split a real branch's numbers in
+    two, and be unrenameable because there is no row behind it. And refusing the visit over a
+    label would lose the CUSTOMER from the product — no reminder, no points, no metric — which is
+    the far worse trade, and the same one the unknown-service path already makes.
+    """
+    svc, store = ops
+    out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               branch_id="brn-typo"))
+    assert out.visit.branch_id == ""
+
+
+def test_a_branch_the_shop_really_has_is_kept(ops):
+    svc, store = ops
+    from app.core import branches as BR
+    from app.core.stores import BranchStore
+
+    run(BR.ensure_main(BranchStore(store), tenant=A, name="محل النور"))
+    out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               branch_id=BR.MAIN))
+    assert out.visit.branch_id == BR.MAIN
+
+
+def test_another_shops_branch_is_not_a_branch_here(ops):
+    """Tenant isolation on the check itself — B's real branch must not validate for A."""
+    svc, store = ops
+    from app.core import branches as BR
+    from app.core.stores import BranchStore
+
+    run(BR.ensure_main(BranchStore(store), tenant=B))
+    out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               branch_id=BR.MAIN))
+    assert out.visit.branch_id == ""

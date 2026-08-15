@@ -16,10 +16,13 @@ visits against nothing.
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 from app.core.models import Branch
+
+_log = logging.getLogger(__name__)
 
 # The one branch every establishment has. Fixed, so `ensure` is idempotent and so «هل هذا هو
 # الرئيسي؟» is answered without a flag on the row that a second write could contradict.
@@ -48,6 +51,36 @@ async def ensure_main(store: Any, *, tenant: str, name: str = "", now: int = 0) 
                created=int(now or time.time()))
     await store.save(b)
     return b
+
+
+async def resolve(store: Any, tenant: str, branch_id: str) -> str:
+    """The id if this shop really has that branch, and an empty string if it does not.
+
+    THE VISIT IS NEVER REFUSED OVER ITS LABEL, and that is the decision this function encodes. A
+    till sends `branch_id` from a field somebody typed on its own screen, and a typo would
+    otherwise invent a place: an id nobody recognises appears in the branch table for ever, splits
+    a real branch's numbers in two, and cannot be renamed because there is no row to rename. But
+    refusing the visit would lose the customer from the product entirely — no reminder, no points,
+    no metric — which is the far worse trade, and the same one `record_visit` already makes for an
+    unknown SERVICE.
+
+    So an unrecognised id is DROPPED, the visit is kept, and it counts under «غير محدد» — the
+    honest answer, and one the coverage line already knows how to show (§10.6.3).
+
+    NOT SILENT. It is logged with the id, because a till sending a wrong branch on every visit is
+    an integration fault worth seeing rather than a shrug repeated ten thousand times.
+
+    AND AN EMPTY BRANCH STAYS EMPTY — never rewritten to the main one. The spec makes branch
+    optional on every operation, and inventing a place for a shop that did not name one would put
+    a number under «الفرع الرئيسي» that nobody claimed.
+    """
+    wanted = (branch_id or "").strip()
+    if not wanted:
+        return ""
+    if wanted in await known(store, tenant):
+        return wanted
+    _log.warning("unknown branch on an incoming record", extra={"branch_id": wanted[:64]})
+    return ""
 
 
 async def known(store: Any, tenant: str) -> set[str]:

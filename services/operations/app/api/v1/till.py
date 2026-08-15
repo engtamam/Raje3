@@ -345,9 +345,16 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
         "loyalty.redeemed", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
         resource="redemption", ip=request.client.host if request.client else "")
 
+    # THE BRANCH IS CHECKED HERE AND NOT IN LOYALTY, because the branch list is ours: loyalty
+    # holds no places and would have to read our tables to know one. An id this shop does not have
+    # is dropped rather than stamped onto a ledger entry nobody can ever attribute (§12.2).
+    #
+    # ASKED ONLY WHEN THERE IS SOMETHING TO ASK ABOUT. A till that sends no branch — most of them,
+    # since the field is optional (§12.2) — must not pay for a branch list read on every sale.
+    branch_id = await svc.resolve_branch(tenant, body.branch_id)
     out = await desk.redeem(tenant=tenant, subject_ref=c.subject_ref, reward_id=body.reward_id,
                             idempotency_key=body.idempotency_key, actor=body.actor,
-                            branch_id=body.branch_id)
+                            branch_id=branch_id)
     if out is None:
         return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
     if "_status" in out:
