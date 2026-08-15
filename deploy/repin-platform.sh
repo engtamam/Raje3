@@ -38,8 +38,17 @@ CHANGED=0; MISSING=0; SAME=0
 for f in "$HERE"/services/*.values.yaml; do
   repo="$(sed -n 's/^  repository: *//p' "$f" | head -1)"
   case "$repo" in
-    ghcr.io/"$OWNER"/*) ;;                 # a platform image, ours to repin
-    *) continue;;                          # our own services live elsewhere — a different pipeline
+    ghcr.io/"$OWNER"/*) ;;                 # the right registry and owner — still not proof
+    *) continue;;
+  esac
+  # AND OURS LIVE UNDER A PRODUCT PATH: ghcr.io/OWNER/raje3/campaigns, against the platform's
+  # ghcr.io/OWNER/identity-service. The owner glob above matched BOTH — a `*` spans slashes — so
+  # every one of our own six services was looked up under the platform's release tag, found
+  # missing, and counted. The script then refused the whole upgrade with "the release is
+  # incomplete, do not deploy it": a correct release blocked by a check that was reading the
+  # wrong images. One depth of path is the whole difference.
+  case "${repo#ghcr.io/$OWNER/}" in
+    */*) continue;;                        # ours — published by deploy/publish-images.sh
   esac
   img="${repo##*/}"
   cur="$(sed -n 's/^  digest: *"\([^"]*\)".*/\1/p' "$f" | head -1)"

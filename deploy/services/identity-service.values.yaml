@@ -13,7 +13,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/identity-service
-  digest: "sha256:ec214e06b9f9fa13551659d4a86c235659e6f0692376bdfe3f3115eb180cfd2d"   # v0.16.4
+  digest: "sha256:4d9630401afc8661b9a2222a68b2a3603b87cfa307b69be36046a72a70efad74"   # v0.16.8
 
 replicas: 1
 
@@ -234,6 +234,23 @@ env:
   # a tenant's FIRST owner over the internal token, refuses to overwrite one on a staffed tenant,
   # and returns an undo reference for the saga.
   IDENTITY_MULTI_TENANT: "true"
+
+  # ── Direct capabilities on a membership: OFF, and that is a decision, not a default ────────
+  #
+  # A membership row may carry capabilities of its own, and the mint UNIONS them with the ones
+  # authz derives from the person's role. In this product nothing needs that: every capability a
+  # shop's staff hold comes from one of five roles in deploy/seed/roles.json, and a capability
+  # granted beside a role is a capability no role review would ever see.
+  #
+  # The platform's default is `subset` — a caller may grant only what they already hold — which
+  # closes the escalation we escalated (v0.16.8). `off` closes the door instead of narrowing it:
+  # a capability string is GLOBAL, several of our own platform surfaces are guarded by the string
+  # alone, and the day somebody adds a route that grants a cap on a membership, we want it refused
+  # at the identity boundary rather than checked against whatever the caller happened to hold.
+  #
+  # The internal bootstrap doors are exempt by design and keep working: seed-owner (the first
+  # account) and /internal/tenancy/members (every employee after him) are roles-only anyway.
+  IDENTITY_MEMBER_CAPS_POLICY: "off"
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────
   AUDIT_SINK_DRIVER: "http"

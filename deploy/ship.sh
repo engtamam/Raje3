@@ -231,10 +231,79 @@ ship_image_fast() {
   return 0
 }
 
+# ── THE PLATFORM PATH ─────────────────────────────────────────────────────────────────────────
+#
+# THE GAP THIS CLOSES, AND IT COST US TWO RELEASES. This script builds OUR services: it starts at
+# `services/$svc`, runs their tests, builds their image. A base-services image is not ours to
+# build — it is pulled from the registry by digest — so `./deploy/ship.sh identity-service` failed
+# at the first line with "no services/identity-service", and NOTHING else in the repo deployed a
+# platform image at all.
+#
+# So `repin-platform.sh` rewrote the digests, the submodule moved, git was clean and green, and the
+# cluster went on running v0.16.4 for two releases. It was found the only way it could be — by
+# asking the running billing-service for a route v0.16.7 added, and getting 404.
+#
+# The steps our services need and this one does not: no tests (the code is upstream's and was
+# tested there), no build, no side-load — the node pulls the digest itself. What stays is the half
+# that matters: sync the declaration, roll, then READ BACK what the pod is running.
+ship_platform_one() {
+  local svc="$1"
+  local values="$ROOT/deploy/services/$svc.values.yaml"
+  local digest
+  digest="$(sed -n 's/^  digest: *"\([^"]*\)".*/\1/p' "$values" | head -1)"
+  [ -n "$digest" ] || { red "$svc: no digest pinned in $values"; return 1; }
+
+  say "$svc · 1/3 sync (platform image — pulled by digest, not built here)"
+  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks deploy/server \
+         platform/deploy/chart 2>/dev/null \
+       | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null \
+         && chmod +x deploy/hooks/*.sh && grep -q '$digest' deploy/services/$svc.values.yaml"; then
+    red "$svc: the values file on the server does not carry the pinned digest"; return 1
+  fi
+  grn "declaration synced"
+
+  say "$svc · 2/3 roll"
+  "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart \
+     PRUNE_IMAGES=0 VALUES_DIR=deploy/services bash deploy/server/update.sh --only $svc 2>&1 | tail -3"
+
+  # ── 3. verify the ARTIFACT, not the report ──────────────────────────────────────────────────
+  # The same ending as our own path, and for the same reason: helm reports what it asked for.
+  # `imageID` is what the kubelet actually resolved — a tag is a name, and a name can be moved.
+  say "$svc · 3/3 verify"
+  local running=""
+  for _ in $(seq 1 40); do
+    running="$("${SSH[@]}" "kubectl -n $NS get pods --no-headers 2>/dev/null \
+      | awk '/^$svc-[0-9a-f]/ && \$3==\"Running\" && \$2==\"1/1\" {print \$1; exit}'")"
+    [ -n "$running" ] && break
+    sleep 15
+  done
+  if [ -z "$running" ]; then
+    red "$svc: no ready pod after 10 minutes"
+    "${SSH[@]}" "kubectl -n $NS get pods --no-headers | grep '^$svc-'; \
+      kubectl -n $NS logs \$(kubectl -n $NS get pods --no-headers | awk '/^$svc-/{print \$1;exit}') \
+      --tail=20 2>&1 | tail -12"
+    return 1
+  fi
+  local live
+  live="$("${SSH[@]}" "kubectl -n $NS get pod $running \
+      -o jsonpath='{.status.containerStatuses[0].imageID}'" | sed 's/.*@//')"
+  if [ "$live" != "$digest" ]; then
+    red "$svc: RUNNING ${live:0:26}… but pinned ${digest:0:26}…"
+    return 1
+  fi
+  grn "$svc is running the digest its values file names"
+  return 0
+}
+
 ship_one() {
   local svc="$1"
   local dir="$ROOT/services/$svc"
   local values="$ROOT/deploy/services/$svc.values.yaml"
+  # A PLATFORM SERVICE IS RECOGNISED BY WHERE ITS SOURCE LIVES, not by a list somebody maintains:
+  # the submodule IS the list, and a service added upstream needs no edit here.
+  if [ ! -d "$dir" ] && [ -d "$ROOT/platform/services/$svc" ]; then
+    ship_platform_one "$svc"; return $?
+  fi
   [ -d "$dir" ]    || { red "$svc: no services/$svc"; return 1; }
   [ -f "$values" ] || { red "$svc: no deploy/services/$svc.values.yaml"; return 1; }
 
@@ -413,6 +482,27 @@ ship_one() {
 ship_many() {
   local svcs=("$@") svc rc=0
   declare -A DIGEST=()
+
+  # PLATFORM SERVICES TAKE THE OTHER PATH, one at a time. Nothing below applies to them — there is
+  # no source to test, no image to build and nothing to side-load — and they are sequential on
+  # purpose: rolling identity and its dependants at once is how a cluster loses its ability to mint
+  # a token while the thing that would tell you is also restarting.
+  local ours=() theirs=()
+  for svc in "${svcs[@]}"; do
+    if [ ! -d "$ROOT/services/$svc" ] && [ -d "$ROOT/platform/services/$svc" ]; then
+      theirs+=("$svc")
+    else
+      ours+=("$svc")
+    fi
+  done
+  if [ "${#theirs[@]}" -gt 0 ]; then
+    for svc in "${theirs[@]}"; do
+      ship_platform_one "$svc" || rc=1
+    done
+    [ "${#ours[@]}" -gt 0 ] || return "$rc"
+    [ "$rc" -eq 0 ] || return "$rc"
+    svcs=("${ours[@]}")
+  fi
 
   # ── A. test + build, in parallel ─────────────────────────────────────────────────────────────
   say "1/5 tests + build · ${#svcs[@]} in parallel"
