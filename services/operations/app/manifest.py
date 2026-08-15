@@ -115,6 +115,8 @@ def build_manifest(
             # Service names and cycles, for insights. Includes retired services on purpose.
             {"path": "/internal/operations/catalogue", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/branches", "tier": "internal", "method": "POST"},
+            # Who may see which branch — the staffing join no other service can make.
+            {"path": "/internal/operations/branch-scope", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
@@ -149,6 +151,7 @@ def build_manifest(
             {"path": "/api/v1/field/catalogue", "tier": "user", "method": "GET"},
             # ── the back office ───────────────────────────────────────────────────────────
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/staff/members", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},

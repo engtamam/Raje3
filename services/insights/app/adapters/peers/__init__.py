@@ -42,6 +42,8 @@ class NullPeers:
         self._visits = visits or []
         self._catalogue = catalogue or []
         self._branches = branches or []
+        # What a test says this caller may see. Empty is the ordinary case: an owner sees it all.
+        self.scope = ""
         # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
         # every check must be correct about.
         self.entitlements: set[str] = set(entitlements or set())
@@ -58,6 +60,9 @@ class NullPeers:
 
     async def branches(self, tenant: str) -> list[dict]:
         return list(self._branches)
+
+    async def branch_scope(self, tenant: str, subject: str) -> str:
+        return self.scope
 
     async def tenants(self, *, since: int = 0) -> list[str]:
         return sorted({v.get("tenant", "") for v in self._visits if v.get("tenant")})
@@ -84,6 +89,7 @@ class HttpPeers:
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
                  branches_path: str = "/internal/operations/branches",
+                 scope_path: str = "/internal/operations/branch-scope",
                  reminders_url: str, send_path: str, consent_count_path: str,
                  ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
                  effect_path: str = "/internal/reminders/effect",
@@ -94,6 +100,7 @@ class HttpPeers:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
         self._branches_url = operations_url.rstrip("/") + branches_path
+        self._scope_url = operations_url.rstrip("/") + scope_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
         self._consent_url = reminders_url.rstrip("/") + consent_count_path
@@ -134,6 +141,21 @@ class HttpPeers:
             # every other indicator still computes. Failing the whole snapshot over a display
             # detail would take the dashboard down to protect a label.
             return []
+
+    async def branch_scope(self, tenant: str, subject: str) -> str:
+        """Which branch this person may see, asked of the service that staffs the shop.
+
+        FAILS CLOSED, and this is the one read here that must. Everywhere else an unreachable peer
+        costs a label or a number; here it decides whether a branch manager is shown the whole
+        chain. A scope we could not read is answered as «his own nothing» — the dashboard renders
+        the unbranched view, which shows him no other branch's figures — rather than as «no
+        restriction», which would hand him everybody's.
+        """
+        try:
+            return str((_post(self._scope_url, {"tenant": tenant, "subject": subject},
+                              self._token, self._timeout)).get("branch_id") or "")
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return "_unreadable"
 
     async def branches(self, tenant: str) -> list[dict]:
         """This shop's places — ONLY so a table can print a name instead of `brn_9f2a`.
@@ -313,6 +335,7 @@ def build_peers(settings) -> Any:
                      visits_path=settings.OPERATIONS_VISITS_SINCE_PATH,
                      catalogue_path=settings.OPERATIONS_CATALOGUE_PATH,
                      branches_path=settings.OPERATIONS_BRANCHES_PATH,
+                     scope_path=settings.OPERATIONS_SCOPE_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,

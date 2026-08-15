@@ -75,6 +75,20 @@ async def dashboard(request: Request, branch_id: str = "",
     c = request.app.state.container
     tenant = _tenant(principal)
     keys = await _keys(c, tenant)
+
+    # ── WHOSE DASHBOARD THIS IS (§12.4) ────────────────────────────────────────────────────────
+    # A person assigned to a branch sees THAT branch, and asking for another one does not widen
+    # him — the parameter is overruled rather than refused, because a manager who lands on «كل
+    # الفروع» from a bookmark should read his own shop, not an error.
+    #
+    # THE SCOPE COMES FROM OPERATIONS, which is the only service that knows who works where. An
+    # unassigned person — the owner, and everybody in a shop that assigns nobody — is unscoped and
+    # sees the establishment, exactly as before.
+    ask = getattr(c.peers, "branch_scope", None)
+    scope = await ask(tenant, getattr(principal, "subject", "")) if ask else ""
+    if scope:
+        branch_id = "" if scope == "_unreadable" else scope
+
     snap = await _snapshot(c, tenant, branch_id)
 
     if not snap:

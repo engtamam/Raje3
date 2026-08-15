@@ -223,6 +223,13 @@ class Operator:
     pin_hash: str = ""
     role: str = "operator"
     branch_id: str = ""
+    # WHO HE IS AT IDENTITY, when he has an account of his own. Empty for the PIN-only operators a
+    # shared tablet attributes work to — they are a name and a rhythm, not a login.
+    #
+    # THIS FIELD IS WHAT MAKES A BRANCH SCOPE POSSIBLE. A token carries `sub`; a branch lives on
+    # this row; nothing else in the product joins the two. Without it, "show this manager only his
+    # branch" has no way to know which manager is asking.
+    person_id: str = ""
     active: bool = True
     created: int = 0
 
@@ -230,7 +237,10 @@ class Operator:
         """No pin_hash. Not because it is readable, but because a hash that is never returned
         cannot be attacked offline by someone who reached a read endpoint."""
         return {"id": self.id, "tenant": self.tenant, "name": self.name, "role": self.role,
-                "branch_id": self.branch_id, "active": self.active, "created": self.created}
+                "branch_id": self.branch_id, "active": self.active, "created": self.created,
+                # A BOOLEAN, NEVER THE ID. The screen needs to know he can sign in; the identifier
+                # itself is identity's and belongs in no response of ours.
+                "has_login": bool(self.person_id)}
 
 
 @dataclass

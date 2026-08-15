@@ -354,6 +354,61 @@ class SignupService:
                 failed.append(f"{entry}={status}")
         return ", ".join(failed)[:400]
 
+    # ── hiring somebody into a shop that already exists ──────────────────────────────────────
+    async def hire(self, tenant: str, *, phone: str, password: str, role: str) -> dict[str, Any]:
+        """Give an employee his own login into an establishment that already has an owner.
+
+        WHY THIS EXISTS AT ALL, AND WHY IT COULD NOT UNTIL TODAY. A shop had exactly one account:
+        `seed-owner` refuses a second owner on a staffed tenant, so it is the first-account
+        primitive and unusable for the second. The only other door was to hand the owner
+        `members:write` and let his browser call identity — which is a privilege-escalation
+        surface (a membership may carry direct capabilities, and those are unioned into the minted
+        token) and puts a platform-shaped API in front of a shop owner. So we did neither, and the
+        product had no employees: the four-digit PIN is attribution, never authentication, and
+        everything built on "who is looking at this screen" had nobody to be.
+
+        base-services v0.16.8 answered it: an internal-tier add-member, ROLES ONLY, with no `caps`
+        parameter at all. Capabilities stay derived from roles, and no shop owner ever holds a
+        capability over identity.
+
+        THE ROLE IS CHECKED AGAINST OUR OWN LIST, never taken as typed. `owner` is refused: there
+        is exactly one, it is created by the signup saga, and transferring it is its own act with
+        its own confirmation — not a value in a dropdown. `partner` is refused for the same reason
+        it is absent from the screen: a till company is not staff.
+
+        AND THE PHONE INDEX IS WRITTEN HERE, or he could never sign in. Our door resolves the
+        tenant from the number (see the module note); identity would hold a perfectly good
+        membership that our own sign-in refuses for a number it does not know.
+        """
+        canonical = canonical_phone(phone, default_cc=self._cc)
+        if not canonical:
+            raise SignupRefused("أدخل رقم جوال صحيح.")
+        allowed = {r.get("name", "") for r in self._roles} - {self._owner_role, "partner"}
+        if role not in allowed:
+            raise SignupRefused("هذا الدور غير متاح.")
+        existing = await self.tenant_of_phone(canonical)
+        if existing and existing != tenant:
+            # HE WORKS SOMEWHERE ELSE. identity can hold two memberships for one person; our index
+            # holds one tenant per number, so a second shop would silently take over his sign-in
+            # and lock him out of the first. Refused plainly rather than half-done.
+            raise SignupRefused("هذا الرقم مسجّل في منشأة أخرى.")
+
+        status, body = self._http.call(
+            f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
+            body={"tenant": tenant, "identifier": canonical, "roles": [role],
+                  "password": password})
+        if status not in (200, 201):
+            raise SignupRefused(_register_error(status, body))
+
+        # VERIFIED BY THE OWNER, NOT BY A CODE. Self-serve signup proves the number because nobody
+        # vouches for it; here an authenticated owner is adding his own employee, and the person
+        # who will hand him the password is the person who typed it. Leaving it unverified would
+        # build another locked door: our sign-in refuses an unproven number, and no code can be
+        # delivered yet.
+        await self._store.put(PHONE_INDEX, canonical,
+                              {"id": canonical, "tenant": tenant, "verified": True})
+        return {"person_id": str(body.get("person_id") or ""), "phone": canonical, "role": role}
+
     async def _seed_main_branch(self, tenant: str, *, shop_name: str) -> None:
         """His first place, keyed on a fixed id so a retry cannot leave two. Never raises.
 

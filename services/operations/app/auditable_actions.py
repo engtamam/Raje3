@@ -182,6 +182,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "branch",
     },
     {
+        "action": "member.hired",
+        "source": "admin",
+        # CRITICAL: this is a person being given access to an establishment's data. An unrecorded
+        # grant is indistinguishable from an attacker's, and it is the one family of acts where a
+        # refused action is better than an unprovable one.
+        "critical": True,
+        "resource": "member",
+        "why": "who was given access to a shop's customers, and by whom — a grant nobody can "
+               "attribute cannot be disputed, revoked with confidence, or explained to a regulator",
+    },
+    {
         # Renaming or closing a place — the name appears on every report about it, and closing one
         # changes which places a shop is paying for.
         "action": "branch.updated",

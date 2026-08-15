@@ -1131,3 +1131,34 @@ async def run_partner_statements(request: Request,
             resource=f"period:{out['period_start']}",
             metadata={"issued": out.get("issued", 0)})
     return out
+
+
+class BranchScopeIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # The token's `sub`. A pseudonymous person id, never a name or a number.
+    subject: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/operations/branch-scope", dependencies=[Depends(require_internal_token)])
+async def branch_scope_of(request: Request, body: BranchScopeIn) -> dict:
+    """Which branch this person may see — the one answer another service cannot work out.
+
+    THE JOIN IS OURS ALONE. A token carries a subject and a tenant; the row that says where
+    somebody works lives here, beside the seat count and the branch list. `insights` renders a
+    dashboard per branch and has no idea who works where; `loyalty` holds a ledger with a branch on
+    every movement and the same blindness. Either could be handed the answer at read time, or each
+    could grow its own copy of our staffing — and the second is how two services come to disagree
+    about who may see what.
+
+    EMPTY MEANS THE WHOLE ESTABLISHMENT, and it is the common answer: the owner has no operator
+    row at all, and most shops assign nobody. Narrowing is opt-in per person.
+
+    IT IS A READ AND IT REFUSES NOTHING. The caller decides what to do with the scope; this route
+    only says what it is.
+    """
+    from app.api.scope import branch_scope
+    from types import SimpleNamespace
+
+    scope = await branch_scope(request.app.state.container.datastore,
+                              SimpleNamespace(subject=body.subject, tenant=body.tenant))
+    return {"branch_id": scope}

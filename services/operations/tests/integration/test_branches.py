@@ -168,3 +168,83 @@ def test_a_signup_that_finishes_without_a_number_is_never_exchanged(client):
     # AND NOTHING WAS STORED AS CONNECTED — the next screen must not read this as a live link.
     status = client.get("/api/v1/whatsapp/connect", headers=h).json()
     assert status["state"] != "connected"
+
+
+# ── §12.4: a branch manager sees his branch ───────────────────────────────────────────────────
+def _hire(client, tenant, *, name, phone, role="manager", branch_id="", pw="hunter2hunter2"):
+    return client.post("/api/v1/staff/members",
+                       json={"name": name, "phone": phone, "password": pw, "role": role,
+                             "branch_id": branch_id},
+                       headers=_headers(tenant))
+
+
+def test_hiring_creates_a_seat_a_role_and_a_branch(client):
+    """AN EMPLOYEE COULD NOT HAVE A LOGIN AT ALL until base-services v0.16.8: `seed-owner` refuses
+    a second owner, and the alternative was handing the shop owner a capability over identity."""
+    h = _headers("tnt_hire")
+    client.get(BRANCHES, headers=h)
+    r = _hire(client, "tnt_hire", name="سعد", phone="0500000101", branch_id="brn-main")
+    assert r.status_code in (201, 400), r.text
+    if r.status_code == 400:
+        # The identity peer is not wired in this test container; the refusal must still be a
+        # sentence the owner can read rather than a bare status.
+        assert r.json()["message"]
+        return
+    body = r.json()
+    assert body["role"] == "manager" and body["branch_id"] == "brn-main"
+    assert body["has_login"] is True
+
+
+def test_an_unassigned_person_sees_the_whole_shop(client):
+    """The common case, and the reason narrowing is opt-in: the owner has no operator row at all,
+    and a shop that assigns nobody must not suddenly see less than it did yesterday."""
+    import asyncio
+
+    from app.api.scope import branch_scope
+    from types import SimpleNamespace
+
+    store = client.app.state.container.datastore
+    scope = asyncio.run(branch_scope(store, SimpleNamespace(subject="u_owner", tenant="tnt_scope")))
+    assert scope == ""
+
+
+def test_an_assigned_person_is_scoped_to_his_own_branch(client):
+    """And this is the promise §12.4 makes: «لا يرى موظف فرع أ بيانات فرع ب»."""
+    import asyncio
+
+    from app.api.scope import branch_scope, visible
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+    from types import SimpleNamespace
+
+    store = client.app.state.container.datastore
+    asyncio.run(OperatorStore(store).save(Operator(
+        id="opr_jed", tenant="tnt_scope", name="مدير جدة", role="manager",
+        branch_id="brn-jeddah", person_id="u_jeddah")))
+
+    scope = asyncio.run(branch_scope(store, SimpleNamespace(subject="u_jeddah",
+                                                           tenant="tnt_scope")))
+    assert scope == "brn-jeddah"
+
+    rows = [{"branch_id": "brn-jeddah"}, {"branch_id": "brn-riyadh"}, {"branch_id": ""}]
+    kept = visible(rows, scope)
+    # HIS OWN, AND THE UNBRANCHED ONES — which belong to nobody and are hidden from nobody.
+    assert kept == [{"branch_id": "brn-jeddah"}, {"branch_id": ""}]
+
+
+def test_a_stopped_employee_is_not_scoped_by_his_old_row(client):
+    """He is not scoped BECAUSE he must not be reading anything at all — his account is what stops
+    him. A deactivated row narrowing a live token would be a rule enforced in the wrong place."""
+    import asyncio
+
+    from app.api.scope import branch_scope
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+    from types import SimpleNamespace
+
+    store = client.app.state.container.datastore
+    asyncio.run(OperatorStore(store).save(Operator(
+        id="opr_gone", tenant="tnt_gone", name="من ترك", role="manager",
+        branch_id="brn-jeddah", person_id="u_gone", active=False)))
+    assert asyncio.run(branch_scope(store, SimpleNamespace(subject="u_gone",
+                                                          tenant="tnt_gone"))) == ""

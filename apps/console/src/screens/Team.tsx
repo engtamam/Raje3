@@ -112,6 +112,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
             branches={branches}
             add={addOperator}
             edit={action(catalog, 'operations.update_operator')}
+            hire={action(catalog, 'operations.hire_member')}
             onChanged={load}
           />
         : <Branches
@@ -126,17 +127,32 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   );
 }
 
-function People({ session, operators, branches, add, edit, onChanged }: {
+function People({ session, operators, branches, add, edit, hire, onChanged }: {
   session: Session;
   operators: Operator[] | null;
   branches: Branch[] | null;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
+  hire: ReturnType<typeof action>;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
+  /**
+   * TWO KINDS OF PERSON, AND THE SHOP DECIDES WHICH IT IS ADDING.
+   *
+   * A PIN is attribution on a shared tablet: it answers «which of the three of us saved that
+   * visit» and protects nothing. A LOGIN is authentication: his own phone and password, his own
+   * role, and — the reason this exists — a branch he is scoped to, so a manager in Jeddah does
+   * not read Riyadh's customers (§12.4).
+   *
+   * Both were impossible to tell apart on this screen until now, because only one existed.
+   */
+  const [kind, setKind] = useState<'pin' | 'login'>('pin');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [branchId, setBranchId] = useState('');
   // DEFAULTS TO THE NARROWEST. Adding somebody is a routine act done in a hurry, and a form that
   // opens on «مدير» hands out the shop to whoever is added while nobody was reading.
   const [role, setRole] = useState('operator');
@@ -149,9 +165,19 @@ function People({ session, operators, branches, add, edit, onChanged }: {
     setBusy(true);
     setError('');
     try {
-      await call(session, add, { name: name.trim(), pin, role });
+      if (kind === 'login') {
+        if (!hire) return;
+        await call(session, hire, {
+          name: name.trim(), phone: phone.trim(), password, role, branch_id: branchId,
+        });
+      } else {
+        await call(session, add, { name: name.trim(), pin, role });
+      }
       setName('');
       setPin('');
+      setPhone('');
+      setPassword('');
+      setBranchId('');
       setRole('operator');
       setOpen(false);
       onChanged();
@@ -229,14 +255,64 @@ function People({ session, operators, branches, add, edit, onChanged }: {
           <Field label="الاسم" required htmlFor="op-name">
             <Input id="op-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
+
+          {/* THE CHOICE IS NAMED BY WHAT IT GIVES HIM, not by our words for it. «رمز على الجهاز»
+              and «حساب يدخل به» are the two things a shop owner actually decides between. */}
+          {hire ? (
+            <Segmented
+              className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
+              ariaLabel="نوع الإضافة"
+              value={kind}
+              onChange={(v) => setKind(v as 'pin' | 'login')}
+              options={[
+                { value: 'pin', label: 'رمز على الجهاز' },
+                { value: 'login', label: 'حساب يدخل به' },
+              ]}
+            />
+          ) : null}
+
+          {kind === 'login' ? (
+            <>
+              <Field label="جوّاله" required htmlFor="op-phone">
+                <Input id="op-phone" value={phone} inputMode="tel" dir="ltr"
+                       onChange={(e) => setPhone(e.target.value)} />
+              </Field>
+              {/* HE CHANGES IT LATER; THE OWNER CHOOSES IT NOW. A temporary password the manager
+                  says out loud beats an invite link a shop employee never opens. */}
+              <Field label="كلمة مرور مؤقتة" required htmlFor="op-pw">
+                <Input id="op-pw" value={password} type="password"
+                       onChange={(e) => setPassword(e.target.value)} />
+              </Field>
+              {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE — for everyone else the answer is
+                  «كل الفروع» and the question is noise. */}
+              {(branches ?? []).length > 1 ? (
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="text-text-secondary">فرعه</span>
+                  <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+                          value={branchId} aria-label="فرع الموظف"
+                          onChange={(e) => setBranchId(e.target.value)}>
+                    <option value="">كل الفروع</option>
+                    {(branches ?? []).filter((b) => b.active !== false).map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-text-secondary">
+                    من له فرع يرى بيانات فرعه وحده.
+                  </span>
+                </label>
+              ) : null}
+            </>
+          ) : null}
           {/* FOUR DIGITS, AND THE SERVER SAYS FOUR. A longer PIN is not meaningfully safer for what
               it protects and IS meaningfully slower to type a hundred times a day. */}
+          {kind === 'pin' ? (
           <Field label="رمز الدخول (4 أرقام)" required htmlFor="op-pin">
             <Input
               id="op-pin" value={pin} inputMode="numeric" dir="ltr" maxLength={4}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             />
           </Field>
+          ) : null}
           {/* THE ROLE, ASKED RATHER THAN ASSUMED. The form sent `operator` silently — so a shop
               that wanted a manager had no way to say so, and «فريقي» could only ever produce one
               kind of person. */}
@@ -266,7 +342,12 @@ function People({ session, operators, branches, add, edit, onChanged }: {
 
           {error ? <p role="alert" className="text-danger">{error}</p> : null}
           <div className="flex gap-2">
-            <Button type="submit" disabled={busy || name.trim().length === 0 || pin.length !== 4}>
+            <Button
+              type="submit"
+              disabled={busy || name.trim().length === 0
+                || (kind === 'pin' ? pin.length !== 4
+                    : phone.trim().length < 6 || password.length < 8)}
+            >
               {busy ? 'جارٍ الحفظ…' : 'حفظ'}
             </Button>
             <Button type="button" variant="ghost" onClick={() => { setOpen(false); setError(''); }}>

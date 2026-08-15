@@ -36,6 +36,7 @@ from app.api.ratelimit import rate_limit
 from app.core.models import Branch, Operator, Service
 from app.core import branches as B
 from app.core import seats as S
+from app.core.signup import SignupRefused
 from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -122,6 +123,80 @@ async def create_operator(request: Request, body: OperatorIn,
     await gauges.report(tenant, S.SEATS, current + 1)
     # public() omits pin_hash — a hash that is never returned cannot be attacked offline by
     # somebody who reached a read endpoint.
+    return op.public()
+
+
+class MemberIn(BaseModel):
+    """An employee who gets his own login — not a PIN on a shared tablet."""
+
+    name: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=6, max_length=32)
+    # LONG ENOUGH TO BE REAL. This account can read a shop's customer list; identity refuses a
+    # short one anyway, and refusing here means he is told before the round trip.
+    password: str = Field(min_length=8, max_length=256)
+    role: str = Field(min_length=1, max_length=32)
+    branch_id: str = Field(default="", max_length=64)
+
+
+@router.post("/members", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit)])
+async def hire_member(request: Request, body: MemberIn,
+                      principal: Principal = Depends(_MANAGE)) -> dict:
+    """Hire somebody: an account he signs in with, a role, and the branch he works at.
+
+    TWO THINGS ARE CREATED AND THEY ARE ONE ACT. The membership lives at identity — that is what a
+    token is minted from — and the operator row lives here, which is what the seat gauge counts,
+    what a visit is attributed to, and where his branch is written. Creating either alone gives a
+    shop half an employee: a login nobody can attribute work to, or a name on a list who cannot
+    open anything.
+
+    THE ORDER IS THE MEMBERSHIP FIRST, and it is the recoverable order. If the account is created
+    and our row is not, he can sign in and sees a shop that does not know him — visible, and
+    repairable by hiring him again (the membership add is idempotent). The reverse leaves a seat
+    consumed by somebody who cannot log in at all, and nothing on any screen says why.
+
+    THE SEAT IS CHECKED BEFORE EITHER, because an establishment at its limit must be refused
+    before an account exists at identity that we would then have to unwind.
+    """
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    gauges = request.app.state.container.gauges
+
+    current = len([o for o in await store.list(tenant) if o.active])
+    try:
+        await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
+    except S.SeatLimitReached as exc:
+        return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            content={"error": "SEAT_LIMIT", "message": str(exc)})
+
+    branch_id = ""
+    if body.branch_id.strip():
+        branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
+                                    tenant, body.branch_id)
+
+    # CRITICAL AND WRITE-AHEAD: this is a person being given access to an establishment's data,
+    # which is the one family of acts that must be refused rather than performed unrecorded.
+    await request.app.state.auditor.record(
+        "member.hired", actor=principal.subject, tenant=tenant, resource="member",
+        ip=request.client.host if request.client else "")
+
+    try:
+        out = await request.app.state.container.signup.hire(
+            tenant, phone=body.phone, password=body.password, role=body.role)
+    except SignupRefused as exc:
+        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «هذا الرقم مسجّل في
+        # منشأة أخرى» is the only part of this answer the owner can act on.
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "NOT_HIRED", "message": str(exc)})
+
+    op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
+                  branch_id=branch_id, created=int(time.time()))
+    # HIS OWN LOGIN IS HIS IDENTITY, so there is no PIN on this row. `verify-pin` compares against
+    # an empty hash and refuses — which is correct: a man with an account does not also need four
+    # digits, and giving him one would be a second credential to leak.
+    op.person_id = out.get("person_id", "")
+    await store.save(op)
+    await gauges.report(tenant, S.SEATS, current + 1)
     return op.public()
 
 

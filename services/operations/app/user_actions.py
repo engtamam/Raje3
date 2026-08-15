@@ -248,6 +248,11 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "الرمز نسبة لا تسجيل دخول: يُسأل عند الحفظ لينسب العمل لصاحبه.",
     },
     {
+        "id": "operations.hire_member", "label": "توظيف بحساب", "method": "POST",
+        "path": "/api/v1/staff/members", "capability": "operations.manage", "group": "الفريق",
+        "help": "حسابٌ يدخل به بنفسه ودورٌ له — غير الرمز الرباعي الذي يُنسب به العمل على جهازٍ مشترك.",
+    },
+    {
         "id": "operations.update_operator", "label": "تعديل عامل", "method": "PATCH",
         "path": "/api/v1/staff/operators/{id}", "capability": "operations.manage",
         "group": "الفريق", "confirm": True,

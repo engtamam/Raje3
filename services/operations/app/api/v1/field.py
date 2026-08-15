@@ -23,6 +23,8 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.api import scope as SCOPE
+from app.api.scope import branch_scope
 from app.config import get_settings
 from app.core import erase_customer as E
 from app.core import plate as P
@@ -305,6 +307,15 @@ async def customer_record(request: Request, customer_id: str,
                           principal: Principal = Depends(_READ)) -> dict:
     """The customer's record: their vehicles and their recent visits."""
     rec = await _svc(request).customer_record(_tenant(principal), customer_id)
+    if rec is not None:
+        # HIS BRANCH ONLY, WHEN HE HAS ONE (§12.4). The customer is shared across the chain — one
+        # person, one balance — so the record itself is never hidden; what narrows is the HISTORY,
+        # which is where another branch's work would otherwise be readable line by line.
+        #
+        # Unbranched visits stay visible to everyone: a till sends none, and hiding them would
+        # leave a branch manager reading a customer who appears never to have come in.
+        scope = await branch_scope(request.app.state.container.datastore, principal)
+        rec = {**rec, "visits": SCOPE.visible(list(rec.get("visits") or []), scope)}
     if rec is None:
         # 404 for "not in THIS establishment", which is also the answer when the id belongs to
         # another tenant. Deliberately indistinguishable: a 403 would confirm the id exists
