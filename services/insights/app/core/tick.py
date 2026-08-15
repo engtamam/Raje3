@@ -74,8 +74,15 @@ class Tick:
         visits = await self.peers.visits(tenant, since=since)
         catalogue = await self.peers.catalogue(tenant)
         # THE SEND LOG, ONCE PER TENANT. Read here rather than inside _compute_scope: a branch
-        # snapshot would otherwise re-fetch the whole shop's messages for every branch, and the
-        # engine's effect is a property of the shop in any case (the log carries no branch).
+        # snapshot would otherwise re-fetch the whole shop's messages for every branch.
+        #
+        # THE LOG NOW CARRIES A BRANCH and this read still does not use it — deliberately, and
+        # worth saying so. `/internal/reminders/effect` answers (customer, when, class) and nothing
+        # else, because the two indicators built on it — visits credited to a message, and stops
+        # per thousand — are properties of the SHOP. Per-branch effect is a question we can now
+        # ask; it needs the peer to carry the field and both indicators to be scoped, and pulling
+        # the branch through here without doing that would split the denominator and leave the
+        # numerator whole.
         # ASKED FOR, NOT DEMANDED. A peers driver without this method is an older reminders behind
         # a rolling deploy — insights rolls first — and two indicators rendering «not yet» for an
         # hour is the right cost. Crashing the whole snapshot pass over it is not.

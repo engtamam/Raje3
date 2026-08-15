@@ -749,7 +749,14 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
     # window belongs to the tick, which constructs its own. `c.reach` was written from memory,
     # never called, and answered every request with a 500 — and the screen it feeds sat on a
     # loading skeleton for ever rather than saying so. Found by opening the page in a browser.
-    reached = await Reach(c.datastore).count(tenant, now=int(time.time()))
+    #
+    # AND WITH THE CONFIGURED WINDOW, which is the second half of that bug. Built bare, `Reach`
+    # takes its own default — so a deployment that tunes REACH_WINDOW_SECONDS showed the owner one
+    # number and gated his sends on another, and the two disagreed by exactly the amount nobody
+    # could account for.
+    from app.config import get_settings as _settings
+    reached = await Reach(c.datastore, window=_settings().REACH_WINDOW_SECONDS).count(
+        tenant, now=int(time.time()))
 
     pending, _ = await store._find(tenant, {"state": "pending"}, limit=200,
                                    sort=("due_at", "asc"))
