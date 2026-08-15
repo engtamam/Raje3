@@ -126,13 +126,19 @@
         "THE APPS. Each grants ONE key and says nothing about anything else — a row that repeated",
         "`staff.seats` would add its number to the base's every time somebody bought it.",
         "",
-        "The four prices are the old ladder taken apart, not numbers invented today: base + الحملات",
-        "+ النقاط is exactly what الذكية cost, and adding the engine and the link is exactly what",
-        "الأعمال cost. A shop that would have bought a tier pays the same; a shop that wanted one",
-        "thing now pays for one thing."
+        "ONE PRICE FOR EVERY APP — 99. The first cut derived four different prices from the old",
+        "ladder, and the ladder is exactly what we stopped selling: a shop comparing 60 against",
+        "200 is reading a tier list again, and asking us to justify why one app costs three of",
+        "another.",
+        "",
+        "One number ends that conversation. He reads the sentence about what an app DOES and says",
+        "yes or no — which is the decision we want him making, and the only one he can make fast.",
+        "",
+        "AND IT IS EASIER TO SELL THAN TO PRICE. «كل تطبيق بـ99» is repeatable by a partner on a",
+        "phone call; four numbers are a page somebody has to open."
       ],
       "name": "الحملات",
-      "amount": 9000,
+      "amount": 9900,
       "trial_days": 0,
       "limits": {
         "feature.campaigns": {"kind": "boolean", "limit": 1},
@@ -141,7 +147,7 @@
     },
     {
       "name": "برنامج النقاط",
-      "amount": 6000,
+      "amount": 9900,
       "trial_days": 0,
       "limits": {
         "feature.loyalty": {"kind": "boolean", "limit": 1}
@@ -149,7 +155,7 @@
     },
     {
       "name": "محرك التحليلات",
-      "amount": 20000,
+      "amount": 9900,
       "trial_days": 0,
       "limits": {
         "feature.insights.engine": {"kind": "boolean", "limit": 1},
@@ -158,7 +164,7 @@
     },
     {
       "name": "الربط البرمجي",
-      "amount": 10000,
+      "amount": 9900,
       "trial_days": 0,
       "limits": {
         "feature.api": {"kind": "boolean", "limit": 1}
