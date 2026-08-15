@@ -251,6 +251,10 @@ def build_container(settings: Settings) -> Container:
         daily_total_cap=settings.DAILY_TOTAL_CAP)
 
     container.sender = build_sender(settings)
+    # Handing HIS OWN text to Meta — on his number, with no review of ours in between.
+    from app.core.submission import build_submitter
+
+    container.submitter = build_submitter(settings)
     # The message quota. Null in a local run, refused in production by assert_sender_config_ok —
     # a service that sends without counting is a plan limit nothing enforces.
     container.quota = build_quota(settings)

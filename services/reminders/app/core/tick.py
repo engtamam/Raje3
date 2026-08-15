@@ -104,6 +104,23 @@ class TickResult:
         self.reasons[key] = self.reasons.get(key, 0) + 1
 
 
+def _own_template(choices: Any, ids: list[str]) -> str:
+    """The name of HIS OWN approved text for whichever reason fired this message, or empty.
+
+    ONE MESSAGE CAN ANSWER SEVERAL REASONS — a visit confirmation that also carries the points
+    receipt — so the candidates arrive as a list and the FIRST one he has re-texted wins. Any other
+    rule would need a precedence nobody has ever stated; this one is «the reason he customised is
+    the one he meant».
+    """
+    if choices is None:
+        return ""
+    for reason_id in ids:
+        name = choices.template_name(reason_id)
+        if name:
+            return name
+    return ""
+
+
 class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
                  batch: int = 100, telemetry=None, quota=None, approved=None,
@@ -315,7 +332,8 @@ class Tick:
 
         try:
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                                library=library, approved=approved)
+                                library=library, approved=approved,
+                                own=_own_template(choices, ids))
             # SLOT BY SLOT, FROM THE TEMPLATE'S OWN DECLARATION. The previous version put the
             # owner's single sentence into slots 3 AND 4 through all three source dicts, so a
             # four-variable template said the same thing twice; and it passed slot 1 empty, which
@@ -508,7 +526,12 @@ class Tick:
 
         # ── 3. render ─────────────────────────────────────────────────────────────────────────
         template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                            library=library, approved=approved)
+                            library=library, approved=approved,
+                            # HIS OWN TEXT ON THIS PATH TOO. Two render sites is two chances to
+                            # wire one of them and believe the feature works: an owner who
+                            # customised his visit confirmation would see it on some messages and
+                            # ours on others, which reads as a product that cannot make up its mind.
+                            own=_own_template(choices, [reason] if reason else []))
         service_text = R.merged_service_text(
             [service_names.get(s, s) for s in
              [row.get("service_id", "")] + list(row.get("also_services") or [])])

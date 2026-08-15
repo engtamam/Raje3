@@ -121,6 +121,12 @@ env:
   # Unset means NOT KNOWN, and the filter is skipped. It never means "nothing is approved": that
   # would silence every establishment we host the moment this path was wrong.
   NOTIFICATION_TEMPLATES_PATH: "/internal/whatsapp/templates"
+  # HIS OWN TEXT, TO META, ON HIS OWN NUMBER — with no review of ours in between, which is what
+  # the owner asked for. Register puts the body in the peer's registry (a local upsert, no Meta
+  # call); submit is the one that reaches Meta. Both are the internal twins base-services v0.16.6
+  # added in answer to our escalation, and without them «قوالبي» is a notepad.
+  NOTIFICATION_TEMPLATE_REGISTER_PATH: "/internal/whatsapp/templates"
+  NOTIFICATION_TEMPLATE_SUBMIT_PATH: "/internal/whatsapp/templates/{name}/{language}/submit"
 
   # ── WhatsApp's ceiling — THEIR numbers, which is exactly why they are here ────────────────
   # A business may START conversations with a limited number of UNIQUE customers per rolling 24

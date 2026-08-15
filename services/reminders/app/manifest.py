@@ -123,6 +123,9 @@ def build_manifest(
             # His own texts: written here, submitted from here, never edited by us.
             {"path": "/api/v1/reminders/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/templates", "tier": "user", "method": "POST"},
+            # Hands ONE of his own texts to Meta, on his own number. The draft used to have
+            # nowhere to go — «قوالبي» was a notepad.
+            {"path": "/api/v1/reminders/templates/{}/submit", "tier": "user", "method": "POST"},
             # What sends in the shop's name, and whether it sends at all (core/reasons.py).
             {"path": "/api/v1/reminders/reasons", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/reasons/{}", "tier": "user", "method": "PUT"},

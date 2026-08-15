@@ -137,6 +137,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "نصٌّ من عندك لرسالة بعينها — يُحفظ مسودّة حتى ترفعه.",
     },
     {
+        "id": "reminders.submit_template", "label": "ارفعه إلى واتساب", "method": "POST",
+        "path": "/api/v1/reminders/templates/{name}/submit", "capability": "reminders.manage",
+        "group": "الإعدادات",
+        # THE BUTTON THE DRAFT NEVER HAD. Writing was reachable and submitting was not, so «قوالبي»
+        # was a notepad: every text an owner wrote sat as a draft for ever with nothing to press.
+        "help": "يُرسل نصّك إلى واتساب للمراجعة على رقمك. رسائلك تستمر بنصّنا حتى يُعتمد.",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+    },
+    {
         "id": "reminders.reasons", "label": "متى نرسل", "method": "GET",
         "path": "/api/v1/reminders/reasons", "capability": "reminders.read",
         "group": "الإعدادات",

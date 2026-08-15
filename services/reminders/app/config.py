@@ -184,6 +184,10 @@ class Settings(BaseSettings):
     # discovering a template is still in review — correct, and wasteful for a shop that connected
     # this morning with its whole library pending.
     NOTIFICATION_TEMPLATES_PATH: str = "/internal/whatsapp/templates"
+    # HIS OWN TEXT, TO META. The internal twins (base-services v0.16.6) that answered our
+    # escalation: register is a local upsert, submit hands one template to Meta for review.
+    NOTIFICATION_TEMPLATE_REGISTER_PATH: str = "/internal/whatsapp/templates"
+    NOTIFICATION_TEMPLATE_SUBMIT_PATH: str = "/internal/whatsapp/templates/{name}/{language}/submit"
 
     # ── the measurement group (proof 2) ──────────────────────────────────────────────────────
     # A tenth of each shop's customers receive no reminder, offer or campaign, so that «هل الرسائل

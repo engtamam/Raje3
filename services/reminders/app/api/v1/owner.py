@@ -345,6 +345,50 @@ async def write_custom_template(request: Request, body: CustomTemplateIn,
     return {"ok": True, "template": row.public()}
 
 
+@router.post("/templates/{name}/submit", dependencies=[Depends(rate_limit)])
+async def submit_custom_template(request: Request, name: str,
+                                 principal: Principal = Depends(_MANAGE)) -> dict:
+    """Hand HIS text to Meta, on his own number, with no review of ours in between.
+
+    THE DRAFT USED TO HAVE NOWHERE TO GO. He could write a text, read it back on a phone-shaped
+    preview, and that was the end of it: registering and submitting were user-tier routes needing a
+    JWT this service cannot mint. So «قوالبي» was a notepad — every text he wrote sat as a draft,
+    for ever, and nothing said why.
+
+    THE VERDICT IS META'S AND SO ARE THE WORDS. A refusal comes back as Meta wrote it, because
+    «ساعدوني» turns that exact sentence into a request a human answers — and a re-worded rejection
+    sends him looking for a problem we invented.
+
+    NOTHING BREAKS WHILE HE WAITS. His messages keep going out in OUR words until Meta approves
+    this one; that is the fallback in `rendering.choose`, and it is what makes submitting safe.
+    """
+    from app.core.custom_templates import (CustomTemplateError, CustomTemplateStore, DRAFT,
+                                           PENDING, REJECTED)
+    c = request.app.state.container
+    store = CustomTemplateStore(c.datastore)
+    row = await store.get(principal.tenant, name)
+    if row is None:
+        return {"ok": False, "error": "لا يوجد نصّ بهذا الاسم."}
+    if row.get("status") not in (DRAFT, REJECTED):
+        # ALREADY WITH META, OR ALREADY LIVE. Submitting again would spend one of his hundred
+        # hourly slots to ask about a template Meta has not finished reading.
+        return {"ok": False, "error": "هذا النص مرفوع بالفعل."}
+
+    out = await c.submitter.submit(principal.tenant, row)
+    status = PENDING if out.get("ok") else REJECTED
+    try:
+        row = await store.mark(principal.tenant, name, status=status,
+                               reason=str(out.get("reason", "")))
+    except CustomTemplateError as exc:
+        return {"ok": False, "error": str(exc)}
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"template:{name}", ip=request.client.host if request.client else "")
+    return {"ok": bool(out.get("ok")), "template": {k: row.get(k) for k in
+                                                    ("name", "reason_id", "status", "reason",
+                                                     "version", "updated")}}
+
+
 # ── settings: general, group, and one service's own (spec §10.8.1) ────────────────────────────
 class SettingsIn(BaseModel):
     # Every field optional: an owner changing the lead time must not be forced to restate the

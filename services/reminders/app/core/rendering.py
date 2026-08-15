@@ -101,7 +101,7 @@ def sanitise_owner_text(value: str) -> str:
 
 
 def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
-           approved: set[str] | None = None) -> dict[str, Any]:
+           approved: set[str] | None = None, own: str = "") -> dict[str, Any]:
     """Pick the template for this type in this tenant's tone, preferring one Meta has approved.
 
     FALLS BACK TO ANY ACTIVE TONE rather than failing. A tenant whose tone was set to one we later
@@ -144,6 +144,24 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
     disables it permanently. An allowlist keeps a status added later out by default; a denylist
     lets it in.
     """
+    # ── HIS OWN TEXT FIRST, IF META HAS APPROVED IT ────────────────────────────────────────
+    #
+    # THE WIRE THAT WAS NEVER CONNECTED. An owner could write his own message, submit it, and have
+    # Meta approve it — and the send path chose from OUR library regardless. `template_name()` on
+    # his choices was read by the preview screen and by nothing that sends. He saw his text on the
+    # screen and his customers received ours.
+    #
+    # AND THE FALLBACK IS THE OTHER HALF OF THE SAME RULE. Meta rejects a text, or is still
+    # reviewing it, or paused it for quality — in every one of those the shop must keep sending,
+    # in our words, rather than go quiet. A shop that stops sending because one sentence it wrote
+    # was refused has lost the product over an edit.
+    #
+    # `approved is None` MEANS NOT KNOWN, and his name is used on trust: it is the same rule the
+    # library gets three lines down, and refusing his text on an unreadable status would be the
+    # outage this whole function is written to avoid.
+    if own and (approved is None or own in approved):
+        return {"name": own, "type": template_type, "tone": tone, "active": True, "own": True}
+
     active = [t for t in library if t.get("type") == template_type and t.get("active", True)]
     if not active:
         raise RenderError(f"لا يوجد قالب فعّال من نوع {template_type}.")
