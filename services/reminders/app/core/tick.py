@@ -302,7 +302,7 @@ class Tick:
             reason = "أوقفتَ هذا النوع من الرسائل"
             await self._log.append(tenant, as_row(SendLog(
                 tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                schedule_id=row.get("id", ""), outcome="suppressed", reason=reason)))
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), outcome="suppressed", reason=reason)))
             return {"sent": False, "reason": reason}
 
         prefs = await self._prefs.get(tenant, subject) or {}
@@ -327,7 +327,7 @@ class Tick:
             # counted against, and a refusal that leaves no row is a refusal nobody can explain.
             await self._log.append(tenant, as_row(SendLog(
                 tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                schedule_id=row.get("id", ""), outcome="suppressed", reason=decision.reason)))
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), outcome="suppressed", reason=decision.reason)))
             return {"sent": False, "reason": decision.reason}
 
         try:
@@ -371,7 +371,7 @@ class Tick:
         except Q.QuotaError as exc:
             await self._log.append(tenant, as_row(SendLog(
                 tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                schedule_id=row.get("id", ""), outcome="suppressed", reason=str(exc))))
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), outcome="suppressed", reason=str(exc))))
             return {"sent": False, "reason": str(exc)}
 
         try:
@@ -401,7 +401,7 @@ class Tick:
         # did not, never held it — no second table, and nothing to argue about at the counter.
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
-            schedule_id=row.get("id", ""), template_name=rendered.template_name,
+            schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), template_name=rendered.template_name,
             outcome="sent", idempotency_key=key,
             offer_text=row.get("offer_text", ""),
             offer_expires_at=int(row.get("offer_expires_at") or 0),
@@ -476,7 +476,7 @@ class Tick:
                 await self._close(tenant, row, "suppressed", decision.reason, now)
                 await self._log.append(tenant, as_row(SendLog(
                     tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                    schedule_id=row.get("id", ""), outcome="suppressed",
+                    schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), outcome="suppressed",
                     reason=decision.reason)))
                 res.suppressed += 1
             res.note(decision.reason)
@@ -503,7 +503,7 @@ class Tick:
                 if policy == "drop":
                     await self._log.append(tenant, as_row(SendLog(
                         tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                        schedule_id=row.get("id", ""), outcome="suppressed",
+                        schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), outcome="suppressed",
                         reason="سقف واتساب اليومي")))
                     await self._close(tenant, row, "suppressed", "سقف واتساب اليومي", now)
                     res.suppressed += 1
@@ -570,7 +570,7 @@ class Tick:
         except Q.QuotaError as exc:
             await self._log.append(tenant, as_row(SendLog(
                 tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                schedule_id=row.get("id", ""), outcome="suppressed", reason=str(exc))))
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), outcome="suppressed", reason=str(exc))))
             # CLOSED AS SUPPRESSED, NOT FAILED. An exhausted quota is a decision, not an error:
             # retrying it every hour for the rest of the month would fill the reason counts with
             # noise and hide the peer failures they exist to surface. He buys a pack and the next
@@ -595,7 +595,7 @@ class Tick:
                 # late message, it is a strange one — and the shop is better served by silence.
                 await self._log.append(tenant, as_row(SendLog(
                     tenant=tenant, subject_ref=subject, cls=cls, at=now,
-                    schedule_id=row.get("id", ""), template_name=rendered.template_name,
+                    schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), template_name=rendered.template_name,
                     outcome="suppressed", reason=f"سقف واتساب اليومي ({exc.code})")))
                 await self._close(tenant, row, "suppressed",
                                   f"سقف واتساب اليومي ({exc.code})", now)
@@ -616,7 +616,7 @@ class Tick:
         await self._reach.record(tenant, subject, now=now)
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
-            schedule_id=row.get("id", ""), template_name=rendered.template_name,
+            schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), template_name=rendered.template_name,
             outcome="sent", idempotency_key=key)))
         await self._close(tenant, row, "sent", "", now)
 

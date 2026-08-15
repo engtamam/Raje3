@@ -151,6 +151,18 @@ class SendLog:
     id: str = field(default_factory=lambda: _id("snd"))
     schedule_id: str = ""
     template_name: str = ""
+    # WHERE THE THING THIS MESSAGE IS ABOUT HAPPENED — copied from the schedule, which copied it
+    # from the visit (core/scheduling.py).
+    #
+    # WITHOUT IT «كم رسالة خرجت باسم فرع جدة» HAS NO ANSWER, AND NEVER WILL. This log is the only
+    # record that a message existed; a row written without a branch cannot be given one later, so
+    # every day the field is missing is a day of history that stays unanswerable. insights already
+    # says so out loud in its own tick: "the log carries no branch".
+    #
+    # EMPTY IS A REAL VALUE, not a gap to be filled. A campaign send has no visit behind it, and a
+    # shop that never labels its branches has none either — both are «غير محدَّد», which is the
+    # honest answer and the one the coverage line already knows how to show (§10.6.3).
+    branch_id: str = ""
     # "sent" or "suppressed". Suppressions are rows here on purpose: they are the answer to the
     # only question support ever gets about this service.
     outcome: str = "sent"
