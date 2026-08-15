@@ -93,7 +93,20 @@ def test_a_branch_refusal_talks_about_branches_and_not_employees():
     g = FakeBilling(limit=2).make()
     with pytest.raises(S.SeatLimitReached) as e:
         run(S.guard_and_report(g, tenant=T, key=S.BRANCHES, current=2))
-    assert "فروع" in str(e.value) and "موظف" not in str(e.value)
+    assert "فرع" in str(e.value) and "موظف" not in str(e.value)
+
+
+def test_the_refusal_is_grammatical_at_one_which_is_the_base_plan():
+    """«باقتك تسمح بـ1 فروع» was the sentence almost every shop would be shown.
+
+    The base plan allows exactly one branch and every establishment now owns its main branch from
+    signup, so the count of 1 is not an edge case — it is the common path, and the naive form was
+    ungrammatical on it.
+    """
+    g = FakeBilling(limit=1).make()
+    with pytest.raises(S.SeatLimitReached) as e:
+        run(S.guard_and_report(g, tenant=T, key=S.BRANCHES, current=1))
+    assert "بفرع واحد" in str(e.value) and "1" not in str(e.value)
 
 
 def test_an_unlimited_plan_never_refuses():

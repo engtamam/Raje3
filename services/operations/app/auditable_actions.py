@@ -174,6 +174,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "branch",
     },
     {
+        # Renaming or closing a place — the name appears on every report about it, and closing one
+        # changes which places a shop is paying for.
+        "action": "branch.updated",
+        "source": "admin",
+        "critical": False,
+        "resource": "branch",
+    },
+    {
         "action": "service.created",
         "source": "admin",
         "critical": False,

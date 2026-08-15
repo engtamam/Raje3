@@ -255,6 +255,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "operations.create_branch", "label": "إضافة فرع", "method": "POST",
         "path": "/api/v1/staff/branches", "capability": "operations.manage", "group": "الفروع",
     },
+    {
+        "id": "operations.update_branch", "label": "تعديل فرع", "method": "PATCH",
+        "path": "/api/v1/staff/branches/{id}", "capability": "operations.manage",
+        "group": "الفروع", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "الإغلاق بـ active=false لا بالحذف — الحذف يترك زيارات السنة الماضية بلا اسم فرع.",
+    },
 ]
 
 

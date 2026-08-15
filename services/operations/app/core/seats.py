@@ -139,11 +139,29 @@ class HttpGauges:
         return (int(current) + 1 <= int(limit)), int(limit)
 
 
+def counted(n: int, *, one: str, two: str, few: str, many: str) -> str:
+    """Arabic counts the way Arabic counts them — and this is on the path an owner reads.
+
+    «باقتك تسمح بـ1 فروع» is what the naive form produced, and the base plan allows exactly one
+    branch — so the ungrammatical case was not an edge, it was the sentence almost every shop was
+    going to be shown. Four forms, because the language has four: one, two, 3–10, and 11 upwards.
+    """
+    if n == 1:
+        return one
+    if n == 2:
+        return two
+    return few if 3 <= n % 100 <= 10 else many
+
+
 def refusal(key: str, limit: int) -> str:
     """The sentence the owner reads. Names his limit, because 'not allowed' answers nothing."""
     if key == SEATS:
-        return f"باقتك تسمح بـ{limit} موظفاً. لإضافة المزيد، رقِّ باقتك."
-    return f"باقتك تسمح بـ{limit} فروع. لإضافة فرع آخر، رقِّ باقتك."
+        allowed = counted(limit, one="بموظف واحد", two="بموظفَين",
+                          few=f"بـ{limit} موظفين", many=f"بـ{limit} موظفاً")
+        return f"باقتك تسمح {allowed}. لإضافة المزيد، رقِّ باقتك."
+    allowed = counted(limit, one="بفرع واحد", two="بفرعَين",
+                      few=f"بـ{limit} فروع", many=f"بـ{limit} فرعاً")
+    return f"باقتك تسمح {allowed}. لإضافة فرع آخر، رقِّ باقتك."
 
 
 async def guard_and_report(gauges: Any, *, tenant: str, key: str, current: int) -> None:

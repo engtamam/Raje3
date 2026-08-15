@@ -46,14 +46,33 @@ def _in_scope(path: str) -> bool:
     return path.startswith("/api/v1/") or path in ("/healthz", "/readyz")
 
 
+def _walk(routes, prefix: str = ""):
+    """Every real route, THROUGH the included routers rather than only the top level.
+
+    THE GATE WAS DEAD AND REPORTED GREEN. FastAPI 0.141 stopped flattening `include_router` — an
+    included router stays on `app.routes` as one `_IncludedRouter` object with no `path` at all —
+    so reading `app.routes` returned three framework routes and nothing else. Both directions of
+    this file then compared the manifest against an EMPTY served set: "every served route is
+    declared" passed vacuously, and the phantom check accused every route in the service.
+
+    Exactly the failure this test was written to catch, one level up: something that reports on a
+    surface it cannot actually see. So the walk recurses, carrying the prefix each include added.
+    """
+    for route in routes:
+        inner = getattr(route, "original_router", None)
+        if inner is not None:
+            ctx = getattr(route, "include_context", None)
+            yield from _walk(inner.routes, prefix + (getattr(ctx, "prefix", "") or ""))
+            continue
+        yield prefix + getattr(route, "path", ""), getattr(route, "methods", set()) or set()
+
+
 def _served() -> set[tuple[str, str]]:
     """(METHOD, path) actually registered on the app, with FastAPI's {name} normalised the same."""
     import re
 
     out = set()
-    for route in app.routes:
-        path = getattr(route, "path", "")
-        methods = getattr(route, "methods", set()) or set()
+    for path, methods in _walk(app.routes):
         # INTERNAL AND INFRASTRUCTURE ROUTES ARE NOT IN SCOPE. /internal/* is service-to-service and
         # carries a shared token rather than a capability; /metrics, /docs and the OpenAPI schema
         # are the framework's. What this test is about is the surface a PERSON can reach.

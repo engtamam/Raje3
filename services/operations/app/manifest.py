@@ -152,6 +152,7 @@ def build_manifest(
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/branches/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/services", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/services", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/services/{}", "tier": "user", "method": "PATCH"},

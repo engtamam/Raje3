@@ -284,6 +284,12 @@ class SignupService:
         except Exception:                                                     # noqa: BLE001
             seeded = 0
 
+        # AND HIS MAIN BRANCH, named after the shop he just typed. Same trade as the catalogue:
+        # never undone, because a shop with no branch row works — every branch field is optional
+        # (§12.2) — and the row is repairable. What it prevents is a first month of visits with no
+        # place on them, which no later purchase can reconstruct.
+        await self._seed_main_branch(tenant, shop_name=shop.shop_name)
+
         # AND THE REWARDS TABLE, AFTER THE CATALOGUE AND NEVER BEFORE IT. Half the rewards ARE
         # services — "a free wash" is the wash — so seeding them first would find no service to
         # bind to and drop exactly the rows that matter.
@@ -347,6 +353,19 @@ class SignupService:
             if status >= 300:
                 failed.append(f"{entry}={status}")
         return ", ".join(failed)[:400]
+
+    async def _seed_main_branch(self, tenant: str, *, shop_name: str) -> None:
+        """His first place, keyed on a fixed id so a retry cannot leave two. Never raises.
+
+        IMPORTED HERE RATHER THAN AT THE TOP: `stores` imports the models this module never
+        touches, and the saga must not gain a boot-time dependency for one row.
+        """
+        try:
+            from app.core.branches import ensure_main
+            from app.core.stores import BranchStore
+            await ensure_main(BranchStore(self._store), tenant=tenant, name=shop_name)
+        except Exception:                                                     # noqa: BLE001
+            pass
 
     async def _seed_rewards(self, tenant: str, *, sector_key: str) -> int:
         """Hand loyalty this shop's starting rewards. Never raises; returns how many were created.

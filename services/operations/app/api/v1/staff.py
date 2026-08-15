@@ -34,6 +34,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.models import Branch, Operator, Service
+from app.core import branches as B
 from app.core import seats as S
 from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
 
@@ -161,6 +162,17 @@ class BranchIn(BaseModel):
     name: str = Field(min_length=1, max_length=128)
 
 
+class BranchPatch(BaseModel):
+    """Rename, close, reopen. NO DELETE — see `update_branch`."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    active: bool | None = None
+
+
+def _live(rows: list[Branch]) -> int:
+    return len([b for b in rows if b.active])
+
+
 @router.post("/branches", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(rate_limit)])
 async def create_branch(request: Request, body: BranchIn,
@@ -169,7 +181,13 @@ async def create_branch(request: Request, body: BranchIn,
     store = BranchStore(request.app.state.container.datastore)
     gauges = request.app.state.container.gauges
 
-    current = len(await store.list(tenant))
+    # HIS MAIN BRANCH IS ONE OF THEM, and this is where the base plan's single branch is spent.
+    # An establishment that has never opened «فريقي» has no row yet, so it is created before the
+    # count — otherwise his first added branch would be counted as one while he owns two.
+    await B.ensure_main(store, tenant=tenant)
+    # LIVE ONES ONLY. A branch he closed is history on old visits, not capacity he keeps paying
+    # for — counting it would make «فرع إضافي» a purchase that buys back a place he shut down.
+    current = _live(await store.list(tenant))
     try:
         await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=current)
     except S.SeatLimitReached as exc:
@@ -185,9 +203,77 @@ async def create_branch(request: Request, body: BranchIn,
     return b.public()
 
 
+@router.patch("/branches/{branch_id}", dependencies=[Depends(rate_limit)])
+async def update_branch(request: Request, branch_id: str, body: BranchPatch,
+                        principal: Principal = Depends(_MANAGE)) -> dict:
+    """Rename a branch, or close one — and NEVER delete one.
+
+    DEACTIVATE RATHER THAN DELETE, the same rule the service catalogue follows above and for a
+    harder reason: visits, points movements and schedules all carry a `branch_id` as a plain
+    string, so deleting the row would leave a year of records pointing at a place with no name —
+    and the branch table would report those visits under an id nobody recognises.
+
+    THE MAIN BRANCH CANNOT BE CLOSED. It is what an unrecognised branch falls back to and the one
+    place a shop with no others has; closing it would leave the establishment with nowhere to
+    record a visit. Renaming it is his — «الفرع الرئيسي» is our word, not his shop's.
+
+    REOPENING IS GUARDED LIKE AN ADDITION, because it is one: it puts a place back into service
+    and a plan that allows one branch must not be passed by closing and reopening.
+    """
+    tenant = _tenant(principal)
+    store = BranchStore(request.app.state.container.datastore)
+    gauges = request.app.state.container.gauges
+
+    b = await store.get(tenant, branch_id)
+    if b is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    if body.active is False and B.is_main(branch_id):
+        # RETURNED, NEVER RAISED — the platform's handler strips a raised detail, and the sentence
+        # naming the rule is the only useful part of this answer.
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "MAIN_BRANCH",
+                                     "message": "الفرع الرئيسي لا يُغلق. غيّر اسمه إن أردت."})
+
+    rows = await store.list(tenant)
+    if body.active is True and not b.active:
+        try:
+            await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=_live(rows))
+        except S.SeatLimitReached as exc:
+            return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                                content={"error": "BRANCH_LIMIT", "message": str(exc)})
+
+    await request.app.state.auditor.record(
+        "branch.updated", actor=principal.subject, tenant=tenant,
+        resource=f"branch:{branch_id}", ip=request.client.host if request.client else "")
+
+    if body.name is not None:
+        b.name = body.name.strip()
+    if body.active is not None:
+        b.active = body.active
+    await store.save(b)
+    # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented (core/seats.py). The
+    # saved row is the one in `rows` by identity only if the store returned the same object, so
+    # the live count is taken from the list with this row's new state substituted in.
+    await gauges.report(tenant, S.BRANCHES,
+                        _live([b if r.id == b.id else r for r in rows]))
+    return b.public()
+
+
 @router.get("/branches", dependencies=[Depends(rate_limit)])
 async def list_branches(request: Request, principal: Principal = Depends(_READ)) -> dict:
-    rows = await BranchStore(request.app.state.container.datastore).list(_tenant(principal))
+    """His places — and the main one is created here if it is somehow missing.
+
+    A WRITE ON A READ, AND IT EARNS ITS PLACE. Signup creates the main branch (core/signup.py),
+    but every establishment that existed before that step did not get one, and there is no
+    migration to run — the rule is that a repair belongs in the code that needs the row, not in a
+    script somebody has to remember. `ensure_main` is keyed on a fixed id, so this is one write the
+    first time a shop opens the screen and none ever after.
+    """
+    store = BranchStore(request.app.state.container.datastore)
+    tenant = _tenant(principal)
+    await B.ensure_main(store, tenant=tenant)
+    rows = await store.list(tenant)
     return {"branches": [b.public() for b in rows]}
 
 
