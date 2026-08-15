@@ -28,6 +28,14 @@ RUN npm ci --no-audit --no-fund
 # every class the library uses, which renders as an unstyled page and not as an error.
 COPY platform/ui /build/platform/ui
 COPY apps/console/ ./
+
+# META'S IDENTIFIERS ARE BAKED AT BUILD TIME, because vite resolves import.meta.env when it
+# compiles — a static bundle has no environment to read at runtime. Absent, the connect button
+# says «الربط غير مُفعَّل بعد» and does not pretend a refresh would help.
+ARG VITE_META_APP_ID=""
+ARG VITE_META_CONFIG_ID=""
+ARG VITE_META_GRAPH_VERSION=""
+ENV VITE_META_APP_ID=$VITE_META_APP_ID     VITE_META_CONFIG_ID=$VITE_META_CONFIG_ID     VITE_META_GRAPH_VERSION=$VITE_META_GRAPH_VERSION
 RUN npm run build
 
 # ── runtime ──────────────────────────────────────────────────────────────────

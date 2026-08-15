@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { action, call, type Catalog } from '../catalog';
+import { loadMetaSdk, metaSdk, type SdkState } from '../meta';
 import type { Session } from '../session';
 
 interface ConnectState { state: string; message: string }
@@ -41,6 +42,12 @@ export function Connect({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // THE SDK IS FETCHED WHEN THE PANE OPENS, so the popup can be opened by the press itself.
+  // Meta's authorization code lives about thirty seconds; loading a script inside that window
+  // would spend a third of it before the popup even appears.
+  const [sdk, setSdk] = useState<SdkState>('loading');
+
+  useEffect(() => { loadMetaSdk().then(setSdk); }, []);
 
   /**
    * THE LISTENER IS MOUNTED BEFORE THE POPUP OPENS AND STAYS FOR THE PANE'S LIFE.
@@ -103,14 +110,15 @@ export function Connect({
       {connected ? null : (
         <div className="flex flex-col gap-2">
           <Button
-            disabled={busy}
+            disabled={busy || sdk === 'loading' || sdk === 'unconfigured'}
             onClick={() => {
-              // THE POPUP, AND NOTHING BEFORE IT. Meta's SDK is loaded by the host page and opens
-              // this window; we do not navigate, and we do not close the pane. If the SDK is not
-              // present we say so plainly rather than opening nothing and looking broken.
-              const fb = (window as { FB?: { login: (cb: () => void, opts: unknown) => void } }).FB;
+              // THE POPUP, AND NOTHING BEFORE IT: we do not navigate, and we do not close the
+              // pane. A navigation unmounts the listener the code arrives on.
+              const fb = metaSdk();
               if (!fb) {
-                setError('لم تُحمَّل نافذة واتساب. حدّث الصفحة وحاول مرة أخرى.');
+                setError(sdk === 'unconfigured'
+                  ? 'ربط واتساب غير مُفعَّل بعد — عُطلٌ لدينا لا في حسابك. تواصل معنا ونكمل معك.'
+                  : 'تعذّر فتح نافذة واتساب. تأكد من اتصالك وحاول مرة أخرى.');
                 return;
               }
               fb.login(() => { /* the answer arrives on the message listener, never here */ }, {
@@ -121,7 +129,10 @@ export function Connect({
               });
             }}
           >
-            {busy ? 'جارٍ الربط…' : 'اربط واتساب'}
+            {busy ? 'جارٍ الربط…'
+              : sdk === 'loading' ? 'نُحضّر نافذة واتساب…'
+              : sdk === 'unconfigured' ? 'الربط غير مُفعَّل بعد'
+              : 'اربط واتساب'}
           </Button>
           <p className="text-sm text-text-secondary">
             دقائق، ولا يشترط توثيق نشاطك التجاري للبدء.

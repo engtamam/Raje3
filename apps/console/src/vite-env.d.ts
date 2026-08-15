@@ -7,6 +7,11 @@ interface ImportMetaEnv {
   /** Meta's Embedded Signup configuration id. Configuration, never a constant: it differs between
    *  our test app and the live one, and a literal would need a rebuild to change. */
   readonly VITE_META_CONFIG_ID?: string;
+  /** Meta's app id. Its ABSENCE is the switch: with no id there is nothing to load, and the
+   *  connect button says the connection is not enabled yet instead of asking for a refresh. */
+  readonly VITE_META_APP_ID?: string;
+  /** The Graph version FB.init is pinned to — Meta retires versions on its own schedule. */
+  readonly VITE_META_GRAPH_VERSION?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;
