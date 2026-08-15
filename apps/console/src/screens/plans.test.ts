@@ -1,45 +1,66 @@
 /**
- * What a plan ADDS — the only part a reader is actually choosing between.
+ * The store groups by WHAT A ROW GRANTS — never by its name, and never by its place in a list.
+ *
+ * WHAT THIS REPLACES. The screen was a ladder of four tiers and its test checked `planDelta`, the
+ * function that printed «كل ما في الأساسية +». There is no ladder now: a base, apps bought one by
+ * one, and capacity packs. The grouping is the whole screen, so it is what gets tested.
+ *
+ * AND IT IS READ OFF THE LIMITS. A name would put the price list in two places, and the copy in
+ * code is the one that goes stale the day marketing renames a row.
  */
 import { describe, expect, it } from 'vitest';
-import { planDelta } from './Plans';
+import { appKey, kindOf, type Plan } from './Plans';
 
-const plan = (name: string, limits: Record<string, { limit: number; kind?: string }>) =>
-  ({ id: name, name, limits } as never);
+const plan = (name: string, limits: Record<string, { kind?: string; limit: number }>) =>
+  ({ id: name, name, limits } as Plan);
 
-describe('planDelta', () => {
-    // THE KEYS ARE READ OUT OF LIMIT_WORDS, NOT GUESSED. My first version invented `seats`, and the
-  // test failed against code that was correct — a name is not a detail here: an unknown key is
-  // silently skipped, so a guessed one produces an empty list and a passing-looking screen.
-  const basic = plan('الأساسية', { branches: { limit: 1 }, 'staff.seats': { limit: 5 } });
-  const smart = plan('الذكية', { branches: { limit: 1 }, 'staff.seats': { limit: 12 } });
+const BASE = plan('الأساس', {
+  'messages.monthly': { kind: 'counter', limit: -1 },
+  'staff.seats': { kind: 'gauge', limit: 5 },
+  'feature.campaigns': { kind: 'boolean', limit: 0 },
+  'feature.base': { kind: 'boolean', limit: 1 },
+});
+const CAMPAIGNS = plan('الحملات', {
+  'feature.campaigns': { kind: 'boolean', limit: 1 },
+  'templates.custom': { kind: 'counter', limit: 1 },
+});
+const SEATS = plan('10 مقاعد إضافية', { 'staff.seats': { kind: 'gauge', limit: 10 } });
 
-  it('keeps the whole list for the cheapest plan — nothing sits below it', () => {
-    expect(planDelta(basic, undefined)).toHaveLength(2);
+describe('kindOf', () => {
+  it('knows the base by the key it grants, not by its name', () => {
+    expect(kindOf(BASE)).toBe('base');
   });
 
-  it('drops what is identical and keeps what grew', () => {
-    const lines = planDelta(smart, basic);
-    // The branch count is unchanged and stays quiet; the seats went 5 → 12 and must be said.
-    expect(lines.some((l) => l.includes('12'))).toBe(true);
-    expect(lines.some((l) => l.includes('فروع'))).toBe(false);
+  it('does not read a declared zero as a grant', () => {
+    // THE TRAP IN THE DATA. The base carries every app at 0 so no screen has to tell «not bought»
+    // from «never heard of» — read as grants, the base would be filed as an app too.
+    expect(kindOf(BASE)).not.toBe('app');
   });
 
-  it('says nothing at all when a tier adds nothing — rather than repeating the one below', () => {
-    expect(planDelta(basic, basic)).toEqual([]);
+  it('knows an app by the one feature it turns on', () => {
+    expect(kindOf(CAMPAIGNS)).toBe('app');
+  });
+
+  it('files a row that grants no feature as capacity', () => {
+    expect(kindOf(SEATS)).toBe('capacity');
+  });
+
+  it('files a row with no limits at all as capacity rather than crashing', () => {
+    expect(kindOf({ id: 'x', name: 'x' } as Plan)).toBe('capacity');
   });
 });
 
-/**
- * WHICH DOOR THE PURCHASE GOES THROUGH — asserted on the source, because it is the kind of line
- * that reads correctly and does the wrong thing.
- *
- * THE DEFECT. The screen called `billing.subscribe`, which is billing-service's OWN route: the
- * platform's, shared by every product built on it, and knowing nothing about WhatsApp. Ours —
- * `subscription.activate` — is the only path that enforces «لا اشتراك مدفوع قبل ربط واتساب»
- * (§6.2.1). The gate was written, tested, and standing on a road nobody drove down: a shop could
- * buy the top plan and then discover it cannot send a single message.
- */
+describe('appKey', () => {
+  it('names the key the card asks `owned` about', () => {
+    expect(appKey(CAMPAIGNS)).toBe('feature.campaigns');
+  });
+
+  it('is empty for capacity, which is bought again rather than owned', () => {
+    expect(appKey(SEATS)).toBe('');
+  });
+});
+
+
 describe('the purchase path', () => {
   it('prefers our own subscribe route over billing’s raw one', async () => {
     // THE SOURCE ITSELF, through vite's `?raw` — no node APIs, so this runs exactly the same way

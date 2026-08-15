@@ -30,11 +30,13 @@ import type { Session } from '../session';
 import { Connect } from './Connect';
 import { DataPane, InvoicesPane, KeysPane, LoginPane, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
+import { TeamScreen } from './Team';
+import type { Owned } from '../apps';
 
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
 interface ConnectState { state: string; message: string }
 
-export type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'keys' | 'login' | 'data';
+export type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'team' | 'keys' | 'login' | 'data';
 
 /**
  * The tabs, each with the sentence that says what is behind it.
@@ -52,6 +54,11 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   { id: 'invoices', label: 'فواتيري', hint: 'فواتيرك وإيصالاتك، جاهزة للتنزيل' },
   { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي' },
   { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك' },
+  // «فريقي» MOVED OFF THE RAIL AND IN HERE, next to «منشأتي» and before «مفاتيح الربط»: the three
+  // of them answer one question — who and what may act in this shop — and only one of them was a
+  // full row on a nav nine labels tall. Hiring is not a daily errand; it is an errand you do once
+  // and then look for where the establishment's own settings live.
+  { id: 'team', label: 'فريقي', hint: 'من يدخل النظام، وبأي صلاحية' },
   // AFTER «منشأتي», BEFORE «دخولي»: both are about who may act in this shop, and a machine's key
   // sits next to a person's password rather than under billing.
   { id: 'keys', label: 'مفاتيح الربط', hint: 'برامج تكتب زيارات باسم محلك' },
@@ -62,11 +69,11 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
 ];
 
 export function AccountScreen(
-  { session, catalog, openOn }:
+  { session, catalog, openOn, owned }:
   // `openOn` IS WHERE SOMEBODY ELSE SENT HIM. The locked cards across the product say «أضِفه إلى
   // اشتراكي», and a button that lands on a page and then makes him find the right tab is a button
   // that loses half the people who pressed it. Ignored when he may not read that tab.
-  { session: Session; catalog: Catalog; openOn?: Pane },
+  { session: Session; catalog: Catalog; openOn?: Pane; owned?: Owned | null },
 ) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null>(null);
@@ -92,6 +99,10 @@ export function AccountScreen(
     if (t.id === 'invoices') return Boolean(action(catalog, 'billing.my_invoices'));
     if (t.id === 'whatsapp') return Boolean(action(catalog, 'whatsapp.connect_status'));
     if (t.id === 'shop') return Boolean(action(catalog, 'tenant.view_self'));
+    // ON THE WRITE, exactly as the rail gated it: listing employees is a read half the roles hold,
+    // and adding one is the reason the section exists. A tab whose every control is inert is worse
+    // than an absent one — the person tries, is refused, and learns to distrust the screen.
+    if (t.id === 'team') return Boolean(action(catalog, 'operations.create_operator'));
     return true;
   });
 
@@ -158,7 +169,7 @@ export function AccountScreen(
           <PlansPane
             session={session}
             catalog={catalog}
-            connected={isConnected}
+            owned={owned}
             // THE ONE SEAM BETWEEN TWO TABS, and it earns itself: a plan cannot run without a
             // connected number, so the pane that says so must be able to take him there.
             onGoConnect={() => setPane('whatsapp')}
@@ -170,6 +181,7 @@ export function AccountScreen(
         ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
         : null}
       {active === 'shop' ? <ShopPane session={session} catalog={catalog} /> : null}
+      {active === 'team' ? <TeamScreen session={session} catalog={catalog} /> : null}
       {active === 'keys' ? <KeysPane session={session} catalog={catalog} /> : null}
       {active === 'login' ? <LoginPane /> : null}
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}

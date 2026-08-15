@@ -18,14 +18,39 @@
  */
 import { expect, open, test } from './fixtures';
 
-test('the owner reaches all nine sections, and the list is not written in the app', async ({ shop }) => {
-  await open(shop, '/');
+test('the owner reaches every section in the rail, and the list is not written in the app',
+  async ({ shop }) => {
+    await open(shop, '/');
 
-  const nav = shop.getByRole('navigation');
-  for (const label of ['اليوم', 'تسجيل زيارة', 'عملائي', 'محلّي', 'خدماتي ومنتجاتي',
-                       'رسائلي', 'نقاطي', 'فريقي', 'حسابي']) {
-    await expect(nav.getByRole('link', { name: label })).toBeVisible();
-  }
+    // SEVEN, NOT NINE. «حسابي» is the icon beside sign-out and «فريقي» is a tab inside it — both
+    // are about the PERSON and the establishment's own settings rather than about the day's work,
+    // and the rail was nine labels tall on a phone. Neither was deleted: /account and /team are
+    // still routes, and the two tests below still open them.
+    const nav = shop.getByRole('navigation');
+    for (const label of ['اليوم', 'تسجيل زيارة', 'عملائي', 'محلّي', 'خدماتي ومنتجاتي',
+                         'رسائلي', 'نقاطي']) {
+      await expect(nav.getByRole('link', { name: label })).toBeVisible();
+    }
+    for (const gone of ['فريقي', 'حسابي']) {
+      await expect(nav.getByRole('link', { name: gone })).toHaveCount(0);
+    }
+  });
+
+test('«حسابي» is still reachable — as the icon beside sign-out', async ({ shop }) => {
+  /**
+   * A SECTION MOVED OUT OF THE RAIL MUST NOT BECOME UNREACHABLE, which is the whole risk of this
+   * change: the row disappears, nobody notices the control that replaced it was never wired, and
+   * an owner loses his subscription, his invoices and his WhatsApp connection at once.
+   */
+  await open(shop, '/');
+  await shop.getByTestId('account-link').click();
+  await expect(shop).toHaveURL(/\/account/);
+});
+
+test('«فريقي» is still reachable — as a tab inside «حسابي»', async ({ shop }) => {
+  await open(shop, '/account');
+  await shop.getByRole('button', { name: 'فريقي' }).click();
+  await expect(shop.getByText('من يدخل النظام، وبأي صلاحية')).toBeVisible();
 });
 
 test('every nav entry actually leads somewhere — no link to a screen that does not exist', async ({ shop }) => {
@@ -38,7 +63,9 @@ test('every nav entry actually leads somewhere — no link to a screen that does
   const paths = await shop.getByRole('navigation').getByRole('link')
     .evaluateAll((links) => links.map((l) => l.getAttribute('href') ?? ''));
 
-  expect(paths.length).toBe(9);
+  // SEVEN ROWS NOW — see the note above. The count is asserted rather than left loose because a
+  // section that silently stops rendering is exactly the failure this file exists to catch.
+  expect(paths.length).toBe(7);
   for (const path of paths) {
     const body = await open(shop, path);
     expect(body).not.toMatch(/غير موجودة|Not Found|Cannot GET/);

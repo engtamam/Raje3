@@ -20,7 +20,7 @@ import { Mark, NAME_AR } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
 import { action, call, fetchCatalog, SessionExpired, type Catalog } from './catalog';
-import { isOutage, visibleSections } from './nav';
+import { ACCOUNT_PATH, isOutage, visibleSections } from './nav';
 import type { Owned } from './apps';
 import { isSignedIn, useSession } from './session';
 
@@ -124,7 +124,12 @@ export function App() {
       // missing what the owner keeps, with no role check anywhere in this file.
       navItems={sections.map((s) => ({ to: s.path, label: s.label }))}
       user={{ name: session.operatorName || session.operator }}
-      labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج' }}
+      labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج',
+                account: 'حسابي' }}
+      // «حسابي» AS AN ICON BESIDE SIGN-OUT, not as a ninth row in the rail. Both controls are
+      // about the PERSON rather than about the shop, and the shell already groups them in one
+      // block — so this costs no rail height and reads where a person already looks for himself.
+      onAccount={() => navigate(ACCOUNT_PATH)}
       onSignOut={() => { signOut(); navigate('/'); }}
     >
       {/* THE SHELL RENDERS CHILDREN INSTEAD OF THE ROUTER OUTLET when given them — its two modes.

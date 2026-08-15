@@ -82,15 +82,25 @@ export const SECTIONS: Section[] = [
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
   { id: 'points', path: '/points', label: 'نقاطي', requires: ['loyalty.rewards.update'] },
-  // Same reasoning as «خدماتي»: listing employees is a read half the roles hold, and adding one
-  // is the reason the section exists.
-  { id: 'team', path: '/team', label: 'فريقي', requires: ['operations.create_operator'] },
-  // `requires: []` IS CORRECT HERE AND NOWHERE ELSE. «حسابي» holds the things every person has
-  // regardless of role — his password, his language, signing out — and the rows that are not his
-  // (billing, the WhatsApp connection) are already hidden one by one inside the screen, from the
-  // same catalogue. An operator opening it sees a short page rather than a broken one.
-  { id: 'account', path: '/account', label: 'حسابي', requires: [] },
+  // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
+  // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
+  // once rather than a place to stand. The rail keeps the eight rows that are about the work.
+  //
+  // THE ROUTE STAYS. /team is still reachable and still rendered — a bookmark, a link in a message,
+  // and the e2e suite all use it. Moving a section out of the rail is not deleting it.
+  // «حسابي» IS NOT IN THIS LIST — it is the icon beside sign-out, and ACCOUNT_PATH below is where
+  // it goes. It earned its place in the rail the way every other section does and then lost it for
+  // a different reason: the rail is nine labels tall on a phone, and the one section that is not
+  // about the shop was taking a full row from the eight that are.
+  //
+  // AND IT IS THE ONE SECTION THAT SURVIVES THE MOVE. `requires: []` — everybody has it whatever
+  // their role — so it needs no filtering, which is exactly what makes it safe as a fixed control
+  // rather than a derived row. The shell already draws it next to sign-out, in the same block, for
+  // the same reason: both are about the person rather than about the work.
 ];
+
+/** Where the account icon in the shell's user block leads. Not a Section: it is never filtered. */
+export const ACCOUNT_PATH = '/account';
 
 export function visibleSections(catalog: Catalog): Section[] {
   return SECTIONS.filter((s) => s.requires.length === 0 || hasAll(catalog, ...s.requires));

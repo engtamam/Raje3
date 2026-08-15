@@ -33,8 +33,25 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Check } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
+import { APP_ROWS, owns, type Owned } from '../apps';
 import type { Session } from '../session';
+
+/**
+ * Where each app's surface lives, in the words on the rail.
+ *
+ * FROM nav.ts's IDS, WORDED HERE. «اشتريته وين ألقاه؟» is the first support question after every
+ * purchase, and the registry already knows the answer as a section id — this is the one place that
+ * turns that id into the label he actually reads on the left of his screen.
+ */
+const SECTION_LABEL: Record<string, string> = {
+  messages: 'رسائلي',
+  points: 'نقاطي',
+  team: 'فريقي',
+  account: 'حسابي',
+  shop: 'محلّي',
+};
 
 interface Price { type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean }
 interface Limit { kind?: string; limit?: number; period?: string; overage?: string }
@@ -110,39 +127,164 @@ export function planLines(p: Plan): string[] {
   return out;
 }
 
+/** The key the base grants and nothing else grants — the same string operations decides from. */
+export const BASE_KEY = 'feature.base';
+
+export type Kind = 'base' | 'app' | 'capacity';
+
 /**
- * What this plan adds over the one below it — and nothing it merely repeats.
+ * WHAT KIND OF THING IS THIS ROW — read off its limits, never off its name.
  *
- * FOUR PLANS THAT SHARE MOST OF THEIR LIST make the reader do the diffing: he reads twenty lines
- * to find the three that changed, and the thing he is actually buying — the difference — is the
- * one thing the screen never says out loud. «كل ما في الأساسية +» says it in four words.
+ * A NAME WOULD PUT THE PRICE LIST IN TWO PLACES, and the copy in code is the one that goes stale
+ * the day marketing renames a row. A plan IS a base when it grants `feature.base`; it is an app
+ * when it turns a feature on; it is capacity when all it carries is seats or branches.
  *
- * A LINE SURVIVES ONLY IF ITS VALUE CHANGED. Comparing whole sentences is what makes this safe:
- * «مقاعد للموظفين: 5» and «مقاعد للموظفين: 12» are different strings, so the seat increase shows;
- * an identical line is inherited and stays quiet.
- *
- * AND THE FIRST PLAN KEEPS ITS FULL LIST, because there is nothing beneath it to inherit from.
+ * `limit: 0` IS A DECLARED DENY, not a grant. The base carries every app at 0 so no screen has to
+ * tell «not bought» from «never heard of» — read as grants, the base would look like everything.
  */
-export function planDelta(plan: Plan, below: Plan | undefined): string[] {
-  const lines = planLines(plan);
-  if (!below) return lines;
-  const had = new Set(planLines(below));
-  return lines.filter((l) => !had.has(l));
+export function kindOf(plan: Plan): Kind {
+  const limits = plan.limits ?? {};
+  const on = Object.entries(limits)
+    .filter(([k, v]) => k.startsWith('feature.') && (v?.limit ?? 0) !== 0)
+    .map(([k]) => k);
+  if (on.includes(BASE_KEY)) return 'base';
+  return on.length ? 'app' : 'capacity';
 }
 
+/** The one feature an app row turns on, for asking `owned` about it. */
+export function appKey(plan: Plan): string {
+  const limits = plan.limits ?? {};
+  const on = Object.keys(limits).filter(
+    (k) => k.startsWith('feature.') && (limits[k]?.limit ?? 0) !== 0);
+  return on[0] ?? '';
+}
+
+/**
+ * ONE CARD, AND IT ANSWERS EVERY QUESTION AN OWNER ASKS BEFORE HE PAYS.
+ *
+ * WHAT A CARD MUST SAY, in the order he asks it: what is this · what will it do FOR MY SHOP · how
+ * much · what exactly do I get · where does it show up · do I already have it. A card that answers
+ * four of the six sends him to WhatsApp to ask us the other two, and that conversation is the
+ * conversion he did not make.
+ *
+ * THE SENTENCE IS ABOUT HIM, NEVER ABOUT OUR PRICE LIST. «نقاطٌ على كل زيارة» is a fact about his
+ * shop; «هذه في باقة أعلى» is a fact about us, and only one of them makes anybody buy. It comes
+ * from the app registry — the same file the locks read — so the shop is never told one thing here
+ * and another where the lock is drawn.
+ *
+ * AND THE LIMITS ARE STILL THE SERVER'S. The lines under the price are the plan's own `limits`,
+ * worded by LIMIT_WORDS and nothing else; a number typed here would be a second price list.
+ */
+function PlanCard({
+  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel,
+}: {
+  plan: Plan;
+  /** true · false · null while the answer has not arrived or billing could not be asked. */
+  owned: boolean | null;
+  busy: boolean;
+  sellable: boolean;
+  onBuy: () => void;
+  ownedLabel: string;
+  buyLabel: string;
+}) {
+  const price = monthly(plan);
+  const lines = planLines(plan);
+  // THE BASE HAS NO PURCHASE KEY IN THE REGISTRY — `owns()` treats it as always held, which is
+  // what stops «الأساس» being drawn locked while an entitlement read is still in flight. So it is
+  // found by id, and every other row by the key it grants.
+  const app = kindOf(plan) === 'base'
+    ? APP_ROWS.find((a) => a.id === 'base')
+    : APP_ROWS.find((a) => a.key === appKey(plan));
+  const has = owned === true;
+  return (
+    <article
+      className={[
+        'group relative flex h-full flex-col gap-3 overflow-hidden rounded-card p-5',
+        'transition-shadow duration-200',
+        has
+          // OWNED READS AS SETTLED, NOT AS SOLD. A ring rather than a fill: a card he already owns
+          // must not compete for attention with the ones he might buy.
+          ? 'bg-surface-1 shadow-sm ring-1 ring-accent-soft'
+          : 'bg-surface-1 shadow-sm hover:shadow-md',
+      ].join(' ')}
+    >
+      {/* A HAIRLINE OF ACCENT ALONG THE TOP of what he owns — the whole decoration budget of this
+          screen. Anything louder turns a shop into an advertisement. */}
+      {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent" /> : null}
+
+      <header className="flex items-start justify-between gap-2">
+        <h3 className="text-base font-medium leading-tight">{plan.name}</h3>
+        {has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
+      </header>
+
+      {/* WHAT IT DOES FOR HIM. The one line that does the selling. */}
+      {app?.what ? (
+        <p className="text-sm leading-relaxed text-text-secondary">{app.what}</p>
+      ) : null}
+
+      {price?.amount_minor ? (
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-3xl font-semibold tabular-nums leading-none">
+            {riyals(price.amount_minor)}
+          </span>
+          <span className="text-sm text-text-secondary">ريال / شهر</span>
+        </div>
+      ) : null}
+      {/* SAID, NOT ASSUMED — the server's own flag. A shop owner reading a price without it
+          budgets the wrong number. */}
+      {price?.includes_tax ? (
+        <span className="-mt-2 text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
+      ) : null}
+
+      {lines.length ? (
+        <ul className="flex flex-col gap-1 border-t border-border-subtle pt-3 text-sm">
+          {lines.map((line) => (
+            <li key={line} className="flex items-start gap-2 text-text-secondary">
+              <Check size={15} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {/* WHERE IT SHOWS UP, because «اشتريته وين ألقاه؟» is the first support question after every
+          purchase — and the answer is already written down in the registry. */}
+      {app?.section ? (
+        <p className="text-xs text-text-secondary">
+          يظهر في «{SECTION_LABEL[app.section] ?? app.section}»
+        </p>
+      ) : null}
+
+      <div className="mt-auto pt-2">
+        {has ? null : (
+          <Button type="button" disabled={busy || !sellable} onClick={onBuy}>
+            {buyLabel}
+          </Button>
+        )}
+        {/* THE THIRD STATE, SAID RATHER THAN GUESSED. While the answer has not arrived — or when
+            billing could not be asked — the card claims neither. Telling a paying shop it has not
+            paid is worse than telling it to wait a moment. */}
+        {owned === null ? (
+          <p className="mt-2 text-xs text-text-secondary">جارٍ التحقق من اشتراكك…</p>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+
 export function PlansPane({
-  session, catalog, connected, onGoConnect,
+  session, catalog, onGoConnect, owned,
 }: {
   session: Session;
   catalog: Catalog;
-  /** Whether his WhatsApp number is linked — the condition a plan cannot run without. */
-  connected: boolean;
+  /** What billing says this shop holds. `null` while unknown — never rendered as «not bought». */
+  owned?: Owned | null;
   /** Takes him to the connection pane. Passed in, because this pane does not own the navigation. */
   onGoConnect: () => void;
 }) {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
-  const [chosen, setChosen] = useState<Plan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   /** What the server says is still owed after a successful subscription. Never an error. */
@@ -203,9 +345,6 @@ export function PlansPane({
 
   const choose = async (p: Plan) => {
     setError('');
-    // THE ORDER, AND IT IS ANSWERED RATHER THAN REFUSED. See the module note: his choice is kept
-    // and the screen shows him the step that makes it work.
-    setChosen(p);
     // NOT GATED ON THE CONNECTION ANY MORE — see the module note. Only on having the action at
     // all, which is a capability question and not a readiness one.
     // NOT WHILE THE TILL IS SHUT. The press is still remembered — his choice is not lost — but
@@ -217,7 +356,6 @@ export function PlansPane({
       // THE SERVER'S SENTENCE, NOT OURS. What is still owed after a successful subscription is a
       // product rule and it lives in one place; a second copy here is the one that goes stale.
       setNotice(out?.notice ?? '');
-      setChosen(null);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر تفعيل الباقة.');
@@ -225,6 +363,19 @@ export function PlansPane({
       setBusy(false);
     }
   };
+
+  // ── GROUPED BY WHAT A ROW GRANTS, never by its name or its position in a list ─────────────
+  // This is what makes the next app free to add: invoicing and CRM arrive as rows in the price
+  // list and land in the right section without a line here.
+  const bases = plans?.filter((p) => kindOf(p) === 'base') ?? [];
+  const apps = plans?.filter((p) => kindOf(p) === 'app') ?? [];
+  const capacity = plans?.filter((p) => kindOf(p) === 'capacity') ?? [];
+  // THREE ANSWERS. `owns(..., BASE_KEY)` is null while the read is in flight or billing could not
+  // be asked, and the sections must not claim either way while it is.
+  const hasBase = owns(owned ?? null, BASE_KEY);
+  // Counted off the answer, not off the rows: a subscription list can hold a lapsed row, and what
+  // he OWNS is the only number that matches the badges on the cards below.
+  const ownedApps = apps.filter((p) => owns(owned ?? null, appKey(p)) === true).length;
 
   if (plans === null || sub === undefined) {
     return (
@@ -237,12 +388,25 @@ export function PlansPane({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* ── WHAT HE HAS, IN ONE LINE ────────────────────────────────────────────────────────
+          THIS USED TO NAME `subscriptions[0]` and call it «باقتك الحالية». With a base and apps
+          bought one by one a shop holds SEVERAL subscriptions, and the first row is whichever one
+          billing happened to return first — so an owner paying for four things could open this
+          screen and read «باقتك الحالية «الحملات»». It is a summary now, counted from what he
+          owns rather than from a row.
+
+          AND IT COUNTS THE APPS RATHER THAN LISTING THEM: each one is a card below, badged
+          «مفعّل», and repeating the names here would be the same list twice on one screen. */}
       {sub ? (
         <div className="rounded-card bg-surface-1 p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span>باقتك الحالية «{sub.plan_name ?? '—'}»</span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {hasBase === false
+                ? 'لا اشتراك أساسي بعد'
+                : `اشتراكك: الأساس${ownedApps > 0 ? ` + ${ownedApps} تطبيقات` : ''}`}
+            </span>
             <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
-              {sub.status === 'active' ? 'فعّالة' : 'متوقفة'}
+              {sub.status === 'active' ? 'فعّال' : 'متوقف'}
             </Badge>
           </div>
         </div>
@@ -274,67 +438,86 @@ export function PlansPane({
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      {/* SIDE BY SIDE ON A PHONE, NOT STACKED. Four plans in a column are compared from memory:
-          by the time he reaches «المتقدّمة» the price of «الأساسية» is off the screen and he is
-          scrolling back and forth to hold two numbers in his head. A snapping row puts them next
-          to each other at a thumb's swipe, which is the comparison this screen exists to make.
-          The grid returns at md, where three fit without either. */}
-      <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>li]:w-[80%] [&>li]:shrink-0 [&>li]:snap-start md:grid md:grid-cols-3 md:overflow-visible md:[&>li]:w-auto">
-        {plans.map((p) => {
-          const price = monthly(p);
-          const current = sub?.plan_id === p.id || sub?.plan_name === p.name;
-          return (
-            <li key={p.id}>
-              <div
-                className={[
-                  // TIGHTER, BECAUSE THE CARD IS THE COMPARISON. p-5 with gap-3 spread four
-                  // short facts over a screen and a half, so «الأساسية» and «الذكية» could not be
-                  // read against each other without scrolling — which is the one thing this
-                  // screen is for. The tax line joins the price instead of taking a row.
-                  'flex h-full flex-col gap-2 rounded-card p-4 shadow-sm',
-                  current ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-1',
-                ].join(' ')}
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="text-lg font-medium">{p.name}</span>
-                  {current ? <Badge tone="success">باقتك</Badge> : null}
-                </div>
-                {price?.amount_minor ? (
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-semibold tabular-nums">{riyals(price.amount_minor)}</span>
-                    <span className="text-sm text-text-secondary">ريال / شهر</span>
-                  </div>
-                ) : null}
-                {/* SAID, NOT ASSUMED. «شامل الضريبة» is the server's flag; a shop owner reading a
-                    price without it budgets the wrong number. */}
-                {price?.includes_tax ? (
-                  <span className="-mt-1 text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
-                ) : null}
-                <ul className="flex flex-col gap-0.5 text-sm leading-snug">
-                  {/* THE INHERITANCE, SAID ONCE. The plans arrive cheapest first, so the one below
-                      is the previous entry — and naming it is what makes the short list read as
-                      "more" rather than as "less". */}
-                  {plans[plans.indexOf(p) - 1] ? (
-                    <li className="font-medium">
-                      كل ما في «{plans[plans.indexOf(p) - 1].name}» +
-                    </li>
-                  ) : null}
-                  {planDelta(p, plans[plans.indexOf(p) - 1]).map((line) => (
-                    <li key={line} className="text-text-secondary">• {line}</li>
-                  ))}
-                </ul>
-                <div className="mt-auto pt-1">
-                  {current ? null : (
-                    <Button type="button" disabled={busy} onClick={() => choose(p)}>
-                      اختر هذه الباقة
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {/* ── THE STORE, NOT A LADDER ────────────────────────────────────────────────────────
+          FOUR TIERS SOLD THE WRONG THING. A workshop that wanted campaigns and would never open
+          an association engine had to buy the engine to reach them, and had to read the
+          difference between four columns to discover that. Here he reads one line per thing and
+          buys the thing.
+
+          AND IT IS WHAT MAKES THE NEXT APP CHEAP TO ADD. Invoicing and CRM arrive as rows in the
+          price list; this screen groups by what a row GRANTS, so neither needs a line here. */}
+
+      {/* ── 1 · the base ─────────────────────────────────────────────────────────────────── */}
+      {bases.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
+          {bases.map((p) => (
+            <PlanCard
+              key={p.id}
+              plan={p}
+              owned={hasBase}
+              busy={busy}
+              sellable={Boolean(canSubscribe && pay?.enabled)}
+              onBuy={() => choose(p)}
+              ownedLabel="اشتراكك"
+              buyLabel="فعّل الأساس"
+            />
+          ))}
+        </section>
+      ) : null}
+
+      {/* ── 2 · the apps ─────────────────────────────────────────────────────────────────── */}
+      {apps.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm text-text-secondary">التطبيقات</h2>
+          {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
+              after he presses. operations refuses the pair regardless; this is so he never meets
+              that refusal. */}
+          {hasBase === false ? (
+            <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
+          ) : null}
+          <ul className="grid gap-3 md:grid-cols-2">
+            {apps.map((p) => (
+              <li key={p.id}>
+                <PlanCard
+                  plan={p}
+                  owned={owns(owned ?? null, appKey(p))}
+                  busy={busy}
+                  sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                  onBuy={() => choose(p)}
+                  ownedLabel="مفعّل"
+                  buyLabel="أضِفه"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* ── 3 · capacity ────────────────────────────────────────────────────────────────────
+          THE TWO ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a
+          two-branch shop that wanted nothing else had to buy a whole tier for the second branch.
+          They are bought AGAIN rather than owned: each purchase adds to what he has. */}
+      {capacity.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm text-text-secondary">السعة</h2>
+          <ul className="grid gap-3 md:grid-cols-2">
+            {capacity.map((p) => (
+              <li key={p.id}>
+                <PlanCard
+                  plan={p}
+                  owned={false}
+                  busy={busy}
+                  sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                  onBuy={() => choose(p)}
+                  ownedLabel=""
+                  buyLabel="أضِف"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
