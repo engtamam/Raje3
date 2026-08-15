@@ -98,3 +98,16 @@ def test_a_row_we_cannot_attribute_keeps_sending():
     """A switch we cannot attribute must not silence a message the shop expects — and guessing a
     trigger would apply somebody else's switch to it."""
     assert T.for_row("something_new", "svc_service_reminder") == ""
+
+
+# ── the peer paths: loyalty, insights and every campaign come through send_one ─────────────────
+def test_a_template_serving_two_triggers_is_silenced_only_when_both_are_off():
+    """`mkt_loyalty_activation` answers both "his balance reaches a reward" and "he became a
+    regular". Silencing on a guess would switch off a message the owner never touched."""
+    assert T.candidates("campaign", "mkt_loyalty_activation") == (
+        "reward_within_reach", "loyal_customer")
+
+
+def test_a_peer_send_with_one_owner_is_attributed_exactly():
+    assert T.candidates("campaign", "mkt_winback") == ("gone_missing",)
+    assert T.candidates("", "per_weekly_digest") == ("weekly_digest",)

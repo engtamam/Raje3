@@ -256,7 +256,8 @@ class Tick:
     async def send_one(self, tenant: str, row: dict[str, Any], *, now: int,
                        library: list[dict[str, Any]], service_names: dict[str, str],
                        establishment: str, tone: str = "brief",
-                       approved: set[str] | None = None) -> dict[str, Any]:
+                       approved: set[str] | None = None,
+                       choices: Any = None) -> dict[str, Any]:
         """Send ONE message that is not on a schedule — the campaigns path.
 
         THE SAME GATE, THE SAME TEMPLATE SELECTION, THE SAME SANITISER, THE SAME LEDGER. What it
@@ -272,6 +273,19 @@ class Tick:
         """
         subject = row.get("subject_ref", "")
         cls = row.get("cls", "marketing")
+
+        # ── the shop's own switch, on this path too ───────────────────────────────────────────
+        # IT WAS ENFORCED ON THE TICK ALONE, and every message a PEER sends comes through here:
+        # the points receipt, the expiry warning, the weekly digest, every campaign. So switching
+        # one of those off in «رسائلي» stored an answer that nothing ever read — a control that
+        # appears to work and does nothing, which is worse than not offering it.
+        ids = TR.candidates(str(row.get("kind", "")), str(row.get("template_type", "")))
+        if ids and choices is not None and not any(choices.enabled(i) for i in ids):
+            reason = "أوقفتَ هذا النوع من الرسائل"
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), outcome="suppressed", reason=reason)))
+            return {"sent": False, "reason": reason}
 
         prefs = await self._prefs.get(tenant, subject) or {}
         eng = await self._eng.get(tenant, subject) or {}

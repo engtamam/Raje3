@@ -119,7 +119,7 @@ TRIGGERS: tuple[Trigger, ...] = (
     Trigger(
         id="balance_changed",
         label="تغيّر رصيده بلا زيارة",
-        when="حين يتغيّر رصيد نقاطه من غير زيارة — تعديلٌ منك، أو انتهاء صلاحية",
+        when="حين يستبدل نقاطه ولا تكون له زيارة مسجّلة تحمل الخبر",
         cls="personal", template_type="per_account_notice",
         slots=(ACTION, BALANCE), source="loyalty",
     ),
@@ -224,6 +224,21 @@ def for_row(kind: str, template_type: str) -> str:
         return _BY_KIND[kind]
     ids = BY_TEMPLATE_TYPE.get(template_type, ())
     return ids[0] if len(ids) == 1 else ""
+
+
+def candidates(kind: str, template_type: str) -> tuple[str, ...]:
+    """Every trigger this message could belong to — for the paths that only know a template type.
+
+    A PEER SEND CARRIES NO `kind`. loyalty, insights and campaigns hand us a template type and a
+    class, and one type can serve two triggers (`mkt_loyalty_activation` answers both "his balance
+    reaches a reward" and "he became a regular"). So the switch is honoured only when EVERY
+    trigger that could have produced this message is off — silencing on a guess would switch off a
+    message the owner never touched.
+    """
+    one = for_row(kind, template_type)
+    if one:
+        return (one,)
+    return BY_TEMPLATE_TYPE.get(template_type, ())
 
 
 def public(t: Trigger) -> dict:

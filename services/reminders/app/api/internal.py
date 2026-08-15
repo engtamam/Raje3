@@ -568,9 +568,11 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
     approved = await c.approved_templates.names(body.tenant)
     names = {sid: name for sid, name in
              zip(body.offer_services, body.service_names, strict=False)}
+    from app.core.trigger_choices import ChoiceStore
     res = await c.tick.send_one(body.tenant, schedule, now=now, library=library,
                                 service_names=names, establishment=shop.name, tone=shop.tone,
-                                approved=approved)
+                                approved=approved,
+                                choices=await ChoiceStore(c.datastore).load(body.tenant))
     return res
 
 
