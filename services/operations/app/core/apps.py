@@ -76,9 +76,6 @@ class NullApps:
             return set(), False
         return set(self.owned), True
 
-    async def holds(self, tenant: str, key: str) -> bool | None:
-        return None if not self.reachable else key in self.owned
-
 
 class HttpApps:
     """billing-service's entitlement check, asked once per key, concurrently."""
@@ -124,20 +121,6 @@ class HttpApps:
         return held, all(a is not None for a in answers)
 
 
-    async def holds(self, tenant: str, key: str) -> bool | None:
-        """One key, for a question the five-key sweep does not answer.
-
-        `feature.base` is not an app and is not in `KEYS` — nothing locks a screen on it. It is
-        asked at the moment of PURCHASE, to refuse an app bought without a base or a second base
-        bought over the first (core/subscribe.py says why each is a defect and not a preference).
-
-        None means «could not ask», and the caller must not read it as either answer.
-        """
-        if not tenant:
-            return False
-        return await asyncio.to_thread(self._ask, tenant, key)
-
-
 def build_apps(settings: Any) -> Any:
     """`http` when billing is wired, `null` otherwise — and main.py refuses null in production."""
     url = getattr(settings, "BILLING_SERVICE_URL", "") or ""
@@ -149,11 +132,16 @@ def build_apps(settings: Any) -> Any:
                     timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
 
 
-def public(held: set[str], checked: bool) -> dict[str, Any]:
+def public(held: set[str], checked: bool, base: dict[str, Any] | None = None) -> dict[str, Any]:
     """The shape the console renders.
 
     `owned` is only ever claimed when we ASKED and were answered. On a failed check every app is
     reported unknown rather than unowned, and the screen has a third state to draw.
+
+    `base` IS THE SUBSCRIPTION ITSELF — its plan and when it renews. It arrives from billing's
+    subscription list (v0.16.7) rather than from an entitlement flag, which is the difference
+    between «عندك أساس» and «اشتراكك يتجدّد في 12 سبتمبر»: the second is the first thing an owner
+    opening this screen wants to know, and until that route existed we could not say it.
     """
     return {
         "checked": checked,
@@ -161,4 +149,5 @@ def public(held: set[str], checked: bool) -> dict[str, Any]:
         "apps": [{**a, "owned": (a["key"] in held) if checked else None} for a in APPS],
         # The flat list, for the screens that only need «هل أملك هذا».
         "keys": sorted(held) if checked else [],
+        "base": base,
     }

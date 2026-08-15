@@ -14,10 +14,11 @@
 #                                     every time somebody buys that app. Nobody would notice a
 #                                     shop quietly gaining five seats; the invoice does not change.
 #
-#   A BASE THAT GRANTS NO feature.base  the purchase rules in operations decide «has this shop got
-#                                     a base?» from that key, because billing has no route that
-#                                     lists a tenant's subscriptions. A base without it can be
-#                                     bought twice, and apps can be bought with no base at all.
+#   AN APP THAT CARRIES THE METER  `messages.monthly` is what MAKES a row a base — operations reads
+#                                  it that way (core/subscribe.py `is_base`) off the subscription's
+#                                  own snapshot. An app carrying it would be sold as an app and
+#                                  counted as a base, so a shop could hold two meters and no rule
+#                                  anywhere would object.
 #
 # Every one of these is silent. Nothing errors, nothing logs, and the price list still looks right.
 #
@@ -32,7 +33,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PLANS = ROOT / "deploy" / "seed" / "plans.json"
 
-BASE_KEY = "feature.base"
+# WHAT MAKES A ROW A BASE. The meter, not a flag and not a name: an app may never repeat
+# `messages.monthly` (that is the -1 + -1 = -2 defect below), so carrying it and being a whole
+# subscription are the same fact. operations decides the same way, from the same field.
+METER = "messages.monthly"
 # Keys that describe CAPACITY rather than a feature. They sum by design — that is how a seat pack
 # works — which is exactly why an app must never mention one.
 CAPACITY = ("staff.seats", "branches")
@@ -53,12 +57,12 @@ def main() -> int:
     rows = [p for p in data["plans"] if isinstance(p, dict) and p.get("name")]
     problems: list[str] = []
 
-    bases = [p for p in rows if limit_of((p.get("limits") or {}).get(BASE_KEY, 0))]
+    bases = [p for p in rows if METER in (p.get("limits") or {})]
     apps = [p for p in rows if p not in bases]
 
     if not bases:
-        problems.append(f"no plan grants {BASE_KEY} — every purchase rule that asks «has this shop "
-                        f"got a base?» would answer no, so nothing could ever be bought")
+        problems.append(f"no plan carries {METER} — nothing is a base, so every purchase rule that "
+                        f"asks «has this shop got one?» answers no and nothing can ever be bought")
 
     # ── a value of -1 belongs to exactly one row a shop can hold at a time ────────────────────
     #

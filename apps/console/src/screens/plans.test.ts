@@ -18,7 +18,6 @@ const BASE = plan('الأساس', {
   'messages.monthly': { kind: 'counter', limit: -1 },
   'staff.seats': { kind: 'gauge', limit: 5 },
   'feature.campaigns': { kind: 'boolean', limit: 0 },
-  'feature.base': { kind: 'boolean', limit: 1 },
 });
 const CAMPAIGNS = plan('الحملات', {
   'feature.campaigns': { kind: 'boolean', limit: 1 },
@@ -27,7 +26,9 @@ const CAMPAIGNS = plan('الحملات', {
 const SEATS = plan('10 مقاعد إضافية', { 'staff.seats': { kind: 'gauge', limit: 10 } });
 
 describe('kindOf', () => {
-  it('knows the base by the key it grants, not by its name', () => {
+  it('knows the base by the METER it carries, not by its name', () => {
+    // `messages.monthly` is the one key an app may never repeat, so carrying it and being a whole
+    // subscription are the same fact — and it is the same field operations decides from.
     expect(kindOf(BASE)).toBe('base');
   });
 

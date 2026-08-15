@@ -72,10 +72,22 @@ class Decision:
     notice: str = ""
 
 
-# The key the BASE grants and nothing else grants. It exists for one reason: billing has no
-# internal route that lists a tenant's subscriptions, so "does this shop have a base?" would
-# otherwise be unanswerable — and the two rules below both depend on it.
-BASE_KEY = "feature.base"
+def held_keys(subscriptions: list[dict[str, Any]] | None) -> set[str]:
+    """Every feature key this establishment's LIVE subscriptions actually turn on.
+
+    READ OFF THE SUBSCRIPTIONS THEMSELVES, and that is what replaced a workaround. Until
+    base-services v0.16.7 there was no internal route listing what a tenant holds, so «does this
+    shop have a base?» was encoded as a `feature.base` flag on the base plans and asked through the
+    entitlement check. It worked, and it threw away three things the rules and the screen both
+    want: WHICH subscription, WHEN it renews, and WHAT was paid.
+
+    EACH ROW CARRIES ITS OWN `limits_snapshot` — the terms as they were when he bought, which is
+    also what protects a grandfathered shop from a price list edited afterwards.
+    """
+    out: set[str] = set()
+    for row in (subscriptions or []):
+        out |= granted_keys(row.get("limits_snapshot") or {})
+    return out
 
 
 def granted_keys(limits: dict[str, Any] | None) -> set[str]:
@@ -98,6 +110,20 @@ def granted_keys(limits: dict[str, Any] | None) -> set[str]:
         if n != 0:
             out.add(key)
     return out
+
+
+def is_base(limits: dict[str, Any] | None) -> bool:
+    """Is this row a WHOLE SUBSCRIPTION rather than an app or a capacity pack?
+
+    IT CARRIES THE MESSAGE METER. `messages.monthly` is the one key a base owns and no app may
+    repeat — repeating it is the -1 + -1 = -2 defect `ci/check_plans_shape.py` exists to stop — so
+    "carries the meter" and "is a base" are the same statement about the data.
+
+    NOT A NAME, AND NO LONGER A FLAG. A name would put the price list in two places. The flag
+    (`feature.base`) was the workaround for having no way to read a tenant's subscriptions; with
+    the real read in place it was one more thing to keep in step, so it is gone.
+    """
+    return "messages.monthly" in (limits or {})
 
 
 def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: bool) -> Decision:
@@ -123,7 +149,7 @@ def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: boo
     """
     grants = granted_keys(plan_limits)
 
-    if BASE_KEY in grants:
+    if is_base(plan_limits):
         if has_base:
             return Decision(False, reason="عندك اشتراك أساسي فعّال. لتغييره، عدّل اشتراكك الحالي "
                                           "بدل شراء اشتراك ثانٍ.")
@@ -238,6 +264,9 @@ class NullPlans:
     async def limits(self, plan_id: str) -> dict[str, Any] | None:
         return None
 
+    async def subscriptions(self, tenant: str) -> list[dict[str, Any]] | None:
+        return None
+
     async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
                         payment_token: str = "") -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
@@ -254,10 +283,11 @@ class HttpPlans:
     driver = "http"
 
     def __init__(self, *, billing_url: str, plans_path: str, subscribe_path: str,
-                 token: str, timeout: int = 8) -> None:
+                 subscriptions_path: str, token: str, timeout: int = 8) -> None:
         base = billing_url.rstrip("/")
         self._plans = base + plans_path
         self._subscribe = base + subscribe_path
+        self._subscriptions = base + subscriptions_path
         self._token = token
         self._timeout = timeout
 
@@ -299,8 +329,8 @@ class HttpPlans:
 
         NOT A NAME, AND NOT A LIST OF APP IDS. Reading «is this the base?» off a plan's NAME would
         put the price list in two places, and the copy in code is the one that goes stale the day
-        marketing renames a row. A plan IS a base when it grants `feature.base`; that is a fact
-        about the row itself.
+        marketing renames a row. A plan IS a base when it carries the message meter — a fact
+        about the row itself, and the same one `is_base` above reads.
 
         None means «could not read», which the caller must not treat as «grants nothing».
         """
@@ -311,6 +341,27 @@ class HttpPlans:
             if plan.get("id") == plan_id:
                 return dict(plan.get("limits") or {})
         return None
+
+    async def subscriptions(self, tenant: str) -> list[dict[str, Any]] | None:
+        """What this establishment HOLDS right now — the billable set, from billing itself.
+
+        THE SAME READ THE RESOLVER RUNS. billing computes entitlements over exactly this list
+        (`SubscriptionStore.billable_for`), so the purchase rules here and the entitlement answers
+        the services enforce can never disagree about what a shop has.
+
+        AND IT CARRIES NOTHING IT SHOULD NOT: id, plan, status, period end and the terms snapshot.
+        The payment token and the buyer's tax identity stay on the row inside billing.
+
+        None means «could not read», which the caller must not treat as «holds nothing» — that
+        reading would let a second base through during an outage.
+        """
+        if not tenant:
+            return []
+        status, out = self._request(f"{self._subscriptions}?tenant={tenant}")
+        if status >= 400:
+            return None
+        rows = out.get("subscriptions")
+        return list(rows) if isinstance(rows, list) else None
 
     async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
                         payment_token: str = "") -> tuple[int, dict]:
@@ -347,5 +398,6 @@ def build_plans(settings) -> Any:
         billing_url=settings.BILLING_SERVICE_URL,
         plans_path=settings.BILLING_PLANS_PATH,
         subscribe_path=settings.BILLING_SUBSCRIBE_PATH,
+        subscriptions_path=settings.BILLING_SUBSCRIPTIONS_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN,
         timeout=settings.PEER_TIMEOUT_SECONDS)

@@ -81,10 +81,6 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
   'feature.insights.engine': { label: 'محرّك المؤشرات والتوصيات' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
-  // NOT AN APP, AND STILL WORDED HERE. `feature.base` is how the purchase rules answer «هل عنده
-  // اشتراك أساسي؟» — billing has no route that lists a shop's subscriptions. It appears on the
-  // base's own card as what that card IS, and a key with no sentence is silently not rendered.
-  'feature.base': { label: 'الأساس: عملاؤك وزياراتهم وتذكيرهم' },
 };
 
 /** Halalas on the wire, riyals on the screen. Western digits, always. */
@@ -127,27 +123,26 @@ export function planLines(p: Plan): string[] {
   return out;
 }
 
-/** The key the base grants and nothing else grants — the same string operations decides from. */
-export const BASE_KEY = 'feature.base';
-
 export type Kind = 'base' | 'app' | 'capacity';
 
 /**
  * WHAT KIND OF THING IS THIS ROW — read off its limits, never off its name.
  *
  * A NAME WOULD PUT THE PRICE LIST IN TWO PLACES, and the copy in code is the one that goes stale
- * the day marketing renames a row. A plan IS a base when it grants `feature.base`; it is an app
- * when it turns a feature on; it is capacity when all it carries is seats or branches.
+ * the day marketing renames a row. A plan IS a base when it carries the message meter; it is an
+ * app when it turns a feature on; it is capacity when all it carries is seats or branches.
  *
  * `limit: 0` IS A DECLARED DENY, not a grant. The base carries every app at 0 so no screen has to
  * tell «not bought» from «never heard of» — read as grants, the base would look like everything.
  */
 export function kindOf(plan: Plan): Kind {
   const limits = plan.limits ?? {};
-  const on = Object.entries(limits)
-    .filter(([k, v]) => k.startsWith('feature.') && (v?.limit ?? 0) !== 0)
-    .map(([k]) => k);
-  if (on.includes(BASE_KEY)) return 'base';
+  // THE METER MAKES IT A BASE — the same fact operations decides from, off the same field. An app
+  // may never repeat `messages.monthly` (two of them sum to -2 and «unlimited» stops meaning
+  // anything), so carrying it and being a whole subscription are one statement.
+  if ('messages.monthly' in limits) return 'base';
+  const on = Object.keys(limits)
+    .filter((k) => k.startsWith('feature.') && (limits[k]?.limit ?? 0) !== 0);
   return on.length ? 'app' : 'capacity';
 }
 
@@ -370,12 +365,19 @@ export function PlansPane({
   const bases = plans?.filter((p) => kindOf(p) === 'base') ?? [];
   const apps = plans?.filter((p) => kindOf(p) === 'app') ?? [];
   const capacity = plans?.filter((p) => kindOf(p) === 'capacity') ?? [];
-  // THREE ANSWERS. `owns(..., BASE_KEY)` is null while the read is in flight or billing could not
-  // be asked, and the sections must not claim either way while it is.
-  const hasBase = owns(owned ?? null, BASE_KEY);
+  // THREE ANSWERS, and the third is why this is not a boolean. `owned` is null while the read is
+  // in flight and `checked` is false when billing could not be asked; the sections must claim
+  // neither way while either is true.
+  const hasBase = !owned || !owned.checked ? null : Boolean(owned.base);
   // Counted off the answer, not off the rows: a subscription list can hold a lapsed row, and what
   // he OWNS is the only number that matches the badges on the cards below.
   const ownedApps = apps.filter((p) => owns(owned ?? null, appKey(p)) === true).length;
+  // WESTERN DIGITS AND A GREGORIAN MONTH, like every other date in this product. Seconds on the
+  // wire — the row's `current_period_end` — and a day a person can plan around on the screen.
+  const renews = owned?.base?.renews_at
+    ? new Date(owned.base.renews_at * 1000).toLocaleDateString('ar-SA-u-nu-latn-ca-gregory',
+                                                               { day: 'numeric', month: 'long' })
+    : '';
 
   if (plans === null || sub === undefined) {
     return (
@@ -404,6 +406,9 @@ export function PlansPane({
               {hasBase === false
                 ? 'لا اشتراك أساسي بعد'
                 : `اشتراكك: الأساس${ownedApps > 0 ? ` + ${ownedApps} تطبيقات` : ''}`}
+              {/* WHEN IT RENEWS — the first question an owner opens this screen with, and one a
+                  boolean flag could never answer. It arrives on the subscription row itself. */}
+              {renews ? <span className="text-text-secondary"> · يتجدّد {renews}</span> : null}
             </span>
             <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
               {sub.status === 'active' ? 'فعّال' : 'متوقف'}

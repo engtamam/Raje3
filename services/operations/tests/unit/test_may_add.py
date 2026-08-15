@@ -10,14 +10,13 @@ number that means nothing, and the meter that exists to catch our own runaway lo
 """
 from __future__ import annotations
 
-from app.core.subscribe import BASE_KEY, granted_keys, may_add
+from app.core.subscribe import granted_keys, held_keys, is_base, may_add
 
 BASE = {
     "messages.monthly": {"kind": "counter", "limit": -1},
     "staff.seats": {"kind": "gauge", "limit": 5},
     "feature.campaigns": {"kind": "boolean", "limit": 0},
     "feature.loyalty": {"kind": "boolean", "limit": 0},
-    BASE_KEY: {"kind": "boolean", "limit": 1},
 }
 CAMPAIGNS = {"feature.campaigns": {"kind": "boolean", "limit": 1},
              "templates.custom": {"kind": "counter", "limit": 1}}
@@ -28,7 +27,7 @@ SEATS = {"staff.seats": {"kind": "gauge", "limit": 10}}
 def test_a_declared_zero_is_a_deny_and_not_a_grant():
     """THE TRAP IN THE DATA. The base carries every app at 0 so no screen has to tell «not bought»
     from «never heard of» — read as grants, the base would appear to include everything."""
-    assert granted_keys(BASE) == {BASE_KEY}
+    assert granted_keys(BASE) == set()
 
 
 def test_an_app_grants_exactly_its_own_key():
@@ -47,6 +46,27 @@ def test_a_bare_number_is_read_the_same_as_a_rich_limit():
     """Two ways of saying one thing — and a plan seeded before the rich shape must not read as
     granting nothing."""
     assert granted_keys({"feature.loyalty": 1}) == {"feature.loyalty"}
+
+
+# ── what a base IS, read off the row rather than off a flag ───────────────────────────────────
+def test_a_base_is_the_row_that_carries_the_message_meter():
+    """AND THAT IS WHY IT IS THE DEFINITION. `messages.monthly` is the one key an app may never
+    repeat — repeating it is the -1 + -1 = -2 defect — so «carries the meter» and «is a whole
+    subscription» are the same statement about the data. Until v0.16.7 this was a `feature.base`
+    flag, invented only because nothing could read what a tenant held."""
+    assert is_base(BASE) is True
+    assert is_base(CAMPAIGNS) is False
+    assert is_base(SEATS) is False
+    assert is_base(None) is False
+
+
+def test_what_a_shop_holds_is_the_union_of_its_own_snapshots():
+    """EACH ROW CARRIES THE TERMS AS THEY WERE WHEN HE BOUGHT — which is also what protects a
+    grandfathered shop from a price list edited afterwards."""
+    rows = [{"limits_snapshot": BASE}, {"limits_snapshot": CAMPAIGNS}]
+    assert held_keys(rows) == {"feature.campaigns"}
+    assert held_keys([]) == set()
+    assert held_keys(None) == set()
 
 
 # ── the base ──────────────────────────────────────────────────────────────────────────────────

@@ -29,6 +29,11 @@ export interface Owned {
   message: string;
   keys: string[];
   apps: { key: string; name: string; what: string; screen: string; owned: boolean | null }[];
+  /** THE BASE SUBSCRIPTION ITSELF — its plan, its status and when it renews, straight from
+   *  billing's subscription list. `null` when this shop has no base. It replaced a `feature.base`
+   *  entitlement flag, which could say only THAT one existed: «يتجدّد في 12 سبتمبر» is the first
+   *  thing an owner opening «الاشتراك» wants, and a boolean could never carry it. */
+  base?: { plan_id: string; status: string; renews_at: number } | null;
 }
 
 export interface AppRow {

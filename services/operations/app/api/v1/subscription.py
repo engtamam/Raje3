@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from app.api.authz import require_capability
 from app.config import get_settings
 from app.core import apps as app_catalogue
-from app.core.subscribe import BASE_KEY, may_add, may_subscribe
+from app.core.subscribe import held_keys, is_base, may_add, may_subscribe
 from app.api.ratelimit import rate_limit
 
 # The parent router in __init__ already carries /api/v1.
@@ -84,8 +84,20 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
     that it has not paid. `checked: false` says what happened, and the screen offers to retry.
     """
     c = request.app.state.container
-    held, checked = await c.apps.held(_tenant(principal))
-    return app_catalogue.public(held, checked)
+    tenant = _tenant(principal)
+    held, checked = await c.apps.held(tenant)
+    # THE BASE ITSELF, not a flag saying one exists. `subscriptions` carries the plan and the
+    # renewal date, so the screen can say «يتجدّد في …» — the first thing an owner opening this
+    # page wants, and something an entitlement check could never answer.
+    rows = await c.billing_plans.subscriptions(tenant)
+    base = None
+    if rows:
+        for row in rows:
+            if is_base(row.get("limits_snapshot")):
+                base = {"plan_id": row.get("plan_id", ""), "status": row.get("status", ""),
+                        "renews_at": row.get("current_period_end", 0)}
+                break
+    return app_catalogue.public(held, checked, base)
 
 
 @router.post("", dependencies=[Depends(rate_limit)])
@@ -103,22 +115,24 @@ async def subscribe(request: Request, body: SubscribeIn,
     # platform: one base per establishment, and an app bought once (core/subscribe.py says what
     # each defect costs — a second base makes `messages.monthly` -1 + -1 = -2).
     #
-    # SKIPPED, NOT GUESSED, WHEN EITHER READ FAILS. `limits` is None when the plan list could not
-    # be read and `holds` is None when billing could not be asked; refusing then would block a
-    # legitimate purchase during an outage, and inventing a `False` would let the pair through.
-    # The rules are advisory on a bad day and exact on every other — and the entitlement gates in
-    # the services still hold either way.
+    # SKIPPED, NOT GUESSED, WHEN EITHER READ FAILS. Both are None when they could not be read;
+    # refusing then would block a legitimate purchase during an outage the shop did not cause, and
+    # inventing a `False` would let the impossible pair through. The rules are advisory on a bad
+    # day and exact on every other — and the entitlement gates in the services still hold either
+    # way, because they ask billing at the act.
+    #
+    # ONE READ, TWO ANSWERS. `subscriptions` carries each row's own `limits_snapshot`, so «has a
+    # base» and «already owns this app» both come out of it — where they used to be a `feature.base`
+    # flag plus a five-key entitlement sweep, which was two reads that could disagree.
     plan_limits = await c.billing_plans.limits(body.plan_id)
-    if plan_limits is not None:
-        has_base = await c.apps.holds(tenant, BASE_KEY)
-        if has_base is not None:
-            held, checked = await c.apps.held(tenant)
-            if checked:
-                addition = may_add(plan_limits=plan_limits, held=held, has_base=has_base)
-                if not addition.allowed:
-                    return JSONResponse(status_code=status.HTTP_409_CONFLICT,
-                                        content={"error": "ALREADY_SUBSCRIBED",
-                                                 "message": addition.reason})
+    rows = await c.billing_plans.subscriptions(tenant)
+    if plan_limits is not None and rows is not None:
+        addition = may_add(plan_limits=plan_limits, held=held_keys(rows),
+                           has_base=any(is_base(r.get("limits_snapshot")) for r in rows))
+        if not addition.allowed:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                                content={"error": "ALREADY_SUBSCRIBED",
+                                         "message": addition.reason})
 
     # THE PLAN'S TRIAL DECIDES WHETHER THE RULE APPLIES, so it is read before the check rather
     # than assumed. A plan with a trial is an evaluation and needs no connection.

@@ -194,6 +194,10 @@ class Settings(BaseSettings):
     BILLING_PLANS_DRIVER: str = "null"       # null | http
     BILLING_PLANS_PATH: str = "/api/v1/billing/plans"
     BILLING_SUBSCRIBE_PATH: str = "/api/v1/billing/subscriptions"
+    # WHAT THIS SHOP HOLDS — the internal, token-authed list (base-services v0.16.7). It is the
+    # same billable set the entitlement resolver computes over, so the purchase rules and the
+    # gates in every service can never disagree about what was bought.
+    BILLING_SUBSCRIPTIONS_PATH: str = "/internal/billing/subscriptions"
 
     # ── the payment gateway, as the SCREEN needs to know it ───────────────────────────────────
     #

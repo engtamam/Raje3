@@ -138,6 +138,11 @@ env:
   BILLING_CLIENT_ID: ""
   BILLING_USAGE_SET_PATH: "/internal/billing/usage/set"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
+  # WHAT THIS SHOP HOLDS — arrived in base-services v0.16.7, answering our own escalation. The two
+  # purchase rules (one base per establishment, one copy of each app) turn on this list, and it is
+  # the SAME billable set the entitlement resolver computes over, so a purchase refused here and a
+  # feature gated in another service can never disagree about what was bought.
+  BILLING_SUBSCRIPTIONS_PATH: "/internal/billing/subscriptions"
 
   # ── the door (§16.5) ──────────────────────────────────────────────────────────────────────
   # Signing up creates a TENANT and registers its owner. No platform service does both: identity

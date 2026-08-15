@@ -35,7 +35,11 @@
     "",
     "AND AN APP IS NOT BOUGHT TWICE, NOR WITHOUT THE BASE. Neither is expressible in billing —",
     "subscribe always creates a row — so both are refused in our own path, operations'",
-    "`subscription.activate`, which is the only door the console uses.",
+    "`subscription.activate`, which is the only door the console uses. It decides from the",
+    "SUBSCRIPTIONS THEMSELVES (/internal/billing/subscriptions, base-services v0.16.7): a row is a",
+    "BASE when it carries `messages.monthly`, which is the one key an app may never repeat. An",
+    "earlier `feature.base` flag said the same thing less well — it could not name WHICH",
+    "subscription, WHEN it renews or WHAT was paid — and it is gone.",
     "",
     "LIMITS ARE THE PRODUCT. The name sells; the limits dict is what actually happens. Three kinds,",
     "and the difference decides who reports the number:",
@@ -67,7 +71,6 @@
   "currency": "SAR",
 
   "limit_keys": {
-    "feature.base": "the base subscription itself — granted by الأساس and المؤسسات and by nothing else, so `has this shop got a base?` is answerable with the ordinary entitlement check",
     "messages.monthly": "measured, never sold — see the note above. Uncapped (-1), on the BASE ONLY",
     "staff.seats": "people who can sign in; operations owns the count and reports it",
     "branches": "branches; operations owns the count and reports it",
@@ -115,8 +118,7 @@
         "feature.loyalty": {"kind": "boolean", "limit": 0},
         "feature.insights.engine": {"kind": "boolean", "limit": 0},
         "feature.api": {"kind": "boolean", "limit": 0},
-        "templates.custom": {"kind": "counter", "limit": 0, "period": "month", "overage": "block"},
-        "feature.base": {"kind": "boolean", "limit": 1}
+        "templates.custom": {"kind": "counter", "limit": 0, "period": "month", "overage": "block"}
       }
     },
     {
@@ -220,8 +222,7 @@
         "feature.insights.engine": {"kind": "boolean", "limit": 1},
         "feature.api": {"kind": "boolean", "limit": 1},
         "templates.custom": {"kind": "counter", "limit": -1, "period": "month",
-                             "overage": "block"},
-        "feature.base": {"kind": "boolean", "limit": 1}
+                             "overage": "block"}
       }
     }
   ]

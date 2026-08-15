@@ -258,15 +258,19 @@ class FakePlans:
     def __init__(self, trial: int = 0, limits=None):
         self.trial = trial
         self.subscribed = []
-        # None is «could not read the plan list», which makes the base/duplicate rules stand
-        # aside — the state most of these tests are in, and the one they were written under.
+        # None is «could not read», which makes the base/duplicate rules stand aside — the state
+        # most of these tests are in, and the one they were written under.
         self.plan_limits = limits
+        self.held: list | None = None
 
     async def trial_days(self, plan_id):
         return self.trial
 
     async def limits(self, plan_id):
         return self.plan_limits
+
+    async def subscriptions(self, tenant):
+        return self.held
 
     async def subscribe(self, *, tenant, plan_id, interval="month", payment_token=""):
         # THE TOKEN IS RECORDED, because "did money change hands" is the question these tests now
@@ -481,26 +485,19 @@ def test_an_unreachable_billing_never_stops_a_counter(client):
 
 # ── one base per shop, and an app bought once ─────────────────────────────────────────────────
 _BASE_LIMITS = {"messages.monthly": {"kind": "counter", "limit": -1},
-                "feature.campaigns": {"kind": "boolean", "limit": 0},
-                "feature.base": {"kind": "boolean", "limit": 1}}
+                "feature.campaigns": {"kind": "boolean", "limit": 0}}
 _APP_LIMITS = {"feature.campaigns": {"kind": "boolean", "limit": 1}}
 
 
-class _Holdings:
-    """What billing says this shop already has."""
+def _holding(client, plans, rows):
+    """What billing says this shop already holds — ONE read, carrying each row's own terms.
 
-    driver = "null"
-
-    def __init__(self, keys=(), has_base=True, reachable=True):
-        self.keys = set(keys)
-        self.has_base = has_base
-        self.reachable = reachable
-
-    async def held(self, tenant):
-        return (set(self.keys), True) if self.reachable else (set(), False)
-
-    async def holds(self, tenant, key):
-        return self.has_base if self.reachable else None
+    IT REPLACED TWO. «has a base» was a `feature.base` entitlement flag and «already owns this
+    app» was a five-key sweep — two reads of two different things that could disagree with each
+    other and with the resolver. v0.16.7 answered the escalation with the billable list itself.
+    """
+    plans.held = rows
+    return plans
 
 
 def test_a_second_base_is_refused_before_billing_is_touched(client):
@@ -508,7 +505,7 @@ def test_a_second_base_is_refused_before_billing_is_touched(client):
     `messages.monthly` -1 + -1 = -2 — «unlimited» becomes a number that means nothing, and the
     meter that catches our own runaway loop is gone."""
     plans = _wire(client, connected=True, trial=0, limits=_BASE_LIMITS)
-    client.app.state.container.apps = _Holdings(has_base=True)
+    _holding(client, plans, [{"limits_snapshot": _BASE_LIMITS}])
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_base", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
@@ -519,7 +516,7 @@ def test_a_second_base_is_refused_before_billing_is_touched(client):
 
 def test_an_app_without_a_base_is_refused(client):
     plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
-    client.app.state.container.apps = _Holdings(has_base=False)
+    _holding(client, plans, [])
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
@@ -529,7 +526,8 @@ def test_an_app_without_a_base_is_refused(client):
 
 def test_the_same_app_is_not_sold_twice(client):
     plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
-    client.app.state.container.apps = _Holdings(keys={"feature.campaigns"}, has_base=True)
+    _holding(client, plans, [{"limits_snapshot": _BASE_LIMITS},
+                             {"limits_snapshot": _APP_LIMITS}])
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
@@ -539,7 +537,8 @@ def test_the_same_app_is_not_sold_twice(client):
 
 def test_an_app_on_a_base_goes_through(client):
     plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
-    client.app.state.container.apps = _Holdings(keys={"feature.loyalty"}, has_base=True)
+    _holding(client, plans, [{"limits_snapshot": _BASE_LIMITS},
+                             {"limits_snapshot": {"feature.loyalty": {"limit": 1}}}])
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
@@ -552,8 +551,42 @@ def test_a_billing_outage_does_not_block_a_legitimate_purchase(client):
     stop a shop buying during an outage it did not cause; the entitlement gates in the services
     still hold whatever happens here."""
     plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
-    client.app.state.container.apps = _Holdings(has_base=True, reachable=False)
+    _holding(client, plans, None)     # None is «could not read», not «holds nothing»
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
     assert r.status_code == 201 and plans.subscribed
+
+
+def test_the_apps_answer_carries_the_base_and_when_it_renews(client):
+    """WHAT THE FLAG COULD NEVER SAY. «هل عنده أساس؟» used to be a `feature.base` entitlement
+    boolean — true or false and nothing else. The subscription row carries the plan, the status and
+    the period end, so «يتجدّد في …» becomes sayable: the first question an owner opens «الاشتراك»
+    with, and one we had no way to answer until base-services v0.16.7."""
+    plans = _wire(client, connected=True, trial=0, limits=_BASE_LIMITS)
+    _holding(client, plans, [{"plan_id": "plan_base", "status": "active",
+                              "current_period_end": 1_800_000_000,
+                              "limits_snapshot": _BASE_LIMITS}])
+    body = client.get("/api/v1/subscription/apps",
+                      headers=_auth("billing.self", tenant="t1")).json()
+    assert body["base"] == {"plan_id": "plan_base", "status": "active",
+                            "renews_at": 1_800_000_000}
+
+
+def test_a_shop_with_no_base_is_told_so_rather_than_left_guessing(client):
+    plans = _wire(client, connected=True, trial=0, limits=_BASE_LIMITS)
+    _holding(client, plans, [])
+    body = client.get("/api/v1/subscription/apps",
+                      headers=_auth("billing.self", tenant="t1")).json()
+    assert body["base"] is None
+
+
+def test_an_app_row_is_never_mistaken_for_the_base(client):
+    """A shop holding only apps — impossible by the purchase rules, and the read must still not
+    invent a base out of one."""
+    plans = _wire(client, connected=True, trial=0, limits=_BASE_LIMITS)
+    _holding(client, plans, [{"plan_id": "plan_campaigns", "status": "active",
+                              "limits_snapshot": _APP_LIMITS}])
+    body = client.get("/api/v1/subscription/apps",
+                      headers=_auth("billing.self", tenant="t1")).json()
+    assert body["base"] is None
