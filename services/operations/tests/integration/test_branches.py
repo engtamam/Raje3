@@ -146,3 +146,25 @@ def test_a_customers_page_shows_HIS_visits_even_in_a_busy_shop(client):
                     headers={"X-Internal-Token": "t" * 40})
     assert r.status_code == 200, r.text
     assert r.json()["count"] == 1
+
+
+def test_a_signup_that_finishes_without_a_number_is_never_exchanged(client):
+    """v3 and v4 let an owner finish Embedded Signup with no verified number — v2 did not.
+
+    Exchanging then would seal his token against an EMPTY phone-number id: every screen would show
+    «مربوط» and every message would resolve a credential addressing no number. A shop that
+    believes it is live and is mute is this product's worst failure, and here it would be written
+    on purpose.
+    """
+    h = _headers("tnt_nonum", caps=("billing.self",))
+    r = client.post("/api/v1/whatsapp/connect",
+                    json={"event": "FINISH", "code": "AQB-code", "waba_id": "wab_1",
+                          "phone_number_id": "", "business_id": "biz_1"}, headers=h)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["state"] == "finished_unconfirmed"
+    assert "وثّق الرقم" in body["message"]
+
+    # AND NOTHING WAS STORED AS CONNECTED — the next screen must not read this as a live link.
+    status = client.get("/api/v1/whatsapp/connect", headers=h).json()
+    assert status["state"] != "connected"

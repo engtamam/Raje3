@@ -80,6 +80,31 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         return JSONResponse(status_code=400, content={
             "message": "لم يصل رمز الربط من واتساب. أعد فتح الربط وأكمل الخطوات."})
 
+    # ── A FINISH WITH NO NUMBER IS NOT A CONNECTION ─────────────────────────────────────────────
+    # Embedded Signup v2 required a verified phone number before it would finish. v3 and v4 do not:
+    # the owner may complete the flow with an unverified number or none at all, and Meta returns a
+    # session whose `phone_number_id` is simply absent.
+    #
+    # EXCHANGING ANYWAY IS THE WORST OUTCOME AVAILABLE. The token would be sealed against an EMPTY
+    # phone-number id, the shop would read as «مربوط» on every screen, and every send would resolve
+    # a credential that addresses no number — a shop that believes it is live and is mute. That is
+    # this product's signature failure, and here it would be written deliberately.
+    #
+    # SO IT IS RECORDED, NOT EXCHANGED, and the sentence says what is missing and what to do. The
+    # code is lost — it lives thirty seconds — and reconnecting after verifying the number is the
+    # only honest path; pretending otherwise would cost him a day of silent messages instead.
+    if not body.phone_number_id:
+        attempt = await store.record(connect.Attempt(
+            tenant=tenant, state=connect.STATE_FINISHED_UNCONFIRMED,
+            waba_id=body.waba_id, business_id=body.business_id,
+            detail="finish carried no phone_number_id"))
+        await request.app.state.auditor.record(
+            "whatsapp.connect_failed", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"waba:{body.waba_id}", ip=ip)
+        return JSONResponse(status_code=200, content={
+            **attempt.public(),
+            "message": "أنشأتَ الحساب ولم يُوثَّق رقمك بعد. وثّق الرقم في واتساب ثم أعد الربط."})
+
     ok, detail = await connect.build_exchange(s).exchange(
         tenant=tenant, code=body.code, waba_id=body.waba_id,
         phone_number_id=body.phone_number_id)
