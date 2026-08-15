@@ -36,6 +36,14 @@ def main() -> int:
         for path in sorted(glob.glob(str(ROOT / pattern), recursive=True)):
             text = Path(path).read_text(encoding="utf-8")
             rel = str(Path(path).relative_to(ROOT)).replace("\\", "/")
+            # ONLY THE KIT'S Field, and this scoping is the fix for a false alarm that stood
+            # red for weeks. `Services.tsx` defines a LOCAL `Field` that WRAPS its control in a
+            # <label> — a binding that needs no id and has nothing wrong with it — and this
+            # guard flagged all three of its uses. A red guard nobody can turn green is worse
+            # than no guard: it teaches the next reader that red is the normal colour, and the
+            # day a real unbound label appears it is the fourth line in a list already ignored.
+            if "@base-ui/design-system/Field" not in text:
+                continue
             for m in re.finditer(r"<Field\b(.*?)>", text, re.S):
                 attrs = m.group(1)
                 if "label=" not in attrs:

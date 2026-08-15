@@ -143,3 +143,27 @@ test('the keys pane says when each was last used, not when it was issued', async
     expect(body).toMatch(/آخر استعمال: (اليوم|أمس|قبل \d+|لم يُستعمل قط)/);
   }
 });
+
+test('«منشأتي» actually saves — the envelope the server asks for, not just the fields', async ({ shop }) => {
+  /**
+   * THE BUG THIS EXISTS FOR, AND IT WAS TOTAL. tenant-service's body model is
+   * `BrandingIn { branding: dict }`; the pane sent the three fields at the TOP level, so every
+   * press came back 422 and an owner could not set his shop's name, logo or colour AT ALL — the
+   * one screen his CUSTOMER sees. Nothing said why: a 422 carries a pydantic error list rather
+   * than a sentence, so the pane just failed.
+   *
+   * AND NO UNIT TEST COULD HAVE CAUGHT IT. Both sides were internally correct; only the shape
+   * BETWEEN them was wrong, which is exactly the seam an end-to-end test exists to hold.
+   */
+  await open(shop, '/account');
+  await shop.getByRole('radio', { name: 'منشأتي' }).click();
+
+  const name = shop.getByLabel('اسم محلّك كما يراه عميلك');
+  await expect(name).toBeVisible({ timeout: 30_000 });
+  await name.fill('محل الاختبار');
+  await shop.getByRole('button', { name: 'حفظ' }).click();
+
+  // THE SERVER'S ANSWER, NOT A SPINNER THAT STOPPED. «حُفظ» renders only after the call resolves,
+  // so a 422 leaves «تعذّر الحفظ» here instead — which is what this asserts against.
+  await expect(shop.getByText('حُفظ. هذا ما يراه عميلك.')).toBeVisible({ timeout: 30_000 });
+});

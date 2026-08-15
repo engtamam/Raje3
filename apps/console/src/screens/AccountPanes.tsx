@@ -58,7 +58,13 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
     if (!canBrand) throw new Error('لا تملك صلاحية تعديل الهوية.');
     // MERGED, NOT REPLACED. `branding` is a free-form record on the tenant and other things live
     // in it; sending our two fields alone would quietly drop whatever else is there.
-    await call(session, canBrand, { ...(t?.branding ?? {}), ...branding });
+    //
+    // WRAPPED IN `branding`, WHICH IS THE WHOLE BUG THAT WAS HERE. tenant-service's body model is
+    // `BrandingIn { branding: dict }`, and this sent the fields at the top level — so every save
+    // came back 422 and the owner could not set his shop's name, logo or colour AT ALL. Nothing on
+    // the screen said why: 422 carries a pydantic error list, not a sentence, and the pane simply
+    // failed. The field names inside are the server's; only the envelope was missing.
+    await call(session, canBrand, { branding: { ...(t?.branding ?? {}), ...branding } });
     load();
   };
 
