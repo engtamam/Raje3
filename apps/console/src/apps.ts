@@ -78,8 +78,8 @@ export const APP_ROWS: AppRow[] = [
   {
     id: 'insights',
     key: 'feature.insights.engine',
-    name: 'محرك التحليلات',
-    what: 'الاقترانات بين خدماتك، والباقات المقترحة، وأثر الرسائل على الرجوع.',
+    name: 'فرصي',
+    what: 'يقول لك أين الفرصة: أي خدمتين تُطلبان معاً، ومن كان سيشتري أكثر، وأثر رسائلك.',
     // NO SECTION OF ITS OWN, and that is the pattern to copy. «محلّي» is free for every shop —
     // it is what sells everything else — and the engine locks three cards INSIDE it. An app that
     // hid the whole section would hide the argument for buying it.

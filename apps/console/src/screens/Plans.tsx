@@ -79,7 +79,7 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'templates.custom': { label: 'قوالب خاصة بك', unit: 'قالب' },
   'feature.loyalty': { label: 'نقاط ومكافآت' },
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
-  'feature.insights.engine': { label: 'محرّك المؤشرات والتوصيات' },
+  'feature.insights.engine': { label: 'فرصي: أين الفرصة في محلّك' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
 };
 
