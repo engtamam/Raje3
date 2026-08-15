@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hmac
 import time
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -559,6 +560,14 @@ class CustomersIn(BaseModel):
     # Bounded, and the ceiling is a product decision: an establishment with more customers than
     # this in one campaign is a case we want to look at before it goes out.
     limit: int = Field(default=5000, ge=1, le=5000)
+    # WHICH BRANCH'S CUSTOMERS, or every one of them when empty (spec 12.2).
+    #
+    # FILTERED HERE, NOT BY THE CALLER, and that is the whole point of the field being on the
+    # request. `limit` is applied by the datastore: a caller that asked for everybody and then kept
+    # the Jeddah rows would be filtering the 5000 most recent customers of the WHOLE shop — for a
+    # chain, that is a Jeddah audience with most of Jeddah missing, and it would look perfectly
+    # plausible while being wrong.
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.post("/operations/customers", dependencies=[Depends(require_internal_token)])
@@ -573,11 +582,18 @@ async def internal_customers(request: Request, body: CustomersIn) -> dict:
     times. `campaigns` joins the learned interval from reminders — this service does not hold it.
     """
     c = request.app.state.container
-    rows, _ = await c.datastore.find(CUSTOMERS, {"tenant": body.tenant},
+    where: dict[str, Any] = {"tenant": body.tenant}
+    if body.branch_id:
+        where["last_branch_id"] = body.branch_id
+    rows, _ = await c.datastore.find(CUSTOMERS, where,
                                      limit=body.limit, sort=("last_visit", "desc"))
     return {"customers": [{"subject_ref": r.get("subject_ref", ""),
                            "last_visit": int(r.get("last_visit") or 0),
-                           "visit_count": int(r.get("visit_count") or 0)}
+                           "visit_count": int(r.get("visit_count") or 0),
+                           # CARRIED BACK so the caller can say who it is about without a second
+                           # read. A campaign report that cannot name the branch it went to is a
+                           # report the owner has to take on trust.
+                           "last_branch_id": r.get("last_branch_id", "")}
                           for r in rows if r.get("subject_ref")],
             "count": len(rows)}
 

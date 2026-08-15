@@ -99,8 +99,13 @@ class NullAudience:
     def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
         self._rows = rows or []
 
-    async def customers(self, tenant: str, *, service_id: str = "") -> list[dict[str, Any]]:
-        return list(self._rows)
+    async def customers(self, tenant: str, *, service_id: str = "",
+                        branch_id: str = "") -> list[dict[str, Any]]:
+        # The fake narrows too, so a test that targets a branch exercises the narrowing rather
+        # than passing because everything came back.
+        if not branch_id:
+            return list(self._rows)
+        return [r for r in self._rows if r.get("last_branch_id") == branch_id]
 
     async def allows(self, tenant: str, subject_ref: str, cls: str) -> bool:
         return True
@@ -173,7 +178,8 @@ class HttpAudience:
         self._token = token
         self._timeout = timeout
 
-    async def customers(self, tenant: str, *, service_id: str = "") -> list[dict[str, Any]]:
+    async def customers(self, tenant: str, *, service_id: str = "",
+                        branch_id: str = "") -> list[dict[str, Any]]:
         """Everyone, with their last visit and their learned interval.
 
         RAISES on failure rather than returning an empty list. Half an audience is a campaign the
@@ -189,7 +195,10 @@ class HttpAudience:
         reminders leaves the rows exactly as they were before this existed, and the rule falls back
         to the window default it used all along.
         """
-        data = _post(self._customers, {"tenant": tenant, "limit": 5000},
+        # THE BRANCH IS SENT, NOT APPLIED HERE. operations filters before its own 5000 cap; a
+        # narrowing done on this side would silently drop the branch's older customers.
+        data = _post(self._customers,
+                     {"tenant": tenant, "limit": 5000, "branch_id": branch_id},
                      self._token, self._timeout)
         rows = list(data.get("customers") or [])
         if not rows or not self._rhythms:

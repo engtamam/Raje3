@@ -16,7 +16,7 @@ and nothing visibly happens for up to five minutes. They press it again. Firing 
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -68,6 +68,9 @@ class CampaignIn(BaseModel):
     # never engaged once, and the reach number read as proof that it had. A feature complete in
     # the depth and severed at the door.
     service_id: str = Field(default="", max_length=64)
+    # WHICH BRANCH THIS CAMPAIGN IS FOR — empty is the whole establishment, and is the default for
+    # every shop that never opened a second one.
+    branch_id: str = Field(default="", max_length=64)
 
 
 @router.get("/goals", dependencies=[Depends(rate_limit)])
@@ -93,16 +96,19 @@ async def preview(request: Request, body: CampaignIn,
     try:
         spec = resolve_goal(body.goal)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": str(exc)})
 
     template = await c.templates.pick(principal.tenant, spec["template_type"])
     if template is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                            "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً.")
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
 
     audience = await c.audience.resolve_for(
         principal.tenant, goal=body.goal, now=_now(),
-        already_reached=set(), service_id=body.service_id)
+        already_reached=set(), service_id=body.service_id, branch_id=body.branch_id)
 
     try:
         p = build_preview(
@@ -120,7 +126,9 @@ async def preview(request: Request, body: CampaignIn,
     except PreviewError as exc:
         # 400 WITH THE OWNER'S SENTENCE. Not a code and not a field name: this message is rendered
         # straight onto the screen they are looking at, and it has to be actionable in their words.
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": str(exc)})
 
     # HOW LONG IT WILL TAKE, ON THE SCREEN WHERE HE DECIDES — not reconstructed afterwards from a
     # progress bar. Ten thousand recipients against a share of two thousand is five days whether
@@ -183,25 +191,31 @@ async def create(request: Request, body: CampaignIn,
     try:
         spec = resolve_goal(body.goal)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": str(exc)})
 
     locks = await _locks(c, principal.tenant)
     if int(locks.get(body.goal) or 0) > now:
-        raise HTTPException(status.HTTP_409_CONFLICT,
-                            "هذا الهدف مقفل مؤقتاً — انظر البطاقة.")
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "CONFLICT",
+                                     "reason": "هذا الهدف مقفل مؤقتاً — انظر البطاقة."})
 
     # Validated BEFORE the campaign exists. Creating it and then refusing the text would leave a
     # draft the owner did not ask for, in a list they now have to clean.
     template = await c.templates.pick(principal.tenant, spec["template_type"])
     if template is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                            "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً.")
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
     try:
         from app.core.preview import sanitise_owner_text
         needs = any(f == "owner" for f in (template.get("fills") or []))
         clean = sanitise_owner_text(body.owner_text, required=needs)
     except PreviewError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_REQUEST",
+                                     "reason": str(exc)})
 
     # AN OFFER WITHOUT AN END IS A PRICE CHANGE NOBODY DECIDED ON — refused here, before anything
     # exists, and with the reason named. It is also what makes "this offer is yours" enforceable:
@@ -219,18 +233,32 @@ async def create(request: Request, body: CampaignIn,
                 body.offer_value,
                 required=any(f == "amount" for f in (template.get("fills") or [])))
         except PreviewError as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": str(exc)})
         if not body.expires_at:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                                "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم.")
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "حدّد تاريخ انتهاء العرض — عرض بلا نهاية خصمٌ دائم."})
         if body.expires_at <= now:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                                "تاريخ الانتهاء مضى — اختر وقتاً قادماً.")
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "BAD_REQUEST",
+                                         "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
     campaign = Campaign(tenant=principal.tenant, goal=body.goal, owner_text=clean,
                         template_type=spec["template_type"], cls=spec["cls"],
                         trigger=spec["trigger"], state="active", fire_at=body.fire_at,
                         expires_at=body.expires_at or 0,
+                        # STORED, BOTH OF THEM, and `service_id` was not.
+                        #
+                        # The dispatcher resolves the audience again at fire time from the STORED
+                        # campaign (container.py `_resolver`), reading `service_id` and now
+                        # `branch_id` off the row. Only `scope_service_ids` was being written, so
+                        # the preview applied the 70% cycle lock and the send that followed it did
+                        # not: the owner was shown a targeted count and the campaign went to the
+                        # whole shop. One field, and it made the feature a demo.
+                        service_id=(body.service_id or "").strip(),
+                        branch_id=(body.branch_id or "").strip(),
                         offer_value=(body.offer_value or "").strip(),
                         scope_service_names=([body.service_name] if body.service_name else []),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
@@ -296,7 +324,9 @@ async def pause(request: Request, campaign_id: str,
     c = request.app.state.container
     row = await c.datastore.get("campaigns", f"{principal.tenant}|{campaign_id}")
     if row is None or row.get("tenant") != principal.tenant:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
+                            content={"error": "NOT_FOUND",
+                                     "reason": "لم نجد هذه الحملة."})
     await request.app.state.auditor.record(
         "campaign.paused", actor=principal.subject, tenant=principal.tenant,
         resource=f"campaign:{campaign_id}", ip=request.client.host if request.client else "")

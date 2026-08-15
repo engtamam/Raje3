@@ -287,7 +287,8 @@ def build_container(settings: Settings) -> Container:
         return await container.audience.resolve_for(
             campaign.get("tenant", ""), goal=campaign.get("goal", ""), now=now,
             already_reached=already_reached, cls=campaign.get("cls", "marketing"),
-            service_id=campaign.get("service_id", ""))
+            service_id=campaign.get("service_id", ""),
+            branch_id=campaign.get("branch_id", ""))
 
     container.dispatcher = Dispatcher(store=container.datastore, sender=container.sender,
                                       audience_resolver=_resolver,
@@ -319,7 +320,7 @@ class _AudienceFacade:
 
     async def resolve_for(self, tenant: str, *, goal: str, now: int,
                           already_reached=None, cls: str = "marketing",
-                          service_id: str = ""):
+                          service_id: str = "", branch_id: str = ""):
         """`service_id` IS THE 70% CYCLE LOCK'S ONLY INPUT, and it used not to arrive.
 
         The resolver has always accepted it and `_too_early` has always enforced it: whoever took
@@ -332,7 +333,12 @@ class _AudienceFacade:
             # THE SERVICE TRAVELS WITH THE READ. The rhythm joined onto each row is per SERVICE,
             # so asking without it returns the customer's rhythm for something else entirely — and
             # the 70% lock would then hold people back on a cycle that is not this one's.
-            return await self._c.customers(t, service_id=service_id)
+            #
+            # AND SO DOES THE BRANCH, for a harder reason: operations applies `limit` in the
+            # datastore. Narrowing here instead would mean filtering the 5000 most recent customers
+            # of the WHOLE chain down to one branch — an answer that is wrong, plausible, and
+            # stable, which is the worst combination a number can have.
+            return await self._c.customers(t, service_id=service_id, branch_id=branch_id)
 
         async def _gate(subject: str) -> bool:
             return await self._c.allows(tenant, subject, cls)

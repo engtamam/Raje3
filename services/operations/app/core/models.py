@@ -71,11 +71,21 @@ class Customer:
     last_visit: int = 0              # denormalised: the recent-customers strip reads it on every
                                      # keystroke, and a join per keystroke is a join too many
     visit_count: int = 0
+    # WHERE THEY WERE LAST SEEN, and the customer FOLLOWS IT (spec 12.2).
+    #
+    # A customer belongs to the establishment, never to a branch — one balance, one opt-out, one
+    # page. But a campaign aimed at Jeddah must reach the people who actually go to Jeddah, and the
+    # honest answer to «which branch is this customer's» is the last one they walked into. Somebody
+    # who moves city moves with it, on their first visit, with nobody configuring anything.
+    #
+    # Denormalised here for the same reason `last_visit` is: the alternative is scanning a year of
+    # visits per customer while building an audience of 5000.
+    last_branch_id: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "phone": self.phone, "name": self.name,
                 "created": self.created, "last_visit": self.last_visit,
-                "visit_count": self.visit_count}
+                "visit_count": self.visit_count, "last_branch_id": self.last_branch_id}
 
     def peer_view(self) -> dict[str, Any]:
         """What leaves this service toward another one: the ref, never the number."""

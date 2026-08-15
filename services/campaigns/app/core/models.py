@@ -113,6 +113,17 @@ class Campaign:
     # offer should reach. Without it the goal would be an announcement wearing a targeted name,
     # and the reach number would read as proof it worked.
     service_id: str = ""
+    # WHICH BRANCH'S CUSTOMERS — empty means the whole establishment (spec 12.2).
+    #
+    # A BRANCH IS A DESCRIPTION ON AN EVENT, NEVER A DIVISION OF THE ACCOUNT. The customer, the
+    # balance and the opt-out all stay unified; this only narrows WHO A GIVEN CAMPAIGN REACHES, by
+    # the last branch each customer actually walked into. A shop in Riyadh announcing its Riyadh
+    # evening does not want to reach the man who moved to Jeddah last month — and he moved himself,
+    # by visiting, with nobody configuring anything.
+    #
+    # STORED, because the send resolves the audience again at fire time. A branch that lived only
+    # in the preview would show the owner a Jeddah count and then message the whole chain.
+    branch_id: str = ""
     # WHAT THE OFFER APPLIES TO, as something a screen can act on rather than read.
     #
     # `owner_text` is the sentence the customer receives, and it must stay free: it is what

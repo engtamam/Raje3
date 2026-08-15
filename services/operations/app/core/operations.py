@@ -288,8 +288,17 @@ class Operations:
         # passed and mark a returning customer as absent.
         # The counters live on the customer so the recent-customers strip is one read. Updated
         # here rather than derived, because deriving them would put a scan on every keystroke.
+        moved_forward = visit.occurred_at >= customer.last_visit
         customer.last_visit = max(customer.last_visit, visit.occurred_at)
         customer.visit_count += 1
+        # THE BRANCH FOLLOWS THE SAME CLOCK AS `last_visit`, and only when the visit is the newest
+        # one. A batch replayed from last month must not tell a campaign that this customer's
+        # branch is the one they left — the field means «آخر فرع», so a stale visit may not set it.
+        #
+        # An empty branch does not overwrite a known one either: a till that sends no branch is
+        # saying nothing about where the customer is, not that they are now nowhere.
+        if moved_forward and visit.branch_id:
+            customer.last_branch_id = visit.branch_id
 
         await self._customers.save(customer)
         await self._visits.save(visit)

@@ -54,6 +54,8 @@ interface Preview {
   why?: string[];
 }
 
+interface Branch { id: string; name: string; active?: boolean }
+
 interface Service { id: string; name: string }
 
 export function Launch({ session, catalog, onDone }:
@@ -80,6 +82,12 @@ export function Launch({ session, catalog, onDone }:
   // arabic-indic-digits: intentional — «٢٠٪» appears in the note above as the shape we refuse.
   const [offerValue, setOfferValue] = useState('');
   const [services, setServices] = useState<Service[]>([]);
+  // HIS BRANCHES, and the empty list is the common case — one branch, or a role that may not read
+  // them. The picker below simply does not render then, which is right: a shop with one place has
+  // no targeting decision to make, and a control offering one option is a control that lies about
+  // having a choice.
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchId, setBranchId] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -111,6 +119,15 @@ export function Launch({ session, catalog, onDone }:
         .then((x) => setServices(x.services ?? []))
         .catch(() => setServices([]));
     }
+
+    // AND HIS BRANCHES, for the same reason: a campaign aimed at one of them must name it, and a
+    // name this screen invented would reach nobody.
+    const brs = action(catalog, 'operations.list_branches');
+    if (brs) {
+      call<{ branches: Branch[] }>(session, brs)
+        .then((x) => setBranches((x.branches ?? []).filter((b) => b.active !== false)))
+        .catch(() => setBranches([]));
+    }
   }, [session, catalog, goalsAction]);
 
   const ask = async (goal: Goal) => {
@@ -119,6 +136,9 @@ export function Launch({ session, catalog, onDone }:
     try {
       setPreview(await call<Preview>(session, previewAction, {
         goal: goal.goal, owner_text: ownerText, service_id: serviceId,
+        // THE BRANCH IS IN THE PREVIEW TOO, and that is the whole point of previewing: the count
+        // he decides on must be the count that goes out.
+        branch_id: branchId,
         offer_value: offerValue,
         service_name: services.find((x) => x.id === serviceId)?.name ?? '',
         // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
@@ -255,6 +275,26 @@ export function Launch({ session, catalog, onDone }:
           </label>
         ) : null}
 
+        {/* WHICH BRANCH — only for a shop that has more than one, and «كل الفروع» stays the
+            default. Changing it drops the preview: a count computed for the whole chain sitting
+            under a branch's name is the exact kind of wrong that nobody notices. */}
+        {branches.length > 1 ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">لأي فرع؟</span>
+            <select
+              value={branchId}
+              onChange={(e) => { setBranchId(e.target.value); setPreview(null); }}
+              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+            >
+              <option value="">كل الفروع</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+            <span className="text-xs text-text-secondary">
+              يصل من زار هذا الفرع آخر مرة — والعميل ينتقل مع فرعه بأول زيارة.
+            </span>
+          </label>
+        ) : null}
+
         {preview ? (
           <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
             {/* THE MESSAGE AS IT WILL ARRIVE — rendered, not described. */}
@@ -303,6 +343,7 @@ export function Launch({ session, catalog, onDone }:
                 try {
                   await call(session, createAction, {
                     goal: picked.goal, owner_text: ownerText, service_id: serviceId,
+                    branch_id: branchId,
                     offer_value: offerValue,
                     service_name: services.find((x) => x.id === serviceId)?.name ?? '',
                     expires_at: expiresAt,
