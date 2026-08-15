@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from app.api.authz import require_capability
 from app.config import get_settings
 from app.core import apps as app_catalogue
-from app.core.subscribe import may_subscribe
+from app.core.subscribe import BASE_KEY, may_add, may_subscribe
 from app.api.ratelimit import rate_limit
 
 # The parent router in __init__ already carries /api/v1.
@@ -97,6 +97,28 @@ async def subscribe(request: Request, body: SubscribeIn,
     if not tenant:
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN,
                             content={"error": "NO_TENANT"})
+
+    # ── WHAT HE ALREADY HAS, BEFORE ANYTHING IS BOUGHT ───────────────────────────────────────
+    # Two rules that billing cannot hold, because neither is true of every product built on the
+    # platform: one base per establishment, and an app bought once (core/subscribe.py says what
+    # each defect costs — a second base makes `messages.monthly` -1 + -1 = -2).
+    #
+    # SKIPPED, NOT GUESSED, WHEN EITHER READ FAILS. `limits` is None when the plan list could not
+    # be read and `holds` is None when billing could not be asked; refusing then would block a
+    # legitimate purchase during an outage, and inventing a `False` would let the pair through.
+    # The rules are advisory on a bad day and exact on every other — and the entitlement gates in
+    # the services still hold either way.
+    plan_limits = await c.billing_plans.limits(body.plan_id)
+    if plan_limits is not None:
+        has_base = await c.apps.holds(tenant, BASE_KEY)
+        if has_base is not None:
+            held, checked = await c.apps.held(tenant)
+            if checked:
+                addition = may_add(plan_limits=plan_limits, held=held, has_base=has_base)
+                if not addition.allowed:
+                    return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                                        content={"error": "ALREADY_SUBSCRIBED",
+                                                 "message": addition.reason})
 
     # THE PLAN'S TRIAL DECIDES WHETHER THE RULE APPLIES, so it is read before the check rather
     # than assumed. A plan with a trial is an evaluation and needs no connection.

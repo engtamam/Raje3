@@ -61,12 +61,11 @@ DISPLAY_ONLY = (
 # SOLD, AND THE PRODUCT DOES NOT HAVE IT. Not a silencer — a WARNING every run, with the decision
 # written next to it. A line here says "we know we are charging for something that does not exist
 # yet"; deleting the feature from the price list or building it both clear it.
-SOLD_UNBUILT = {
-    "feature.roles.custom":
-        "the roles are three fixed ones (owner, manager, operator) and no screen creates a "
-        "fourth. To be settled in the repricing: build it, or take it off the price list — "
-        "until then it is charged for and does not exist.",
-}
+#
+# EMPTY, AND THAT IS THE POINT. `feature.roles.custom` sat here for one commit: it was sold on
+# every tier and the product has three fixed roles with no screen that makes a fourth. With no
+# subscribers yet, the honest fix was to stop selling it rather than to keep a note about it.
+SOLD_UNBUILT: dict[str, str] = {}
 
 
 def gated() -> dict[str, list[str]]:

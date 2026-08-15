@@ -255,12 +255,18 @@ def test_a_created_employee_reports_the_new_total(client, monkeypatch):
 
 # ── our own subscribe path ─────────────────────────────────────────────────────────────────────
 class FakePlans:
-    def __init__(self, trial: int = 0):
+    def __init__(self, trial: int = 0, limits=None):
         self.trial = trial
         self.subscribed = []
+        # None is «could not read the plan list», which makes the base/duplicate rules stand
+        # aside — the state most of these tests are in, and the one they were written under.
+        self.plan_limits = limits
 
     async def trial_days(self, plan_id):
         return self.trial
+
+    async def limits(self, plan_id):
+        return self.plan_limits
 
     async def subscribe(self, *, tenant, plan_id, interval="month", payment_token=""):
         # THE TOKEN IS RECORDED, because "did money change hands" is the question these tests now
@@ -278,8 +284,8 @@ class FakeConnections:
         return self._c
 
 
-def _wire(client, *, connected: bool, trial: int = 0):
-    plans = FakePlans(trial)
+def _wire(client, *, connected: bool, trial: int = 0, limits=None):
+    plans = FakePlans(trial, limits)
     client.app.state.container.billing_plans = plans
     client.app.state.container.connections = FakeConnections(connected)
     return plans
@@ -471,3 +477,83 @@ def test_an_unreachable_billing_never_stops_a_counter(client):
         assert r.json().get("message") != NOT_INCLUDED
     finally:
         client.app.state.container.api_licence = NullApiLicence(True)
+
+
+# ── one base per shop, and an app bought once ─────────────────────────────────────────────────
+_BASE_LIMITS = {"messages.monthly": {"kind": "counter", "limit": -1},
+                "feature.campaigns": {"kind": "boolean", "limit": 0},
+                "feature.base": {"kind": "boolean", "limit": 1}}
+_APP_LIMITS = {"feature.campaigns": {"kind": "boolean", "limit": 1}}
+
+
+class _Holdings:
+    """What billing says this shop already has."""
+
+    driver = "null"
+
+    def __init__(self, keys=(), has_base=True, reachable=True):
+        self.keys = set(keys)
+        self.has_base = has_base
+        self.reachable = reachable
+
+    async def held(self, tenant):
+        return (set(self.keys), True) if self.reachable else (set(), False)
+
+    async def holds(self, tenant, key):
+        return self.has_base if self.reachable else None
+
+
+def test_a_second_base_is_refused_before_billing_is_touched(client):
+    """NOT ABOUT DOUBLE CHARGING. Entitlements merge and numbers SUM, so two bases make
+    `messages.monthly` -1 + -1 = -2 — «unlimited» becomes a number that means nothing, and the
+    meter that catches our own runaway loop is gone."""
+    plans = _wire(client, connected=True, trial=0, limits=_BASE_LIMITS)
+    client.app.state.container.apps = _Holdings(has_base=True)
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "plan_base", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert r.json()["message"]
+    assert plans.subscribed == [], "nothing may reach billing when the pair is impossible"
+
+
+def test_an_app_without_a_base_is_refused(client):
+    plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
+    client.app.state.container.apps = _Holdings(has_base=False)
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409 and "الأساس" in r.json()["message"]
+    assert plans.subscribed == []
+
+
+def test_the_same_app_is_not_sold_twice(client):
+    plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
+    client.app.state.container.apps = _Holdings(keys={"feature.campaigns"}, has_base=True)
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 409
+    assert plans.subscribed == []
+
+
+def test_an_app_on_a_base_goes_through(client):
+    plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
+    client.app.state.container.apps = _Holdings(keys={"feature.loyalty"}, has_base=True)
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201
+    assert plans.subscribed == [("t1", "plan_campaigns", "month")]
+
+
+def test_a_billing_outage_does_not_block_a_legitimate_purchase(client):
+    """THE RULES STAND ASIDE WHEN THEY CANNOT BE DECIDED. Refusing on an unreadable answer would
+    stop a shop buying during an outage it did not cause; the entitlement gates in the services
+    still hold whatever happens here."""
+    plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
+    client.app.state.container.apps = _Holdings(has_base=True, reachable=False)
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 201 and plans.subscribed

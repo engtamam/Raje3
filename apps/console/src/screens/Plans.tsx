@@ -63,8 +63,11 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.loyalty': { label: 'نقاط ومكافآت' },
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
   'feature.insights.engine': { label: 'محرّك المؤشرات والتوصيات' },
-  'feature.roles.custom': { label: 'أدوار تصنعها بنفسك' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
+  // NOT AN APP, AND STILL WORDED HERE. `feature.base` is how the purchase rules answer «هل عنده
+  // اشتراك أساسي؟» — billing has no route that lists a shop's subscriptions. It appears on the
+  // base's own card as what that card IS, and a key with no sentence is silently not rendered.
+  'feature.base': { label: 'الأساس: عملاؤك وزياراتهم وتذكيرهم' },
 };
 
 /** Halalas on the wire, riyals on the screen. Western digits, always. */

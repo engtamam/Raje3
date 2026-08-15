@@ -67,6 +67,13 @@ jobs:
       - name: every feature key is both sold and enforced
         run: python3 ci/check_entitlements.py
 
+      # The price list is a BASE plus APPS, and entitlements MERGE across every live subscription:
+      # numbers SUM. So two rows carrying -1 for one key make it -2, and an app repeating
+      # `staff.seats` quietly grows the shop's seat count every time it is bought. Both are silent,
+      # and the file still looks right.
+      - name: the price list adds up — nothing sums twice
+        run: python3 ci/check_plans_shape.py
+
       # The platform's Field owns the label and leaves the id to the caller. Forget it and the label
       # renders perfectly, bound to nothing: unnamed to a screen reader, unfocusable by tap, and
       # unfindable by getByLabel — which is how six of them shipped before an e2e timeout found one.

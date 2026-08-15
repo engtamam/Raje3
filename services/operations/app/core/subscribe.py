@@ -72,6 +72,73 @@ class Decision:
     notice: str = ""
 
 
+# The key the BASE grants and nothing else grants. It exists for one reason: billing has no
+# internal route that lists a tenant's subscriptions, so "does this shop have a base?" would
+# otherwise be unanswerable — and the two rules below both depend on it.
+BASE_KEY = "feature.base"
+
+
+def granted_keys(limits: dict[str, Any] | None) -> set[str]:
+    """The feature keys a plan actually turns ON.
+
+    `limit: 0` is a DECLARED DENY, not a grant — the base carries every app at 0 so that no screen
+    has to tell "not bought" apart from "never heard of". Reading those as grants would make the
+    base look like it includes everything.
+    """
+    out: set[str] = set()
+    for key, value in (limits or {}).items():
+        if not key.startswith("feature."):
+            continue
+        limit = value.get("limit") if isinstance(value, dict) else value
+        try:
+            n = int(limit)
+        except (TypeError, ValueError):
+            continue
+        # -1 is unlimited, which for a boolean is still ON.
+        if n != 0:
+            out.add(key)
+    return out
+
+
+def may_add(*, plan_limits: dict[str, Any] | None, held: set[str], has_base: bool) -> Decision:
+    """May this establishment buy THIS plan, given what it already holds?
+
+    NEITHER RULE IS EXPRESSIBLE IN BILLING, and that is why they are here. `subscribe` always
+    creates a row: it has no notion of "one base per tenant" and no notion of "you already own
+    this app", because neither is true of every product built on the platform. Ours are:
+
+    A SECOND BASE IS A BROKEN METER, not just a double charge. Entitlements MERGE across live
+    subscriptions and numbers SUM, so two bases make `messages.monthly` -1 + -1 = -2 — and
+    "unlimited" quietly becomes a number that means nothing. The owner would see two invoices; the
+    engine would see a ceiling nobody wrote.
+
+    AN APP WITHOUT A BASE is a shop paying for campaigns with no product to run them in: no
+    message meter, no seats, no branch. Billing would take the money.
+
+    AND AN APP BOUGHT TWICE is two invoices for one thing, every month, until somebody notices.
+    Capacity packs are deliberately NOT covered by that rule — buying a second seat pack is how a
+    shop gets twenty more seats, and refusing it would be refusing the sale.
+
+    PURE, like `may_subscribe` above: the rule can be read and tested without a cluster.
+    """
+    grants = granted_keys(plan_limits)
+
+    if BASE_KEY in grants:
+        if has_base:
+            return Decision(False, reason="عندك اشتراك أساسي فعّال. لتغييره، عدّل اشتراكك الحالي "
+                                          "بدل شراء اشتراك ثانٍ.")
+        return Decision(True)
+
+    if not has_base:
+        return Decision(False, reason="التطبيقات تُضاف إلى الاشتراك الأساسي — فعّل الأساس أولاً.")
+
+    already = sorted(grants & held)
+    if already:
+        return Decision(False, reason="هذا التطبيق مفعّل في اشتراكك بالفعل.")
+
+    return Decision(True)
+
+
 def may_subscribe(*, connected: bool, trial_days: int, paid: bool = True) -> Decision:
     """Whether this subscription may proceed, and what is still owed if it does.
 
@@ -168,6 +235,9 @@ class NullPlans:
     async def trial_days(self, plan_id: str) -> int:
         return 0
 
+    async def limits(self, plan_id: str) -> dict[str, Any] | None:
+        return None
+
     async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
                         payment_token: str = "") -> tuple[int, dict]:
         return 503, {"error": "BILLING_NOT_CONFIGURED"}
@@ -223,6 +293,24 @@ class HttpPlans:
             if plan.get("id") == plan_id:
                 return int(plan.get("trial_days") or 0)
         return 0
+
+    async def limits(self, plan_id: str) -> dict[str, Any] | None:
+        """What this plan grants — the data the two rules above are decided from.
+
+        NOT A NAME, AND NOT A LIST OF APP IDS. Reading «is this the base?» off a plan's NAME would
+        put the price list in two places, and the copy in code is the one that goes stale the day
+        marketing renames a row. A plan IS a base when it grants `feature.base`; that is a fact
+        about the row itself.
+
+        None means «could not read», which the caller must not treat as «grants nothing».
+        """
+        status, out = self._request(f"{self._plans}?include_hidden=true")
+        if status >= 400:
+            return None
+        for plan in (out.get("plans") or []):
+            if plan.get("id") == plan_id:
+                return dict(plan.get("limits") or {})
+        return None
 
     async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
                         payment_token: str = "") -> tuple[int, dict]:

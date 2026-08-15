@@ -50,8 +50,6 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "نقاطٌ على كل زيارة، ومكافآت يستبدلها العميل من صفحته أو عند الصندوق."},
     {"key": "feature.insights.engine", "name": "محرك التحليلات", "screen": "local",
      "what": "الاقترانات بين خدماتك، والباقات المقترحة، وأثر الرسائل على الرجوع."},
-    {"key": "feature.roles.custom", "name": "الأدوار المخصصة", "screen": "team",
-     "what": "تصنع دوراً بصلاحياتٍ تختارها، بدل الأدوار الثلاثة الجاهزة."},
     {"key": "feature.api", "name": "الربط البرمجي", "screen": "account",
      "what": "يربط صندوقك أو نظامك بحسابك هنا، فتُسجَّل الزيارات بلا إدخال يدوي."},
 )
@@ -77,6 +75,9 @@ class NullApps:
         if not self.reachable:
             return set(), False
         return set(self.owned), True
+
+    async def holds(self, tenant: str, key: str) -> bool | None:
+        return None if not self.reachable else key in self.owned
 
 
 class HttpApps:
@@ -121,6 +122,20 @@ class HttpApps:
             *(asyncio.to_thread(self._ask, tenant, key) for key in KEYS))
         held = {key for key, ok in zip(KEYS, answers) if ok is True}
         return held, all(a is not None for a in answers)
+
+
+    async def holds(self, tenant: str, key: str) -> bool | None:
+        """One key, for a question the five-key sweep does not answer.
+
+        `feature.base` is not an app and is not in `KEYS` — nothing locks a screen on it. It is
+        asked at the moment of PURCHASE, to refuse an app bought without a base or a second base
+        bought over the first (core/subscribe.py says why each is a defect and not a preference).
+
+        None means «could not ask», and the caller must not read it as either answer.
+        """
+        if not tenant:
+            return False
+        return await asyncio.to_thread(self._ask, tenant, key)
 
 
 def build_apps(settings: Any) -> Any:
