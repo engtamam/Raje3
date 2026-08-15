@@ -40,6 +40,8 @@ interface Goal {
   unavailable_reason?: string;
   behaviour?: string;
   needs_enabling?: boolean;
+  /** Whether this goal promises something — and therefore must name the day it stops. */
+  offers?: boolean;
 }
 
 interface Preview {
@@ -59,11 +61,27 @@ export function Launch({ session, catalog, onDone }:
   const [picked, setPicked] = useState<Goal | null>(null);
   const [ownerText, setOwnerText] = useState('');
   const [serviceId, setServiceId] = useState('');
+  /**
+   * WHEN THE OFFER STOPS. «لا افتراض له» (§10.9.1) — we do not pick a date for him, because a
+   * discount whose end we chose is a discount he honours at the till on a day he did not agree to.
+   *
+   * IT WAS NOT ON THIS SCREEN AT ALL, and three of the six goals refuse without it: «عرض على
+   * خدمة»، «رجّع اللي غابوا»، «كافئ المخلصين» each answered «حدّد تاريخ انتهاء العرض» to a screen
+   * that had no field to answer with. Half the campaign engine was unreachable.
+   */
+  const [endsOn, setEndsOn] = useState('');
   const [services, setServices] = useState<Service[]>([]);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
+
+  /** The chosen day, at its last minute in Riyadh — an offer «حتى الخميس» is good all Thursday. */
+  const expiresAt = (() => {
+    if (!endsOn) return 0;
+    const at = Date.parse(`${endsOn}T23:59:59+03:00`);
+    return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
+  })();
 
   const goalsAction = action(catalog, 'campaigns.goals');
   const previewAction = action(catalog, 'campaigns.preview');
@@ -92,6 +110,10 @@ export function Launch({ session, catalog, onDone }:
     try {
       setPreview(await call<Preview>(session, previewAction, {
         goal: goal.goal, owner_text: ownerText, service_id: serviceId,
+        // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
+        // would still be sending after the offer has ended, and that refusal is only useful
+        // BEFORE he presses.
+        expires_at: expiresAt,
       }));
     } catch (e) {
       // THE SERVER'S SENTENCE, RENDERED AS IT CAME. «لا يوجد قالب مفعّل لهذا الهدف» is actionable;
@@ -129,23 +151,44 @@ export function Launch({ session, catalog, onDone }:
           <p className="text-sm text-text-secondary">{picked.behaviour}</p>
         ) : null}
 
-        {/* THE ONE FREE FIELD, AND ITS LIMIT IS ON SCREEN. Two hundred characters is the template's
-            room, not a preference — a longer line is refused by the send, and finding that out
-            after writing three lines is finding it out too late. */}
+        {/* THE ONE FREE FIELD, AND ITS LIMIT IS THE SERVER'S. The counter read «/ 200» while the
+            server refused at 61 — so a shop wrote three lines, pressed, and was told to shorten
+            something the screen had just told it was fine. Sixty is the template's room. */}
         <label className="flex flex-col gap-1">
           <span className="text-sm">سطرك في الرسالة</span>
           <textarea
             value={ownerText}
-            maxLength={200}
+            maxLength={60}
             rows={2}
             onChange={(e) => { setOwnerText(e.target.value); setPreview(null); }}
-            placeholder="مثال: خصم 20% على غسيل السيارة حتى الخميس"
+            placeholder="مثال: غسيل خارجي وداخلي"
             className="rounded-lg bg-surface-2 p-3 text-sm"
           />
           <span className="text-xs text-text-secondary tabular-nums">
-            {ownerText.length} / 200
+            {ownerText.length} / 60
           </span>
         </label>
+
+        {/* ── when it stops ────────────────────────────────────────────────────────────────
+            NO DEFAULT, DELIBERATELY (§10.9.1). A date we picked is a date he honours at the till
+            without having agreed to it — and «إلى متى؟» is the one question a customer asks about
+            an offer. */}
+        {picked.offers ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">العرض ساري حتى</span>
+            <input
+              type="date"
+              value={endsOn}
+              min={new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)}
+              onChange={(e) => { setEndsOn(e.target.value); setPreview(null); }}
+              dir="ltr"
+              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+            />
+            <span className="text-xs text-text-secondary">
+              يظهر لعميلك في الرسالة وفي صفحته، ويسقط بعده تلقائياً.
+            </span>
+          </label>
+        ) : null}
 
         {/* WHICH SERVICE, when the goal is about one. The cycle lock (§10.9.1) holds back whoever
             took it too recently — and it can only do that if the campaign names the service. */}
@@ -185,6 +228,12 @@ export function Launch({ session, catalog, onDone }:
             {preview.spread_says ? (
               <p className="text-sm text-accent-on-soft">{preview.spread_says}</p>
             ) : null}
+            {/* WHY THIS AUDIENCE AND NOT ANOTHER — the server's own reasons, and the screen
+                declared this field for months without ever rendering it. An owner who cannot see
+                why 47 became 47 has no way to trust the number. */}
+            {(preview.why ?? []).map((line) => (
+              <p key={line} className="text-xs text-text-secondary">{line}</p>
+            ))}
           </div>
         ) : null}
 
@@ -192,7 +241,10 @@ export function Launch({ session, catalog, onDone }:
 
         <div className="flex flex-wrap gap-2">
           {!preview ? (
-            <Button disabled={busy} onClick={() => void ask(picked)}>اعرض ما سيصل</Button>
+            // REFUSED HERE RATHER THAN BY THE SERVER. He is looking at the field; a round trip to
+            // be told to fill it in is a round trip that teaches him nothing.
+            <Button disabled={busy || (picked.offers && !endsOn)}
+                    onClick={() => void ask(picked)}>اعرض ما سيصل</Button>
           ) : (
             <Button
               disabled={busy || !createAction}
@@ -202,6 +254,7 @@ export function Launch({ session, catalog, onDone }:
                 try {
                   await call(session, createAction, {
                     goal: picked.goal, owner_text: ownerText, service_id: serviceId,
+                    expires_at: expiresAt,
                   });
                   setSent(preview.spread_says
                     || `تصل ${preview.reaches ?? 0} عميلاً.`);

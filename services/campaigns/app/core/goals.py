@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER
+from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
 
 DAY = 86400
 
@@ -85,6 +85,11 @@ class Card:
     # For a template type the tenant has not enabled — the one-tap fix, in place, rather than a
     # trip to the settings screen and back.
     needs_enabling: bool = False
+    # Whether this goal PROMISES something — a discount, a reward, a reason to come back. Those
+    # carry a mandatory end date (§10.9.1: «ينتهي — لا افتراض له»), and the screen has to know
+    # which ones before it can ask for it. Derived here rather than listed in the console, where a
+    # second copy would go stale the day a goal is added.
+    offers: bool = False
 
 
 def cards(*, now: int, locks: dict[str, int] | None = None,
@@ -99,7 +104,7 @@ def cards(*, now: int, locks: dict[str, int] | None = None,
     out: list[Card] = []
     for goal, meta in CARDS.items():
         card = Card(goal=goal, title=meta["title"], line=meta["line"], icon=meta["icon"],
-                    behaviour=_behaviour(goal))
+                    behaviour=_behaviour(goal), offers=offers_something(goal))
 
         until = int(locks.get(goal) or 0)
         if until > now:

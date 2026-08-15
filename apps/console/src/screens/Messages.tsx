@@ -38,7 +38,31 @@ import { MessagePreview } from './MessagePreview';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
-interface Campaign { id: string; name?: string; goal?: string; state?: string; sent?: number }
+/**
+ * A campaign as the service answers with it. `state` is one of `draft|active|paused|done` — and
+ * the screen used to compare it against `'running'`, a value the model has never had, so the
+ * pause button never appeared on a single live campaign and «أوقفها» was unreachable for its
+ * whole life. There is no `name` either: a campaign is named by its goal.
+ */
+interface Campaign { id: string; goal?: string; state?: string; sent?: number }
+
+/** A goal's name, so a row reads «رجّع اللي غابوا» rather than `win_back`. */
+const GOAL_TITLE: Record<string, string> = {
+  win_back: 'رجّع اللي غابوا',
+  reward_loyal: 'كافئ المخلصين',
+  announce: 'أعلن جديدك',
+  occasion: 'هنّئ في مناسبة',
+  awareness: 'وعِّ عملاءك',
+  service_offer: 'عرض على خدمة',
+};
+
+/** The four states, in his words rather than ours. */
+const STATE: Record<string, string> = {
+  active: 'تعمل',
+  paused: 'موقوفة',
+  done: 'انتهت',
+  draft: 'مسودّة',
+};
 
 /** One line of the send log. `reason` is the service's own sentence — never re-worded here. */
 interface LogRow {
@@ -572,12 +596,16 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
             <ul className="flex flex-col gap-2">
               {campaigns.map((c) => (
                 <li key={c.id} className="flex items-center justify-between">
-                  <span>{c.name || c.goal || 'حملة'}</span>
+                  <span>{GOAL_TITLE[c.goal ?? ''] || c.goal || 'حملة'}</span>
                   <span className="flex items-center gap-2">
                     {typeof c.sent === 'number' ? (
                       <span className="tabular-nums text-text-secondary">{c.sent} أُرسلت</span>
                     ) : null}
-                    {c.state ? <Badge tone={c.state === 'running' ? 'accent' : 'neutral'}>{c.state}</Badge> : null}
+                    {c.state ? (
+                      <Badge tone={c.state === 'active' ? 'accent' : 'neutral'}>
+                        {STATE[c.state] ?? c.state}
+                      </Badge>
+                    ) : null}
                     {/* «ماذا حدث» — THE MOST IMPORTANT ROUTE THIS SERVICE HAS, by its own note:
                         "it didn't arrive" is the only complaint this product generates, and every
                         correct refusal (consent, the ceiling, quiet hours) reads as a fault until
@@ -587,7 +615,7 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
                     ) : null}
                     {/* STOPPING A STANDING RULE, not deleting its history. Only while it runs —
                         a pause button on a finished campaign is a control that does nothing. */}
-                    {c.state === 'running' && action(catalog, 'campaigns.pause') ? (
+                    {c.state === 'active' && action(catalog, 'campaigns.pause') ? (
                       <Button
                         variant="ghost"
                         onClick={async () => {
