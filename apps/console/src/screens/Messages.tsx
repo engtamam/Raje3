@@ -34,7 +34,9 @@ import { Toggle } from '@base-ui/design-system/Toggle';
 import { Lock } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Launch } from './Launch';
+import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
+import { owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -138,7 +140,10 @@ function asLocal(phone: string): string {
   return d.startsWith('966') ? `0${d.slice(3)}` : d;
 }
 
-export function MessagesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function MessagesScreen(
+  { session, catalog, owned }:
+  { session: Session; catalog: Catalog; owned?: Owned | null },
+) {
   const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>('reasons');
 
   /**
@@ -561,17 +566,24 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
             </ul>
           )}
         </section>
+      ) : owns(owned ?? null, 'feature.campaigns') === false ? (
+        // LOCKED ON THE ENTITLEMENT, NOT ON THE CAPABILITY — and that swap is the whole defect.
+        // The lock used to be drawn from `campaigns.list` being absent from the catalogue, which
+        // is a question about the person's ROLE: an owner holds `campaigns.manage` on every plan,
+        // so the lock never appeared for the one person who would have paid to remove it. He
+        // pressed «أطلق الحملة» on the cheapest plan and it went out.
+        //
+        // And the card now carries a way to buy it. Naming a feature he cannot reach, with no
+        // button, is an advertisement rather than a product.
+        <LockedCard appId="campaigns" />
       ) : campaigns === null ? (
-        // LOCKED, NOT HIDDEN — and it names the thing rather than the plan tier, because "campaigns
-        // are in a higher plan" is a fact about our price list and "reach a group of your customers
-        // with one offer" is a fact about his shop.
+        // A DIFFERENT ABSENCE, KEPT SEPARATE: the shop HAS campaigns and this person may not use
+        // them. Nothing to buy, so nothing to sell him — the sentence is about permission.
         <section className="rounded-card bg-surface-1 p-4 text-center shadow-sm">
-          {/* The kit's EmptyState takes a rendered node, not a component — the same shape «فريقي»
-              already uses for its locked branches tab. */}
           <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
           <EmptyState
-            title="الحملات ليست في باقتك"
-            description="الحملة تصل بعرض واحد إلى شريحة من عملائك الموافقين — بدل رسالة رسالة."
+            title="الحملات ليست من صلاحياتك"
+            description="اطلب من المالك أن يفتحها لك."
           />
         </section>
       ) : (

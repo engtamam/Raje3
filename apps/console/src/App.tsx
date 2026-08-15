@@ -19,8 +19,9 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Mark, NAME_AR } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
-import { fetchCatalog, SessionExpired, type Catalog } from './catalog';
+import { action, call, fetchCatalog, SessionExpired, type Catalog } from './catalog';
 import { isOutage, visibleSections } from './nav';
+import type { Owned } from './apps';
 import { isSignedIn, useSession } from './session';
 
 export function App() {
@@ -28,6 +29,16 @@ export function App() {
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [failed, setFailed] = useState(false);
+  // WHAT THE SHOP BOUGHT — READ ONCE, HERE, FOR EVERY SCREEN.
+  //
+  // Five keys asked from five screens is five round trips on every navigation and five different
+  // answers during a deploy. Held beside the catalogue because it answers the same kind of
+  // question: the catalogue says what this PERSON may do, this says what the SHOP owns, and a
+  // screen needs both to decide between a control, a lock, and neither.
+  //
+  // It stays null when the action is absent — an operator's catalogue does not carry it, and his
+  // screens do not draw locks anyway.
+  const [owned, setOwned] = useState<Owned | null>(null);
 
   useEffect(() => {
     if (!isSignedIn(session)) return;
@@ -41,6 +52,20 @@ export function App() {
         else setFailed(true);
       });
   }, [session, signOut]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    const a = action(catalog, 'subscription.apps');
+    // NOT AN ERROR WHEN ABSENT. Only the owner's catalogue carries it; for anybody else `owned`
+    // stays null, which the gate reads as "do not draw a lock" rather than as "he owns nothing".
+    if (!a) return;
+    call<Owned>(session, a)
+      // A FAILED READ IS THE OUTAGE ANSWER, not silence: the route reports `checked: false` when
+      // billing could not be asked, and a network failure here is the same fact.
+      .then(setOwned)
+      .catch(() => setOwned({ checked: false, message: 'تعذّر التحقق من اشتراكك الآن — حاول بعد قليل.',
+                              keys: [], apps: [] }));
+  }, [catalog, session]);
 
   // THE DOOR IS NOT A ROUTE, and that is deliberate. A `/login` path is a page the app can be
   // navigated to WHILE signed in and, worse, a page a signed-out person can navigate AWAY from
@@ -110,7 +135,7 @@ export function App() {
           the content until he answers, with his own nav still around him. Nothing outstanding
           renders nothing at all. */}
       <LegalGate session={session} catalog={catalog}>
-        <Outlet context={{ session, catalog }} />
+        <Outlet context={{ session, catalog, owned }} />
       </LegalGate>
     </AppShell>
   );

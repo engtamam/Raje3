@@ -34,7 +34,7 @@ import { PlansPane } from './Plans';
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
 interface ConnectState { state: string; message: string }
 
-type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'keys' | 'login' | 'data';
+export type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'keys' | 'login' | 'data';
 
 /**
  * The tabs, each with the sentence that says what is behind it.
@@ -61,7 +61,13 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   { id: 'data', label: 'بياناتي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
 ];
 
-export function AccountScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function AccountScreen(
+  { session, catalog, openOn }:
+  // `openOn` IS WHERE SOMEBODY ELSE SENT HIM. The locked cards across the product say «أضِفه إلى
+  // اشتراكي», and a button that lands on a page and then makes him find the right tab is a button
+  // that loses half the people who pressed it. Ignored when he may not read that tab.
+  { session: Session; catalog: Catalog; openOn?: Pane },
+) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null>(null);
 
@@ -91,7 +97,7 @@ export function AccountScreen({ session, catalog }: { session: Session; catalog:
 
   // OPENS ON THE FIRST TAB HE ACTUALLY HAS, not on a hardcoded 'billing' that a manager cannot
   // read. `tabs` is never empty — «دخولي» and «بياناتي» are everyone's.
-  const [pane, setPane] = useState<Pane>(() => 'billing');
+  const [pane, setPane] = useState<Pane>(() => openOn ?? 'billing');
   const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
   const isConnected = connected?.state === 'connected';
 

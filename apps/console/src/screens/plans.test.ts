@@ -29,3 +29,29 @@ describe('planDelta', () => {
     expect(planDelta(basic, basic)).toEqual([]);
   });
 });
+
+/**
+ * WHICH DOOR THE PURCHASE GOES THROUGH — asserted on the source, because it is the kind of line
+ * that reads correctly and does the wrong thing.
+ *
+ * THE DEFECT. The screen called `billing.subscribe`, which is billing-service's OWN route: the
+ * platform's, shared by every product built on it, and knowing nothing about WhatsApp. Ours —
+ * `subscription.activate` — is the only path that enforces «لا اشتراك مدفوع قبل ربط واتساب»
+ * (§6.2.1). The gate was written, tested, and standing on a road nobody drove down: a shop could
+ * buy the top plan and then discover it cannot send a single message.
+ */
+describe('the purchase path', () => {
+  it('prefers our own subscribe route over billing’s raw one', async () => {
+    // THE SOURCE ITSELF, through vite's `?raw` — no node APIs, so this runs exactly the same way
+    // the app is built. An import that stopped resolving would fail the test rather than read an
+    // empty string, so this cannot pass by finding nothing.
+    const mod = await import('./Plans.tsx?raw');
+    const src = mod.default;
+    expect(src.length).toBeGreaterThan(0);
+    const ours = src.indexOf("'subscription.activate'");
+    const theirs = src.indexOf("'billing.subscribe'");
+    expect(ours).toBeGreaterThan(-1);
+    // Ours is read FIRST; theirs may remain only as the fallback after it.
+    expect(theirs === -1 || ours < theirs).toBe(true);
+  });
+});

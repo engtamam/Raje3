@@ -157,7 +157,17 @@ export function PlansPane({
   const [pay, setPay] = useState<{ enabled: boolean; message?: string } | undefined>(undefined);
 
   const canBrowse = action(catalog, 'billing.plans');
-  const canSubscribe = action(catalog, 'billing.subscribe');
+  // OUR PATH, NOT BILLING'S OWN. `subscription.activate` is the only route that enforces the one
+  // rule that is ours: no PAID subscription before WhatsApp is connected (§6.2.1) — a shop that
+  // buys first and cannot send is a refund and a bad first week. `billing.subscribe` is
+  // billing-service's raw route; it knows nothing about WhatsApp, because it is the platform's and
+  // shared by every product built on it.
+  //
+  // THE SCREEN WAS CALLING THE RAW ONE. The gate existed, was tested, and sat on a road nobody
+  // drove down. It falls back to `billing.subscribe` only where ours is absent from the catalogue,
+  // so an owner whose operations manifest is unreachable is not stranded mid-purchase.
+  const canSubscribe = action(catalog, 'subscription.activate')
+    ?? action(catalog, 'billing.subscribe');
 
   const load = () => {
     if (canBrowse) {
