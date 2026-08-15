@@ -248,6 +248,13 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "الرمز نسبة لا تسجيل دخول: يُسأل عند الحفظ لينسب العمل لصاحبه.",
     },
     {
+        "id": "operations.update_operator", "label": "تعديل عامل", "method": "PATCH",
+        "path": "/api/v1/staff/operators/{id}", "capability": "operations.manage",
+        "group": "الفريق", "confirm": True,
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+        "help": "فرعه هنا هو المرجع: الزيارة التي تسمّيه تُنسب إليه، لا إلى ما يرسله الجهاز.",
+    },
+    {
         "id": "operations.list_branches", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
     },

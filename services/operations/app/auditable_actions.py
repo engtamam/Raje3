@@ -168,6 +168,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "operator",
     },
     {
+        # Moving somebody to a branch decides where his work is counted — and stopping him ends
+        # his access to the shared screen.
+        "action": "operator.updated",
+        "source": "admin",
+        "critical": False,
+        "resource": "operator",
+    },
+    {
         "action": "branch.created",
         "source": "admin",
         "critical": False,

@@ -86,7 +86,10 @@ async def create_operator(request: Request, body: OperatorIn,
     # the screen where he is being added, with the limit named. A nightly job that finds sixteen
     # and does nothing is a limit that does not exist; one that deactivates somebody fires days
     # later at a person who did not make the mistake (core/seats.py).
-    current = len(await store.list(tenant))
+    # LIVE ONES ONLY, and the same rule the update route reports by. Counting people who were
+    # stopped months ago would make a shop buy seats for employees who no longer work there — and
+    # the two counts disagreeing is worse still: whichever the owner is looking at is the wrong one.
+    current = len([o for o in await store.list(tenant) if o.active])
     try:
         await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
     except S.SeatLimitReached as exc:
@@ -119,6 +122,63 @@ async def create_operator(request: Request, body: OperatorIn,
     await gauges.report(tenant, S.SEATS, current + 1)
     # public() omits pin_hash — a hash that is never returned cannot be attacked offline by
     # somebody who reached a read endpoint.
+    return op.public()
+
+
+class OperatorPatch(BaseModel):
+    """What an owner changes about somebody after adding them. NOT the PIN — see below."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    role: str | None = Field(default=None, max_length=32)
+    branch_id: str | None = Field(default=None, max_length=64)
+    active: bool | None = None
+
+
+@router.patch("/operators/{operator_id}", dependencies=[Depends(rate_limit)])
+async def update_operator(request: Request, operator_id: str, body: OperatorPatch,
+                          principal: Principal = Depends(_MANAGE)) -> dict:
+    """Move somebody to a branch, rename him, or stop him.
+
+    THE BRANCH IS THE POINT OF THIS ROUTE. `branch_id` was settable at creation and changeable
+    nowhere, so an owner who hired somebody before opening his second branch could never say where
+    that person now works — and the visit path reads exactly this field to decide where the work
+    happened (core/operations.py). A field that decides something and cannot be corrected is worse
+    than one that decides nothing.
+
+    DEACTIVATE, NEVER DELETE: `verify-pin` refuses an inactive operator, and old visits still name
+    him. An employee who left is history, not a gap.
+
+    AND THE PIN IS NOT HERE. Changing somebody's four digits from the same form that renames him
+    invites it to be done casually and read aloud; it is a separate act, and this route not having
+    it is the design rather than an omission.
+    """
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get(tenant, operator_id)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    branch_id = op.branch_id
+    if body.branch_id is not None:
+        # CHECKED AGAINST HIS OWN SHOP'S BRANCHES, and an empty string means «كل الفروع» — the
+        # state every shop starts in. An id we do not recognise resolves to that same state rather
+        # than pinning him to a place that does not exist.
+        branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
+                                    tenant, body.branch_id)
+
+    await request.app.state.auditor.record(
+        "operator.updated", actor=principal.subject, tenant=tenant,
+        resource=f"operator:{operator_id}", ip=request.client.host if request.client else "")
+
+    op.name = body.name.strip() if body.name is not None else op.name
+    op.role = body.role if body.role is not None else op.role
+    op.branch_id = branch_id
+    op.active = body.active if body.active is not None else op.active
+    await store.save(op)
+    # SEATS ARE REPORTED AGAIN, because stopping somebody frees his seat — a gauge is the CURRENT
+    # value, and an owner who deactivated two people must not be refused his next hire.
+    await request.app.state.container.gauges.report(
+        tenant, S.SEATS, len([o for o in await store.list(tenant) if o.active]))
     return op.public()
 
 

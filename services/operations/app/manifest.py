@@ -150,6 +150,7 @@ def build_manifest(
             # ── the back office ───────────────────────────────────────────────────────────
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/operators/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},

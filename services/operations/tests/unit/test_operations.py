@@ -402,3 +402,54 @@ def test_another_shops_branch_is_not_a_branch_here(ops):
     out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
                                branch_id=BR.MAIN))
     assert out.visit.branch_id == ""
+
+
+# ── the operator's branch is the authority ────────────────────────────────────────────────────
+def _operator(store, tenant, *, branch_id="", ident="opr_1"):
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    run(OperatorStore(store).save(Operator(id=ident, tenant=tenant, name="أحمد",
+                                           branch_id=branch_id)))
+    return ident
+
+
+def test_the_operators_own_branch_beats_what_the_device_claims(ops):
+    """Any tablet could file its work under any branch — `branch_id` comes off a screen the shop
+    controls. The person saving is established by his PIN, and his row says where he works."""
+    svc, store = ops
+    from app.core import branches as BR
+    from app.core.stores import BranchStore
+
+    run(BR.ensure_main(BranchStore(store), tenant=A))
+    op = _operator(store, A, branch_id=BR.MAIN)
+    out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               operator_id=op, branch_id="brn-elsewhere"))
+    assert out.visit.branch_id == BR.MAIN
+
+
+def test_an_unassigned_operator_does_not_erase_the_branch_the_device_sent(ops):
+    """Most shops assign nobody — the field is optional — and reading «unassigned» as «nowhere»
+    would empty the branch column of every shop that fills it from its till."""
+    svc, store = ops
+    from app.core import branches as BR
+    from app.core.stores import BranchStore
+
+    run(BR.ensure_main(BranchStore(store), tenant=A))
+    op = _operator(store, A, branch_id="")
+    out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               operator_id=op, branch_id=BR.MAIN))
+    assert out.visit.branch_id == BR.MAIN
+
+
+def test_an_operator_from_another_shop_decides_nothing_here(ops):
+    """The lookup is tenant-scoped, so a known id from another establishment is simply nobody."""
+    svc, store = ops
+    from app.core import branches as BR
+    from app.core.stores import BranchStore
+
+    run(BR.ensure_main(BranchStore(store), tenant=A))
+    _operator(store, B, branch_id="brn-theirs", ident="opr_shared")
+    out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               operator_id="opr_shared", branch_id=BR.MAIN))
+    assert out.visit.branch_id == BR.MAIN

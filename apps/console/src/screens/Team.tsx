@@ -28,7 +28,7 @@ import { Lock } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
-interface Operator { id: string; name: string; role?: string; active?: boolean }
+interface Operator { id: string; name: string; role?: string; active?: boolean; branch_id?: string }
 
 /**
  * The roles an owner may give somebody he is adding.
@@ -109,7 +109,9 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
         ? <People
             session={session}
             operators={operators}
+            branches={branches}
             add={addOperator}
+            edit={action(catalog, 'operations.update_operator')}
             onChanged={load}
           />
         : <Branches
@@ -124,10 +126,12 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   );
 }
 
-function People({ session, operators, add, onChanged }: {
+function People({ session, operators, branches, add, edit, onChanged }: {
   session: Session;
   operators: Operator[] | null;
+  branches: Branch[] | null;
   add: ReturnType<typeof action>;
+  edit: ReturnType<typeof action>;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -172,7 +176,7 @@ function People({ session, operators, add, onChanged }: {
       ) : (
         <ul className="flex flex-col gap-2">
           {operators.map((o) => (
-            <li key={o.id} className="flex items-center justify-between">
+            <li key={o.id} className="flex items-center justify-between gap-3">
               <span className="flex flex-col">
                 <span>{o.name}</span>
                 {/* SHOWN IN THE LIST TOO. A team screen that hides what each person may do is a
@@ -184,7 +188,31 @@ function People({ session, operators, add, onChanged }: {
               </span>
               {o.active === false ? (
                 <span className="text-sm text-text-secondary">موقوف</span>
-              ) : null}
+              ) : (
+                /* HIS BRANCH, CHANGEABLE IN PLACE — and it decides something: a visit he saves is
+                   filed under HIS branch, whatever the device sends (services/operations/core/
+                   operations.py). Hidden for a shop with one place, where the question is noise. */
+                (branches ?? []).length > 1 && edit ? (
+                  <label className="flex items-center gap-2 text-sm">
+                    <span className="text-text-secondary">فرعه</span>
+                    <select
+                      className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+                      value={o.branch_id ?? ''}
+                      aria-label={`فرع ${o.name}`}
+                      onChange={async (e) => {
+                        await call(session, edit, { id: o.id, branch_id: e.target.value })
+                          .catch(() => undefined);
+                        onChanged();
+                      }}
+                    >
+                      <option value="">كل الفروع</option>
+                      {(branches ?? []).filter((b) => b.active !== false).map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null
+              )}
             </li>
           ))}
         </ul>

@@ -34,8 +34,8 @@ from typing import Any
 from app.core import branches as B
 from app.core.models import Asset, Customer, Visit
 from app.core.pii import subject_ref
-from app.core.stores import (AssetStore, BranchStore, CustomerStore, PrivacyRequestStore,
-                             ServiceStore, VisitStore, new_id)
+from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore,
+                             PrivacyRequestStore, ServiceStore, VisitStore, new_id)
 
 
 class OperationError(Exception):
@@ -80,6 +80,9 @@ class Operations:
         # WHICH PLACES THIS SHOP ACTUALLY HAS — read on the write path so an id nobody recognises
         # cannot invent a branch that then appears in every report (core/branches.py).
         self._branches = BranchStore(store)
+        # AND WHO WORKS WHERE. The operator's own row is the authority on his branch — the device
+        # only says who is saving (see `_branch_for`).
+        self._operators = OperatorStore(store)
         # WHAT HIS CUSTOMERS ASKED HIM FOR, from their own pages. Recorded here rather than acted
         # on, because the establishment is the controller and the right is exercised against it —
         # see core/privacy_requests.py.
@@ -91,6 +94,33 @@ class Operations:
         # How far back a claimed visit time may be before it is a broken clock. A shop migrating a
         # year of its own history needs more, and that must not require a release.
         self._max_backdate = int(max_backdate)
+
+    async def _branch_for(self, tenant: str, *, operator_id: str, claimed: str) -> str:
+        """Where this visit happened — from the PERSON when we know him, from the device otherwise.
+
+        THE HOLE THIS CLOSES. `branch_id` arrives in the request body, off a screen the shop
+        controls, so any tablet could file its work under any branch — and a chain whose branches
+        are managed separately would be comparing numbers anyone could move. The person saving is
+        already established: the field screen verifies his PIN at the moment of saving
+        (api/v1/staff.py), and his row says which branch he works at.
+
+        SO THE OPERATOR'S OWN ROW WINS over anything the request claims. It is the only half of
+        this pair that an owner sets and an employee cannot.
+
+        AND AN OPERATOR WITH NO BRANCH DOES NOT ERASE ONE. Most shops never assign anybody — the
+        field is optional by design (§12.2) — and treating "unassigned" as "nowhere" would empty
+        the branch column of every shop that fills it from its till instead.
+
+        A VISIT WITH NO OPERATOR IS UNCHANGED: a till sends no person, and the machine credential
+        is minted for a shop rather than a place (api/v1/till.py).
+        """
+        if operator_id.strip():
+            op = await self._operators.get(tenant, operator_id.strip())
+            # HIS BRANCH IS TAKEN AS WRITTEN, not re-validated: it was checked when it was assigned
+            # (api/v1/staff.py), and a branch closed since then is still where he was working.
+            if op is not None and op.branch_id:
+                return op.branch_id
+        return await self.resolve_branch(tenant, claimed)
 
     async def resolve_branch(self, tenant: str, branch_id: str) -> str:
         """The branch check, offered to the routes that take one outside the visit path.
@@ -235,10 +265,7 @@ class Operations:
         # THE BRANCH IS CHECKED, AND THE VISIT IS NEVER REFUSED OVER IT. An id this shop does not
         # have is dropped to «غير محدد» rather than written through — see core/branches.py for the
         # trade, which is the same one the unknown-service path above makes.
-        # Asked only when there is something to ask about: most visits carry no branch, and none of
-        # them should pay for a branch-list read.
-        if branch_id.strip():
-            branch_id = await B.resolve(self._branches, tenant, branch_id)
+        branch_id = await self._branch_for(tenant, operator_id=operator_id, claimed=branch_id)
 
         asset_id = ""
         if plate.strip():
