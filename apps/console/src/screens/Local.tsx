@@ -94,6 +94,25 @@ interface Branches {
 }
 
 /**
+ * How many visits this view is NOT showing — the honest line under the branch switch (§10.6.4).
+ *
+ * A branch scope renders exactly like the whole shop: same cards, same ring, same words. Without
+ * this number an owner who forgets which scope he is in reads one branch's return rate as his
+ * business's — and the unspecified visits belong here too, because they are outside EVERY branch
+ * view rather than merely outside this one.
+ *
+ * Zero on «كل الفروع», where nothing is outside the view and the sentence would be noise.
+ */
+export function outsideVisits(
+  rows: { branch_id?: string; visits?: number }[], unknown: number, branch: string,
+): number {
+  if (!branch) return 0;
+  const total = rows.reduce((n, r) => n + (r.visits ?? 0), 0) + unknown;
+  const here = rows.find((r) => r.branch_id === branch)?.visits ?? 0;
+  return Math.max(0, total - here);
+}
+
+/**
  * A GROUP, AND NOT A TAB — the decision this screen turns on.
  *
  * It was one long scroll where a branch table and a suggested bundle carried the same weight, met
@@ -273,6 +292,19 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
    */
   const [locked, setLocked] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<Branches | null>(null);
+  // WHICH SCOPE HE IS READING. Empty is «كل الفروع» and is the default for everybody — a shop with
+  // one branch never sees this control at all (§10.6.4).
+  const [branch, setBranch] = useState('');
+
+  // THE BRANCH TABLE IS READ ONCE, NOT ONCE PER SCOPE. It always describes the WHOLE shop, so
+  // re-reading it when he switches would spend a request to receive the same answer — and, worse,
+  // would make the switch flicker between identical lists.
+  useEffect(() => {
+    // BRANCHES IS NOT ENGINE-GATED — it follows the branch count he bought, and a one-branch shop
+    // simply gets an empty comparison rather than a refusal.
+    const br = action(catalog, 'insights.branches');
+    if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
+  }, [session, catalog]);
 
   useEffect(() => {
     // EACH ONE ON ITS OWN, and a failure in one leaves the others. They are three separate
@@ -288,7 +320,11 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
     // So it is read first, and the paid surfaces are asked for only when they will answer.
     const a = action(catalog, 'insights.dashboard');
     if (!a) { setFailed(true); return; }
-    call<Dashboard>(session, a)
+    // THE SCOPE TRAVELS WITH THE READ. Each branch has its OWN snapshot computed over its own
+    // visits (insights/core/tick.py) — a return rate over three branches cannot be split back
+    // into three, so filtering on this side would have shown the whole shop's numbers under one
+    // branch's name.
+    call<Dashboard>(session, a, branch ? { branch_id: branch } : {})
       .then((d) => {
         setData(d);
         const engine = (d.entitlements ?? []).includes('feature.insights.engine');
@@ -308,12 +344,7 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         }
       })
       .catch(() => setFailed(true));
-
-    // BRANCHES IS NOT ENGINE-GATED — it follows the branch count he bought, and a one-branch shop
-    // simply gets an empty comparison rather than a refusal.
-    const br = action(catalog, 'insights.branches');
-    if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
-  }, [session, catalog]);
+  }, [session, catalog, branch]);
 
   if (failed) {
     return (
@@ -345,7 +376,7 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
       if (r?.message) setNote(r.message);
       // RE-READ WHETHER OR NOT IT RECOMPUTED. A refusal inside the cooldown still means the
       // numbers on screen may be older than the ones stored.
-      setData(await call<Dashboard>(session, d));
+      setData(await call<Dashboard>(session, d, branch ? { branch_id: branch } : {}));
     } catch {
       setNote('تعذّر التحديث الآن — حاول بعد قليل.');
     } finally {
@@ -371,8 +402,48 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
 
   const digestAction = action(catalog, 'insights.digest');
 
+  /* ── the branch switch (§10.6.4) ────────────────────────────────────────────────────────────
+     HIDDEN FOR A SHOP WITH ONE BRANCH, and that is the rule rather than a nicety: "filter by your
+     only branch" is a control that does nothing and a question he has to stop and think about.
+
+     AND THE VISITS OUTSIDE THIS VIEW ARE NAMED. A branch's numbers read exactly like the whole
+     shop's — same cards, same ring — so an owner who forgets which scope he is in compares his
+     Riyadh return rate against his whole business. The line under the switch is what stops that,
+     and it counts the unspecified visits too: they are outside every branch view. */
+  const rows = branches?.rows ?? [];
+  const canSwitch = rows.length > 1;
+  const outside = outsideVisits(rows, branches?.unknown ?? 0, branch);
+
   return (
     <div className="flex flex-col gap-4 p-4">
+      {canSwitch ? (
+        <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            {[{ id: '', label: 'كل الفروع' },
+              ...rows.map((r) => ({ id: r.branch_id ?? '', label: r.name || 'فرع بلا اسم' }))]
+              .map((t) => (
+                <button
+                  key={t.id || '_all'}
+                  type="button"
+                  aria-pressed={branch === t.id}
+                  onClick={() => setBranch(t.id)}
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    branch === t.id
+                      ? 'bg-accent text-accent-foreground'
+                      : 'bg-surface-2 text-text-secondary'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+          </div>
+          {branch && outside ? (
+            <p className="text-xs text-text-secondary">
+              {outside} زيارة خارج هذا العرض — في فروعٍ أخرى أو بلا فرع محدَّد.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* THE WEEKLY REPORT, SWITCHED HERE — and it was a severed wire until now. `insights.digest`
           was declared, served, and called by no screen: §10.6.6 promises that an optional notice
           can be switched off, and the switch existed everywhere except where a person could reach
