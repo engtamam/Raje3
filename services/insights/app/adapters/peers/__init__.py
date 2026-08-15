@@ -37,9 +37,11 @@ class NullPeers:
 
     def __init__(self, visits: list[dict] | None = None,
                  catalogue: list[dict] | None = None,
-                 entitlements: set[str] | None = None) -> None:
+                 entitlements: set[str] | None = None,
+                 branches: list[dict] | None = None) -> None:
         self._visits = visits or []
         self._catalogue = catalogue or []
+        self._branches = branches or []
         # What a test says this tenant bought. Empty = an unsubscribed shop, which is the state
         # every check must be correct about.
         self.entitlements: set[str] = set(entitlements or set())
@@ -53,6 +55,9 @@ class NullPeers:
 
     async def catalogue(self, tenant: str) -> list[dict]:
         return list(self._catalogue)
+
+    async def branches(self, tenant: str) -> list[dict]:
+        return list(self._branches)
 
     async def tenants(self, *, since: int = 0) -> list[str]:
         return sorted({v.get("tenant", "") for v in self._visits if v.get("tenant")})
@@ -78,6 +83,7 @@ class HttpPeers:
     driver = "http"
 
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
+                 branches_path: str = "/internal/operations/branches",
                  reminders_url: str, send_path: str, consent_count_path: str,
                  ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
                  effect_path: str = "/internal/reminders/effect",
@@ -87,6 +93,7 @@ class HttpPeers:
                  token: str, timeout: int = 8) -> None:
         self._visits_url = operations_url.rstrip("/") + visits_path
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
+        self._branches_url = operations_url.rstrip("/") + branches_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
         self._consent_url = reminders_url.rstrip("/") + consent_count_path
@@ -126,6 +133,19 @@ class HttpPeers:
             # NOT fatal. Without the catalogue we lose service NAMES and cycle completion, and
             # every other indicator still computes. Failing the whole snapshot over a display
             # detail would take the dashboard down to protect a label.
+            return []
+
+    async def branches(self, tenant: str) -> list[dict]:
+        """This shop's places — ONLY so a table can print a name instead of `brn_9f2a`.
+
+        SAME FAILURE POSTURE AS THE CATALOGUE: an unreachable operations costs the branch table
+        its names, not the snapshot. Every number in that table is computed from the visits we
+        already hold, and taking a dashboard down to protect a label is the wrong trade.
+        """
+        try:
+            return (_post(self._branches_url, {"tenant": tenant},
+                          self._token, self._timeout)).get("branches") or []
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             return []
 
     async def tenants(self, *, since: int = 0) -> list[str]:
@@ -292,6 +312,7 @@ def build_peers(settings) -> Any:
     return HttpPeers(operations_url=settings.OPERATIONS_SERVICE_URL,
                      visits_path=settings.OPERATIONS_VISITS_SINCE_PATH,
                      catalogue_path=settings.OPERATIONS_CATALOGUE_PATH,
+                     branches_path=settings.OPERATIONS_BRANCHES_PATH,
                      reminders_url=settings.REMINDERS_SERVICE_URL,
                      send_path=settings.REMINDERS_SEND_PATH,
                      consent_count_path=settings.REMINDERS_CONSENT_COUNT_PATH,

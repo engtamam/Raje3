@@ -343,7 +343,12 @@ def test_the_branch_table_lives_on_the_establishment_snapshot_only():
     store, _, tick = build_tick(rows)
     run(tick.compute(T, now=NOW))
     whole = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]
-    assert [r["key"] for r in whole["branch_rows"]] == ["riyadh", "jeddah"]
+    # THE ROW SHAPE IS PART OF THE CONTRACT, not an internal detail: the console reads
+    # branch_id/name/visits/customers, and the day it read {key, count} instead every row
+    # rendered «بلا اسم · 0 زيارة» with nothing failing anywhere.
+    assert [r["branch_id"] for r in whole["branch_rows"]] == ["riyadh", "jeddah"]
+    assert [r["visits"] for r in whole["branch_rows"]] == [6, 4]
+    assert whole["branch_rows"][0]["customers"] > 0
     assert "branch_rows" not in run(store.get(SNAPSHOTS, f"{T}|riyadh"))["values"]
 
 
@@ -419,3 +424,26 @@ def test_the_ceiling_line_names_no_price_and_no_upgrade():
     t = build_digest(snapshot=snap(), ceiling_missed=12, shop="م")["text"]
     for word in ("ريال", "باقة", "رقِّ", "وثّق", "اشترك"):
         assert word not in t
+
+
+def test_the_branch_table_carries_names_from_operations():
+    """The names live in `operations` and nothing carried them across, so every row read «بلا اسم»."""
+    rows = (visits(6, ref_prefix="r", branch_id="riyadh")
+            + visits(4, ref_prefix="j", branch_id="jeddah"))
+    store = MemoryDataStore()
+    peers = NullPeers(visits=rows, catalogue=[{"id": "wash", "name": "غسيل", "cycle_days": 30}],
+                      branches=[{"id": "riyadh", "name": "فرع الرياض"},
+                                {"id": "jeddah", "name": "فرع جدة"}])
+    run(Tick(store, peers, batch=2).compute(T, now=NOW))
+    got = {r["branch_id"]: r["name"]
+           for r in run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]["branch_rows"]}
+    assert got == {"riyadh": "فرع الرياض", "jeddah": "فرع جدة"}
+
+
+def test_a_branch_we_have_no_name_for_is_left_empty_never_filled_with_its_id():
+    """An id printed as a name is a name the owner will search his own shop for and never find."""
+    store, _, tick = build_tick(visits(6, ref_prefix="r", branch_id="brn_9f2a")
+                                + visits(4, ref_prefix="j", branch_id="jeddah"))
+    run(tick.compute(T, now=NOW))
+    rows = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]["branch_rows"]
+    assert all(r["name"] == "" for r in rows)

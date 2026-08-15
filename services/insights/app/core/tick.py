@@ -81,8 +81,17 @@ class Tick:
         # hour is the right cost. Crashing the whole snapshot pass over it is not.
         read = getattr(self.peers, "effect", None)
         effect = await read(tenant, since=now - 90 * 86400) if read else {}
+        # THE NAMES, ONCE PER TENANT AND CARRIED INTO THE SNAPSHOT. The branch table is grouped by
+        # the id on each visit and this service holds no places of its own, so without this every
+        # row rendered «بلا اسم». Resolved at COMPUTE time rather than at read time: a dashboard
+        # request must not fan out to another service to print a label.
+        # ASKED FOR, NOT DEMANDED — a peers driver without it is an older deploy, and a table of
+        # ids is a worse table, not a broken snapshot.
+        ask = getattr(self.peers, "branches", None)
+        branch_names = {str(b.get("id") or ""): str(b.get("name") or "")
+                        for b in (await ask(tenant) if ask else [])}
         snap = await self._compute_scope(tenant, visits, catalogue, now=now, branch_id="",
-                                         effect=effect)
+                                         effect=effect, branch_names=branch_names)
 
         branches = sorted({str(v.get("branch_id") or "") for v in visits if v.get("branch_id")})
         # ONLY FOR A SHOP WITH MORE THAN ONE. A single-branch establishment gets no branch
@@ -92,12 +101,13 @@ class Tick:
             for b in branches:
                 scoped = [v for v in visits if str(v.get("branch_id") or "") == b]
                 await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
-                                          effect=effect)
+                                          effect=effect, branch_names=branch_names)
         return snap
 
     async def _compute_scope(self, tenant: str, visits: list[dict], catalogue: list[dict],
                              *, now: int, branch_id: str,
-                             effect: dict[str, Any] | None = None) -> Snapshot:
+                             effect: dict[str, Any] | None = None,
+                             branch_names: dict[str, str] | None = None) -> Snapshot:
         cycles = {s.get("id", ""): int(s.get("cycle_days") or 0) for s in catalogue}
         names = {s.get("id", ""): s.get("name", "") for s in catalogue}
 
@@ -188,9 +198,30 @@ class Tick:
         # table of one row, which can never be ranked and says nothing.
         if not branch_id:
             table = group_by(visits, "branch_id")
-            values["branch_rows"] = table["rows"]
+            # THE ROW THE SCREEN ACTUALLY READS. `group_by` speaks in {key, count} because it also
+            # groups operators; the branch table is rendered as a NAMED row with two numbers, and
+            # the console read {branch_id, name, visits, customers} against the raw shape — so
+            # every row showed «بلا اسم · 0 زيارة» while the guard above it happily passed. The
+            # translation belongs here, at the one place that knows this grouping is branches.
+            people: dict[str, set[str]] = {}
+            for v in visits:
+                b = str(v.get("branch_id") or "")
+                ref = str(v.get("subject_ref") or "")
+                if b and ref:
+                    people.setdefault(b, set()).add(ref)
+            names = branch_names or {}
+            values["branch_rows"] = [
+                # A NAME WE DO NOT HOLD STAYS EMPTY, never filled with the id: the screen says
+                # «بلا اسم» honestly, and an id printed as a name is a name an owner will search
+                # his own shop for.
+                {"branch_id": r["key"], "name": names.get(r["key"], ""),
+                 "visits": r["count"], "customers": len(people.get(r["key"], ()))}
+                for r in table["rows"]]
             values["branch_unknown"] = table["unknown"]
             values["branch_can_rank"] = table["can_rank"]
+            # For the switcher (§10.6.4): every branch with a snapshot, in the order of the table.
+            values["branch_names"] = {r["key"]: names.get(r["key"], "")
+                                      for r in table["rows"]}
 
         snap = Snapshot(tenant=tenant, values=values, visits=len(visits), computed_at=now,
                         branch_id=branch_id)

@@ -21,7 +21,7 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import AssetStore, ServiceStore, VisitStore, new_id
+from app.core.stores import AssetStore, BranchStore, ServiceStore, VisitStore, new_id
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -777,6 +777,26 @@ async def read_catalogue(request: Request, body: CatalogueIn) -> dict:
     rows = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
     return {"services": [{"id": s.id, "name": s.name, "cycle_days": s.cycle_days,
                           "active": s.active} for s in rows],
+            "count": len(rows)}
+
+
+@router.post("/operations/branches", dependencies=[Depends(require_internal_token)])
+async def read_branches(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's places — id and name, nothing else.
+
+    FOR `insights`, and for one reason: its branch table is grouped by the `branch_id` carried on
+    each visit, and it has no way at all to turn that id into a word. The table rendered every row
+    as «بلا اسم» because the name lives here and nothing carried it across.
+
+    CLOSED ONES INCLUDED. A shop that shut a branch in March still has February's visits under it,
+    and a report that cannot name them is the same defect one month later.
+
+    The same shape as the catalogue read above, deliberately: a second idiom for "read a list of
+    this tenant's rows" is a second thing to keep correct.
+    """
+    c = request.app.state.container
+    rows = await BranchStore(c.datastore).list(body.tenant)
+    return {"branches": [{"id": b.id, "name": b.name, "active": b.active} for b in rows],
             "count": len(rows)}
 
 

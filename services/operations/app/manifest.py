@@ -114,6 +114,7 @@ def build_manifest(
              "method": "POST"},
             # Service names and cycles, for insights. Includes retired services on purpose.
             {"path": "/internal/operations/catalogue", "tier": "internal", "method": "POST"},
+            {"path": "/internal/operations/branches", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
