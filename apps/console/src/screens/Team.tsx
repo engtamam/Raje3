@@ -50,6 +50,12 @@ const ROLES: { value: string; label: string; can: string }[] = [
 ];
 interface Branch { id: string; name: string; active?: boolean }
 
+/** What the branch comparison already computes for the whole shop (insights, spec 10.6.3). */
+interface BranchStat { branch_id?: string; visits?: number; customers?: number }
+
+/** The establishment's branch mode, and whether the second one may be chosen at all. */
+interface Mode { mode: string; available?: boolean }
+
 /** The one branch every shop has from its first minute. Ours to create, his to rename, and it
  *  cannot be closed — it is where an unrecognised branch lands (services/operations/core/branches.py). */
 const MAIN_BRANCH = 'brn-main';
@@ -117,7 +123,9 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
           />
         : <Branches
             session={session}
+            catalog={catalog}
             branches={branches}
+            operators={operators}
             add={addBranch}
             edit={editBranch}
             available={Boolean(listBranches)}
@@ -360,9 +368,11 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
   );
 }
 
-function Branches({ session, branches, add, available, onChanged }: {
+function Branches({ session, catalog, branches, operators, add, edit, available, onChanged }: {
   session: Session;
+  catalog: Catalog;
   branches: Branch[] | null;
+  operators: Operator[] | null;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
   available: boolean;
@@ -372,6 +382,19 @@ function Branches({ session, branches, add, available, onChanged }: {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // THE FIGURES ARE BORROWED, NOT COMPUTED. The branch comparison already counts visits and
+  // customers per branch for «محلّي», and a second count here would be a second opinion that
+  // disagrees. `null` means we could not ask - and the card then shows no figure at all rather
+  // than a zero, because «لا أعرف» is not «صفر».
+  const [stats, setStats] = useState<BranchStat[] | null>(null);
+
+  useEffect(() => {
+    const a = action(catalog, 'insights.branches');
+    if (!a) { setStats(null); return; }
+    call<{ rows?: BranchStat[] }>(session, a)
+      .then((x) => setStats(x.rows ?? []))
+      .catch(() => setStats(null));
+  }, [session, catalog]);
 
   if (!available) {
     // LOCKED AND EXPLAINED. Hidden, an owner cannot discover that branches exist — and cannot buy
@@ -407,7 +430,9 @@ function Branches({ session, branches, add, available, onChanged }: {
   if (branches === null) return <Skeleton height={160} />;
 
   return (
-    <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+    <div className="flex flex-col gap-4">
+      <ModeCard session={session} catalog={catalog} />
+      <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       {branches.length === 0 ? (
         // AN EMPTY LIST IS NOW A FAILURE, NOT A STATE. Every establishment owns its main branch
         // from signup, and the read repairs a shop that somehow has none — so nothing left here
@@ -417,8 +442,17 @@ function Branches({ session, branches, add, available, onChanged }: {
       ) : (
         <ul className="flex flex-col gap-2">
           {branches.map((b) => (
-            <BranchRow key={b.id} session={session} branch={b} edit={edit}
-                       onChanged={onChanged} />
+            <BranchRow
+              key={b.id}
+              session={session}
+              branch={b}
+              edit={edit}
+              staff={operators === null
+                ? null
+                : operators.filter((o) => o.active !== false && o.branch_id === b.id).length}
+              stat={stats === null ? null : stats.find((r) => r.branch_id === b.id) ?? {}}
+              onChanged={onChanged}
+            />
           ))}
         </ul>
       )}
@@ -441,6 +475,90 @@ function Branches({ session, branches, add, available, onChanged }: {
           </div>
         </form>
       ) : null}
+      </section>
+    </div>
+  );
+}
+
+/**
+ * How this establishment runs its branches - one sentence, and a choice that goes one way.
+ *
+ * BOTH MODES ARE SHOWN AND ONLY ONE IS OFFERED, which is the whole point of `available` travelling
+ * with the read (services/operations/core/shop_mode.py). An owner cannot ask for what he cannot
+ * see; a control that pretends to work is the defect this product keeps finding. So the locked one
+ * is named, explained, and inert.
+ *
+ * AND THE MOVE IS CONFIRMED BEFORE IT IS SENT, because it does not come back from this screen. The
+ * server refuses the reverse with the sentence that says what to do instead - but a refusal read
+ * after the fact is a worse place to learn that than the button itself.
+ */
+function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const read = action(catalog, 'operations.shop_mode');
+  const write = action(catalog, 'operations.set_shop_mode');
+  const [mode, setMode] = useState<Mode | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [asking, setAsking] = useState(false);
+
+  useEffect(() => {
+    if (!read) { setMode(null); return; }
+    call<Mode>(session, read).then(setMode).catch(() => setMode(null));
+  }, [session, catalog]);
+
+  async function move() {
+    if (!write) return;
+    setBusy(true);
+    setError('');
+    try {
+      setMode(await call<Mode>(session, write, { mode: 'per_branch' }));
+      setAsking(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر تغيير نظام الفروع.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!read || !mode) return null;
+
+  const per = mode.mode === 'per_branch';
+
+  return (
+    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <h3 className="font-medium">نظام إدارة الفروع</h3>
+      <p className="text-sm text-text-secondary">
+        {per
+          ? 'لكلّ فرع رقمه الخاص، والعميل يراسل فرعه. والإدارة تبقى مركزية: القوالب والخدمات والحملات والعملاء والنقاط تُعدّ مرة وترثها الفروع.'
+          : 'رقم واحد للمنشأة كلها. والفروع أماكن يُسجَّل فيها العمل، وكل رسالة تخرج من الرقم الذي يعرفه عميلك.'}
+      </p>
+      {per || !write ? null : mode.available ? (
+        asking ? (
+          <div className="flex flex-col gap-2 border-t border-border-subtle pt-2">
+            <p className="text-sm">
+              بعد التحوّل لا يمكن الرجوع من الشاشة: أرقام الفروع وقوالبها المعتمدة وعملاؤها لا
+              تُلغى بضغطة. متأكد؟
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={move} disabled={busy}>
+                {busy ? 'جارٍ التحويل…' : 'نعم، رقم لكل فرع'}
+              </Button>
+              <Button variant="ghost" onClick={() => { setAsking(false); setError(''); }}>
+                إلغاء
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="ghost" onClick={() => setAsking(true)}>
+            التحوّل إلى رقم لكل فرع
+          </Button>
+        )
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-text-secondary">
+          <Lock size={14} aria-hidden />
+          «رقم لكل فرع» قيد التجهيز. سنبلغك حين تجهز.
+        </p>
+      )}
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
     </section>
   );
 }
@@ -461,10 +579,14 @@ function Branches({ session, branches, add, available, onChanged }: {
  * putting a place back into service is an addition, and a plan of one branch must not be passed
  * by closing and reopening.
  */
-function BranchRow({ session, branch, edit, onChanged }: {
+function BranchRow({ session, branch, edit, staff, stat, onChanged }: {
   session: Session;
   branch: Branch;
   edit: ReturnType<typeof action>;
+  /** Active employees assigned to this branch, or null when the list could not be read. */
+  staff: number | null;
+  /** Its row in the branch comparison, `{}` when it has none yet, null when unreadable. */
+  stat: BranchStat | null;
   onChanged: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
@@ -518,6 +640,14 @@ function BranchRow({ session, branch, edit, onChanged }: {
                 accident; the word is what tells him why it is absent from the pickers. */}
             {!live ? <span className="text-xs text-text-secondary">مغلق</span> : null}
             {main ? <span className="text-xs text-text-secondary">الفرع الرئيسي — لا يُغلق</span> : null}
+            {/* THE FIGURES, AND ONLY THE ONES WE HAVE. Each is dropped on its own when its read
+                failed - a card saying «0 زيارة» about a branch we could not count is a lie that
+                looks like a report. */}
+            <span className="flex flex-wrap gap-x-3 text-xs text-text-secondary">
+              {staff === null ? null : <span>{staff} موظفاً</span>}
+              {stat === null ? null : <span>{stat.visits ?? 0} زيارة</span>}
+              {stat === null ? null : <span>{stat.customers ?? 0} عميلاً</span>}
+            </span>
           </span>
           {edit ? (
             <span className="flex gap-2">

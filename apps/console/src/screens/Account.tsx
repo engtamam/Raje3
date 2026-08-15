@@ -36,7 +36,43 @@ import type { Owned } from '../apps';
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
 interface ConnectState { state: string; message: string }
 
-export type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'team' | 'keys' | 'login' | 'data';
+/**
+ * FOUR TABS, AND FOUR OLD NAMES THAT STILL RESOLVE.
+ *
+ * `whatsapp`, `team`, `keys` and `invoices` were tabs of their own and are now SECTIONS inside two
+ * of these. They stay in the type because they are live URLs: «أضِفه إلى اشتراكي» links, a
+ * bookmark, a message somebody sent a colleague. Dropping them would turn every one of those into
+ * a page that opens on the wrong thing — which is exactly the failure a deep link exists to
+ * prevent.
+ */
+export type Pane = 'shop' | 'billing' | 'login' | 'data';
+export type PaneLink = Pane | 'invoices' | 'whatsapp' | 'team' | 'keys';
+
+/**
+ * The tab a link opens on. Unknown and absent both land on «منشأتي».
+ *
+ * NOT ON A HARDCODED 'billing', which is where this opened before: a manager who cannot read
+ * billing arrived on a tab that was filtered away and the screen fell back a second time. The
+ * establishment is the one tab anybody with any of its permissions holds.
+ */
+export function resolvePane(link?: string): Pane {
+  if (!link) return 'shop';
+  // `hasOwn`, NOT a plain lookup. `?tab=` is a string a stranger types, and `MOVED['__proto__']`
+  // answers with an object rather than undefined — which would leave `pane` holding something
+  // that is not a tab at all.
+  if (Object.hasOwn(MOVED, link)) return MOVED[link];
+  return (['shop', 'billing', 'login', 'data'] as const).includes(link as Pane)
+    ? (link as Pane)
+    : 'shop';
+}
+
+/** Where a name that is no longer a tab now lives. */
+export const MOVED: Record<string, Pane> = {
+  invoices: 'billing',
+  whatsapp: 'shop',
+  team: 'shop',
+  keys: 'shop',
+};
 
 /**
  * The tabs, each with the sentence that says what is behind it.
@@ -46,34 +82,25 @@ export type Pane = 'billing' | 'invoices' | 'whatsapp' | 'shop' | 'team' | 'keys
  * short precisely because that line carries the meaning.
  */
 const TABS: { id: Pane; label: string; hint: string }[] = [
-  { id: 'billing', label: 'الاشتراك', hint: 'باقتك ووسيلة الدفع' },
-  // ITS OWN TAB, BECAUSE IT IS ITS OWN ERRAND. Choosing a plan is a decision made once or twice a
-  // year; fetching an invoice is bookkeeping, done on a date somebody else set — an accountant
-  // asks for last month's, and looking for it under «الاشتراك» means scrolling past four plans
-  // he is not buying today. Two purposes sharing one tab makes both harder to reach.
-  { id: 'invoices', label: 'فواتيري', hint: 'فواتيرك وإيصالاتك، جاهزة للتنزيل' },
-  { id: 'whatsapp', label: 'واتساب', hint: 'الرقم المرتبط وسقفك الحالي' },
-  { id: 'shop', label: 'منشأتي', hint: 'الاسم والشعار الذي يراه عميلك' },
-  // «فريقي» MOVED OFF THE RAIL AND IN HERE, next to «منشأتي» and before «مفاتيح الربط»: the three
-  // of them answer one question — who and what may act in this shop — and only one of them was a
-  // full row on a nav nine labels tall. Hiring is not a daily errand; it is an errand you do once
-  // and then look for where the establishment's own settings live.
-  { id: 'team', label: 'فريقي', hint: 'من يدخل النظام، وبأي صلاحية' },
-  // AFTER «منشأتي», BEFORE «دخولي»: both are about who may act in this shop, and a machine's key
-  // sits next to a person's password rather than under billing.
-  { id: 'keys', label: 'مفاتيح الربط', hint: 'برامج تكتب زيارات باسم محلك' },
+  // ONE TAB FOR THE ESTABLISHMENT, because its five parts answer one question — who and what may
+  // act in this shop, and under whose name. They were five separate tabs and a person looking for
+  // «who works here» had to guess which of them held it.
+  { id: 'shop', label: 'منشأتي', hint: 'هويّتك وفروعك وفريقك وربط واتساب' },
+  // THE PLAN AND THE INVOICES ARE ONE ERRAND: money. They were split because choosing a plan and
+  // fetching a receipt are different acts — which is true, and still leaves both under the one
+  // word an owner thinks of when he is here for either.
+  { id: 'billing', label: 'اشتراكي', hint: 'باقتك وفواتيرك ووسيلة الدفع' },
   { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك' },
-  // ONE WORD, BECAUSE THE HINT LINE CARRIES THE REST. «بياناتي وأوراقي» was the label that
-  // pushed the strip past the screen and left the last tab sliced in half.
   { id: 'data', label: 'بياناتي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
 ];
+
 
 export function AccountScreen(
   { session, catalog, openOn, owned }:
   // `openOn` IS WHERE SOMEBODY ELSE SENT HIM. The locked cards across the product say «أضِفه إلى
   // اشتراكي», and a button that lands on a page and then makes him find the right tab is a button
   // that loses half the people who pressed it. Ignored when he may not read that tab.
-  { session: Session; catalog: Catalog; openOn?: Pane; owned?: Owned | null },
+  { session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Owned | null },
 ) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null>(null);
@@ -95,20 +122,27 @@ export function AccountScreen(
   }, [session, catalog]);
 
   const tabs = TABS.filter((t) => {
-    if (t.id === 'billing') return Boolean(action(catalog, 'billing.plans') || action(catalog, 'billing.my_subscriptions'));
-    if (t.id === 'invoices') return Boolean(action(catalog, 'billing.my_invoices'));
-    if (t.id === 'whatsapp') return Boolean(action(catalog, 'whatsapp.connect_status'));
-    if (t.id === 'shop') return Boolean(action(catalog, 'tenant.view_self'));
-    // ON THE WRITE, exactly as the rail gated it: listing employees is a read half the roles hold,
-    // and adding one is the reason the section exists. A tab whose every control is inert is worse
-    // than an absent one — the person tries, is refused, and learns to distrust the screen.
-    if (t.id === 'team') return Boolean(action(catalog, 'operations.create_operator'));
+    if (t.id === 'billing') {
+      return Boolean(action(catalog, 'billing.plans') || action(catalog, 'billing.my_subscriptions')
+        || action(catalog, 'billing.my_invoices'));
+    }
+    // OFFERED IF ANY ONE OF ITS SECTIONS IS. The tab is a container now, and gating it on the
+    // identity read alone would hide a manager's team and connection behind a permission he does
+    // not need for either.
+    if (t.id === 'shop') {
+      return Boolean(action(catalog, 'tenant.view_self')
+        || action(catalog, 'whatsapp.connect_status')
+        || action(catalog, 'operations.create_operator')
+        || action(catalog, 'operations.list_branches'));
+    }
     return true;
   });
 
   // OPENS ON THE FIRST TAB HE ACTUALLY HAS, not on a hardcoded 'billing' that a manager cannot
   // read. `tabs` is never empty — «دخولي» and «بياناتي» are everyone's.
-  const [pane, setPane] = useState<Pane>(() => openOn ?? 'billing');
+  // A LINK MAY NAME A SECTION THAT IS NO LONGER A TAB — see MOVED. It opens the tab that now
+  // holds it, and the section itself is on that page.
+  const [pane, setPane] = useState<Pane>(() => resolvePane(openOn));
   const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
   const isConnected = connected?.state === 'connected';
 
@@ -171,18 +205,27 @@ export function AccountScreen(
             catalog={catalog}
             owned={owned}
             // THE ONE SEAM BETWEEN TWO TABS, and it earns itself: a plan cannot run without a
-            // connected number, so the pane that says so must be able to take him there.
-            onGoConnect={() => setPane('whatsapp')}
+            // connected number, so the pane that says so must be able to take him there — which is
+            // now a section on another tab rather than a tab of its own.
+            onGoConnect={() => setPane('shop')}
           />
+          <InvoicesPane session={session} catalog={catalog} />
         </div>
       ) : null}
-      {active === 'invoices' ? <InvoicesPane session={session} catalog={catalog} /> : null}
-      {active === 'whatsapp'
-        ? <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
-        : null}
-      {active === 'shop' ? <ShopPane session={session} catalog={catalog} /> : null}
-      {active === 'team' ? <TeamScreen session={session} catalog={catalog} /> : null}
-      {active === 'keys' ? <KeysPane session={session} catalog={catalog} /> : null}
+
+      {active === 'shop' ? (
+        <div className="flex flex-col gap-6">
+          {/* THE ORDER IS THE ORDER HE NEEDS THEM IN, not the order we built them: what the
+              customer sees, then where the shop is, then who works there, then what sends in its
+              name. Sections rather than nested tabs — a tab inside a tab hides half the page
+              behind two taps, and nobody remembers which one they were on. */}
+          <ShopPane session={session} catalog={catalog} />
+          <TeamScreen session={session} catalog={catalog} />
+          <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
+          <KeysPane session={session} catalog={catalog} />
+        </div>
+      ) : null}
+
       {active === 'login' ? <LoginPane /> : null}
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
     </div>

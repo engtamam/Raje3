@@ -309,3 +309,47 @@ def test_choosing_the_mode_it_already_has_is_not_a_refusal(client):
 
     store = ModeStore(client.app.state.container.datastore)
     assert asyncio.run(store.set("tnt_mode_e", CENTRAL, available=False))["mode"] == CENTRAL
+
+
+def test_a_refused_mode_change_leaves_no_audit_line(client, monkeypatch):
+    """The record answers one question months later: WHEN did this shop change its mode.
+
+    Written on the way in, it answers with the day somebody was refused — and then a second line
+    with the day it actually happened. Two dates for one event is worse than none, because the
+    first one looks authoritative.
+    """
+    seen: list[str] = []
+
+    async def record(action, **kw):
+        seen.append(action)
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+
+    # Refused: the mode is not available in this deployment.
+    r = client.put("/api/v1/staff/mode", json={"mode": "per_branch"},
+                   headers=_headers("tnt_mode_f"))
+    assert r.status_code == 409
+    assert seen == []
+
+    # And an unknown value is refused before anything is recorded either.
+    assert client.put("/api/v1/staff/mode", json={"mode": "franchise"},
+                      headers=_headers("tnt_mode_f")).status_code == 409
+    assert seen == []
+
+
+def test_the_change_that_happens_is_recorded_once(client, monkeypatch):
+    """And the other half: a move that goes through leaves exactly one line."""
+    seen: list[str] = []
+
+    async def record(action, **kw):
+        seen.append(action)
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+    monkeypatch.setattr(client.app.state.container_settings,
+                        "BRANCH_MODE_PER_BRANCH_READY", True, raising=False)
+
+    r = client.put("/api/v1/staff/mode", json={"mode": "per_branch"},
+                   headers=_headers("tnt_mode_g"))
+    assert r.status_code == 200, r.text
+    assert r.json()["mode"] == "per_branch"
+    assert seen == ["shop.mode_changed"]

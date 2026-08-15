@@ -338,9 +338,6 @@ async def set_mode(request: Request, body: ModeIn,
     """Move to per-branch. One way, and never back from this screen — see core/shop_mode.py."""
     tenant = _tenant(principal)
     store = SM.ModeStore(request.app.state.container.datastore)
-    await request.app.state.auditor.record(
-        "shop.mode_changed", actor=principal.subject, tenant=tenant, resource="shop_mode",
-        ip=request.client.host if request.client else "")
     try:
         row = await store.set(tenant, body.mode,
                               available=SM.PER_BRANCH in _modes_available(request))
@@ -349,6 +346,12 @@ async def set_mode(request: Request, body: ModeIn,
         # mode not yet live, and the one-way rule — and the platform strips a raised detail.
         return JSONResponse(status_code=status.HTTP_409_CONFLICT,
                             content={"error": "MODE_REFUSED", "message": str(exc)})
+    # RECORDED AFTER IT HAPPENED, not before it was allowed. An audit line written on the way in
+    # says a shop changed its mode on the day it was refused — and the one question this record
+    # exists to answer, months later, is when the change was actually made.
+    await request.app.state.auditor.record(
+        "shop.mode_changed", actor=principal.subject, tenant=tenant, resource="shop_mode",
+        ip=request.client.host if request.client else "")
     return row
 
 
