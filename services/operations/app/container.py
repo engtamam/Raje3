@@ -262,6 +262,17 @@ def build_container(settings: Settings) -> Container:
 
     container.connections = build_connections(settings)
     container.billing_plans = build_plans(settings)
+    # What the shop bought, for every lock the console draws. One read, five keys, no enforcement:
+    # the gates are in the services that own the acts.
+    from app.core.apps import build_apps
+
+    container.apps = build_apps(settings)
+    # And `feature.api`, asked on the one act that IS the programmatic link: a machine writing
+    # visits. Separate from `apps` because it answers a third state — «تعذّر السؤال» — that the
+    # till path treats as a yes and the store treats as unknown.
+    from app.core.licence import build_api_licence
+
+    container.api_licence = build_api_licence(settings)
     container.sectors = SectorCatalogue(container.datastore)
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built with the sector catalogue rather than after it, because a signup that cannot

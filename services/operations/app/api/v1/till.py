@@ -149,6 +149,16 @@ async def record_from_till(request: Request, body: TillBatchIn,
         return {"accepted": 0, "total": len(body.visits),
                 "message": "هذا الاعتماد غير مرتبط بمنشأة."}
 
+    # HAS THIS SHOP BOUGHT THE LINK AT ALL? `feature.api` was sold from the first price list and
+    # checked by nothing — any shop on any plan could point a till at us. Refused only on a
+    # DEFINITE no: an unreachable billing lets the sale through, because a fleet-wide hiccup must
+    # never stop every counter in the country from recording its day (see core/licence.py).
+    from app.core.licence import NOT_INCLUDED as API_NOT_INCLUDED, refuses_machine_writes
+
+    if await refuses_machine_writes(
+            getattr(request.app.state.container, "api_licence", None), principal.tenant):
+        return {"accepted": 0, "total": len(body.visits), "message": API_NOT_INCLUDED}
+
     from app.api.internal import BatchIn, BatchVisitIn, record_visits_batch
 
     # THE TENANT IS STAMPED ON EVERY ITEM FROM THE TOKEN, overwriting nothing because there was

@@ -186,6 +186,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "يقول للشاشة هل الدفع متاح، ومفتاح المتصفح العام إن كان.",
     },
     {
+        "id": "subscription.apps", "label": "تطبيقاتي", "method": "GET",
+        "path": "/api/v1/subscription/apps", "capability": "billing.self",
+        "group": "الاشتراك",
+        # ONE CALL FOR EVERY LOCK. Before this, a screen deciding whether to lock a paid surface
+        # had only the CAPABILITY to go on — and an owner holds every capability on every plan, so
+        # the lock never appeared for the person who would have paid to remove it.
+        "help": "التطبيقات التي اشتريتها وما تفعله، ليعرف كل قسم أيعرض أم يقفل.",
+    },
+    {
         # `subscription.activate`, NOT `billing.subscribe` — which is what billing-service calls
         # ITS OWN subscribe action. Two services declaring one id is a collision the catalogue
         # cannot express: the console keys on the id, so one of them silently wins and the loser

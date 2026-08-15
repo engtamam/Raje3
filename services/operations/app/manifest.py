@@ -181,6 +181,7 @@ def build_manifest(
             # subscribe path had been live and unlisted since it was written.
             {"path": "/api/v1/subscription", "tier": "user", "method": "POST"},
             {"path": "/api/v1/subscription/payment", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
             # ── the door ──────────────────────────────────────────────────────────────────

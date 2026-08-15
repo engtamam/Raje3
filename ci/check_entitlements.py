@@ -31,7 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PLANS = ROOT / "deploy" / "seed" / "plans.json"
 
-C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
+C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 
 
 def sold() -> set[str]:
@@ -43,13 +43,40 @@ def sold() -> set[str]:
     return keys
 
 
+# FILES THAT NAME A KEY WITHOUT GUARDING IT. This was the hole in the guard itself: it counted a
+# mention ANYWHERE as enforcement, and `Plans.tsx` names every key as a price-list label — so a
+# screen that SELLS a feature was read as the code that GUARDS it, and two features (`feature.api`
+# and `feature.roles.custom`) were sold, unguarded, and reported green for as long as this ran.
+#
+# THE CONSOLE CAN NEVER ENFORCE. A lock drawn in a browser is a suggestion; the fetch behind it is
+# one devtools tab away. So no `apps/console` file counts, ever — including the app store, whose
+# whole job is to name every key it does not own.
+DISPLAY_ONLY = (
+    # The catalogue the store renders. It names all five keys and decides nothing: it reports what
+    # billing said, and the gates live in the services that own the acts.
+    "services/operations/app/core/apps.py",
+)
+
+
+# SOLD, AND THE PRODUCT DOES NOT HAVE IT. Not a silencer — a WARNING every run, with the decision
+# written next to it. A line here says "we know we are charging for something that does not exist
+# yet"; deleting the feature from the price list or building it both clear it.
+SOLD_UNBUILT = {
+    "feature.roles.custom":
+        "the roles are three fixed ones (owner, manager, operator) and no screen creates a "
+        "fourth. To be settled in the repricing: build it, or take it off the price list — "
+        "until then it is charged for and does not exist.",
+}
+
+
 def gated() -> dict[str, list[str]]:
-    """key -> the files that check it, so a failure names where to look."""
+    """key -> the SERVICE files that check it, so a failure names where to look."""
     where: dict[str, list[str]] = {}
-    patterns = ["services/*/app/**/*.py", "apps/console/src/**/*.ts",
-                "apps/console/src/**/*.tsx"]
-    for pattern in patterns:
+    for pattern in ("services/*/app/**/*.py",):
         for path in glob.glob(str(ROOT / pattern), recursive=True):
+            rel = str(Path(path).relative_to(ROOT)).replace("\\", "/")
+            if rel in DISPLAY_ONLY or "/tests/" in rel:
+                continue
             try:
                 text = Path(path).read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -87,16 +114,29 @@ def main() -> int:
         problems.append(f"{key} is checked in {g[key][0]} and NO plan grants it — the feature is "
                         f"dead for every customer, including the ones paying the most, and nothing "
                         f"anywhere reports it")
+    warnings: list[str] = []
     for key in sorted(s - set(g)):
+        decided = SOLD_UNBUILT.get(key)
+        if decided:
+            warnings.append(f"{key}: sold and not built — {decided}")
+            continue
         problems.append(f"{key} is sold in the price list and no code checks it — every shop gets "
                         f"it, and the customer who paid for the tier above is the one who finds out")
 
+    for key in sorted(set(SOLD_UNBUILT) - s):
+        problems.append(f"{key} is listed as sold-and-unbuilt and no plan sells it — delete the "
+                        f"line, or the next reader trusts a note about nothing")
+
+    for w in warnings:
+        print(f"{C_Y}  ! {w}{C_N}")
     for p in problems:
         print(f"{C_R}  ✗ {p}{C_N}")
     if problems:
         print(f"\n{C_R}  ✗ {len(problems)} feature key(s) sold and enforced differently{C_N}")
         return 1
-    print(f"{C_G}  ✔ all {len(s)} feature keys are both sold and enforced{C_N}")
+    print(f"{C_G}  ✔ all {len(s) - len(warnings)} feature keys are both sold and enforced{C_N}")
+    if warnings:
+        print(f"{C_Y}    {len(warnings)} key(s) sold and not built — see above{C_N}")
     return 0
 
 

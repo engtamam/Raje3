@@ -500,6 +500,22 @@ class Settings(BaseSettings):
             raise ValueError("SEARCH_DRIVER=http but SEARCH_SERVICE_URL is empty — nothing to "
                              "index against.")
 
+    def assert_apps_config_ok(self) -> None:
+        """Boot guard. Refuse production with no way to read what a shop bought.
+
+        The failure is invisible and it points the wrong way: `NullApps` reports an empty set with
+        `checked: true`, so every screen would draw a lock on every paid app for every shop —
+        including the ones paying for all five. Nothing errors, nothing logs, and the support call
+        is «اشتريت الحملات وما تظهر».
+        """
+        if not self.is_production:
+            return
+        if not self.BILLING_SERVICE_URL or not self.BILLING_CHECK_PATH:
+            raise ValueError(
+                "BILLING_SERVICE_URL/BILLING_CHECK_PATH are empty in production: the console could "
+                "not read what any establishment bought, so every paid app would be drawn locked "
+                "for every shop — including the ones that pay for all of them.")
+
     def assert_sectors_config_ok(self) -> None:
         """Boot guard. Refuse production with no sector defaults.
 

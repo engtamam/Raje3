@@ -373,3 +373,101 @@ def test_a_token_without_a_tenant_cannot_subscribe_anybody(client, monkeypatch):
     r = client.post("/api/v1/subscription", json={"plan_id": "plan_x", "payment_token": "tok_1"},
                     headers=_auth("billing.self"))
     assert r.status_code == 403
+
+
+# ── «ما الذي أملكه»: one call, and every lock in the console drawn from it ─────────────────────
+def _apps(client, owned=(), reachable=True):
+    from app.core.apps import NullApps
+
+    reader = NullApps(set(owned))
+    reader.reachable = reachable
+    client.app.state.container.apps = reader
+    return reader
+
+
+def test_the_owner_is_told_which_apps_he_owns(client):
+    """THE DEFECT IN ONE LINE. Before this, a screen deciding whether to lock a paid surface had
+    only the CAPABILITY to go on — and an owner holds every capability on every plan, so the lock
+    never appeared for the one person who would have paid to remove it."""
+    _apps(client, owned={"feature.loyalty"})
+    r = client.get("/api/v1/subscription/apps", headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["checked"] is True
+    assert body["keys"] == ["feature.loyalty"]
+    owned = {a["key"]: a["owned"] for a in body["apps"]}
+    assert owned["feature.loyalty"] is True and owned["feature.campaigns"] is False
+
+
+def test_every_app_arrives_with_a_sentence_the_screen_can_render(client):
+    """A store that prints `feature.roles.custom` is a glossary, not a page somebody buys from."""
+    _apps(client)
+    body = client.get("/api/v1/subscription/apps",
+                      headers=_auth("billing.self", tenant="t1")).json()
+    assert body["apps"] and all(a["name"] and a["what"] for a in body["apps"])
+
+
+def test_a_billing_outage_is_never_reported_as_not_bought(client):
+    """The worst sentence in the product to show a paying shop — and it would be shown to all of
+    them at once. `owned` is null, and the screen draws «تعذّر التحقق» with a retry."""
+    _apps(client, owned={"feature.campaigns"}, reachable=False)
+    body = client.get("/api/v1/subscription/apps",
+                      headers=_auth("billing.self", tenant="t1")).json()
+    assert body["checked"] is False
+    assert all(a["owned"] is None for a in body["apps"])
+    assert body["keys"] == [] and body["message"]
+
+
+def test_it_answers_about_the_caller_s_own_establishment_only(client):
+    """A reader that ignored the tenant would hand one shop another shop's purchases."""
+    class _Seen:
+        driver = "null"
+
+        def __init__(self):
+            self.asked = []
+
+        async def held(self, tenant):
+            self.asked.append(tenant)
+            return set(), True
+
+    seen = _Seen()
+    client.app.state.container.apps = seen
+    client.get("/api/v1/subscription/apps", headers=_auth("billing.self", tenant="shop_9"))
+    assert seen.asked == ["shop_9"]
+
+
+# ── the till, and `feature.api` ────────────────────────────────────────────────────────────────
+def _till_body():
+    return {"visits": [{"idempotency_key": "inv-1", "phone": "0500000001",
+                        "lines": [{"service_id": "svc_1", "qty": 1}]}]}
+
+
+def test_a_shop_without_the_programmatic_link_cannot_stream_visits_from_a_till(client):
+    """THE DEFECT. `feature.api` was sold from the first price list and checked by nothing — any
+    shop on any plan could point a till at us. The guard passed because `Plans.tsx` names the key
+    as a price-list LABEL and a mention counted as enforcement."""
+    from app.core.licence import NOT_INCLUDED, NullApiLicence
+
+    client.app.state.container.api_licence = NullApiLicence(False)
+    try:
+        r = client.post("/api/v1/till/visits", json=_till_body(),
+                        headers=_auth("operations.record", tenant="t1"))
+        assert r.status_code == 200
+        assert r.json()["accepted"] == 0
+        assert r.json()["message"] == NOT_INCLUDED
+    finally:
+        client.app.state.container.api_licence = NullApiLicence(True)
+
+
+def test_an_unreachable_billing_never_stops_a_counter(client):
+    """THE DELIBERATE DIFFERENCE FROM CAMPAIGNS, which fails closed. A fleet-wide billing hiccup
+    that refused every till would stop every shop from recording its day at once."""
+    from app.core.licence import NOT_INCLUDED, NullApiLicence
+
+    client.app.state.container.api_licence = NullApiLicence(None)
+    try:
+        r = client.post("/api/v1/till/visits", json=_till_body(),
+                        headers=_auth("operations.record", tenant="t1"))
+        assert r.json().get("message") != NOT_INCLUDED
+    finally:
+        client.app.state.container.api_licence = NullApiLicence(True)

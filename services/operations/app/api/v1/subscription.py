@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.api.authz import require_capability
 from app.config import get_settings
+from app.core import apps as app_catalogue
 from app.core.subscribe import may_subscribe
 from app.api.ratelimit import rate_limit
 
@@ -66,6 +67,25 @@ async def payment_state(principal=Depends(_OWNER)) -> dict:
             "message": "" if key else
                        "الدفع الإلكتروني غير متاح مؤقتاً. نعتذر — نعمل على تفعيله، "
                        "وحتى ذلك الحين تواصل معنا لتفعيل باقتك."}
+
+
+@router.get("/apps", dependencies=[Depends(rate_limit)])
+async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
+    """What has this shop bought — one call, for every lock in the console.
+
+    UNTIL THIS EXISTED, no screen could answer it. The console draws a lock from a CAPABILITY, and
+    an owner holds every capability on every plan — so the lock never appeared for the one person
+    who would have paid to remove it. The only screen that knew better was «محلّي», by reading a
+    key that the insights dashboard happened to return with its numbers.
+
+    IT DECIDES NOTHING. The gates live in the services that own the acts and fail closed there; a
+    tampered answer here draws a button that the service behind it still refuses. Which is exactly
+    why it does NOT fail closed itself: a billing outage must not tell every paying shop at once
+    that it has not paid. `checked: false` says what happened, and the screen offers to retry.
+    """
+    c = request.app.state.container
+    held, checked = await c.apps.held(_tenant(principal))
+    return app_catalogue.public(held, checked)
 
 
 @router.post("", dependencies=[Depends(rate_limit)])
