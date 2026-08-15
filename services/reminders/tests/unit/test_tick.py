@@ -809,3 +809,34 @@ def test_the_switch_is_read_per_reason_not_per_template(st):
 
     s = FakeSender()
     assert go(st, s, choices=run(store.load("t1"))).sent == 1
+
+
+# ── the branch travels from the visit to the ledger ───────────────────────────────────────────
+def test_a_sent_message_carries_the_branch_its_visit_happened_at(st):
+    """«كم رسالة خرجت باسم فرع جدة» had no answer, and could never be given one later: this log
+    is the only record that a message existed, and a row written without a branch cannot be
+    labelled after the fact."""
+    sched(st, branch_id="brn-jeddah")
+    go(st, FakeSender())
+    rows, _ = run(SendLogStore(st)._find("t1", {"outcome": "sent"}, limit=10))
+    assert [r["branch_id"] for r in rows] == ["brn-jeddah"]
+
+
+def test_a_suppression_carries_it_too(st):
+    """The suppressions are the point of this ledger — a refusal that cannot be attributed to a
+    place is a refusal an owner with three branches cannot act on."""
+    sched(st, branch_id="brn-jeddah")
+    run(PrefsStore(st).put("t1", "sub_a", as_row(Preferences(
+        tenant="t1", subject_ref="sub_a", stopped={"service": True}))))
+    go(st, FakeSender())
+    rows, _ = run(SendLogStore(st)._find("t1", {"outcome": "suppressed"}, limit=10))
+    assert rows and all(r["branch_id"] == "brn-jeddah" for r in rows)
+
+
+def test_a_message_with_no_branch_behind_it_stays_empty(st):
+    """EMPTY IS A REAL VALUE. A shop that labels nothing, and a campaign with no visit behind it,
+    are «غير محدَّد» — inventing a branch for them would put numbers under a place nobody claimed."""
+    sched(st)
+    go(st, FakeSender())
+    rows, _ = run(SendLogStore(st)._find("t1", {"outcome": "sent"}, limit=10))
+    assert rows[0]["branch_id"] == ""

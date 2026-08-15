@@ -156,15 +156,24 @@ async def set_rule(request: Request, rule_key: str, body: RuleIn,
 
 @router.get("/log", dependencies=[Depends(rate_limit)])
 async def send_log(request: Request, outcome: str = Query(default=""),
+                   branch_id: str = Query(default="", max_length=64),
                    limit: int = Query(default=100, ge=1, le=500),
                    principal: Principal = Depends(_READ)) -> dict:
     """What was sent, and what was not, with the reason.
 
     THE SUPPRESSIONS ARE THE POINT. This is the screen that answers the only question this service
     generates, and it is why every refusal in the gate returns a sentence rather than a code.
+
+    AND IT NARROWS BY BRANCH, which is the whole reason the rows carry one. An owner with three
+    branches reading one list of everything cannot answer «ما الذي خرج باسم فرع جدة؟» — the
+    question he actually has. `_none` selects the rows with no branch at all: they are a real
+    group (campaigns, and shops that label nothing), and folding them into "everything" is how
+    they stop being visible as a gap worth closing.
     """
     store = SendLogStore(request.app.state.container.datastore)
-    where = {"outcome": outcome} if outcome else None
+    where: dict[str, str] | None = {"outcome": outcome} if outcome else None
+    if branch_id:
+        where = {**(where or {}), "branch_id": "" if branch_id == "_none" else branch_id}
     rows, _ = await store._find(principal.tenant, where, limit=limit, sort=("at", "desc"))
     # The visit-idempotency markers live in this collection (see core/scheduling.py) and are not
     # messages. Showing them would put rows in an owner's log that mean nothing to them.

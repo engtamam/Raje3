@@ -69,6 +69,9 @@ const STATE: Record<string, string> = {
 /** One line of the send log. `reason` is the service's own sentence — never re-worded here. */
 interface LogRow {
   id: string;
+  /** Where the visit behind this message happened. Empty for a campaign, and for a shop that
+   *  labels nothing — «غير محدَّد» is a real answer here, not a gap. */
+  branch_id?: string;
   at?: number;
   outcome?: string;
   reason?: string;
@@ -169,6 +172,9 @@ export function MessagesScreen(
    */
   const [log, setLog] = useState<LogRow[] | null>(null);
   const [only, setOnly] = useState<'' | 'sent' | 'suppressed'>('');
+  /** Which branch's messages he is reading. '' is all of them; '_none' is the ones with none. */
+  const [logBranch, setLogBranch] = useState('');
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   /** The composer, open only when he asks for it — this tab is a list first. */
@@ -246,10 +252,24 @@ export function MessagesScreen(
     const a = action(catalog, 'reminders.log');
     if (!a) { setLog([]); return; }
     setLog(null);
-    call<{ log: LogRow[] }>(session, a, only ? { outcome: only, limit: 100 } : { limit: 100 })
+    call<{ log: LogRow[] }>(session, a, {
+      limit: 100,
+      ...(only ? { outcome: only } : {}),
+      ...(logBranch ? { branch_id: logBranch } : {}),
+    })
       .then((x) => setLog(x.log ?? []))
       .catch(() => setLog([]));
-  }, [tab, only, session, catalog]);
+  }, [tab, only, logBranch, session, catalog]);
+
+  // THE NAMES, FROM THE SERVICE THAT OWNS THEM. reminders stores a branch id on every row and no
+  // names at all — printing the id would give an owner a string to hunt for in his own shop.
+  useEffect(() => {
+    const b = action(catalog, 'operations.list_branches');
+    if (!b) return;
+    call<{ branches: { id: string; name: string }[] }>(session, b)
+      .then((x) => setBranches(x.branches ?? []))
+      .catch(() => setBranches([]));
+  }, [session, catalog]);
 
   useEffect(() => {
     const s = action(catalog, 'reminders.list_schedule');
@@ -518,6 +538,25 @@ export function MessagesScreen(
             <p className="px-1 text-sm text-text-secondary">
               كل رسالة لم تخرج، ومعها سببها — لا شيء يُمنع بصمت.
             </p>
+            {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE. «صفِّ حسب فرعك الوحيد» is a control
+                that does nothing, and one more thing to read past. */}
+            {branches.length > 1 ? (
+              <label className="flex items-center gap-2 px-1 text-sm">
+                <span className="text-text-secondary">الفرع</span>
+                <select
+                  className="min-h-11 flex-1 rounded-xl bg-surface-2 px-3 text-sm"
+                  value={logBranch}
+                  aria-label="تصفية السجل حسب الفرع"
+                  onChange={(e) => setLogBranch(e.target.value)}
+                >
+                  <option value="">كل الفروع</option>
+                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {/* A GROUP, NOT A LEFTOVER: campaign sends have no visit behind them, and rows
+                      from before we carried the field will never have one. */}
+                  <option value="_none">بلا فرع محدَّد</option>
+                </select>
+              </label>
+            ) : null}
           </div>
 
           {log === null ? (
