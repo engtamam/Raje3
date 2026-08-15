@@ -40,9 +40,14 @@ from typing import Any
 # what `ci/check_entitlements.py` compares against the price list, so an app sold and not listed
 # here is an app nobody can see they own.
 #
-# `screen` is where the lock is drawn. `included` is what the base subscription gives everybody and
-# nothing gates — it is here so the store can show a shop what it already has rather than a page
-# that begins at «اشترِ».
+# `screen` is where the lock is drawn.
+#
+# AND `feature.api` IS NOT HERE, DELIBERATELY. The programmatic link moved INTO the base: a till
+# writing a visit is the same act the field screen performs, arriving through another door, and a
+# shop with a till never uses manual entry anyway — so selling the door while the act is free was
+# arbitrary. The KEY still exists and is still enforced at the till (operations/core/licence.py),
+# because a shop whose subscription lapsed must not keep writing; it is simply granted by the base
+# rather than bought. A row here would draw a buy button for something nobody can buy.
 APPS: tuple[dict[str, Any], ...] = (
     {"key": "feature.campaigns", "name": "الحملات", "screen": "messages",
      "what": "ترسل عرضاً أو خبراً لمجموعة من عملائك، ويقيس النظام مَن رجع بسببه."},
@@ -50,8 +55,6 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "نقاطٌ على كل زيارة، ومكافآت يستبدلها العميل من صفحته أو عند الصندوق."},
     {"key": "feature.insights.engine", "name": "محرك التحليلات", "screen": "local",
      "what": "الاقترانات بين خدماتك، والباقات المقترحة، وأثر الرسائل على الرجوع."},
-    {"key": "feature.api", "name": "الربط البرمجي", "screen": "account",
-     "what": "يربط صندوقك أو نظامك بحسابك هنا، فتُسجَّل الزيارات بلا إدخال يدوي."},
 )
 
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)

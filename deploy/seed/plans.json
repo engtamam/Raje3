@@ -107,7 +107,7 @@
         "knows the number, and a shop that signed up under 14 days keeps 14 whatever we change."
       ],
       "name": "الأساس",
-      "amount": 14800,
+      "amount": 9900,
       "trial_days": 14,
       "limits": {
         "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
@@ -117,7 +117,7 @@
         "feature.campaigns": {"kind": "boolean", "limit": 0},
         "feature.loyalty": {"kind": "boolean", "limit": 0},
         "feature.insights.engine": {"kind": "boolean", "limit": 0},
-        "feature.api": {"kind": "boolean", "limit": 0},
+        "feature.api": {"kind": "boolean", "limit": 1},
         "templates.custom": {"kind": "counter", "limit": 0, "period": "month", "overage": "block"}
       }
     },
@@ -160,14 +160,6 @@
       "limits": {
         "feature.insights.engine": {"kind": "boolean", "limit": 1},
         "templates.custom": {"kind": "counter", "limit": 9, "period": "month", "overage": "block"}
-      }
-    },
-    {
-      "name": "الربط البرمجي",
-      "amount": 9900,
-      "trial_days": 0,
-      "limits": {
-        "feature.api": {"kind": "boolean", "limit": 1}
       }
     },
     {

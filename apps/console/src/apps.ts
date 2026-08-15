@@ -55,7 +55,7 @@ export const APP_ROWS: AppRow[] = [
     id: 'base',
     key: null,
     name: 'الأساس',
-    what: 'عملاؤك وزياراتهم وخدماتك، وتأكيد الزيارة والتذكير بها.',
+    what: 'عملاؤك وزياراتهم وخدماتك، وتأكيد الزيارة والتذكير بها، وربط صندوقك.',
     section: '',
     onCustomer: 'الزيارات، والخدمات التي أخذها',
   },
@@ -83,14 +83,6 @@ export const APP_ROWS: AppRow[] = [
     // NO SECTION OF ITS OWN, and that is the pattern to copy. «محلّي» is free for every shop —
     // it is what sells everything else — and the engine locks three cards INSIDE it. An app that
     // hid the whole section would hide the argument for buying it.
-    section: '',
-    onCustomer: '',
-  },
-  {
-    id: 'link',
-    key: 'feature.api',
-    name: 'الربط البرمجي',
-    what: 'يربط صندوقك أو نظامك بحسابك هنا، فتُسجَّل الزيارات بلا إدخال يدوي.',
     section: '',
     onCustomer: '',
   },
