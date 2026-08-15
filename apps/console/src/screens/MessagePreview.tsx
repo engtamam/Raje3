@@ -20,10 +20,22 @@ import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check, Lock } from 'lucide-react';
+import { TextEditor, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
 interface Option { name: string; tone: string; text: string; mine?: boolean }
+
+/** One of his own texts that is not sending yet — and why it is not. */
+interface Mine { name: string; status: string; reason?: string; body: string }
+
+/** The states are Meta's, and they are said in his words rather than theirs. */
+const STATUS: Record<string, string> = {
+  draft: 'مسودّة — لم تُرفَع بعد',
+  pending: 'عند واتساب للمراجعة',
+  rejected: 'رفضها واتساب',
+  retired: 'استبدلتها بنسخة أحدث',
+};
 
 /** The three voices, named for an owner rather than for a library. */
 const TONE: Record<string, string> = {
@@ -45,26 +57,47 @@ export function MessagePreview({
   onChosen: () => void;
 }) {
   const [options, setOptions] = useState<Option[] | null>(null);
+  /** Bumped after a save, so both reads run again — the new draft appears without a reopen. */
+  const [reload, setReload] = useState(0);
   /** The shop's tone — what it sends today when it has chosen no text of its own. */
   const [tone, setTone] = useState('brief');
   /** His own approved text, when he pointed this trigger at one. Empty means ours. */
   const [chosen, setChosen] = useState('');
   const [saving, setSaving] = useState('');
   const [error, setError] = useState('');
+  /** The blanks THIS message can fill — the editor's whole guard rail, and the server's answer. */
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [writing, setWriting] = useState(false);
+  /**
+   * HIS TEXTS THAT ARE NOT SENDING, and this is the half the bubbles cannot show. A draft he
+   * saved, one waiting on Meta for a day, one refused — without them the editor's «حفظ» leads
+   * nowhere visible, and a refusal nobody can see is a shop that quietly gives up.
+   */
+  const [mine, setMine] = useState<Mine[]>([]);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.preview_trigger');
     if (!a) { setOptions([]); return; }
-    call<{ options: Option[]; chosen?: string; tone?: string; error?: string }>(
+    call<{ options: Option[]; chosen?: string; tone?: string; error?: string;
+           trigger?: { slots?: Slot[] } }>(
       session, a, { trigger_id: triggerId })
       .then((x) => {
         if (x.error) { setError(x.error); setOptions([]); return; }
         setOptions(x.options ?? []);
         setChosen(x.chosen ?? '');
         setTone(x.tone ?? 'brief');
+        setSlots(x.trigger?.slots ?? []);
       })
       .catch(() => setOptions([]));
-  }, [session, catalog, triggerId]);
+  }, [session, catalog, triggerId, reload]);
+
+  useEffect(() => {
+    const a = action(catalog, 'reminders.my_templates');
+    if (!a) return;
+    call<{ templates: Mine[] }>(session, a, { trigger_id: triggerId })
+      .then((x) => setMine((x.templates ?? []).filter((t) => t.status !== 'approved')))
+      .catch(() => setMine([]));
+  }, [session, catalog, triggerId, reload]);
 
   const pick = async (option: Option) => {
     const a = action(catalog, 'reminders.set_trigger');
@@ -164,6 +197,53 @@ export function MessagePreview({
                   </button>
                 ) : null}
               </section>
+            ) : null}
+
+            {/* ── what he wrote and where it stands ─────────────────────────────────────── */}
+            {mine.length > 0 ? (
+              <section className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+                <h3 className="text-sm font-medium">نصوصٌ لم تبدأ بعد</h3>
+                <ul className="flex flex-col gap-2">
+                  {mine.map((m) => (
+                    <li key={m.name}
+                        className="flex flex-col gap-1 rounded-card border border-border-subtle p-3">
+                      <span className="text-sm">{m.body}</span>
+                      <span className="flex items-center gap-2">
+                        <Badge tone={m.status === 'rejected' ? 'warning' : 'neutral'}>
+                          {STATUS[m.status] ?? m.status}
+                        </Badge>
+                        {/* META'S OWN WORDS. Re-wording a refusal sends him looking for a problem
+                            we invented. */}
+                        {m.reason ? (
+                          <span className="text-xs text-text-secondary">{m.reason}</span>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {/* ── his own words, when he wants them ─────────────────────────────────────── */}
+            {canRetext && action(catalog, 'reminders.write_template') ? (
+              <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
+                <span className="text-sm text-text-secondary">
+                  تبي صياغتك أنت؟ اكتبها ونرفعها لواتساب باسمك.
+                </span>
+                <Button variant="ghost" onClick={() => setWriting(true)}>اكتب نصّك</Button>
+              </div>
+            ) : null}
+
+            {writing ? (
+              <TextEditor
+                session={session}
+                catalog={catalog}
+                triggerId={triggerId}
+                label={label}
+                slots={slots}
+                onClose={() => setWriting(false)}
+                onSaved={() => { setReload((n) => n + 1); onChosen(); }}
+              />
             ) : null}
 
             {/* WHY HE CANNOT WRITE ONE, WHEN HE CANNOT — said here rather than left to guess. */}

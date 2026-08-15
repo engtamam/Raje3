@@ -1,0 +1,204 @@
+/**
+ * Writing his own wording for one message — with blanks he cannot get wrong.
+ *
+ * THE PROBLEM EVERY TEMPLATE EDITOR HAS. WhatsApp numbers its blanks and names nothing: the body
+ * that leaves is «أهلاً {{1}}، حان وقت {{2}}». An owner asked to type that will mistype it, leave a
+ * gap in the numbering, or ask for a blank his message has no value for — and every one of those
+ * failures appears LATER: at Meta's review, or worse, at a send that quietly never happens.
+ *
+ * SO HE NEVER TYPES A NUMBER. He taps «اسم العميل» and a chip appears; the numbering is generated
+ * from the order the chips sit in when he saves. A chip is `contenteditable=false`, so it cannot
+ * be half-deleted into `{{1` — backspace removes the whole thing, which is what he meant anyway.
+ *
+ * AND THE PALETTE OFFERS ONLY WHAT THIS MESSAGE CAN FILL. A visit confirmation knows the customer
+ * and the shop; it does not know a coupon code. Offering one would let him write a text that
+ * passes Meta's review and then renders nothing — the exact failure the trigger registry exists
+ * to prevent, made impossible here rather than caught later.
+ *
+ * THE CARET TRICK IS BORROWED, and it is the one thing a hand-rolled contentEditable always gets
+ * wrong: re-rendering on every keystroke moves the caret to the end. The element keeps a copy of
+ * what it is showing in `data-src`, and we only rewrite it when the OUTSIDE value differs from
+ * that copy — so typing never triggers a rewrite, and an external change still lands.
+ */
+import { useEffect, useRef, useState } from 'react';
+import { Modal } from '@base-ui/design-system/Modal';
+import { Button } from '@base-ui/design-system/Button';
+import { Plus } from 'lucide-react';
+import { action, call, type Catalog } from '../catalog';
+import type { Session } from '../session';
+
+export interface Slot { id: string; label: string; sample?: string }
+
+/** What the editor holds while he writes: the text, and what each chip in it means. */
+interface Draft { html: string }
+
+const CHIP =
+  'rich-chip mx-0.5 inline-block rounded-md bg-accent-soft px-1.5 py-0.5 text-xs ' +
+  'font-medium text-accent-on-soft align-baseline';
+
+function chipHtml(slot: Slot): string {
+  // `data-kind` is the whole contract with the serialiser below: the DOM is the model, and this
+  // attribute is what survives the round trip through the browser's own editing.
+  return `<span contenteditable="false" data-kind="${slot.id}" class="${CHIP}">${slot.label}</span>`;
+}
+
+/** Walk the editable and read back the text and the meanings, in the order they appear. */
+function readBack(root: HTMLElement): { body: string; fills: string[] } {
+  const fills: string[] = [];
+  let body = '';
+  const walk = (node: Node) => {
+    node.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        body += child.textContent ?? '';
+        return;
+      }
+      const el = child as HTMLElement;
+      const kind = el.getAttribute?.('data-kind');
+      if (kind) {
+        // THE NUMBER IS GENERATED HERE AND NOWHERE ELSE, from position. Meta refuses a gap, and a
+        // gap is exactly what hand-numbering produces the first time a chip is deleted.
+        fills.push(kind);
+        body += `{{${fills.length}}}`;
+        return;
+      }
+      if (el.tagName === 'BR' || el.tagName === 'DIV' || el.tagName === 'P') body += '\n';
+      walk(el);
+    });
+  };
+  walk(root);
+  return { body: body.replace(/\n{3,}/g, '\n\n').trim(), fills };
+}
+
+export function TextEditor({
+  session, catalog, triggerId, label, slots, onClose, onSaved,
+}: {
+  session: Session;
+  catalog: Catalog;
+  triggerId: string;
+  label: string;
+  slots: Slot[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const box = useRef<HTMLDivElement | null>(null);
+  const [draft, setDraft] = useState<Draft>({ html: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  /** What the customer would read — the same substitution the preview does, done live. */
+  const [sample, setSample] = useState('');
+
+  // THE CARET-STABLE SYNC. Only rewrite when the value we hold differs from what the element says
+  // it is showing; typing therefore never causes a rewrite.
+  useEffect(() => {
+    const el = box.current;
+    if (el && el.getAttribute('data-src') !== draft.html) {
+      el.innerHTML = draft.html;
+      el.setAttribute('data-src', draft.html);
+    }
+  }, [draft]);
+
+  const refresh = () => {
+    const el = box.current;
+    if (!el) return;
+    const { body, fills } = readBack(el);
+    let shown = body;
+    fills.forEach((kind, i) => {
+      const slot = slots.find((s) => s.id === kind);
+      shown = shown.replace(`{{${i + 1}}}`, slot?.sample || slot?.label || '');
+    });
+    setSample(shown);
+  };
+
+  const insert = (slot: Slot) => {
+    const el = box.current;
+    if (!el) return;
+    el.focus();
+    // AT THE CARET, NOT AT THE END. He is writing a sentence, and a chip that always lands after
+    // the full stop is a chip he has to drag — which is the interaction we are avoiding.
+    const ok = document.execCommand('insertHTML', false, chipHtml(slot) + '&nbsp;');
+    if (!ok) el.insertAdjacentHTML('beforeend', chipHtml(slot) + '&nbsp;');
+    el.setAttribute('data-src', el.innerHTML);
+    refresh();
+  };
+
+  const save = async () => {
+    const el = box.current;
+    const a = action(catalog, 'reminders.write_template');
+    if (!el || !a) return;
+    const { body, fills } = readBack(el);
+    if (!body.trim()) { setError('اكتب نصّ الرسالة أولاً.'); return; }
+    setSaving(true); setError('');
+    try {
+      const out = await call<{ ok?: boolean; error?: string }>(
+        session, a, { trigger_id: triggerId, body, fills });
+      // THE SERVER'S OWN SENTENCE, never re-worded here. It knows why it refused — a link, a blank
+      // this message cannot fill, a plan limit — and two vocabularies for one refusal is how an
+      // owner comes to believe there are two problems.
+      if (out?.error) { setError(out.error); return; }
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} size="lg"
+           title={`نصّك لرسالة «${label}»`}
+           subtitle="اكتب كما تحب، وأضف الفراغات بنقرة — نحن نرقّمها.">
+      <div className="flex flex-col gap-4">
+        {/* ── the palette: only what THIS message can fill ─────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-text-secondary">أضف:</span>
+          {slots.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => insert(s)}
+              className="flex items-center gap-1 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-xs hover:bg-accent-soft"
+            >
+              <Plus size={12} aria-hidden />
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          ref={box}
+          contentEditable
+          role="textbox"
+          aria-multiline="true"
+          aria-label="نصّ الرسالة"
+          dir="rtl"
+          onInput={refresh}
+          onBlur={refresh}
+          className="min-h-[7rem] rounded-card border border-border-subtle bg-surface-1 p-3 text-sm leading-relaxed outline-none focus:border-accent"
+        />
+
+        {/* ── what the customer reads ──────────────────────────────────────────────────── */}
+        <section className="flex flex-col gap-2">
+          <h3 className="text-xs text-text-secondary">كما تصل عميلك</h3>
+          <div className="rounded-2xl rounded-ss-sm bg-accent-soft p-3 text-sm leading-relaxed shadow-sm">
+            {sample || '…'}
+          </div>
+        </section>
+
+        {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+        <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
+          {/* SAID BEFORE HE PRESSES, not after. The wait is Meta's and it is a day; an owner who
+              learns that afterwards concludes we are slow. */}
+          <span className="text-xs text-text-secondary">
+            يُحفظ عندك أولاً — ولا يصل عميلك حتى يعتمده واتساب.
+          </span>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={onClose}>إلغاء</Button>
+            <Button onClick={save} disabled={saving}>حفظ</Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}

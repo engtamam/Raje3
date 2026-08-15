@@ -50,6 +50,26 @@ MINUTES = "minutes"          # how long that code lives
 
 ALWAYS = (CUSTOMER, SHOP)
 
+# WHAT A BLANK IS CALLED ON HIS SCREEN. Here rather than in the console for the same reason the
+# labels are: a name kept in the screen drifts from the thing it names, and a chip reading «الخدمة»
+# over a blank we fill with a reward is a message he did not write.
+SLOT_LABEL = {
+    CUSTOMER: "اسم العميل",
+    SHOP: "اسم محلّك",
+    SERVICE: "الخدمة",
+    REWARD: "المكافأة",
+    POINTS: "النقاط",
+    BALANCE: "الرصيد",
+    ACTION: "ما تمّ",
+    DIGEST: "ملخّص الأسبوع",
+    OFFER_VALUE: "قيمة الخصم",
+    COUPON: "رمز القسيمة",
+    ENDS_AT: "ينتهي في",
+    FREE_TEXT: "نصّك",
+    CODE: "الرمز",
+    MINUTES: "المدة",
+}
+
 
 @dataclass(frozen=True)
 class Trigger:
@@ -290,7 +310,10 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
 def public(t: Trigger) -> dict:
     """What a screen may read. The class and the template name are ours, not his (§10.8.1.2)."""
     return {"id": t.id, "label": t.label, "when": t.when,
-            "slots": list(ALWAYS + t.slots),
+            # ID AND LABEL TOGETHER. The editor stores the id and shows the label; sending only
+            # ids would make the screen invent names, and only labels would make it guess ids.
+            "slots": [{"id": k, "label": SLOT_LABEL.get(k, k), "sample": SAMPLE.get(k, "")}
+                      for k in ALWAYS + t.slots],
             "can_switch": t.owner_can_switch, "can_retext": t.owner_can_retext,
             "default_on": t.default_on}
 
