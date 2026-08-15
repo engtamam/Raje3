@@ -734,17 +734,21 @@ for _sh in sorted(ROOT.glob("deploy/**/*.sh")) + sorted(ROOT.glob("scripts/*.sh"
 #
 # A NOTE RATHER THAN A FAILURE, deliberately: this is the correct state until Meta credentials
 # exist (#167), and a guard that blocks every ship during bring-up is a guard somebody disables.
+# WHATSAPP ONLY, AND THAT IS THE POINT. This product sends over ONE channel: reminders'
+# MESSAGE_CHANNEL is whatsapp and no line in any of our services uses email or SMS. Naming those
+# two here would put a permanent line in front of the reader about something that cannot affect a
+# customer — and a warning that is mostly noise is a warning nobody reads.
 _console = []
 for _vals in sorted(ROOT.glob("deploy/services/*.values.yaml")):
     _svc = _vals.name.replace(".values.yaml", "")
     for _line in _vals.read_text(encoding="utf-8").splitlines():
         _bare = _line.split("#", 1)[0]
-        if "_CHAIN:" in _bare and "console" in _bare:
+        if "WHATSAPP_CHAIN:" in _bare and "console" in _bare:
             _console.append(f"{_svc}: {_bare.strip()}")
 if _console:
-    notes.append("channels still on the bring-up driver — `console` always succeeds, so a real "
-                 "outage reads as delivered. Remove before real customers: "
-                 + " · ".join(_console))
+    notes.append("WhatsApp is still on the bring-up driver — `console` always succeeds, so a real "
+                 "outage reads as delivered and the send log agrees. Remove before real "
+                 "customers: " + " · ".join(_console))
 
 
 # ── report ───────────────────────────────────────────────────────────────────────────────────
