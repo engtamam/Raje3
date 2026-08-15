@@ -893,3 +893,55 @@ async def room(request: Request, tenant: str) -> dict:
     return {"limit": int(getattr(ceiling, "limit", 0) or 0),
             "tier": str(getattr(ceiling, "tier", "") or ""),
             "used": int(used or 0)}
+
+
+class RhythmsIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # Empty means "his rhythm for anything" — the most recently updated row per customer. A
+    # campaign that names a service asks about THAT service; one that does not is asking how often
+    # this person comes at all.
+    service_id: str = Field(default="", max_length=128)
+    limit: int = Field(default=5000, ge=1, le=5000)
+
+
+@router.post("/reminders/rhythms", dependencies=[Depends(require_internal_token)])
+async def rhythms(request: Request, body: RhythmsIn) -> dict:
+    """What we have LEARNED about each customer's rhythm — the number campaigns targets by.
+
+    THE JOIN THAT WAS NEVER MADE. `campaigns` reads `interval_days` off every audience row and
+    operations' customer read does not carry it — its own docstring says «campaigns joins the
+    learned interval from reminders», and nothing ever did. So every win-back campaign in the
+    product's life has measured every customer against one 90-day default: the per-customer rhythm
+    this service exists to learn was computed, stored, and never used by the one screen that sells
+    it.
+
+    PER CUSTOMER PER SERVICE, because that is what is stored (core/models.py RuleState) and what
+    the product promises: «the customer who returns every two months is reminded every two
+    months». Collapsing it to a shop average here would hand campaigns exactly the number the
+    adaptive engine was built to replace.
+
+    OBSERVATIONS TRAVEL WITH IT. Below two, the estimate is the sector default wearing a different
+    hat — and a caller that cannot tell a learned 45 from a defaulted 45 will present a guess as a
+    measurement.
+
+    PSEUDONYMS ONLY, like every other cross-service read here.
+    """
+    from app.core.models import RULES
+
+    c = request.app.state.container
+    where = {"tenant": body.tenant}
+    if body.service_id:
+        where["service_id"] = body.service_id
+    rows, _ = await c.datastore.find(RULES, where, limit=body.limit, sort=("updated", "desc"))
+
+    # NEWEST WINS, and the sort above is what makes that true without a second pass: for a caller
+    # that named no service, the first row seen for a customer is his most recently updated rhythm.
+    out: dict[str, dict] = {}
+    for r in rows or []:
+        ref = str(r.get("subject_ref") or "")
+        if not ref or ref in out:
+            continue
+        out[ref] = {"interval_days": float(r.get("interval_days") or 0.0),
+                    "last_visit": int(r.get("last_visit_at") or 0),
+                    "observations": int(r.get("observations") or 0)}
+    return {"rhythms": out, "count": len(out)}

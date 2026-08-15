@@ -329,7 +329,10 @@ class _AudienceFacade:
         that never happened.
         """
         async def _customers(t):
-            return await self._c.customers(t)
+            # THE SERVICE TRAVELS WITH THE READ. The rhythm joined onto each row is per SERVICE,
+            # so asking without it returns the customer's rhythm for something else entirely — and
+            # the 70% lock would then hold people back on a cycle that is not this one's.
+            return await self._c.customers(t, service_id=service_id)
 
         async def _gate(subject: str) -> bool:
             return await self._c.allows(tenant, subject, cls)

@@ -239,6 +239,7 @@ def test_the_peer_builder_answers_every_key_the_container_reads():
         ELIGIBILITY_PATH = "/internal/reminders/eligibility"
         SEND_PATH = "/internal/reminders/send"
         REMINDERS_ROOM_PATH = "/internal/reminders/room"
+        REMINDERS_RHYTHMS_PATH = "/internal/reminders/rhythms"
         INSIGHTS_RESERVE_PATH = "/internal/insights/engine-reserve"
         TENANT_READ_PATH = "/internal/tenants/{id}"
         SEND_WINDOW_START_HOUR = 9
@@ -270,3 +271,59 @@ def test_the_ceiling_peer_answers_the_shape_the_share_reads():
     assert read.limit == 0 and isinstance(read.used, int)
     load = asyncio.run(peer.engine_load("t1"))
     assert load == {"reserved": 0, "used": 0}
+
+
+def test_the_audience_row_carries_the_learned_rhythm():
+    """WITHOUT THIS JOIN EVERY WIN-BACK MEASURED EVERYONE AGAINST 90 DAYS.
+
+    operations holds who the customers are; reminders holds the rhythm it learned for each of
+    them. `audience._too_early` reads that rhythm off the row and falls back to the window default
+    when it is missing — so a missing join does not fail, it flattens: the per-customer cycle the
+    product sells becomes one number for the whole shop, and the audience count still looks right.
+    """
+    import asyncio
+    import json
+    from unittest.mock import patch
+
+    from app.adapters.peers import HttpAudience
+
+    def fake_post(url, body, token, timeout):
+        if url.endswith("/customers"):
+            return {"customers": [{"subject_ref": "sub_a", "last_visit": 100, "visit_count": 3},
+                                  {"subject_ref": "sub_b", "last_visit": 200, "visit_count": 1}]}
+        assert body["service_id"] == "oil", "the service must travel with the rhythm read"
+        return {"rhythms": {"sub_a": {"interval_days": 45.0, "last_visit": 90,
+                                      "observations": 4}}}
+
+    peer = HttpAudience(operations_url="http://ops", customers_path="/customers",
+                        reminders_url="http://rem", eligibility_path="/elig",
+                        rhythms_path="/rhythms", token="t", timeout=1)
+    with patch("app.adapters.peers._post", fake_post):
+        rows = asyncio.run(peer.customers("t1", service_id="oil"))
+
+    by = {r["subject_ref"]: r for r in rows}
+    assert by["sub_a"]["interval_days"] == 45.0
+    assert by["sub_a"]["services"]["oil"]["last_visit"] == 90
+    # AND A CUSTOMER WITH NOTHING LEARNED KEEPS HIS ROW UNCHANGED — no invented cycle, so the
+    # rule falls back to the window exactly as it did before this existed.
+    assert "interval_days" not in by["sub_b"] and "services" not in by["sub_b"]
+
+
+def test_an_unreachable_rhythm_read_costs_precision_not_the_campaign():
+    """The rhythm is the soft half of the join: losing it narrows nothing and blocks nobody."""
+    import asyncio
+    from unittest.mock import patch
+
+    from app.adapters.peers import HttpAudience
+
+    def fake_post(url, body, token, timeout):
+        if url.endswith("/customers"):
+            return {"customers": [{"subject_ref": "sub_a", "last_visit": 100}]}
+        raise OSError("reminders is restarting")
+
+    peer = HttpAudience(operations_url="http://ops", customers_path="/customers",
+                        reminders_url="http://rem", eligibility_path="/elig",
+                        rhythms_path="/rhythms", token="t", timeout=1)
+    with patch("app.adapters.peers._post", fake_post):
+        rows = asyncio.run(peer.customers("t1", service_id="oil"))
+    assert rows == [{"subject_ref": "sub_a", "last_visit": 100}]

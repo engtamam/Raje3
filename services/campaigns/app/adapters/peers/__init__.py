@@ -99,7 +99,7 @@ class NullAudience:
     def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
         self._rows = rows or []
 
-    async def customers(self, tenant: str) -> list[dict[str, Any]]:
+    async def customers(self, tenant: str, *, service_id: str = "") -> list[dict[str, Any]]:
         return list(self._rows)
 
     async def allows(self, tenant: str, subject_ref: str, cls: str) -> bool:
@@ -165,21 +165,53 @@ class HttpAudience:
     driver = "http"
 
     def __init__(self, *, operations_url: str, customers_path: str, reminders_url: str,
-                 eligibility_path: str, token: str, timeout: int = 8) -> None:
+                 eligibility_path: str, token: str, timeout: int = 8,
+                 rhythms_path: str = "") -> None:
         self._customers = operations_url.rstrip("/") + customers_path
         self._eligibility = reminders_url.rstrip("/") + eligibility_path
+        self._rhythms = (reminders_url.rstrip("/") + rhythms_path) if rhythms_path else ""
         self._token = token
         self._timeout = timeout
 
-    async def customers(self, tenant: str) -> list[dict[str, Any]]:
+    async def customers(self, tenant: str, *, service_id: str = "") -> list[dict[str, Any]]:
         """Everyone, with their last visit and their learned interval.
 
         RAISES on failure rather than returning an empty list. Half an audience is a campaign the
         owner runs again tomorrow — reaching the other half a day late and the first half twice.
+
+        TWO SERVICES, ONE ROW. operations holds who they are and when they last came; reminders
+        holds the RHYTHM it learned for each of them. The join was documented in operations' own
+        route («campaigns joins the learned interval from reminders») and never written, so every
+        audience rule fell through to a 90-day default for every customer alike — the per-customer
+        cycle the product sells, computed and unread.
+
+        THE RHYTHM IS THE SOFT HALF. Its absence costs precision, not the campaign: an unreachable
+        reminders leaves the rows exactly as they were before this existed, and the rule falls back
+        to the window default it used all along.
         """
         data = _post(self._customers, {"tenant": tenant, "limit": 5000},
                      self._token, self._timeout)
-        return list(data.get("customers") or [])
+        rows = list(data.get("customers") or [])
+        if not rows or not self._rhythms:
+            return rows
+        try:
+            learned = (_post(self._rhythms,
+                             {"tenant": tenant, "service_id": service_id, "limit": 5000},
+                             self._token, self._timeout)).get("rhythms") or {}
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return rows
+        for r in rows:
+            mine = learned.get(r.get("subject_ref") or "")
+            if not mine:
+                continue
+            r["interval_days"] = mine.get("interval_days") or 0
+            # THE PER-SERVICE SHAPE `_too_early` READS. Written only when the caller named a
+            # service — a rhythm for "anything" is not this service's cycle, and putting it under
+            # the service key would make an unrelated visit look like this one.
+            if service_id:
+                r["services"] = {service_id: {"last_visit": mine.get("last_visit") or 0,
+                                              "interval_days": mine.get("interval_days") or 0}}
+        return rows
 
     async def allows(self, tenant: str, subject_ref: str, cls: str) -> bool:
         """Would reminders' gate let this through right now?
@@ -317,6 +349,7 @@ def build_peers(settings) -> dict[str, Any]:
                                  customers_path=settings.CUSTOMERS_PATH,
                                  reminders_url=settings.REMINDERS_SERVICE_URL,
                                  eligibility_path=settings.ELIGIBILITY_PATH,
+                                 rhythms_path=settings.REMINDERS_RHYTHMS_PATH,
                                  token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "sender": HttpSender(url=settings.REMINDERS_SERVICE_URL, path=settings.SEND_PATH,
                              token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),

@@ -185,6 +185,7 @@ class Settings(BaseSettings):
     # The two numbers behind the spread promise — see adapters/peers/HttpRoom. Paths, not a URL
     # each: they are OUR services and their names are already here.
     REMINDERS_ROOM_PATH: str = "/internal/reminders/room"
+    REMINDERS_RHYTHMS_PATH: str = "/internal/reminders/rhythms"
     INSIGHTS_SERVICE_URL: str = ""           # e.g. http://insights:8000
     INSIGHTS_RESERVE_PATH: str = "/internal/insights/engine-reserve"
     TENANT_SERVICE_URL: str = ""
