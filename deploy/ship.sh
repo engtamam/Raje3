@@ -295,8 +295,89 @@ ship_platform_one() {
   return 0
 }
 
+# ── THE CONSOLE PATH ──────────────────────────────────────────────────────────────────────────
+#
+# THE GAP THIS CLOSES. `./deploy/ship.sh console` answered «no services/console» — because the
+# console is not a service: it is a static bundle under `apps/console`, deployed by a raw manifest
+# (deploy/edge/console.yaml) rather than by the platform chart. So shipping the ONE thing the owner
+# actually looks at meant remembering a different script, editing a digest into a manifest by hand,
+# and applying it by hand. Every step of that is a step this repository's own rule forbids: fixes
+# live in the deploy script, never in somebody's shell history.
+#
+# IT IS THE SAME ROAD OTHERWISE — build, push into the node's registry, pull by digest, pin, apply,
+# and then VERIFY `imageID` rather than the rollout's own report.
+ship_console() {
+  local df="$ROOT/apps/console/Dockerfile"
+  local manifest_file="$ROOT/deploy/edge/console.yaml"
+  [ -f "$df" ]            || { red "console: no apps/console/Dockerfile"; return 1; }
+  [ -f "$manifest_file" ] || { red "console: no deploy/edge/console.yaml"; return 1; }
+
+  # ── 1. the screens' own tests, before anything is built ──────────────────────────────────────
+  say "console · 1/5 tests"
+  if ! (cd "$ROOT/apps/console" && npx vitest run 2>&1 | tail -2); then
+    red "console: tests failed — nothing built, nothing shipped"; return 1
+  fi
+
+  # ── 2. build ─────────────────────────────────────────────────────────────────────────────────
+  # FROM THE REPOSITORY ROOT, because the image also carries the landing page, which lives outside
+  # apps/console (publish-images.sh says the same thing, and now only one of them has to be right).
+  say "console · 2/5 build"
+  local digest
+  digest="$(docker build -q -t "raje3/console:ship" -f "$df" "$ROOT" 2>&1 | tail -1)"
+  case "$digest" in
+    sha256:*) grn "built ${digest:0:26}…" ;;
+    *) red "console: build failed: $digest"; return 1 ;;
+  esac
+
+  # ── 3. into the node ─────────────────────────────────────────────────────────────────────────
+  say "console · 3/5 ship image"
+  local pushed
+  pushed="$(ship_image_fast console "$digest")" || return 1
+  grn "image present under its digest"
+
+  # ── 4. pin the manifest, sync it, apply ──────────────────────────────────────────────────────
+  # THE PIN IS REWRITTEN IN THE REPOSITORY, not on the server. A digest edited into the copy that
+  # happens to be on the node is a deployment nobody can reproduce, and the next `bring-up.sh`
+  # silently rolls it back to whatever the repository still says.
+  say "console · 4/5 pin + apply"
+  local old_ref new_ref
+  old_ref="$(awk '/image: /{print $2; exit}' "$manifest_file")"
+  [ -n "$old_ref" ] || { red "console: no image line in deploy/edge/console.yaml"; return 1; }
+  new_ref="127.0.0.1:$REG_PORT/raje3/console@$pushed"
+  if [ "$old_ref" = "$new_ref" ]; then
+    yel "already pinned to this digest — the bundle did not change since the last ship"
+  fi
+  sed -i "s|$old_ref|$new_ref|" "$manifest_file"
+
+  if ! tar czf - -C "$ROOT" deploy/edge/console.yaml 2>/dev/null        | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null          && grep -q '$pushed' deploy/edge/console.yaml"; then
+    red "console: the manifest on the server does not carry the new digest"
+    sed -i "s|$new_ref|$old_ref|" "$manifest_file"
+    return 1
+  fi
+  "${SSH[@]}" "cd ~/raje3 && sudo -n kubectl apply -n ${NS:-base-services} -f deploy/edge/console.yaml      >/dev/null && sudo -n kubectl rollout status -n ${NS:-base-services} deploy/console      --timeout=120s 2>&1 | tail -1"
+
+  # ── 5. verify the ARTIFACT, not the report ───────────────────────────────────────────────────
+  # `imageID`, never the spec: a digest reference created by `ctr images tag` is a NAME, and
+  # nothing verifies the content behind it. A pod ran two-version-old code for hours under a
+  # correct-looking pin, and only this line disagreed.
+  say "console · 5/5 verify"
+  local running=""
+  for _ in $(seq 1 40); do
+    running="$("${SSH[@]}" "sudo -n kubectl get pods -n ${NS:-base-services} -l app=console       -o jsonpath='{.items[*].status.containerStatuses[*].imageID}'" 2>/dev/null)"
+    case "$running" in *"$pushed"*) break ;; esac
+    sleep 3
+  done
+  case "$running" in
+    *"$pushed"*) grn "console is RUNNING ${pushed:0:26}…"; return 0 ;;
+    *) red "console: the running imageID is not the digest we shipped"
+       red "   running: ${running:-<none>}"
+       return 1 ;;
+  esac
+}
+
 ship_one() {
   local svc="$1"
+  if [ "$svc" = "console" ]; then ship_console; return $?; fi
   local dir="$ROOT/services/$svc"
   local values="$ROOT/deploy/services/$svc.values.yaml"
   # A PLATFORM SERVICE IS RECOGNISED BY WHERE ITS SOURCE LIVES, not by a list somebody maintains:
@@ -495,6 +576,17 @@ ship_many() {
       ours+=("$svc")
     fi
   done
+  # THE CONSOLE IS NEITHER OURS-AS-A-SERVICE NOR THEIRS. It has no values file and no chart, so it
+  # is shipped on its own road and then dropped from this list — leaving it in would send the
+  # parallel builder to `services/console`, which does not exist.
+  local rest=()
+  for svc in "${svcs[@]}"; do
+    if [ "$svc" = "console" ]; then ship_console || rc=1; else rest+=("$svc"); fi
+  done
+  svcs=("${rest[@]}")
+  [ "${#svcs[@]}" -gt 0 ] || return "$rc"
+  [ "$rc" -eq 0 ] || return "$rc"
+
   if [ "${#theirs[@]}" -gt 0 ]; then
     for svc in "${theirs[@]}"; do
       ship_platform_one "$svc" || rc=1

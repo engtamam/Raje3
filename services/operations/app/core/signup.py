@@ -400,6 +400,31 @@ class SignupService:
         if status not in (200, 201):
             raise SignupRefused(_register_error(status, body))
 
+        # ── THE INVITE IS REDEEMED HERE, OR HE CAN NEVER SIGN IN ─────────────────────────────
+        #
+        # THE DEFECT THIS CLOSES, FOUND ON THE CLUSTER AND NOT BY ANY TEST. `POST
+        # /internal/tenancy/members` answers 201 with a person_id — and a membership whose status
+        # is **pending**, plus an `invite_token`. A pending membership cannot mint: `/auth/tenant`
+        # answers 401 to a perfectly correct password. So every employee an owner hired was
+        # reported as hired, appeared in «فريقي», carried a role and a branch — and could not open
+        # the app. Nothing failed anywhere; the account simply was not finished.
+        #
+        # WE REDEEM IT ON HIS BEHALF, and that is the same decision as the verified flag below: an
+        # authenticated owner is adding his own employee and typed the password he is about to
+        # hand him. The invite exists for the OTHER shape — a link mailed to a stranger — which
+        # this product does not have and cannot deliver (no email, and the number is not proven
+        # yet).
+        #
+        # AND A FAILURE HERE IS A REFUSAL, never a warning. Half a hire is worse than none: the
+        # seat is counted, the row is in the list, and the man cannot work.
+        invite = str(body.get("invite_token") or "")
+        if invite:
+            st, cl = self._http.call(
+                f"{self._identity}/api/v1/auth/person/claim", method="POST",
+                body={"token": invite, "password": password})
+            if st != 200:
+                raise SignupRefused("تعذّر إكمال حساب الموظف. حاول بعد قليل.")
+
         # VERIFIED BY THE OWNER, NOT BY A CODE. Self-serve signup proves the number because nobody
         # vouches for it; here an authenticated owner is adding his own employee, and the person
         # who will hand him the password is the person who typed it. Leaving it unverified would
