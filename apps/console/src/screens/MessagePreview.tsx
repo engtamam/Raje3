@@ -28,6 +28,7 @@ interface Option { name: string; tone: string; text: string; mine?: boolean }
 
 /** One of his own texts that is not sending yet — and why it is not. */
 interface Mine { name: string; status: string; reason?: string; body: string }
+interface HelpRow { name: string; status: string; answer?: string }
 
 /** The states are Meta's, and they are said in his words rather than theirs. */
 const STATUS: Record<string, string> = {
@@ -74,6 +75,7 @@ export function MessagePreview({
    * nowhere visible, and a refusal nobody can see is a shop that quietly gives up.
    */
   const [mine, setMine] = useState<Mine[]>([]);
+  const [help, setHelp] = useState<HelpRow[]>([]);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.preview_reason');
@@ -99,6 +101,16 @@ export function MessagePreview({
       .catch(() => setMine([]));
   }, [session, catalog, reasonId, reload]);
 
+  useEffect(() => {
+    const a = action(catalog, 'reminders.my_template_help');
+    if (!a) return;
+    call<{ requests: HelpRow[] }>(session, a)
+      .then((x) => setHelp(x.requests ?? []))
+      // SILENT ON FAILURE, and only here: the help state DECORATES the list. A shop that cannot
+      // read it still sees its drafts and both buttons.
+      .catch(() => setHelp([]));
+  }, [session, catalog, reload]);
+
   const pick = async (option: Option) => {
     const a = action(catalog, 'reminders.set_reason');
     if (!a || !option.mine) return;
@@ -110,6 +122,31 @@ export function MessagePreview({
       else { setChosen(option.name); onChosen(); }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+    } finally {
+      setSaving('');
+    }
+  };
+
+  /**
+   * TWO BUTTONS THAT DID NOT EXIST, and between them the draft had nowhere to go.
+   *
+   * «ارفعه» — writing was reachable and submitting was not, so «قوالبي» was a notepad: every text
+   * an owner wrote sat as a draft for ever with nothing to press.
+   *
+   * «ساعدوني» — the cost of having no reviewer of ours between him and Meta. A refusal arrives in
+   * English, from somebody he cannot reach, about a rule he has never read; without this he edits
+   * a word, resubmits, is refused again, and after the third time stops using the feature.
+   */
+  const act = async (id: string, name: string, busyKey: string) => {
+    const a = action(catalog, id);
+    if (!a) return;
+    setSaving(busyKey); setError('');
+    try {
+      const out = await call<{ ok?: boolean; error?: string }>(session, a, { name });
+      if (out?.error) setError(out.error);
+      else onChosen();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر التنفيذ.');
     } finally {
       setSaving('');
     }
@@ -218,6 +255,34 @@ export function MessagePreview({
                           <span className="text-xs text-text-secondary">{m.reason}</span>
                         ) : null}
                       </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {m.status === 'draft' && action(catalog, 'reminders.submit_template') ? (
+                          <Button variant="ghost" disabled={saving === m.name}
+                                  onClick={() => act('reminders.submit_template', m.name, m.name)}>
+                            ارفعه إلى واتساب
+                          </Button>
+                        ) : null}
+                        {m.status === 'rejected'
+                          && action(catalog, 'reminders.template_help') ? (
+                          <Button variant="ghost" disabled={saving === `help:${m.name}`}
+                                  onClick={() =>
+                                    act('reminders.template_help', m.name, `help:${m.name}`)}>
+                            ساعدوني
+                          </Button>
+                        ) : null}
+                        {/* OUR ANSWER, ON THE SCREEN HE ASKED FROM. A reply that lives only in a
+                            support channel is one he reads once and cannot find the day he sits
+                            down to fix the text. */}
+                        {help.find((h) => h.name === m.name)?.answer ? (
+                          <span className="text-xs text-accent-on-soft">
+                            {help.find((h) => h.name === m.name)?.answer}
+                          </span>
+                        ) : help.some((h) => h.name === m.name && h.status === 'open') ? (
+                          <span className="text-xs text-text-secondary">
+                            طلبك وصلنا — نرد عليك هنا.
+                          </span>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>

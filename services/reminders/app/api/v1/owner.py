@@ -389,6 +389,70 @@ async def submit_custom_template(request: Request, name: str,
                                                      "version", "updated")}}
 
 
+class HelpIn(BaseModel):
+    """His own sentence, and nothing else asked of him.
+
+    OPTIONAL, DELIBERATELY. The whole value of this button is that it needs no explanation from a
+    man in the middle of a working day — Meta's refusal and his text are attached without him
+    typing anything. A required field would turn one press into a form, and a form is what he
+    abandons.
+    """
+
+    note: str = Field(default="", max_length=600)
+
+
+@router.post("/templates/{name}/help", dependencies=[Depends(rate_limit)])
+async def ask_for_help(request: Request, name: str, body: HelpIn | None = None,
+                       principal: Principal = Depends(_MANAGE)) -> dict:
+    """«ساعدوني» — Meta refused his text, and this turns the refusal into a request we answer.
+
+    WHY THIS BUTTON EXISTS AT ALL. We took ourselves out from between him and Meta on purpose
+    («هو يقرر ونحط ميزة ساعدوني»). The cost is that a rejection arrives in English, from a reviewer
+    he cannot reach, about a policy he has never read — and what follows is always the same: he
+    edits a word, resubmits, is refused again, and after the third time he stops using the feature
+    and tells us the product does not work.
+
+    NOTHING IS ASKED OF HIM. The refusal, the text as he wrote it, and the reason it was for are
+    attached from what we already hold. He may add a sentence; he does not have to.
+    """
+    from app.core.custom_templates import CustomTemplateStore, REJECTED
+    from app.core.help_requests import HelpRequestStore
+
+    c = request.app.state.container
+    row = await CustomTemplateStore(c.datastore).get(principal.tenant, name)
+    if row is None:
+        return {"ok": False, "error": "لا يوجد نصّ بهذا الاسم."}
+    if row.get("status") != REJECTED:
+        # ONLY A REFUSAL OPENS A TICKET. A draft he has not submitted has no problem to solve yet,
+        # and an approved text has none at all — answering either would spend a human on a
+        # question nobody asked.
+        return {"ok": False, "error": "لا يُطلب المساعدة إلا بعد رفض واتساب للنص."}
+
+    saved = await HelpRequestStore(c.datastore).ask(
+        principal.tenant, name=name, reason_id=str(row.get("reason_id", "")),
+        body=str(row.get("body", "")), refusal=str(row.get("reason", "")),
+        note=(body.note if body else ""))
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        resource=f"template_help:{name}", ip=request.client.host if request.client else "")
+    return {"ok": True, "request": {k: saved.get(k) for k in
+                                    ("name", "reason_id", "status", "note", "asked", "answer")}}
+
+
+@router.get("/templates/help", dependencies=[Depends(rate_limit)])
+async def my_help_requests(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Where each of his requests stands, and what we answered.
+
+    THE ANSWER GOES BACK TO THE SCREEN HE ASKED FROM. A reply that arrives only in a support
+    channel is one he reads once and cannot find again the day he sits down to fix the text.
+    """
+    from app.core.help_requests import HelpRequestStore
+    rows = await HelpRequestStore(request.app.state.container.datastore).list(principal.tenant)
+    return {"requests": [{k: r.get(k) for k in
+                          ("name", "reason_id", "status", "refusal", "note", "answer",
+                           "asked", "updated")} for r in rows]}
+
+
 # ── settings: general, group, and one service's own (spec §10.8.1) ────────────────────────────
 class SettingsIn(BaseModel):
     # Every field optional: an owner changing the lead time must not be forced to restate the

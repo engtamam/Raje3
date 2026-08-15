@@ -146,6 +146,22 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
     },
     {
+        "id": "reminders.template_help", "label": "ساعدوني", "method": "POST",
+        "path": "/api/v1/reminders/templates/{name}/help", "capability": "reminders.manage",
+        "group": "الإعدادات",
+        # THE COST OF HAVING NO REVIEWER OF OURS between him and Meta: the refusal arrives in
+        # English, from somebody he cannot reach, about a rule he has never read. One press
+        # attaches Meta's sentence and his text to a queue a human answers.
+        "help": "ترفض واتساب نصّك؟ اضغط ونصل إليك — يصلنا سبب الرفض ونصّك بلا أن تكتب شيئاً.",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+    },
+    {
+        "id": "reminders.my_template_help", "label": "طلبات المساعدة", "method": "GET",
+        "path": "/api/v1/reminders/templates/help", "capability": "reminders.read",
+        "group": "الإعدادات",
+        "help": "أين وصل كل طلب مساعدة، وماذا أجبناك.",
+    },
+    {
         "id": "reminders.reasons", "label": "متى نرسل", "method": "GET",
         "path": "/api/v1/reminders/reasons", "capability": "reminders.read",
         "group": "الإعدادات",

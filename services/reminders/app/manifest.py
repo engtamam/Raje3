@@ -126,6 +126,15 @@ def build_manifest(
             # Hands ONE of his own texts to Meta, on his own number. The draft used to have
             # nowhere to go — «قوالبي» was a notepad.
             {"path": "/api/v1/reminders/templates/{}/submit", "tier": "user", "method": "POST"},
+            # «ساعدوني» — Meta's refusal turned into a request a human answers, and where his own
+            # requests stand. The cost of having no reviewer of ours between him and Meta.
+            {"path": "/api/v1/reminders/templates/{}/help", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/reminders/templates/help", "tier": "user", "method": "GET"},
+            # OURS: the queue those requests land in, and the answer that closes one. A queue
+            # nobody can see is a button that does nothing.
+            {"path": "/api/v1/platform/template-help", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/platform/template-help/{}/answer", "tier": "user",
+             "method": "POST"},
             # What sends in the shop's name, and whether it sends at all (core/reasons.py).
             {"path": "/api/v1/reminders/reasons", "tier": "user", "method": "GET"},
             {"path": "/api/v1/reminders/reasons/{}", "tier": "user", "method": "PUT"},

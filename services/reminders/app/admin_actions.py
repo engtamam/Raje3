@@ -35,6 +35,21 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # OURS, NOT AN ESTABLISHMENT'S. The caps in spec 8.4.2 protect every number on the product,
     # so a shop cannot raise its own — the damage from a blocked number is not the shop's alone.
     {
+        "id": "reminders.template_help_queue", "label": "طلبات «ساعدوني»", "method": "GET",
+        "path": "/api/v1/platform/template-help", "capability": "platform.reminders",
+        "group": "القوالب",
+        # A QUEUE NOBODY CAN SEE IS A BUTTON THAT DOES NOTHING — the owner presses, a row is
+        # written, nothing answers, and he concludes the feature is decoration.
+        "help": "نصوص رفضتها واتساب وطلب أصحابها المساعدة — الأحدث أولاً.",
+    },
+    {
+        "id": "reminders.answer_template_help", "label": "أجب طلب مساعدة", "method": "POST",
+        "path": "/api/v1/platform/template-help/{name}/answer",
+        "capability": "platform.reminders", "group": "القوالب",
+        "help": "جوابك يعود إلى الشاشة نفسها التي سأل منها.",
+        "params": [{"name": "name", "in": "path", "type": "string", "required": True}],
+    },
+    {
         "id": "reminders.silent", "label": "محلات لا ترسل", "method": "GET",
         "path": "/api/v1/platform/silent", "capability": "platform.reminders",
         # ONE ROW PER SHOP THAT HAS WORK WAITING AND CANNOT MOVE IT. «0 أُرسلت اليوم» is also what

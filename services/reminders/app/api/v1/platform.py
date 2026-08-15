@@ -168,3 +168,47 @@ async def silent_shops(request: Request, limit: int = 200,
 
     stuck.sort(key=lambda x: -int(x["waiting"]))
     return {"stuck": stuck, "count": len(stuck), "tenants_with_work": len(waiting)}
+
+
+class AnswerIn(BaseModel):
+    """What we tell him. One field, because that is the whole of the interaction."""
+
+    tenant: str = Field(min_length=1, max_length=64)
+    answer: str = Field(min_length=2, max_length=1200)
+
+
+@router.get("/template-help", dependencies=[Depends(_PLATFORM)])
+async def template_help_queue(request: Request, status: str = "open") -> dict:
+    """Every «ساعدوني» waiting on us — the other end of the button.
+
+    A QUEUE NOBODY CAN SEE IS A BUTTON THAT DOES NOTHING, which is the failure this product keeps
+    finding: the owner presses, a row is written, and it waits in a collection no screen reads. He
+    hears nothing, presses again, and concludes the feature is decoration.
+
+    NEWEST FIRST AND OPEN BY DEFAULT — the two decisions that make it a work queue rather than a
+    log. Answered rows stay readable (`?status=`) because the next shop refused for the same Meta
+    rule is answered from one we already wrote.
+    """
+    from app.core.help_requests import HelpRequestStore
+    rows = await HelpRequestStore(request.app.state.container.datastore).list(status=status)
+    return {"requests": rows, "count": len(rows)}
+
+
+@router.post("/template-help/{name}/answer", dependencies=[Depends(_PLATFORM)])
+async def answer_template_help(request: Request, name: str, body: AnswerIn) -> dict:
+    """Answer one, and close it. The answer goes back to the screen he asked from.
+
+    NOT A SUPPORT CHANNEL. A reply that lives only in WhatsApp is one he reads once and cannot find
+    the day he sits down to fix the text — and by then the refusal, his draft and our answer are in
+    three different places.
+    """
+    from app.core.help_requests import HelpRequestError, HelpRequestStore
+    try:
+        row = await HelpRequestStore(request.app.state.container.datastore).answer(
+            body.tenant, name, answer=body.answer)
+    except HelpRequestError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    await request.app.state.auditor.record(
+        "reminders.rule_changed", actor="platform", tenant=body.tenant,
+        resource=f"template_help:{name}", ip=request.client.host if request.client else "")
+    return {"ok": True, "request": row}
