@@ -155,6 +155,9 @@ def build_manifest(
             {"path": "/api/v1/staff/operators", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/operators/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/staff/operators/verify-pin", "tier": "user", "method": "POST"},
+            # How this shop runs its branches — one number for the brand, or one per branch.
+            {"path": "/api/v1/staff/mode", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/mode", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/branches/{}", "tier": "user", "method": "PATCH"},

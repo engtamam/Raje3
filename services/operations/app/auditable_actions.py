@@ -182,6 +182,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "branch",
     },
     {
+        # A one-way change to how the whole establishment sends. Recorded because "when did we
+        # become per-branch, and who decided" is the first question support will ask.
+        "action": "shop.mode_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "shop_mode",
+    },
+    {
         "action": "member.hired",
         "source": "admin",
         # CRITICAL: this is a person being given access to an establishment's data. An unrecorded

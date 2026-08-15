@@ -248,3 +248,64 @@ def test_a_stopped_employee_is_not_scoped_by_his_old_row(client):
         branch_id="brn-jeddah", person_id="u_gone", active=False)))
     assert asyncio.run(branch_scope(store, SimpleNamespace(subject="u_gone",
                                                           tenant="tnt_gone"))) == ""
+
+
+# ── the mode: central by default, one way out, and never back from a screen ────────────────────
+def test_a_shop_is_central_until_it_says_otherwise(client):
+    """ABSENCE IS THE DEFAULT. A row written at signup would record a decision nobody made."""
+    r = client.get("/api/v1/staff/mode", headers=_headers("tnt_mode_a"))
+    assert r.status_code == 200, r.text
+    assert r.json()["mode"] == "central"
+    assert r.json()["chosen_at"] == 0
+
+
+def test_per_branch_is_refused_while_its_plumbing_is_not_built(client):
+    """A MODE THAT CAN BE SELECTED AND DOES NOTHING is the defect this codebase keeps finding: the
+    credentials are still per establishment, so a shop switched into it would go on sending from
+    one number while every screen promised otherwise."""
+    r = client.put("/api/v1/staff/mode", json={"mode": "per_branch"},
+                   headers=_headers("tnt_mode_b"))
+    assert r.status_code == 409, r.text
+    assert "لم تُفعَّل بعد" in r.json()["message"]
+    # AND IT SAYS SO IN THE READ, so the screen renders the choice without offering it.
+    assert client.get("/api/v1/staff/mode",
+                      headers=_headers("tnt_mode_b")).json()["available"] is False
+
+
+def test_an_unknown_mode_is_refused_by_name(client):
+    r = client.put("/api/v1/staff/mode", json={"mode": "franchise"},
+                   headers=_headers("tnt_mode_c"))
+    assert r.status_code == 409 and r.json()["error"] == "MODE_REFUSED"
+
+
+def test_the_reverse_is_refused_with_the_reason_and_the_way_out(client):
+    """Going back is not a setting: a number that entered the Cloud API, templates approved against
+    it, and customers who saved their branch's number are not undone by flipping a field."""
+    import asyncio
+
+    from app.core.shop_mode import CENTRAL, PER_BRANCH, ModeError, ModeStore
+
+    store = ModeStore(client.app.state.container.datastore)
+    # Put the shop in per-branch the way the day it ships will: with the mode available.
+    assert asyncio.run(store.set("tnt_mode_d", PER_BRANCH, available=True))["mode"] == PER_BRANCH
+
+    try:
+        asyncio.run(store.set("tnt_mode_d", CENTRAL, available=True))
+        raise AssertionError("the reverse must be refused")
+    except ModeError as exc:
+        assert "تواصل معنا" in str(exc)
+
+    # AND THE SHOP IS STILL WHERE IT WAS — a refused change that half-applied would be worse than
+    # either answer.
+    assert asyncio.run(store.get("tnt_mode_d"))["mode"] == PER_BRANCH
+
+
+def test_choosing_the_mode_it_already_has_is_not_a_refusal(client):
+    """A screen that re-sends the current value on every save must not be told it is going
+    backwards — that is the shape of a support call nobody can close."""
+    import asyncio
+
+    from app.core.shop_mode import CENTRAL, ModeStore
+
+    store = ModeStore(client.app.state.container.datastore)
+    assert asyncio.run(store.set("tnt_mode_e", CENTRAL, available=False))["mode"] == CENTRAL

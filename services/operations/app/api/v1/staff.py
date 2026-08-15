@@ -36,6 +36,7 @@ from app.api.ratelimit import rate_limit
 from app.core.models import Branch, Operator, Service
 from app.core import branches as B
 from app.core import seats as S
+from app.core import shop_mode as SM
 from app.core.signup import SignupRefused
 from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
 
@@ -297,6 +298,58 @@ async def verify_pin(request: Request, body: PinVerifyIn,
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "PIN_REJECTED")
 
     return {"operator": op.public()}
+
+
+# ── how this establishment runs its branches ──────────────────────────────────────────────────
+class ModeIn(BaseModel):
+    mode: str = Field(min_length=1, max_length=32)
+
+
+def _modes_available(request: Request) -> set[str]:
+    """Which modes this deployment can actually honour.
+
+    PER-BRANCH NEEDS A SENDING IDENTITY PER NUMBER, and until that exists every message resolves
+    one credential per establishment — so a shop switched into it would keep sending from the one
+    number while its screens promised otherwise. Configuration rather than a constant, so the day
+    it ships is a values change and not a release.
+    """
+    modes = {SM.CENTRAL}
+    if getattr(request.app.state.container_settings, "BRANCH_MODE_PER_BRANCH_READY", False):
+        modes.add(SM.PER_BRANCH)
+    return modes
+
+
+@router.get("/mode", dependencies=[Depends(rate_limit)])
+async def read_mode(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Central or per-branch — and whether the second is offered at all.
+
+    `available` IS PART OF THE ANSWER, not a fact the screen may assume. A choice rendered as
+    selectable while its plumbing is half-built is the defect this product keeps finding: a control
+    with nothing behind it. The screen shows both, explains both, and offers what is real.
+    """
+    c = request.app.state.container
+    row = await SM.ModeStore(c.datastore).get(_tenant(principal))
+    return {**row, "available": SM.PER_BRANCH in _modes_available(request)}
+
+
+@router.put("/mode", dependencies=[Depends(rate_limit)])
+async def set_mode(request: Request, body: ModeIn,
+                   principal: Principal = Depends(_MANAGE)) -> dict:
+    """Move to per-branch. One way, and never back from this screen — see core/shop_mode.py."""
+    tenant = _tenant(principal)
+    store = SM.ModeStore(request.app.state.container.datastore)
+    await request.app.state.auditor.record(
+        "shop.mode_changed", actor=principal.subject, tenant=tenant, resource="shop_mode",
+        ip=request.client.host if request.client else "")
+    try:
+        row = await store.set(tenant, body.mode,
+                              available=SM.PER_BRANCH in _modes_available(request))
+    except SM.ModeError as exc:
+        # RETURNED, NEVER RAISED. The three refusals differ for the owner — an unknown value, a
+        # mode not yet live, and the one-way rule — and the platform strips a raised detail.
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "MODE_REFUSED", "message": str(exc)})
+    return row
 
 
 # ── branches ──────────────────────────────────────────────────────────────────────────────────

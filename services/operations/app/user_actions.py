@@ -260,6 +260,16 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "فرعه هنا هو المرجع: الزيارة التي تسمّيه تُنسب إليه، لا إلى ما يرسله الجهاز.",
     },
     {
+        "id": "operations.shop_mode", "label": "نظام الفروع", "method": "GET",
+        "path": "/api/v1/staff/mode", "capability": "operations.read", "group": "الفروع",
+    },
+    {
+        "id": "operations.set_shop_mode", "label": "تغيير نظام الفروع", "method": "PUT",
+        "path": "/api/v1/staff/mode", "capability": "operations.manage", "group": "الفروع",
+        "confirm": True,
+        "help": "من المركزي إلى المستقل قرارٌ يُتخذ مرة — والعودة تحتاج التواصل معنا.",
+    },
+    {
         "id": "operations.list_branches", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
     },

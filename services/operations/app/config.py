@@ -330,6 +330,12 @@ class Settings(BaseSettings):
     # How far back a claimed visit time may be before it is a broken clock rather than a backlog.
     # A shop migrating a year of its own history legitimately needs more than the default, and a
     # release is the wrong way to give it to them.
+    # ── branch modes ──────────────────────────────────────────────────────────────────────────
+    # OFF UNTIL THE SENDING IDENTITY EXISTS. Per-branch numbers need credentials keyed by number
+    # rather than by establishment; until then this deployment can only honour `central`, and the
+    # screen says so instead of offering a switch that changes nothing.
+    BRANCH_MODE_PER_BRANCH_READY: bool = False
+
     MAX_BACKDATE_SECONDS: int = 7_776_000
 
     CONSENT_GATE_DRIVER: str = "null"        # null | http
