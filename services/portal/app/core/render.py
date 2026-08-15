@@ -151,6 +151,7 @@ def _css(theme: Theme) -> str:
         "border-top:1px solid var(--border)}"
         ".v:first-of-type{border-top:0}"
         ".v .d{color:var(--text-muted);font-size:.88rem;white-space:nowrap}"
+        ".v .b{color:var(--text-muted);font-size:.88rem}"
         ".muted{color:var(--text-muted);font-size:.92rem}"
         ".btn{display:block;width:100%;padding:.95rem;border:0;border-radius:12px;"
         "background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:620;"
@@ -309,7 +310,13 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
         parts.append("<p class='muted'>لا زيارات مسجّلة بعد.</p>")
     else:
         for v in page.visits.data[:10]:
-            parts.append(f"<div class='v'><span>{_e(v.get('services') or 'زيارة')}</span>"
+            # THE BRANCH BESIDE THE SERVICE, and ONLY when the row carries one. A shop with a
+            # single branch records none, and «الفرع الرئيسي» on all ten rows of a one-branch shop
+            # is a label that says nothing ten times — which is how a reader learns to skip the
+            # line the useful half also lives on.
+            branch = _e(v.get('branch') or '')
+            where = f" <span class='b'>· {branch}</span>" if branch else ""
+            parts.append(f"<div class='v'><span>{_e(v.get('services') or 'زيارة')}{where}</span>"
                          f"<span class='d'>{_e(v.get('date') or '')}</span></div>")
     parts.append("</section>")
 

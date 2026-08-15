@@ -242,3 +242,31 @@ def test_the_offers_section_never_mentions_us():
     relationship with a workshop, not with a platform."""
     html = render_page(with_offers(an_offer()), THEME)
     assert "راجع" not in html and "Raje3" not in html.lower()
+
+
+def test_the_branch_appears_beside_the_service_only_when_the_row_has_one():
+    """A chain's customer must be able to tell WHICH of four places he was at.
+
+    And a one-branch shop must not carry a label on all ten rows saying the same thing — a line
+    that never varies is one the eye stops reading, taking the date and the service with it.
+    """
+    with_branch = render_page(page(visits=Section(available=True, data=[
+        {"services": "غيار الزيت", "branch": "فرع العليا", "date": "12 يونيو"}])), THEME)
+    assert "فرع العليا" in with_branch
+    assert "غيار الزيت" in with_branch
+
+    plain = render_page(page(visits=Section(available=True, data=[
+        {"services": "غيار الزيت", "date": "12 يونيو"}])), THEME)
+    assert "·" not in plain.split("زياراتك")[1].split("</section>")[0]
+
+
+def test_a_branch_name_cannot_carry_markup_onto_the_page():
+    """The name is typed by an owner into his own console and rendered on a PUBLIC page.
+
+    Everything else on this page is escaped; a field added later is exactly the one that gets
+    forgotten, and this page is opened from a link in the shop's name.
+    """
+    html = render_page(page(visits=Section(available=True, data=[
+        {"services": "غيار", "branch": "<script>alert(1)</script>", "date": "12 يونيو"}])), THEME)
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html

@@ -353,3 +353,45 @@ def test_the_change_that_happens_is_recorded_once(client, monkeypatch):
     assert r.status_code == 200, r.text
     assert r.json()["mode"] == "per_branch"
     assert seen == ["shop.mode_changed"]
+
+
+def test_a_customers_page_says_which_branch_each_visit_was_at(client):
+    """«زيارتك — تغيير زيت» tells a chain's customer nothing about WHERE, which makes his own
+    history useless to him and a booking impossible to place.
+
+    THE NAME TRAVELS, NEVER THE ID: `brn-7f21` is not information, and an id on a public page is
+    an invitation to guess the next one.
+    """
+    import asyncio
+
+    from app.core.models import Customer, Visit
+    from app.core.stores import CustomerStore, VisitStore
+
+    store = client.app.state.container.datastore
+    tenant = "tnt_where"
+    h = _headers(tenant)
+    made = client.post(BRANCHES, json={"name": "فرع العليا"}, headers=h)
+    assert made.status_code in (200, 201), made.text
+    bid = made.json()["id"]
+
+    async def seed():
+        await CustomerStore(store).save(Customer(id="cus_w", tenant=tenant,
+                                                 phone="+966500000011",
+                                                 subject_ref="sub_where01", created=1))
+        vs = VisitStore(store)
+        await vs.save(Visit(id="vis_w1", tenant=tenant, customer_id="cus_w",
+                            service_ids=["srv_1"], branch_id=bid, created=20, occurred_at=20))
+        # And one with NO branch — the ordinary case for a till, and it must stay silent rather
+        # than inventing «غير محدَّد» on the customer's own page.
+        await vs.save(Visit(id="vis_w2", tenant=tenant, customer_id="cus_w",
+                            service_ids=["srv_1"], created=10, occurred_at=10))
+
+    asyncio.run(seed())
+
+    r = client.post("/internal/operations/customer-visits",
+                    json={"tenant": tenant, "subject_ref": "sub_where01", "limit": 10},
+                    headers={"X-Internal-Token": "t" * 40})
+    assert r.status_code == 200, r.text
+    visits = r.json()["visits"]
+    assert [v["branch"] for v in visits] == ["فرع العليا", ""]
+    assert bid not in r.text

@@ -436,10 +436,19 @@ async def offers_spent(request: Request, body: CustomerVisitsIn) -> dict:
 async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
     """One customer's own visit history, for their page.
 
-    SHAPED FOR DISPLAY, NOT FOR EXPORT. It returns the service names and a formatted date and
-    nothing else — no operator, no branch, no note, no amount. Everything omitted here is
-    something the portal would otherwise be able to show to whoever holds a forwarded link, and a
-    field is far easier not to send than to remember to hide.
+    SHAPED FOR DISPLAY, NOT FOR EXPORT. It returns the service names, a formatted date and the
+    BRANCH NAME — and nothing else. No operator, no note, no amount: everything omitted here is
+    something the portal would otherwise show to whoever holds a forwarded link, and a field is
+    far easier not to send than to remember to hide.
+
+    THE BRANCH IS IN, AND THAT IS A DECIDED TRADE RATHER THAN A RELAXATION. A chain's customer
+    reading «زيارتك — تغيير زيت» cannot tell which of four places he was at, which makes his own
+    history useless to him and makes a booking (the next thing this page will carry) impossible to
+    place. It is his own visit, at a shop he chose, and it is strictly less than the service names
+    already on the row.
+
+    THE NAME, NEVER THE ID. `brn-7f21` is not information, and an id on a public page is an
+    invitation to guess the next one.
 
     NO PHONE AND NO NAME even though this service holds both: the caller identifies the customer
     by pseudonym and gets back only what happened, never who it happened to.
@@ -467,11 +476,18 @@ async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
 
     names = {s.id: s.name for s in await ServiceStore(c.datastore).list(body.tenant,
                                                                        active_only=False)}
+    # CLOSED BRANCHES INCLUDED. A visit that happened at a place the shop has since shut is still
+    # a visit that happened there, and «» in its place would read as a missing record.
+    branch_names = {b.id: b.name for b in await BranchStore(c.datastore).list(body.tenant)}
     out = []
     for r in rows:
         labels = [names.get(sid, "") for sid in (r.get("service_ids") or [])]
         labels = [x for x in labels if x] or [r.get("custom_service") or "زيارة"]
         out.append({"services": "، ".join(labels[:3]),
+                    # EMPTY WHEN UNKNOWN, and the page then says nothing rather than «غير محدَّد».
+                    # Most shops have one branch and record no branch at all; a label on every row
+                    # of a single-branch shop is noise that teaches him to stop reading the row.
+                    "branch": branch_names.get(r.get("branch_id") or "", ""),
                     "date": _arabic_date(int(r.get("occurred_at") or r.get("created") or 0))})
         if len(out) >= body.limit:
             break
