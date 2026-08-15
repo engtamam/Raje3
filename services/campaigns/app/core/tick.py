@@ -58,17 +58,32 @@ def same_day(a: int, b: int) -> bool:
 
 
 class Tick:
-    def __init__(self, *, store, dispatcher, telemetry=None,
+    def __init__(self, *, store, dispatcher, telemetry=None, licence=None,
                  awareness_lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS) -> None:
         self._s = store
         self._d = dispatcher
         self._t = telemetry
+        # WHAT THE SHOP BOUGHT — asked once per tenant per pass, not once per campaign.
+        #
+        # THE STANDING CAMPAIGNS ARE THE HALF NOBODY PRESSES. «رجّع اللي غابوا» and «كافئ
+        # المخلصين» run every day by themselves, so a subscription that lapses would otherwise
+        # keep sending marketing for ever — the create route is not on that path at all.
+        self._licence = licence
         # How often a shop may educate the same customer. A judgement, and a workshop is not a
         # clinic — so it comes from the deployment rather than from this file.
         self._lock_days = int(awareness_lock_days)
 
     async def run(self, tenant: str, *, now: int) -> TickResult:
         res = TickResult()
+        # ONE QUESTION PER TENANT, BEFORE THE READ. A shop without the app has nothing here to do,
+        # and asking per campaign would be one billing call per row for an answer that cannot
+        # change mid-pass.
+        if self._licence is not None and not await self._licence.allowed(tenant):
+            # NOT AN ERROR, AND IT SAYS SO. A lapsed subscription is a decision somebody made —
+            # the campaigns keep their history and their numbers, and only the sending stops
+            # (§16.4.2).
+            res.reasons["الحملات ليست في اشتراكك"] = 1
+            return res
         rows, _ = await self._s.find("campaigns", {"tenant": tenant, "state": "active"},
                                      limit=200, sort=("created", "asc"))
         for row in rows:

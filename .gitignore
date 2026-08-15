@@ -38,3 +38,6 @@ apps/console/e2e/.session.json
 # The deploy bundle pack.sh builds. A build artefact: it is rebuilt from the tree on
 # demand, and committing it would put a stale copy of every values file in the history.
 dist/
+
+# names a host and a login — per operator, never shared
+deploy/target.env

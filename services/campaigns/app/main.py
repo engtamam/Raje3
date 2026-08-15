@@ -45,6 +45,8 @@ def create_app() -> FastAPI:
     settings.assert_audit_config_ok()
     settings.assert_pii_config_ok()
     settings.assert_cors_config_ok()
+    # A service that cannot ask what the shop bought must not serve a feature the shop pays for.
+    settings.assert_licence_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
 

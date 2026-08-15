@@ -57,8 +57,8 @@ def save(st, c):
     return c
 
 
-def tick(st, d, now):
-    return run(Tick(store=st, dispatcher=d).run("t1", now=now))
+def tick(st, d, now, licence=None):
+    return run(Tick(store=st, dispatcher=d, licence=licence).run("t1", now=now))
 
 
 # ── the guard ──────────────────────────────────────────────────────────────────────────────────
@@ -195,3 +195,50 @@ def test_one_tenants_campaigns_are_invisible_to_another(st):
     d = Dispatcher()
     tick(st, d, at(10))
     assert d.fired == []
+
+
+# ── the app the shop did not buy ───────────────────────────────────────────────────────────────
+class _Licence:
+    """Answers what billing would, and counts how often it is asked."""
+
+    def __init__(self, allowed):
+        self._allowed = allowed
+        self.asked = 0
+
+    async def allowed(self, tenant):
+        self.asked += 1
+        return self._allowed
+
+
+def test_a_shop_without_the_app_sends_nothing_from_the_standing_rules(st):
+    """THE HALF NOBODY PRESSES. «رجّع اللي غابوا» and «كافئ المخلصين» run by themselves every day,
+    so a lapsed subscription would keep sending marketing for ever — the create route is not on
+    that path at all."""
+    save(st, Campaign(tenant="t1", goal="win_back", state="active"))
+    d = Dispatcher()
+    res = tick(st, d, at(9), licence=_Licence(False))
+
+    assert d.fired == [] and res.evaluated == 0
+    # AND IT SAYS WHY, in the reasons an operator reads — not silence.
+    assert "الحملات ليست في اشتراكك" in res.reasons
+
+
+def test_a_shop_with_the_app_is_asked_once_for_the_whole_pass(st):
+    """One question per tenant, not one per campaign: the answer cannot change mid-pass, and a
+    shop with twenty rules would otherwise make twenty billing calls a tick."""
+    save(st, Campaign(tenant="t1", goal="win_back", state="active"))
+    save(st, Campaign(tenant="t1", goal="reward_loyal", state="active"))
+    d = Dispatcher()
+    licence = _Licence(True)
+    tick(st, d, at(9), licence=licence)
+
+    assert licence.asked == 1 and len(d.fired) == 2
+
+
+def test_a_deployment_with_no_licence_client_still_runs(st):
+    """`None` is "nothing wired" — tests and local runs. Production is refused at boot instead,
+    because a tick that silently stopped sending would look exactly like an empty audience."""
+    save(st, Campaign(tenant="t1", goal="win_back", state="active"))
+    d = Dispatcher()
+    tick(st, d, at(9), licence=None)
+    assert len(d.fired) == 1

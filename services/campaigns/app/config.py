@@ -186,6 +186,13 @@ class Settings(BaseSettings):
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── what the shop actually bought ─────────────────────────────────────────
+    # THIS SERVICE HAD NO BILLING SETTINGS AT ALL, and `feature.campaigns` is the line between
+    # الأساسية and الذكية — a hundred and fifty riyals a month that nothing enforced. Empty means
+    # `NullLicence`, which allows everything and is refused in production by the guard below.
+    BILLING_SERVICE_URL: str = ""            # e.g. http://billing-service:8000
+    BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
+
     # ── two product judgements, not technical limits ──────────────────────────
     # How large an audience may be before one send needs a human to look at it first. A silent
     # truncation would be worse than a refusal, and the right number changes with the size of the
@@ -424,6 +431,21 @@ class Settings(BaseSettings):
                                "TENANT_SERVICE_URL") if not getattr(self, n)]
         if missing:
             raise ValueError(f"PEERS_DRIVER=http but {', '.join(missing)} empty.")
+
+    def assert_licence_config_ok(self) -> None:
+        """Boot guard. Refuse production that cannot ask what the shop bought.
+
+        Without billing wired, `build_licence` returns NullLicence and every establishment gets
+        campaigns free — silently, for as long as nobody compares the price list to the code. That
+        is exactly the state this service shipped in, and the symptom is invisible: nothing errors,
+        nothing logs, and the feature simply works for people who did not buy it.
+        """
+        if not self.is_production:
+            return
+        if not self.BILLING_SERVICE_URL or not self.BILLING_CHECK_PATH:
+            raise ValueError(
+                "BILLING_SERVICE_URL/BILLING_CHECK_PATH empty in production: campaigns would be "
+                "given away to every plan, quietly. Set them.")
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

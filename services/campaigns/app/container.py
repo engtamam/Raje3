@@ -293,7 +293,10 @@ def build_container(settings: Settings) -> Container:
                                       audience_resolver=_resolver,
                                       batch=settings.DISPATCH_BATCH_SIZE,
                                       telemetry=container.telemetry)
+    from app.core.licence import build_licence
+    container.licence = build_licence(settings)
     container.tick = Tick(store=container.datastore, dispatcher=container.dispatcher,
+                          licence=container.licence,
                           awareness_lock_days=settings.AWARENESS_LOCK_DAYS,
                           telemetry=container.telemetry)
     return container

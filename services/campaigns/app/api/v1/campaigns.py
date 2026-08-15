@@ -17,6 +17,7 @@ and nothing visibly happens for up to five minutes. They press it again. Firing 
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
@@ -24,6 +25,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
 from app.core.models import Campaign, as_row, offers_something
+from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.preview import PreviewError, build as build_preview, describe_when
 from app.core.share import compute as compute_share
 from app.core.spread import plan as plan_spread
@@ -157,6 +159,23 @@ async def create(request: Request, body: CampaignIn,
     """Create the campaign, and fire it if it is a manual one."""
     c = request.app.state.container
     now = _now()
+
+    # ── has this shop bought campaigns at all? ───────────────────────────────────────────────
+    # FIRST, BEFORE ANYTHING IS VALIDATED OR WRITTEN. `feature.campaigns` is the line between
+    # الأساسية and الذكية and nothing in the fleet has ever checked it: an owner on the cheapest
+    # plan pressed «أطلق الحملة» and it went out. The lock the console draws is a CAPABILITY lock
+    # — about his role, not about what the shop bought — so the one person who would have paid to
+    # remove it never saw it.
+    #
+    # 402, NOT 403. He is not forbidden; he has not bought it, and the difference is what the
+    # screen offers him next (`insights` answers the same way for its own key).
+    # RETURNED, NEVER RAISED. The platform's handler strips `detail` off every HTTPException
+    # (CWE-209) — right for a stack trace, and fatal for a sentence we wrote for an owner to read.
+    # A raised refusal here would reach him as an empty 402.
+    licence = getattr(c, "licence", None)
+    if licence is not None and not await licence.allowed(principal.tenant):
+        return JSONResponse({"error": "PAYMENT_REQUIRED", "reason": LICENCE_NOT_INCLUDED},
+                            status_code=status.HTTP_402_PAYMENT_REQUIRED)
     try:
         spec = resolve_goal(body.goal)
     except ValueError as exc:

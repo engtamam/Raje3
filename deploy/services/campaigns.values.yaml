@@ -57,9 +57,9 @@ networkPolicy:
   egress:
     dns: true
     datastore: true
-    # No internet. It calls operations, reminders, tenant-service and audit-service — all
-    # in-cluster. A service that decides who receives a marketing message has no business reaching
-    # the open internet.
+    # No internet. It calls operations, reminders, tenant-service, billing-service and
+    # audit-service — all in-cluster. A service that decides who receives a marketing message has
+    # no business reaching the open internet.
     internet: false
 
 metrics:
@@ -92,6 +92,13 @@ env:
   # refuses it in production.
   PEERS_DRIVER: "http"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
+  # ── what the shop bought ─────────────────────────────────────────────────────────────────
+  # WITHOUT THIS THE SERVICE REFUSES TO START in production, and that is the point: it had no
+  # billing settings at all, so `feature.campaigns` — the line between الأساسية and الذكية — was
+  # enforced by nothing and every plan got campaigns free. The failure was invisible: nothing
+  # errored, nothing logged, and the feature simply worked for people who had not bought it.
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
   TEMPLATES_PATH: "/internal/operations/templates"
   CUSTOMERS_PATH: "/internal/operations/customers"
   REMINDERS_SERVICE_URL: "http://reminders:8000"

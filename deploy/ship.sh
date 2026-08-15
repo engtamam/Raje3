@@ -51,6 +51,17 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+
+# ── WHERE THE CLUSTER IS, REMEMBERED ONCE ────────────────────────────────────────────────────
+# Every ship needed `REMOTE=… PORT=… FAST=…` typed in front of it, and a run that forgot one went
+# to the wrong machine or died on a refused connection. `deploy/target.env` holds the answer, is
+# read when it exists, and the environment still wins when somebody means it to.
+#
+# NOT IN GIT: it names a host, a port and a login, and those differ per operator and per
+# environment — see deploy/target.env.example.
+# shellcheck disable=SC1091
+[ -f "$ROOT/deploy/target.env" ] && . "$ROOT/deploy/target.env"
+
 REMOTE="${REMOTE:-tamam@127.0.0.1}"
 PORT="${PORT:-2224}"
 NS="${NS:-base-services}"
@@ -294,7 +305,7 @@ ship_one() {
   # helm renders the previous pin and reports success about it.
   say "$svc · 5/6 sync + roll"
   if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks deploy/server 2>/dev/null \
-       | "${SSH[@]}" "cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh \
+       | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh \
          && grep -q '$digest' deploy/services/$svc.values.yaml"; then
     red "$svc: the values file on the server does not carry the new digest"; return 1
   fi
@@ -476,7 +487,13 @@ ship_many() {
   fi
   grn "every image present under its digest"
 
-  # ── D. sync every values file, then ONE rollout ──────────────────────────────────────────────
+  # ── D. sync every values file, then ONE rollout ──
+  #
+  # THE DIRECTORY IS CREATED, NOT ASSUMED. `cd ~/raje3` failed on a server that had never held a
+  # values file — and the server is SUPPOSED to hold only what runs (deploy 1), so an empty home is
+  # the normal state on a fresh node rather than an accident. A ship that stops here has already
+  # built, pushed AND PINNED: the values file now names a digest the cluster is not running, and
+  # the next reader trusts a pin that lies. One word fixes it.────────────────────────────────────────────
   say "4/5 sync + roll"
   local files=() list=""
   for svc in "${svcs[@]}"; do
@@ -484,7 +501,7 @@ ship_many() {
     list="${list:+$list,}$svc"
   done
   if ! tar czf - -C "$ROOT" "${files[@]}" deploy/hooks deploy/server 2>/dev/null \
-       | "${SSH[@]}" "cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh"; then
+       | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null && chmod +x deploy/hooks/*.sh"; then
     red "the values files did not reach the server"; rm -rf "$tmp"; return 1
   fi
   for svc in "${svcs[@]}"; do
