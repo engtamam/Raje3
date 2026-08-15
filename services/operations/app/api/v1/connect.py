@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -47,7 +47,7 @@ class SignupResultIn(BaseModel):
 
 @router.post("/connect", dependencies=[Depends(rate_limit)])
 async def whatsapp_connect(request: Request, body: SignupResultIn,
-                           principal=Depends(_OWNER)) -> Any:
+                           background: BackgroundTasks, principal=Depends(_OWNER)) -> Any:
     """Receive the Embedded Signup result and act on it inside this request.
 
     NO WORK BEFORE THE EXCHANGE, which inverts this service's usual write-ahead rule and does so for
@@ -96,6 +96,22 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         "whatsapp.connected" if ok else "whatsapp.connect_failed",
         actor=getattr(principal, "subject", ""), tenant=tenant,
         resource=f"waba:{body.waba_id}", ip=ip)
+
+    if ok:
+        # ── THE LIBRARY GOES UP HERE, AND THIS IS THE WHOLE POINT OF THE TASK ────────────────
+        # An establishment used to finish this exact flow, be recorded `connected`, and own no
+        # templates anywhere. Somebody had to run a script by hand for each new shop; until they
+        # did, the send path had no approved template to pick and refused every message with a
+        # sentence about a review nobody had asked for. Connected, green, and mute.
+        #
+        # AFTER THE RESPONSE, NOT INSIDE IT. Sixty-six upserts is not something an owner watches a
+        # spinner through, and a failure here must not turn a SUCCESSFUL connection into an error
+        # on his screen — the account IS connected, and that fact is already recorded and audited.
+        # What can still go wrong is a slow or half-finished publish, and the hourly pass
+        # (/internal/operations/templates/publish) is what covers it.
+        from app.core.library import publish
+
+        background.add_task(publish, c.library, await c.templates.list(), tenant)
     return attempt.public()
 
 

@@ -590,3 +590,73 @@ def test_an_app_row_is_never_mistaken_for_the_base(client):
     body = client.get("/api/v1/subscription/apps",
                       headers=_auth("billing.self", tenant="t1")).json()
     assert body["base"] is None
+
+
+# ── the library goes up at the moment of connection ───────────────────────────────────────────
+class _Templates:
+    async def list(self):
+        return [{"name": "svc_visit_confirm", "language": "ar", "category": "UTILITY",
+                 "body": "أهلاً {{1}}", "variables": ["name"], "examples": ["محمد"]}]
+
+
+class _Exchange:
+    """Meta's code-for-token step, answered without Meta."""
+
+    def __init__(self, ok=True):
+        self.ok = ok
+
+    async def exchange(self, *, tenant, code, waba_id, phone_number_id):
+        return self.ok, "" if self.ok else "refused"
+
+
+def _connecting(client, monkeypatch, ok=True):
+    from app.core import connect as connect_core
+    from app.core.library import NullLibrary
+
+    # THROUGH monkeypatch, SO IT IS RESTORED. Assigning the module attribute outright leaves every
+    # later test in this file talking to a fake Meta — and a test that passes because of another
+    # test's leftovers is worse than one that fails.
+    monkeypatch.setattr(connect_core, "build_exchange", lambda s: _Exchange(ok))
+    lib = NullLibrary()
+    client.app.state.container.library = lib
+    # A LIBRARY TO PUBLISH. The seed file is loaded at boot in production; this app is built
+    # against a memory store, so the templates are put here rather than assumed.
+    client.app.state.container.templates = _Templates()
+    return lib
+
+
+def test_connecting_publishes_the_shop_s_template_library(client, monkeypatch):
+    """THE SEVERED WIRE, AND IT WAS THE WHOLE ONBOARDING. A shop finished Embedded Signup, was
+    recorded `connected`, and owned no templates anywhere — somebody had to run a script by hand
+    for each new establishment. Until they did, the send path had nothing approved to choose and
+    refused every message with a sentence about a review nobody had asked for. Connected, green,
+    and mute."""
+    lib = _connecting(client, monkeypatch)
+    r = client.post("/api/v1/whatsapp/connect",
+                    json={"event": "FINISH", "code": "c1", "waba_id": "w1",
+                          "phone_number_id": "p1"},
+                    headers=_auth("billing.self", tenant="t1"))
+    assert r.status_code == 200
+    # THE BACKGROUND TASK RAN — TestClient drains them before returning, which is exactly why the
+    # assertion is here and not on a mock of the scheduler.
+    assert lib.registered, "the library must be registered for the shop that just connected"
+    assert all(t == "t1" for t, _ in lib.registered)
+
+
+def test_a_failed_connection_publishes_nothing(client, monkeypatch):
+    """Meta refused the code: there is no account to register a library against, and doing it
+    anyway would leave templates attached to a connection that does not exist."""
+    lib = _connecting(client, monkeypatch, ok=False)
+    client.post("/api/v1/whatsapp/connect",
+                json={"event": "FINISH", "code": "bad", "waba_id": "w1",
+                      "phone_number_id": "p1"},
+                headers=_auth("billing.self", tenant="t1"))
+    assert lib.registered == []
+
+
+def test_a_cancelled_signup_publishes_nothing(client, monkeypatch):
+    lib = _connecting(client, monkeypatch)
+    client.post("/api/v1/whatsapp/connect",
+                json={"event": "CANCEL", "step": "PHONE_NUMBER"},
+                headers=_auth("billing.self", tenant="t1"))
+    assert lib.registered == []

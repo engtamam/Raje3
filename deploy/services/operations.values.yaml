@@ -259,6 +259,11 @@ env:
   NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
   # Reconciling Meta's verdict: our list of connected shops, notification-service's read.
   NOTIFICATION_TEMPLATE_SYNC_PATH: "/internal/whatsapp/templates/sync"
+  # The internal twins base-services v0.16.6 added in answer to our escalation: `register` is a
+  # local upsert with no Meta call and no cap; `submit-pending` drains what has never been handed
+  # over, inside Meta's 100/hour, and skips anything already awaiting a verdict.
+  NOTIFICATION_TEMPLATE_REGISTER_PATH: "/internal/whatsapp/templates"
+  NOTIFICATION_TEMPLATE_DRAIN_PATH: "/internal/whatsapp/templates/submit-pending"
   TEMPLATE_SYNC_MAX_TENANTS: "200"
 
   # ── retention (§14.5) ─────────────────────────────────────────────────────────────────────
@@ -331,6 +336,20 @@ cronJobs:
   - name: template-approvals
     schedule: "23 * * * *"
     path: /internal/operations/templates/sync-approvals
+  # THE LIBRARY GOES UP — the step that used to be a script somebody ran by hand for every new
+  # shop, and that until then left the establishment connected, green, and unable to send a single
+  # message because no template had ever been offered to Meta for review.
+  #
+  # THE CONNECT PATH ALREADY PUBLISHES for a shop finishing Embedded Signup. This pass covers the
+  # shops connected before that code existed, a publish interrupted by a restart, and Meta's cap of
+  # 100 submissions per account per hour — a library plus the owner's own templates does not fit in
+  # one pass, and the remainder has to be handed over on a later tick.
+  #
+  # AT :47, twenty-four minutes after the approvals read: submitting and then asking for a verdict
+  # in the same minute asks Meta about templates it has not looked at yet.
+  - name: template-publish
+    schedule: "47 * * * *"
+    path: /internal/operations/templates/publish
 
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

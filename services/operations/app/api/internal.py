@@ -1009,6 +1009,55 @@ async def sync_template_approvals(request: Request) -> dict:
             "synced": synced, "failed": failed}
 
 
+@router.post("/operations/templates/publish",
+             dependencies=[Depends(require_internal_token)])
+async def publish_template_libraries(request: Request) -> dict:
+    """Make sure every connected shop's library is registered and moving through Meta's queue.
+
+    THE CONNECT PATH ALREADY DOES THIS for a shop that has just finished Embedded Signup. This is
+    the pass that covers what that moment cannot:
+
+      · a connection made before this code existed — every shop already live;
+      · a library that half-registered because notification-service restarted mid-publish;
+      · Meta's 100-per-account-per-hour cap, which no single request may exceed. A library of 66
+        fits, but a shop that also wrote its own templates does not, and the remainder has to be
+        handed over on a later tick. That is what `submit-pending` is for and why this is hourly.
+
+    IDEMPOTENT AT BOTH ENDS, which is what makes an hourly re-run safe rather than merely tolerable:
+    registering is an upsert that explicitly never resets an approved template to pending, and the
+    drain submits only templates that have never been handed over.
+
+    ONE SHOP'S FAILURE IS NOT THE PASS'S — the same rule as the approvals sweep above.
+    """
+    from app.core.connect import ConnectionStore
+    from app.core.library import publish
+
+    c = request.app.state.container
+    s = get_settings()
+    if getattr(c.library, "driver", "null") == "null":
+        # HONEST, NOT QUIET. "0 tenants" from an unconfigured pass reads exactly like a fleet with
+        # nothing to do — and that shape is the bug this route exists to end.
+        return {"ok": False, "configured": False, "tenants": 0, "published": 0, "failed": 0}
+
+    templates = await c.templates.list()
+    tenants = await ConnectionStore(c.datastore).live_tenants(limit=s.TEMPLATE_SYNC_MAX_TENANTS)
+    published = failed = 0
+    for tenant in tenants:
+        out = await publish(c.library, templates, tenant)
+        if out.get("failed") or not out.get("drain", {}).get("ok", False):
+            failed += 1
+            c.telemetry.event("template_publish_failed", tenant=tenant,
+                              registered=out.get("registered", 0),
+                              reason=str(out.get("drain", {}).get("reason", ""))[:120])
+            continue
+        published += 1
+    if failed:
+        c.telemetry.event("template_publish_pass", tenants=len(tenants),
+                          published=published, failed=failed)
+    return {"ok": True, "configured": True, "tenants": len(tenants),
+            "published": published, "failed": failed}
+
+
 class StatementRunIn(BaseModel):
     """An OPTIONAL body — the scheduler sends none.
 

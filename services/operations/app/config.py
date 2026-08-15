@@ -285,6 +285,11 @@ class Settings(BaseSettings):
     # WHERE WE ASK WHAT META DECIDED. Empty disables the sweep entirely rather than pointing it at
     # a guessed path — a sweep that 404s on every shop reports failures that look like Meta's.
     NOTIFICATION_TEMPLATE_SYNC_PATH: str = "/internal/whatsapp/templates/sync"
+    # PUTTING THE LIBRARY WHERE META CAN APPROVE IT — the internal twins added in base-services
+    # v0.16.6 in answer to our escalation. `register` is a local upsert with no Meta call and no
+    # cap; `drain` hands over what has never been submitted, inside Meta's 100/hour.
+    NOTIFICATION_TEMPLATE_REGISTER_PATH: str = "/internal/whatsapp/templates"
+    NOTIFICATION_TEMPLATE_DRAIN_PATH: str = "/internal/whatsapp/templates/submit-pending"
     # How many establishments one sweep pass reconciles. A repair pass that runs again in an hour:
     # progress beats completeness, and a fleet-wide scan on one request is a request that times out.
     TEMPLATE_SYNC_MAX_TENANTS: int = 200

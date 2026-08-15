@@ -267,6 +267,11 @@ def build_container(settings: Settings) -> Container:
     from app.core.apps import build_apps
 
     container.apps = build_apps(settings)
+    # Putting a newly connected shop's template library where Meta can review it — the step that
+    # was a script somebody had to remember to run for every new establishment.
+    from app.core.library import build_library
+
+    container.library = build_library(settings)
     # And `feature.api`, asked on the one act that IS the programmatic link: a machine writing
     # visits. Separate from `apps` because it answers a third state — «تعذّر السؤال» — that the
     # till path treats as a yes and the store treats as unknown.
