@@ -9,7 +9,15 @@
  * our library's — and an owner who meets them concludes the product needs study. He picks a TONE
  * once and every wording follows; that is the whole of his involvement with sixty-six templates.
  *
- * TWO TABS, BECAUSE THE TWO LISTS ANSWER DIFFERENT QUESTIONS. Stacked in one scroll, an owner
+ * FOUR TABS, BECAUSE THEY ANSWER FOUR DIFFERENT QUESTIONS: what the system sends at all, what is
+ * about to go, what I launched myself, and what happened. Stacked in one scroll, an owner hunting
+ * for "did my campaign go out" scrolls past everything else every time.
+ *
+ * AND IT OPENS ON «ما يُرسَل», which is the question the section is named after and the one it
+ * could not answer for its whole life: the only way to stop a KIND of message was to cancel its
+ * rows one at a time as they appeared.
+ *
+ * THE OLD NOTE, KEPT BECAUSE THE REASON STILL HOLDS. Stacked in one scroll, an owner
  * hunting for "did my campaign go out" scrolls past four automatic occasions every time, and the
  * thing he came for is never the thing on screen.
  *
@@ -22,6 +30,7 @@ import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Toggle } from '@base-ui/design-system/Toggle';
 import { Lock } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Launch } from './Launch';
@@ -50,6 +59,21 @@ function when(at: number): string {
 }
 
 interface Run { at?: number; sent?: number; suppressed?: number; reason?: string }
+
+/**
+ * One thing the system does in his name. Every field is the SERVER'S — the label, and the sentence
+ * saying when it fires. A screen that held its own copy of either would drift from the engine the
+ * first time a trigger changed, and the owner would be reading a promise nothing keeps.
+ */
+interface TriggerRow {
+  id: string;
+  label: string;
+  when: string;
+  on: boolean;
+  can_switch: boolean;
+  can_retext: boolean;
+  template?: string;
+}
 
 interface Schedule {
   schedule: { id?: string; kind?: string; due_at?: number; subject_ref?: string }[];
@@ -90,7 +114,17 @@ function asLocal(phone: string): string {
 }
 
 export function MessagesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [tab, setTab] = useState<'auto' | 'campaigns' | 'log'>('auto');
+  const [tab, setTab] = useState<'triggers' | 'auto' | 'campaigns' | 'log'>('triggers');
+
+  /**
+   * WHAT SENDS IN HIS NAME — the question this whole section is named after, and the one it could
+   * not answer. «رسائلي» listed a queue and a log: what is about to go and what already went. It
+   * never said WHAT THE SYSTEM SENDS AT ALL, so the only way to stop a kind of message was to
+   * cancel its rows one at a time, for ever, as they appeared.
+   */
+  const [triggers, setTriggers] = useState<TriggerRow[] | null>(null);
+  const [busy, setBusy] = useState('');
+  const [switchError, setSwitchError] = useState('');
 
   /**
    * WHAT WENT OUT AND WHAT DID NOT, WITH THE REASON.
@@ -134,6 +168,43 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
    * recording it cannot itself trigger the effect that reads it.
    */
   const asked = useRef<Set<string>>(new Set());
+
+  // WITH THE SCREEN, NOT WITH ITS TAB. It is thirteen small rows and it is the first thing shown,
+  // so paying for it on open costs nothing and paying for it on a tab switch would show a
+  // skeleton to somebody who is already looking at the answer.
+  useEffect(() => {
+    const a = action(catalog, 'reminders.triggers');
+    if (!a) { setTriggers([]); return; }
+    call<{ triggers: TriggerRow[] }>(session, a)
+      .then((x) => setTriggers(x.triggers ?? []))
+      // A FAILED READ IS NOT AN EMPTY SYSTEM. `[]` here would tell an owner his shop sends
+      // nothing, which is the one sentence that must never be shown by mistake.
+      .catch(() => setTriggers(null));
+  }, [session, catalog]);
+
+  const flip = async (row: TriggerRow, on: boolean) => {
+    const a = action(catalog, 'reminders.set_trigger');
+    if (!a) return;
+    setBusy(row.id); setSwitchError('');
+    // OPTIMISTIC, AND CORRECTED BY THE ANSWER. A switch that waits for a round trip before moving
+    // reads as broken on a phone, and this screen is opened on a phone.
+    setTriggers((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on } : r)));
+    try {
+      const out = await call<{ ok?: boolean; error?: string; triggers?: TriggerRow[] }>(
+        session, a, { trigger_id: row.id, on });
+      if (out?.error) {
+        setSwitchError(out.error);
+        setTriggers((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
+      } else if (out?.triggers) {
+        setTriggers(out.triggers);
+      }
+    } catch (e) {
+      setTriggers((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
+      setSwitchError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
+    } finally {
+      setBusy('');
+    }
+  };
 
   // THE LOG IS FETCHED WHEN ITS TAB OPENS, not with the screen. It is the heaviest read here and
   // the least often wanted — an owner opens «رسائلي» to see what is coming, and pays for the log
@@ -240,13 +311,70 @@ export function MessagesScreen({ session, catalog }: { session: Session; catalog
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'auto', label: 'ما يُرسَل تلقائياً' },
+          { value: 'triggers', label: 'ما يُرسَل' },
+          { value: 'auto', label: 'بانتظار الخروج' },
           { value: 'campaigns', label: 'حملاتي' },
-          { value: 'log', label: 'ما خرج ولم يخرج' },
+          { value: 'log', label: 'السجل' },
         ]}
       />
 
-      {tab === 'auto' ? (
+      {tab === 'triggers' ? (
+        <section className="flex flex-col gap-3">
+          {/* ── everything that sends in his name, and the switch for each ──────────────────
+              THE ROW IS A SENTENCE, NOT A SETTING. «سُجّلت زيارة» with «بعد تسجيل الزيارة
+              بعشر دقائق» under it answers the two questions he has — what and when — before he
+              touches anything. Both come from the server: a label kept here would drift from the
+              engine the first time a trigger changed, and he would be reading a promise nothing
+              keeps. */}
+          {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
+          {triggers === null ? (
+            <Skeleton height={200} />
+          ) : triggers.length === 0 ? (
+            <EmptyState
+              title="تعذّر قراءة رسائلك"
+              description="حسابك سليم. حاول بعد قليل."
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {triggers.map((t) => (
+                <li key={t.id}
+                    className={[
+                      'flex items-start justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm',
+                      t.on ? '' : 'opacity-70',
+                    ].join(' ')}>
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate font-medium">{t.label}</span>
+                    <span className="text-sm text-text-secondary">{t.when}</span>
+                    {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a line
+                        saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}
+                    {t.template ? (
+                      <Badge tone="neutral">بنصّك أنت</Badge>
+                    ) : null}
+                  </span>
+                  {t.can_switch ? (
+                    <Toggle
+                      label={t.label}
+                      checked={t.on}
+                      disabled={busy === t.id}
+                      onChange={(on) => flip(t, on)}
+                    />
+                  ) : (
+                    // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying does
+                    // nothing; a lock with a reason answers before he asks.
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-text-secondary">
+                      <Lock size={14} aria-hidden />
+                      حقٌّ لعميلك
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="px-1 text-xs text-text-secondary">
+            الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
+          </p>
+        </section>
+      ) : tab === 'auto' ? (
       <section className="flex flex-col gap-3">
         {/* ── the queue, as PEOPLE ────────────────────────────────────────────────────────────
             «مين بيوصله إيش، ومتى» — and the one act that belongs here, which is stopping one of

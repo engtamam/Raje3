@@ -11,18 +11,35 @@ import { expect, open, test } from './fixtures';
 test('automatic and deliberate are two different lists, named as such', async ({ shop }) => {
   const body = await open(shop, '/messages');
 
-  expect(body).toMatch(/ما يُرسَل تلقائياً/);
+  expect(body).toMatch(/ما يُرسَل/);
   expect(body).toMatch(/حملاتي/);
 });
 
 test('each automatic message says WHEN it goes, not only that it exists', async ({ shop }) => {
   /**
-   * "Appointment reminder" is a name; "before the next service, by days" is the thing he is
-   * deciding about. A list of names with switches is a screen he has to guess at.
+   * "Visit recorded" is a name; "ten minutes after the visit, once he has left" is the thing he
+   * is deciding about. A list of names with switches is a screen he has to guess at.
+   *
+   * AND THE SENTENCE COMES FROM THE ENGINE, not from the screen — so this asserts what the
+   * trigger registry says, and drifts only if the behaviour drifts with it.
    */
   const body = await open(shop, '/messages');
 
-  expect(body).toMatch(/قبل موعد الخدمة القادمة|بعد الزيارة/);
+  expect(body).toMatch(/سُجّلت زيارة/);
+  expect(body).toMatch(/بعد تسجيل الزيارة|حان وقت الخدمة/);
+});
+
+test('the queue of waiting messages is its own list, not the first thing shown', async ({ shop }) => {
+  /**
+   * The section opens on WHAT THE SYSTEM SENDS — the question it is named after. What is queued
+   * right now is a different question, and one an owner asks less often than he asks "what does
+   * this thing send at all".
+   */
+  await open(shop, '/messages');
+  await shop.getByRole('radio', { name: 'بانتظار الخروج' }).click();
+  const body = (await shop.locator('body').innerText()).trim();
+
+  expect(body).toMatch(/بانتظار الخروج|ما في رسائل/);
 });
 
 test('a shop that has launched nothing is told what a campaign is for', async ({ shop }) => {
@@ -31,8 +48,8 @@ test('a shop that has launched nothing is told what a campaign is for', async ({
    * nobody can seed a campaign for him. So it explains the act rather than apologising for a gap.
    */
   await open(shop, '/messages');
-  // The screen opens on «ما يُرسَل تلقائياً» — the engine's own sending, which is what most days
-  // are. Campaigns are the deliberate act, and they live behind their own tab.
+  // The screen opens on «ما يُرسَل» — everything the engine does by itself, which is what most
+  // days are. Campaigns are the deliberate act, and they live behind their own tab.
   await shop.getByRole('radio', { name: 'حملاتي' }).click();
   const body = (await shop.locator('body').innerText()).trim();
 
@@ -54,7 +71,7 @@ test('the log answers the only question this engine ever generates', async ({ sh
    * template: every correct refusal read to the owner as a fault.
    */
   await open(shop, '/messages');
-  await shop.getByRole('radio', { name: 'ما خرج ولم يخرج' }).click();
+  await shop.getByRole('radio', { name: 'السجل' }).click();
 
   const body = await shop.locator('body').innerText();
   expect(body).toMatch(/كل رسالة لم تخرج، ومعها سببها/);
