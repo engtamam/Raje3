@@ -6,7 +6,7 @@ import asyncio
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core.consent import (CONSENT, GRANTED, NEVER_ASKED, STATEMENT_VERSION, WITHDRAWN,
+from app.core.consent import (_PAGE, CONSENT, GRANTED, NEVER_ASKED, STATEMENT_VERSION, WITHDRAWN,
                               Consent, ConsentError, statement_for)
 
 T = "shop"
@@ -133,6 +133,38 @@ def test_the_count_never_leaks_another_establishment():
     run(c.record("a", "ref_x", state=GRANTED, source="customer_page", shop="م"))
     run(c.record("b", "ref_y", state=GRANTED, source="customer_page", shop="م"))
     assert run(c.count_granted("a")) == 1
+
+
+def test_the_count_reads_past_the_first_page_of_an_append_only_log():
+    """A BIG SHOP'S NUMBER, AND THE ONE THAT WAS WRONG (ز-5).
+
+    Every grant and every withdrawal is a row, so the log outgrows one page long before the
+    PEOPLE do. Read as a single page ordered oldest-first, «the newest row per person» is computed
+    over the oldest rows — so a customer who withdrew after the page boundary still counts as
+    consenting, and the number an owner upgrades on goes UP as he loses people.
+
+    THE NUMBERS ARE CHOSEN SO THE TWO ANSWERS CANNOT COINCIDE. Written the obvious way — everyone
+    grants, then the people past the page boundary withdraw — a truncated read returns exactly
+    `_PAGE` and so does a correct one, and the test passes with the fix reverted. It did. So:
+    300 grant, 200 of those withdraw (which fills the rest of page one), then 400 new people
+    grant beyond it. One page sees 300 grants and 200 withdrawals and says 100. The truth is 500.
+    """
+    # The whole test rests on 700 rows being more than one page. Asserted, not assumed: raise
+    # `_PAGE` past it one day and this would go on passing while testing a single-page read.
+    assert _PAGE < 700, "these numbers no longer cross a page boundary"
+    _, c = fresh()
+    clock = NOW
+    for i in range(300):
+        run(c.record(T, f"ref_{i:05d}", state=GRANTED, source="customer_page", shop="م",
+                     now=clock + i))
+    clock += 300
+    for i in range(200):
+        run(c.record(T, f"ref_{i:05d}", state=WITHDRAWN, source="customer_page", now=clock + i))
+    clock += 200
+    for i in range(300, 700):
+        run(c.record(T, f"ref_{i:05d}", state=GRANTED, source="customer_page", shop="م",
+                     now=clock + i))
+    assert run(c.count_granted(T)) == 500
 
 
 def test_a_shop_nobody_has_answered_counts_zero_rather_than_everybody():

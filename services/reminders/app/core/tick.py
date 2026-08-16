@@ -81,18 +81,65 @@ class Room:
     """
 
     left: int = -1
+    # Whether the row currently being worked is holding a slot it has not yet spent on a send.
+    # Reset by `confirm`, `settle` or `exhaust` — see `settle` for why this is here and not a
+    # local flag in the caller.
+    _held: bool = False
 
     def known(self) -> bool:
         return self.left >= 0
 
     def take(self) -> bool:
-        """Spend one slot. False when there is none left."""
+        """Reserve one slot for this row. False when there is none left.
+
+        Reserved, not spent: it is given back by `settle` unless a message actually went out.
+        """
         if not self.known():
+            # Unknown never blocks, and nothing is held — there is no count to correct.
             return True
         if self.left <= 0:
             return False
         self.left -= 1
+        self._held = True
         return True
+
+    def confirm(self) -> None:
+        """The message went out. The slot taken for it is spent for real."""
+        self._held = False
+
+    def settle(self) -> None:
+        """Give back a slot taken for a message that did not go out.
+
+        A SLOT IS A RESERVATION UNTIL THE SEND SUCCEEDS, and this is what makes that structural
+        rather than a flag threaded through a dozen returns. The slot is spent before the send,
+        like the quota unit beside it, because both have to be decided before the expensive part —
+        but unlike the quota it was never given back on any of the ways a row can end without a
+        message: a lapsed subscription, a template still in Meta's review, a peer that is down, a
+        render that failed. Every one of them reached nobody and every one of them shrank the
+        shop's own room by one.
+
+        Four hundred due rows behind one broken template closed the day at a ceiling nobody hit,
+        and every message after them waited until tomorrow for nothing.
+
+        Called from the row loop's `finally`, so a path that forgets to think about it is correct
+        by default — which is the opposite of what a flag gives you.
+        """
+        if self._held:
+            self._held = False
+            if self.known():
+                self.left += 1
+
+    def exhaust(self) -> None:
+        """Meta itself refused: there is no room, whatever we counted.
+
+        NOT `settle`, deliberately. `CeilingReached` is the ceiling answering, and handing the
+        slot back would send the next row into the same refusal, and the row after that — one
+        rejected API call per remaining message, from a shop already at its limit, which is
+        precisely the behaviour that gets a number rate-limited.
+        """
+        self._held = False
+        if self.known():
+            self.left = 0
 
 
 @dataclass
@@ -248,6 +295,14 @@ class Tick:
                 if self._t is not None:
                     self._t.event("tick_row_failed", tenant=tenant,
                                   schedule=row.get("id", ""), error=str(exc)[:200])
+            finally:
+                # THE ROW'S CEILING SLOT, IF IT DID NOT SPEND ONE. `_one` takes a slot before the
+                # render and the send, and half a dozen paths after that end the row without a
+                # message — a lapsed subscription, a template in review, a render error, a peer
+                # down. Settled here rather than at each of them so a path added later is right
+                # without anybody remembering this exists. `confirm` inside `_one` is what makes a
+                # slot that DID become a message stay spent.
+                room.settle()
 
         # ── the ceiling cost him customers, and he should hear it once ────────────────────────
         # AFTER the loop, because the number the sentence is about — how many were stopped — only
@@ -674,6 +729,11 @@ class Tick:
             # Nothing left, so nothing is counted — and what happens next is the TEMPLATE's
             # decision, carried on the template itself rather than decided here.
             await self._quota.release(tenant=tenant, idempotency_key=key)
+            # AND THE COUNT IS CORRECTED TO WHAT META JUST SAID. Our own count of the shop's room
+            # disagreed with the ceiling — it thought there was room, and there is none — so the
+            # rest of this pass defers on the count instead of asking again. `exhaust` rather than
+            # the `settle` below: handing the slot back walks the next row into the same refusal.
+            room.exhaust()
             policy = str(template.get("deferral") or "defer")
             res.ceiling += 1
             if policy == "drop":
@@ -699,6 +759,10 @@ class Tick:
         # ── 5. record ─────────────────────────────────────────────────────────────────────────
         # RECORDED ONLY AFTER IT WENT. A message that failed reached nobody, and counting it would
         # push the shop toward a ceiling it never touched.
+        #
+        # And the same sentence decides the ceiling slot: it was a reservation until this line,
+        # and this is where it becomes spent. Everything before it that ends the row hands it back.
+        room.confirm()
         await self._reach.record(tenant, subject, now=now)
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,

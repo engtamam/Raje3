@@ -1,6 +1,6 @@
 """How much of today's sending ceiling this campaign may have.
 
-    share = ceiling − what the automatic engine reserved − what has already been reached today
+    share = ceiling − what the automatic engine holds (capped) − what has already been reached today
 
 THE THREE TERMS COME FROM THREE PLACES, and that is the whole design rather than an accident:
 
@@ -27,6 +27,19 @@ So `known` travels with the number, and the screen shows an estimate only when i
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+#: THE MOST OF TODAY'S CEILING THE ENGINE MAY HOLD, as a share of it.
+#:
+#: The reserve is computed by insights from the shop's own traffic and knows nothing about the
+#: ceiling — insights does not hold it (see indicators.engine_reserve). So a busy shop whose
+#: Thursday warrants 300 reserves 300 against a WhatsApp ceiling of 250, `left` goes negative,
+#: `max(0, …)` makes it zero, and the campaign the owner is paying for never launches on any day.
+#: Not once, not until traffic drops: there is no state in the arithmetic to recover from.
+#:
+#: 0.7 leaves the campaign at least three in ten of the shop's messages on its busiest day. It is
+#: a share and not a fixed number because the whole point is that a shop seeing 30 visitors a day
+#: and one seeing 400 are the same product.
+ENGINE_CAP_SHARE = 0.7
 
 
 @dataclass(frozen=True)
@@ -65,6 +78,13 @@ def compute(*, ceiling: int, reserved: int, used: int, fallback: int) -> Share:
     # afternoon the engine may have spent 30 of its own, and a campaign handed 210 then would push
     # the shop past its ceiling — the failure landing on whichever message went last, which will
     # be a customer's confirmation rather than the campaign that caused it.
-    left = ceiling - max(0, reserved) - max(0, used)
+    # AND THE RESERVE IS CAPPED AT ITS SHARE, HERE, because here is where the ceiling is a number.
+    # `used` is deliberately NOT capped: it is not a claim on the ceiling, it is the ceiling
+    # already spent, and pretending otherwise would promise a campaign room Meta will not give it.
+    held = min(max(0, reserved), int(ceiling * ENGINE_CAP_SHARE))
+    left = ceiling - held - max(0, used)
+    # `reserved` reports what was actually held back, not what insights asked for — it is the term
+    # in the subtraction above, and an owner shown the uncapped number could not make the
+    # arithmetic on his own screen add up.
     return Share(per_day=max(0, left), known=True, ceiling=ceiling,
-                 reserved=reserved, used=used)
+                 reserved=held, used=used)

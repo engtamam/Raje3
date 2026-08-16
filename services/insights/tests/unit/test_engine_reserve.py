@@ -54,13 +54,13 @@ def test_another_weekday_is_not_counted():
     assert engine_reserve(other, now=NOW, floor=7)["basis"] == "floor"
 
 
-def test_it_never_reserves_more_than_its_share_of_the_ceiling():
-    """A busy shop that reserved everything could never run a campaign — which is a paid feature
-    it bought from us."""
-    r = engine_reserve(visits({0: 900, 1: 950, 2: 920}), now=NOW,
-                       ceiling=1000, cap_share=0.7, floor=0)
-    assert r["reserve"] == 700 and r["basis"] == "capped"
-    assert r["wanted"] > 700          # the working is kept, so the cap is explicable
+def test_it_can_want_more_than_a_ceiling_and_says_so_plainly():
+    """This function does NOT cap against the ceiling, and must not pretend to: it has never been
+    told what the ceiling is. A busy shop's Thursday can warrant 900, and the number that comes
+    out is 900 — the cap belongs to whoever holds the ceiling, and it is pinned in campaigns'
+    test_share.py::test_the_engine_never_holds_more_than_its_share_of_the_ceiling."""
+    r = engine_reserve(visits({0: 900, 1: 950, 2: 920}), now=NOW, floor=0)
+    assert r["reserve"] >= 900 and r["basis"] == "percentile"
 
 
 def test_the_floor_wins_when_the_history_is_thin():

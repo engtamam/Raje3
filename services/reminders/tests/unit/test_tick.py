@@ -580,6 +580,64 @@ def test_no_room_defers_a_follow_up_and_drops_a_confirmation(st):
     assert res.suppressed == 1 and res.ceiling == 1
 
 
+# ── a slot is a reservation until the message goes (ز-7) ───────────────────────────────────────
+def test_a_send_that_failed_gives_its_ceiling_slot_back(st):
+    """A SLOT SPENT ON NOBODY IS ROOM TAKEN FROM THE NEXT CUSTOMER.
+
+    The slot is taken before the send, like the quota unit beside it, and every path that abandons
+    the row gave the unit back and kept the slot. So a template still in Meta's review — the
+    normal state of a shop that connected this morning — shrank the shop's own room by one per
+    failure. Four hundred rows behind it closed the day at a ceiling nobody came near, and every
+    message after them waited until tomorrow for nothing.
+
+    Room for 2, two rows, a sender that fails: both must be ATTEMPTED. Kept unfixed, the first
+    failure eats a slot the second row never gets back.
+    """
+    many(st, 2)
+    s = FakeSender(fail=True)
+    res = run(tick(st, s, quota=FakeQuota(), ceiling=FakeCeiling(1)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(s.calls) == 0                    # FakeSender records nothing when it fails
+    assert res.failed == 2, "the second row was refused room a failed send never used"
+    assert res.ceiling == 0, "nothing was stopped by the ceiling — the ceiling was never reached"
+
+
+def test_a_send_refused_for_the_quota_gives_its_ceiling_slot_back(st):
+    """The same, by the other door: a lapsed subscription is not a full ceiling, and telling the
+    rest of the pass that it is defers messages for a reason that is not true."""
+    many(st, 2)
+    res = run(tick(st, FakeSender(), quota=FakeQuota(limit=0), ceiling=FakeCeiling(1)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert res.suppressed == 2 and res.ceiling == 0
+
+
+def test_a_message_that_actually_went_keeps_its_slot(st):
+    """The other half, and the one that makes the give-back safe: a slot spent on a real message
+    must NOT come back, or the shared allowance stops bounding anything at all."""
+    many(st, 3)
+    s = FakeSender()
+    res = run(tick(st, s, quota=FakeQuota(), ceiling=FakeCeiling(2)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(s.calls) == 2 and res.deferred == 1
+
+
+def test_meta_refusing_closes_the_day_rather_than_handing_the_slot_back(st):
+    """`CeilingReached` IS THE CEILING ANSWERING, so our count is wrong and not the ceiling. Giving
+    the slot back would walk the next row into the same refusal, and the row after that — one
+    rejected API call per remaining message from a shop already at its limit, which is exactly
+    what gets a number rate-limited."""
+    many(st, 4)
+    sender = CeilingSender()
+    res = run(tick(st, sender, quota=FakeQuota(), ceiling=FakeCeiling(10)).run(
+        "t1", now=at(10), library=LIB_POLICY, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={}))
+    assert len(sender.calls) == 1, "the pass kept asking Meta after Meta said no"
+    assert res.deferred == 4
+
+
 # ── the ceiling's cost, recorded once ──────────────────────────────────────────────────────────
 def test_the_first_day_the_ceiling_bites_is_recorded(st):
     """The input to 'twelve customers did not get your messages' — the sentence a dashboard or a
