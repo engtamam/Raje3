@@ -182,4 +182,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "a crash we recovered from or a bug we have not found, and an unlogged repair "
                "makes the second indistinguishable from the first",
     },
+    {
+        "action": "loyalty.adjusted",
+        "source": "admin",
+        "critical": True,
+        "resource": "balance",
+        "why": "someone changed a customer's balance by hand rather than by earning or spending. "
+               "It is the one movement the ledger cannot explain by itself, so who did it and why "
+               "has to be written down beside it",
+    },
 ]

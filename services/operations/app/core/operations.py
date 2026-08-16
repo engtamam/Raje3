@@ -180,8 +180,14 @@ class Operations:
         if self._choose_offer is None:
             raise OperationError("تعذّر التحقق من العروض الآن")
 
-        chosen = await self._choose_offer(tenant=tenant, subject_ref=subject_ref,
-                                          service_ids=list(v.service_ids))
+        try:
+            chosen = await self._choose_offer(tenant=tenant, subject_ref=subject_ref,
+                                              service_ids=list(v.service_ids))
+        except Exception as exc:                                            # noqa: BLE001
+            # AN UNREADABLE PEER REFUSES, IT DOES NOT ANSWER «none». Applying nothing costs the
+            # customer an offer he still holds; telling the worker we could not check lets him try
+            # again in a moment. The two are not the same answer and must not share a return value.
+            raise OperationError("تعذّر التحقق من العروض الآن. أعد المحاولة بعد قليل.") from exc
         if not chosen:
             return None
 

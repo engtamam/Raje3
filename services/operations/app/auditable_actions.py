@@ -417,4 +417,63 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "«منذ متى توقّفت رسائلي» is answered, and it is the only record of a decision taken "
                "outside our product",
     },
+    {
+        "action": "privacy.requested",
+        "source": "user",
+        "critical": True,
+        "resource": "privacy_request",
+        "why": "the hour a customer asked for his data — the moment PDPL's thirty-day clock starts. "
+               "Without this row we cannot say when the clock began, and «we answered in time» "
+               "stops being a claim we can support",
+    },
+    {
+        "action": "customer.erasure_requested",
+        "source": "admin",
+        "critical": True,
+        "resource": "subject",
+        "why": "the establishment acting on a customer's erasure request. Recorded BEFORE the "
+               "erasure so that a deletion which fails halfway is still visible as attempted — "
+               "the one shape a repair cannot be planned without",
+    },
+    {
+        "action": "partner.statements_issued",
+        "source": "system",
+        "critical": True,
+        "resource": "partner_statement",
+        "why": "the monthly run that turns a month of referrals into money owed. A statement "
+               "somebody disputes is answered from this row and its timestamp, not from memory",
+    },
+    {
+        "action": "partner.statement_paid",
+        "source": "admin",
+        "critical": True,
+        "resource": "partner_statement",
+        "why": "we said we paid a partner. Money leaving on our word needs a name and an hour "
+               "attached to it",
+    },
+    {
+        "action": "partner.statement_disputed",
+        "source": "admin",
+        "critical": True,
+        "resource": "partner_statement",
+        "why": "a partner says the number is wrong. When it is settled, this row is what the "
+               "settlement is measured against",
+    },
+    {
+        "action": "tenant.sandboxed",
+        "source": "admin",
+        "critical": True,
+        "resource": "tenant",
+        "why": "an establishment was moved out of the live fleet by us. It stops sending from that "
+               "moment, so «why did my messages stop» has exactly one honest answer and it is here",
+    },
+    {
+        "action": "loyalty.redeemed",
+        "source": "internal",
+        "critical": True,
+        "resource": "balance",
+        "why": "points spent at the counter through an integrated till. The customer gave up a "
+               "balance he earned, and the till is the one surface where neither he nor the owner "
+               "is looking at our screen — so this row is the only account of what happened",
+    },
 ]

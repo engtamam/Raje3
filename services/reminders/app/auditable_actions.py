@@ -209,4 +209,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "why": "the customer's own instruction about what may be sent to them. If we cannot prove "
                "when they said stop, we cannot defend the message we sent after they did",
     },
+    {
+        "action": "subject.erased",
+        "source": "system",
+        "critical": True,
+        "resource": "subject",
+        "why": "this service's leg of an erasure that operations dispatched. Without it the "
+               "fan-out cannot be shown to have completed — and «erased everywhere» is precisely "
+               "the claim that must be provable rather than assumed",
+    },
 ]

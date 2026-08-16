@@ -17,6 +17,16 @@ import urllib.request
 from typing import Any
 
 
+class OfferPeerUnavailable(RuntimeError):
+    """We could not ask. NOT «he has no offer».
+
+    THE DIFFERENCE IS THE WHOLE POINT of this module's own docstring, and the code did the opposite
+    for as long as it existed: every failure returned None, and None reads as «no offer he holds».
+    A customer standing at the counter with an offer in his hand was told he had none, and the shop
+    that sent it looked like it had not.
+    """
+
+
 def http_chooser(*, reminders_url: str, token: str, timeout: int = 5):
     """Build the callable `Operations.with_offer_chooser` wants.
 
@@ -26,8 +36,11 @@ def http_chooser(*, reminders_url: str, token: str, timeout: int = 5):
     async def choose(*, tenant: str, subject_ref: str,
                      service_ids: list[str]) -> dict[str, Any] | None:
         if not reminders_url:
-            return None
-        body = json.dumps({"subject_ref": subject_ref, "visit_id": "",
+            raise OfferPeerUnavailable("no reminders URL configured")
+        # `tenant` IS REQUIRED BY THE PEER (ChooseOfferIn, min_length=1) and was never sent, so
+        # every call in the product's history was rejected 422 and swallowed as «no offer». The
+        # counter — the one moment the customer is paying — could not apply an offer at all.
+        body = json.dumps({"tenant": tenant, "subject_ref": subject_ref, "visit_id": "",
                            "service_ids": list(service_ids)}).encode()
         req = urllib.request.Request(
             reminders_url.rstrip("/") + "/internal/reminders/offer/choose",
@@ -36,10 +49,15 @@ def http_chooser(*, reminders_url: str, token: str, timeout: int = 5):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:      # nosec B310
                 if not 200 <= resp.status < 300:
-                    return None
+                    raise OfferPeerUnavailable(f"reminders answered {resp.status}")
                 payload = json.loads(resp.read() or b"{}")
-        except Exception:                                                   # noqa: BLE001
-            return None
+        except OfferPeerUnavailable:
+            raise
+        except Exception as exc:                                            # noqa: BLE001
+            # EVERY transport failure, and a body we cannot parse: all of them mean «we do not
+            # know», and none of them mean «none».
+            raise OfferPeerUnavailable(str(exc)) from exc
+        # THE PEER ANSWERED. Now — and only now — an absent offer is the truth.
         offer = payload.get("offer")
         return offer if isinstance(offer, dict) and offer.get("ref") else None
 

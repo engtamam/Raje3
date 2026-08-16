@@ -971,7 +971,14 @@ async def privacy_request(request: Request, body: PrivacyRequestIn) -> dict:
     kind = body.type.strip().lower()
     if kind not in PR.TYPES:
         return {"ok": False, "reason": f"type must be one of {list(PR.TYPES)}"}
-    req = await _svc(request).record_privacy_request(body.tenant, body.subject_ref, kind)
+    # THE STORE, NOT A HELPER THAT NEVER EXISTED. This line called `_svc(request)` — a name defined
+    # nowhere in this module — so every privacy request a customer made through his own page raised
+    # NameError and returned 500. The request was never recorded, so PDPL's thirty-day clock never
+    # started and nothing anywhere showed it had been asked for. Import succeeded, the app booted
+    # and the suite was green throughout: only the line itself could have failed, and only when a
+    # real customer ran it.
+    req = await PrivacyRequestStore(request.app.state.container.datastore).open_request(
+        body.tenant, body.subject_ref, kind)
     await request.app.state.auditor.record(
         "privacy.requested", actor="", tenant=body.tenant, resource=f"privacy:{req.id}",
         metadata={"type": kind})
