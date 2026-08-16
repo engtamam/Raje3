@@ -189,10 +189,54 @@ class HttpVisits:
             return {"ok": False, "reason": str(exc)[:200]}
 
 
+class HttpVisitFeed:
+    """Visits recorded after a watermark — the RELIABLE path from a visit to points.
+
+    Separate from `HttpVisits` above, which tells operations that a free service was performed.
+    One writes, one reads; sharing a name would be the kind of confusion that ends with a recovery
+    pass posting visits.
+    """
+    driver = "http"
+
+    def __init__(self, *, url: str, path: str, token: str, timeout: int = 8,
+                 page: int = 200) -> None:
+        self._url = (url.rstrip("/") + path) if url else ""
+        self._token = token
+        self._timeout = timeout
+        self._page = page
+
+    @property
+    def configured(self) -> bool:
+        return bool(self._url)
+
+    async def since(self, tenant: str, mark: int) -> dict[str, Any]:
+        """`{visits, watermark, more}` — and `{}` when we could not ask.
+
+        `{}` IS NOT «no visits». The caller must not advance its cursor on an unreadable answer:
+        the window would be skipped and nobody could ever go back to it.
+        """
+        if not self._url:
+            return {}
+        try:
+            return _post(self._url, {"tenant": tenant, "since": int(mark), "limit": self._page},
+                         self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return {}
+
+
+class NullVisitFeed:
+    driver = "null"
+    configured = False
+
+    async def since(self, tenant: str, mark: int) -> dict[str, Any]:
+        return {}
+
+
 def build_peers(settings) -> dict[str, Any]:
     driver = (getattr(settings, "PEERS_DRIVER", "") or "null").lower()
     if driver == "null":
-        return {"sender": NullSender(), "identity": NullIdentity(), "visits": NullVisits()}
+        return {"sender": NullSender(), "identity": NullIdentity(), "visits": NullVisits(),
+                "visit_feed": NullVisitFeed()}
     return {
         "sender": HttpSender(url=settings.REMINDERS_SERVICE_URL,
                              path=settings.REMINDERS_SEND_PATH,
@@ -206,4 +250,11 @@ def build_peers(settings) -> dict[str, Any]:
                              path=settings.OPERATIONS_VISIT_PATH,
                              token=settings.INTERNAL_SERVICE_TOKEN,
                              timeout=settings.PEER_TIMEOUT_SECONDS),
+        # THE RECOVERY'S OWN READER. The config key naming this route has existed since the
+        # service was written and nothing read it — which is why `Earner.catch_up` had no caller
+        # and the bus was, in practice, the only path from a visit to a point.
+        "visit_feed": HttpVisitFeed(url=settings.OPERATIONS_SERVICE_URL,
+                                    path=settings.OPERATIONS_VISITS_SINCE_PATH,
+                                    token=settings.INTERNAL_SERVICE_TOKEN,
+                                    timeout=settings.PEER_TIMEOUT_SECONDS),
     }

@@ -59,10 +59,21 @@ class Ingest:
             confirm = await _resolve(confirm_visits, str(payload.get("tenant") or ""))
             await self._sched.on_visit(payload, now=now, service_config=service_config or {},
                                        confirm_visits=confirm)
-            # The watermark advances on the event path too. Without this the catch-up re-reads
-            # everything the events already handled — harmless, because on_visit is idempotent on
-            # the visit id, but it grows into a full-table read on every cron tick.
-            await self._advance(payload.get("tenant", ""), int(payload.get("created") or 0))
+            # THE WATERMARK DOES NOT ADVANCE HERE, AND THAT IS THE WHOLE SAFETY NET.
+            #
+            # It used to, to save the catch-up from re-reading what the events had handled. The
+            # saving was real and the cost was total: the bus is AT-MOST-ONCE, so when it drops
+            # visit A and delivers visit B, this line moved the cursor past BOTH — and the
+            # catch-up reads only what came after the cursor. Visit A was then invisible to the
+            # one mechanism built to recover it. For ever, with nothing anywhere recording that a
+            # customer would never be reminded.
+            #
+            # A cursor may only be advanced by the read that is GUARANTEED to have seen
+            # everything before it. The event is a hint; the catch-up is the record.
+            #
+            # AND THE RE-READ IS CHEAP NOW: `on_visit` is idempotent on the visit id, and
+            # `/internal/operations/visits/since` pages properly rather than returning one capped
+            # page, so a catch-up costs a bounded read every five minutes and duplicates nothing.
         except Exception as exc:                                            # noqa: BLE001
             if self._t is not None:
                 self._t.event("visit_event_failed", error=str(exc)[:200],

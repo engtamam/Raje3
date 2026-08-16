@@ -175,6 +175,57 @@ class TickIn(BaseModel):
     tenant: str = ""
 
 
+async def _tenants_with_balances(c, limit: int = 2000) -> list[str]:
+    """Every establishment this service holds points for — the recovery's work list.
+
+    A WHOLE-COLLECTION READ, bounded, on a cron path. The datastore refuses an empty `where` on
+    purpose, and there is no per-tenant index of «who has a balance»: the balance rows ARE that
+    index. A bounded scan every quarter of an hour is the price of a safety net that can find a
+    shop whose very first visit event was the one that was dropped.
+    """
+    from app.core.models import BALANCES
+
+    rows = await c.datastore.scan_all(BALANCES, limit=limit)
+    seen: list[str] = []
+    for row in rows:
+        tenant = str(row.get("tenant") or "")
+        if tenant and tenant not in seen:
+            seen.append(tenant)
+    return seen
+
+
+@router.post("/loyalty/recover", dependencies=[Depends(require_internal_token)])
+async def recover(request: Request, body: TickIn | None = None) -> dict:
+    """Award points for visits the event never brought (the at-most-once safety net).
+
+    THE BUS IS THE FAST PATH AND WAS THE ONLY PATH. A pod restarting through one delivery never
+    hears about that visit again, and a customer's points simply never arrive — permanently, with a
+    balance that looks correct and nothing anywhere saying otherwise. `Earner.catch_up` was written
+    for this and had no caller; the config key naming the read existed and nothing read it.
+
+    NO BODY AND NO TENANT: the clock decides the work list, exactly like every other sweep here.
+    """
+    c = request.app.state.container
+    recovery = getattr(c, "recovery", None)
+    if recovery is None:
+        return {"ok": False, "reason": "NOT_CONFIGURED"}
+
+    # EVERY TENANT WITH A LEDGER — the same list the tick walks, so a shop cannot be swept by one
+    # and skipped by the other.
+    tenants = await _tenants_with_balances(c)
+    read = awarded = 0
+    unreadable = 0
+    for tenant in tenants:
+        out = await recovery.run(tenant)
+        read += int(out.get("read") or 0)
+        awarded += int(out.get("awarded") or 0)
+        unreadable += 1 if out.get("unreadable") else 0
+    # UNREADABLE IS REPORTED, NOT ROUNDED TO ZERO. A pass that could not ask anybody must not look
+    # like a fleet with nothing to recover.
+    return {"ok": True, "tenants": len(tenants), "read": read, "awarded": awarded,
+            "unreadable": unreadable}
+
+
 @router.post("/loyalty/tick", dependencies=[Depends(require_internal_token)])
 async def tick(request: Request, body: TickIn | None = None) -> dict:
     """Expire what is due, and warn what is about to expire (spec §9.7).

@@ -138,6 +138,17 @@ cronJobs:
   - name: tick
     schedule: "10 3 * * *"
     path: /internal/loyalty/tick
+  # THE PATH FROM A VISIT TO POINTS THAT DOES NOT DEPEND ON AN EVENT ARRIVING.
+  #
+  # The bus is at-most-once: a pod restarting through one delivery never hears about that visit
+  # again, and the customer's points simply never arrive — permanently, with a balance that looks
+  # correct. `Earner.catch_up` was written for this and had no caller; this is the caller.
+  #
+  # EVERY QUARTER HOUR, NOT NIGHTLY. A missed point is discovered by the customer at the counter,
+  # and «tomorrow» is long after he has been told he has fewer points than he counted on.
+  - name: recover
+    schedule: "*/15 * * * *"
+    path: /internal/loyalty/recover
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:

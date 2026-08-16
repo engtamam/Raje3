@@ -251,6 +251,13 @@ def build_container(settings: Settings) -> Container:
         # earns. A first visit awarding zero is a programme the owner assumes is broken.
         defaults={"points": settings.DEFAULT_POINTS_PER_VISIT})
     container.earner = Earner(container.ledger, container.earn_settings)
+    # THE RELIABLE PATH FROM A VISIT TO POINTS, alongside the bus subscription which is the fast
+    # one. See core/recovery.py for why a service that has only the fast path has none at all.
+    from app.core.recovery import Recovery
+
+    container.recovery = Recovery(
+        store=container.datastore, earner=container.earner,
+        feed=(peers or {}).get("visit_feed"), telemetry=container.telemetry)
     container.rewards = Rewards(container.datastore)
     container.redeemer = Redeemer(container.datastore, container.ledger, container.rewards)
     # WHAT THE SHOP BOUGHT. Consulted only where the programme GROWS — earning, adjusting, and
