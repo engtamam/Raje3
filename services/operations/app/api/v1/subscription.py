@@ -19,7 +19,12 @@ from app.api.authz import require_capability
 from app.config import get_settings
 from app.core import apps as app_catalogue
 from app.core.subscribe import held_keys, is_base, may_add, may_subscribe
+
 from app.api.ratelimit import rate_limit
+
+#: EXACTLY WHAT billing KNOWS (platform/.../billing_service.py `_INTERVAL`). It reads an unknown
+#: word as a month rather than refusing it, so the refusal has to happen on this side.
+BILLING_INTERVALS = ("month", "year", "once")
 
 # The parent router in __init__ already carries /api/v1.
 router = APIRouter(prefix="/subscription", tags=["subscription"])
@@ -164,6 +169,27 @@ async def subscribe(request: Request, body: SubscribeIn,
         return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
                             content={"error": "PAYMENT_REQUIRED",
                                      "message": decision.reason})
+
+    # ── THE INTERVAL IS CHECKED HERE, BECAUSE NOTHING DOWNSTREAM CHECKS IT (ز-1) ──────────────
+    #
+    # billing keeps `{"month": 30d, "year": 365d, "once": 0}` and reads it as
+    # `_INTERVAL.get(interval, _INTERVAL["month"])` — so a word it does not know is not refused,
+    # it becomes a MONTH. The field arrives from the request with nothing but a length limit, so
+    # «forever», «day» and a typo all buy a monthly subscription nobody asked for.
+    #
+    # AND `once` ON A RECURRING PLAN IS THE EXPENSIVE ONE. It sets the period end to the moment of
+    # purchase, so the plan never comes round to be charged again — one payment, and the shop keeps
+    # what it is holding. A one-time interval belongs to the rows that are sold once: a pack, never
+    # a base. The base is recognised the same way the price list recognises it, by carrying the
+    # message meter (ci/check_plans_shape.py) — read off the plan, never guessed from its name.
+    if body.interval not in BILLING_INTERVALS:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_INTERVAL",
+                                     "message": "مدة الاشتراك غير صحيحة."})
+    if body.interval == "once" and is_base(plan_limits):
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "BAD_INTERVAL",
+                                     "message": "هذه الباقة تُجدَّد شهرياً ولا تُشترى مرة واحدة."})
 
     status_code, out = await c.billing_plans.subscribe(
         tenant=tenant, plan_id=body.plan_id, interval=body.interval,

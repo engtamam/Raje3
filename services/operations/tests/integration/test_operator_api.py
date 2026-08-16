@@ -974,3 +974,42 @@ def test_an_unproven_operator_is_dropped_and_the_visit_still_records(client):
     assert r.status_code == 201, r.text
     assert r.json()["visit"]["operator_id"] == "", "a name nobody proved must not be written"
     assert r.json()["visit"]["branch_id"] == "", "and it must not carry his branch either"
+
+
+# ── the interval is a word billing knows, and `once` is not for a recurring plan (ز-1) ─────────
+
+
+def test_an_interval_billing_does_not_know_is_refused_here(client):
+    """billing reads `_INTERVAL.get(interval, month)` — an unknown word is not refused, it becomes
+    a MONTH. Nothing between the request and that line ever looked at the field, so «forever»,
+    «day» and a typo all bought a monthly subscription nobody chose."""
+    plans = _wire(client, connected=True, limits={"messages.monthly": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "p_base", "interval": "forever", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t_int"))
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "BAD_INTERVAL"
+    assert plans.subscribed == [], "and billing is never asked"
+
+
+def test_a_recurring_plan_cannot_be_bought_once(client):
+    """`once` sets the period end to the moment of purchase, so the plan never comes round to be
+    charged again — one payment, and the shop keeps a base for ever."""
+    plans = _wire(client, connected=True, limits={"messages.monthly": {"limit": "unlimited"}})
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "p_base", "interval": "once", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t_once"))
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "BAD_INTERVAL"
+    assert plans.subscribed == []
+
+
+def test_a_pack_is_still_bought_once(client):
+    """The other half: a row that carries no message meter is not a base, and `once` is exactly
+    how a capacity pack is sold. The guard must not close that door."""
+    plans = _wire(client, connected=True, limits={"staff.seats": {"limit": 10}})
+    r = client.post("/api/v1/subscription",
+                    json={"plan_id": "p_seats", "interval": "once", "payment_token": "tok_1"},
+                    headers=_auth("billing.self", tenant="t_pack"))
+    assert r.status_code < 400, r.text
+    assert plans.subscribed and plans.subscribed[-1][2] == "once"
