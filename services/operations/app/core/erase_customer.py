@@ -9,7 +9,7 @@ start it. The obligation was his and the button was nobody's.
 
 WE DO NOT ERASE ANYTHING OURSELVES HERE, and that is the point. A second erasure path is a second
 answer to «was this person deleted?», and the first disagreement between them is the one a
-regulator reads. This opens a DSAR of type `erase` with compliance-service, marks it verified —
+regulator reads. This opens a DSAR of compliance's own `erasure` type, marks it verified —
 the shop received the request in person, which is the strongest verification this product has —
 and asks compliance to dispatch it. Every store that holds anything of his, including ours, is
 erased by the fan-out that already existed and already keeps the receipts.
@@ -29,6 +29,20 @@ import urllib.request
 from typing import Any
 
 
+#: COMPLIANCE'S WORD, NOT OURS — and the difference cost every erasure this product has ever been
+#: asked for (ب-1). Our own vocabulary for what a customer may ask his shop is («export», «erase»),
+#: which is right for us and readable on his page. compliance's is
+#: («access», «export», «erasure», «correction»), and it validates the field: `erase` is answered
+#: 422 by the FIRST of the three calls below. So the owner pressed «احذف بياناته», the request was
+#: never created, nothing fanned out, and he was shown `compliance answered 422` — a log line, in
+#: English, on a legal deadline.
+#:
+#: Named here, once, at the only place our word would otherwise cross the boundary. The mapping is
+#: not «erase → erasure» for its own sake: it is that two services own two vocabularies, and the
+#: caller translates rather than the callee guessing.
+COMPLIANCE_ERASURE = "erasure"
+
+
 class EraseFailed(RuntimeError):
     """The erasure did not happen. Carries what to tell the person who pressed the button."""
 
@@ -42,7 +56,9 @@ def _post(url: str, *, authorization: str, body: dict[str, Any] | None = None,
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:          # nosec B310
             if not 200 <= resp.status < 300:
-                raise EraseFailed(f"compliance answered {resp.status}")
+                # SAME REASON AS THE HTTPError PATH BELOW: this reaches an owner.
+                raise EraseFailed(
+                    "تعذّر تنفيذ الحذف الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.")
             return json.loads(resp.read() or b"{}")
     except EraseFailed:
         raise
@@ -52,9 +68,15 @@ def _post(url: str, *, authorization: str, body: dict[str, Any] | None = None,
         # for a fault in us instead.
         if exc.code == 403:
             raise EraseFailed("هذا الحساب لا يملك صلاحية تنفيذ طلبات الخصوصية") from exc
-        raise EraseFailed(f"compliance answered {exc.code}") from exc
+        # EVERY OTHER CODE REACHES A PERSON, so it stops being a log line. This sentence was
+        # `compliance answered 422` and an owner read it, in English, with a thirty-day legal
+        # deadline running — and 422 is exactly what the wrong request type produced, so this is
+        # the sentence the whole of ب-1 was showing.
+        raise EraseFailed("تعذّر تنفيذ الحذف الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.") from exc
     except Exception as exc:                                                # noqa: BLE001
-        raise EraseFailed(str(exc)[:160]) from exc
+        # A TIMEOUT, A DNS FAILURE, A BROKEN SOCKET. `str(exc)` here is a Python repr — it named a
+        # host and a port to a shop owner. What he needs to know is only whether it happened.
+        raise EraseFailed("تعذّر الوصول إلى خدمة الخصوصية الآن. أعد المحاولة بعد قليل.") from exc
 
 
 def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) -> dict[str, Any]:
@@ -70,14 +92,17 @@ def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) 
     an already-erased subject is a success, not an error.
     """
     if not compliance_url:
-        raise EraseFailed("no compliance url configured")
+        # A DEPLOYMENT FAULT, AND HE STILL READS IT. He can do nothing about it, so the
+        # sentence says that plainly instead of naming a setting he has never heard of.
+        raise EraseFailed("خدمة الخصوصية غير مهيّأة لدينا. تواصل معنا وسنكملها فوراً.")
     base = compliance_url.rstrip("/") + "/api/v1/compliance"
 
     opened = _post(f"{base}/dsar", authorization=authorization,
-                   body={"subject": subject_ref, "type": "erase"})
+                   body={"subject": subject_ref, "type": COMPLIANCE_ERASURE})
     dsar_id = str(opened.get("id") or "")
     if not dsar_id:
-        raise EraseFailed("compliance did not return a request id")
+        # OUR BUG OR A CONTRACT CHANGE, and either way not his to parse.
+        raise EraseFailed("تعذّر تنفيذ الحذف الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.")
 
     token = str(opened.get("verification_token") or "")
     if token:

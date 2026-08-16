@@ -6,6 +6,8 @@ registration, and a refusal that answers "no such shop" differently from "wrong 
 """
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from app.core.signup import NewShop, SignupRefused, SignupService, canonical_phone
@@ -333,3 +335,47 @@ async def test_a_verified_number_still_says_sign_in():
     with pytest.raises(SignupRefused) as caught:
         await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
     assert "سجّل الدخول" in str(caught.value)
+
+
+# ── the erasure speaks compliance's vocabulary, not ours (ب-1) ─────────────────────────────────
+
+
+def test_the_erasure_asks_for_a_type_compliance_actually_accepts():
+    """EVERY ERASURE THIS PRODUCT HAS EVER BEEN ASKED FOR FAILED ON THIS ONE WORD.
+
+    Our vocabulary for what a customer may ask his shop is («export», «erase»). compliance's is
+    («access», «export», «erasure», «correction») and it VALIDATES the field — so `erase` is
+    answered 422 by the first of the three calls, the request is never created, nothing fans out,
+    and the owner is shown a log line while a thirty-day legal deadline runs.
+    """
+    from app.core import erase_customer as E
+
+    sent: list[dict] = []
+
+    def fake_post(url, *, authorization, body=None, timeout=10):
+        sent.append({"url": url, "body": body or {}})
+        return {"id": "dsar_1", "verification_token": "", "ok": True}
+
+    original, E._post = E._post, fake_post
+    try:
+        E.erase_subject(compliance_url="http://compliance:8000",
+                        authorization="Bearer x", subject_ref="sub_1")
+    finally:
+        E._post = original
+
+    opened = sent[0]["body"]
+    # THE FOUR compliance ACCEPTS, copied from its own model — not a guess, and not our word.
+    assert opened["type"] in ("access", "export", "erasure", "correction")
+    assert opened["type"] == "erasure"
+
+
+def test_no_owner_facing_sentence_in_the_erase_path_is_a_log_line():
+    """He reads these with a legal deadline running. «compliance answered 422» was one of them."""
+    import re
+
+    src = (pathlib.Path(__file__).resolve().parents[2]
+           / "app" / "core" / "erase_customer.py").read_text(encoding="utf-8")
+    raised = re.findall(r"raise EraseFailed\((.*?)\)\s*(?:from|$)", src, re.S)
+    assert raised, "the guard itself must not go blind"
+    for text in raised:
+        assert re.search(r"[؀-ۿ]", text), f"not a sentence a shop owner can read: {text}"
