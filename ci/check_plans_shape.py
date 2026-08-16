@@ -30,6 +30,9 @@ import json
 import sys
 from pathlib import Path
 
+#: billing-service's own sentinel (platform/.../entitlement_merge.py). Ours must be the same word.
+UNLIMITED = "unlimited"
+
 ROOT = Path(__file__).resolve().parent.parent
 PLANS = ROOT / "deploy" / "seed" / "plans.json"
 
@@ -70,21 +73,42 @@ def main() -> int:
     # base — الأساس and المؤسسات are alternatives, never a pair, so both may carry -1. That is a
     # dependency between a data file and a rule in code, and it is stated here so the day somebody
     # relaxes that rule this line is what tells them what else it was holding up.
+    # THE SENTINEL IS billing'S OWN WORD, AND THIS CHECK WENT BLIND THE DAY WE ADOPTED IT.
+    #
+    # It hunted `-1`, which is what we used to seed. billing's merge does not know that number: it
+    # SUMS it, so «المؤسسات» plus a capacity pack came out at 9 seats and two bases at -2 messages,
+    # which refuses every send. The value is now the word `unlimited`, which its merge treats as
+    # beating every arithmetic — and a check still looking for -1 would pass a file full of them.
+    #
+    # Both are recognised: the word, because it is what we write, and -1, because a row seeded
+    # before the change is still a row a shop can hold, and it must not slip through unpaired.
+    def is_unlimited(value: object) -> bool:
+        return limit_of(value) in (-1, UNLIMITED)
+
+    # AND -1 IS REFUSED OUTRIGHT, wherever it appears. It is not a smaller unlimited; it is a
+    # number that billing will add to another number.
+    for plan in rows:
+        for key, value in (plan.get("limits") or {}).items():
+            if limit_of(value) == -1:
+                problems.append(f"{plan['name']}: {key} is -1 — billing has no such sentinel and "
+                                f"SUMS it. Write the word {UNLIMITED!r}, which its merge treats as "
+                                f"beating every arithmetic")
+
     unlimited: dict[str, list[str]] = {}
     for plan in rows:
         if plan in bases:
             continue
         for key, value in (plan.get("limits") or {}).items():
-            if limit_of(value) == -1:
+            if is_unlimited(value):
                 unlimited.setdefault(key, []).append(plan["name"])
     # An app row carrying -1 for a key a base also grants is the pair that CAN be held together.
     base_unlimited = {k for p in bases for k, v in (p.get("limits") or {}).items()
-                      if limit_of(v) == -1}
+                      if is_unlimited(v)}
     for key in sorted(base_unlimited & set(unlimited)):
         unlimited[key] = unlimited[key] + ["a base"]
     for key, names in sorted(unlimited.items()):
         if len(names) > 1:
-            problems.append(f"{key} is -1 in {len(names)} rows ({', '.join(names)}) — a shop "
+            problems.append(f"{key} is unlimited in {len(names)} rows ({', '.join(names)}) — a shop "
                             f"holding two of them sums to -2, and 'unlimited' becomes a number "
                             f"that means nothing")
 

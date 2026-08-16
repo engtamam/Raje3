@@ -28,10 +28,10 @@
     "`limit`, and numbers SUM: the base says feature.campaigns 0, the app says 1, the answer is 1.",
     "Seats add the same way — base 5 plus a seat pack of 10 is 15.",
     "",
-    "WHICH IS WHY ONLY THE BASE MAY CARRY `messages.monthly`. It is -1, and -1 summed with another",
-    "-1 is -2. An app that repeated the key would quietly turn 'unlimited' into a number that means",
-    "nothing, and the failure would show up as a refused message rather than as an error here.",
-    "The same rule for any key whose value is -1: it belongs to exactly one row.",
+    "WHICH IS WHY ONLY THE BASE MAY CARRY `messages.monthly`, AND WHY ITS VALUE IS THE WORD",
+    "`unlimited` RATHER THAN -1. billing merges its own sentinel by beating every arithmetic;",
+    "-1 is just a number to it, and two of them summed to -2 — which refuses every send.",
+    "The one-row rule holds for any key carrying the sentinel: it belongs to exactly one row.",
     "",
     "AND AN APP IS NOT BOUGHT TWICE, NOR WITHOUT THE BASE. Neither is expressible in billing —",
     "subscribe always creates a row — so both are refused in our own path, operations'",
@@ -57,7 +57,7 @@
     "per delivered message, on a card in its own account — we neither buy them nor resell them, so",
     "selling '1,000 a month' was selling what we do not own. Top-up packs went with it.",
     "",
-    "messages.monthly SURVIVES AT -1, and the -1 is the whole point: unlimited still INCREMENTS the",
+    "messages.monthly SURVIVES AS THE SENTINEL, and that is the whole point: unlimited still",
     "counter in billing, so every send is measured and nothing is ever refused for a ceiling of",
     "ours. It is a protection meter — it catches our own runaway loop before the owner's bill does",
     "— and if we ever become a Solution Partner and messages are billed to us, a real number goes",
@@ -71,7 +71,7 @@
   "currency": "SAR",
 
   "limit_keys": {
-    "messages.monthly": "measured, never sold — see the note above. Uncapped (-1), on the BASE ONLY",
+    "messages.monthly": "measured, never sold — see the note above. Uncapped, on the BASE ONLY",
     "staff.seats": "people who can sign in; operations owns the count and reports it",
     "branches": "branches; operations owns the count and reports it",
     "feature.campaigns": "the campaign builder (§10)",
@@ -110,7 +110,7 @@
       "amount": 9900,
       "trial_days": 14,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
+        "messages.monthly": {"kind": "counter", "limit": "unlimited", "period": "billing_period",
                              "overage": "allow_and_bill"},
         "staff.seats": {"kind": "gauge", "limit": 5},
         "branches": {"kind": "gauge", "limit": 1},
@@ -201,7 +201,7 @@
         "",
         "IT IS A WHOLE SUBSCRIPTION, NOT AN APP — it carries every key including messages.monthly,",
         "and it is sold INSTEAD of the base rather than beside it. A shop holding both would sum",
-        "two -1 message meters into -2, which is why `subscription.activate` refuses the pair.",
+        "two message meters into a smaller one, which is why `subscription.activate` refuses it.",
         "",
         "The amount here is a PLACEHOLDER, not a price. It is what the plan costs when nobody has",
         "negotiated anything, and the panel overwrites it per subscription."
@@ -211,15 +211,15 @@
       "trial_days": 0,
       "listed": false,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": -1, "period": "billing_period",
+        "messages.monthly": {"kind": "counter", "limit": "unlimited", "period": "billing_period",
                              "overage": "allow_and_bill"},
-        "staff.seats": {"kind": "gauge", "limit": -1},
-        "branches": {"kind": "gauge", "limit": -1},
+        "staff.seats": {"kind": "gauge", "limit": "unlimited"},
+        "branches": {"kind": "gauge", "limit": "unlimited"},
         "feature.campaigns": {"kind": "boolean", "limit": 1},
         "feature.loyalty": {"kind": "boolean", "limit": 1},
         "feature.insights.engine": {"kind": "boolean", "limit": 1},
         "feature.api": {"kind": "boolean", "limit": 1},
-        "templates.custom": {"kind": "counter", "limit": -1, "period": "month",
+        "templates.custom": {"kind": "counter", "limit": "unlimited", "period": "month",
                              "overage": "block"}
       }
     }

@@ -54,7 +54,11 @@ const SECTION_LABEL: Record<string, string> = {
 };
 
 interface Price { type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean }
-interface Limit { kind?: string; limit?: number; period?: string; overage?: string }
+/** `limit` is a NUMBER OR THE WORD `unlimited` — billing's own sentinel, which its merge treats as
+ *  beating every arithmetic. We used to seed -1 for the same idea; billing read that as a plain
+ *  number and SUMMED it, so «المؤسسات» plus a capacity pack came out at 9 seats instead of no
+ *  limit, and two bases summed to -2 messages — which refuses every send. */
+interface Limit { kind?: string; limit?: number | string; period?: string; overage?: string }
 export interface Plan {
   id: string;
   name: string;
@@ -110,14 +114,16 @@ export function planLines(p: Plan): string[] {
   for (const [key, lim] of Object.entries(p.limits ?? {})) {
     const words = LIMIT_WORDS[key];
     if (!words) continue;                       // no sentence for it → it is not shown
-    const n = lim.limit ?? 0;
+    const raw = lim.limit ?? 0;
+    // THE SENTINEL IS A WORD, AND IT IS CHECKED BEFORE ANYTHING NUMERIC. `-1` is kept as a reading
+    // only so a row seeded before the change still renders «بلا حد» rather than nothing at all.
+    const unlimited = raw === 'unlimited' || (typeof raw === 'number' && raw < 0);
+    const n = typeof raw === 'number' ? raw : 0;
     if (lim.kind === 'boolean') {
-      if (n > 0) out.push(words.label);
+      if (unlimited || n > 0) out.push(words.label);
       continue;
     }
-    // -1 IS UNLIMITED IN THIS SERVICE, not an error and not zero. Printing «-1 رسالة» once got as
-    // far as a screenshot.
-    if (n < 0) out.push(`${words.label}: بلا حد`);
+    if (unlimited) out.push(`${words.label}: بلا حد`);
     else if (n > 0) out.push(`${words.label}: ${n}`);
   }
   return out;
