@@ -132,15 +132,10 @@ class RedeemIn(BaseModel):
     # Set by a manager approving a reward above the threshold (spec §9.5). Empty otherwise, and
     # the core decides whether that is allowed — not this model.
     approved_by: str = Field(default="", max_length=128)
-    # WHERE — AND IT IS NO LONGER SENT. This field said the screen knew which branch it stood in.
-    # It did not: `redeem()` in the console never passed one, so every redemption in a branched
-    # shop was filed under «غير محدَّد» while the till's were filed correctly, and «أيّ فرع يصرف
-    # أكثر؟» answered from half the data. Meanwhile loyalty holds no staff list, so whatever a
-    # caller DID send was written unchecked.
-    #
-    # The branch is now resolved from the person's own operator row, exactly as the visit path
-    # resolves it (spec 12.2). The field is kept so an old client is not rejected, and ignored.
-    branch_id: str = Field(default="", max_length=64)
+    # NO BRANCH ON THE BODY. Where the spend happened is resolved from the person's own operator
+    # row, exactly as the visit path resolves it (spec 12.2) — this service holds no staff list,
+    # so anything a caller sent here would be written unchecked, and «أيّ فرع يصرف أكثر؟» is a
+    # question an owner closes a place on.
 
 
 @router.post("/redeem", dependencies=[Depends(rate_limit)])

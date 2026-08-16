@@ -473,3 +473,16 @@ def test_the_menu_says_which_rewards_need_a_manager_before_the_tap(client, owner
         flags = {r["id"]: r["needs_approval"] for r in got["rewards"]}
         assert flags[big] is True, flags
         assert flags[small] is False, flags
+
+
+def test_the_body_cannot_choose_which_branch_a_spend_is_filed_under():
+    """و-5 · loyalty holds no staff list, so a branch on the request is a claim nothing can check.
+
+    It is resolved from the operator's own row instead, and the field is GONE rather than accepted
+    and ignored: a body field that is silently dropped is the shape that made the till and the
+    screen disagree in the first place — one of them was sending something the server pretended to
+    take.
+    """
+    from app.api.v1.loyalty import RedeemIn
+
+    assert "branch_id" not in RedeemIn.model_fields

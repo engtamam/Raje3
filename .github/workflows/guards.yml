@@ -195,6 +195,23 @@ jobs:
       - name: a private key tracked by git
         run: python3 ci/check_no_private_key_is_tracked.py
 
+      # AND AN ERASURE OVER A MAP NOBODY RE-READ. The owner can DELETE a data target with the
+      # same capability that lets him start the erasure; the request then closes COMPLETED over
+      # a subset, and nothing fails anywhere.
+      - name: an erasure that skips the data map
+        run: python3 ci/check_an_erasure_reasserts_the_map.py
+
+      # AND A SECOND NAME FOR ONE SHOP — the workaround that grew because a name could not be
+      # changed. It can now, so a duplicate is a duplicate.
+      - name: a second shop name
+        run: python3 ci/check_a_shop_has_one_name.py
+
+      # AND A BROWSE OF PEOPLE ACROSS EVERY BRANCH. `public()` carries the name, the phone and
+      # the branch a row was served in; a list of those is a leak the branch gate cannot see,
+      # because the leaking field is never named in the route.
+      - name: a browse of people that is not scoped
+        run: python3 ci/check_a_browse_of_people_is_scoped.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

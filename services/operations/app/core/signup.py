@@ -354,10 +354,14 @@ class SignupService:
         # right we could not exercise. The refusal is honest rather than a false "done", which is
         # why the gap was survivable; it was never acceptable.
         #
-        # AT SIGNUP, because this is the last trusted moment: the user-tier route needs
-        # `compliance.manage`, a capability a shop owner must never hold — it also grants DELETE,
-        # which NARROWS the erasure fan-out. The internal tier arrived in base-services v0.16.4
-        # after we escalated exactly this.
+        # AT SIGNUP, because it is the moment the map is certainly whole: the tenant exists, every
+        # service that will hold his data is known, and nothing has had a chance to remove one.
+        #
+        # THE OWNER DOES HOLD `compliance.manage`, and that is deliberate — the erasure button
+        # travels on his token so the act is his and we cannot erase a customer of a shop that
+        # did not ask (core/erase_customer.py). The same capability grants DELETE on data
+        # targets, so the map he narrows is his own; `reassert_data_map` restores it before any
+        # fan-out, and `ci/check_an_erasure_reasserts_the_map.py` keeps the two together.
         #
         # NOT UNDONE ON FAILURE, and reported instead. A shop whose map is incomplete works and is
         # repairable from our panel; deleting a working account over one unreachable peer is the
