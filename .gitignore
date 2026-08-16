@@ -41,3 +41,12 @@ dist/
 
 # names a host and a login — per operator, never shared
 deploy/target.env
+
+# PRIVATE KEYS ARE NEVER TRACKED (ج2-أ). `pilot.pem` — the SSH key to the pilot server — was
+# committed in 3b997bc and travelled to origin. The repository is private, so the exposure is
+# bounded by who can read it, but a key in a history is a key that cannot be un-shared: the
+# containment is ROTATION on the server, which is Tamam's to do, not a deletion here.
+*.pem
+*.key
+id_rsa
+id_ed25519

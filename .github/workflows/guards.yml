@@ -189,6 +189,12 @@ jobs:
       - name: a recorded visit that never runs the seams
         run: python3 ci/check_a_recorded_visit_runs_the_seams.py
 
+      # AND NO PRIVATE KEY, EVER. `pilot.pem` — the SSH key to the pilot server — was committed and
+      # pushed. `.gitignore` is advice that `git add -f` walks past; this reads what git actually
+      # tracks, by filename and by the PEM header a rename cannot hide.
+      - name: a private key tracked by git
+        run: python3 ci/check_no_private_key_is_tracked.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave
