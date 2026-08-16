@@ -288,6 +288,10 @@ class EarnIn(BaseModel):
     # touches money.
     amount_halalas: int = 0
     actor: str = ""
+    # WHO ALLOWED IT, when the reward is above the shop's threshold. Empty is the ordinary case —
+    # most redemptions are below it — and the core refuses the expensive ones without a name, and
+    # refuses a name that is the operator's own.
+    approved_by: str = ""
     # Optional, like everything else the till sends about itself. A chain's balance is one across
     # its branches (§12.2) — this does not change that; it answers WHERE, which the owner asks
     # immediately after WHO.
@@ -386,10 +390,22 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
     ought to match.
     """
     c = request.app.state.container
+
+    # THE SHOP'S OWN THRESHOLD, ON THIS PATH TOO — and it was passed on neither.
+    #
+    # `manager_threshold` defaults to 0, which means «no approval needed for anything». The owner
+    # sets it on his screen, the field route reads it, and this one did not: so the counter he set
+    # the rule FOR — the integrated till, where neither he nor the customer is looking at our
+    # screen — was the one place it did not apply. A control that holds everywhere except the
+    # place it was written for is not a control.
+    from app.api.v1.loyalty import _threshold
+
     try:
         rec, is_new = await c.redeemer.redeem(
             body.tenant, body.subject_ref, body.reward_id, actor=body.actor,
-            idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id)
+            idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id,
+            approved_by=getattr(body, "approved_by", "") or "",
+            manager_threshold=await _threshold(c, body.tenant))
     except Overdraft as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except LoyaltyError as exc:

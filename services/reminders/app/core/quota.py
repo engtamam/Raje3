@@ -101,9 +101,10 @@ class NullQuota:
         self.consumed.append({"tenant": tenant, "idempotency_key": idempotency_key,
                               "amount": amount})
 
-    async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
+    async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1,
+                      key: str = KEY) -> None:
         self.released.append({"tenant": tenant, "idempotency_key": idempotency_key,
-                              "amount": amount})
+                              "amount": amount, "key": key})
 
     async def remaining(self, tenant: str) -> dict[str, Any]:
         return {"limit": 0, "current": 0, "remaining": 0, "unlimited": True}
@@ -185,10 +186,18 @@ class HttpQuota:
                 raise QuotaError("لا يوجد اشتراك فعّال.")
             raise QuotaError("بلغت حدّ باقتك من النصوص الخاصة هذا الشهر.")
 
-    async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1) -> None:
-        """Give the unit back after a send that did not happen. Best-effort, never raises."""
+    async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1,
+                      key: str = KEY) -> None:
+        """Give the unit back after a send that did not happen. Best-effort, never raises.
+
+        THE KEY IS AN ARGUMENT NOW, and it was a constant. This service meters two different
+        things — `messages.monthly`, which is measured and never refused, and `templates.custom`,
+        which IS a limit — so a release that always credited the first would have handed a shop a
+        message allowance back for a template Meta rejected. Silently, and in the shop's favour,
+        which is the direction nobody reports.
+        """
         try:
-            self._post(self._release, {"tenant": tenant, "key": KEY, "amount": amount,
+            self._post(self._release, {"tenant": tenant, "key": key, "amount": amount,
                                        "idempotency_key": idempotency_key})
         except QuotaError:
             # Deliberately swallowed. The send has already failed and is being rescheduled; the

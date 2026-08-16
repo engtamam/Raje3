@@ -69,9 +69,24 @@ class Redeemer:
             raise Overdraft(
                 f"الرصيد {bal.points} نقطة، والمكافأة {reward.cost} — لا يكفي")
 
-        if manager_threshold and reward.cost >= manager_threshold and not approved_by:
-            raise LoyaltyError(
-                f"هذه المكافأة تحتاج اعتماد المدير (الحد {manager_threshold} نقطة)")
+        if manager_threshold and reward.cost >= manager_threshold:
+            if not approved_by:
+                raise LoyaltyError(
+                    f"هذه المكافأة تحتاج اعتماد المدير (الحد {manager_threshold} نقطة)")
+            # A SECOND PERSON, NOT A SECOND FIELD.
+            #
+            # The check was «is this string non-empty», and the string is typed by the person doing
+            # the redeeming. So the control read as «type any name to continue» — a manager
+            # approval that the operator grants himself, on exactly the redemptions expensive
+            # enough to have been worth a threshold.
+            #
+            # Requiring a DIFFERENT identity is the smallest thing that makes it a control rather
+            # than a label. It does not yet prove the approver is a manager — that needs the staff
+            # list from operations, and it is written down as the next step — but it does mean the
+            # person spending the points is not also the person allowing it.
+            if approved_by.strip().casefold() == (actor or "").strip().casefold():
+                raise LoyaltyError(
+                    "اعتماد المدير لا يكون من الشخص نفسه — أدخل اسم من اعتمدها.")
 
         rec = Redemption(
             tenant=tenant, subject_ref=subject_ref, reward_id=reward.id,

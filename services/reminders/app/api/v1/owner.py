@@ -406,7 +406,35 @@ async def submit_custom_template(request: Request, name: str,
         # hourly slots to ask about a template Meta has not finished reading.
         return {"ok": False, "error": "هذا النص مرفوع بالفعل."}
 
+    # ── THE PLAN LIMIT, SPENT BEFORE THE SUBMISSION AND NOT AFTER ────────────────────────────
+    #
+    # `templates.custom` is sold: 0 on الأساسية, then 1, 10, unlimited. `Quota.take` was written
+    # for it — refusing when exhausted, and refusing when it cannot reach billing, both on purpose
+    # — and NOTHING EVER CALLED IT. A shop on the entry plan could submit unlimited texts to Meta.
+    #
+    # AND THE COST IS NOT OURS ALONE. Every submission goes to Meta under the establishment's own
+    # WhatsApp account and counts against OUR quality standing as its Tech Provider; a rejected
+    # name cannot be reused. So an unenforced limit is not lost revenue, it is a reputation we
+    # cannot buy back.
+    #
+    # BEFORE, because after is a limit that has already been exceeded. The unit is released below
+    # if Meta refuses, so a rejection does not cost him a slot he never got the use of.
+    from app.core.quota import CUSTOM_TEMPLATE_KEY, QuotaError
+
+    idem = f"tpl:{principal.tenant}:{name}:{row.get('version') or 0}"
+    try:
+        await c.quota.take(tenant=principal.tenant, key=CUSTOM_TEMPLATE_KEY, idempotency_key=idem)
+    except QuotaError as exc:
+        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «بلغت حدّ باقتك من
+        # النصوص الخاصة» is the whole answer.
+        return {"ok": False, "error": str(exc)}
+
     out = await c.submitter.submit(principal.tenant, row)
+    if not out.get("ok"):
+        # HIS SLOT BACK. Meta refused the wording, and charging him a monthly allowance for a text
+        # that never reached anybody would make the limit punish the attempt rather than the use.
+        await c.quota.release(tenant=principal.tenant, idempotency_key=idem,
+                              key=CUSTOM_TEMPLATE_KEY)
     status = PENDING if out.get("ok") else REJECTED
     try:
         row = await store.mark(principal.tenant, name, status=status,
