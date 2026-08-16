@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.spread import plan as plan_spread
 from app.core.models import Run, as_row
 
 
@@ -47,7 +48,7 @@ class Dispatcher:
         # read a number would be our outage wearing their ceiling.
         self._daily_share = int(daily_share)
 
-    async def fire(self, campaign: dict[str, Any], *, now: int, daily_share: int = 0,
+    async def fire(self, campaign: dict[str, Any], *, now: int, daily_share: int | None = None,
                    fired_by: str = "system") -> DispatchResult:
         """One pass over one campaign.
 
@@ -76,7 +77,39 @@ class Dispatcher:
         # already gone today — three numbers from three services, none of them the same for two
         # shops. The preview computes it exactly this way, and the two now agree instead of the
         # screen promising a spread the sender did not perform.
-        per_pass = daily_share or self._daily_share or self._batch
+        # ZERO IS AN ANSWER, AND `None` IS THE ABSENCE OF ONE (ج-3). `share.py` returns
+        # `per_day=0, known=True` when the shop's ceiling is fully spent — a real, correct,
+        # deliberate zero — and this line used to read it with `or`, which is falsy for exactly
+        # that value. So the preview refused with «لا تتوفر مساحة اليوم» and the sender, told the
+        # same thing, fell through to the pass batch and pushed 200 messages past the ceiling.
+        # The failures then landed on whichever message went last, which is a customer's
+        # confirmation rather than the campaign that caused it.
+        if daily_share is not None:
+            per_pass = daily_share
+        else:
+            per_pass = self._daily_share or self._batch
+
+        # THE SPREAD REFUSAL IS ENFORCED HERE, NOT ONLY DRAWN IN THE PREVIEW (ج-4).
+        #
+        # `spread.plan` decides whether a campaign can reach everyone before its offer expires,
+        # and it names the two remedies — shrink the audience, or extend the date — because only
+        # the owner can choose between them. The preview called it and showed the sentence. The
+        # launch called nothing: ten thousand recipients against a share of five hundred and an
+        # offer that ends in five days sent ~2,500 and left 7,500 queued for an offer that had
+        # expired, each one a message the shop pays for and a customer who is told about a
+        # discount he cannot have.
+        #
+        # AT FIRE, so both paths are covered: the press and the cron. A refusal from the button
+        # alone would be the same defect with better odds.
+        if per_pass > 0 and int(campaign.get("expires_at") or 0):
+            sp = plan_spread(audience=audience.count, available_per_day=per_pass,
+                             expires_at=int(campaign.get("expires_at") or 0), now=now)
+            if sp.refused:
+                # NOTHING IS SENT, and the run says why in the owner's own words. A partial send
+                # would be the outcome the refusal exists to prevent, performed anyway.
+                run.reasons[sp.refused] = audience.count
+                await self._save(run)
+                return DispatchResult(run=run, finished=True)
 
         sent_this_pass = 0
         for candidate in audience.candidates:

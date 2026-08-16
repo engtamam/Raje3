@@ -80,15 +80,21 @@ class Tick:
         # could not read a number would be our outage wearing their ceiling.
         self._share_reader = share_reader
 
-    async def _share_for(self, tenant: str) -> int:
+    async def _share_for(self, tenant: str) -> int | None:
+        """Today's share, or `None` when it could not be read (ج-3).
+
+        UNKNOWN AND ZERO ARE DIFFERENT ANSWERS, and returning 0 for both is what let a spent
+        ceiling read as «nobody told me» one layer down — where the sender then fell back to the
+        pass batch. Zero means «send nothing this pass»; `None` means «nobody knows», and the
+        sender keeps its own bound rather than silencing a shop over an unreadable peer.
+        """
         if not self._share_reader or not tenant:
-            return 0
+            return None
         try:
-            return int(await self._share_reader(tenant) or 0)
+            got = await self._share_reader(tenant)
         except Exception:                                                   # noqa: BLE001
-            # UNKNOWN, NOT ZERO — and zero would mean «send nothing», which is the opposite of
-            # what an unreadable ceiling should cost a shop.
-            return 0
+            return None
+        return None if got is None else int(got)
 
     async def run(self, tenant: str, *, now: int) -> TickResult:
         res = TickResult()

@@ -106,8 +106,11 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
 
+    # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default: the
+    # preview exists to tell the owner what will happen, and a preview run under different rules
+    # than the send is a number that is worse than no number.
     audience = await c.audience.resolve_for(
-        principal.tenant, goal=body.goal, now=_now(),
+        principal.tenant, goal=body.goal, now=_now(), cls=spec["cls"],
         already_reached=set(), service_id=body.service_id, branch_id=body.branch_id)
 
     try:
@@ -283,7 +286,10 @@ async def create(request: Request, body: CampaignIn,
         # the sentence was a promise nothing kept — and the engine's reserve went with it.
         share = await _todays_share(c, principal.tenant)
         out = await c.dispatcher.fire(as_row(campaign), now=now, fired_by=principal.subject,
-                                      daily_share=share.per_day if share.known else 0)
+                                      # `None` WHEN WE COULD NOT READ THE CEILING, never 0: an
+                                      # unknown share must not silence a shop, and a known zero
+                                      # must not be overridden. Two facts, two values (ج-3).
+                                      daily_share=share.per_day if share.known else None)
         fired = vars(build_report(as_row(out.run)))
         until = lock_after_send(body.goal, now=now, sent=out.run.sent)
         if until:

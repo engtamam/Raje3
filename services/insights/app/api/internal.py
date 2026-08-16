@@ -283,4 +283,20 @@ async def engine_reserve(request: Request, tenant: str) -> dict:
 
     snap = await request.app.state.container.datastore.get(SNAPSHOTS, f"{tenant}|_all")
     values = (snap or {}).get("values") or {}
-    return {"reserved": int(values.get("engine_reserve") or 0)}
+    # THE INDICATOR IS A JUDGEMENT, NOT A NUMBER (ج-2). `indicators.engine_reserve` answers
+    # `{"reserve", "basis", "weekday", "samples"}` — the number AND how it was arrived at — and the
+    # snapshot stores that whole answer, deliberately. This route read it as if it were the number:
+    # `int({...})` raises TypeError, the route 500s, and campaigns swallows the failure into a
+    # zero. So the reserve was never once subtracted, on any shop, since it was built: a campaign
+    # took 250 where 210 was its share and ate the reminders' allowance to do it.
+    #
+    # AND THE FIELD IS NAMED HERE. `reserved` is what campaigns asks for; `reserve` is what the
+    # indicator calls it. One translation, at the boundary, rather than two vocabularies loose in
+    # both services.
+    got = values.get("engine_reserve")
+    reserve = got.get("reserve") if isinstance(got, dict) else got
+    return {"reserved": int(reserve or 0),
+            # HOW IT WAS ARRIVED AT, carried rather than dropped: «floor» on a shop with no
+            # history is a different fact from a percentile of eight real weeks, and the caller
+            # that promises an owner his campaign reaches everyone should be able to say which.
+            "basis": str((got or {}).get("basis") or "") if isinstance(got, dict) else ""}

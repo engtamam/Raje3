@@ -52,6 +52,10 @@ interface Preview {
   excluded?: number;
   too_recent?: number;
   spread_says?: string;
+  /** The plan itself, and `refused` is the half the screen never read (ج-4): the sentence was
+   *  rendered as advice before the launch and AS THE SUCCESS BANNER after it. A refusal shown in
+   *  the place a confirmation goes is a refusal nobody reads as one. */
+  spread?: { days?: number; per_day?: number; total?: number; refused?: string };
   why?: string[];
 }
 
@@ -322,7 +326,11 @@ export function Launch({ session, catalog, onDone }:
                 {preview.too_recent} أخذوا هذه الخدمة قريباً — لا نعرض عليهم ما اشتروه للتوّ.
               </p>
             ) : null}
-            {preview.spread_says ? (
+            {/* THE REFUSAL LOOKS LIKE A REFUSAL. Same sentence, and the colour is the whole
+                difference between «here is the plan» and «this cannot run as configured». */}
+            {preview.spread?.refused ? (
+              <p className="text-sm text-danger">{preview.spread.refused}</p>
+            ) : preview.spread_says ? (
               <p className="text-sm text-accent-on-soft">{preview.spread_says}</p>
             ) : null}
             {/* WHY THIS AUDIENCE AND NOT ANOTHER — the server's own reasons, and the screen
@@ -344,9 +352,12 @@ export function Launch({ session, catalog, onDone }:
                     onClick={() => void ask(picked)}>اعرض ما سيصل</Button>
           ) : (
             <Button
-              disabled={busy || !createAction}
+              // A PLAN THE SERVER WILL REFUSE IS NOT A PLAN TO PRESS. The refusal names two
+              // remedies — shrink the audience, or extend the date — and both are edits on this
+              // screen: the button that offers neither is the one that should not be live.
+              disabled={busy || !createAction || Boolean(preview.spread?.refused)}
               onClick={async () => {
-                if (!createAction) return;
+                if (!createAction || preview.spread?.refused) return;
                 setBusy(true); setError('');
                 try {
                   await call(session, createAction, {
@@ -356,8 +367,10 @@ export function Launch({ session, catalog, onDone }:
                     service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
                     expires_at: expiresAt,
                   });
-                  setSent(preview.spread_says
-                    || `تصل ${preview.reaches ?? 0} عميلاً.`);
+                  // WHAT HAPPENED, NOT WHAT WAS PLANNED. This used to print `spread_says` as the
+                  // confirmation — so a campaign the server refused announced its own refusal in
+                  // the voice of a success, and the owner walked away believing it had gone.
+                  setSent(`تصل ${preview.reaches ?? 0} عميلاً.`);
                 } catch (e) {
                   setError(e instanceof Error ? e.message : 'تعذّر الإطلاق.');
                 } finally {

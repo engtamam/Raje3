@@ -331,10 +331,23 @@ class _AudienceFacade:
         # changes with the size of the shops we serve — so it arrives from the deployment.
         self._max_audience = int(max_audience)
 
-    async def resolve_for(self, tenant: str, *, goal: str, now: int,
-                          already_reached=None, cls: str = "marketing",
+    async def resolve_for(self, tenant: str, *, goal: str, now: int, cls: str,
+                          already_reached=None,
                           service_id: str = "", branch_id: str = ""):
-        """`service_id` IS THE 70% CYCLE LOCK'S ONLY INPUT, and it used not to arrive.
+        """`cls` HAS NO DEFAULT, AND THAT IS THE FIX (ج-1).
+
+        It decides WHICH RULES the audience is resolved under: marketing needs explicit consent and
+        is capped at four messages a month; awareness needs none and is capped at one. The send has
+        always passed the campaign's real class. The preview did not — so it silently took
+        `"marketing"`, and every awareness campaign was previewed under one rulebook and executed
+        under another. The screen said 12 and the run reached 180, and both numbers came out of
+        this same function, which is why nobody looked at the argument list.
+
+        A default here is a policy chosen by whoever forgets to pass one. Removing it is worth more
+        than any check that could have caught the omission: a caller that does not say now cannot
+        compile, and there is no list of exceptions to keep.
+
+        `service_id` IS THE 70% CYCLE LOCK'S ONLY INPUT, and it used not to arrive.
 
         The resolver has always accepted it and `_too_early` has always enforced it: whoever took
         this service two days ago is held out, and whoever is 70% through his own rhythm for it is

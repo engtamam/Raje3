@@ -326,5 +326,8 @@ def test_an_unreadable_ceiling_does_not_stop_the_campaign(st):
 
     run(Tick(store=st, dispatcher=d, licence=None, share_reader=reader).run("t1", now=at(10)))
 
-    assert d.shares == [0], "0 means «unknown», and the dispatcher falls back to its pass batch"
+    # `None`, NOT 0 (ج-3). This assertion used to read `[0]` and to explain that zero meant
+    # «unknown» — which is precisely the conflation that let a fully-spent ceiling arrive at the
+    # sender looking like an unread one, where it fell back to the pass batch and sent 200.
+    assert d.shares == [None], "unknown is its own value; the sender keeps its own bound"
     assert len(d.fired) == 1
