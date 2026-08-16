@@ -115,6 +115,35 @@ export function MessagePreview({
       .catch(() => setHelp(null));
   }, [session, catalog, reload]);
 
+  /**
+   * MAKE THIS VOICE HIS (#326).
+   *
+   * The three bubbles have always been readable and never choosable: one carried «هذه التي
+   * تُرسَل» and the other two were decoration, with a caption sending him to «حسابي» for a
+   * control that was not there either. The tone lives on the tenant's branding — the same
+   * record the logo and the colour live in — and `rendering.choose` has always preferred it.
+   *
+   * MERGED, NEVER REPLACED, and the reason is written next door in AccountPanes: `branding` is
+   * a free-form record, and sending our one field alone would drop his logo and his colour.
+   * So the current record is read first and the tone laid on top of it.
+   */
+  const chooseTone = async (next: string) => {
+    const read = action(catalog, 'tenant.view_self');
+    const write = action(catalog, 'tenant.update_branding');
+    if (!read || !write || next === tone) return;
+    setSaving(next); setError('');
+    try {
+      const t = await call<{ branding?: Record<string, unknown> }>(session, read);
+      await call(session, write, { branding: { ...(t?.branding ?? {}), tone: next } });
+      setTone(next);
+      onChosen();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر حفظ النبرة.');
+    } finally {
+      setSaving('');
+    }
+  };
+
   const pick = async (option: Option) => {
     const a = action(catalog, 'reminders.set_reason');
     if (!a || !option.mine) return;
@@ -205,7 +234,7 @@ export function MessagePreview({
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="text-sm font-medium">صيغنا</h3>
                 <span className="text-xs text-text-secondary">
-                  نبرتك تختار واحدة منها لكل رسائلك — تُغيَّر من «حسابي».
+                  اختر نبرتك — تُطبَّق على كل رسائلك.
                 </span>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -215,10 +244,18 @@ export function MessagePreview({
                     text={o.text}
                     caption={TONE[o.tone] ?? o.tone}
                     active={!chosen && o.tone === tone}
-                    activeLabel="هذه التي تُرسَل"
+                    activeLabel="نبرتك · تُرسَل"
+                    busy={saving === o.tone}
+                    onChoose={chosen || o.tone === tone ? undefined
+                              : () => { void chooseTone(o.tone); }}
                   />
                 ))}
               </div>
+              {chosen ? (
+                <p className="text-xs text-text-secondary">
+                  نصّك أدناه هو ما يُرسَل الآن لهذه الرسالة — النبرة تحكم البقية.
+                </p>
+              ) : null}
             </section>
 
             {/* ── his own, when he has any approved ──────────────────────────────────────── */}
@@ -349,28 +386,54 @@ export function MessagePreview({
  * inside — a label inside the bubble is text the customer never receives sitting where the text he
  * receives goes.
  */
-function Bubble({ text, caption, active, activeLabel, action: act }: {
+function Bubble({ text, caption, active, activeLabel, busy, onChoose, action: act }: {
   text: string;
   caption: string;
   active?: boolean;
   activeLabel?: string;
+  busy?: boolean;
+  /** Given only when this bubble can BECOME the shop's voice — see `chooseTone` (#326). */
+  onChoose?: () => void;
   action?: React.ReactNode;
 }) {
+  // THE WHOLE BUBBLE IS THE TARGET, not a button underneath it. He is choosing a sentence, and
+  // the sentence is the thing on the screen — a separate «اختر» control asks him to read one
+  // element and press another. A real <button> rather than a div with a handler: the keyboard,
+  // the screen reader and the focus ring all come free, and this dialog is reachable by tab.
+  const Tag = onChoose ? "button" : "div";
   return (
     <figure className="flex flex-col gap-2">
-      <div
+      <Tag
+        type={onChoose ? "button" : undefined}
+        onClick={onChoose}
+        disabled={onChoose ? busy : undefined}
+        aria-pressed={onChoose ? false : undefined}
         className={[
-          'relative rounded-2xl rounded-ss-sm bg-accent-soft p-3 text-sm leading-relaxed',
-          'shadow-sm ring-1',
-          active ? 'ring-accent' : 'ring-transparent',
+          'relative w-full rounded-2xl rounded-ss-sm bg-accent-soft p-3 text-sm leading-relaxed',
+          'text-start shadow-sm ring-1 transition',
+          active
+            ? 'ring-accent shadow'
+            : onChoose
+              ? 'ring-transparent hover:ring-accent-soft hover:shadow focus-visible:ring-accent'
+              : 'ring-transparent',
+          busy ? 'opacity-60' : '',
         ].join(' ')}
       >
         {text}
-      </div>
+      </Tag>
       <figcaption className="flex items-center justify-between gap-2 px-1">
         <span className="flex items-center gap-1 text-xs text-text-secondary">
           {active ? <Check size={14} className="text-accent-on-soft" aria-hidden /> : null}
-          {active && activeLabel ? activeLabel : caption}
+          {/* THE VOICE IS ALWAYS NAMED. The chosen one used to REPLACE its name with the label,
+              so the one bubble he most wanted to identify was the one that stopped saying
+              which voice it was. */}
+          <span>{caption}</span>
+          {active && activeLabel ? (
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-accent-on-soft">
+              {activeLabel}
+            </span>
+          ) : null}
+          {busy ? <span>يُحفظ…</span> : null}
         </span>
         {act}
       </figcaption>

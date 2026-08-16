@@ -68,9 +68,6 @@ class HttpIdentity:
         path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
         data = _get(f"{self._url}{path}", self._token, self._timeout)
         shop = _Shop(name=str(data.get("name") or ""), branding=data.get("branding") or {})
-        # The shop's own display name wins over the provisioned one: the first is what they call
-        # themselves, the second is what whoever signed them up typed.
-        shop.name = str(shop.branding.get("display_name") or shop.name)
         self._cache[tenant] = (now, shop)
         return shop
 

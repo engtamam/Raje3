@@ -377,7 +377,7 @@ class HttpIdentity:
         path = self._path.replace("{id}", urllib.parse.quote(tenant, safe=""))
         data = _get(f"{self._url}{path}", self._token, self._timeout)
         branding = data.get("branding") or {}
-        name = str(branding.get("display_name") or data.get("name") or "")
+        name = str(data.get("name") or "")
         self._cache[tenant] = (now, name)
         return name
 

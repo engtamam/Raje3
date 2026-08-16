@@ -44,8 +44,9 @@ def test_with_no_cache_and_an_unreachable_peer_it_is_unusable_rather_than_blank(
     assert not run(ident.get("t1")).usable
 
 
-def test_the_shops_own_display_name_wins_over_the_provisioned_one():
-    """The first is what the shop calls itself; the second is what whoever signed them up typed."""
+def test_the_shop_has_exactly_one_name():
+    """A shop has one name — the registry's — and the owner changes it from «حسابي». Nothing
+    here ranks two candidates, because there is only ever one."""
     ident = HttpIdentity(url="http://x", path="/p/{id}", token="x")
     ident._fetch = lambda tenant, now: Establishment(
         tenant=tenant, name="ورشة النخبة", tone="warm", fetched_at=now)

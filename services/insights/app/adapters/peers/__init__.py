@@ -318,7 +318,7 @@ class HttpPeers:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
                 data = json.loads(resp.read() or b"{}")
             branding = data.get("branding") or {}
-            out["shop"] = str(branding.get("display_name") or data.get("name") or "")
+            out["shop"] = str(data.get("name") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             pass
 

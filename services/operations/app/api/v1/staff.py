@@ -30,6 +30,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from typing import Any
+
+from starlette.concurrency import run_in_threadpool
+
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
@@ -406,6 +410,55 @@ async def set_mode(request: Request, body: ModeIn,
         "shop.mode_changed", actor=principal.subject, tenant=tenant, resource="shop_mode",
         ip=request.client.host if request.client else "")
     return row
+
+
+class ShopNameIn(BaseModel):
+    name: str = Field(min_length=1, max_length=256)
+
+
+@router.put("/shop-name", dependencies=[Depends(rate_limit)])
+async def set_shop_name(request: Request, body: ShopNameIn,
+                        principal: Principal = Depends(_MANAGE)) -> Any:
+    """The shop's name — ONE name, and the owner can change it.
+
+    IT IS CAPTURED ONCE AT SIGNUP AND WAS PERMANENT — a browser autofilling a password into that
+    box left an owner reading garbage at the top of his own account screen for good. This route
+    is the one place the name is written, and `ci/check_a_shop_has_one_name.py` keeps it the only
+    name there is.
+
+    WHY WE PROXY IT. The registry's rename is INTERNAL — service-to-service, on the internal
+    token — because a tenant renaming itself directly is a user-tier surface the platform does
+    not offer. So the owner's edit arrives here, on his own token and his own capability, and
+    this service makes the internal call with the tenant taken from the TOKEN and never from the
+    body: a caller who can name the tenant can name somebody else's.
+    """
+    tenant = _tenant(principal)
+    s = request.app.state.container_settings
+    base = (getattr(s, "TENANT_SERVICE_URL", "") or "").rstrip("/")
+    if not base:
+        # NOT CONFIGURED IS SAID OUT LOUD, never rendered as success — the owner would retype
+        # his name, read «تم», and find the old one still there on the next screen.
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"error": "NOT_CONFIGURED",
+                                     "message": "تعذّر حفظ الاسم — سجلّ المنشآت غير مُهيّأ لدينا."})
+    from app.core.signup import Http
+
+    http = Http(timeout=getattr(s, "SIGNUP_TIMEOUT_SECONDS", 10),
+                internal_token=s.INTERNAL_SERVICE_TOKEN)
+    code, out = await run_in_threadpool(
+        http.call, f"{base}/internal/tenants/{tenant}",
+        method="PATCH", body={"name": body.name.strip()}, internal=True)
+    if code >= 400:
+        # THE REGISTRY'S REFUSAL IS THE REGISTRY'S. A name it rejects is one it can explain;
+        # inventing a sentence of our own here would answer for a rule that is not ours.
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"error": "RENAME_REFUSED",
+                                     "message": "تعذّر حفظ الاسم. جرّب اسماً آخر.",
+                                     "detail": out})
+    await request.app.state.auditor.record(
+        "shop.renamed", actor=principal.subject, tenant=tenant, resource="tenant",
+        ip=request.client.host if request.client else "")
+    return {"name": str(out.get("name") or body.name.strip())}
 
 
 # ── branches ──────────────────────────────────────────────────────────────────────────────────

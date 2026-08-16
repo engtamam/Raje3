@@ -35,6 +35,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
     # THE FIELD SCREEN. These four are the establishment app, and the order is the order an
     # operator meets them: the grid, the keypad, the save, the customer's record.
     {
+        # ONE NAME, AND HE OWNS IT. The registry's rename is internal-only, so the owner's edit
+        # comes here on his own token and we make the internal call — see the route.
+        "id": "operations.set_shop_name", "label": "اسم المحل", "method": "PUT",
+        "path": "/api/v1/staff/shop-name", "capability": "operations.manage",
+        "group": "منشأتي",
+        "help": "الاسم الذي يراه عميلك ويوقّع رسائلك. يُغيَّر متى شاء.",
+    },
+    {
         "id": "operations.catalogue", "label": "الخدمات", "method": "GET",
         "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "الشاشة",
         "help": "شبكة الخدمات. تُعبَّأ من افتراضيات القطاع عند إنشاء المنشأة.",

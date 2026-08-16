@@ -182,6 +182,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "branch",
     },
     {
+        # THE SHOP'S NAME. It signs every WhatsApp message and heads the customer's own page, so
+        # «when did this shop start calling itself that, and who changed it» is a question both
+        # support and a template review can ask months later.
+        "action": "shop.renamed",
+        "source": "admin",
+        "critical": False,
+        "resource": "tenant",
+    },
+    {
         # A one-way change to how the whole establishment sends. Recorded because "when did we
         # become per-branch, and who decided" is the first question support will ask.
         "action": "shop.mode_changed",

@@ -24,7 +24,7 @@ interface Tenant {
   // `accent`, NOT `colour` — the name is portal's, and portal is the only reader: it derives the
   // customer page's whole palette from this one field. A prettier name here writes to a field
   // nothing reads, which is how a colour picker becomes decoration.
-  branding?: { logo_url?: string; accent?: string; display_name?: string };
+  branding?: { logo_url?: string; accent?: string; tone?: string };
   config?: { locale?: string; timezone?: string; calendar?: string };
 }
 
@@ -57,7 +57,7 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
   if (t === undefined) return <Skeleton height={160} />;
   if (!t) return <Quiet>لا تملك صلاحية عرض بيانات المنشأة.</Quiet>;
 
-  const saveBranding = async (branding: { logo_url: string; accent: string; display_name: string }) => {
+  const saveBranding = async (branding: { logo_url: string; accent: string }) => {
     if (!canBrand) throw new Error('لا تملك صلاحية تعديل الهوية.');
     // MERGED, NOT REPLACED. `branding` is a free-form record on the tenant and other things live
     // in it; sending our two fields alone would quietly drop whatever else is there.
@@ -68,6 +68,19 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
     // the screen said why: 422 carries a pydantic error list, not a sentence, and the pane simply
     // failed. The field names inside are the server's; only the envelope was missing.
     await call(session, canBrand, { branding: { ...(t?.branding ?? {}), ...branding } });
+    load();
+  };
+
+  /**
+   * THE SHOP'S NAME — ONE NAME, WRITTEN IN ONE PLACE.
+   *
+   * `operations.set_shop_name`, not the registry directly: the registry's rename is an internal
+   * route, and the proxy is what turns the owner's token into a call only a service may make.
+   */
+  const saveName = async (name: string) => {
+    const a = action(catalog, 'operations.set_shop_name');
+    if (!a) throw new Error('لا تملك صلاحية تغيير اسم المحل.');
+    await call(session, a, { name });
     load();
   };
 
@@ -86,7 +99,7 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
         <Fact label="التقويم" value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
       </section>
 
-      {canBrand ? <BrandCard tenant={t} onSave={saveBranding} /> : null}
+      {canBrand ? <BrandCard tenant={t} onSave={saveBranding} onSaveName={saveName} /> : null}
     </div>
   );
 }
@@ -107,9 +120,10 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
  * the tenant record is read on nearly every screen. 256px is larger than the 64px the customer
  * page draws, which covers a dense display, and small enough that a record stays a record.
  */
-function BrandCard({ tenant, onSave }:
+function BrandCard({ tenant, onSave, onSaveName }:
     { tenant: Tenant;
-      onSave: (b: { logo_url: string; accent: string; display_name: string }) => Promise<void> }) {
+      onSave: (b: { logo_url: string; accent: string }) => Promise<void>;
+      onSaveName: (name: string) => Promise<void> }) {
   /**
    * THE NAME HIS CUSTOMER READS, and it could not be edited anywhere.
    *
@@ -117,14 +131,10 @@ function BrandCard({ tenant, onSave }:
    * open, and it signs every WhatsApp message that goes out. A typo there — or, as happened, a
    * password autofilled into the field — was permanent from the console's point of view.
    *
-   * `branding.display_name`, NOT THE TENANT'S `name`. The tenant record's name is the account's
-   * own and there is no self-service route upstream to change it; `display_name` is the shop's
-   * public face, it already existed, and portal and campaigns already preferred it. The two
-   * services that read them in the other order were corrected in the same change — one shop with
-   * two names is worse than one shop with an old name.
+   * THE TENANT'S OWN `name` — the only name a shop has. It heads the page his customers open
+   * and signs every WhatsApp message, and `ci/check_a_shop_has_one_name.py` keeps it single.
    */
-  const [name, setName] = useState(
-    tenant.branding?.display_name ?? tenant.name ?? '');
+  const [name, setName] = useState(tenant.name ?? '');
   const [logo, setLogo] = useState(tenant.branding?.logo_url ?? '');
   const [colour, setColour] = useState(tenant.branding?.accent || DEFAULT_COLOUR);
   const [busy, setBusy] = useState(false);
@@ -147,7 +157,10 @@ function BrandCard({ tenant, onSave }:
     e.preventDefault();
     setBusy(true); setError(''); setSaid('');
     try {
-      await onSave({ logo_url: logo, accent: colour, display_name: name.trim() });
+      // TWO WRITES, ONE PRESS, AND THE NAME GOES FIRST — it is the field he actually came to
+      // fix, and if the branding call fails he must not be told the name did not save either.
+      if (name.trim() && name.trim() !== (tenant.name ?? '')) await onSaveName(name.trim());
+      await onSave({ logo_url: logo, accent: colour });
       setSaid('حُفظ. هذا ما يراه عميلك.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');

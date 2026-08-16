@@ -99,9 +99,9 @@ class HttpIdentity:
         branding = data.get("branding") or {}
         return Establishment(
             tenant=tenant,
-            # `display_name` in branding wins over the provisioned `name`: the first is what the
-            # shop calls itself, the second is what whoever signed them up typed.
-            name=str(branding.get("display_name") or data.get("name") or "").strip(),
+            # THE SHOP'S NAME, and there is only one. The owner changes it from «حسابي»; the
+            # registry is the single record of it.
+            name=str(data.get("name") or "").strip(),
             tone=str(branding.get("tone") or "brief"),
             branding=branding,
             fetched_at=now)
