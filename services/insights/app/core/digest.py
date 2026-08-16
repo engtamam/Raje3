@@ -59,8 +59,7 @@ def _line(label: str, value: Any) -> str:
     return f"{label}: {value}"
 
 
-def build(*, snapshot: dict, previous: dict | None = None,
-          messages_sent: int = 0, ceiling_missed: int = 0,
+def build(*, snapshot: dict, messages_sent: int = 0, ceiling_missed: int = 0,
           points_redeemed: int = 0, consented: int = 0,
           can_campaign: bool = True, shop: str = "") -> dict[str, Any] | None:
     """The message, or None when there is nothing honest to send.
@@ -71,21 +70,37 @@ def build(*, snapshot: dict, previous: dict | None = None,
     if not snapshot:
         return None
     values = snapshot.get("values") or {}
-    visits = int(snapshot.get("visits") or 0)
-    if not visits:
+    # THE SNAPSHOT'S OWN COUNT IS THE DENOMINATOR BEHIND EVERY INDICATOR — the whole feed — and it
+    # is used here for exactly one thing: deciding whether the shop has any history at all. It is
+    # not printed. See the visits line below.
+    if not int(snapshot.get("visits") or 0):
         return None
 
     lines: list[str] = []
 
-    # 1 · the pulse, WITH the difference — the difference is what makes it a number rather than a
-    #     counter. An owner reads "120" and learns nothing he did not already feel.
-    prev_visits = int((previous or {}).get("visits") or 0)
-    delta = visits - prev_visits if prev_visits else 0
-    if delta:
-        sign = "+" if delta > 0 else "−"
-        lines.append(_line("الزيارات", f"{visits} ({sign}{abs(delta)})"))
-    else:
-        lines.append(_line("الزيارات", visits))
+    # 1 · THE WEEK, AND ONLY THE WEEK (ي-2). This line used to print `snapshot.visits` — the count
+    #     over the shop's ENTIRE history — under the heading «أسبوعك» and directly above two lines
+    #     computed over 30 days. Three periods, one heading, and the largest number was the one
+    #     describing a span nobody chose.
+    #
+    #     The difference beside it is what makes it a number rather than a counter — an owner reads
+    #     "120" and learns nothing he did not already feel. It used to come from a `previous`
+    #     snapshot that NO caller ever passed, so «(+15)» never once printed. Both figures now come
+    #     from one indicator over one list against one clock.
+    #
+    #     AND A WEEK WE CANNOT COMPARE PRINTS NO COMPARISON. `previous` is None when the shop's
+    #     history does not reach past the earlier window; calling that zero would turn the day he
+    #     signed up into growth we take credit for.
+    week = values.get("visits_week") or {}
+    visits = int(week.get("visits") or 0)
+    prev_visits = week.get("previous")
+    if visits:
+        delta = visits - int(prev_visits) if prev_visits is not None else 0
+        if delta:
+            sign = "+" if delta > 0 else "−"
+            lines.append(_line("زيارات الأسبوع", f"{visits} ({sign}{abs(delta)})"))
+        else:
+            lines.append(_line("زيارات الأسبوع", visits))
 
     # 2 and 3 · NEW AND RETURNING AS TWO LINES, not one total. A shop growing on new customers
     #     alone is a shop bleeding, and no combined figure shows that.
@@ -171,6 +186,11 @@ def build(*, snapshot: dict, previous: dict | None = None,
     # JOINED WITH SEP, NOT A REAL NEWLINE — see SEP's own comment above (ح-5).
     while lines and len(header) + 1 + len(SEP.join(lines)) > OWNER_TEXT_MAX:
         lines.pop()
+    # A HEADING WITH NOTHING UNDER IT IS NOT A REPORT. Every line here drops itself when its number
+    # is zero, and since the visits line became weekly a quiet week can drop all of them — «أسبوعك
+    # في مغسلة النخيل» and nothing else is a message that says only that we sent one.
+    if not lines:
+        return None
     return {
         "text": header + SEP + SEP.join(lines),
         "lines": len(lines),

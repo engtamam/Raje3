@@ -45,19 +45,30 @@ def return_rate(visits: list[dict]) -> float:
     return round(repeat / len(per), 3)
 
 
-def return_cycle_days(visits: list[dict]) -> int:
-    """The median gap between one customer's consecutive visits.
+def return_cycle_days(visits: list[dict], *, min_gaps: int = 20) -> int | None:
+    """The median gap between one customer's consecutive visits, or None when we cannot say.
 
     MEDIAN, NOT MEAN, and the difference matters more here than almost anywhere else on this
     screen: one customer who returned after two years drags a mean into nonsense, and the number
     an owner reads as "my customers come back every N days" would then describe nobody.
+
+    AND IT REFUSES UNDER `min_gaps`, like every other statistic on this screen — `retention_series`
+    wants 20 customers in a window, `holdout_comparison` 15 a side, `opt_out_rate` 200 sends. This
+    one had no threshold at all, so a shop with a single pair of visits published that pair's gap
+    as «دورة العودة». Worse, two visits on the SAME DAY floor to a gap of 0, and the screen then
+    told the owner his customers come back every 0 days — a sentence that is not merely wrong but
+    unreadable, and one he cannot distinguish from «we have no idea».
+
+    None, NEVER 0. The console skips a value that is not a number (`typeof raw !== 'number'`), so
+    the tile disappears rather than printing a figure derived from nobody. A returned 0 would be
+    indistinguishable from a real same-day shop, which is exactly the collapse to avoid.
     """
     gaps: list[int] = []
     for rows in _by_customer(visits).values():
         times = [int(r.get("occurred_at") or r.get("created_at") or 0) for r in rows]
         gaps.extend((b - a) // DAY for a, b in zip(times, times[1:]) if b > a)
-    if not gaps:
-        return 0
+    if len(gaps) < min_gaps:
+        return None
     gaps.sort()
     mid = len(gaps) // 2
     return gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) // 2
@@ -212,6 +223,41 @@ def expected_flow(visits: list[dict], *, now: int, weeks: int = 4) -> int:
             counts[weeks_ago] += 1
     seen = [c for c in counts if c]
     return round(sum(seen) / len(seen)) if seen else 0
+
+
+def visits_in_window(visits: list[dict], *, now: int, window_days: int = 7) -> dict[str, Any]:
+    """This week's visits and last week's — the pair the weekly report is actually about (ي-2).
+
+    THE HEADLINE OF «أسبوعك في …» WAS THE SHOP'S WHOLE LIFE. The digest read `snapshot.visits`,
+    which is `len(visits)` over the feed since the beginning of time, and printed it as «الزيارات»
+    directly above two lines computed over 30 days. Three periods under one heading, and the
+    biggest number — the one an owner reads first and remembers — described a span nobody chose.
+
+    THE COMPARISON COMES FROM HERE TOO, and that is the second half of the same defect. The digest
+    accepted a `previous` snapshot to print «(+15)» and no caller ever passed one, so the delta was
+    dead from the day it was written. Both numbers now come from ONE read of ONE list against ONE
+    clock, which is the only arrangement in which they cannot disagree.
+
+    `previous` IS None, NOT 0, WHEN THE HISTORY DOES NOT REACH BACK. A shop whose first visit was
+    five days ago has no previous week — and calling that zero turns «we do not know» into «+40»,
+    a triumph we invented out of the day he signed up. The caller prints no comparison instead.
+    """
+    span = window_days * DAY
+    times = [int(v.get("occurred_at") or v.get("created_at") or 0) for v in visits]
+    times = [t for t in times if t]
+
+    current = sum(1 for t in times if now - span < t <= now)
+    prior = sum(1 for t in times if now - 2 * span < t <= now - span)
+    # THE FEED MUST REACH BACK PAST THE EARLIER WINDOW BEFORE ITS COUNT MEANS ANYTHING. A shop
+    # whose first visit falls INSIDE that window was ramping up through it, and comparing a full
+    # week against a partial one manufactures growth out of the signup date.
+    #
+    # `truncated` is not consulted here: this read keeps the NEWEST rows (see the peers adapter),
+    # so a cap only ever removes history older than both windows — which makes `min(times)` early,
+    # never late, and the test this guard performs stricter rather than looser.
+    covered = bool(times) and min(times) <= now - 2 * span
+    return {"visits": current, "previous": prior if covered else None,
+            "window_days": window_days}
 
 
 def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) -> float:
@@ -466,7 +512,8 @@ def holdout_comparison(visits: list[dict], *, tenant: str, now: int,
 
 
 def returned_after_reminder(visits: list[dict], sends: list[dict], *, now: int,
-                            window_days: int = 30, attribute_days: int = 14) -> dict[str, Any]:
+                            window_days: int = 30, attribute_days: int = 14,
+                            have_log: bool = False, partial_log: bool = False) -> dict[str, Any]:
     """Visits that followed a reminder closely enough to be credited to it (proof 3).
 
     THE HONEST UNIT IS A VISIT, NOT A RIYAL. We hold no prices — the amount lives in his till and
@@ -481,7 +528,34 @@ def returned_after_reminder(visits: list[dict], sends: list[dict], *, now: int,
     IT IS A COUNT, NOT A RATE, on purpose. A percentage invites the question "of what?", and every
     honest denominator here (people messaged? people due? people alive?) is arguable. A count is
     not.
+
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    THE COUNTED THING IS A VISIT, AND IT IS COUNTED ONCE (ي-4)
+
+    The credit loop ran over MESSAGES. A customer who got a reminder on Sunday and another on
+    Tuesday, and walked in on Wednesday, was two returned visits — one person, one visit, counted
+    twice. The number was therefore inflated by roughly the messages-per-customer ratio, which is
+    highest at exactly the shops sending most, and the owner multiplies it by his average bill to
+    decide whether to renew. So the qualifying VISIT moments are collected into a set per customer
+    and it is the set that is counted.
+
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    AND IT REFUSES WHEN THERE IS NO SEND LOG TO JOIN AGAINST (ي-3)
+
+    `reminders` holds the only send log there is. When that read fails the peer answers with an
+    empty `sends` list — and an empty list through this function produced `0`, rendered as a
+    confident «0 زيارة عادت بعد رسالة». That is our outage printed as the engine's failure, in the
+    one number that argues for renewal. `have_log` is the caller stating that it actually read the
+    log; absent, the answer is «لم نستطع القياس», which is what `opt_out_rate` beside it has always
+    said in the same situation.
+
+    `partial_log` says the log came back capped: older sends are missing, so the count is a FLOOR
+    rather than the figure. Reported rather than hidden — the shops that hit the cap are the busy
+    ones, and a floor they can see is worth more than a total they cannot check.
     """
+    if not have_log:
+        return {"ready": False, "reason": "no_send_log", "window_days": window_days}
+
     cutoff = now - window_days * DAY
     win = attribute_days * DAY
 
@@ -494,7 +568,9 @@ def returned_after_reminder(visits: list[dict], sends: list[dict], *, now: int,
     for times in by_customer.values():
         times.sort()
 
-    credited = 0
+    # customer -> the moments of their visits that some message can be credited with. A SET, so the
+    # second message pointing at the same walk-in adds nothing.
+    credited_visits: dict[str, set[int]] = {}
     for msg in sends:
         ref = str(msg.get("subject_ref") or "")
         sent_at = int(msg.get("at") or 0)
@@ -510,12 +586,16 @@ def returned_after_reminder(visits: list[dict], sends: list[dict], *, now: int,
         # own confirmation as a return.
         before = any(sent_at - win <= t < sent_at for t in times)
         if not before:
-            credited += 1
-    return {"visits": credited, "window_days": window_days, "attribute_days": attribute_days}
+            credited_visits.setdefault(ref, set()).add(after)
+
+    return {"ready": True, "visits": sum(len(s) for s in credited_visits.values()),
+            "window_days": window_days, "attribute_days": attribute_days,
+            "partial": bool(partial_log)}
 
 
 def opt_out_rate(sent_count: int, opt_outs: int, *, per: int = 1000,
-                 min_sends: int = 200) -> dict[str, Any]:
+                 min_sends: int = 200, have_log: bool = False,
+                 partial_log: bool = False) -> dict[str, Any]:
     """Stops per thousand messages — the warning that arrives before a number is blocked (proof 4).
 
     A BLOCKED NUMBER DOES NOT LOSE A MESSAGE, IT LOSES THE CHANNEL — for every customer of that
@@ -525,8 +605,22 @@ def opt_out_rate(sent_count: int, opt_outs: int, *, per: int = 1000,
     NOT COMPUTED UNDER TWO HUNDRED SENDS. One stop in fifty messages is twenty per thousand, which
     would light a warning on a shop that has done nothing wrong — and a warning that cries wolf in
     the first week is one nobody reads in the month it matters.
+
+    «WE COULD NOT READ THE LOG» IS NOT «YOU SENT NOTHING» (ي-3). An unreadable send log used to
+    arrive here as `sent_count = 0` — `int(x or 0)` on a missing field — and the card then told a
+    shop that had sent forty thousand messages that it had sent none. `have_log` is the caller
+    stating it actually read the log; without it the refusal names our failure rather than his.
+
+    AND A CAPPED LOG IS A SAMPLE, NOT THE PERIOD (ي-6). `reminders` returns `truncated` when the
+    window held more rows than it would send; both the stops and the sends are then counted over
+    the newest slice, which is a real rate over a shorter period than the label claims. `partial`
+    travels with the number so the screen can say which — the alternative is a card that goes
+    quietest at the shops sending most, which is the opposite of what it is for.
     """
+    if not have_log:
+        return {"ready": False, "reason": "no_send_log", "need": min_sends}
     if sent_count < min_sends:
-        return {"ready": False, "sent": sent_count, "need": min_sends}
+        return {"ready": False, "reason": "too_few_sends", "sent": sent_count, "need": min_sends}
     rate = round((opt_outs / sent_count) * per, 1)
-    return {"ready": True, "sent": sent_count, "opt_outs": opt_outs, "per": per, "rate": rate}
+    return {"ready": True, "sent": sent_count, "opt_outs": opt_outs, "per": per, "rate": rate,
+            "partial": bool(partial_log)}

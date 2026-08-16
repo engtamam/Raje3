@@ -93,6 +93,18 @@ class Tick:
         # ASKED FOR, NOT DEMANDED. A peers driver without this method is an older reminders behind
         # a rolling deploy — insights rolls first — and two indicators rendering «not yet» for an
         # hour is the right cost. Crashing the whole snapshot pass over it is not.
+        #
+        # AND «WE DID NOT READ IT» IS CARRIED, NOT COLLAPSED INTO AN EMPTY LIST (ي-3). `{}` here,
+        # and `{"sends": [], "sent_count": 0}` from a failed peer read, are indistinguishable from
+        # a shop that genuinely sent nothing — so the two indicators built on this used to publish
+        # a confident 0 whenever reminders was slow. `ok` is the peer stating it actually read the
+        # log; anything that does not say so is unknown, and unknown is not zero.
+        #
+        # `truncated` IS THE PEER'S OWN WORD FOR «THIS IS A SLICE» (ي-6). reminders exports it on
+        # every answer and it used to be dropped here, so a shop past the send-log cap had both
+        # its numbers computed over an unnamed sample and neither of them said so. Both flags
+        # travel inside `effect` and are read in `_compute_scope` beside the indicators that use
+        # them.
         read = getattr(self.peers, "effect", None)
         effect = await read(tenant, since=now - 90 * 86400) if read else {}
         # THE NAMES, ONCE PER TENANT AND CARRIED INTO THE SNAPSHOT. The branch table is grouped by
@@ -131,6 +143,13 @@ class Tick:
         cycles = {s.get("id", ""): int(s.get("cycle_days") or 0) for s in catalogue}
         names = {s.get("id", ""): s.get("name", "") for s in catalogue}
 
+        eff = effect or {}
+        # DID WE ACTUALLY READ THE SEND LOG? The peer sets `ok` only on a read that succeeded; a
+        # failure, and a driver with no `effect` method at all, both arrive here without it. That
+        # distinction is the whole of ي-3 — see `indicators.returned_after_reminder`.
+        have_log = bool(eff.get("ok"))
+        partial_log = bool(eff.get("truncated"))
+
         values: dict[str, Any] = {
             "return_rate": indicators.return_rate(visits),
             # THE SAME NUMBER AS A LINE. Computed beside its own snapshot rather than in a second
@@ -147,13 +166,18 @@ class Tick:
             # this product, so «هل سدّدت الباقة نفسها» stays his arithmetic — we hand him the
             # count and he multiplies by an average bill only he knows.
             "returned_after_reminder": indicators.returned_after_reminder(
-                visits, (effect or {}).get("sends") or [], now=now),
+                visits, eff.get("sends") or [], now=now,
+                have_log=have_log, partial_log=partial_log),
             # AND WHAT THEY COST. Stops per thousand messages: the signal that precedes a blocked
             # number, which loses the channel rather than a message.
             "opt_out_rate": indicators.opt_out_rate(
-                int((effect or {}).get("sent_count") or 0),
-                int((effect or {}).get("opt_outs") or 0)),
+                int(eff.get("sent_count") or 0), int(eff.get("opt_outs") or 0),
+                have_log=have_log, partial_log=partial_log),
             "return_cycle_days": indicators.return_cycle_days(visits),
+            # THE WEEK, AND THE WEEK BEFORE IT — what «أسبوعك» is a report about (ي-2). Computed
+            # here rather than in the digest so the report and the panel cannot describe two
+            # different periods with one word.
+            "visits_week": indicators.visits_in_window(visits, now=now),
             "churn_rate": indicators.churn_rate(visits, now=now),
             "active_customers": indicators.active_customers(visits, now=now),
             "new_vs_returning": indicators.new_vs_returning(visits, now=now),
@@ -297,7 +321,30 @@ class Tick:
 
 
 def _median_basket(visits: list[dict]) -> int:
-    sizes = sorted(len(set(v.get("service_ids") or [])) for v in visits)
+    """This shop's ordinary basket size — measured on ONE-PERSON receipts only (ي-7).
+
+    THE THRESHOLD WAS BEING SET BY THE THING IT IS MEANT TO CATCH. `is_group_basket` calls a
+    receipt outsized when it runs past four times the median, and the median was taken over EVERY
+    receipt — group orders included. So a restaurant whose bills are mostly family tables has a
+    median pulled up by those tables, four times it is enormous, and not one of them is filtered:
+    the engine then learns «what goes with what» from what a table of six ordered rather than from
+    what one person chooses. The filter switched itself off in exactly the shops that need it.
+
+    THE ONE SIGNAL THAT NEEDS NO THRESHOLD BREAKS THE CIRCLE. A repeated line — two coffees on one
+    bill — is evidence of more than one person that stands on its own, with no reference to any
+    shop-level statistic. Those receipts are removed first, and the median is taken over what is
+    left. It is not a perfect separation, and it does not have to be: it only has to stop the
+    group receipts from raising the bar that is supposed to exclude them.
+
+    A SHOP WHOSE EVERY RECEIPT REPEATS A LINE FALLS BACK TO ALL OF THEM, rather than to a median
+    of nothing — 0 disables the size signal entirely (see `is_group_basket`), which would be this
+    same defect reached by the other road.
+    """
+    singles = [v for v in visits
+               if not associations.is_group_basket(
+                   list(set(v.get("service_ids") or [])),
+                   quantities=v.get("quantities") or {})]
+    sizes = sorted(len(set(v.get("service_ids") or [])) for v in (singles or visits))
     if not sizes:
         return 0
     return sizes[len(sizes) // 2]

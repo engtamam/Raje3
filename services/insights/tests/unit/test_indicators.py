@@ -26,7 +26,57 @@ def test_return_cycle_uses_the_median_not_the_mean():
     v = [visit("a", 60), visit("a", 30),      # 30
          visit("b", 40), visit("b", 10),      # 30
          visit("c", 800), visit("c", 5)]      # 795 — the outlier
-    assert ind.return_cycle_days(v) == 30
+    assert ind.return_cycle_days(v, min_gaps=3) == 30
+
+
+def test_the_week_is_a_week_and_the_week_before_it_is_its_own_count():
+    """ي-2. The weekly report's headline read `snapshot.visits` — the count over the shop's whole
+    history — and printed it under «أسبوعك». Both figures come from here now, one list, one clock,
+    so the report and the panel cannot describe two periods with one word."""
+    v = ([visit("a", 2)] * 5 +          # this week
+         [visit("b", 9)] * 3 +          # the week before
+         [visit("c", 200)] * 40)        # long before either, and the reason `previous` is knowable
+    got = ind.visits_in_window(v, now=NOW)
+    assert got["visits"] == 5 and got["previous"] == 3 and got["window_days"] == 7
+
+
+def test_a_shop_with_no_history_behind_the_earlier_week_reports_no_previous():
+    """UNKNOWN IS NOT ZERO — the mistake that turns a signup date into growth we take credit for.
+
+    A shop whose first visit falls INSIDE the earlier window was ramping up through it, so that
+    window's count is not a week's trading and comparing against it manufactures a rise.
+    """
+    fresh = [visit("a", 10), visit("a", 2), visit("b", 1)]     # nothing older than 10 days
+    assert ind.visits_in_window(fresh, now=NOW)["previous"] is None
+    assert ind.visits_in_window([], now=NOW)["previous"] is None
+
+
+def test_a_visit_dated_after_the_computation_is_not_this_week_s():   # noqa: N802
+    """A till with a wrong clock posts timestamps in the future. Counting them would let one
+    misconfigured cash register inflate «زيارات الأسبوع» for as long as it is wrong."""
+    v = [visit("a", -30), visit("a", 2)]                 # one 30 days ahead, one two days back
+    assert ind.visits_in_window(v, now=NOW)["visits"] == 1
+
+
+def test_the_return_cycle_refuses_a_sample_too_thin_to_be_a_cycle():
+    """ي-8. Every other statistic on this screen has a floor — `retention_series` wants 20
+    customers, `holdout_comparison` 15 a side, `opt_out_rate` 200 sends — and this one had none.
+
+    THE WORST CASE IS TWO VISITS ON ONE DAY. The gap floors to 0, that single gap IS the median,
+    and «دورة العودة: 0 يوماً» went onto the dashboard: a sentence that is not merely wrong but
+    unreadable, and one an owner cannot tell apart from «we have no idea».
+
+    None, never 0 — the console skips a value that is not a number, so the tile disappears.
+    """
+    same_day = [{"subject_ref": "a", "occurred_at": NOW - 3 * DAY},
+                {"subject_ref": "a", "occurred_at": NOW - 3 * DAY + 3600}]
+    assert ind.return_cycle_days(same_day) is None
+
+    # And a real sample, at the threshold, still answers.
+    plenty = []
+    for i in range(20):
+        plenty += [visit(f"c{i}", 60), visit(f"c{i}", 30)]
+    assert ind.return_cycle_days(plenty) == 30
 
 
 def test_churn_is_measured_against_the_customers_own_cycle():
@@ -99,7 +149,8 @@ def test_expected_flow_is_the_mean_of_recent_weeks():
 def test_an_empty_shop_produces_zeros_and_never_an_exception():
     """Every one of these runs on the day a shop signs up, when it has nothing at all."""
     assert ind.return_rate([]) == 0.0
-    assert ind.return_cycle_days([]) == 0
+    # None, not 0 — an empty shop has no return cycle, and 0 is a claim about one (ي-8).
+    assert ind.return_cycle_days([]) is None
     assert ind.churn_rate([], now=NOW) == 0.0
     assert ind.at_risk([], now=NOW) == []
     assert ind.services_per_visit([]) == 0.0

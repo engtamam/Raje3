@@ -5,7 +5,7 @@ import asyncio
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.peers import NullPeers
-from app.core import bundles, plans
+from app.core import associations, bundles, plans
 from app.core.digest import Subscriptions, build as build_digest
 from app.core.models import PAIRS, SEQUENCES, SNAPSHOTS, Pair
 from app.core.tick import Tick
@@ -86,6 +86,84 @@ def test_a_group_basket_is_dropped_from_learning_and_kept_everywhere_else():
     # and its pair never reached the engine
     assert not [p for p in run(store.scan_all(PAIRS, 100))
                 if {p["a"], p["b"]} == {"burger", "kidsmeal"}]
+
+
+def test_an_unreadable_send_log_reaches_the_snapshot_as_a_refusal():
+    """ي-3, THE WHOLE CHAIN. The peer failing, the tick reading it, and the two indicators that
+    depend on it — the defect lived in the joins, not in any one of them.
+
+    `peers.effect` answered `{"sends": [], "sent_count": 0}` on failure, which is character for
+    character a shop that has never sent a message. The tick could not tell the two apart, and the
+    dashboard printed «0 زيارة عادت بعد رسالة» whenever reminders was slow: our outage wearing his
+    engine's name, in the one number that argues for renewal.
+    """
+    store, peers, tick = build_tick(visits(20))
+    peers.effect_answer = {"ok": False, "sends": [], "sent_count": 0, "opt_outs": 0}
+    snap = run(tick.compute(T, now=NOW))
+
+    eff = snap.values["returned_after_reminder"]
+    opt = snap.values["opt_out_rate"]
+    assert eff["ready"] is False and eff["reason"] == "no_send_log"
+    assert opt["ready"] is False and opt["reason"] == "no_send_log"
+    assert "visits" not in eff, "a refusal carrying a number is a number the screen will print"
+
+
+def test_a_shop_that_genuinely_sent_nothing_is_a_different_answer():
+    """«لم نقرأ السجل» and «لم ترسل شيئاً» are two sentences, and collapsing them is the defect."""
+    store, peers, tick = build_tick(visits(20))
+    peers.effect_answer = {"ok": True, "sends": [], "sent_count": 0, "opt_outs": 0}
+    snap = run(tick.compute(T, now=NOW))
+
+    assert snap.values["returned_after_reminder"]["ready"] is True
+    assert snap.values["returned_after_reminder"]["visits"] == 0
+    assert snap.values["opt_out_rate"]["reason"] == "too_few_sends"
+
+
+def test_a_capped_send_log_travels_into_the_snapshot():
+    """ي-6. `truncated` was fetched from reminders on every tick and dropped on the floor, so both
+    numbers were computed over an unnamed slice and neither said so — quietest at the shops
+    sending most, which is the opposite of what the stops card is for."""
+    store, peers, tick = build_tick(visits(20))
+    peers.effect_answer = {"ok": True, "sends": [], "sent_count": 5000, "opt_outs": 40,
+                           "truncated": True}
+    snap = run(tick.compute(T, now=NOW))
+
+    assert snap.values["opt_out_rate"]["partial"] is True
+    assert snap.values["returned_after_reminder"]["partial"] is True
+
+
+def test_the_group_receipts_do_not_set_the_bar_that_excludes_them():
+    """ي-7. `is_group_basket` calls a receipt outsized past four times the shop's MEDIAN basket,
+    and the median was taken over every receipt — group orders included. A restaurant whose bills
+    are mostly family tables therefore had its median pulled up by those tables, four times it was
+    out of reach, and not one of them was filtered: the engine learned «what goes with what» from
+    what a table of six ordered rather than from what one person chooses. The filter switched
+    itself off in exactly the shops that need it.
+
+    THE MEDIAN IS NOW TAKEN OVER ONE-PERSON RECEIPTS ONLY — the repeated line is evidence of a
+    group that needs no shop-level statistic at all, so it breaks the circle.
+    """
+    from app.core.tick import _median_basket
+
+    # Eighteen family tables of eight lines each (every one repeating a line), against six
+    # single-diner receipts of two.
+    tables = [{"service_ids": [f"s{k}" for k in range(8)], "quantities": {"s0": 4}}
+              for _ in range(18)]
+    singles = [{"service_ids": ["burger", "cola"], "quantities": {"burger": 1}}
+               for _ in range(6)]
+    assert _median_basket(tables + singles) == 2, "the median must describe one diner, not a table"
+
+    # And with that median, a family table IS caught — which it was not before.
+    assert associations.is_group_basket([f"s{k}" for k in range(9)], median_size=2) is True
+
+
+def test_a_shop_where_every_receipt_repeats_a_line_still_gets_a_median():
+    """A median of nothing is 0, and 0 disables the size signal entirely (`is_group_basket` guards
+    on it) — the same defect reached by the other road. So the fallback is all the receipts."""
+    from app.core.tick import _median_basket
+
+    everything = [{"service_ids": ["a", "b", "c"], "quantities": {"a": 2}} for _ in range(5)]
+    assert _median_basket(everything) == 3
 
 
 def test_coverage_is_computed_for_the_optional_fields():
@@ -211,11 +289,15 @@ def test_a_temporal_pair_is_a_reminder_not_a_bundle():
 
 
 # ── the weekly message ─────────────────────────────────────────────────────────────────────────
-def snap(visits=120, **values):
+def snap(visits=120, week=None, **values):
+    """`visits` is the LIFETIME count — the denominator behind the indicators, and the digest reads
+    it only to decide whether the shop has any history. `week` is what «أسبوعك» is about."""
     base = {"new_vs_returning": {"new": 14, "returning": 106},
             "at_risk": [{"subject_ref": f"a{i}"} for i in range(14)],
             "service_popularity": [{"service_id": "wash", "count": 48}],
-            "service_names": {"wash": "غسيل شامل"}}
+            "service_names": {"wash": "غسيل شامل"},
+            "visits_week": week if week is not None
+            else {"visits": 120, "previous": 100, "window_days": 7}}
     base.update(values)
     return {"visits": visits, "values": base}
 
@@ -231,11 +313,13 @@ def test_the_eight_lines():
     msg = build_digest(snapshot=snap(associations={"pairs": [
               {"a": "oil", "b": "filter", "verdict": "real", "customers": 340},
               {"a": "wash", "b": "wax", "verdict": "temporal", "customers": 90}]}),
-              previous={"visits": 100}, messages_sent=780,
+              messages_sent=780,
               points_redeemed=9, shop="مغسلة النخيل")
     text = msg["text"]
     assert msg["lines"] == 8, text
-    assert "120 (+20)" in text          # the pulse WITH its difference
+    # THE WEEK, WITH ITS DIFFERENCE — and both from the same indicator over the same clock. The
+    # label says which period it is, which is the whole of ي-2.
+    assert "زيارات الأسبوع: 120 (+20)" in text
     assert "عملاء جدد: 14" in text
     assert "عادوا: 106" in text
     assert "تأخّروا عن موعدهم: 14" in text
@@ -277,12 +361,41 @@ def test_the_busiest_week_carries_no_literal_newline():
     shop this never reached."""
     msg = build_digest(snapshot=snap(associations={"pairs": [
               {"a": "oil", "b": "filter", "verdict": "real", "customers": 340}]}),
-              previous={"visits": 100}, messages_sent=780,
+              messages_sent=780,
               points_redeemed=9, shop="مغسلة النخيل")
     assert msg["lines"] > 1, "the test needs more than one line to prove anything"
     assert "\n" not in msg["text"]
     assert "\t" not in msg["text"]
     assert "\r" not in msg["text"]
+
+
+def test_the_weekly_report_never_prints_the_shop_s_whole_life(): # noqa: N802
+    """ي-2. The headline said «الزيارات: 4,312» under «أسبوعك», and those were the visits of every
+    week the shop has ever traded — read straight off `snapshot.visits`, which is the count over
+    the whole feed. Directly beneath it sat two lines computed over 30 days. Three periods, one
+    heading, and the number an owner reads first and remembers described a span nobody chose.
+    """
+    msg = build_digest(snapshot=snap(visits=4312,
+                                     week={"visits": 96, "previous": 88, "window_days": 7}),
+                       shop="مغسلة النخيل")
+    assert "زيارات الأسبوع: 96 (+8)" in msg["text"]
+    assert "4312" not in msg["text"], "the lifetime count must not reach the weekly report"
+
+
+def test_a_shop_with_no_earlier_week_gets_no_comparison():
+    """UNKNOWN IS NOT ZERO. A shop whose history does not reach past the earlier window has no
+    «before» — and printing one manufactures growth out of the day he signed up."""
+    msg = build_digest(snapshot=snap(week={"visits": 40, "previous": None, "window_days": 7}))
+    assert "زيارات الأسبوع: 40" in msg["text"]
+    assert "(+" not in msg["text"] and "(−" not in msg["text"]
+
+
+def test_a_quiet_week_drops_the_line_rather_than_printing_a_zero():
+    """«زيارات الأسبوع: 0» is not information, it is a verdict on his week. The rest of the report
+    still goes — the late customers are the reason it exists."""
+    msg = build_digest(snapshot=snap(week={"visits": 0, "previous": 30, "window_days": 7}))
+    assert "زيارات الأسبوع" not in msg["text"]
+    assert "تأخّروا عن موعدهم: 14" in msg["text"]
 
 
 def test_the_two_services_agree_on_the_one_ceiling():

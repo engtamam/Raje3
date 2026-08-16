@@ -331,7 +331,17 @@ def test_the_tick_needs_the_internal_token(client):
 def test_the_digest_asks_its_peers_and_each_failure_costs_one_line(client, owner):
     """A digest that does not go out because billing was slow is a report the owner never learns
     he was owed — while the seven other lines were correct."""
-    _seed(client, regulars(40, "d", ["wash"]))
+    # DATED AGAINST THE REAL CLOCK, because the route's tick runs on `time.time()` and the weekly
+    # line is a WINDOW around it (ي-2). The rest of this file uses a fixed `NOW` set in the
+    # future, which no window can contain — visits dated after the moment of computation are not
+    # this week's, and the indicator is right to leave them out.
+    import time as _t
+
+    real = int(_t.time())
+    this_week = [{"tenant": TENANT, "subject_ref": f"d{i}", "visit_id": f"dv{i}-{k}",
+                  "service_ids": ["wash"], "occurred_at": real - (k * 40 * DAY) - DAY}
+                 for i in range(40) for k in range(3)]
+    _seed(client, this_week)
     client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
     c = client.app.state.container
     c.peers.extras = {"shop": "مغسلة النخيل", "messages_sent": 780,
@@ -349,7 +359,11 @@ def test_the_digest_asks_its_peers_and_each_failure_costs_one_line(client, owner
     assert r.json()["sent"] == 1
     lean = c.peers.sent[0]["owner_text"]
     assert "رسائل أرسلتها" not in lean and "نقاط" not in lean
-    assert "الزيارات" in lean
+    # THE PULSE SURVIVES EVERY PEER FAILURE — it comes from the snapshot, not from a peer. And it
+    # names its period: 40 visits in the last seven days, with the fortnight behind it to compare
+    # against (ي-2).
+    assert "زيارات الأسبوع: 40 (+0)" not in lean, "a zero difference prints no difference"
+    assert "زيارات الأسبوع: 40" in lean
 
 
 def test_the_digest_never_names_a_plan_or_a_price(client, owner):
