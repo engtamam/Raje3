@@ -558,6 +558,26 @@ async def eligibility(request: Request, body: EligibilityIn) -> dict:
         engagement_score=float(eng.get("score") or 0.0),
         engagement_at=int(eng.get("scored_at") or 0),
         recent_sends=recent,
+        # ── THE HOLDOUT, WHICH THIS ROUTE SILENTLY LEFT OUT ────────────────────────────────────
+        #
+        # `evaluate` decides the holdout from the SUBJECT — `tenant`, `subject_ref` and the share
+        # together — and every one of those has a default that fails OPEN: no tenant, no subject,
+        # `holdout_enabled=False`. So this route answered «yes, reachable» for the 10% the engine
+        # deliberately withholds, while the send path correctly withheld them.
+        #
+        # The consequence is the exact promise three paragraphs above: «so the preview's number is
+        # the number that goes out». It was not. The owner was shown 340 and the report said 306,
+        # with 34 unexplained — and the control group is the whole of our proof that the messages
+        # work (§ the holdout), so a preview that ignores it teaches the owner our figures drift.
+        #
+        # ONE SOURCE FOR THE SHARE, and it is settings — the tick reads the same two values, and a
+        # second number here would be a second holdout with a different membership.
+        tenant=body.tenant, subject_ref=body.subject_ref,
+        holdout_enabled=s.HOLDOUT_ENABLED, holdout_share=s.HOLDOUT_SHARE_PERCENT,
+        # `class_enabled` IS DELIBERATELY LEFT AT ITS DEFAULT, and the reason is stated rather than
+        # implied: it asks whether the shop has a template of a TYPE, and this route is asked about
+        # a CLASS — `template_type` arrives empty. Passing a computed False here would refuse
+        # everybody for a question nobody asked.
         eng_cfg=E.EngagementConfig(half_life_days=s.ENGAGEMENT_HALF_LIFE_DAYS,
                                    full_threshold=s.ENGAGEMENT_FULL_THRESHOLD,
                                    minimal_threshold=s.ENGAGEMENT_MINIMAL_THRESHOLD))
@@ -584,6 +604,17 @@ class CampaignSendIn(BaseModel):
     # OWNER_TEXT_MAX is the shared ceiling now, declared once and checked on both sides.
     owner_text: str = Field(default="", max_length=OWNER_TEXT_MAX)
     idempotency_key: str = Field(min_length=8, max_length=256)
+    # WHICH BRANCH THIS CAMPAIGN IS FOR — empty for every shop that runs one number, which is most.
+    #
+    # IT DECIDES WHICH NUMBER THE MESSAGE LEAVES FROM. `tick._sending_identity` reads `branch_id`
+    # off the schedule row and returns `tenant:branch`; a campaign schedule never carried one, so
+    # a chain that had moved to a number per branch (§12.4) sent every campaign message from the
+    # CENTRAL number — and the customer of the Jeddah branch replied to Riyadh, to a team that
+    # knows nothing about his car.
+    #
+    # AND IT IS THE SEND LOG'S BRANCH TOO. Without it «من راسلنا ومن أيّ فرع» had no answer for a
+    # single campaign message: the ledger recorded an empty branch on every row.
+    branch_id: str = Field(default="", max_length=64)
     # WHEN THIS OFFER STOPS BEING TRUE, carried from the campaign so it lands in the send log.
     #
     # That log is the record of who is entitled to what: the customer who received the message
@@ -634,6 +665,8 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         "template_type": body.template_type, "service_id": "_campaign",
         "kind": "campaign", "owner_text": body.owner_text,
         "idempotency_key": body.idempotency_key, "id": body.idempotency_key,
+        # READ BY `_sending_identity` AND BY THE SEND LOG — see CampaignSendIn.branch_id.
+        "branch_id": body.branch_id,
         "also_services": [],
         # THE OFFER'S OWN WORDS AND ITS END, so the send log records both. The text IS the owner's
         # text — the one field he wrote and the one the customer read. Copying anything else here

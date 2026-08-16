@@ -118,7 +118,11 @@ class Dispatcher:
                     # screen collects it (#244); a template that needs it then refuses to render
                     # rather than sending «خصم » with a hole where the number belongs.
                     offer_value=str(campaign.get("offer_value") or ""),
-                    service_names=list(campaign.get("scope_service_names") or []))
+                    service_names=list(campaign.get("scope_service_names") or []),
+                    # THE CAMPAIGN'S OWN BRANCH. It already narrows the audience; it must also
+                    # decide the number the message leaves from, or a branch campaign speaks in the
+                    # head office's voice and the reply lands on a team that cannot answer it.
+                    branch_id=str(campaign.get("branch_id") or ""))
             except Exception as exc:                                        # noqa: BLE001
                 # ONE RECIPIENT'S FAILURE MUST NOT END THE RUN. The alternative is one bad row
                 # stopping a campaign for every other customer, indefinitely, and the symptom is

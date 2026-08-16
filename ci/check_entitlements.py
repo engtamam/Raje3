@@ -43,6 +43,24 @@ def sold() -> set[str]:
     return keys
 
 
+# A COUNTER IS SOLD EXACTLY LIKE A SWITCH, AND WAS INVISIBLE TO THIS GUARD.
+#
+# Everything above matched `feature.*` only. `templates.custom` — limit 0 on الأساس, 1 on الحملات,
+# 9 on فرصي — was therefore structurally unseeable here, and it was enforced by NOTHING: the submit
+# route wrote the template and never asked. Every shop got unlimited custom templates it had not
+# bought, and the counter in the price list was a number with no consequence anywhere.
+#
+# `staff.seats`, `branches` and `messages.monthly` are the same shape: a number a plan promises,
+# which means nothing until a door refuses at it.
+def sold_counters() -> set[str]:
+    data = json.loads(PLANS.read_text(encoding="utf-8"))
+    rows = data["plans"] if isinstance(data, dict) else data
+    keys: set[str] = set()
+    for plan in rows:
+        keys |= {k for k in (plan.get("limits") or {}) if not k.startswith("feature.")}
+    return keys
+
+
 # FILES THAT NAME A KEY WITHOUT GUARDING IT. This was the hole in the guard itself: it counted a
 # mention ANYWHERE as enforcement, and `Plans.tsx` names every key as a price-list label — so a
 # screen that SELLS a feature was read as the code that GUARDS it, and two features (`feature.api`
@@ -97,7 +115,34 @@ def worded() -> set[str]:
     """
     text = (ROOT / "apps" / "console" / "src" / "screens" / "Plans.tsx").read_text(encoding="utf-8")
     block = text.split("LIMIT_WORDS", 1)[-1].split("};", 1)[0]
-    return set(re.findall(r"['\"]?(feature\.[a-z_.]+)['\"]?\s*:", block))
+    # COUNTERS TOO, and the same reasoning exactly. A limit with no sentence is not rendered —
+    # so a shop comparing plans sees no seat count, no branch count and no message cap, while all
+    # three are charged for and enforced. Note `branches` is written unquoted in that object, so
+    # the quotes have to be optional on both sides rather than assumed.
+    return set(re.findall(r"['\"]?((?:feature\.)?[a-z_]+(?:\.[a-z_]+)*)['\"]?\s*:", block))
+
+
+def counters_named(keys: set[str]) -> dict[str, list[str]]:
+    """key -> the SERVICE files that name it. BY EXACT NAME, and that is not a shortcut.
+
+    The first attempt widened `gated()`'s pattern to any dotted string, which matched `app.main`,
+    `operations.read` and every audit action in the fleet — two hundred findings, none of them
+    real. A guard that cries about everything guards nothing. The counters are four known names
+    read from the price list; nothing has to be inferred.
+    """
+    where: dict[str, list[str]] = {}
+    for path in glob.glob(str(ROOT / "services/*/app/**/*.py"), recursive=True):
+        rel = str(Path(path).relative_to(ROOT)).replace("\\", "/")
+        if rel in DISPLAY_ONLY or "/tests/" in rel:
+            continue
+        try:
+            text = Path(path).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for key in keys:
+            if f'"{key}"' in text or f"'{key}'" in text:
+                where.setdefault(key, []).append(rel)
+    return where
 
 
 def main() -> int:
@@ -122,6 +167,19 @@ def main() -> int:
         problems.append(f"{key} is sold in the price list and no code checks it — every shop gets "
                         f"it, and the customer who paid for the tier above is the one who finds out")
 
+    # ── the counters, held to the same rule as the switches ───────────────────────────────────
+    counters = sold_counters()
+    named = counters_named(counters)
+    for key in sorted(counters - worded()):
+        problems.append(f"{key} is a LIMIT sold in the price list and the plans page has no "
+                        f"Arabic sentence for it — a limit with no wording is not rendered, so a "
+                        f"shop comparing plans never sees the number it is being charged for")
+
+    for key in sorted(counters - set(named)):
+        problems.append(f"{key} is a LIMIT sold in the price list and no service names it — a "
+                        f"number a plan promises means nothing until a door refuses at it, so "
+                        f"every shop gets an unlimited one and the price list is a fiction")
+
     for key in sorted(set(SOLD_UNBUILT) - s):
         problems.append(f"{key} is listed as sold-and-unbuilt and no plan sells it — delete the "
                         f"line, or the next reader trusts a note about nothing")
@@ -133,7 +191,8 @@ def main() -> int:
     if problems:
         print(f"\n{C_R}  ✗ {len(problems)} feature key(s) sold and enforced differently{C_N}")
         return 1
-    print(f"{C_G}  ✔ all {len(s) - len(warnings)} feature keys are both sold and enforced{C_N}")
+    print(f"{C_G}  ✔ all {len(s) - len(warnings)} feature keys and {len(counters)} sold limits "
+          f"are both sold and enforced{C_N}")
     if warnings:
         print(f"{C_Y}    {len(warnings)} key(s) sold and not built — see above{C_N}")
     return 0

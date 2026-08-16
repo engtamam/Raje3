@@ -385,3 +385,39 @@ def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
         assert sorted({u.split("tenant=", 1)[1] for u in asked}) == ["t-loud", "t-new", "t-quiet"]
     finally:
         P._get = original
+
+
+def test_a_branch_campaign_leaves_from_that_branch_s_number():
+    """A chain that moved to a number per branch sent every campaign from the central one.
+
+    `tick._sending_identity` reads `branch_id` off the schedule and returns `tenant:branch`. The
+    campaign schedule never carried one — so the customer of the Jeddah branch received an offer
+    from the Riyadh number and replied to a team that knows nothing about his car. The send log had
+    the same hole: «من راسلنا ومن أيّ فرع» could not be answered for one campaign message.
+    """
+    import asyncio
+
+    from app.adapters.datastore.memory import MemoryDataStore
+    from app.core.audience import Audience, Candidate
+    from app.core.dispatch import Dispatcher
+
+    sent: list[dict] = []
+
+    class Sender:
+        async def send(self, **kw):
+            sent.append(kw)
+            return {"sent": True}
+
+    async def resolver(campaign, *, already_reached, now):
+        return Audience(candidates=[Candidate(subject_ref="sub_abcdefgh")], excluded=0)
+
+    campaign = {"tenant": "t1", "id": "cmp_1", "template_type": "mkt_offer",
+                "cls": "marketing", "owner_text": "خصم", "branch_id": "br_jeddah"}
+
+    d = Dispatcher(store=MemoryDataStore(), sender=Sender(), audience_resolver=resolver)
+    asyncio.run(d.fire(campaign, now=1_800_000_000))
+
+    assert sent, "the dispatcher sent nothing, so this proves nothing"
+    assert sent[0]["branch_id"] == "br_jeddah", (
+        "the campaign's branch never reached the send — the message leaves from the central "
+        "number and the send log records no branch")

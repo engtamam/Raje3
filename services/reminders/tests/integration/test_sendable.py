@@ -25,7 +25,12 @@ class Library:
 
 
 class Shop:
-    def __init__(self, tone): self.tone = tone; self.name = "بنشر النور"
+    def __init__(self, tone):
+        self.tone = tone
+        self.name = "بنشر النور"
+        # The send route refuses outright on an unusable shop — a message with a blank
+        # establishment name is worse than a late one.
+        self.usable = True
 
 
 class Identity:
@@ -79,3 +84,86 @@ def test_nothing_approved_is_an_empty_answer_not_a_full_one(client):
 
 def test_it_is_internal_only(client):
     assert client.get("/internal/reminders/sendable?tenant=t-1").status_code == 401
+
+
+def test_a_campaign_send_carries_its_branch_to_the_number_and_the_ledger(client):
+    """Two things ride on `branch_id`, and neither had it for a campaign.
+
+    `tick._sending_identity` turns it into `tenant:branch` — the number the message leaves from —
+    and the send log records it as the branch that messaged. A chain on a number per branch (§12.4)
+    therefore sent every campaign from the CENTRAL number, and «من راسلنا ومن أيّ فرع» had no
+    answer for a single campaign message.
+    """
+    seen: dict = {}
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen.update(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    r = client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "خصم", "idempotency_key": "cmp:1:sub_abcdefgh",
+        "branch_id": "br_jeddah"})
+
+    assert r.status_code == 200, r.text
+    assert seen.get("branch_id") == "br_jeddah", (
+        "the schedule reached the tick without a branch — central number, empty ledger row")
+
+
+def test_the_preview_withholds_whoever_the_send_would_withhold(client, monkeypatch):
+    """«so the preview's number is the number that goes out» — the route's own promise, broken.
+
+    `gate.evaluate` decides the holdout from `tenant` + `subject_ref` + the share, and all three
+    default to values that fail OPEN. This endpoint passed none of them, so it answered «reachable»
+    for the tenth of customers the engine deliberately withholds from — the control group that is
+    our only evidence the messages do anything. The owner was shown 340 and the report said 306.
+    """
+    import asyncio
+
+    from app.config import get_settings
+    from app.core import holdout as H
+
+    get_settings.cache_clear()
+    monkeypatch.setenv("HOLDOUT_ENABLED", "true")
+    monkeypatch.setenv("HOLDOUT_SHARE_PERCENT", "10")
+    get_settings.cache_clear()
+
+    c = client.app.state.container
+    from app.core.consent import Consent
+    tenant = "t-hold"
+
+    # Someone who DID consent — so nothing but the holdout can refuse him.
+    held = next(s for s in (f"sub_{n:08d}" for n in range(5000))
+                if H.is_holdout(tenant, s, share=10))
+    free = next(s for s in (f"sub_{n:08d}" for n in range(5000))
+                if not H.is_holdout(tenant, s, share=10))
+    from app.core.stores import EngagementStore
+
+    now = 1_800_000_000
+    for sub in (held, free):
+        asyncio.run(Consent(c.datastore).record(tenant, sub, state="granted",
+                                                source="customer_page"))
+        # ENGAGED, so nothing but the holdout can refuse either of them. Without this both are on
+        # the «minimal» tier and both are refused for the same unrelated reason — a test that would
+        # have passed on the broken code and proved nothing.
+        asyncio.run(EngagementStore(c.datastore).put(
+            tenant, sub, {"score": 100.0, "scored_at": now}))
+
+    def ask(sub):
+        return client.post("/internal/reminders/eligibility", headers=HEAD,
+                           json={"tenant": tenant, "subject_ref": sub,
+                                 "class": "marketing"}).json()
+
+    assert ask(free)["allowed"] is True, f"refused: {ask(free)}"
+    assert ask(held)["allowed"] is False, (
+        "the preview counted a held-out customer as reachable — the send withholds him, and the "
+        "owner is left with an unexplained gap between the two numbers")
+
+    get_settings.cache_clear()

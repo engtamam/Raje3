@@ -277,7 +277,8 @@ class HttpSender:
                    offer_expires_at: int = 0,
                    offer_services: list[str] | None = None,
                    offer_value: str = "", coupon_code: str = "",
-                   service_names: list[str] | None = None) -> dict[str, Any]:
+                   service_names: list[str] | None = None,
+                   branch_id: str = "") -> dict[str, Any]:
         """Hand one message to reminders. It decides.
 
         Returns `{"sent": bool, "reason": str}` — and the reason is theirs, carried into the run
@@ -288,6 +289,10 @@ class HttpSender:
             return _post(self._url, {
                 "tenant": tenant, "subject_ref": subject_ref,
                 "template_type": template_type, "class": cls,
+                # WHICH NUMBER IT LEAVES FROM, and which branch the send log records. A chain with
+                # a number per branch sent every campaign message from the central one until this
+                # field travelled — see reminders' CampaignSendIn.branch_id.
+                "branch_id": branch_id,
                 "owner_text": owner_text, "idempotency_key": idempotency_key,
                 # Carried so the send log can record the entitlement AND its end. Zero for every
                 # message that offers nothing, which is most of them.
