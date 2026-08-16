@@ -24,6 +24,7 @@
  */
 
 /** What a shop holds, as billing answers it. `null` while the answer has not arrived. */
+import { isDenied, isReady, type Loading } from './loading';
 export interface Owned {
   checked: boolean;
   message: string;
@@ -102,8 +103,13 @@ export function keyForSection(sectionId: string): string | null {
  * neither the surface nor a lock, because telling a paying shop it has not paid is worse than
  * telling it to wait a moment. Nothing here is a security decision; the service refuses regardless.
  */
-export function owns(owned: Owned | null, key: string | null): boolean | null {
+export function owns(owned: Loading<Owned>, key: string | null): boolean | null {
   if (key === null) return true;             // the base is not for sale separately
-  if (!owned || !owned.checked) return null;
+  // NOT HIS TO ASK is an answer, and it is «show him the surface». The catalogue simply does not
+  // carry the entitlement read for a role that cannot buy — and the acts behind the surface are
+  // gated by the services regardless, so drawing neither lock nor skeleton is both the honest and
+  // the useful reading.
+  if (isDenied(owned)) return true;
+  if (!isReady(owned) || !owned.checked) return null;
   return owned.keys.includes(key);
 }

@@ -151,7 +151,7 @@ function asLocal(phone: string): string {
 
 export function MessagesScreen(
   { session, catalog, owned }:
-  { session: Session; catalog: Catalog; owned?: Owned | null },
+  { session: Session; catalog: Catalog; owned?: Loading<Owned> },
 ) {
   const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>('reasons');
 

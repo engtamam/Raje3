@@ -31,6 +31,7 @@ import { Connect } from './Connect';
 import { DataPane, InvoicesPane, KeysPane, LoginPane, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { TeamScreen } from './Team';
+import { type Loading } from '../loading';
 import type { Owned } from '../apps';
 
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
@@ -101,7 +102,7 @@ export function AccountScreen(
   // `openOn` IS WHERE SOMEBODY ELSE SENT HIM. The locked cards across the product say «أضِفه إلى
   // اشتراكي», and a button that lands on a page and then makes him find the right tab is a button
   // that loses half the people who pressed it. Ignored when he may not read that tab.
-  { session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Owned | null },
+  { session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Loading<Owned> },
 ) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null | undefined>(undefined);

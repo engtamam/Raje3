@@ -29,7 +29,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
-import { isLoading } from '../loading';
+import { isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -383,6 +383,22 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               ))}
             </ul>
           )}
+        </section>
+      ) : !isReady(earn) ? (
+        // ── A FAILED SETTINGS READ MUST NOT DRAW RULES AS FACTS (م · قاطع) ───────────────────
+        //
+        // Every control on this tab defaults to `earn?.…?.points ?? 0`. When the read failed, the
+        // whole earning tree therefore rendered as ZERO — presented not as «unknown» but as this
+        // shop's configuration. And the first touch on any field WRITES it: the owner corrects a
+        // number he was never shown correctly, and the shop starts granting what the screen made
+        // up. A programme silently reset to zero is discovered by customers, at the counter.
+        <section className="flex flex-col gap-4">
+          <EmptyState
+            title={isLoading(earn) ? 'نقرأ إعدادات النقاط' : 'تعذّرت قراءة إعدادات النقاط'}
+            description={isLoading(earn)
+              ? 'لحظة واحدة.'
+              : 'لم نعرضها كي لا تُعدّل رقماً على غير أصله — قواعد محلك كما هي. أعد المحاولة.'}
+          />
         </section>
       ) : (
         <section className="flex flex-col gap-4">

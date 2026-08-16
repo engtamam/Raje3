@@ -35,6 +35,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
+import { isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import type { Session } from '../session';
 
@@ -279,8 +280,11 @@ export function PlansPane({
 }: {
   session: Session;
   catalog: Catalog;
-  /** What billing says this shop holds. `null` while unknown — never rendered as «not bought». */
-  owned?: Owned | null;
+  /** What billing says this shop holds, in the four states of ../loading.ts: `undefined` while
+   *  the read is in flight, `null` if it failed, DENIED where the role cannot ask, and the answer
+   *  itself. It is NEVER rendered as «not bought» — telling a paying shop it has not paid is the
+   *  one mistake this pane must not make. */
+  owned?: Loading<Owned>;
   /** Takes him to the connection pane. Passed in, because this pane does not own the navigation. */
   onGoConnect: () => void;
 }) {
@@ -371,17 +375,20 @@ export function PlansPane({
   const bases = plans?.filter((p) => kindOf(p) === 'base') ?? [];
   const apps = plans?.filter((p) => kindOf(p) === 'app') ?? [];
   const capacity = plans?.filter((p) => kindOf(p) === 'capacity') ?? [];
-  // THREE ANSWERS, and the third is why this is not a boolean. `owned` is null while the read is
-  // in flight and `checked` is false when billing could not be asked; the sections must claim
-  // neither way while either is true.
-  const hasBase = !owned || !owned.checked ? null : Boolean(owned.base);
+  // FOUR ANSWERS NOW, and none of them is «he has not bought». The read may be in flight
+  // (`undefined`), have failed (`null`), be one his role cannot make (DENIED), or have arrived
+  // with `checked: false` because billing itself could not be asked. The sections claim nothing
+  // in every one of those cases — telling a paying shop it has not paid is the mistake this pane
+  // exists to avoid.
+  const answer = isReady(owned) ? owned : null;
+  const hasBase = !answer || !answer.checked ? null : Boolean(answer.base);
   // Counted off the answer, not off the rows: a subscription list can hold a lapsed row, and what
   // he OWNS is the only number that matches the badges on the cards below.
-  const ownedApps = apps.filter((p) => owns(owned ?? null, appKey(p)) === true).length;
+  const ownedApps = apps.filter((p) => owns(owned, appKey(p)) === true).length;
   // WESTERN DIGITS AND A GREGORIAN MONTH, like every other date in this product. Seconds on the
   // wire — the row's `current_period_end` — and a day a person can plan around on the screen.
-  const renews = owned?.base?.renews_at
-    ? new Date(owned.base.renews_at * 1000).toLocaleDateString('ar-SA-u-nu-latn-ca-gregory',
+  const renews = answer?.base?.renews_at
+    ? new Date(answer.base.renews_at * 1000).toLocaleDateString('ar-SA-u-nu-latn-ca-gregory',
                                                                { day: 'numeric', month: 'long' })
     : '';
 

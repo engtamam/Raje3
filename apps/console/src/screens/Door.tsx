@@ -72,6 +72,63 @@ export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   );
 }
 
+type Proving = { phone: string; password: string; problem: string };
+
+/**
+ * «أكّد رقمك» — the one refusal that is a STEP rather than an error, shared by both doors.
+ *
+ * IT LIVED IN THE SIGN-IN PANE ALONE (م · قاطع). Opening a shop ends by signing in, and when the
+ * server answers `unverified` the new-shop pane simply printed the sentence on a form with no code
+ * field anywhere on it. The account exists, his number is spoken for, and there is no way forward
+ * from that screen — while the pane beside it has handled exactly this correctly all along.
+ */
+async function proveStep(phone: string, password: string): Promise<Proving> {
+  let problem = '';
+  try {
+    await requestCode(phone);
+  } catch (sendErr) {
+    problem = sentenceFor(sendErr, 'تعذّر إرسال الرمز.');
+  }
+  return { phone, password, problem };
+}
+
+function needsProof(err: unknown): boolean {
+  return err instanceof Refused && err.reason === 'unverified';
+}
+
+function ProveNumber(
+  { proving, setProving, onSignedIn }:
+  { proving: Proving; setProving: (p: Proving) => void; onSignedIn: (s: Session) => void },
+) {
+  return (
+    <>
+      {proving.problem ? (
+        <p role="alert" className="mb-4 rounded-card bg-surface-1 p-4 text-danger shadow-sm">
+          {proving.problem}
+        </p>
+      ) : null}
+      <OtpVerify
+        title="أكّد رقمك"
+        sentTo={proving.phone}
+        onVerify={async (code) => {
+          await verifyCode(proving.phone, code);
+          onSignedIn(await signIn(proving.phone, proving.password));
+        }}
+        // ONE PLACE FOR ONE MESSAGE. The banner exists for a send that failed BEFORE this screen
+        // rendered — there is no other surface for that. A RESEND has one: the component's own
+        // error, under the input where the person is looking. Setting both showed the sentence
+        // twice, which reads as two separate faults.
+        onResend={async () => {
+          setProving({ ...proving, problem: '' });
+          await requestCode(proving.phone);
+        }}
+        mapError={otpError}
+      />
+    </>
+  );
+}
+
+
 function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -121,14 +178,8 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // THE ONE REFUSAL THAT IS A STEP. He signed up, closed the tab on the code screen, and came
       // back. Sending a fresh code and showing it to him is the whole remedy — leaving him on a
       // login form holding a sentence about a code nobody sent is not.
-      if (err instanceof Refused && err.reason === 'unverified') {
-        let problem = '';
-        try {
-          await requestCode(typedPhone);
-        } catch (sendErr) {
-          problem = sentenceFor(sendErr, 'تعذّر إرسال الرمز.');
-        }
-        setProving({ phone: typedPhone, password: typedPassword, problem });
+      if (needsProof(err)) {
+        setProving(await proveStep(typedPhone, typedPassword));
         return;
       }
       setError(sentenceFor(err, 'تعذّر تسجيل الدخول.'));
@@ -138,32 +189,7 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   }
 
   if (proving) {
-    return (
-      <>
-        {proving.problem ? (
-          <p role="alert" className="mb-4 rounded-card bg-surface-1 p-4 text-danger shadow-sm">
-            {proving.problem}
-          </p>
-        ) : null}
-        <OtpVerify
-          title="أكّد رقمك"
-          sentTo={proving.phone}
-          onVerify={async (code) => {
-            await verifyCode(proving.phone, code);
-            onSignedIn(await signIn(proving.phone, proving.password));
-          }}
-          // ONE PLACE FOR ONE MESSAGE. The banner exists for a send that failed BEFORE this screen
-          // rendered — there is no other surface for that. A RESEND has one: the component's own
-          // error, under the input where the person is looking. Setting both showed the sentence
-          // twice, which reads as two separate faults.
-          onResend={async () => {
-            setProving({ ...proving, problem: '' });
-            await requestCode(proving.phone);
-          }}
-          mapError={otpError}
-        />
-      </>
-    );
+    return <ProveNumber proving={proving} setProving={setProving} onSignedIn={onSignedIn} />;
   }
 
   return (
@@ -267,6 +293,7 @@ function errorFor(f: FieldName, v: string): string {
 }
 
 function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
+  const [proving, setProving] = useState<Proving | null>(null);
   const [v, setV] = useState<Record<FieldName, string>>({ phone: '', password: '', shopName: '' });
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [sector, setSector] = useState('');
@@ -359,10 +386,22 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // goes stale the day the setting flips.
       onSignedIn(await signIn(filled.phone, filled.password));
     } catch (err) {
+      // THE SAME REFUSAL, THE SAME STEP — and this pane used to answer it with a sentence on a
+      // form that has no code field anywhere on it (م · قاطع). The account exists by then, his
+      // number is spoken for, and «أكّد رقمك» with nowhere to type it is a locked door he built
+      // himself. The pane beside this one has handled it correctly since it was written.
+      if (needsProof(err)) {
+        setProving(await proveStep(filled.phone, filled.password));
+        return;
+      }
       setError(sentenceFor(err, 'تعذّر إنشاء الحساب.'));
     } finally {
       setBusy(false);
     }
+  }
+
+  if (proving) {
+    return <ProveNumber proving={proving} setProving={setProving} onSignedIn={onSignedIn} />;
   }
 
   return (

@@ -16,6 +16,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { DENIED, type Loading } from './loading';
 import { Mark, NAME_AR } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
@@ -38,7 +39,7 @@ export function App() {
   //
   // It stays null when the action is absent — an operator's catalogue does not carry it, and his
   // screens do not draw locks anyway.
-  const [owned, setOwned] = useState<Owned | null>(null);
+  const [owned, setOwned] = useState<Loading<Owned>>(undefined);
 
   useEffect(() => {
     if (!isSignedIn(session)) return;
@@ -56,9 +57,12 @@ export function App() {
   useEffect(() => {
     if (!catalog) return;
     const a = action(catalog, 'subscription.apps');
-    // NOT AN ERROR WHEN ABSENT. Only the owner's catalogue carries it; for anybody else `owned`
-    // stays null, which the gate reads as "do not draw a lock" rather than as "he owns nothing".
-    if (!a) return;
+    // NOT AN ERROR WHEN ABSENT — but not silence either. Only the owner's catalogue carries this
+    // action; for anybody else the state used to stay at its initial value for ever, and the gate
+    // reads that as «still loading» and draws a skeleton. A manager holding `loyalty.manage` and
+    // not `billing.self` therefore met a grey rectangle on «نقاطي» that never resolved: no
+    // programme, no lock, no reason (م · قاطع).
+    if (!a) { setOwned(DENIED); return; }
     call<Owned>(session, a)
       // A FAILED READ IS THE OUTAGE ANSWER, not silence: the route reports `checked: false` when
       // billing could not be asked, and a network failure here is the same fact.

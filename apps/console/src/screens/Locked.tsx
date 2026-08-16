@@ -20,6 +20,7 @@ import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { hasFailed, isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type Owned } from '../apps';
 
 export function LockedCard({ appId }: { appId: string }) {
@@ -54,13 +55,22 @@ export function LockedCard({ appId }: { appId: string }) {
  */
 export function AppGate(
   { appId, owned, children }:
-  { appId: string; owned: Owned | null; children: React.ReactNode },
+  { appId: string; owned: Loading<Owned>; children: React.ReactNode },
 ) {
   const row = APP_ROWS.find((a) => a.id === appId);
   const has = owns(owned, row ? row.key : null);
   if (has === null) {
-    if (owned && !owned.checked) {
+    // «تعذّر التحقق» AND «ما زلنا نقرأ» ARE DIFFERENT SCREENS, and one of them used to swallow the
+    // other: a manager holding `loyalty.manage` and not `billing.self` never triggers the
+    // entitlement read at all, so this state stayed at its initial value and he met a grey
+    // rectangle for ever — no programme, no lock, and no sentence (م · قاطع). `owns` now answers
+    // «not yours to ask» with «show him the surface»; what is left here is the honest pair.
+    if (isReady(owned) && !owned.checked) {
       return <EmptyState title="تعذّر التحقق من اشتراكك" description={owned.message} />;
+    }
+    if (hasFailed(owned)) {
+      return <EmptyState title="تعذّر التحقق من اشتراكك"
+                         description="والخلل عندنا. أعد المحاولة بعد قليل." />;
     }
     return <Skeleton height={160} />;
   }

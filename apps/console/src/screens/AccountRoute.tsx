@@ -1,5 +1,6 @@
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { AccountScreen, type PaneLink } from './Account';
+import { type Loading } from '../loading';
 import type { Owned } from '../apps';
 import type { Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -8,7 +9,7 @@ const PANES = ['billing', 'invoices', 'whatsapp', 'shop', 'team', 'keys', 'login
 
 export function Account() {
   const { session, catalog, owned } =
-    useOutletContext<{ session: Session; catalog: Catalog; owned: Owned | null }>();
+    useOutletContext<{ session: Session; catalog: Catalog; owned: Loading<Owned> }>();
   const [params] = useSearchParams();
   // VALIDATED AGAINST THE LIST, never passed through. `?tab=` comes from a URL anybody can type,
   // and an unknown value would leave the screen on a tab that does not exist — a blank page

@@ -1,6 +1,7 @@
 import { useOutletContext } from 'react-router-dom';
 import { PointsScreen } from './Points';
 import { AppGate } from './Locked';
+import { type Loading } from '../loading';
 import type { Owned } from '../apps';
 import type { Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -17,7 +18,7 @@ import type { Session } from '../session';
  */
 export function Points() {
   const { session, catalog, owned } =
-    useOutletContext<{ session: Session; catalog: Catalog; owned: Owned | null }>();
+    useOutletContext<{ session: Session; catalog: Catalog; owned: Loading<Owned> }>();
   return (
     <AppGate appId="loyalty" owned={owned}>
       <PointsScreen session={session} catalog={catalog} />

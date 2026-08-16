@@ -1,0 +1,67 @@
+/**
+ * Three screens that answered a question nobody asked (م · قواطع).
+ *
+ * These are source-shape assertions rather than rendered-DOM ones, and that is deliberate: each
+ * defect is a MISSING BRANCH, and a test that renders the happy path cannot see a branch that was
+ * never written. What is pinned here is that the branch exists and is reached by the right state.
+ */
+import { describe, expect, it } from 'vitest';
+
+// THE SOURCE AS A STRING, through Vite rather than `node:fs` — this app's tsconfig has no node
+// types, and adding them so a test can read a file would be the tail wagging the build.
+import doorSrc from './screens/Door.tsx?raw';
+import pointsSrc from './screens/Points.tsx?raw';
+import { DENIED, isReady } from './loading';
+import { owns } from './apps';
+
+describe('the grey box on «نقاطي» that never resolved', () => {
+  it('a role that cannot ask about billing is not left loading for ever', () => {
+    // THE DEFECT. A manager holding `loyalty.manage` and not `billing.self` never triggers the
+    // entitlement read, so the state stayed at its initial value and `AppGate` drew a skeleton
+    // for ever: no programme, no lock, and no sentence.
+    expect(owns(DENIED, 'feature.loyalty')).toBe(true);
+  });
+
+  it('and it still refuses to claim «not bought» while the answer is unknown', () => {
+    // The other direction is the expensive one: telling a paying shop it has not paid.
+    expect(owns(undefined, 'feature.loyalty')).toBe(null);
+    expect(owns(null, 'feature.loyalty')).toBe(null);
+    expect(owns({ checked: false, message: '', keys: [], apps: [] }, 'feature.loyalty'))
+      .toBe(null);
+  });
+
+  it('a real answer is still answered', () => {
+    const owned = { checked: true, message: '', keys: ['feature.loyalty'], apps: [] };
+    expect(isReady(owned)).toBe(true);
+    expect(owns(owned, 'feature.loyalty')).toBe(true);
+    expect(owns(owned, 'feature.campaigns')).toBe(false);
+  });
+});
+
+describe('«نقاطي»: a failed settings read must not draw rules as facts', () => {
+  it('the earning tab renders nothing editable until the settings arrived', () => {
+    // Every control on that tab defaults to `earn?.…?.points ?? 0`, so a failed read presented the
+    // whole tree as ZERO — and the first touch on any field WRITES it. The owner corrects a number
+    // he was never shown correctly, and the shop starts granting what the screen made up.
+    const points = pointsSrc;
+    expect(points).toContain('!isReady(earn) ?');
+    expect(points).toContain('تعذّرت قراءة إعدادات النقاط');
+  });
+});
+
+describe('the door: «أكّد رقمك» on a screen with no code field', () => {
+  it('both panes answer an unverified refusal with the code step', () => {
+    // Opening a shop ends by signing in. When the server answered `unverified`, the new-shop pane
+    // printed the sentence on a form with no code field anywhere on it — the account exists, his
+    // number is taken, and there is no way forward from that screen.
+    const door = doorSrc;
+    expect(door.match(/needsProof\(err\)/g)?.length).toBe(2);
+    expect(door.match(/<ProveNumber/g)?.length).toBe(2);
+  });
+
+  it('the rule itself is written once', () => {
+    // Two copies of «what counts as unverified» is one copy that goes stale the day it changes.
+    const door = doorSrc;
+    expect(door.match(/reason === 'unverified'/g)?.length).toBe(1);
+  });
+});
