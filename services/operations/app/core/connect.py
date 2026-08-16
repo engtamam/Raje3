@@ -88,6 +88,28 @@ _SENTENCE = {
 
 _DEFAULT_SENTENCE = "لم يكتمل الربط. افتح الربط مرة أخرى وأكمل الخطوات."
 
+# ── WHOSE FAULT THE FAILURE WAS, NAMED RATHER THAN DESCRIBED (هـ-5) ───────────────────────────
+# A failed exchange carries a `detail` for support. Two of its causes are OURS and neither is
+# anything the owner can act on: no onboarding credentials wired at all, and notification-service
+# unreachable while we held Meta's thirty-second code. Told «حاول مرة أخرى» he tries, fails,
+# tries again, and concludes the fault is in his Facebook account.
+#
+# The register route two files over has said this correctly since it was written — NOT_CONFIGURED
+# is one of its five sentences — and the same reason on the same journey read differently
+# depending on which half of it the owner was standing in.
+#
+# These are reason CODES, matched on the part before the colon so a detail may still carry the
+# transport error after it. Anything not listed is Meta refusing the code, which IS his to retry.
+EXCHANGE_NOT_CONFIGURED = "NOT_CONFIGURED"
+EXCHANGE_UNREACHABLE = "UNREACHABLE"
+
+_OURS_SENTENCE = {
+    EXCHANGE_NOT_CONFIGURED: ("تفعيل الربط غير مُهيَّأ لدينا بعد — عُطلٌ عندنا لا في حسابك. "
+                              "لا حاجة لإعادة المحاولة، وسنبلغك فور تشغيله."),
+    EXCHANGE_UNREACHABLE: ("تعذّر الوصول إلى أنظمتنا أثناء إتمام الربط — عُطلٌ عندنا لا في "
+                           "حسابك. أعد المحاولة بعد قليل."),
+}
+
 
 @dataclass
 class Attempt:
@@ -177,6 +199,11 @@ def sentence_for(attempt: Attempt, *, can_send: bool = True) -> str:
         return ("أنشأتَ الحساب على واتساب، ولم يصلنا رمز الإكمال قبل انتهاء صلاحيته. "
                 "اضغط «ربط واتساب» مرة أخرى لإتمامها — لن يُنشأ حساب جديد.")
     if attempt.state == STATE_FAILED:
+        # OURS OR HIS — see the reason codes above. The detail is never shown; only the code in
+        # front of it chooses which of the three sentences he reads.
+        ours = _OURS_SENTENCE.get((attempt.detail or "").split(":")[0].strip())
+        if ours:
+            return ours
         return "تعذّر إكمال الربط. حاول مرة أخرى، وإن تكرر تواصل معنا."
     # A CONNECTION THAT ENDED AFTER IT WORKED IS NOT AN UNFINISHED ONE. The sweep stops a row whose
     # access was revoked and writes WHY into `detail`; a stopped row carries a `step` only when the
@@ -389,7 +416,10 @@ class NullExchange:
 
     async def exchange(self, *, tenant: str, code: str, waba_id: str,
                        phone_number_id: str) -> tuple[bool, str]:
-        return False, "onboarding is not configured"
+        # THE REASON IS A CODE, because the owner's sentence depends on it: nothing wired here is
+        # ours, and telling him to try again would send him hunting through his Facebook account
+        # for a fault that is on our side of the wire.
+        return False, f"{EXCHANGE_NOT_CONFIGURED}: onboarding is not configured"
 
 
 class HttpExchange:
@@ -437,7 +467,9 @@ class HttpExchange:
             except (ValueError, OSError):
                 return False, str(exc.code)
         except (urllib.error.URLError, OSError) as exc:
-            return False, f"unreachable: {exc}"
+            # OURS, AND NAMED AS SUCH. A peer we cannot reach is not a code Meta rejected, and the
+            # owner is told to wait rather than to repeat a journey that cannot succeed yet.
+            return False, f"{EXCHANGE_UNREACHABLE}: {exc}"
 
 
 def build_exchange(settings: Any) -> Any:

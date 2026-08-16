@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from app.core.compose import Page, Section, _normalise_prefs
+from app.core.compose import CLASS_ORDER, Page, Section, _normalise_prefs
 from app.core.render import render_page
 from app.core.theme import build_theme
 
@@ -13,7 +13,8 @@ THEME = build_theme("#0F5F4E")
 def page(**over):
     p = Page(reference="tnt-alpha.sub_abc123def456", tenant="tnt-alpha",
              shop_name="ورشة النخبة", brand_colour="#0F5F4E")
-    p.prefs = Section(available=True, data=_normalise_prefs({"stopped": {"marketing": True}}))
+    p.prefs = Section(available=True, data=_normalise_prefs({"preferences": [{"class": c, "enabled": c != "marketing"}
+                                                     for c in CLASS_ORDER]}))
     p.visits = Section(available=True, data=[{"services": "غيار الزيت", "date": "12 يونيو"}])
     for k, v in over.items():
         setattr(p, k, v)

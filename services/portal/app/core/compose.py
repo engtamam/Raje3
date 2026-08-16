@@ -160,10 +160,15 @@ class Composer:
             # OURS, AND THE PAGE SAYS SO. Silence here reads to him as «the offer was a trick».
             page.offers = Section(available=False, failed=True)
 
-        # A SHOP WITHOUT REWARDS IS NOT AN OUTAGE. `to_next_reward` is 0 and the list is empty for
-        # a shop that runs no programme; the section stays unavailable so the page renders nothing
-        # rather than a balance of zero nobody can spend.
-        if not isinstance(points, BaseException) and isinstance(points, dict) and points:
+        # A SHOP WITHOUT REWARDS IS NOT AN OUTAGE, and the peer is the one that says so.
+        #
+        # `points` is loyalty's answer, and its answer for a shop running nothing is a full
+        # dictionary of zeros — so a truthiness test on it was true for everybody, and a customer
+        # of a shop with no programme read «0 نقطة» on his own page. `has_programme` is loyalty's
+        # own statement about the shop; absent (no loyalty peer wired at all) is not «no», it is
+        # «nobody asked», and the section stays unavailable either way rather than guessing.
+        if (not isinstance(points, BaseException) and isinstance(points, dict)
+                and points.get("has_programme")):
             page.points = Section(available=True, data=points)
 
         return page
@@ -217,20 +222,33 @@ def _normalise_offers(raw: Any) -> list[dict[str, Any]]:
 
 
 def _normalise_prefs(raw: Any) -> list[dict[str, Any]]:
-    """The five switches in the customer's order, whatever shape the peer returned.
+    """The five switches in the customer's order, from what reminders said about each one.
 
-    Defensive because this is rendered without a schema check on the other side: a peer that grows
-    a sixth class must not put an unlabelled toggle on a customer's page, and one that drops a
-    class must not make a switch disappear from under someone who was about to press it.
+    Defensive about the SHAPE because this is rendered without a schema check on the other side: a
+    peer that grows a sixth class must not put an unlabelled toggle on a customer's page, and one
+    that drops a class must not make a switch disappear from under someone who was about to press
+    it. What it is not defensive about is the VALUE — see below.
+
+    ── EACH CLASS'S DEFAULT IS ITS OWN RULE (هـ-6) ──────────────────────────────────────────────
+    Four of the five are opt-OUT: service, personal, awareness and warning run until the customer
+    stops them, so a class the peer did not name renders ON and that is right (§8.4.2).
+
+    MARKETING IS OPT-IN. §8.5 and the PDPL's prior-consent rule, and the sending gate enforces it:
+    `never_asked` is refused there exactly as `withdrawn` is. This page derived every switch from
+    «was it stopped?», which for marketing answers a different question — so a customer who had
+    never granted anything opened his page and found «العروض والخصومات» ticked, describing a
+    permission we would refuse to act on and he never gave.
+
+    So marketing has no default here. It shows what reminders' consent record says, and if that
+    answer did not arrive the switch is OFF: the direction where the page under-promises rather
+    than showing him a grant nobody holds.
     """
-    stopped: dict[str, bool] = {}
+    rows: Any = None
     if isinstance(raw, dict):
-        stopped = raw.get("stopped") or {}
-        if not stopped and isinstance(raw.get("preferences"), list):
-            stopped = {p.get("class"): not p.get("enabled", True)
-                       for p in raw["preferences"] if isinstance(p, dict) and p.get("class")}
+        rows = raw.get("preferences")
     elif isinstance(raw, list):
-        stopped = {p.get("class"): not p.get("enabled", True)
-                   for p in raw if isinstance(p, dict) and p.get("class")}
+        rows = raw
+    said = {p["class"]: bool(p.get("enabled", True))
+            for p in (rows or []) if isinstance(p, dict) and p.get("class")}
     return [{"class": c, "label": LABELS[c], "hint": HINTS[c],
-             "enabled": not bool(stopped.get(c, False))} for c in CLASS_ORDER]
+             "enabled": said.get(c, c != "marketing")} for c in CLASS_ORDER]

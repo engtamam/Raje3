@@ -180,7 +180,14 @@ class HttpQuota:
                                                      "idempotency_key": idempotency_key})
         except QuotaError as exc:
             raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.") from exc
-        if status >= 400 or not out.get("allowed"):
+        # AN ERROR STATUS IS NOT AN ANSWER, and joining it to the body in one condition made it
+        # one. `_post` returns an EMPTY body for an HTTP error, so `out.get("allowed")` was falsy
+        # for every 500 billing ever returned — and the owner read «بلغت حدّ باقتك من النصوص
+        # الخاصة هذا الشهر» about a limit he had not touched, then rang support about a package.
+        # Same reading as `consume` above: >= 400 means billing did not answer.
+        if status >= 400:
+            raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.")
+        if not out.get("allowed"):
             error = str(out.get("error") or "")
             if error == "NOT_ENTITLED":
                 raise QuotaError("لا يوجد اشتراك فعّال.")

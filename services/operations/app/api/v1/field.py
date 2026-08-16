@@ -287,7 +287,13 @@ async def resolve_customers(request: Request, body: ResolveIn,
     #
     # Unbranched customers stay visible, as everywhere else: a till records no branch.
     scope = await branch_scope(request.app.state.container.datastore, principal)
-    kept = SCOPE.visible([c.public() for c in rows], scope, field="last_branch_id")
+    # THE REF IS ECHOED BACK BESIDE EACH CUSTOMER, and it tells the caller nothing he did not
+    # send: he asked with these pseudonyms. Without it the answer cannot be PAIRED with the
+    # question — unknown refs are simply absent, so position proves nothing — and a caller holding
+    # one pseudonym per row (the privacy-request panel holds one per request) could not say which
+    # customer belonged to which. `public()` still omits it: this is the route whose job is the join.
+    kept = SCOPE.visible([{**c.public(), "subject_ref": c.subject_ref} for c in rows],
+                         scope, field="last_branch_id")
     return {"customers": kept}
 
 
@@ -388,9 +394,19 @@ async def privacy_requests(request: Request, principal: Principal = Depends(_MAN
 @router.post("/privacy-requests/{request_id}/close", dependencies=[Depends(rate_limit)])
 async def close_privacy_request(request: Request, request_id: str,
                                 principal: Principal = Depends(_MANAGE)) -> dict:
-    """Answered. WHO closed it is kept — «we answered him» is a claim that needs a name on it."""
-    ok = await _svc(request).close_privacy_request(_tenant(principal), request_id,
-                                                  principal.subject)
+    """Answered. WHO closed it is kept — «we answered him» is a claim that needs a name on it.
+
+    AND IT IS AUDITED, because the row alone cannot support the claim. The ASK is audited
+    (`privacy.requested`, the hour PDPL's thirty-day clock starts) and the ANSWER was not — so the
+    two halves of the one thing a regulator asks about lived in different places, and only the
+    half that accuses us was in the ledger. Write-ahead, like every other act on this path: a
+    closure the log could not witness is a closure we cannot later prove we made.
+    """
+    tenant = _tenant(principal)
+    await request.app.state.auditor.record(
+        "privacy.answered", actor=principal.subject, tenant=tenant, resource="privacy_request",
+        ip=request.client.host if request.client else "")
+    ok = await _svc(request).close_privacy_request(tenant, request_id, principal.subject)
     return {"ok": ok}
 
 

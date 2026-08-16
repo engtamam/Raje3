@@ -438,6 +438,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "stops being a claim we can support",
     },
     {
+        "action": "privacy.answered",
+        "source": "admin",
+        "critical": True,
+        "resource": "privacy_request",
+        "why": "the hour the establishment says it answered him — the other half of "
+               "`privacy.requested`, and the half that exonerates. Only the accusation was in the "
+               "ledger: the ask was audited from the day it existed and the answer was a field on "
+               "a row, so «we answered within thirty days» was a claim with no witness",
+    },
+    {
         "action": "customer.erasure_requested",
         "source": "admin",
         "critical": True,

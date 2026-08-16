@@ -52,7 +52,10 @@ class Rem:
             await asyncio.sleep(self.slow)
         if self.fail:
             raise RuntimeError("reminders unreachable")
-        return self.prefs if self.prefs is not None else {"stopped": {}}
+        # THE SHAPE reminders SERVES. Its default answer names every class, because the
+        # marketing switch is drawn from a consent record and not from an absence.
+        return self.prefs if self.prefs is not None else {"preferences": [
+            {"class": c, "enabled": c != "marketing"} for c in CLASS_ORDER]}
 
     async def offers_for(self, tenant, subject):
         if self.slow:
@@ -118,29 +121,49 @@ def test_no_visits_and_could_not_load_visits_are_different_answers():
 
 
 def test_the_switches_come_back_in_the_customers_order_whatever_the_peer_sent():
-    p = page(rem=Rem({"stopped": {"marketing": True}}))
+    p = page(rem=Rem({"preferences": [{"class": c, "enabled": c != "marketing"}
+                                      for c in CLASS_ORDER]}))
     assert [s["class"] for s in p.prefs.data] == list(CLASS_ORDER)
     assert {s["class"]: s["enabled"] for s in p.prefs.data}["marketing"] is False
 
 
 def test_a_peer_that_grows_a_sixth_class_does_not_put_an_unlabelled_toggle_on_the_page():
-    p = page(rem=Rem({"stopped": {"marketing": True, "telepathy": True}}))
+    p = page(rem=Rem({"preferences": [{"class": "marketing", "enabled": False},
+                                      {"class": "telepathy", "enabled": True}]}))
     assert len(p.prefs.data) == 5
     assert all(s["label"] and s["hint"] for s in p.prefs.data)
 
 
 def test_a_peer_that_drops_a_class_does_not_make_a_switch_vanish():
     """A switch disappearing from under someone about to press it is worse than one that is on."""
-    p = page(rem=Rem({"stopped": {}}))
+    p = page(rem=Rem({"preferences": [{"class": "service", "enabled": True}]}))
     assert len(p.prefs.data) == 5
+
+
+# ── the one switch that is not an opt-out (هـ-6) ───────────────────────────────────────────────
+def test_a_class_the_peer_did_not_mention_stays_on_because_it_is_an_opt_out():
+    """Service, personal, awareness and warning run until the customer stops them (§8.4.2). A
+    dropped class must not read as a refusal he never made."""
+    p = page(rem=Rem({"preferences": [{"class": "marketing", "enabled": True}]}))
+    on = {s["class"]: s["enabled"] for s in p.prefs.data}
+    assert on["service"] is True and on["warning"] is True
+
+
+def test_marketing_is_off_when_the_peer_did_not_say_he_agreed():
+    """THE ONE THAT IS OPT-IN. «لم يرفض» is not consent — §8.5 and the PDPL — and the sending gate
+    refuses `never_asked` exactly as it refuses `withdrawn`. This page drew every switch from the
+    absence of a stop, so «العروض والخصومات» rendered TICKED to a customer who had granted
+    nothing: a permission described on his screen that we would refuse to act on."""
+    p = page(rem=Rem({"preferences": [{"class": "service", "enabled": True}]}))
+    assert {s["class"]: s["enabled"] for s in p.prefs.data}["marketing"] is False
 
 
 def test_the_alternate_response_shape_is_understood_too():
     """reminders returns {'preferences': [...]}; a future version might return the list bare."""
-    a = page(rem=Rem({"preferences": [{"class": "marketing", "enabled": False}]}))
-    b = page(rem=Rem([{"class": "marketing", "enabled": False}]))
+    a = page(rem=Rem({"preferences": [{"class": "awareness", "enabled": False}]}))
+    b = page(rem=Rem([{"class": "awareness", "enabled": False}]))
     for p in (a, b):
-        assert {s["class"]: s["enabled"] for s in p.prefs.data}["marketing"] is False
+        assert {s["class"]: s["enabled"] for s in p.prefs.data}["awareness"] is False
 
 
 # ── his offers, as a section like any other ────────────────────────────────────────────────────
@@ -204,7 +227,8 @@ async def test_his_points_reach_his_own_page():
     """THE ONE NUMBER HE CANNOT GET ANYWHERE ELSE. A balance he never sees does not bring him
     back, and a reward he does not know he can afford is never asked for."""
     c = Composer(identity=Ident(), operations=Ops(), reminders=Rem(),
-                 loyalty=_Loyalty({"points": 140, "rewards": [{"id": "r1", "name": "غسلة", "cost": 100}],
+                 loyalty=_Loyalty({"has_programme": True, "points": 140,
+                                   "rewards": [{"id": "r1", "name": "غسلة", "cost": 100}],
                                    "to_next_reward": 0}))
     page = await c.build("t1", "sub_a")
 
@@ -215,9 +239,14 @@ async def test_his_points_reach_his_own_page():
 @pytest.mark.asyncio
 async def test_a_shop_with_no_programme_shows_no_points_section():
     """Not a zero — an ABSENCE. A points card reading zero on the page of a shop that runs no
-    loyalty is a promise nobody made, and he would ask about it at the counter."""
+    loyalty is a promise nobody made, and he would ask about it at the counter.
+
+    THE PAYLOAD IS LOYALTY'S REAL ONE. This used to pass `{}`, which loyalty has never returned
+    for any shop: every key it serves has a value, so the emptiness test that guarded this was
+    true for every customer of every shop and the card was shown to all of them (هـ-1)."""
     c = Composer(identity=Ident(), operations=Ops(), reminders=Rem(),
-                 loyalty=_Loyalty({}))
+                 loyalty=_Loyalty({"has_programme": False, "points": 0, "manager_threshold": 0,
+                                   "rewards": [], "to_next_reward": 0, "expires_at": 0}))
     page = await c.build("t1", "sub_a")
 
     assert page.points.available is False

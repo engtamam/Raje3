@@ -374,6 +374,19 @@ async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dic
     from app.core.redeem import needs_approval
     threshold = await _threshold(c, tenant)
     return {
+        # DOES THIS SHOP RUN A PROGRAMME AT ALL — asked here, because only this service can
+        # answer it, and said out loud because the readers cannot infer it (هـ-1).
+        #
+        # Every key below has a value for a shop that runs nothing: zero points, no rewards, a
+        # threshold of zero. So the dictionary is never empty, and portal's «show the section if
+        # we got points back» was a condition that could not be false — a customer of a car wash
+        # with no loyalty programme opened his page and read «0 نقطة», which is a shop advertising
+        # something it does not have and a balance nobody can ever spend.
+        #
+        # REWARDS ARE THE PROGRAMME. Not the licence: reads deliberately go around billing (see
+        # `award` above) so a lapsed subscription never strands points a customer already holds.
+        # A shop with nothing to redeem has nothing to show him, whatever it is paying for.
+        "has_programme": bool(all_costs),
         "points": bal.points,
         "manager_threshold": threshold,
         # WHAT EACH REWARD STILL NEEDS BEFORE IT CAN BE HANDED OVER (د-14أ). Affordable is not the

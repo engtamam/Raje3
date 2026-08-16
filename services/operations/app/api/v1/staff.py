@@ -525,7 +525,23 @@ async def list_branches(request: Request, principal: Principal = Depends(_READ))
     tenant = _tenant(principal)
     await B.ensure_main(store, tenant=tenant)
     rows = await store.list(tenant)
-    return {"branches": [b.public() for b in rows]}
+
+    # ── HOW MANY HE MAY HAVE, BECAUSE THE SCREEN CANNOT GUESS IT (هـ-3) ────────────────────────
+    # «فريقي» locked its branches tab on whether the caller holds `operations.list_branches` —
+    # a ROLE fact — and wrote a PLAN sentence on the lock. Both halves were wrong at once: an
+    # owner whose plan allows one branch holds the capability, saw no lock at all, and met the
+    # refusal only after typing a name; and a supervisor without the capability was told
+    # «الفروع متاحة في باقة أعلى» about a plan his shop may well already be paying for.
+    #
+    # So the entitlement travels with the read, exactly as `shop_mode.available` does.
+    #
+    # -1 IS «NO KNOWN CEILING» AND IT COVERS TWO CASES: an unlimited plan, and a billing we could
+    # not reach — `allows_one_more` fails open by design (core/seats.py). Neither may draw a lock:
+    # telling a paying shop it has not paid is the worst sentence in the product, and an outage
+    # must never be the thing that says it.
+    limit = (await request.app.state.container.gauges.allows_one_more(
+        tenant, S.BRANCHES, _live(rows)))[1]
+    return {"branches": [b.public() for b in rows], "branch_limit": int(limit)}
 
 
 # ── the service catalogue ─────────────────────────────────────────────────────────────────────

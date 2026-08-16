@@ -601,6 +601,26 @@ class Settings(BaseSettings):
                 f"AUDIT_SERVICE_URL {self.AUDIT_SERVICE_URL!r} must start with http:// or https://"
             )
 
+    def assert_onboarding_config_ok(self) -> None:
+        """Boot guard. `http` with nowhere to send is a driver that degrades into no driver.
+
+        `build_exchange` falls back to `NullExchange` when the peer URL is empty — which it must,
+        because building a Request from a relative URL raises outside the try and 500s the owner's
+        connect request while Meta's thirty-second code expires. But falling back SILENTLY means a
+        deployment with the driver switched on and the URL unset looks configured, serves traffic,
+        and refuses every single connection attempt. That combination shipped.
+
+        So the ambiguity is resolved where it can be: at boot, in production, once.
+        """
+        if not self.is_production:
+            return
+        if self.WHATSAPP_ONBOARDING_DRIVER == "http" and not self.NOTIFICATION_SERVICE_URL:
+            raise ValueError(
+                "WHATSAPP_ONBOARDING_DRIVER=http but NOTIFICATION_SERVICE_URL is empty: the "
+                "exchange would fall back to the null driver and every owner who finished "
+                "Embedded Signup would be told the connection could not be completed."
+            )
+
     def assert_consent_config_ok(self) -> None:
         """Boot guard. A service that gates processing on consent must be able to ask.
 

@@ -27,6 +27,7 @@ import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Lock } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
+import { branchGate } from '../branches';
 import type { Session } from '../session';
 
 interface Operator { id: string; name: string; role?: string; active?: boolean; branch_id?: string }
@@ -65,6 +66,14 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   const [tab, setTab] = useState<'people' | 'branches'>('people');
   const [operators, setOperators] = useState<Operator[] | null | undefined>(undefined);
   const [branches, setBranches] = useState<Branch[] | null | undefined>(undefined);
+  /**
+   * HOW MANY BRANCHES HIS PLAN ALLOWS — the entitlement, which is not the capability.
+   *
+   * `undefined` while the read is out or was never made, and `-1` for «no known ceiling»: an
+   * unlimited plan and a billing we could not reach are both that, and neither may draw a lock.
+   * Only a stated limit of 1 is the base plan, and only that draws the sentence about a package.
+   */
+  const [branchLimit, setBranchLimit] = useState<number | undefined>(undefined);
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
@@ -84,8 +93,13 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
     }
 
     if (listBranches) {
-      call<{ branches: Branch[] }>(session, listBranches)
-        .then((x) => setBranches(x.branches ?? []))
+      call<{ branches: Branch[]; branch_limit?: number }>(session, listBranches)
+        .then((x) => {
+          setBranches(x.branches ?? []);
+          // NOT COERCED TO A NUMBER. An answer that did not carry the limit has told us nothing
+          // about his plan, and `?? 0` there would lock every shop out of a tab it may own.
+          setBranchLimit(typeof x.branch_limit === 'number' ? x.branch_limit : undefined);
+        })
         .catch(() => setBranches(null));
     } else {
       setBranches(null);
@@ -105,8 +119,11 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
         options={[
           { value: 'people', label: 'العاملون' },
           // THE LOCK IS ON THE LABEL, so it is visible before he presses and not after. A tab that
-          // looks pressable and then refuses is worse than one that says so.
-          { value: 'branches', label: listBranches ? 'الفروع' : 'الفروع 🔒' },
+          // looks pressable and then refuses is worse than one that says so. It marks BOTH kinds
+          // of closed door — «not yours» and «not in your plan» — and the panel says which.
+          { value: 'branches',
+            label: branchGate(Boolean(listBranches), branchLimit) === 'open'
+              ? 'الفروع' : 'الفروع 🔒' },
         ]}
         value={tab}
         onChange={setTab}
@@ -129,7 +146,8 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
             operators={operators}
             add={addBranch}
             edit={editBranch}
-            available={Boolean(listBranches)}
+            mayRead={Boolean(listBranches)}
+            limit={branchLimit}
             onChanged={load}
           />}
     </div>
@@ -376,14 +394,19 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
   );
 }
 
-function Branches({ session, catalog, branches, operators, add, edit, available, onChanged }: {
+function Branches({ session, catalog, branches, operators, add, edit, mayRead, limit,
+                   onChanged }: {
   session: Session;
   catalog: Catalog;
   branches: Branch[] | null | undefined;
   operators: Operator[] | null | undefined;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
-  available: boolean;
+  /** Whether this PERSON may read the branch list — a role fact, from the catalogue. */
+  mayRead: boolean;
+  /** How many branches his SHOP may have — a plan fact, from the read. `-1` is no known
+   *  ceiling (unlimited, or a billing we could not ask) and `undefined` is «not answered». */
+  limit: number | undefined;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -404,9 +427,21 @@ function Branches({ session, catalog, branches, operators, add, edit, available,
       .catch(() => setStats(null));
   }, [session, catalog]);
 
-  if (!available) {
-    // LOCKED AND EXPLAINED. Hidden, an owner cannot discover that branches exist — and cannot buy
-    // them. The sentence names the plan rather than the capability, because that is what he acts on.
+  // TWO CLOSED DOORS, AND THEY ARE NOT THE SAME DOOR (هـ-3) — see `branchGate` above.
+  const gate = branchGate(mayRead, limit);
+  if (gate === 'role') {
+    // NOTHING TO SELL HIM HERE. The shop may own branches already; this is one person's role.
+    return (
+      <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
+        <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />
+        <p className="text-text-primary">الفروع ليست من صلاحياتك</p>
+        <p className="mt-1 text-sm text-text-secondary">اطلب من المالك أن يفتحها لك.</p>
+      </section>
+    );
+  }
+  if (gate === 'plan') {
+    // THE PLAN, AND ONLY WHEN BILLING SAID SO. Hidden, an owner cannot discover that branches
+    // exist — and cannot buy them. The sentence names the plan because that is what he acts on.
     return (
       <section className="rounded-card bg-surface-1 p-6 text-center shadow-sm">
         <Lock size={20} className="mx-auto mb-3 text-text-secondary" aria-hidden />

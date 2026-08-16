@@ -34,10 +34,16 @@ class FakeBilling:
         self.entitled = entitled
         self.seen: dict[str, int] = {}
         self.unreachable = False
+        # BROKEN IS NOT UNREACHABLE. billing answering HTTP 500 is a live peer failing to answer,
+        # and `_post` hands the caller that status with an EMPTY body — which is the whole of هـ-4.
+        self.status = 0
 
     def post(self, url: str, body: dict):
         if self.unreachable:
             raise Q.QuotaError("unreachable: connection refused")
+        if self.status:
+            # Exactly what `HttpQuota._post` returns for an HTTPError: the code, and nothing else.
+            return self.status, {}
         key = body.get("idempotency_key") or ""
         amount = int(body.get("amount", 1))
         if url.endswith("consume"):
@@ -178,6 +184,30 @@ def test_an_unreachable_billing_loses_the_measurement_and_says_nothing_else():
     f.unreachable = True
     run(quota(f).consume(tenant=T, idempotency_key="a"))
     assert f.used == 0
+
+
+# ── billing broken is not «you reached your limit» (هـ-4) ──────────────────────────────────────
+def test_a_billing_outage_is_not_read_to_the_owner_as_his_plan_limit():
+    """THE SENTENCE IS THE DEFECT. `take` refuses a custom template when the plan is spent, and it
+    used to judge the status and the body in one condition — so a 500, whose body is empty, fell
+    to the last branch and told a subscriber he had exhausted an allowance he had not touched. He
+    then rings support about a package, and nobody looks at the outage."""
+    f = FakeBilling(limit=3)
+    f.status = 500
+    with pytest.raises(Q.QuotaError) as e:
+        run(quota(f).take(tenant=T, key="templates.custom", idempotency_key="a"))
+    assert "حدّ باقتك" not in str(e.value)
+    assert "تعذّر" in str(e.value)
+
+
+def test_the_plan_limit_sentence_still_reaches_the_owner_who_did_reach_it():
+    """The other half: a real refusal is HTTP 200 with `allowed: false`, and it must still say
+    what he can act on. A fix that turned every refusal into «try again later» would hide the one
+    message that sells him the next plan."""
+    f = FakeBilling(limit=0)
+    with pytest.raises(Q.QuotaError) as e:
+        run(quota(f).take(tenant=T, key="templates.custom", idempotency_key="a"))
+    assert "حدّ باقتك" in str(e.value)
 
 
 def test_the_key_is_one_name_defined_once():
