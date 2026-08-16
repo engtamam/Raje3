@@ -448,7 +448,13 @@ async def submit_custom_template(request: Request, name: str,
         # النصوص الخاصة» is the whole answer.
         return {"ok": False, "error": str(exc)}
 
-    out = await c.submitter.submit(principal.tenant, row)
+    # HIS SHOP'S OWN NAME, NOT META'S PLACEHOLDER (ح-8). `submission._examples` fills the
+    # "establishment" slot in its sample text and falls back to «محلّك» — the generic form our
+    # own comments say a review rejects — whenever the row it is handed carries none. `row` here
+    # is `custom_templates.CustomTemplate.to_dict()`, which has no such key, so every submission
+    # was reviewed against an example carrying the placeholder rather than the shop's real name.
+    shop = await c.identity.get(principal.tenant)
+    out = await c.submitter.submit(principal.tenant, {**row, "establishment": shop.name})
     if not out.get("ok"):
         # HIS SLOT BACK. Meta refused the wording, and charging him a monthly allowance for a text
         # that never reached anybody would make the limit punish the attempt rather than the use.

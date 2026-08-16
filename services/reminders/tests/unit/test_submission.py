@@ -118,6 +118,44 @@ def test_an_unconfigured_peer_refuses_rather_than_claiming_success():
     assert out["ok"] is False and out["reason"]
 
 
+# ── the establishment example must be his shop, not Meta's placeholder (ح-8) ───────────────────
+
+
+def test_examples_use_the_real_shop_name_when_given():
+    from app.core.submission import _examples
+
+    tpl = {"name": "svc_visit_confirmation_brief", "variables": [1, 2],
+           "fills": ["customer", "shop"]}
+    got = _examples({**tpl, "establishment": "مغسلة النخيل"})
+    assert "مغسلة النخيل" in got
+
+
+def test_examples_fall_back_to_the_generic_form_only_when_none_is_given():
+    """`"محلّك"` is the exact placeholder shape our own comments say a review rejects — it must be
+    the LAST resort, reached only when nobody supplied the real name."""
+    from app.core.submission import _examples
+
+    tpl = {"name": "svc_visit_confirmation_brief", "variables": [1, 2],
+           "fills": ["customer", "shop"]}
+    got = _examples(tpl)
+    assert "محلّك" in got
+
+
+def test_the_owner_route_passes_his_shops_own_name_to_submission():
+    """ح-8. `submit_custom_template` used to call `c.submitter.submit(tenant, row)` where `row` is
+    `CustomTemplate.to_dict()` — no `establishment` key — so `_examples` fell back to «محلّك» for
+    EVERY submission, not only the rare one with no identity to ask. A guard on the source, in the
+    style already used for `send_log`'s branch scope: full request/container wiring for one route
+    is heavier than the property this test actually needs."""
+    import inspect
+
+    from app.api.v1 import owner as O
+
+    src = inspect.getsource(O.submit_custom_template)
+    assert "c.identity.get(principal.tenant)" in src, "the shop's own name must be read"
+    assert '"establishment": shop.name' in src, "and handed to the submitter, not left to default"
+
+
 def test_it_is_null_until_both_paths_are_wired():
     class S:
         NOTIFICATION_SERVICE_URL = "http://notify"

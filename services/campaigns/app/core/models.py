@@ -54,11 +54,20 @@ GOAL_TEMPLATE = {
 
 # WHICH GOALS PUT SOMETHING ON THE TABLE, and therefore must carry an end date.
 #
-# Not every campaign is an offer. A care tip and a personal occasion give nothing away and expire
-# by being read; demanding a date for them would be a field with no meaning that somebody fills in
-# with a guess. But an offer without an end is a price change nobody decided on, and it is also the
-# only thing the counter can be asked to honour.
-OFFER_GOALS = ("service_offer", "win_back", "reward_loyal")
+# Not every campaign is an offer. A care tip gives nothing away and expires by being read;
+# demanding a date for it would be a field with no meaning that somebody fills in with a guess.
+#
+# `occasion` DOES belong here, and its absence was ح-7: its own template — `mkt_personal_occasion`
+# — declares `offer_value` and `ends_at` (reasons.py's `personal_occasion` reason), the exact same
+# typed slots `win_back` and `reward_loyal` carry. A goal whose template needs an amount and a date
+# but whose card claims `offers=False` never asks for either — `Launch.tsx` never draws the value
+# and date fields, so the console posts a campaign to a template that requires them and
+# `preview.py` refuses every single one. The whole goal was unreachable, and the owner had no way
+# to fix a refusal born from a field the screen never showed.
+#
+# An offer without an end is a price change nobody decided on, and it is also the only thing the
+# counter can be asked to honour.
+OFFER_GOALS = ("service_offer", "win_back", "reward_loyal", "occasion")
 
 
 def offers_something(goal: str) -> bool:

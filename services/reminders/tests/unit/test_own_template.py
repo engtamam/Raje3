@@ -22,12 +22,16 @@ LIBRARY = [
     {"name": "svc_visit_confirm_warm", "type": "svc_visit_confirmation", "tone": "warm"},
 ]
 HIS = "salon_alnoor_visit_confirmation_1"
+# THE STORED ROW HIS OWN NAME NEEDS (ح-6). `choose()` refuses rather than invent a numbering when
+# `own` is set and the row cannot be read — see `test_own_template_fills.py` for that defect.
+HIS_ROW = {"name": HIS, "type": "svc_visit_confirmation", "variables": [1], "fills": ["catalogue"]}
 
 
 def test_his_approved_text_is_the_one_that_goes_out():
     """THE WIRE. Without this the whole «اكتب نصّك» feature was a preview screen."""
     t = choose(template_type="svc_visit_confirmation", tone="brief",
-               library=LIBRARY, approved={HIS, "svc_visit_confirm_brief"}, own=HIS)
+               library=LIBRARY, approved={HIS, "svc_visit_confirm_brief"}, own=HIS,
+               own_row=HIS_ROW)
     assert t["name"] == HIS
     assert t.get("own") is True
 
@@ -58,7 +62,7 @@ def test_an_unreadable_approval_status_still_uses_his_text():
     his text because notification-service was slow would be the outage this function exists to
     avoid, and it would hit exactly the shops that customised the most."""
     t = choose(template_type="svc_visit_confirmation", tone="brief",
-               library=LIBRARY, approved=None, own=HIS)
+               library=LIBRARY, approved=None, own=HIS, own_row=HIS_ROW)
     assert t["name"] == HIS
 
 

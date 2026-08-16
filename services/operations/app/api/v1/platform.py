@@ -197,7 +197,7 @@ async def list_templates(request: Request, cls: str = "", tone: str = "", model:
         # "what should a cafe be offered?", and answering it with a class filter would return the
         # cycle templates a cafe has no use for.
         try:
-            rows = await lib.for_model(model)
+            rows = await lib.for_model(model, active_only=False)
         except TemplateError as exc:
             return _refuse(str(exc))
         if cls:
@@ -205,7 +205,7 @@ async def list_templates(request: Request, cls: str = "", tone: str = "", model:
         if tone:
             rows = [r for r in rows if r.get("tone") == tone]
         return {"templates": rows}
-    return {"templates": await lib.list(cls=cls, tone=tone)}
+    return {"templates": await lib.list(cls=cls, tone=tone, active_only=False)}
 
 
 @router.put("/templates/{name}", dependencies=[Depends(rate_limit)])

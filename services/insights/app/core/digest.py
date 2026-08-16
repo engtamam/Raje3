@@ -12,7 +12,8 @@ Two of them are alternatives rather than additions: a shop that cannot send offe
 audience it already has, and a shop that can gets the relationship we found. Nobody gets both, so
 the message stays the same length whatever he has bought.
 
-THE REPORT TELLS; THE PANEL SELLS — and that line is what keeps this message SERVICE class.
+THE REPORT TELLS; THE PANEL SELLS — and that line is what keeps this message PERSONAL class, not
+marketing: it is the shop's own report to its own owner, with no price and no invitation to buy.
 
 The last line states a finding about HIS shop: "we found 4 relationships between your services, the
 largest covers 340 customers". It carries no price, no plan name, and no invitation to buy. He
@@ -35,13 +36,23 @@ from __future__ import annotations
 
 from typing import Any
 
-# A service-class template: the shop's own report to its own owner (spec §8.4.1).
+# A personal-class template: the shop's own report to its own owner (spec §8.4.1). The class here
+# must match the library's (operations/data/templates.seed.json, and reasons.py's own claim for
+# this same template_type) — ci/check_template_fills.py compares all three.
 TEMPLATE = "per_weekly_digest"
 
 # THE CEILING THE CALLEE ENFORCES, held here too. reminders declares the same number as
 # OWNER_TEXT_MAX on `CampaignSendIn.owner_text`; if the two ever disagree the disagreement is
 # silent — a 422 the caller converts into «not sent» and the route counts as zero.
 OWNER_TEXT_MAX = 700
+
+# THE SEPARATOR BETWEEN LINES, DELIBERATELY NOT "\n" (ح-5). This text travels as one WhatsApp
+# template parameter and Meta refuses a submission whose parameter contains a real newline —
+# the reminders-side sanitiser never runs on this field (it is written for the owner's own
+# hand-typed text, not for text we compose ourselves), so a "\n"-joined report failed at Meta
+# with nobody watching. A middle dot reads as a list on one line rather than eight, which is a
+# worse layout than a line break — but a report the owner can read beats one that never arrives.
+SEP = " · "
 
 
 def _line(label: str, value: Any) -> str:
@@ -156,10 +167,12 @@ def build(*, snapshot: dict, previous: dict | None = None,
     # The cap is raised on both sides, and the text is trimmed here as well — by whole lines, from
     # the end, never mid-sentence. A report that stops in the middle of a number is worse than a
     # report missing its last line, and the lines are already written most-important-first.
-    while lines and len(header) + 1 + len("\n".join(lines)) > OWNER_TEXT_MAX:
+    #
+    # JOINED WITH SEP, NOT A REAL NEWLINE — see SEP's own comment above (ح-5).
+    while lines and len(header) + 1 + len(SEP.join(lines)) > OWNER_TEXT_MAX:
         lines.pop()
     return {
-        "text": header + "\n" + "\n".join(lines),
+        "text": header + SEP + SEP.join(lines),
         "lines": len(lines),
         "visits": visits,
         "at_risk": len(at_risk),
@@ -174,7 +187,14 @@ def build(*, snapshot: dict, previous: dict | None = None,
         "action_label": "أرسل للمتأخرين" if at_risk else "",
         "action_path": "/campaigns/new?goal=win_back" if at_risk else "",
         "template_type": TEMPLATE,
-        "cls": "service",
+        # THE LIBRARY, NOT A GUESS REPEATED HERE. `per_weekly_digest` is filed as `personal` in
+        # the platform library (operations/data/templates.seed.json) — the module docstring above
+        # argues for exactly that: a report with no price and no invitation is not a service
+        # notice. This constant used to say "service" instead, which is a different regulatory
+        # class with its own daily cap and its own service-message ceiling — so every digest quietly
+        # spent budget meant for confirmations and receipts, on a message the library never classed
+        # that way.
+        "cls": "personal",
     }
 
 

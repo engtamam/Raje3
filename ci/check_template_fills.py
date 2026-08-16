@@ -92,6 +92,24 @@ def campaign_types() -> dict[str, str]:
     return dict(re.findall(r'\("([a-z_]+)",\s*"(marketing|awareness|service|personal)"\)', src))
 
 
+def goal_template_types() -> dict[str, str]:
+    """Each campaign goal and the template type it sends — the other half of `campaign_types()`."""
+    src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
+    block = re.search(r"GOAL_TEMPLATE = \{(.*?)\n\}", src, re.S)
+    if not block:
+        return {}
+    return dict(re.findall(r'"([a-z_]+)":\s*\("([a-z_]+)"', block.group(1)))
+
+
+def offer_goals() -> set[str]:
+    """The goals whose card must show the value and end-date fields (`Launch.tsx`) — ح-7."""
+    src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
+    m = re.search(r"OFFER_GOALS = \(([^)]*)\)", src)
+    if not m:
+        return set()
+    return set(re.findall(r'"([a-z_]+)"', m.group(1)))
+
+
 def reason_classes() -> dict[str, str]:
     """Each reason's template type and the class IT claims — same comparison, other service."""
     src = (SERVICES / "reminders" / "app" / "core" / "reasons.py").read_text(encoding="utf-8")
@@ -101,10 +119,28 @@ def reason_classes() -> dict[str, str]:
     return out
 
 
+def digest_class() -> dict[str, str]:
+    """The weekly digest's own claim, made a THIRD time in a THIRD service.
+
+    `reasons.py` already says `per_weekly_digest` is `personal` (ح-4) — but the message is actually
+    built and sent from `insights/core/digest.py`, which used to hardcode `"cls": "service"` right
+    next to it and disagreed. Neither this check nor `check_template_libraries.py` looked at
+    insights at all, so the disagreement shipped and every digest quietly spent the SERVICE
+    class's daily cap and quiet-hours exemption on a report that is not one.
+    """
+    path = SERVICES / "insights" / "app" / "core" / "digest.py"
+    src = path.read_text(encoding="utf-8")
+    template = re.search(r'TEMPLATE = "([a-z_]+)"', src)
+    cls = re.search(r'"cls":\s*"([a-z]+)"', src)
+    if not template or not cls:
+        return {}
+    return {template.group(1): cls.group(1)}
+
+
 def main() -> int:
     rows = json.loads(CURATED.read_text(encoding="utf-8"))["templates"]
     goals = campaign_types()
-    claims = {**goals, **reason_classes()}
+    claims = {**goals, **reason_classes(), **digest_class()}
     fired = reason_types() | set(goals)
     problems: list[str] = []
     warnings: list[str] = []
@@ -179,6 +215,23 @@ def main() -> int:
         if type_name not in by_type:
             problems.append(f"{type_name}: listed as sleeping and no longer in the library — "
                             f"delete the line, or the next reader trusts a note about nothing")
+
+    # ── A GOAL'S CARD MUST ASK FOR WHAT ITS TEMPLATE NEEDS (ح-7) ──────────────────────────────
+    # `Launch.tsx` draws the value and end-date fields only when the goal's card says
+    # `offers=True` (derived from `OFFER_GOALS`) — and `preview.build` refuses a send whose
+    # template declares `amount`/`date` fills with nothing in them. A goal left out of
+    # `OFFER_GOALS` while its own template needs those fills is a goal the owner can select, fill
+    # in as instructed, and watch refuse every single time, with no field on the screen to fix.
+    offering = offer_goals()
+    for goal, template_type in sorted(goal_template_types().items()):
+        rows_for = by_type.get(template_type)
+        if not rows_for:
+            continue
+        needs_offer_fields = any(f in ("amount", "date") for f in (rows_for[0].get("fills") or []))
+        if needs_offer_fields and goal not in offering:
+            problems.append(f"{goal}: its template {template_type!r} needs amount/date but "
+                            f"OFFER_GOALS does not include {goal!r} — Launch.tsx never draws the "
+                            f"fields and every send refuses")
 
     for w in warnings:
         print(f"{C_Y}  ! {w}{C_N}")
