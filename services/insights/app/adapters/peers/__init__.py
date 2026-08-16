@@ -21,6 +21,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from app.core.models import VisitPage
+
 #: We could not ask operations who this person is. Not a branch, and not «no restriction».
 UNREADABLE = "_unreadable"
 #: His own shop stopped him — a decision, not a failure. Told apart because they are different
@@ -29,6 +31,12 @@ REVOKED = "_revoked"
 #: Compared as a set so a fourth state cannot be added and quietly fall through to «see
 #: everything», which is how this family of defect starts every time.
 DENIED = frozenset({UNREADABLE, REVOKED})
+
+
+#: How many pages of 500 one snapshot pass will read. Twenty was the old figure and it bounded the
+#: WRONG thing — it stopped the read at the oldest end. It now bounds effort only: the rows kept
+#: are always the newest, and a shop bigger than this reports itself partial rather than wrong.
+PAGE_BUDGET = 60
 
 
 def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
@@ -129,17 +137,40 @@ class HttpPeers:
         Deriving the next cursor from the last row is a one-line mistake that either replays
         everything or skips a visit, and the peer already returns the correct value.
         """
-        out: list[dict] = []
+        # ── THE NEWEST `limit` VISITS, NEVER THE FIRST (ي-1) ─────────────────────────────────
+        #
+        # This feed is ordered by `created` ASCENDING — operations sorts it that way so the
+        # watermark can advance without skipping a row — and this loop used to stop the moment it
+        # held `limit` rows and return `out[:limit]`. On a shop past five thousand visits that is
+        # its OLDEST five thousand, some of them years old: `active_customers` counts a 90-day
+        # window and answered 0, `expected_flow` answered 0, and `at_risk` named people who
+        # stopped coming two years ago. The shops it hurt are the busy ones.
+        #
+        # So the loop pages to the END of the feed and keeps a rolling tail. The page budget still
+        # bounds the work — that is a bound on effort, which is honest — but the rows kept are the
+        # ones the windows are about.
+        out = VisitPage()
         cursor = since
-        for _ in range(20):     # bounded: twenty pages is a hundred thousand visits
+        pages = 0
+        for _ in range(PAGE_BUDGET):
             data = _post(self._visits_url, {"tenant": tenant, "since": cursor, "limit": 500},
                          self._token, self._timeout)
             rows = data.get("visits") or []
             out.extend(rows)
+            pages += 1
             cursor = int(data.get("watermark") or cursor)
-            if not data.get("more") or len(out) >= limit:
+            # DROP FROM THE FRONT AS WE GO, so a shop with a hundred thousand visits does not have
+            # them all in memory at once to throw most away at the end.
+            if len(out) > limit:
+                out.truncated = True
+                del out[:len(out) - limit]
+            if not data.get("more"):
                 break
-        return out[:limit]
+        else:
+            # THE BUDGET RAN OUT WITH MORE TO READ. The tail we hold is still the newest we saw,
+            # but it is not the newest that exists — and a snapshot must be able to say so.
+            out.truncated = True
+        return out
 
     async def catalogue(self, tenant: str) -> list[dict]:
         try:

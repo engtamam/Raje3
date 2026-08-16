@@ -23,7 +23,8 @@ from typing import Any
 
 from app.core import associations, indicators
 from app.core.coverage import group_by
-from app.core.models import PAIRS, SEQUENCES, SNAPSHOTS, CustomerSequence, Snapshot
+from app.core.models import (PAIRS, SEQUENCES, SNAPSHOTS, CustomerSequence, Snapshot,
+                             VisitPage)
 
 
 class Tick:
@@ -112,7 +113,13 @@ class Tick:
         # and a question the owner has to think about (spec §10.6.4).
         if len(branches) > 1:
             for b in branches:
-                scoped = [v for v in visits if str(v.get("branch_id") or "") == b]
+                # THE BRANCH INHERITS THE SHOP'S TRUNCATION. Filtering makes a plain list, and a
+                # branch computed from a partial history is exactly as partial as the shop it was
+                # filtered out of — a flag that survived the whole read and died in a list
+                # comprehension would be the same defect wearing a smaller scope.
+                scoped = VisitPage(v for v in visits
+                                   if str(v.get("branch_id") or "") == b)
+                scoped.truncated = bool(getattr(visits, "truncated", False))
                 await self._compute_scope(tenant, scoped, catalogue, now=now, branch_id=b,
                                           effect=effect, branch_names=branch_names)
         return snap
@@ -238,8 +245,10 @@ class Tick:
             values["branch_names"] = {r["key"]: names.get(r["key"], "")
                                       for r in table["rows"]}
 
+        # `getattr`, BECAUSE AN OLDER PEERS DRIVER RETURNS A PLAIN LIST. Absent means «the cap did
+        # not bite», which is what a driver that cannot truncate is in fact saying.
         snap = Snapshot(tenant=tenant, values=values, visits=len(visits), computed_at=now,
-                        branch_id=branch_id)
+                        branch_id=branch_id, partial=bool(getattr(visits, "truncated", False)))
         snap.coverage = await self._coverage(visits)
         await self.store.put(SNAPSHOTS, snap.key, snap.to_dict())
 

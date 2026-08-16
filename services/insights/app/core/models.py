@@ -44,6 +44,18 @@ def _id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex}"
 
 
+class VisitPage(list):
+    """The visits, and whether the cap cut any off.
+
+    A LIST, ON PURPOSE. Every caller wants the rows, most of them do not need to know about the
+    cap, and a driver written before this existed still returns a plain list — `getattr(rows,
+    "truncated", False)` reads correctly against both. The alternative was a tuple return, which
+    would have broken every peers driver silently at the one boundary where silence caused ي-1.
+    """
+
+    truncated: bool = False
+
+
 @dataclass
 class Coverage:
     """How much of the data could answer this question (spec §10.6.3).
@@ -88,6 +100,11 @@ class Snapshot:
     # How many visits went into it — the honest denominator behind every number above, and what
     # the learning state counts against.
     visits: int = 0
+    # WAS THAT ALL OF THEM? The visit feed is read with a cap, and a shop past it is computed from
+    # a window rather than its whole history. Every number here is then true of the window and not
+    # of the shop, and the difference is invisible on the screen unless it travels with them.
+    # False is the ordinary case — nearly every shop fits — and it must never be assumed.
+    partial: bool = False
 
     @property
     def key(self) -> str:
@@ -97,7 +114,8 @@ class Snapshot:
         return {"id": self.key, "key": self.key, "tenant": self.tenant,
                 "branch_id": self.branch_id, "values": self.values,
                 "coverage": self.coverage, "computed_at": self.computed_at,
-                "visits": self.visits, "created_at": self.computed_at}
+                "visits": self.visits, "partial": self.partial,
+                "created_at": self.computed_at}
 
 
 @dataclass

@@ -127,6 +127,13 @@ jobs:
       - name: the installer tells the truth about what it did
         run: python3 ci/check_install_tells_the_truth.py
 
+      # THE BUSIEST SHOPS WERE SHOWN THEIR FIRST YEAR. The visit feed is ascending by `created`,
+      # and the snapshot reader stopped as soon as it held 5000 rows — so every window indicator
+      # on a shop past the cap was computed over visits years old. «0 عميل نشط», to the owner
+      # whose till had not stopped ringing all week.
+      - name: a paged read keeps the recent end
+        run: python3 ci/check_paging_keeps_the_recent.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave
