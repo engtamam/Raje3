@@ -115,7 +115,14 @@ class HttpGauges:
         hour is nothing, and the cost of a shop that cannot add an employee during an outage is a
         support call and a customer who does not trust the product. Messages fail closed because
         each one costs real money and an outage lasts hours; a seat costs nothing per unit and the
-        next report corrects the count anyway.
+        nightly reconciliation corrects the count.
+
+        AND THAT LAST CLAUSE IS NOW TRUE. It used to say «the next report corrects the count
+        anyway», and there was no next report: `report()` ran only on the write path — during the
+        very outage that let the seat through — and swallowed its own transport errors. So the
+        extra seats stayed for ever and were never billed, and the sentence justifying the whole
+        design described a mechanism nobody had built. `reconcile()` below is that mechanism, and
+        the cron that drives it is in operations.values.yaml.
         """
         import json
         import urllib.error
@@ -174,6 +181,53 @@ async def guard_and_report(gauges: Any, *, tenant: str, key: str, current: int) 
     allowed, limit = await gauges.allows_one_more(tenant, key, current)
     if not allowed:
         raise SeatLimitReached(refusal(key, limit))
+
+
+async def reconcile(*, datastore: Any, gauges: Any, tenants: list[str]) -> dict[str, Any]:
+    """Report every establishment's TRUE seat and branch count — the correction `allows_one_more`
+    promises and nothing was making.
+
+    THIS IS THE OTHER HALF OF FAILING OPEN. The gauge deliberately answers «allowed» when billing
+    cannot be reached, and its own comment justifies that with «the next report corrects the count
+    anyway». There was no next report: `report()` is called ONLY on the write path, moments after a
+    create — during the very outage that let the extra seat through, and it swallows its own
+    transport errors. So an establishment on a five-seat plan that hired during a billing hiccup
+    kept seats six, seven and eight for ever, and was never billed for them.
+
+    A reason given for a decision has to be a mechanism, or it is a hope. This is the mechanism.
+
+    IT REPORTS THE COUNT, NEVER A DELTA. The count is a fact we own and can recompute from our own
+    rows; a delta depends on both sides agreeing about the past, which after an outage is exactly
+    what they do not do.
+
+    ONE FAILURE DOES NOT STOP THE SWEEP. A tenant whose read or report fails is counted and the
+    pass moves on — it runs again tomorrow, and a repair that aborts on the first bad row repairs
+    the least when there is most to repair.
+    """
+    from app.core.stores import BranchStore, OperatorStore
+
+    ops = OperatorStore(datastore)
+    branches = BranchStore(datastore)
+    seats = branch_count = failed = 0
+    for tenant in tenants:
+        if not tenant:
+            continue
+        try:
+            live_ops = len([o for o in await ops.list(tenant) if o.active])
+            live_branches = len([b for b in await branches.list(tenant) if b.active])
+        except Exception:                                                   # noqa: BLE001
+            failed += 1
+            continue
+        try:
+            await gauges.report(tenant, SEATS, live_ops)
+            await gauges.report(tenant, BRANCHES, live_branches)
+        except Exception:                                                   # noqa: BLE001
+            failed += 1
+            continue
+        seats += live_ops
+        branch_count += live_branches
+    return {"tenants": len(tenants), "seats": seats, "branches": branch_count,
+            "failed": failed}
 
 
 def build_gauges(settings) -> Any:

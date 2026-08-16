@@ -313,6 +313,17 @@ cronJobs:
   - name: retention
     schedule: "17 1 * * *"
     path: /internal/operations/retention/sweep
+
+  # THE SEAT AND BRANCH COUNTS, RECONCILED NIGHTLY — the other half of a deliberate fail-open.
+  #
+  # `allows_one_more` answers «allowed» when billing cannot be reached, because an outage must not
+  # stop a shop hiring somebody. Its comment justified that with «the next report corrects the
+  # count anyway» — and the only report ran on the write path, during the same outage, swallowing
+  # its own errors. So a five-seat shop that hired during a hiccup kept the extra seats for ever,
+  # unbilled. A reason given for a decision has to be a mechanism.
+  - name: gauges
+    schedule: "41 2 * * *"
+    path: /internal/operations/gauges/reconcile
   # THE PARTNER STATEMENTS, on the second of the month — not the first.
   #
   # A statement is computed on money that ARRIVED, and a payment landing at 23:58 on the last day

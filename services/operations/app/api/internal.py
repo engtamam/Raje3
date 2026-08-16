@@ -1046,6 +1046,37 @@ async def whatsapp_health(request: Request) -> dict:
     return out
 
 
+@router.post("/operations/gauges/reconcile", dependencies=[Depends(require_internal_token)])
+async def gauges_reconcile(request: Request) -> dict:
+    """Report every establishment's true seat and branch count to billing. Driven by a CronJob.
+
+    WHY THIS HAS TO EXIST. `allows_one_more` fails OPEN on purpose — an unreachable billing must
+    not stop a shop hiring somebody — and its comment justifies that with «the next report corrects
+    the count anyway». There was no next report: `report()` ran only on the write path, moments
+    after a create, during the very outage that let the extra seat through, and it swallows its own
+    errors. So a five-seat shop that hired during a billing hiccup kept seats six and seven for
+    ever, unbilled, and nothing anywhere would have said so.
+
+    NO BODY AND NO TENANT ARGUMENT, the same rule as the retention sweep below: a reconciliation
+    that took a tenant would be a usage-writing endpoint with a filter on it, and the internal
+    token is held by every service in the mesh.
+    """
+    from app.core import seats as S
+    from app.core.models import BRANCHES as BRANCHES_COLLECTION
+    from app.core.models import OPERATORS
+
+    c = request.app.state.container
+    cap = 5000
+    tenants: set[str] = set()
+    # BOTH COLLECTIONS. A shop with branches and no staff still owes billing a branch count, and a
+    # work-list built from one of them would silently exclude the other's outliers.
+    for collection in (OPERATORS, BRANCHES_COLLECTION):
+        for row in (await c.datastore.scan_all(collection, cap) or []):
+            if row.get("tenant"):
+                tenants.add(str(row["tenant"]))
+    return await S.reconcile(datastore=c.datastore, gauges=c.gauges, tenants=sorted(tenants))
+
+
 @router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])
 async def retention_sweep(request: Request) -> dict:
     """The nightly retention pass (§14.5). Driven by a CronJob, never by a person.

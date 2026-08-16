@@ -156,3 +156,56 @@ def test_the_keys_are_named_once():
     """A typo creates a second gauge with no limit, which resolves deny-by-default and looks
     exactly like a full plan."""
     assert S.SEATS == "staff.seats" and S.BRANCHES == "branches"
+
+
+# ── the correction the fail-open was promised on ───────────────────────────────────────────────
+def test_the_nightly_pass_corrects_a_count_that_an_outage_let_through():
+    """THE DEFECT. `allows_one_more` fails OPEN on purpose — a billing outage must not stop a shop
+    hiring somebody — and its own comment justified that with «the next report corrects the count
+    anyway». There was no next report: `report()` ran only on the write path, during the same
+    outage, swallowing its own errors. A five-seat shop that hired during a hiccup kept seats six
+    and seven for ever, and billing never learned.
+
+    A reason given for a decision has to be a mechanism, or it is a hope."""
+    from app.adapters.datastore.memory import MemoryDataStore
+    from app.core.models import Branch, Operator
+    from app.core.stores import BranchStore, OperatorStore
+
+    st = MemoryDataStore()
+    ops, branches = OperatorStore(st), BranchStore(st)
+    f = FakeBilling()
+    g = f.make()
+
+    # Seven live operators and two live branches — the state after an outage let the extras in.
+    for i in range(7):
+        run(ops.save(Operator(id=f"op_{i}", tenant=T, name=f"موظف {i}", role="operator")))
+    for i in range(2):
+        run(branches.save(Branch(id=f"br_{i}", tenant=T, name=f"فرع {i}")))
+    # And one that is gone: a gauge counts the LIVE ones, or a shop pays for people who left.
+    run(ops.save(Operator(id="op_gone", tenant=T, name="مغادر", role="operator", active=False)))
+
+    out = run(S.reconcile(datastore=st, gauges=g, tenants=[T]))
+    assert out["seats"] == 7 and out["branches"] == 2 and out["failed"] == 0
+    assert f.reports[-2:] == [7, 2], f.reports
+
+
+def test_one_unreadable_establishment_does_not_stop_the_rest():
+    """A repair that aborts on the first bad row repairs the least when there is most to repair."""
+    from app.adapters.datastore.memory import MemoryDataStore
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    st = MemoryDataStore()
+    run(OperatorStore(st).save(Operator(id="op_1", tenant=T, name="أحمد", role="operator")))
+    f = FakeBilling()
+    g = f.make()
+    original = g.report
+
+    async def report(tenant, key, value):
+        if tenant == "broken":
+            raise OSError("billing said no")
+        await original(tenant, key, value)
+
+    g.report = report                        # type: ignore[assignment]
+    out = run(S.reconcile(datastore=st, gauges=g, tenants=["broken", T]))
+    assert out["failed"] == 1 and out["seats"] == 1
