@@ -38,6 +38,11 @@ from typing import Any
 # A service-class template: the shop's own report to its own owner (spec §8.4.1).
 TEMPLATE = "per_weekly_digest"
 
+# THE CEILING THE CALLEE ENFORCES, held here too. reminders declares the same number as
+# OWNER_TEXT_MAX on `CampaignSendIn.owner_text`; if the two ever disagree the disagreement is
+# silent — a 422 the caller converts into «not sent» and the route counts as zero.
+OWNER_TEXT_MAX = 700
+
 
 def _line(label: str, value: Any) -> str:
     return f"{label}: {value}"
@@ -141,6 +146,18 @@ def build(*, snapshot: dict, previous: dict | None = None,
                          f"أكبرها يشمل {biggest['customers']} عميلاً")
 
     header = f"أسبوعك في {shop}" if shop else "أسبوعك"
+    # BOUNDED HERE, WHERE A LINE CAN STILL BE DROPPED WHOLE.
+    #
+    # reminders caps `owner_text` — the field this text is posted as — and the cap was written for a
+    # campaign's one-liner. A full week runs past it, FastAPI answered 422, the caller turned that
+    # into {"sent": false} and the route counted it as nothing: the shops with the MOST to report
+    # were exactly the ones whose report never arrived, silently, every week.
+    #
+    # The cap is raised on both sides, and the text is trimmed here as well — by whole lines, from
+    # the end, never mid-sentence. A report that stops in the middle of a number is worse than a
+    # report missing its last line, and the lines are already written most-important-first.
+    while lines and len(header) + 1 + len("\n".join(lines)) > OWNER_TEXT_MAX:
+        lines.pop()
     return {
         "text": header + "\n" + "\n".join(lines),
         "lines": len(lines),

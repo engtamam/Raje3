@@ -246,6 +246,45 @@ def test_the_eight_lines():
     assert msg["action"] == "send_winback"
 
 
+def test_a_full_week_still_fits_the_field_it_is_posted_as():
+    """THE DEFECT. The digest is posted as reminders' `owner_text`, whose cap was written for a
+    campaign's one-liner. A shop with a full week produced a longer text, FastAPI answered 422, the
+    caller turned that into {"sent": false} and the route counted it as nothing — so the shops with
+    the MOST to report were exactly the ones whose report never arrived, silently, every week.
+
+    The ceiling is shared now, and this asserts the busiest possible message clears it."""
+    from app.core.digest import OWNER_TEXT_MAX
+
+    msg = build_digest(
+        snapshot=snap(visits=4210,
+                      associations={"pairs": [{"a": "a", "b": "b", "verdict": "real",
+                                               "customers": 3400}] * 9},
+                      messages_sent=9999, ceiling={"limit": 100000, "used": 54321},
+                      points_redeemed=8888),
+        shop="مركز الخليج للعناية بالسيارات والمركبات الثقيلة", can_campaign=True)
+    assert msg and len(msg["text"]) <= OWNER_TEXT_MAX, len(msg["text"])
+    # TRIMMED BY WHOLE LINES, never mid-number: the last character is not a digit orphaned from
+    # its label, and the header survives.
+    assert msg["text"].startswith("أسبوعك في")
+    assert not msg["text"].endswith(":")
+
+
+def test_the_two_services_agree_on_the_one_ceiling():
+    """A cap held on two sides of a network boundary that disagree fails SILENTLY: a 422 the caller
+    converts into «not sent» and the route counts as zero. They are asserted equal here because
+    nothing else can see both numbers at once."""
+    import pathlib
+    import re
+
+    from app.core.digest import OWNER_TEXT_MAX
+
+    callee = (pathlib.Path(__file__).resolve().parents[4]
+              / "services" / "reminders" / "app" / "api" / "internal.py").read_text(encoding="utf-8")
+    m = re.search(r"^OWNER_TEXT_MAX\s*=\s*(\d+)", callee, re.M)
+    assert m, "reminders no longer declares OWNER_TEXT_MAX — the shared ceiling lost one of its ends"
+    assert int(m.group(1)) == OWNER_TEXT_MAX
+
+
 def test_the_finding_line_never_sells():
     """THE LINE IS IN THE TEXT, NOT THE INTENTION. One word about a package and the whole
     template becomes promotional — and a shop's own report sits behind quiet hours and a consent

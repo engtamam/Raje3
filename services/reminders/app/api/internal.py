@@ -31,6 +31,13 @@ def _now_iso() -> str:
 
 _HEADER = "X-Internal-Token"
 
+# THE OWNER'S FREE TEXT, ONE CEILING FOR BOTH CALLERS. A campaign's line is short by design; the
+# weekly digest is a whole report and was silently 422'd against a limit written for the campaign.
+# insights holds the same number in `core/digest.py` and trims to it before posting, so the ceiling
+# is enforced on the side that can still do something about it — and again here, because a rule
+# enforced on one side of a boundary is a rule the other side can bypass.
+OWNER_TEXT_MAX = 700
+
 
 async def require_internal_token(
     x_internal_token: str | None = Header(default=None, alias=_HEADER),
@@ -542,7 +549,14 @@ class CampaignSendIn(BaseModel):
     cls: str = Field(default="marketing", alias="class", max_length=32)
     # The owner's ONE free-text field. Sanitised by the caller AND here — a rule enforced on one
     # side of a boundary is a rule the other side can bypass.
-    owner_text: str = Field(default="", max_length=200)
+    #
+    # 200 WAS THE CAMPAIGN'S NUMBER, and this field has a second caller. insights posts the weekly
+    # digest through here — a header plus up to nine `label: value` lines, 250-350 characters for a
+    # shop with a full week. FastAPI answered 422, the caller turned it into {"sent": false}, and
+    # the route counted it as nothing. So the busiest shops — the ones with the most lines — were
+    # exactly the ones that never received the one report they do not have to log in to read.
+    # OWNER_TEXT_MAX is the shared ceiling now, declared once and checked on both sides.
+    owner_text: str = Field(default="", max_length=OWNER_TEXT_MAX)
     idempotency_key: str = Field(min_length=8, max_length=256)
     # WHEN THIS OFFER STOPS BEING TRUE, carried from the campaign so it lands in the send log.
     #

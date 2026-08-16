@@ -264,6 +264,41 @@ for f in values_files():
         fail(f.name, "a wildcard CORS origin together with credentials — that combination lets any "
                      "site on the internet make authenticated calls as a logged-in user")
 
+# ── 8. a peer this service actually calls must have an address ───────────────────────────────
+#
+# THE FAILURE. `reminders` sends a customer his PDPL identity-verification code by asking
+# compliance for it. `COMPLIANCE_SERVICE_URL` was declared with a default of "" and set in no
+# values file, so the handler returned {"sent": false, "reason": "no compliance url configured"} —
+# a refusal it told nobody. Every DSAR verification in production failed that way, permanently,
+# while the subject's legal clock kept running. Check 5 could not see it: the key is REAL, it is
+# simply absent, and an absent key is indistinguishable from a defaulted one.
+#
+# SCOPED TO A LIVE DEREFERENCE, and that scoping is the whole difficulty. Every service declares
+# `COMPLIANCE_SERVICE_URL` for its consent-gate ADAPTER, which is selected by a driver key and
+# whose null variant says out loud what it needs — an unset URL there is a configuration choice,
+# not a silent failure. So `adapters/` and the container's driver table are excluded, and what
+# remains is code that reaches for a peer on a request path.
+#
+# WHAT IT CANNOT SEE: a URL read through getattr(settings, "..."), and a peer addressed by any
+# key not ending in _SERVICE_URL.
+for svc_dir in sorted((ROOT / "services").iterdir()):
+    if not (svc_dir / "app").is_dir():
+        continue
+    live: dict[str, str] = {}
+    for p in sorted((svc_dir / "app").rglob("*.py")):
+        rel = p.relative_to(svc_dir / "app").as_posix()
+        if rel == "config.py" or rel == "container.py" or rel.startswith("adapters/"):
+            continue
+        for key in sorted(set(re.findall(r"\b([A-Z][A-Z0-9_]*_SERVICE_URL)\b", read(p)))):
+            live.setdefault(key, rel)
+    vf = ROOT / "deploy" / "services" / f"{svc_dir.name}.values.yaml"
+    text = read(vf) if vf.exists() else ""
+    for key, where in live.items():
+        if not re.search(rf"^\s*{key}\s*:", text, re.M):
+            fail(f"{svc_dir.name}.values.yaml",
+                 f"app/{where} calls a peer through {key}, which no values file sets — the call "
+                 f"is skipped and the caller reports a reason nobody reads")
+
 # ── 9. western digits only, everywhere ───────────────────────────────────────────────────────
 # Deliberately scoped to what WE author. platform/ is upstream's and read-only, and .git is not
 # prose. The check is on codepoints, not a regex: a byte-range grep gives false matches on other

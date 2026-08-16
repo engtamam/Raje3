@@ -251,7 +251,15 @@ async def digest(request: Request, body: TickIn | None = None) -> dict:
                 # The week, so a retry inside the same week sends once.
                 idempotency_key=f"insights:digest:{tenant}:{subject}:"
                                 f"{int(snap.get('computed_at', 0)) // 604800}")
-            sent += 1 if res.get("sent") else 0
+            if res.get("sent"):
+                sent += 1
+            else:
+                # THE REASON WAS BEING THROWN AWAY, and that is why a whole class of shops lost
+                # their weekly report without anyone knowing. `send` returns why it failed; the
+                # route counted the successes and dropped the rest on the floor, so «sent: 0»
+                # meant «nothing to send» and «every send was refused» in the same word.
+                c.telemetry.event("insights_digest_not_sent", tenant=tenant,
+                                  reason=str(res.get("reason") or "")[:200])
     return {"sent": sent, "skipped": skipped, "tenants": len(tenants)}
 
 

@@ -198,6 +198,18 @@ function Trend({ series }: { series: Series }) {
  */
 function HoldoutCard({ h }: { h: Holdout }) {
   if (!h?.ready) {
+    // OFF IS A THIRD STATE, and it used to render as nothing at all. `holdout_off` arrives with
+    // both counts at zero, which fell into the «no data yet» branch below and returned null — so
+    // the owner saw an empty space where the one honest measurement in the product should be, and
+    // could not tell «we are still counting» from «we are not measuring». Both are fine to say;
+    // saying neither is not.
+    if (h?.reason === 'holdout_off') {
+      return (
+        <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
+          قياس أثر الرسائل غير مُفعَّل — كل عملائك يصلهم كل شيء، فلا مجموعة نقارن بها.
+        </p>
+      );
+    }
     // LEARNING IS A STATE, NOT AN ABSENCE — the same contract the pairs use, so the screen tells
     // one story about waiting rather than three.
     const held = h?.held ?? 0, reached = h?.reached ?? 0, need = h?.need ?? 15;
@@ -230,7 +242,11 @@ function HoldoutCard({ h }: { h: Holdout }) {
       </div>
       <p className="text-xs leading-relaxed text-text-secondary">
         نترك {Math.round(((h.held ?? 0) / ((h.held ?? 0) + (h.reached ?? 1))) * 100)}% من عملائك
-        بلا حملات ولا عروض — لتقارن بنفسك، لا لتصدّقنا. تُوقفه من إعدادات محلّك.
+        {/* «تُوقفه من إعدادات محلّك» stood here and pointed at a setting that does not exist —
+            the switch is one env var for the whole fleet, not a per-shop control. A screen that
+            tells an owner he can turn something off, on the one card that asks for his trust, must
+            be able to show him where. Until that setting exists the sentence is not written. */}
+        بلا حملات ولا عروض — لتقارن بنفسك، لا لتصدّقنا.
       </p>
     </section>
   );

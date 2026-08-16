@@ -159,6 +159,16 @@ env:
   OPERATIONS_TEMPLATES_PATH: "/internal/operations/templates"
   TEMPLATE_LIBRARY_TTL_SECONDS: "300"
 
+  # ── compliance: the PDPL verification code, and the send that never happened ─────────────────
+  # A customer exercising his rights under the PDPL presses «أرسلوا لي الرمز» and this service
+  # fetches it from compliance and sends it on WhatsApp — the ONLY delivery path for that code.
+  # The key was declared with a default of "" and set in no values file, so the handler answered
+  # {"sent": false, "reason": "no compliance url configured"} and told nobody. Every verification
+  # in production failed that way, permanently, while the legal clock on the request kept running.
+  # It is the shape this whole file exists to prevent: a path that is complete, correct, and
+  # addressed at nothing.
+  COMPLIANCE_SERVICE_URL: "http://compliance-service:8000"
+
   # THE MESSAGE QUOTA — the second most important line in this file, for the same reason as the
   # first. Every plan sells a monthly WhatsApp allowance (§16.4.1) and nothing decremented it: an
   # establishment on 1000 could send 40000, with every graph green because the messages really
