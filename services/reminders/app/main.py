@@ -88,9 +88,24 @@ def create_app() -> FastAPI:
         # work — five minutes slower. If the catch-up failed, customers would silently never be
         # reminded.
         async def _on_visit(event) -> None:
-            from app.api.internal import _confirms_visits
+            from app.api.internal import _confirms_visits, _service_config
+
+            # THE SHOP'S OWN CYCLES, ON THIS PATH TOO — and the reason it is not `{}`.
+            #
+            # An empty catalogue meant every service fell back to the platform default: the first
+            # reminder landed at 90 days for a car wash on a 10-day cycle, and `follow_up_days`
+            # defaulted to NO_FOLLOW_UP so no follow-up was EVER scheduled from a bus delivery.
+            #
+            # And the catch-up could not repair it. `on_visit` marks the visit seen by its id, so
+            # the tick — the path that HAS the real configuration — returned `duplicate` and moved
+            # on. The fast path did not merely arrive first; it consumed the visit and locked the
+            # wrong schedule in. Which made the whole per-service cycle feature (task 282) work
+            # only for visits the bus happened to DROP.
+            tenant = str((event.payload if hasattr(event, "payload") else event or {})
+                         .get("tenant") or "")
+            cfg = await _service_config(container, tenant) if tenant else {}
             await container.ingest.on_event(
-                event, now=int(time.time()), service_config={},
+                event, now=int(time.time()), service_config=cfg,
                 # The fast path must honour the same switch as the tick, or an owner who turned
                 # confirmations off would still see them whenever the bus delivered.
                 confirm_visits=lambda t: _confirms_visits(container, t))

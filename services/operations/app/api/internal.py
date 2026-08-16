@@ -649,9 +649,36 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
     reader had moved on. `created` is ours and only ever increases.
     """
     c = request.app.state.container
+    exhaustive = True
     if body.tenant:
-        rows, _ = await c.datastore.find(VISITS, {"tenant": body.tenant},
-                                         limit=body.limit, sort=("created", "asc"))
+        # PAGE FORWARD PAST WHAT THE READER ALREADY HAS — and the reason this is not one read.
+        #
+        # The datastore's `where` is equality only (ports/datastore.py), so `created > since`
+        # cannot be expressed as a query and has to be applied to the rows. Reading ONE page and
+        # filtering it meant that once a shop passed `limit` lifetime visits, that first page was
+        # entirely older than the watermark, `fresh` came back empty, and the catch-up — the safety
+        # net for an at-most-once bus — silently stopped catching up. For ever, and for exactly the
+        # busy shops that need it.
+        #
+        # So the cursor is followed until enough fresh rows are collected or the collection ends.
+        # Bounded by MAX_PAGES so a shop with a decade of history cannot turn a five-minute cron
+        # into an unbounded scan; when the bound is hit, `exhaustive` says so rather than letting
+        # a truncated answer read as a complete one.
+        MAX_PAGES = 50
+        rows, cursor, pages = [], None, 0
+        while pages < MAX_PAGES:
+            page, cursor = await c.datastore.find(
+                VISITS, {"tenant": body.tenant}, limit=body.limit,
+                after=cursor, sort=("created", "asc"))
+            pages += 1
+            rows.extend(r for r in page if int(r.get("created") or 0) > body.since)
+            if not cursor or len(rows) >= body.limit:
+                break
+        else:
+            exhaustive = False
+        if pages >= MAX_PAGES and cursor:
+            exhaustive = False
+        rows = rows[:body.limit]
     else:
         # sweeper: reading EVERY tenant's visits IS the operation here, not a forgotten filter.
         # This is the bootstrap path — a consumer that can only ask about tenants it already knows
@@ -661,7 +688,13 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
         #
         # It is internal-token only, bounded by `limit`, and driven by a five-minute cron, so the
         # cost is a bounded read every five minutes rather than anything on a request path.
-        rows = await c.datastore.scan_all(VISITS, limit=body.limit)
+        # THE SWEEPER'S OWN LIMIT, and it is not the caller's. A whole-collection scan cannot be
+        # paged, so a page-sized scan filtered afterwards has the identical defect the tenant path
+        # just fixed. Reading a wider window makes the bootstrap actually bootstrap; `exhaustive`
+        # below reports honestly when even that window was full.
+        scan_cap = max(body.limit * 10, 2000)
+        rows = await c.datastore.scan_all(VISITS, limit=scan_cap)
+        exhaustive = len(rows) < scan_cap
     fresh = [r for r in rows if int(r.get("created") or 0) > body.since]
     # scan_all does not sort. The watermark depends on `created` ascending, and a page returned in
     # storage order would advance the cursor past visits it never returned.
@@ -687,6 +720,9 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
             "created": r.get("created"),
         })
     return {"visits": out, "count": len(out),
+            # WHETHER THIS ANSWER IS THE WHOLE ANSWER. A caller that cannot tell a complete page
+            # from a truncated one will advance its watermark past visits it never received.
+            "exhaustive": exhaustive,
             # The next watermark, computed here rather than by the caller: deriving it from the
             # last row is a one-line mistake that either replays everything or skips a visit.
             "watermark": max([int(v["created"]) for v in out] + [body.since]),
