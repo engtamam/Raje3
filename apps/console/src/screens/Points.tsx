@@ -51,7 +51,9 @@ interface Service { id: string; name: string }
 /** Points per visit, by level. `points` is the only inheriting field (§9.2). */
 interface EarnLevel { points?: number }
 interface EarnSettings {
-  general: EarnLevel;
+  /** The general level also carries the manager-approval threshold — one number for the whole
+   *  establishment, not an inheriting field (§9.5). */
+  general: EarnLevel & { manager_threshold?: number };
   services: Record<string, EarnLevel>;
   groups: Record<string, EarnLevel>;
   service_group: Record<string, string>;
@@ -454,6 +456,48 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                     setSaving(true);
                     try {
                       await call(session, canSetGeneral, { points: Number(raw) });
+                      load();
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  className="h-10 w-28 rounded-lg bg-surface-2 px-3 text-center tabular-nums"
+                />
+              </label>
+
+              {/* ── THE APPROVAL THRESHOLD, WHICH NO SCREEN COULD SET (د-14) ─────────────────
+                  loyalty has always refused a reward at or above this number without a manager's
+                  name, and the number lived only in the database: there was no field anywhere in
+                  this app, so it was 0 for every shop and the control simply did not exist. The
+                  owner sets it here, on the same row as the general rule, because it is one
+                  number for the whole establishment (§9.5). */}
+              <label className="mt-4 flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
+                <span className="flex flex-col">
+                  <span className="text-sm">مكافأة تحتاج اعتماد المدير من</span>
+                  <span className="text-sm text-text-secondary">
+                    أي مكافأة بهذه النقاط فأكثر تحتاج اسم المدير عند الاستبدال. 0 يعني لا اعتماد.
+                  </span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  defaultValue={Number(earn?.general?.manager_threshold ?? 0)}
+                  aria-label="مكافأة تحتاج اعتماد المدير من"
+                  dir="ltr"
+                  onBlur={async (e) => {
+                    const raw = e.target.value.trim();
+                    const was = Number(earn?.general?.manager_threshold ?? 0);
+                    if (raw === '' || Number(raw) === was) return;
+                    setSaving(true);
+                    try {
+                      // BOTH FIELDS, because the route rewrites the general row from what it is
+                      // sent: posting the threshold alone would set the shop's points-per-visit
+                      // to whatever the model defaults to and nobody would notice until the end
+                      // of the month.
+                      await call(session, canSetGeneral, {
+                        points: earn?.general?.points ?? 0,
+                        manager_threshold: Number(raw),
+                      });
                       load();
                     } finally {
                       setSaving(false);

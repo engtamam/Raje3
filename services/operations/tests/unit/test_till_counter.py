@@ -117,7 +117,11 @@ def test_the_pseudonym_never_leaves():
         _request(_Ops(customer=_Customer()), desk), phone="0500000000", principal=_Principal()))
     assert "subject_ref" not in out
     assert out["points"] == 30
-    assert out["rewards"] == [{"id": "r1", "name": "غسلة", "cost": 20}]
+    # THE PROJECTION IS EXACT — the point of the assertion is that nothing ELSE crosses. Since
+    # د-14أ each reward also carries whether a manager must sign for it, computed by loyalty from
+    # the shop's threshold; it names no person and is exactly what the cashier's screen needs
+    # before the tap.
+    assert out["rewards"] == [{"id": "r1", "name": "غسلة", "cost": 20, "needs_approval": False}]
 
 
 def test_an_unreachable_ledger_says_so_instead_of_reporting_zero():

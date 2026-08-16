@@ -305,7 +305,14 @@ async def customer_at_the_counter(request: Request, phone: str = "", plate: str 
     out["to_next_reward"] = bal.get("to_next_reward", 0)
     # ONLY WHAT HE CAN AFFORD, exactly as the field screen shows it: a list of things he cannot
     # have turns a moment of goodwill into a menu of refusals.
-    out["rewards"] = [{"id": r.get("id"), "name": r.get("name"), "cost": r.get("cost")}
+    # AND WHETHER THE COUNTER MAY HAND IT OVER ALONE (د-14أ). Affordable is not the same question
+    # as allowed: a shop with a manager-approval threshold has rewards the balance covers and the
+    # cashier may not give away by himself. This projection dropped the flag loyalty computes, so
+    # the till was offered every one of them as available and met the rule only as a refusal, with
+    # the customer already holding out his hand.
+    out["manager_threshold"] = bal.get("manager_threshold", 0)
+    out["rewards"] = [{"id": r.get("id"), "name": r.get("name"), "cost": r.get("cost"),
+                       "needs_approval": bool(r.get("needs_approval"))}
                       for r in (bal.get("rewards") or [])]
     return out
 
@@ -320,6 +327,10 @@ class TillRedeemIn(BaseModel):
     # new on every retry, and a doubled redemption spends a customer's points twice.
     idempotency_key: str = Field(min_length=1, max_length=128)
     actor: str = Field(default="", max_length=64)
+    # THE MANAGER WHO ALLOWED IT, for a reward above the shop's threshold (spec §9.5). loyalty
+    # refuses those without a name, and this door had no field to carry one — so the refusal was
+    # unsatisfiable from an integrated till no matter what their system sent.
+    approved_by: str = Field(default="", max_length=128)
     branch_id: str = Field(default="", max_length=64)
 
 
@@ -387,7 +398,7 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
     branch_id = await svc.resolve_branch(tenant, body.branch_id)
     out = await desk.redeem(tenant=tenant, subject_ref=c.subject_ref, reward_id=body.reward_id,
                             idempotency_key=body.idempotency_key, actor=body.actor,
-                            branch_id=branch_id)
+                            approved_by=body.approved_by, branch_id=branch_id)
     if out is None:
         return {"ok": False, "reason": "UNAVAILABLE", "message": "تعذّر الوصول إلى برنامج النقاط."}
     if "_status" in out:

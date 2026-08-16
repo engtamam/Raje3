@@ -111,6 +111,14 @@ jobs:
       - name: no peer's silence is read as its success
         run: python3 ci/check_absent_means_ok.py
 
+      # A REQUEST MODEL IS A CONTRACT. `getattr(body, "approved_by", "")` on a model that never
+      # declared the field could only ever return its default — and a schema that does not declare
+      # a field does not accept one either, so the till could not have sent it. Every reward above
+      # the shop's manager threshold was refused at the counter with no way to satisfy the refusal,
+      # and `getattr` with a default cannot fail, so nothing anywhere said so.
+      - name: no field is read off a model that does not declare it
+        run: python3 ci/check_undeclared_field_read.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was

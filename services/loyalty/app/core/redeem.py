@@ -30,6 +30,20 @@ from app.core.rewards import Rewards
 from app.core.spend_lock import SpendLock
 
 
+def needs_approval(cost: int, manager_threshold: int) -> bool:
+    """Does this reward need a manager's name before it may be handed over?
+
+    ONE RULE, THREE READERS. The check below refuses at the moment of spending; the field screen
+    and the till both have to know BEFORE they offer the button, or the counter is offered a reward
+    it cannot deliver and the refusal arrives with the customer already holding out his hand
+    (د-14أ). Written twice, the offer and the refusal drift apart on the first change — and the
+    version that drifts is the one nobody tests, because it only shows.
+
+    A threshold of 0 means «no approval needed for anything»: the owner has not set the rule.
+    """
+    return bool(manager_threshold) and cost >= manager_threshold
+
+
 class Redeemer:
     def __init__(self, store: Any, ledger: Ledger, rewards: Rewards, cache: Any = None) -> None:
         self.store = store
@@ -95,7 +109,7 @@ class Redeemer:
             raise Overdraft(
                 f"الرصيد {bal.points} نقطة، والمكافأة {reward.cost} — لا يكفي")
 
-        if manager_threshold and reward.cost >= manager_threshold:
+        if needs_approval(reward.cost, manager_threshold):
             if not approved_by:
                 raise LoyaltyError(
                     f"هذه المكافأة تحتاج اعتماد المدير (الحد {manager_threshold} نقطة)")

@@ -161,6 +161,11 @@ export function Visit() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [earn, setEarn] = useState<EarnSettings | null>(null);
   const [redeeming, setRedeeming] = useState('');
+  // THE MANAGER'S NAME, asked for only where the shop's own rule requires it. Kept as the id of
+  // the reward being approved so the box appears under that one tile and nowhere else — a field
+  // that is always on the screen is a field the counter learns to fill with anything.
+  const [approving, setApproving] = useState('');
+  const [approvedBy, setApprovedBy] = useState('');
   /**
    * WHETHER THE OPERATOR SAID THE CUSTOMER TOOK HIS OFFER.
    *
@@ -226,12 +231,14 @@ export function Visit() {
    * and the ledger's would agree today and diverge the first time a rule changes, and the number
    * the customer is told at the counter must be the one the shop is actually holding.
    */
-  const spend = useCallback(async (rewardId: string, rewardName: string) => {
+  const spend = useCallback(async (rewardId: string, rewardName: string, approver = '') => {
     if (!subject || redeeming) return;
     setRedeeming(rewardId);
     try {
-      await redeem(session, subject, rewardId);
+      await redeem(session, subject, rewardId, approver);
       setRedeemed(rewardName);
+      setApproving('');
+      setApprovedBy('');
       setBalance(await balanceFor(session, subject));
       window.setTimeout(() => setRedeemed(null), 4000);
     } catch (e) {
@@ -501,14 +508,45 @@ export function Visit() {
                         <button
                           type="button"
                           disabled={Boolean(redeeming)}
-                          onClick={() => spend(r.id, r.name)}
+                          onClick={() => (r.needs_approval
+                            ? setApproving(r.id === approving ? '' : r.id)
+                            : spend(r.id, r.name))}
                           className="flex w-full items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-start disabled:opacity-60"
                         >
-                          <span>{r.name}</span>
+                          <span>
+                            {r.name}
+                            {/* SAID BEFORE THE TAP, NOT AFTER IT. The service refuses this reward
+                                without a manager's name, and until this badge existed the counter
+                                found that out from an error message with the customer already
+                                holding out his hand (د-14أ). */}
+                            {r.needs_approval ? (
+                              <span className="ms-2 rounded bg-surface-3 px-1.5 py-0.5 text-xs text-text-secondary">
+                                باعتماد المدير
+                              </span>
+                            ) : null}
+                          </span>
                           <span className="shrink-0 tabular-nums text-sm text-text-secondary">
                             {r.cost} نقطة · ويبقى له {balance.points - r.cost}
                           </span>
                         </button>
+                        {approving === r.id ? (
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              type="text"
+                              value={approvedBy}
+                              onChange={(e) => setApprovedBy(e.target.value)}
+                              placeholder="اسم المدير المعتمِد"
+                              aria-label="اسم المدير المعتمِد"
+                              className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2"
+                            />
+                            <Button
+                              disabled={!approvedBy.trim() || Boolean(redeeming)}
+                              onClick={() => spend(r.id, r.name, approvedBy.trim())}
+                            >
+                              اعتمد واستبدل
+                            </Button>
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -750,7 +788,11 @@ export function Visit() {
                 {applying ? '✓ سيُطبَّق العرض' : 'طبّق العرض'}
               </Button>
             ) : null}
-            {spendable.map((r) => (
+            {/* THE ONE-TAP STRIP CARRIES ONLY WHAT ONE TAP CAN ACTUALLY DO. A reward above the
+                shop's threshold needs a manager's name, and there is nowhere here to type one —
+                it stays in the sheet above, which has the box. Offering it here would be a button
+                that refuses every time it is pressed. */}
+            {spendable.filter((r) => !r.needs_approval).map((r) => (
               <Button
                 key={r.id}
                 variant="ghost"

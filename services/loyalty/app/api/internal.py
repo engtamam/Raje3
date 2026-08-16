@@ -352,10 +352,20 @@ async def portal_balance(request: Request, tenant: str, subject_ref: str) -> dic
     bal = await c.ledger.balance(tenant, subject_ref)
     affordable = await c.rewards.affordable(tenant, bal.points)
     all_costs = [r.cost for r in await c.rewards.list(tenant)]
+    from app.api.v1.loyalty import _threshold
     from app.core.notify import to_next_reward
+    from app.core.redeem import needs_approval
+    threshold = await _threshold(c, tenant)
     return {
         "points": bal.points,
-        "rewards": [r.to_dict() for r in affordable],
+        "manager_threshold": threshold,
+        # WHAT EACH REWARD STILL NEEDS BEFORE IT CAN BE HANDED OVER (د-14أ). Affordable is not the
+        # same question as allowed: a shop with a manager threshold has rewards the balance covers
+        # and the counter may not give away alone. Offering those as available and refusing at the
+        # tap is the worst order to discover it in — the customer is already holding out his hand.
+        # One rule, read from `core.redeem` so the offer and the refusal cannot drift.
+        "rewards": [{**r.to_dict(),
+                     "needs_approval": needs_approval(r.cost, threshold)} for r in affordable],
         # Zero means "say nothing" — either he can afford everything or the shop has no rewards.
         "to_next_reward": to_next_reward(bal.points, all_costs),
         "expires_at": c.expiry.due_at(bal.to_dict()),
@@ -374,6 +384,12 @@ class TillRedeemIn(BaseModel):
     # The cashier's account, as their system holds it. Recorded AS GIVEN: their system is the
     # account system, and building a second one here would be a login nobody asked for (spec §3.5).
     actor: str = ""
+    # THE MANAGER WHO ALLOWED IT — and the route READ THIS FIELD BEFORE THE MODEL DECLARED IT.
+    # `getattr(body, "approved_by", "")` cannot fail, so the default won every time and FastAPI
+    # dropped the key a till did send, because a schema that does not declare a field does not
+    # accept it. Every reward above the shop's threshold was refused at the one door where a
+    # manager is standing right there, with no way on earth to satisfy the refusal.
+    approved_by: str = ""
     # WHICH BRANCH handed the reward over. A shop with three branches that knows who spent a
     # customer's points and not where knows half of what it asked. Optional: a till that does not
     # send it records a redemption with no branch rather than failing — the same rule visits
@@ -405,7 +421,7 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
         rec, is_new = await c.redeemer.redeem(
             body.tenant, body.subject_ref, body.reward_id, actor=body.actor,
             idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id,
-            approved_by=getattr(body, "approved_by", "") or "",
+            approved_by=body.approved_by,
             manager_threshold=await _threshold(c, body.tenant))
     # RETURNED, NOT RAISED — and the reader here is a cashier with a customer in front of him.
     #

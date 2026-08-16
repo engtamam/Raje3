@@ -412,3 +412,64 @@ def test_the_branch_a_visit_was_recorded_at_rides_onto_the_earn(client, owner):
     # branch is a label on the movement rather than a partition of the account.
     assert client.get("/api/v1/loyalty/balance/ref_earnbranch01",
                       headers=_auth("loyalty.read")).json()["points"] == 12
+
+
+# ── د-14 · the approval that could be demanded and never granted ───────────────────────────────
+
+
+def test_the_till_can_grant_the_approval_the_shop_demands(client, owner):
+    """THE DEFECT, END TO END. `/internal/loyalty/redeem` passed the approver on as
+    `getattr(body, "approved_by", "")` and `TillRedeemIn` did not declare the field — so the default
+    won every time, AND FastAPI dropped the key a till did send, because a schema that does not
+    declare a field does not accept it. Every reward at or above the shop's threshold was refused at
+    the one door where the manager is standing right there, and no request on earth could satisfy
+    the refusal.
+
+    Nothing failed on the way: `getattr` with a default cannot. The same field, spelled identically,
+    sat on `EarnIn` two hundred lines up.
+    """
+    client.put("/api/v1/loyalty/settings/general",
+               json={"points": 10, "manager_threshold": 100}, headers=owner)
+    rid = _reward(client, owner, name="خصم كبير", cost=150, type="discount",
+                  discount_halalas=20000)
+    _earn(client, points=400, visit="v-appr", subject="ref_apprcust0001")
+
+    # WITHOUT A NAME it is refused — the rule the owner set, working.
+    bare = client.post("/internal/loyalty/redeem",
+                       json={"tenant": TENANT, "subject_ref": "ref_apprcust0001",
+                             "reward_id": rid, "idempotency_key": "inv-appr-1",
+                             "actor": "cashier-1"}, headers=INTERNAL)
+    assert "اعتماد المدير" in bare.text, bare.text
+
+    # WITH ONE it goes through, and the ledger keeps who allowed it.
+    ok = client.post("/internal/loyalty/redeem",
+                     json={"tenant": TENANT, "subject_ref": "ref_apprcust0001",
+                           "reward_id": rid, "idempotency_key": "inv-appr-2",
+                           "actor": "cashier-1", "approved_by": "خالد المدير"},
+                     headers=INTERNAL)
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["discount_halalas"] == 20000
+
+
+def test_the_menu_says_which_rewards_need_a_manager_before_the_tap(client, owner):
+    """د-14أ — AFFORDABLE IS NOT THE SAME QUESTION AS ALLOWED. Both balance payloads listed every
+    reward the points covered and said nothing about the threshold, so the counter offered a reward
+    it could not deliver and found out at the tap, with the customer already holding out his hand.
+    The flag is computed from the same `needs_approval` the refusal uses — written twice, the offer
+    and the refusal drift apart on the first change."""
+    client.put("/api/v1/loyalty/settings/general",
+               json={"points": 10, "manager_threshold": 100}, headers=owner)
+    big = _reward(client, owner, name="خصم كبير", cost=150, type="discount",
+                  discount_halalas=20000)
+    small = _reward(client, owner, name="خصم صغير", cost=20, type="discount",
+                    discount_halalas=1000)
+    _earn(client, points=400, visit="v-menu", subject="ref_menucust0001")
+
+    for got in (client.get("/api/v1/loyalty/balance/ref_menucust0001", headers=owner).json(),
+                client.get("/internal/loyalty/portal/balance",
+                           params={"tenant": TENANT, "subject_ref": "ref_menucust0001"},
+                           headers=INTERNAL).json()):
+        assert got["manager_threshold"] == 100, got
+        flags = {r["id"]: r["needs_approval"] for r in got["rewards"]}
+        assert flags[big] is True, flags
+        assert flags[small] is False, flags

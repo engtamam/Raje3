@@ -244,15 +244,24 @@ def test_the_invoice_amount_reaches_the_feed_that_earns_points(client, till_head
         }],
     })
     assert r.status_code == 200, r.text
-    assert r.json().get("accepted") == 1, r.json()
+    accepted = r.json()
+    assert accepted.get("accepted") == 1, accepted
 
     feed = client.post("/internal/operations/visits/since",
                        headers={"X-Internal-Token": "t" * 40},
                        json={"tenant": till_headers["tenant"], "since": 0})
     assert feed.status_code == 200, feed.text
-    mine = [v for v in feed.json()["visits"] if v.get("amount_halalas")]
-    assert mine, "the amount died somewhere between the till and loyalty"
-    assert mine[-1]["amount_halalas"] == 48000, "480 riyals, summed from both lines"
+    # ITS OWN SALE, FOUND BY ITS OWN VISIT ID — never `[-1]`. Other tests in this module post into
+    # the same shop, the feed carries every one of them, and rows written in the same second have
+    # no guaranteed order between them: this assertion read another test's coffee receipt whenever
+    # that one happened to land last. A flaky test on a chain this quiet is worse than none — it
+    # teaches whoever runs it to re-run until green, and the day the amount really stops arriving
+    # nobody will look. Keyed on the id the till route itself returned, the row is found either way
+    # and only the number can fail.
+    vid = accepted["results"][0]["visit_id"]
+    mine = [v for v in feed.json()["visits"] if v.get("visit_id") == vid]
+    assert mine, "the sale never reached the feed loyalty reads"
+    assert mine[0]["amount_halalas"] == 48000, "480 riyals, summed from both lines"
 
     # AND THE RULE THAT READS IT, computed the way loyalty computes it.
-    assert (mine[-1]["amount_halalas"] // 100) * 1 == 480
+    assert (mine[0]["amount_halalas"] // 100) * 1 == 480

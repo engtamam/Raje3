@@ -26,6 +26,7 @@ from app.api.ratelimit import rate_limit
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import LoyaltyError, Overdraft
 from app.core.notify import to_next_reward
+from app.core.redeem import needs_approval
 
 router = APIRouter(prefix="/loyalty", tags=["loyalty"])
 
@@ -101,10 +102,20 @@ async def balance(request: Request, subject_ref: str,
     bal = await c.ledger.balance(tenant, subject_ref)
     affordable = await c.rewards.affordable(tenant, bal.points)
     all_costs = [r.cost for r in await c.rewards.list(tenant)]
+    threshold = await _threshold(c, tenant)
     return {
         "subject_ref": subject_ref,
         "points": bal.points,
-        "rewards": [r.to_dict() for r in affordable],
+        # THE SHOP'S RULE TRAVELS WITH THE MENU, so the screen can ask for the manager's name
+        # before the tap instead of learning about the rule from a refusal.
+        "manager_threshold": threshold,
+        # WHAT EACH REWARD STILL NEEDS BEFORE IT CAN BE HANDED OVER (د-14أ). Affordable is not the
+        # same question as allowed: a shop with a manager threshold has rewards the balance covers
+        # and the counter may not give away alone. Offering those as available and refusing at the
+        # tap is the worst order to discover it in — the customer is already holding out his hand.
+        # One rule, read from `core.redeem` so the offer and the refusal cannot drift.
+        "rewards": [{**r.to_dict(),
+                     "needs_approval": needs_approval(r.cost, threshold)} for r in affordable],
         # Zero means "say nothing" — either he can afford everything or the shop has no rewards.
         # "0 points to your next reward" is a sentence that means nothing to the person reading it.
         "to_next_reward": to_next_reward(bal.points, all_costs),
