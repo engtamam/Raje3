@@ -28,9 +28,15 @@
 # file, and ship.sh still verifies the running pod's imageID against the digest it built — the
 # registry changes the road, not the rule.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
-REMOTE="${REMOTE:-tamam@127.0.0.1}"
-PORT="${PORT:-2224}"
+# THE BOX, NOT MERELY ITS CLUSTER: this opens a reverse forward on the node and edits containerd's
+# config there. Required rather than defaulted — the old fallback was an ssh tunnel retired months
+# ago, so a run with no target.env reported «cannot reach the registry» when the truth was that
+# nobody had said which machine.
+: "${REMOTE:?the registry lives on a machine — set REMOTE and PORT in deploy/target.env}"
+PORT="${PORT:-22}"
 # 5055 AND NOT 5000, WHICH IS THE OBVIOUS CHOICE AND THE WRONG ONE HERE. VirtualBox publishes
 # forwards on 127.0.0.1:5000, so the socket cannot be bound — the same collision cost an afternoon
 # on 8080 earlier the same night.

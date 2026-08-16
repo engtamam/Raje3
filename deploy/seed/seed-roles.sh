@@ -14,11 +14,12 @@
 # every role back to the file on every run — would silently undo a customisation somebody made
 # through the console, which is the same failure as re-applying a seed on every boot.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 TENANT=""
 STRICT=0

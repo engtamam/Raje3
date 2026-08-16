@@ -16,13 +16,14 @@
 #
 # AND IT CLEANS UP AFTER ITSELF. It writes into a tenant of its own making, and deletes it.
 set -euo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS="${NS:-base-services}"
-SSH="${SSH:-ssh -o StrictHostKeyChecking=no -p 2224 tamam@127.0.0.1}"
 
 C_G=$'\e[32m'; C_R=$'\e[31m'; C_C=$'\e[36m'; C_N=$'\e[0m'
 echo -e "${C_C}━━━ the follow-up ladder, on the cluster ━━━${C_N}"
 
-$SSH "kubectl -n $NS exec -i deploy/reminders -- python3 -" <<'PY'
+kubectl -n "$NS" exec -i deploy/reminders -- python3 - <<'PY'
 import asyncio, sys, time
 sys.path.insert(0, "/app")
 

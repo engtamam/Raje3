@@ -48,22 +48,23 @@
 # NO `set -e`. Each phase reports and the script decides — `set -e` turns a diagnosable failure
 # into a silent exit, which is the shape half the list above already has.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
-# ── WHERE THE CLUSTER IS, REMEMBERED ONCE ────────────────────────────────────────────────────
-# Every ship needed `REMOTE=… PORT=… FAST=…` typed in front of it, and a run that forgot one went
-# to the wrong machine or died on a refused connection. `deploy/target.env` holds the answer, is
-# read when it exists, and the environment still wins when somebody means it to.
+# ── WHERE THE MACHINE IS, AND THE REFUSAL WHEN NOBODY SAID ───────────────────────────────────
+# `cluster.sh` above read `deploy/target.env` — not in git, because it names a host, a port and a
+# login that differ per operator and per environment. See deploy/target.env.example.
 #
-# NOT IN GIT: it names a host, a port and a login, and those differ per operator and per
-# environment — see deploy/target.env.example.
-# shellcheck disable=SC1091
-[ -f "$ROOT/deploy/target.env" ] && . "$ROOT/deploy/target.env"
-
-REMOTE="${REMOTE:-tamam@127.0.0.1}"
-PORT="${PORT:-2224}"
+# Shipping is the one thing here that needs the BOX and not merely its cluster: images are copied
+# onto it and containerd is asked to import them. So REMOTE is required rather than defaulted.
+# It used to fall back to `tamam@127.0.0.1:2224` — an ssh tunnel retired months ago — and a ship
+# with no target.env therefore spent its first minute building images for a machine that was not
+# there, then failed on a refused connection that named the wrong problem.
+: "${REMOTE:?a ship needs a machine — set REMOTE and PORT in deploy/target.env}"
+PORT="${PORT:-22}"
 NS="${NS:-base-services}"
 # KEEPALIVES, BECAUSE THE VERIFY STEP IS THE LONGEST QUIET MOMENT IN THE RUN.
 #

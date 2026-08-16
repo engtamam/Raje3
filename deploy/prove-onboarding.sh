@@ -13,9 +13,10 @@
 #   sentence that tells the owner what to do thrown away. It has happened here twice. A unit test
 #   on the function cannot see it; only a real request through the real app can.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 red(){ printf '  \e[31m%s\e[0m\n' "$*" >&2; }
 

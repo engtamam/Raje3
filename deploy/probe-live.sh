@@ -20,8 +20,9 @@
 #  Usage:  sudo bash deploy/probe-live.sh
 # ==================================================================================================
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G=$'\e[32m'; C_R=$'\e[31m'; C_D=$'\e[2m'; C_N=$'\e[0m'
 pass=0; fail=0

@@ -23,12 +23,13 @@
 # NO `set -e`. A failing check must report and continue: one unreachable service must not hide the
 # state of the other twenty. The exit code carries the verdict.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 NS="${NS:-base-services}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${ROOT:-$(cd "$HERE/../.." && pwd)}"
 VALUES_DIR="${VALUES_DIR:-$ROOT/deploy/services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 red(){ printf '  \e[31m✗ %s\e[0m\n' "$*"; }
 yel(){ printf '  \e[33m⚠ %s\e[0m\n' "$*"; }

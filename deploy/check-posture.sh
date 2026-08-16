@@ -20,10 +20,11 @@
 # and one amber is a report nobody reads twice; one that says what to type is a report somebody
 # acts on.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 NS="${NS:-base-services}"
 QUIET=0; [[ "${1:-}" == "--quiet" ]] && QUIET=1
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G="\033[32m"; C_R="\033[31m"; C_Y="\033[33m"; C_D="\033[2m"; C_N="\033[0m"
 pass=0; fail=0

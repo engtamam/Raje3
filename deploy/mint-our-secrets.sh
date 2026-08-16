@@ -28,8 +28,9 @@
 #  not lock a table in another. pre-deploy.sh creates them.
 # ==================================================================================================
 set -euo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 C_G=$'\e[32m'; C_C=$'\e[36m'; C_Y=$'\e[33m'; C_N=$'\e[0m'
 info(){ echo -e "${C_C}  ▸ $*${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }

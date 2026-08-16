@@ -18,11 +18,12 @@
 # gained is added. That is the only merge rule that is safe to run unattended — a replace would
 # make this the very migration seed-roles.sh refuses to be.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 TENANT=""
 DRY=0

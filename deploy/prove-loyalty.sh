@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # loyalty, proven with real calls against the running image on its pinned digest.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS=base-services
 P=$(kubectl -n $NS get pods --no-headers | awk '/^loyalty-/ && $3=="Running" {print $1; exit}')
 [ -n "$P" ] || { echo "no loyalty pod"; exit 1; }

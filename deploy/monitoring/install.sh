@@ -24,10 +24,11 @@
 # rules were installed, leaving a monitoring stack that watches the cluster and misses the one
 # metric it was built for. Each step below reports its own outcome instead.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 NS_MON="${NS_MON:-monitoring}"
 NS="${NS:-base-services}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 info(){ echo -e "\e[36m  ▸ $*\e[0m"; }
 ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }

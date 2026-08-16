@@ -15,9 +15,10 @@
 # raised — the trial ending is a stop, not an automatic subscription. That is the same decision as
 # no auto-renew, applied at the other end (16.8).
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 red(){ printf '  \e[31m%s\e[0m\n' "$*" >&2; }
 

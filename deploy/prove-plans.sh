@@ -14,10 +14,11 @@
 # first into "your plan does not include this, here is the one that does" and the second into
 # nothing at all. Proving only the ones that should be on would pass with every zero missing.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }

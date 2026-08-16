@@ -22,8 +22,9 @@
 #  object-store buckets. Nothing in this file is platform behaviour.
 # ==================================================================================================
 set -Eeuo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 info(){ echo -e "\e[36m  ▸ $*\e[0m"; }
 ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }

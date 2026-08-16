@@ -13,9 +13,10 @@
 #  never comes. Everything here is idempotent — this runs on every boot, not on the first one.
 # ==================================================================================================
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 NS="${NS:-base-services}"
 ROOT="${ROOT:-/home/tamam/raje3}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 export PATH="$PATH:/usr/local/bin:/usr/bin"
 
 say(){ echo "raje3-up: $*"; }

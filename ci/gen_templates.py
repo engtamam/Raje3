@@ -34,6 +34,18 @@ CATEGORY = {"service": "UTILITY", "personal": "UTILITY", "awareness": "UTILITY",
             "warning": "UTILITY", "marketing": "MARKETING"}
 TONES = ("brief", "warm", "formal")
 
+# WHO FILLS EACH BLANK, IN ORDER (§8.4). Meta approves the WORDS, so the numbered blanks are the
+# only thing a shop decides, and every one of them belongs to somebody: to us at send time
+# («system»), to a tap on his own service list («catalogue»), to a typed value with a shape
+# («amount», «code», «date»), or to him («owner» — the one free blank, at most one per template).
+#
+# IT IS READ FROM THE DOC, like everything else here. `fills` was once hand-written into the
+# generated JSON, which this generator then overwrote on its next run — the field vanished, every
+# reader fell back to «system», and the owner's discount reached no slot. A value that only one
+# writer can write cannot be lost that way.
+FILLS = ("system", "catalogue", "owner", "amount", "code", "date")
+FREE = "owner"
+
 # An awareness or warning template carrying any of these is not awareness — it is marketing by its
 # text, whatever it is labelled (spec §8.4.1). Meta re-categorises it and bills accordingly, and
 # the establishment is then sending promotion under a utility consent.
@@ -138,6 +150,30 @@ def parse() -> tuple[list[dict], list[str]]:
         # has to decide whether this message is worth sending tomorrow, and there is no safe
         # default: deferring a visit confirmation sends something strange, dropping a follow-up
         # loses a message that cost nothing to delay. So whoever adds a text answers the question.
+        # ── and who fills each of those blanks ─────────────────────────────────────────────────
+        row = re.search(r"\|\s*الفراغات\s*\|\s*(.+?)\s*\|", body)
+        fills = [f.strip() for f in row.group(1).split("·")] if row else []
+        slots = per_tone[TONES[0]]
+        if not fills:
+            problems.append(f"{name}: no «الفراغات» row — every blank defaults to «system» then, "
+                            f"so anything the shop types reaches no slot and the preview draws «…»")
+            continue
+        if len(fills) != len(slots):
+            problems.append(f"{name}: {len(slots)} blanks in the body, {len(fills)} declared — the "
+                            f"list is read BY POSITION, so one missing entry shifts every blank "
+                            f"after it onto the wrong source")
+            continue
+        unknown = [f for f in fills if f not in FILLS]
+        if unknown:
+            problems.append(f"{name}: unknown filler {unknown} — the readers branch on these by "
+                            f"name and treat anything else as «system». Use one of {FILLS}")
+            continue
+        if fills.count(FREE) > 1:
+            problems.append(f"{name}: asks the owner to write {fills.count(FREE)} free blanks. One "
+                            f"at most — two is a form he abandons halfway, and the customer never "
+                            f"hears")
+            continue
+
         deferral = deferral_for(name, policies)
         if deferral is None:
             problems.append(f"{name}: no deferral policy in the 8.4.3 table — when the ceiling "
@@ -155,6 +191,7 @@ def parse() -> tuple[list[dict], list[str]]:
             # message earns its purpose — that he reads it — without spending a line of the body.
             "header": "تنبيه" if cls == "warning" else "",
             "tones": {t: tones[t] for t in TONES},
+            "fills": fills,
         })
     return types, problems
 
@@ -261,7 +298,10 @@ def main() -> int:
             print(f"{C_R}  ✗ {OUT.name} is out of date — run: python ci/gen_templates.py{C_N}")
             return 1
     else:
-        OUT.write_text(text, encoding="utf-8")
+        # LF, WHOEVER RAN IT. Without `newline`, Python writes CRLF on Windows, so the file this
+        # generator produces differs from the one CI produces in every single line — and the diff
+        # that matters is hidden inside a whole-file rewrite.
+        OUT.write_text(text, encoding="utf-8", newline="\n")
 
     counts = Counter(t["cls"] for t in types)
     print(f"{C_G}  ✔ {len(types)} texts x {len(TONES)} tones = {len(types) * len(TONES)} "

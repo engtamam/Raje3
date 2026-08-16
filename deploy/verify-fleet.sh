@@ -21,11 +21,14 @@
 #  Usage:  bash deploy/verify-fleet.sh            # exits non-zero on any drift
 # ==================================================================================================
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 NS="${NS:-base-services}"
-# shellcheck disable=SC1091
-[ -f "$HERE/target.env" ] && . "$HERE/target.env"
+# THE FLEET IS READ OVER SSH, ALWAYS: this compares what is RUNNING against what the repo pins,
+# and doing that from the box being checked is how a drifted node certifies itself. cluster.sh
+# above already read target.env — this only insists on the half of it that ssh needs.
 : "${REMOTE:?REMOTE is required — set it in deploy/target.env}"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=20 -p "${PORT:-22}" "$REMOTE")
 

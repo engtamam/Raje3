@@ -25,9 +25,10 @@
 #  Usage:  sudo bash deploy/preflight-netpol.sh
 # ==================================================================================================
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS="${PREFLIGHT_NS:-raje3-preflight}"
 IMAGE="${PREFLIGHT_IMAGE:-busybox:1.36}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G=$'\e[32m'; C_R=$'\e[31m'; C_C=$'\e[36m'; C_D=$'\e[2m'; C_N=$'\e[0m'
 info(){ echo -e "${C_C}  ▸ $*${C_N}"; }

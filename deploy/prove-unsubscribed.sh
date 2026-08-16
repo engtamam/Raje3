@@ -20,9 +20,10 @@
 # behaviours by ABSENCE — nothing deletes, nothing gates — and an absence is exactly what a
 # refactor removes by accident.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 red(){ printf '  \e[31m%s\e[0m\n' "$*" >&2; }
 

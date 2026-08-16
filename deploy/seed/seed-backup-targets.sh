@@ -26,11 +26,12 @@
 # drift, not somebody's customisation. Nothing here is a customisation — a base_url is either right
 # or the service is silently unprotected.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1

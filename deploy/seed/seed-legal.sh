@@ -29,6 +29,8 @@
 # a failure. A changed document needs `--version`, deliberately — an accepted version must never
 # change under the person who accepted it.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 NS="${NS:-base-services}"
 HERE="$(cd "$(dirname "$0")" && pwd)"

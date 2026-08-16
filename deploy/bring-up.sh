@@ -55,7 +55,6 @@ for a in "$@"; do case "$a" in
   -h|--help) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
   *) echo "unknown flag: $a" >&2; exit 2;;
 esac; done
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G=$'\e[32m'; C_C=$'\e[36m'; C_Y=$'\e[33m'; C_N=$'\e[0m'
 step(){ echo -e "\n${C_C}━━━ $* ━━━${C_N}"; }
@@ -81,22 +80,6 @@ soft(){
     warn "$what: failed — see above"
   fi
 }
-
-# ── 0 ─────────────────────────────────────────────────────────────────────────────────────────
-# NOTHING, ON PURPOSE, unless --wipe. The default path must stay safe to run against production.
-if [[ $WIPE -eq 1 ]]; then
-  step "wipe"
-  echo "  deleting namespace $NS, its volumes, and their host directories"
-  # helm releases first: a namespace deleted out from under helm leaves its release metadata
-  # behind, and the next install refuses with "cannot re-use a name that is still in use".
-  helm list -n "$NS" -q 2>/dev/null | xargs -r -n1 helm uninstall -n "$NS" >/dev/null 2>&1 || true
-  kubectl delete namespace "$NS" --wait=true --timeout=180s >/dev/null 2>&1 || true
-  # AND THE DIRECTORIES. A PVC's local-path directory outlives the claim, and a postgres that finds
-  # a populated data dir does not initialise — which is the failure this whole flag exists to make
-  # impossible to reproduce by accident.
-  rm -rf "$STORAGE"/pvc-* 2>/dev/null || true
-  ok "namespace, volumes and host directories are gone"
-fi
 
 # ── 0b ────────────────────────────────────────────────────────────────────────────────────────
 # THE CLUSTER, BEFORE ANYTHING THAT SPEAKS TO ONE. Every step below — the preflight, the object
@@ -129,12 +112,40 @@ else
   ok "k3s installed"
 fi
 command -v kubectl >/dev/null 2>&1 || ln -sf /usr/local/bin/k3s /usr/local/bin/kubectl
+
+# THE SEAM COMES AFTER k3s, NOT BEFORE IT. Every other script asks cluster.sh where the cluster
+# is; this one is what makes there be an answer, so it asks only once k3s has written its
+# kubeconfig. Sourcing at the top would have this script refuse to install a cluster on the
+# grounds that no cluster is installed.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 export PATH="/usr/local/bin:$PATH"
 # READY, NOT MERELY INSTALLED. The API server answers seconds after the installer returns, and a
 # kubectl that runs one second too early fails in a way that looks like a permission problem.
 for _ in $(seq 1 60); do kubectl get --raw=/readyz >/dev/null 2>&1 && break; sleep 2; done
 kubectl get --raw=/readyz >/dev/null 2>&1 || { echo "  the API server never became ready" >&2; exit 1; }
 ok "API server answering"
+
+# ── 1a ────────────────────────────────────────────────────────────────────────────────────────
+# AFTER THE API ANSWERS, NOT BEFORE. Wiping is a conversation with a cluster: on a virgin host
+# there is nothing to delete, and on an existing one every command below would otherwise be
+# aimed at an API server nobody has confirmed is up — and each is `|| true`, so it would have
+# reported a successful wipe of a namespace it never reached.
+# NOTHING, ON PURPOSE, unless --wipe. The default path must stay safe to run against production.
+if [[ $WIPE -eq 1 ]]; then
+  step "wipe"
+  echo "  deleting namespace $NS, its volumes, and their host directories"
+  # helm releases first: a namespace deleted out from under helm leaves its release metadata
+  # behind, and the next install refuses with "cannot re-use a name that is still in use".
+  helm list -n "$NS" -q 2>/dev/null | xargs -r -n1 helm uninstall -n "$NS" >/dev/null 2>&1 || true
+  kubectl delete namespace "$NS" --wait=true --timeout=180s >/dev/null 2>&1 || true
+  # AND THE DIRECTORIES. A PVC's local-path directory outlives the claim, and a postgres that finds
+  # a populated data dir does not initialise — which is the failure this whole flag exists to make
+  # impossible to reproduce by accident.
+  rm -rf "$STORAGE"/pvc-* 2>/dev/null || true
+  ok "namespace, volumes and host directories are gone"
+fi
+
 
 # AND HELM, WHICH NOTHING ELSE ON THIS PATH INSTALLS. update.sh refuses without it and points at
 # `provision-server.sh` — a script for provisioning a bare host, which is not what a bundle install

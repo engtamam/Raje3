@@ -27,10 +27,11 @@
 # which is the only reason it is not still true. This script now reads the registry first and
 # registers only what is missing.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 TENANT=""
 SUBMIT=1

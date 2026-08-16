@@ -19,9 +19,10 @@
 # The other half of the proof is a grep, and it lives in the task rather than here: any tenant id
 # in a conditional in any service is the design having failed. It is clean today.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 red(){ printf '  \e[31m%s\e[0m\n' "$*" >&2; }
 

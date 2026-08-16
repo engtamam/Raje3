@@ -44,6 +44,8 @@
 #        deploy/services) · HEALTH_TIMEOUT (default 360) · PULL_GRACE (default 300)
 # ==================================================================================================
 set -Eeuo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"                 # repo root (deploy/server/ -> ../..)
 PRODUCT_NAME="${PRODUCT_NAME:-base-services}"
@@ -96,7 +98,6 @@ _in_only() {
 }
 
 [[ $EUID -eq 0 ]] || die "run as root: sudo bash $0"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 command -v helm >/dev/null || die "helm missing (deploy/server/provision-server.sh installs it)"
 kubectl get nodes >/dev/null 2>&1 || die "kubectl cannot reach the cluster (is k3s up?)"
 # One clear line instead of N identical helm errors if the tree is wrong or a checkout is half-done.

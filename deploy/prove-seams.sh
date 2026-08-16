@@ -5,6 +5,8 @@
 # registered, a catch-up that could not bootstrap, an import that printed success while failing, a
 # shop name blank in every message. All four were seams. This is loyalty's.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS=base-services
 L=$(kubectl -n $NS get pods --no-headers | awk '/^loyalty-/ && $3=="Running" {print $1; exit}')
 TOKEN=$(kubectl -n $NS get secret loyalty-secrets -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' | base64 -d)

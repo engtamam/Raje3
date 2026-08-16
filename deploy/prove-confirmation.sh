@@ -11,11 +11,12 @@
 #
 # IT RECORDS A REAL VISIT and reads the schedule the engine actually wrote.
 set -euo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 API="${API:-http://127.0.0.1:8090}"
 PHONE="${SHOP_PHONE:-0549491771}"
 PASSWORD="${SHOP_PASSWORD:-Raje3-Test-Passphrase!1}"
 NS="${NS:-base-services}"
-SSH="${SSH:-ssh -o StrictHostKeyChecking=no -p 2224 tamam@127.0.0.1}"
 
 C_G=$'\e[32m'; C_C=$'\e[36m'; C_N=$'\e[0m'
 echo -e "${C_C}━━━ a visit schedules its confirmation ━━━${C_N}"
@@ -50,7 +51,7 @@ PY
 echo "  subject_ref: $SUBJECT"
 sleep 3      # the bus is asynchronous; the schedule is written by the consumer
 
-$SSH "kubectl -n $NS exec -i deploy/reminders -- env SUBJECT=$SUBJECT python3 -" <<'PY'
+kubectl -n "$NS" exec -i deploy/reminders -- env "SUBJECT=$SUBJECT" python3 - <<'PY'
 import asyncio, os, sys, time
 sys.path.insert(0, "/app")
 

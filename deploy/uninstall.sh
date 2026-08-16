@@ -25,10 +25,11 @@
 #    sudo bash deploy/uninstall.sh --purge-k3s     # and uninstall k3s itself
 # ==================================================================================================
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NS="${NS:-base-services}"
 STORAGE="${STORAGE:-/var/lib/rancher/k3s/storage}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G=$'\e[32m'; C_C=$'\e[36m'; C_Y=$'\e[33m'; C_R=$'\e[31m'; C_B=$'\e[1m'; C_D=$'\e[2m'; C_N=$'\e[0m'
 step(){ echo -e "\n${C_C}━━━ $* ━━━${C_N}"; }

@@ -234,6 +234,13 @@ jobs:
       - name: a template blank with nobody to fill it
         run: python3 ci/check_every_blank_says_who_fills_it.py
 
+      # AND EVERY DEPLOY SCRIPT ASKS THE SAME PLACE WHERE THE CLUSTER IS. Thirty-two of them
+      # carried `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` — the node's path, on a laptop where no
+      # such file exists — so eighteen proofs reported «connection refused to localhost» about a
+      # fleet that was up, right after a ship.
+      - name: a deploy script that decides for itself where the cluster is
+        run: python3 ci/check_every_deploy_script_finds_the_cluster.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

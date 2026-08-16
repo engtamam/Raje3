@@ -5,6 +5,8 @@
 # claim worth making after a rollout — a release can be "deployed" while the pods that matter were
 # never replaced, and a rollout can be reported failed while the digest landed correctly.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS="${NS:-base-services}"
 # Derived from where this script LIVES, not from $HOME — it is run under sudo, and sudo's $HOME is
 # /root, so a home-relative default silently resolves to a directory that does not exist and the
@@ -13,7 +15,6 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${ROOT:-$(cd "$HERE/.." && pwd)}"
 VALUES_DIR="${VALUES_DIR:-$ROOT/deploy/services}"
 [ -d "$VALUES_DIR" ] || { echo "  ✗ no values directory at $VALUES_DIR" >&2; exit 2; }
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 # THIS SCRIPT IS NODE-ONLY, AND OFF THE NODE IT USED TO ACCUSE THE WHOLE FLEET. The KUBECONFIG above
 # exists only on the k3s node; run anywhere else, every kubectl fails, every `got` comes back empty,
 # and the loop below prints "NOT DEPLOYED" 24 times at a cluster that is serving perfectly. An

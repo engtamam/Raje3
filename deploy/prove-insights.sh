@@ -6,6 +6,8 @@
 # success while failing, a shop name blank in every message, and a peer route that existed in code
 # and 404'd on the running image. This is the same exercise for this service.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 NS=base-services
 P=$(kubectl -n $NS get pods --no-headers | awk '/^insights-/ && $3=="Running" {print $1; exit}')
 [ -n "$P" ] || { echo "no insights pod"; exit 1; }

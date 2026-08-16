@@ -27,13 +27,14 @@
 #  a version nobody meant to keep.
 # ==================================================================================================
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cluster.sh"
 TAG="${1:?usage: repin.sh <tag> [--dry-run]}"
 DRY=0; [[ "${2:-}" == "--dry-run" ]] && DRY=1
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 VALUES_DIR="${VALUES_DIR:-$ROOT/deploy/services}"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 C_G="\033[32m"; C_R="\033[31m"; C_D="\033[2m"; C_N="\033[0m"
 

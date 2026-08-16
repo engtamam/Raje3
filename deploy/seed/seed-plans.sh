@@ -19,10 +19,11 @@
 # silently changing what somebody already agreed to pay is the failure customers escalate rather
 # than report.
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1

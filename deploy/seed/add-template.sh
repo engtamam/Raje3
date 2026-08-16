@@ -24,9 +24,10 @@
 #   a name that already exists for this tenant — see seed-templates.sh on why re-registering is
 #   never harmless
 set -uo pipefail
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
 
 NS="${NS:-base-services}"
-export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 
 TENANT=""; NAME=""; CATEGORY=""; BODY=""; SUBMIT=1
 while [ $# -gt 0 ]; do
