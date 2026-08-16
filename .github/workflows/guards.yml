@@ -97,6 +97,13 @@ jobs:
       - name: no core module is waiting to be called
         run: python3 ci/check_dead_core.py
 
+      # A PERSON MUST NEVER READ A ROUTE AND A STATUS CODE. The redemption on the visit screen
+      # rendered `ApiError.message` — `POST /api/v1/loyalty/redeem → 400` — under a comment
+      # promising «the sentence the service wrote». Loyalty had been changed to RETURN its refusals
+      # rather than raise them precisely so the cashier would read «رصيد العميل لا يكفي».
+      - name: no screen shows a person a log line
+        run: python3 ci/check_operator_sentences.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was

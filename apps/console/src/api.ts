@@ -29,19 +29,51 @@ export class ApiError extends Error {
 }
 
 /** The sentence an operator reads. NEVER a status code and never an English exception: he cannot
- *  act on either, and the customer is standing in front of him while he reads it. */
-export function sentenceFor(e: unknown): string {
+ *  act on either, and the customer is standing in front of him while he reads it.
+ *
+ *  THIS FUNCTION EXISTED AND NOTHING CALLED IT — and the sweep that found it is worth writing
+ *  down, because the first count was wrong. Thirty-seven `catch` blocks read
+ *  `e instanceof Error ? e.message : '<arabic>'`, which LOOKS like the defect everywhere. It is
+ *  not: `catalog.call` and `auth.post` both already dig the service's own sentence out of the body
+ *  and put it in `.message`, so on those paths the Arabic branch is the unreachable one and the
+ *  reachable one is correct.
+ *
+ *  ONE PATH DOES NOT: `call` in this file throws an ApiError whose message is built for a LOG —
+ *  `POST /api/v1/loyalty/redeem → 400`. The single screen that renders it is the redemption on the
+ *  visit screen, where a cashier stands in front of the customer and reads a route and a number
+ *  instead of «رصيد العميل لا يكفي» — the sentence loyalty was changed to RETURN rather than raise
+ *  for precisely that moment.
+ *
+ *  `fallback` IS THE CALL SITE'S OWN WORDS, and it is required rather than defaulted: «تعذّر
+ *  السحب» and «تعذّر الحذف» are not the same sentence, and one generic message for both is how a
+ *  screen stops telling anyone which act failed. */
+export function sentenceFor(e: unknown, fallback: string): string {
   if (e instanceof ApiError) {
-    const body = e.body as { message?: string; detail?: string } | null;
-    const said = body?.message || body?.detail;
+    const body = e.body as { message?: string; detail?: string; reason?: string } | null;
+    // THE PEER'S OWN WORDS FIRST. `reason` is the key our services answer refusals with; `message`
+    // and `detail` are the platform's. Whichever arrives, it was written for this person.
+    const said = body?.message || body?.detail || body?.reason;
     if (said) return String(said);
     if (e.status === 401 || e.status === 403) return 'انتهت الجلسة — أعد فتح الشاشة.';
-    if (e.status >= 500) return 'الخدمة لا تستجيب الآن. الزيارة محفوظة وستُرسل تلقائياً.';
-    return 'تعذّر الحفظ. حاول مرة أخرى.';
+    if (e.status >= 500) return 'الخدمة لا تستجيب الآن. حاول بعد قليل.';
+    return fallback;
   }
   // A network failure is the NORMAL case in a workshop, not an exception — and it is the one
-  // message that must not alarm, because the queue has already taken the visit.
-  return 'لا يوجد اتصال — الزيارة محفوظة وستُرسل حين تعود الشبكة.';
+  // message that must not alarm.
+  if (e instanceof TypeError) return 'لا يوجد اتصال — تحقّق من الشبكة وحاول مرة أخرى.';
+
+  // AN ARABIC MESSAGE WAS WRITTEN FOR A PERSON; KEEP IT.
+  //
+  // Not every thrower is this file. `auth.post` raises `Refused` and `catalog.call` raises a plain
+  // Error, and BOTH have already dug the service's own sentence out of the response body — so
+  // their `.message` is «رقم الجوال مسجّل مسبقاً», not a route. Discarding that in favour of a
+  // generic fallback would break two paths in order to fix one, and would do it silently.
+  //
+  // THE TEST IS THE SCRIPT, NOT A LIST OF THROWERS. A message a person can read is in Arabic; a
+  // message built for a log is `POST /api/v1/... → 400`. Asking which script it is written in is
+  // the one question that stays true when a third thrower is added next month.
+  if (e instanceof Error && /[؀-ۿ]/.test(e.message)) return e.message;
+  return fallback;
 }
 
 async function call<T>(session: Session, path: string, init: RequestInit = {}): Promise<T> {

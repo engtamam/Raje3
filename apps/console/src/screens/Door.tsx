@@ -41,7 +41,7 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
 import { openShop, requestCode, signIn, verifyCode, AGREED_KEY, Refused } from '../auth';
-import { listSectors, type Sector } from '../api';
+import { listSectors, sentenceFor, type Sector } from '../api';
 import type { Session } from '../session';
 
 export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
@@ -125,12 +125,12 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         try {
           await requestCode(typedPhone);
         } catch (sendErr) {
-          problem = sendErr instanceof Error ? sendErr.message : 'تعذّر إرسال الرمز.';
+          problem = sentenceFor(sendErr, 'تعذّر إرسال الرمز.');
         }
         setProving({ phone: typedPhone, password: typedPassword, problem });
         return;
       }
-      setError(err instanceof Error ? err.message : 'تعذّر تسجيل الدخول.');
+      setError(sentenceFor(err, 'تعذّر تسجيل الدخول.'));
     } finally {
       setBusy(false);
     }
@@ -358,7 +358,7 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // goes stale the day the setting flips.
       onSignedIn(await signIn(filled.phone, filled.password));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر إنشاء الحساب.');
+      setError(sentenceFor(err, 'تعذّر إنشاء الحساب.'));
     } finally {
       setBusy(false);
     }

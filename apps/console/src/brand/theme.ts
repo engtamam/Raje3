@@ -91,16 +91,3 @@ export function applyRaje3(): void {
   applyTheme('light', { accent: GOLD });
   applyDir('ar');
 }
-
-/**
- * WESTERN DIGITS, AND TABULAR.
- *
- * The digits are 0-9 everywhere including inside Arabic prose — a rule this product enforces in CI
- * over its whole source tree, because Saudi numbers are written and read in Western digits and a
- * mixed set produces values that look right and match nothing.
- *
- * TABULAR IS THE PART THAT GETS FORGOTTEN. In a proportional face, 1 is narrower than 8 — so a
- * counter that ticks from 18 to 19 to 20 changes width as it changes value, and a dashboard meant
- * to be glanced at reads as flickering. Every number on a screen that updates carries this.
- */
-export const NUMERIC = 'tabular-nums';

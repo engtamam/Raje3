@@ -13,6 +13,7 @@ import {
   recentCustomers, redeem,
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
+  sentenceFor,
 } from '../api';
 import { asLocal } from '../phone';
 import { Keypad } from '../Keypad';
@@ -234,9 +235,13 @@ export function Visit() {
       setBalance(await balanceFor(session, subject));
       window.setTimeout(() => setRedeemed(null), 4000);
     } catch (e) {
-      // THE SENTENCE THE SERVICE WROTE. A refusal here is a rule — not enough points, a reward
-      // that needs a manager — and the operator is standing in front of the customer.
-      setNote(e instanceof Error ? e.message : 'تعذّر الاستبدال.');
+      // THE SENTENCE THE SERVICE WROTE — which this line PROMISED and did not deliver.
+      //
+      // `api.ts` throws an ApiError whose `.message` is built for a log: `POST /api/v1/loyalty/
+      // redeem → 400`. So the cashier, with the customer in front of him, read a route and a
+      // number instead of «رصيد العميل لا يكفي» — the sentence loyalty was changed to RETURN
+      // rather than raise for exactly this moment. `sentenceFor` reads the body the service sent.
+      setNote(sentenceFor(e, 'تعذّر الاستبدال.'));
       window.setTimeout(() => setNote(null), 4000);
     } finally {
       setRedeeming('');
