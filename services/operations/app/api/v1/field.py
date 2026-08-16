@@ -245,7 +245,20 @@ async def resolve_customers(request: Request, body: ResolveIn,
     if not wanted:
         return {"customers": []}
     rows = await _svc(request).customers_by_refs(_tenant(principal), wanted)
-    return {"customers": [c.public() for c in rows]}
+    # HIS BRANCH ONLY — the same rule as the strip along the top of the field screen (و-8),
+    # and this route is the twin nobody looked at. It answers «من تأخّر»: a LIST, browsed, not
+    # one person standing at the counter. `public()` carries the name, the phone and
+    # `last_branch_id`, so a manager scoped to Jeddah read Riyadh's overdue customers by name
+    # and number — two hundred at a time, which is the page size.
+    #
+    # A TARGETED LOOKUP IS DIFFERENT and stays open: `by-phone` and the record are one person
+    # the operator already has in front of him, and the customer is shared across the chain
+    # (§12.4). What narrows is the BROWSE and the HISTORY.
+    #
+    # Unbranched customers stay visible, as everywhere else: a till records no branch.
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    kept = SCOPE.visible([c.public() for c in rows], scope, field="last_branch_id")
+    return {"customers": kept}
 
 
 class RenameIn(BaseModel):

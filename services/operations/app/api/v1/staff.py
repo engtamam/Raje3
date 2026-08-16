@@ -33,6 +33,8 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.api.scope import branch_scope
+from app.api import scope as SCOPE
 from app.core.models import Branch, Operator, Service
 from app.core import branches as B
 from app.core import operator_ticket as OT
@@ -294,8 +296,20 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
 
 @router.get("/operators", dependencies=[Depends(rate_limit)])
 async def list_operators(request: Request, principal: Principal = Depends(_READ)) -> dict:
-    rows = await OperatorStore(request.app.state.container.datastore).list(_tenant(principal))
-    return {"operators": [o.public() for o in rows]}
+    """«فريقي» — and HIS branch's team, not the chain's.
+
+    FOUND BY THE GATE, not by the audit. `Operator.public()` carries the name, the role and the
+    branch, and this route handed every branch's staff to anyone who could read — so a manager
+    scoped to Jeddah read the whole chain's roster, which is the same widening as the customer
+    strip (و-8) wearing different rows.
+
+    Unbranched operators stay visible to everyone, exactly as unbranched visits do: a shop in
+    the default central mode gives nobody a branch, and hiding those would empty the screen.
+    """
+    tenant = _tenant(principal)
+    rows = await OperatorStore(request.app.state.container.datastore).list(tenant)
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    return {"operators": SCOPE.visible([o.public() for o in rows], scope)}
 
 
 class PinVerifyIn(BaseModel):

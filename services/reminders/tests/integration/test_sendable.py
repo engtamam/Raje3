@@ -156,6 +156,18 @@ def test_the_preview_withholds_whoever_the_send_would_withhold(client, monkeypat
         asyncio.run(EngagementStore(c.datastore).put(
             tenant, sub, {"score": 100.0, "scored_at": now}))
 
+    # THE CLOCK IS PINNED, and this test taught us why the hard way: the route asks the gate
+    # «right now», the gate refuses marketing inside quiet hours, and the suite therefore
+    # passed all day and failed after ten at night. A test whose answer depends on when it is
+    # run reports the codebase's health as a function of the hour.
+    import time as _time
+
+    from datetime import datetime
+    from app.core.gate import RIYADH
+
+    midday = int(datetime(2026, 6, 15, 12, tzinfo=RIYADH).timestamp())
+    monkeypatch.setattr(_time, "time", lambda: float(midday))
+
     def ask(sub):
         return client.post("/internal/reminders/eligibility", headers=HEAD,
                            json={"tenant": tenant, "subject_ref": sub,
