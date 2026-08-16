@@ -101,7 +101,8 @@ def sanitise_owner_text(value: str) -> str:
 
 
 def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
-           approved: set[str] | None = None, own: str = "") -> dict[str, Any]:
+           approved: set[str] | None = None, own: str = "",
+           own_row: dict[str, Any] | None = None) -> dict[str, Any]:
     """Pick the template for this type in this tenant's tone, preferring one Meta has approved.
 
     FALLS BACK TO ANY ACTIVE TONE rather than failing. A tenant whose tone was set to one we later
@@ -160,7 +161,19 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
     # library gets three lines down, and refusing his text on an unreadable status would be the
     # outage this whole function is written to avoid.
     if own and (approved is None or own in approved):
-        return {"name": own, "type": template_type, "tone": tone, "active": True, "own": True}
+        # HIS BLANKS TRAVEL WITH HIS TEMPLATE. This branch used to return the NAME alone, and
+        # `render` reads `variables`/`fills` off the template it is given — so a shop's own
+        # approved text went out with ZERO parameters: every blank he wrote arrived empty, or Meta
+        # refused the send outright for a parameter count that did not match. The one feature we
+        # sell as «اكتبها بنفسك» could not deliver a single filled message.
+        #
+        # `own_row` is his stored template (core/custom_templates.py), which already holds the
+        # numbering and the meaning of each blank — checked at write time, so nothing is re-derived
+        # here from text we do not store.
+        row = own_row or {}
+        return {"name": own, "type": template_type, "tone": tone, "active": True, "own": True,
+                "variables": list(row.get("variables") or []),
+                "fills": list(row.get("fills") or [])}
 
     active = [t for t in library if t.get("type") == template_type and t.get("active", True)]
     if not active:

@@ -32,6 +32,7 @@ from typing import Any
 
 from app.core import engagement as E
 from app.core import gate as G
+from app.core.custom_templates import CustomTemplateStore
 from app.core import quota as Q
 from app.core import ceiling as C
 from app.core import coupons as COUPONS
@@ -345,9 +346,14 @@ class Tick:
             return {"sent": False, "reason": decision.reason}
 
         try:
+            own_name = _own_template(choices, ids)
+            # READ WITH THE NAME, because `render` fills by the template's own declaration and the
+            # name alone declares nothing — see rendering.choose.
+            own_row = (await CustomTemplateStore(self._store).get(tenant, own_name)
+                       if own_name else None)
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                                 library=library, approved=approved,
-                                own=_own_template(choices, ids))
+                                own=own_name, own_row=own_row)
             # SLOT BY SLOT, FROM THE TEMPLATE'S OWN DECLARATION. The previous version put the
             # owner's single sentence into slots 3 AND 4 through all three source dicts, so a
             # four-variable template said the same thing twice; and it passed slot 1 empty, which
@@ -544,13 +550,16 @@ class Tick:
             row = folding.lead
 
         # ── 3. render ─────────────────────────────────────────────────────────────────────────
+        own_name2 = _own_template(choices, [reason] if reason else [])
+        own_row2 = (await CustomTemplateStore(self._store).get(tenant, own_name2)
+                    if own_name2 else None)
         template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                             library=library, approved=approved,
                             # HIS OWN TEXT ON THIS PATH TOO. Two render sites is two chances to
                             # wire one of them and believe the feature works: an owner who
                             # customised his visit confirmation would see it on some messages and
                             # ours on others, which reads as a product that cannot make up its mind.
-                            own=_own_template(choices, [reason] if reason else []))
+                            own=own_name2, own_row=own_row2)
         service_text = R.merged_service_text(
             [service_names.get(s, s) for s in
              [row.get("service_id", "")] + list(row.get("also_services") or [])])
