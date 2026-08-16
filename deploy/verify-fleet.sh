@@ -56,6 +56,43 @@ for f in "$ROOT"/deploy/services/*.values.yaml; do
   fi
 done
 
+# ── AND WHETHER ANYTHING IS ACTUALLY BEING BACKED UP ─────────────────────────────────────────
+#
+# A digest check answers «the right code is running». It does not answer «our data survives the
+# node», and for a long time the answer to that was no while everything here printed green:
+# backup-service was deployed with a bucket and a shared BACKUP_KEK, and its TARGET LIST — runtime
+# rows, created by no script — was empty. It ran on schedule and reported success on zero targets.
+#
+# So the count is asserted here, where somebody looks after every deploy. Zero targets is a fleet
+# with no backups, and that must never read as green.
+# READ THROUGH THE INTERNAL ROUTE backup-service ACTUALLY SERVES — `GET /internal/backup/targets`,
+# with the token the pod already holds in its own environment. Inventing a nicer-looking endpoint
+# here would have produced a check that reports «could not be read» for ever, which is the same
+# silent pass in a different costume.
+targets="$("${SSH[@]}" "kubectl -n $NS exec deploy/backup-service -- sh -c '
+python - <<EOF 2>/dev/null
+import json, os, urllib.request
+req = urllib.request.Request(\"http://localhost:8000/internal/backup/targets\",
+                             headers={\"X-Internal-Token\": os.environ[\"INTERNAL_SERVICE_TOKEN\"]})
+print(len(json.loads(urllib.request.urlopen(req, timeout=10).read() or b\"{}\").get(\"targets\", [])))
+EOF
+'" 2>/dev/null | tr -dc '0-9')"
+
+if [ -z "$targets" ]; then
+  printf '  %s✗ backup targets: could not be read — a fleet whose backups are unverifiable is not verified%s
+'     "$C_R" "$C_N"
+  bad=$((bad+1))
+elif [ "$targets" = "0" ]; then
+  printf '  %s✗ backup targets: NONE registered — nothing in this fleet is being backed up%s
+'     "$C_R" "$C_N"
+  printf '%s     ./deploy/seed/seed-backup-targets.sh%s
+' "$C_D" "$C_N"
+  bad=$((bad+1))
+else
+  printf '  %s✔ %-24s %s registered%s
+' "$C_G" "backup targets" "$targets" "$C_N"
+fi
+
 echo
 if [ $((bad+missing)) -eq 0 ]; then
   printf '%s  ✔ all %d services run the digest this repo pins%s\n' "$C_G" "$ok" "$C_N"; exit 0

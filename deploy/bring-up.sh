@@ -491,6 +491,13 @@ step "seed"
 bash "$HERE/seed/seed-roles.sh"  || echo "  (roles: see above)"
 bash "$HERE/seed/seed-plans.sh"  || echo "  (plans: see above)"
 bash "$HERE/seed/seed-legal.sh"  || echo "  (legal: see above)"
+# THE BACKUP TARGETS — runtime data, and nothing was creating it.
+#
+# The fleet came up green with backup-service deployed, a bucket, and BACKUP_KEK shared everywhere,
+# and NOTHING was backed up: targets are rows, no script wrote any, and the scheduler reported
+# success against an empty list. The day postgres is lost, operations — the only holder of
+# customers' phone numbers in the clear — has no archive, and the first sign of it is the restore.
+bash "$HERE/seed/seed-backup-targets.sh" || echo "  (backup targets: see above)"
 
 # AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
 # operations seeds its sectors and its 78 templates on the first boot that finds an empty table.
