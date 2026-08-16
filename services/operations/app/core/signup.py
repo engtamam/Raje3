@@ -76,6 +76,11 @@ from app.core import claim as CL
 from app.core.sectors import UNSPECIFIED
 
 PHONE_INDEX = "signup_phone_index"
+#: THE SAME FACT, KEYED THE OTHER WAY (و-7). The phone index answers «which shop owns this
+#: number»; the acts that must not run on an unproven number — binding the shop's WhatsApp above
+#: all — know the TENANT and never the phone. Without this they would have to scan the index, and
+#: a check nobody can afford to run is a check nobody runs.
+TENANT_PROOF = "signup_tenant_proof"
 
 
 class SignupRefused(Exception):
@@ -207,6 +212,8 @@ class SignupService:
         # closed here rather than left to the client.
         await self._store.put(PHONE_INDEX, key,
                               {"id": key, "tenant": tenant, "verified": False})
+        await self._store.put(TENANT_PROOF, tenant,
+                              {"id": tenant, "phone": key, "verified": False})
 
     async def _row(self, phone: str) -> dict[str, Any] | None:
         return await self._store.get(PHONE_INDEX, canonical_phone(phone, default_cc=self._cc))
@@ -647,6 +654,7 @@ class SignupService:
         row = await self._row(canonical)
         if row is not None:
             await self._store.put(PHONE_INDEX, canonical, {**row, "verified": True})
+            await self._mark_proven(str(row.get("tenant") or ""), canonical)
 
         # SINGLE USE, AND CONSUMED ONLY AFTER THE SHOP EXISTS. Consuming it first would burn the
         # invitation on a signup that then failed, and the owner would need the till company to
@@ -676,7 +684,30 @@ class SignupService:
         canonical = canonical_phone(phone, default_cc=self._cc)
         self._spend_code(canonical, code)
         await self._store.put(PHONE_INDEX, canonical, {**row, "verified": True})
+        await self._mark_proven(str(row.get("tenant") or ""), canonical)
         return {"verified": True}
+
+    async def _mark_proven(self, tenant: str, canonical: str) -> None:
+        """Both indexes move together, or the second one is decoration."""
+        if tenant:
+            await self._store.put(TENANT_PROOF, tenant,
+                                  {"id": tenant, "phone": canonical, "verified": True})
+
+    async def phone_proven(self, tenant: str) -> bool:
+        """Did anybody ever prove the number this shop was opened on? (و-7)
+
+        A SHOP CREATED THROUGH A DOOR THAT PREDATES THIS INDEX HAS NO ROW, and the answer for it is
+        yes. Reading a missing row as «not proven» would lock every shop that existed before this
+        was written out of connecting WhatsApp, which is a fault we would have invented; the rule
+        exists to stop a stranger opening a shop on somebody else's number and binding it, and a
+        row absent for that reason is a row this saga never wrote.
+        """
+        if not tenant:
+            return False
+        row = await self._store.get(TENANT_PROOF, tenant)
+        if row is None:
+            return True
+        return bool(row.get("verified"))
 
     def _spend_code(self, canonical: str, code: str) -> None:
         """Hand the code to identity, which is the only party that holds it.

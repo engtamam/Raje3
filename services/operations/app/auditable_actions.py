@@ -361,6 +361,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "for a message it does not recognise, this row is where the relationship began",
     },
     {
+        "action": "whatsapp.connect_refused",
+        "source": "user",
+        "critical": True,
+        "resource": "whatsapp_connection",
+        "why": "somebody tried to bind a shop's WhatsApp from an account opened on a phone number "
+               "nobody ever proved. It is critical because the innocent explanation and the theft "
+               "look identical here — an owner who skipped the code screen, and a stranger who "
+               "opened a shop on a number he does not hold — and only the second one leaves a real "
+               "business sending in a name it never claimed",
+    },
+    {
         "action": "whatsapp.connect_failed",
         "source": "user",
         "critical": False,

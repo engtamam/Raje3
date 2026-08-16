@@ -80,6 +80,25 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     store = connect.ConnectionStore(c.datastore)
     ip = request.client.host if request.client else ""
 
+    # ── A NUMBER NOBODY PROVED MUST NOT BIND THE SHOP'S WHATSAPP (و-7) ─────────────────────────
+    #
+    # Nothing stands between typing a phone number and an account existing on it: the proof is
+    # deferred to sign-in. So a stranger can open a shop on a number he does not hold, and THIS is
+    # the act that turns that into somebody else's loss — the WhatsApp account a real business
+    # sends from, bound under a login the real owner never chose.
+    #
+    # GATED ON THE SAME RULE THAT ALREADY GOVERNS SIGN-IN, deliberately. Where a code cannot be
+    # delivered at all (SIGNUP_OTP_DELIVERABLE, task #167) nobody could ever satisfy this, and a
+    # requirement no one can meet would close the product rather than protect it. Where sign-in
+    # demands proof, so does this.
+    if s.SIGNUP_REQUIRE_OTP and not await c.signup.phone_proven(tenant):
+        await request.app.state.auditor.record(
+            "whatsapp.connect_refused", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource="connection", ip=ip)
+        return JSONResponse(status_code=403, content={
+            "message": "أكّد رقم جوالك قبل ربط واتساب المحل. "
+                       "الرمز يصلك على الرقم الذي سجّلت به."})
+
     # ── WHICH NUMBER IS BEING CONNECTED, AND UNDER WHAT NAME ───────────────────────────────────
     # The identity is what the platform seals the credentials against. `tenant` for a central shop
     # — byte for byte what it has always sent — and `tenant:branch` only for a chain that has
