@@ -579,9 +579,24 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
 
   if (rows === undefined) return <Skeleton height={140} />;
   if (rows === null) {
-    // NOT AN EMPTY LIST. «لا مفاتيح» would tell an owner his shop is closed to integrations when
-    // the truth is that this account may not look.
-    return <Quiet>مفاتيح الربط يراها المالك وحده.</Quiet>;
+    // THREE ANSWERS, NOT TWO — and the middle one was missing, which made the screen lie.
+    //
+    // «مفاتيح الربط يراها المالك وحده» was shown to the OWNER as well, because the pane cannot
+    // reach the list at all: identity-service declares `identity.list_service_accounts` in its
+    // ADMIN actions, so it never appears in the user catalogue this app is built from — while the
+    // owner's role already holds `service_accounts:read`. He has the right and no door.
+    //
+    // So the sentence now depends on WHY: a manager is told it is the owner's, and the owner is
+    // told the truth, which is that this is ours to open. Escalated to the platform; until it
+    // lands, a screen that blames his account for our gap is the worse failure.
+    // AND THE SESSION HOLDS NO CAPABILITIES, deliberately (session.ts): everything this app shows
+    // is decided by the catalogue, so the pane cannot ask «is this person the owner». It therefore
+    // says the one thing that is true either way and blames nobody — «ours, not yours» is the safe
+    // side of that uncertainty, because the owner DOES have the right today.
+    if (!canList) {
+      return <Quiet>عرض مفاتيح الربط لم يُفتح بعد من طرفنا. وإصدار المفاتيح وسحبها يتمّان معنا مباشرةً حتى ذلك الحين.</Quiet>;
+    }
+    return <Quiet>تعذّر عرض مفاتيح الربط الآن. أعد المحاولة بعد قليل.</Quiet>;
   }
 
   const revoke = async (row: MachineAccount) => {
