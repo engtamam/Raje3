@@ -158,6 +158,7 @@ async def set_rule(request: Request, rule_key: str, body: RuleIn,
 @router.get("/log", dependencies=[Depends(rate_limit)])
 async def send_log(request: Request, outcome: str = Query(default=""),
                    branch_id: str = Query(default="", max_length=64),
+                   subject_ref: str = Query(default="", max_length=128),
                    limit: int = Query(default=100, ge=1, le=500),
                    principal: Principal = Depends(_READ)) -> dict:
     """What was sent, and what was not, with the reason.
@@ -196,6 +197,18 @@ async def send_log(request: Request, outcome: str = Query(default=""),
 
     store = SendLogStore(c.datastore)
     where: dict[str, str] | None = {"outcome": outcome} if outcome else None
+
+    # ── ONE CUSTOMER'S MESSAGES, WHEN ONE CUSTOMER IS ASKED ABOUT ────────────────────────────
+    #
+    # THE CUSTOMER PAGE HAS ALWAYS SENT THIS, and this route never declared it — so FastAPI
+    # dropped it in silence and answered with the WHOLE SHOP'S log, which the screen then printed
+    # under one man's name, headed «رسائله». The owner read other customers' messages believing
+    # they were his, and answered «لماذا لم تصلني رسالة؟» from a history that was not the asker's.
+    #
+    # Nothing failed anywhere: 200, a full list, a fast screen. The only way to see it was to know
+    # both sides at once.
+    if subject_ref:
+        where = {**(where or {}), "subject_ref": subject_ref}
     if scope:
         # HIS OWN BRANCH, AND THE PARAMETER IS IGNORED. Not refused — a bookmark carrying another
         # branch is a stale link, not an attack, and answering it with his own rows is both the

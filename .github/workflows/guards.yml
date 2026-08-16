@@ -148,6 +148,13 @@ jobs:
       - name: denied is not empty
         run: python3 ci/check_denied_is_not_empty.py
 
+      # A SCREEN MUST NOT SEND A FIELD THE ROUTE DOES NOT DECLARE. «رسائله» on the customer page
+      # sent `subject_ref` to a route that declares `outcome`, `branch_id` and `limit` — FastAPI
+      # dropped it in silence, so the owner read THE WHOLE SHOP'S send log under one man's name and
+      # answered «لماذا لم تصلني رسالة؟» from somebody else's history.
+      - name: screens send only declared fields
+        run: python3 ci/check_screens_send_declared_fields.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

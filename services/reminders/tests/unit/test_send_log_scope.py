@@ -83,3 +83,40 @@ def test_denied_holds_every_answer_that_is_not_a_branch():
 
     assert DENIED == {UNREADABLE, REVOKED}
     assert "" not in DENIED, "the empty scope is «the whole shop» and must never be refused"
+
+
+# ── one customer's messages, when one customer is asked about ─────────────────────────────────
+
+
+def test_the_log_narrows_to_one_customer_when_asked():
+    """THE LEAK. «رسائله» on the customer page has always sent `subject_ref`, and this route never
+    declared it — so FastAPI dropped it in silence and answered with the WHOLE SHOP'S send log.
+    The screen then printed that under one man's name.
+
+    The owner reads other customers' messages believing they are this one's, and answers «لماذا لم
+    تصلني رسالة؟» from a history that belongs to somebody else. Nothing failed: 200, a full list,
+    a fast screen. The only way to see it was to hold both sides at once — which is what the gate
+    `ci/check_screens_send_declared_fields.py` now does on every build.
+    """
+    import inspect
+
+    from app.api.v1 import owner as O
+
+    sig = inspect.signature(O.send_log)
+    assert "subject_ref" in sig.parameters, (
+        "the screen sends it; a route that does not declare it answers about everybody")
+
+    src = inspect.getsource(O.send_log)
+    assert 'where = {**(where or {}), "subject_ref": subject_ref}' in src, (
+        "declaring the parameter and not filtering on it is the same answer with extra typing")
+
+
+def test_the_whole_shop_is_still_readable_without_it():
+    """AND THE OTHER DIRECTION. «رسائلي» reads the shop's whole log, and a filter applied when
+    nobody asked for one would empty the screen this service exists to provide."""
+    import inspect
+
+    from app.api.v1 import owner as O
+
+    src = inspect.getsource(O.send_log)
+    assert "if subject_ref:" in src, "the filter must be conditional on having been asked for"
