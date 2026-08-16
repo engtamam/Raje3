@@ -164,8 +164,18 @@ def sentence_for(attempt: Attempt, *, can_send: bool = True) -> str:
         # HE FINISHED. Meta created the account and the popup closed before we heard the code — so
         # the honest sentence is neither "connected" nor "cancelled", and it says what we will do
         # rather than asking him to do it again for nothing.
-        return ("أكملت الخطوات على واتساب. نتحقق من اكتمال الربط خلال دقائق، "
-                "ولا حاجة لإعادة العملية.")
+        # THE PROMISE WE COULD NOT KEEP (د-6). This used to say «نتحقق من اكتمال الربط خلال
+        # دقائق، ولا حاجة لإعادة العملية» — and NOTHING checks. The exchange needs the code
+        # from the popup, the code lives thirty seconds, and no path anywhere completes it
+        # later. So he waited for minutes that never came, and then the health sweep passed,
+        # found no credentials, and told him his connection had been CUT — a false diagnosis
+        # about a connection that was never made, on top of a false promise.
+        #
+        # The truth is short and it is actionable: the account exists on WhatsApp's side, we
+        # did not receive the code, and repeating the button finishes it without creating a
+        # second account.
+        return ("أنشأتَ الحساب على واتساب، ولم يصلنا رمز الإكمال قبل انتهاء صلاحيته. "
+                "اضغط «ربط واتساب» مرة أخرى لإتمامها — لن يُنشأ حساب جديد.")
     if attempt.state == STATE_FAILED:
         return "تعذّر إكمال الربط. حاول مرة أخرى، وإن تكرر تواصل معنا."
     # A CONNECTION THAT ENDED AFTER IT WORKED IS NOT AN UNFINISHED ONE. The sweep stops a row whose
@@ -450,6 +460,12 @@ def build_exchange(settings: Any) -> Any:
 DISCONNECTED_SENTENCE = ("انقطع ربط واتساب — لم يعد لدينا إذن الوصول إلى حساب أعمالك. "
                          "افتح الربط مرة أخرى لإعادة التفعيل.")
 
+# AND WHAT HE IS TOLD WHEN IT NEVER COMPLETED (د-6) — a different fact and a different act.
+# «انقطع» about a connection that was never made is a diagnosis of an event that did not
+# happen, and it sends him hunting a permission he never granted.
+UNFINISHED_SENTENCE = ("لم يكتمل ربط واتساب — أُنشئ الحساب ولم يصلنا رمز الإكمال. "
+                       "افتح الربط مرة أخرى لإتمامه، ولن يُنشأ حساب جديد.")
+
 
 async def health_sweep(store: ConnectionStore, registration: Registration, *,
                        limit: int = 500) -> dict[str, Any]:
@@ -486,11 +502,20 @@ async def health_sweep(store: ConnectionStore, registration: Registration, *,
         if str(live.get("reason") or "") != "NOT_CONNECTED":
             unreadable += 1
             continue
+        # WHICH FACT «NO CREDENTIALS» IS DEPENDS ON WHERE THE ROW WAS (د-6).
+        #
+        # On a CONNECTED row it means access that worked has ended — somebody removed our app
+        # in Business Manager, or Meta disabled the number.
+        #
+        # On a FINISHED_UNCONFIRMED row it means the exchange never happened: the popup closed
+        # before we heard the code. Calling that «انقطع ربط واتساب» tells an owner something
+        # ended that never began, and sends him looking for a permission he never granted.
+        was_connected = attempt.state == STATE_CONNECTED
         attempt.state = STATE_STOPPED
         # NO STEP: this row did not stop partway through the journey, and a leftover step would
         # make `sentence_for` describe a screen he never saw.
         attempt.step = ""
-        attempt.detail = DISCONNECTED_SENTENCE
+        attempt.detail = DISCONNECTED_SENTENCE if was_connected else UNFINISHED_SENTENCE
         attempt.at = _now()
         await store.record(attempt)
         stopped += 1

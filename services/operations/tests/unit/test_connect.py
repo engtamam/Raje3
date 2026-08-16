@@ -42,9 +42,24 @@ def test_every_step_gets_its_own_next_action():
     assert len(seen) == 5, "two steps share a sentence — one of them is telling the owner the wrong thing"
 
 
-def test_the_finished_sentence_neither_claims_success_nor_asks_him_to_repeat():
+def test_the_finished_sentence_does_not_promise_a_check_nobody_performs():
+    """د-6 · THIS TEST USED TO ASSERT THE DEFECT.
+
+    It required «لا حاجة لإعادة العملية» — the sentence that told an owner to wait while we
+    finished the connection. Nothing finishes it: the exchange needs the code from the popup,
+    the code lives thirty seconds, and no path anywhere completes it later. He waited for
+    minutes that never came, and then the health sweep found no credentials and told him his
+    connection had been CUT.
+
+    The honest sentence names what happened and what finishes it — pressing the button again,
+    which does not create a second account.
+    """
     s = connect.sentence_for(connect.Attempt(tenant="t", state=connect.STATE_FINISHED_UNCONFIRMED))
-    assert "لا حاجة" in s
+
+    assert "لا حاجة" not in s, "a promise nobody keeps"
+    assert "دقائق" not in s, "nothing is checking, so no waiting time may be quoted"
+    assert "مرة أخرى" in s, "the one act that finishes it must be in the sentence"
+    assert "حساب جديد" in s, "and the fear that stops him pressing it must be answered"
 
 
 def test_meta_identifiers_never_reach_the_screen():

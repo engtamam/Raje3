@@ -161,3 +161,42 @@ def test_an_abandoned_journey_still_reads_as_an_abandoned_journey():
     at = connect.Attempt(tenant="t", state=connect.STATE_STOPPED, step=connect.STEP_VERIFY,
                          detail="whatever")
     assert "رمز التحقق" in connect.sentence_for(at)
+
+
+# --- د-6 · a connection that never completed is not a connection that was cut ------------------
+
+
+def test_a_connection_that_never_completed_is_not_reported_as_cut():
+    """د-6 · THE FALSE DIAGNOSIS THAT FOLLOWED THE FALSE PROMISE.
+
+    A `finished_unconfirmed` row is the popup closing on Meta's last screen: the account exists and
+    we never received the code — which lives thirty seconds, so the exchange never happened and no
+    credentials were ever sealed. Meta therefore answers NOT_CONNECTED, truthfully, and the sweep
+    wrote «انقطع ربط واتساب — لم يعد لدينا إذن الوصول».
+
+    Nothing was cut. He never granted the access the sentence says he withdrew, so he goes looking
+    through Business Manager for a permission that was never there — after being told to wait a few
+    minutes for a check nobody performs.
+    """
+    s = store_with(row("tnt_half", state=connect.STATE_FINISHED_UNCONFIRMED))
+
+    out = run(connect.health_sweep(connect.ConnectionStore(s),
+                                   Meta({"tnt_half": {"ok": False, "reason": "NOT_CONNECTED"}})))
+
+    assert out["stopped"] == 1, "the row must not stay live — nothing can send from it"
+    said = next(iter(s.rows.values()))["detail"]
+    assert said == connect.UNFINISHED_SENTENCE
+    assert "انقطع" not in said, "nothing was cut — it never connected"
+    assert "مرة أخرى" in said, "and the act that finishes it must be named"
+
+
+def test_a_connection_that_worked_and_ended_still_says_it_was_cut():
+    """The other half of the same rule: on a row that WAS connected, «no credentials» does mean the
+    access ended, and softening that would send an owner waiting for a completion instead of
+    re-granting a permission somebody removed."""
+    s = store_with(row("tnt_was_live", state=connect.STATE_CONNECTED))
+
+    run(connect.health_sweep(connect.ConnectionStore(s),
+                             Meta({"tnt_was_live": {"ok": False, "reason": "NOT_CONNECTED"}})))
+
+    assert next(iter(s.rows.values()))["detail"] == connect.DISCONNECTED_SENTENCE

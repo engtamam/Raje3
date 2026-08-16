@@ -32,7 +32,7 @@
       "react": ["./node_modules/@types/react"],
       "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
       "react-dom": ["./node_modules/@types/react-dom"],
-      "clsx": ["./node_modules/clsx/dist/clsx.d.mts"],
+      "clsx": ["./node_modules/clsx/clsx.d.ts"],
       "tailwind-merge": ["./node_modules/tailwind-merge/dist/types.d.ts"],
       "class-variance-authority": ["./node_modules/class-variance-authority/dist/index.d.ts"],
       "lucide-react": ["./node_modules/lucide-react/dist/lucide-react.d.ts"],

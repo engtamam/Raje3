@@ -788,7 +788,22 @@ class Tick:
                 follow["state"] = "pending"
                 follow["reason"] = ""
                 follow["due_at"] = rung.due_at
-                follow["cls"] = "marketing" if rung.marketing else cls
+                # A RUNG IS MARKETING ONLY IF IT CARRIES AN OFFER (د-8).
+                #
+                # `ladder.py` calls the second rung an OFFER, and this line believed it: it
+                # flipped `cls` to marketing and changed NOTHING else — same `template_type`,
+                # no `offer_value`, no coupon, no expiry. So an ordinary service sentence went
+                # out billed against the marketing share, counted against its cap, held by its
+                # cooling rules — AND DROPPED ENTIRELY for everyone who never gave explicit
+                # marketing consent. The second touch simply vanished, for most customers, and
+                # nothing recorded that it had.
+                #
+                # Nothing in the product supplies a ladder offer today: offers are created by
+                # campaigns and attached to the message that carries them. Until an owner can
+                # set one, the rung is what its text actually is — a service reminder in a
+                # different voice — and it reaches everybody rather than being charged to a
+                # quota it does not use and refused for a consent it does not need.
+                follow["cls"] = cls
                 # THE TONE IS THE VARIATION. Same template type, a different voice — no new
                 # template, no Meta review, and no crossing of the service/marketing wall.
                 follow["tone_index"] = rung.tone_index

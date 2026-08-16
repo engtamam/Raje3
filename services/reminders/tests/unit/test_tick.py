@@ -735,8 +735,18 @@ def test_without_consent_there_is_no_offer_rung(st):
     assert all(r.get("cls") != "marketing" for r in rungs_of(st))
 
 
-def test_with_consent_the_middle_rung_is_the_offer(st):
-    """Variation, not escalation: the rung CHANGES KIND rather than getting louder."""
+def test_a_rung_with_no_offer_on_it_is_not_billed_as_marketing(st):
+    """د-8 · THIS TEST USED TO ASSERT THE DEFECT — it required `cls == "marketing"`.
+
+    The rung was a COPY of the reminder row with the class flipped: same template type, no
+    `offer_value`, no coupon, no expiry. An ordinary service sentence was therefore charged to
+    the marketing share, counted against its cap, held by its cooling rules — and dropped
+    outright for every customer who never gave explicit marketing consent. The second touch
+    disappeared for most people, and nothing recorded that it had.
+
+    Marketing is what an OFFER makes it. Until something in the product can attach one, the
+    rung is what its words are.
+    """
     sched(st)
     learned(st)
     run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
@@ -744,7 +754,11 @@ def test_with_consent_the_middle_rung_is_the_offer(st):
     go(st, FakeSender())
 
     rows = rungs_of(st)
-    assert rows and rows[0].get("cls") == "marketing"
+    assert rows, "the ladder must still produce its rungs"
+    for r in rows:
+        assert not r.get("offer_value"), "the premise of this test: no rung carries an offer"
+        assert r.get("cls") != "marketing", (
+            "a service sentence billed as marketing is dropped for whoever never consented")
 
 
 def test_the_rungs_are_separate_rows_not_one_that_overwrites_the_other(st):
