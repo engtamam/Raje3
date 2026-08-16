@@ -36,7 +36,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.models import ASSETS, CUSTOMERS, VISITS
-from app.core.pii import subject_ref
+from app.core.pii import is_subject_ref, subject_ref
 
 _PAGE = 200
 _REDACTED = "[erased]"
@@ -54,7 +54,16 @@ class OperationsErasure:
         self._max = max_scan
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
-        ref = subject_ref(self._salt, tenant, subject)
+        # THE CALLER MAY HOLD EITHER, AND ONLY ONE OF THEM MAY BE HASHED (د-2).
+        #
+        # Our own path passes the phone number, because that is this service's identifier for a
+        # person. compliance passes the PSEUDONYM, because that is the only identifier every other
+        # service holds — and this line hashed it a second time. The ref of a ref matches no row
+        # anywhere: the scan found nothing, answered `already_absent` with 200, the dispatcher read
+        # ACKED, and the request closed COMPLETED. The name, the number, the plate and the notes
+        # stayed exactly where they were, in the one service that holds the real identifier, and
+        # the customer was told his data was gone.
+        ref = subject if is_subject_ref(subject) else subject_ref(self._salt, tenant, subject)
         erased: list[str] = []
         truncated = False
 
