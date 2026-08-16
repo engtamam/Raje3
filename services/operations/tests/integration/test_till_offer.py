@@ -265,3 +265,42 @@ def test_the_invoice_amount_reaches_the_feed_that_earns_points(client, till_head
 
     # AND THE RULE THAT READS IT, computed the way loyalty computes it.
     assert (mine[0]["amount_halalas"] // 100) * 1 == 480
+
+
+def test_every_verdict_names_the_position_the_till_sent_it_at(client, till_headers):
+    """ك-7 · A partner walks `results` beside its own payload, and the two must line up.
+
+    THE ANSWER USED TO BE UNPAIRABLE, in both halves at once. Refusals carried an `index` and an
+    empty `idempotency_key` (an item refused for having no stable key has none to report). The
+    accepted ones carried a key we DERIVED — `inv:{tenant}:{invoice}`, or `_key_for` in the till
+    route — which is a string the caller never held, and no `index` at all. The two lists were
+    then concatenated, and the accepted half was ordered by what survived the filter rather than
+    by what was sent.
+
+    So an SDK matching answers to sales had nothing to match on. The two things it can do are both
+    wrong: re-post the whole batch (the shop's day recorded twice) or drop it whole (a day of
+    sales gone, with a 200 in the log).
+
+    The middle item here is refused for having nothing stable on it, so the batch we forward is
+    SHORTER than the batch that arrived — which is exactly the case where a naive index names a
+    different sale.
+    """
+    r = client.post("/api/v1/till/visits", headers=till_headers["headers"], json={
+        "visits": [
+            {"phone": "0501111111", "invoice_id": "INV-7001",
+             "lines": [{"product_id": "P-A", "name": "غسيل", "qty": 1, "amount_minor": 2000}]},
+            {"phone": "0502222222",
+             "lines": [{"product_id": "P-B", "name": "تلميع", "qty": 1, "amount_minor": 3000}]},
+            {"phone": "0503333333", "invoice_id": "INV-7003",
+             "lines": [{"product_id": "P-C", "name": "تنظيف", "qty": 1, "amount_minor": 4000}]},
+        ],
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    results = body.get("results") or []
+
+    assert body["total"] == 3
+    assert [x.get("index") for x in results] == [0, 1, 2], results
+    assert results[1]["status"] == "rejected", "the middle item is the one with no stable key"
+    assert results[0]["status"] in ("accepted", "duplicate"), results[0]
+    assert results[2]["status"] in ("accepted", "duplicate"), results[2]

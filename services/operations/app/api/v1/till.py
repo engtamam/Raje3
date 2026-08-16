@@ -224,7 +224,12 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # invoice number on a single cash sale lost the other forty-nine sales of that post, on every
     # retry, for as long as that one item stayed in the payload. A batch is a set of independent
     # sales, and the way a shop discovers this is a day of missing visits nobody rejected out loud.
-    keep = [v for i, v in enumerate(body.visits) if i not in set(unstable)]
+    # KEPT WITH THEIR ORIGINAL POSITIONS, because the answer is paired by position (ك-7). What we
+    # forward is a SHORTER list than what the till sent, so the batch handler's index counts the
+    # forwarded list — and handing that number back would name a different sale on every batch
+    # that had a refusal in it. `keep_at[j]` is where forwarded item `j` sat in the till's payload.
+    keep_at = [i for i in range(len(body.visits)) if i not in set(unstable)]
+    keep = [body.visits[i] for i in keep_at]
     if not keep:
         out = {"accepted": 0, "total": len(body.visits), "results": refusals}
         await _write_health(tenant, out)
@@ -256,9 +261,19 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # chose to forward. A partner reconciles «I posted 50, they took 49, here is the one and why»;
     # a response that silently describes 49 as the whole batch is how a missing sale becomes nobody's
     # to notice.
-    if refusals:
-        out = {**out, "results": list(out.get("results") or []) + refusals,
-               "total": len(body.visits)}
+    # AND EVERY VERDICT IS TRANSLATED BACK TO THE POSITION THE TILL SENT IT AT (ك-7), then the
+    # whole list is ordered by that position. A partner draining a queue walks `results` beside
+    # its own payload; two lists that do not line up are worse than no list, because the SDK does
+    # not know they do not line up — it dead-letters the wrong sale and re-posts a good one.
+    translated = []
+    for entry in (out.get("results") or []):
+        forwarded_at = entry.get("index")
+        if isinstance(forwarded_at, int) and 0 <= forwarded_at < len(keep_at):
+            entry = {**entry, "index": keep_at[forwarded_at]}
+        translated.append(entry)
+    merged = sorted(translated + refusals,
+                    key=lambda r: r.get("index") if isinstance(r.get("index"), int) else 10**9)
+    out = {**out, "results": merged, "total": len(body.visits)}
 
     # AND THE LINK'S PULSE IS WRITTEN HERE, where a till is known to be a till.
     #

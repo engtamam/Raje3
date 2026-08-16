@@ -177,7 +177,13 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
     results: list[dict] = []
     accepted = 0
 
-    for item in body.visits:
+    # ENUMERATED, BECAUSE THE CALLER PAIRS BY POSITION (ك-7). Every result below carries the
+    # item's index in the batch AS THE CALLER SENT IT. Without it a till has only
+    # `idempotency_key` to match on — and that key is frequently one WE derived (`inv:{tenant}:
+    # {invoice}` a few lines above, or `_key_for` in the till route), so it is not a string the
+    # caller ever held. Unable to pair an answer with a sale, an SDK does the only safe thing
+    # left: it re-posts the whole batch, or drops it whole.
+    for index, item in enumerate(body.visits):
         # ── invoice lines become services BEFORE the visit is recorded ────────────────────────
         # Resolved per item rather than per batch: two items may belong to different tenants, and
         # a catalogue write scoped to the wrong one is the worst bug this endpoint could have.
@@ -237,7 +243,7 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
         # The tenant is per item and must be present. Checked here rather than by the model, so a
         # single item missing it is REJECTED while the rest of the batch still lands.
         if not item.tenant or not item.idempotency_key:
-            results.append({"idempotency_key": item.idempotency_key, "status": "rejected",
+            results.append({"index": index, "idempotency_key": item.idempotency_key, "status": "rejected",
                             "reason": "tenant and idempotency_key are required on a batch item"})
             continue
         # Audited per item, write-ahead, exactly as the interactive route is. A visit arriving
@@ -262,16 +268,16 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
         except OperationError as exc:
             # REJECTED, not retryable. The reason travels back so the SDK can dead-letter it with
             # something a support engineer can read, instead of retrying it into eternity.
-            results.append({"idempotency_key": item.idempotency_key, "status": "rejected",
+            results.append({"index": index, "idempotency_key": item.idempotency_key, "status": "rejected",
                             "reason": str(exc)})
             continue
 
         if res.duplicate:
-            results.append({"idempotency_key": item.idempotency_key, "status": "duplicate",
+            results.append({"index": index, "idempotency_key": item.idempotency_key, "status": "duplicate",
                             "visit_id": res.visit.id})
             continue
 
-        entry = {"idempotency_key": item.idempotency_key, "status": "accepted",
+        entry = {"index": index, "idempotency_key": item.idempotency_key, "status": "accepted",
                  "visit_id": res.visit.id}
         if res.unknown_services:
             # Accepted AND flagged. The visit is safe; the integration still learns that it sent

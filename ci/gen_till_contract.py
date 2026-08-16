@@ -143,6 +143,15 @@ def render() -> str:
         "`rejected` ومعه سببه. عنصرٌ مرفوض شأنكم أنتم بعد عددٍ محدود من المحاولات — "
         "**ولا يوقف ما خلفه في الطابور**.")
     add("")
+    # HOW TO PAIR AN ANSWER WITH A SALE, WRITTEN DOWN (ك-7). Without this the integrator matches on
+    # `idempotency_key` — and when they did not send one we derive it from the invoice number, so
+    # the key in the answer is a string they never held. An SDK that cannot pair does the only two
+    # things left to it, and both are wrong: re-post the whole batch, or drop it whole.
+    add("**كيف تربطون كل نتيجة بما أرسلتم:** بـ`index` — موضع الزيارة في مصفوفة `visits` "
+        "كما أرسلتموها أنتم (يبدأ من 0). النتائج مرتّبة عليه، وطولها يساوي عدد ما أرسلتم. "
+        "لا تعتمدوا على `idempotency_key` في المطابقة: إن لم ترسلوه اشتققناه نحن من رقم "
+        "الفاتورة، فيعود إليكم نصٌّ لم يكن بحوزتكم.")
+    add("")
     add("### حقول الزيارة")
     add("")
     add("| الحقل | النوع | إلزامي | لماذا |")
