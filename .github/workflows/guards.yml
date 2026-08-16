@@ -50,6 +50,11 @@ jobs:
       - name: internal calls carry what their peer requires
         run: python3 ci/check_internal_contracts.py
 
+      # One fact configured in two services. They fail in the direction that flatters us: a
+      # control group nobody withheld from still produces a confident number.
+      - name: paired settings agree across the services that share them
+        run: python3 ci/check_paired_config.py
+
       # The template library is GENERATED from the specification, so this catches two things at
       # once: a spec edit that was never regenerated, and a hand-edit of the seed that drifted from
       # the wording actually reviewed. It also runs the four content checks — a numbering gap, a

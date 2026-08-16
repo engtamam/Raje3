@@ -312,6 +312,11 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/till/redeem",
      "why": "redemption from a till we do not own (§9.8). Our own screens redeem through loyalty "
             "directly with the operator's token; this exists for a cashier's software"},
+    {"method": "POST", "path": "/api/v1/till/offer/apply",
+     "why": "the cashier's software applies the offer to the visit it just posted, on a service "
+            "account credential. Our own screens apply it through the field route with the "
+            "operator's token; rendering this in a console would offer an owner a button that "
+            "spends a discount against a visit his till has not recorded"},
     {"method": "POST", "path": "/api/v1/till/visits",
      "why": "a machine's route, not a control: it is called by a shop's point-of-sale on a service "
             "account credential, and no person ever presses it. Rendering it in a console would "

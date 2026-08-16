@@ -31,11 +31,17 @@ class Tick:
                  telemetry: Any = None,
                  thresholds: associations.Thresholds | None = None,
                  reserve_weeks: int = 8, reserve_percentile: float = 0.95,
-                 reserve_floor: int = 20) -> None:
+                 reserve_floor: int = 20, holdout_enabled: bool = False,
+                 holdout_share: int = 10) -> None:
         self.store = store
         self.peers = peers
         self.batch = batch
         self.telemetry = telemetry
+        # WHETHER ANYONE IS ACTUALLY WITHHELD FROM — `reminders` decides it; we only measure. False
+        # means the control-group card must refuse rather than compare two groups that both
+        # received every message.
+        self._holdout_enabled = bool(holdout_enabled)
+        self._holdout_share = int(holdout_share)
         # WHERE EVIDENCE BECOMES ADVICE. A workshop's baskets are not a café's, and the lift that
         # means something in one is noise in the other — so the four numbers are settings, and the
         # defaults here are only what an unconfigured deployment gets.
@@ -127,7 +133,9 @@ class Tick:
             # AND WHAT THE ENGINE DID — measured against the tenth of his customers it leaves
             # alone. Tenant-scoped because the group is: the same person at two shops is not in
             # both holdouts, or a low-hashing customer would be under-served platform-wide.
-            "holdout_comparison": indicators.holdout_comparison(visits, tenant=tenant, now=now),
+            "holdout_comparison": indicators.holdout_comparison(
+                visits, tenant=tenant, now=now, enabled=self._holdout_enabled,
+                share=self._holdout_share),
             # WHAT THE MESSAGES ACTUALLY MOVED, in the only unit we hold: visits. No prices live in
             # this product, so «هل سدّدت الباقة نفسها» stays his arithmetic — we hand him the
             # count and he multiplies by an average bill only he knows.

@@ -328,6 +328,21 @@ class Settings(BaseSettings):
     # Path to a step->CWE map override (TOML). Empty => built-in default map.
     CWE_STEP_MAP_FILE: str = ""
 
+    # ── the control group, and whether it EXISTS ─────────────────────────────────────────────
+    # `reminders` decides who is withheld from; this service only measures the two groups. When
+    # the holdout is OFF, everyone was messaged — and comparing the hash-selected «held» tenth
+    # against the rest then measures nothing at all while looking exactly like a measurement.
+    #
+    # SO IT IS READ, NOT ASSUMED. The value must match reminders' HOLDOUT_ENABLED; ci/
+    # check_paired_config.py fails the build when the two disagree, because a silent mismatch here
+    # produces our single proof-of-value card, confidently, out of noise.
+    HOLDOUT_ENABLED: bool = False
+    # THE SAME TENTH, SELECTED THE SAME WAY. The share was a literal `10` in
+    # indicators.holdout_comparison while reminders read it from configuration — so the day the
+    # share changes there, the group this service calls «held» stops being the group that was
+    # actually withheld from, and the card compares two overlapping sets of strangers.
+    HOLDOUT_SHARE_PERCENT: int = 10
+
     @property
     def egress_allowed_hosts(self) -> frozenset[str]:
         return frozenset(

@@ -11,7 +11,7 @@ def test_the_comparison_refuses_a_thin_sample():
     """Fifteen a side is already thin; below it one returning customer moves the answer by seven
     points, and we would be claiming a triumph on the strength of one man changing his oil."""
     visits = [{"subject_ref": f"c{i}", "occurred_at": NOW - 10 * DAY} for i in range(12)]
-    r = I.holdout_comparison(visits, tenant="shop-1", now=NOW)
+    r = I.holdout_comparison(visits, tenant="shop-1", now=NOW, enabled=True)
     assert r["ready"] is False and r["reason"] == "learning"
 
 
@@ -23,7 +23,7 @@ def test_the_comparison_reports_both_rates_and_no_verdict():
         held = H.is_holdout("shop-1", ref)
         if (not held and i % 2 == 0) or (held and i % 5 == 0):
             visits.append({"subject_ref": ref, "occurred_at": NOW - 20 * DAY})
-    r = I.holdout_comparison(visits, tenant="shop-1", now=NOW)
+    r = I.holdout_comparison(visits, tenant="shop-1", now=NOW, enabled=True)
     assert r["ready"] is True
     assert r["reached_rate"] > r["held_rate"]
     assert r["gap"] == round(r["reached_rate"] - r["held_rate"], 3)
@@ -63,3 +63,34 @@ def test_no_warning_before_two_hundred_messages():
 def test_the_rate_is_per_thousand_and_rounded_once():
     r = I.opt_out_rate(1000, 7)
     assert r["ready"] is True and r["rate"] == 7.0
+
+
+def test_the_card_refuses_when_nothing_is_actually_withheld():
+    """THE FAILURE THAT FLATTERS US, which is the direction nobody checks.
+
+    This service splits customers by the same hash `reminders` uses — but if the holdout is switched
+    OFF there, the «held» tenth received every message the rest did. The two rates then differ only
+    by noise, and with enough traffic the card stops refusing and starts publishing that noise as
+    our engine's effect: the one number in this product that is not our word for our own work,
+    manufactured out of nothing.
+    """
+    from app.core.indicators import holdout_comparison
+
+    visits = [{"subject_ref": f"sub_{i:05d}", "occurred_at": 1_700_000_000, "customer_id": f"c{i}"}
+              for i in range(400)]
+
+    out = holdout_comparison(visits, tenant="t1", now=1_700_100_000, enabled=False)
+
+    assert out["ready"] is False
+    assert out["reason"] == "holdout_off", "«لم يُقَس» is a different answer from «لم يكتمل القياس»"
+
+
+def test_it_measures_the_same_tenth_reminders_withheld_from():
+    """The share is configuration on both sides now. If they ever diverge, the group called «held»
+    is not the group that was withheld from — and the comparison is between two sets of strangers."""
+    import inspect
+
+    from app.core import tick as T
+
+    src = inspect.getsource(T)
+    assert "share=self._holdout_share" in src, "the configured share must reach the comparison"

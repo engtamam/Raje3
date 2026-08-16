@@ -232,6 +232,8 @@ def build_container(settings: Settings) -> Container:
                               weak=settings.ASSOC_WEAK_LIFT,
                               min_baskets=settings.ASSOC_MIN_BASKETS,
                               min_pair_support=settings.ASSOC_MIN_PAIR_SUPPORT),
+                          holdout_enabled=settings.HOLDOUT_ENABLED,
+                          holdout_share=settings.HOLDOUT_SHARE_PERCENT,
                           reserve_weeks=settings.RESERVE_WEEKS,
                           reserve_percentile=settings.RESERVE_PERCENTILE,
                           reserve_floor=settings.RESERVE_FLOOR)

@@ -402,7 +402,7 @@ def retention_series(visits: list[dict], *, now: int, points: int = 6,
 
 def holdout_comparison(visits: list[dict], *, tenant: str, now: int,
                        window_days: int = 180, share: int = 10,
-                       min_each: int = 15) -> dict[str, Any]:
+                       min_each: int = 15, enabled: bool = False) -> dict[str, Any]:
     """The two groups, side by side (proof 2).
 
     THE ONLY NUMBER IN THIS PRODUCT THAT IS NOT OUR WORD FOR OUR OWN WORK. Everything else says how
@@ -420,6 +420,17 @@ def holdout_comparison(visits: list[dict], *, tenant: str, now: int,
     against his own judgement rather than have asserted at him.
     """
     from app.core import holdout as H          # local: the module is a shared contract, not a dep
+
+    # NOTHING WITHHELD MEANS NOTHING MEASURED, and saying so is the whole point of this file.
+    #
+    # This function splits customers by the same hash `reminders` uses — but if `reminders` has the
+    # holdout switched OFF, the «held» tenth received every message the rest did. The two rates
+    # then differ only by noise, and with enough traffic the card reports that noise as our
+    # engine's effect: the one number in this product that is not our word for our own work,
+    # manufactured out of nothing. The card must say it is not measuring rather than measure air.
+    if not enabled:
+        return {"ready": False, "reason": "holdout_off", "held": 0, "reached": 0,
+                "need": min_each}
 
     cutoff = now - window_days * DAY
     recent = [v for v in visits
