@@ -139,7 +139,13 @@ if [ -n "${GHCR_TOKEN:-}" ]; then
   # outside a pod spec — the pre-pull our rollout does, for one — and it reads it AT START, so
   # writing it before k3s is installed is not merely allowed, it is the right moment.
   install -d -m 700 /etc/rancher/k3s
-  cat > /etc/rancher/k3s/registries.yaml <<REGEOF
+  # MERGED, NOT WRITTEN OVER. This file has a second author — `registry.sh` writes the node-local
+  # mirror the fast ship path pulls from — and both used to `cat >` the whole thing, so whichever
+  # ran last silently erased the other and restarted k3s on top of it. Losing the credential means
+  # ImagePullBackOff on all eighteen private platform images, reading like a broken registry
+  # rather than a file that was overwritten; losing the mirror breaks every fast ship. (ل-5)
+  . "$(dirname "$0")/lib/registries.sh"
+  registries_merge /etc/rancher/k3s/registries.yaml configs <<REGEOF
 configs:
   "ghcr.io":
     auth:

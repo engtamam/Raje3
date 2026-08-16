@@ -56,6 +56,51 @@ for f in "$ROOT"/deploy/services/*.values.yaml; do
   fi
 done
 
+# ── AND THE TWO THINGS THE CUSTOMER ACTUALLY SEES (ل-7) ──────────────────────────────────────
+#
+# The loop above walks `deploy/services/*.values.yaml`. Neither the console nor the edge has a
+# values file — the console is a static bundle behind a raw manifest, the edge is Caddy holding a
+# rendered config — so this check, which exists because «the repository says one thing and the
+# cluster does another», was blind to the only two components a shop owner ever looks at. The
+# console serves every screen and the edge routes the domain at it: if either is not running, the
+# fleet is green and the product is a blank page.
+#
+# The console's pin lives in its manifest rather than a values file, so it is read from there and
+# compared the same way — imageID, never the spec (a `ctr images tag` reference is a NAME, and
+# nothing verifies the content behind it).
+console_want="$(sed -n 's/.*image: *[^@]*@\(sha256:[0-9a-f]*\).*//p'                 "$ROOT/deploy/edge/console.yaml" | head -1)"
+console_got="$(printf '%s
+' "$live" | awk '$1 ~ /^console-[0-9a-f]/ && $3=="true" {print $2; exit}')"
+console_got="${console_got##*@}"
+if [ -z "$console_got" ]; then
+  printf '  %s✗ %-24s no ready pod — every screen in the product is a blank page%s
+'          "$C_R" "console" "$C_N"; missing=$((missing+1))
+elif [ -n "$console_want" ] && [ "$console_want" != "$console_got" ]; then
+  # NOT A HARD FAILURE ON THE DIGEST ALONE: `ship.sh console` pins the node registry on the server
+  # and leaves the published reference in the repository, so the two names differ by design even
+  # when the content matches. What must never pass unnoticed is a console that is not RUNNING.
+  printf '  %s~ %-24s running %s… repository pins %s…%s
+'          "$C_Y" "console" "${console_got:0:19}" "${console_want:0:19}" "$C_N"
+  ok=$((ok+1))
+else
+  printf '  %s✔ %-24s%s
+' "$C_G" "console" "$C_N"; ok=$((ok+1))
+fi
+
+# THE EDGE HAS NO PIN TO COMPARE — it runs an upstream Caddy image and its content is the rendered
+# Caddyfile. What is worth asserting is that it is ready, because the domain resolves to it and
+# nothing else answers on 443.
+edge_ready="$(printf '%s
+' "$live" | awk '$1 ~ /^edge-[0-9a-f]/ && $3=="true" {print $1; exit}')"
+if [ -z "$edge_ready" ]; then
+  printf '  %s✗ %-24s no ready pod — the domain answers nothing%s
+' "$C_R" "edge" "$C_N"
+  missing=$((missing+1))
+else
+  printf '  %s✔ %-24s%s
+' "$C_G" "edge" "$C_N"; ok=$((ok+1))
+fi
+
 # ── AND WHETHER ANYTHING IS ACTUALLY BEING BACKED UP ─────────────────────────────────────────
 #
 # A digest check answers «the right code is running». It does not answer «our data survives the

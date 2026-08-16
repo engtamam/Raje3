@@ -117,15 +117,18 @@ for name in "${TARGETS[@]}"; do
     # by the service chart — it is a Caddy holding files, with no secret, no driver and no database
     # for a values file to describe.
     if [ "$name" = "console" ]; then
-      python3 - "$HERE/edge/console.yaml" "$d" <<'PYCON'
+      python3 - "$HERE/edge/console.yaml" "$d" "$REG" <<'PYCON'
 import re, sys
-path, digest = sys.argv[1:3]
+# THE REPOSITORY MOVES WITH THE DIGEST. Keeping whatever repository the line already carried and
+# swapping only the digest is how ghcr content came to be addressed under `127.0.0.1:5055` — a
+# name a fresh host resolves to nothing, after every step in the run reported success (ل-3).
+path, digest, repo = sys.argv[1:4]
 src = open(path, encoding="utf-8").read()
-old = re.search(r"(image: \S+/console)@sha256:[0-9a-f]+", src)
+old = re.search(r"image: \S+/console@sha256:[0-9a-f]+", src)
 if not old:
     sys.exit("no console image line to pin — the manifest changed shape")
 open(path, "w", encoding="utf-8", newline="\n").write(
-    src[:old.start()] + old.group(1) + "@" + digest + src[old.end():])
+    src[:old.start()] + "image: " + repo + "/console@" + digest + src[old.end():])
 PYCON
       ok "pinned in edge/console.yaml"
       continue

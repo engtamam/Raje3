@@ -119,6 +119,19 @@ jobs:
       - name: no field is read off a model that does not declare it
         run: python3 ci/check_undeclared_field_read.py
 
+      # THE INSTALLER MUST NOT REPORT AN INSTALL IT DID NOT PERFORM. Four seed steps ended in
+      # `|| echo` — a footnote printed while the run finished on the same line as a perfect
+      # install, with no plans to sell, no legal documents to register a company against and no
+      # backup targets at all. And the console was pinned to `127.0.0.1:5055`, a registry that
+      # exists on one laptop, so a fresh host installed a domain that opens on nothing.
+      - name: the installer tells the truth about what it did
+        run: python3 ci/check_install_tells_the_truth.py
+
+      # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
+      # test ever ran, every one of which shows first on a machine nobody has yet.
+      - name: deploy scripts behave
+        run: bash ci/test_deploy_scripts.sh
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was

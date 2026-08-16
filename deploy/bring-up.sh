@@ -62,6 +62,26 @@ step(){ echo -e "\n${C_C}━━━ $* ━━━${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
 
+# ── WHAT DID NOT HAPPEN, CARRIED TO THE END ───────────────────────────────────────────────────
+#
+# Every seed step used to end `|| echo "  (…: see above)"`. `echo` in a subshell raises nothing,
+# and this script had no flag to raise: the run printed a footnote and finished on the same
+# «verify» line as a perfect install. Without seed-plans nothing can be sold, without seed-legal
+# no company can register, and without seed-backup-targets the scheduler reports success against
+# an empty list — so the first sign of the missing backup is the restore that finds nothing.
+#
+# `soft` runs a step that MAY fail, records that it did, and names it again at the end. The step
+# still does not abort the install — a missing seed is worth continuing past — but nobody is told
+# the install completed when part of it did not.
+FAILED=()
+soft(){
+  local what="$1"; shift
+  if ! "$@"; then
+    FAILED+=("$what")
+    warn "$what: failed — see above"
+  fi
+}
+
 # ── 0 ─────────────────────────────────────────────────────────────────────────────────────────
 # NOTHING, ON PURPOSE, unless --wipe. The default path must stay safe to run against production.
 if [[ $WIPE -eq 1 ]]; then
@@ -488,16 +508,16 @@ PRODUCT_NAME=raje3 CHART="$ROOT/platform/deploy/chart" VALUES_DIR="$ROOT/deploy/
 # moment its account connects (§6.6.1) — a platform-wide push would be a submission to nobody's
 # account. seed-templates.sh takes --tenant for that reason.
 step "seed"
-bash "$HERE/seed/seed-roles.sh"  || echo "  (roles: see above)"
-bash "$HERE/seed/seed-plans.sh"  || echo "  (plans: see above)"
-bash "$HERE/seed/seed-legal.sh"  || echo "  (legal: see above)"
+soft "roles" bash "$HERE/seed/seed-roles.sh"
+soft "plans" bash "$HERE/seed/seed-plans.sh"
+soft "legal" bash "$HERE/seed/seed-legal.sh"
 # THE BACKUP TARGETS — runtime data, and nothing was creating it.
 #
 # The fleet came up green with backup-service deployed, a bucket, and BACKUP_KEK shared everywhere,
 # and NOTHING was backed up: targets are rows, no script wrote any, and the scheduler reported
 # success against an empty list. The day postgres is lost, operations — the only holder of
 # customers' phone numbers in the clear — has no archive, and the first sign of it is the restore.
-bash "$HERE/seed/seed-backup-targets.sh" || echo "  (backup targets: see above)"
+soft "backup targets" bash "$HERE/seed/seed-backup-targets.sh"
 
 # AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
 # operations seeds its sectors and its 78 templates on the first boot that finds an empty table.
@@ -585,3 +605,12 @@ fi
 # claim worth making at the end of an install.
 step "verify"
 bash "$HERE/verify-pinned.sh"
+
+# ── AND THE HONEST ENDING ─────────────────────────────────────────────────────────────────────
+# A non-zero exit, because an installer that finishes 0 having skipped the plans is a machine
+# telling its operator the shop can sell.
+if [[ ${#FAILED[@]} -gt 0 ]]; then
+  echo -e "
+${C_Y}  ! the install did NOT complete: ${FAILED[*]} — the cluster is up and these "          "steps did not run. Fix the cause above and re-run this script; it is safe to repeat."${C_N}
+  exit 1
+fi

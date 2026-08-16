@@ -62,13 +62,47 @@ say "2/3 teach the node's containerd where it will be"
 # which the reverse forward ship.sh opens carries back to the registry on this machine.
 #
 # `insecure_skip_verify` because the registry speaks plain HTTP — see the header.
-if ! "${SSH[@]}" "sudo -n mkdir -p /etc/rancher/k3s && \
-  printf 'mirrors:\n  \"127.0.0.1:$REG_PORT\":\n    endpoint:\n      - \"http://127.0.0.1:$REG_PORT\"\nconfigs:\n  \"127.0.0.1:$REG_PORT\":\n    tls:\n      insecure_skip_verify: true\n' \
-    | sudo -n tee /etc/rancher/k3s/registries.yaml >/dev/null && \
-  grep -q '$REG_PORT' /etc/rancher/k3s/registries.yaml"; then
+#
+# MERGED INTO THE FILE, NEVER WRITTEN OVER IT (ل-5). `install.sh` writes the ghcr credential into
+# this same path — without it the eighteen private platform images cannot be pulled at all — and
+# this step used to `tee` the whole file, erasing that block, and then restart k3s so the loss took
+# effect. The symptom is ImagePullBackOff on every platform image, which reads as a broken registry
+# rather than a file somebody overwrote; and it went the other way just as often, depending on
+# which of the two scripts the operator ran last.
+#
+# The merge helper goes to the node and runs there, in the node's own shell: nothing richer than a
+# POSIX shell and awk is promised on a fresh host.
+if ! tar czf - -C "$ROOT" deploy/lib/registries.sh 2>/dev/null \
+     | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf -"; then
+  red "could not copy the registries helper to the node"; exit 1
+fi
+if ! "${SSH[@]}" "sudo -n mkdir -p /etc/rancher/k3s && cd ~/raje3 && sudo -n sh -s" <<REGSH; then
+. ./deploy/lib/registries.sh
+F=/etc/rancher/k3s/registries.yaml
+registries_entry "\$F" mirrors '"127.0.0.1:$REG_PORT"' <<'YAML'
+  "127.0.0.1:$REG_PORT":
+    endpoint:
+      - "http://127.0.0.1:$REG_PORT"
+YAML
+registries_entry "\$F" configs '"127.0.0.1:$REG_PORT"' <<'YAML'
+  "127.0.0.1:$REG_PORT":
+    tls:
+      insecure_skip_verify: true
+YAML
+grep -q '$REG_PORT' "\$F"
+REGSH
   red "could not write registries.yaml on the node"; exit 1
 fi
 grn "containerd points at it"
+
+# AND THE OTHER AUTHOR'S SECTION SURVIVED. A merge that quietly dropped it would be the same defect
+# wearing a better comment, and the next pull is the only place it would ever show.
+if "${SSH[@]}" "grep -q 'ghcr.io' /etc/rancher/k3s/registries.yaml" 2>/dev/null; then
+  grn "the ghcr credential is still there"
+else
+  yel "no ghcr credential on the node — the private platform images will not pull."
+  yel "   run deploy/install.sh with GHCR_TOKEN before the next rollout."
+fi
 
 say "3/3 restart k3s so it reads the file"
 # ONLY IF THE FILE CHANGED WHAT IT SAYS. k3s reads registries.yaml at start, and a restart on a

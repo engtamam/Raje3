@@ -586,11 +586,36 @@ if _ops and _notif:
 # rather than the only one — but the first defence is that nobody wrote one down, and that is what
 # this reads.
 seed_dir = ROOT / "deploy" / "seed"
-tenant_roles = seed_dir / "roles.json"
+# THE FILE THE SIGNUP PATH ACTUALLY READS is baked into the operations image at
+# `/app/data/roles.seed.json` (operations.values.yaml `SIGNUP_ROLES_FILE`), which is
+# `services/operations/data/roles.seed.json` in the repository. This check read
+# `deploy/seed/roles.json` — a second copy of the same meaning, seeded by hand into authz. The two
+# say the same thing today and nothing whatsoever holds them together, so every rule below was
+# being enforced against a file the running system never opens (ل-9). Both are read now, and they
+# must agree role for role and capability for capability.
+tenant_roles = ROOT / "services" / "operations" / "data" / "roles.seed.json"
+hand_seeded_roles = seed_dir / "roles.json"
 operator_roles = seed_dir / "operator-roles.json"
 if tenant_roles.is_file():
     import json as _json
     roles = _json.loads(read(tenant_roles)).get("roles", [])
+
+    # ── AND THE HAND-SEEDED COPY SAYS THE SAME THING ─────────────────────────────────────────
+    # Two files, one meaning: the image bakes one and `seed-roles.sh` pushes the other into
+    # authz. A capability added to one and forgotten in the other is a role that behaves
+    # differently depending on whether the tenant was created by the saga or by the seeder —
+    # and nothing would fail, on either path, at any layer.
+    if hand_seeded_roles.is_file():
+        def _shape(rows):
+            return {r.get("name"): sorted(set(r.get("capabilities") or [])) for r in rows}
+        _live = _shape(roles)
+        _hand = _shape(_json.loads(read(hand_seeded_roles)).get("roles", []))
+        if _live != _hand:
+            _names = sorted(set(_live) ^ set(_hand)) or [
+                n for n in sorted(set(_live) & set(_hand)) if _live[n] != _hand[n]]
+            fail("services/operations/data/roles.seed.json",
+                 f"disagrees with deploy/seed/roles.json on: {', '.join(_names)} — the saga and "
+                 f"the seeder would grant different capabilities for the same role name")
     owner = next((r for r in roles if r.get("name") == "owner"), None)
     if owner is None:
         fail("deploy/seed/roles.json", "no `owner` role — a tenant whose roles arrive without one "

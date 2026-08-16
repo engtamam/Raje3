@@ -344,9 +344,20 @@ ship_console() {
   old_ref="$(awk '/image: /{print $2; exit}' "$manifest_file")"
   [ -n "$old_ref" ] || { red "console: no image line in deploy/edge/console.yaml"; return 1; }
   new_ref="127.0.0.1:$REG_PORT/raje3/console@$pushed"
-  if [ "$old_ref" = "$new_ref" ]; then
-    yel "already pinned to this digest — the bundle did not change since the last ship"
-  fi
+  case "$old_ref" in *"$pushed"*)
+    yel "already pinned to this digest — the bundle did not change since the last ship" ;;
+  esac
+
+  # ── THE NODE REFERENCE GOES TO THE NODE, AND NOWHERE ELSE (ل-3) ──────────────────────────────
+  #
+  # This used to write `127.0.0.1:$REG_PORT/...` into the tracked manifest and leave it there. That
+  # address is a registry running on THIS machine: applied to a fresh host by `bring-up.sh` it
+  # resolves to nothing, so every install step succeeded, the pod sat in ImagePullBackOff, and the
+  # edge — whose catch-all route names the console — answered the domain with nothing.
+  #
+  # The image really is only on the node at this point, so the SERVER's copy must carry the node
+  # reference. The repository's copy keeps the published one, which `publish-images.sh` pins. Two
+  # readers, two correct answers, and the tracked file is the one a stranger can install from.
   sed -i "s|$old_ref|$new_ref|" "$manifest_file"
 
   if ! tar czf - -C "$ROOT" deploy/edge/console.yaml 2>/dev/null        | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null          && grep -q '$pushed' deploy/edge/console.yaml"; then
@@ -354,6 +365,11 @@ ship_console() {
     sed -i "s|$new_ref|$old_ref|" "$manifest_file"
     return 1
   fi
+  # THE SERVER HAS ITS COPY — PUT THE TRACKED FILE BACK. The node reference has done its whole job
+  # the moment the manifest lands on the node; left in git it becomes the address a fresh install
+  # would use. The published pin belongs to `publish-images.sh`, which is the step that actually
+  # puts the content somewhere the world can pull it from.
+  sed -i "s|$new_ref|$old_ref|" "$manifest_file"
   "${SSH[@]}" "cd ~/raje3 && sudo -n kubectl apply -n ${NS:-base-services} -f deploy/edge/console.yaml      >/dev/null && sudo -n kubectl rollout status -n ${NS:-base-services} deploy/console      --timeout=120s 2>&1 | tail -1"
 
   # ── 5. verify the ARTIFACT, not the report ───────────────────────────────────────────────────
