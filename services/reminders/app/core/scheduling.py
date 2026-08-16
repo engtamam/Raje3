@@ -121,9 +121,30 @@ class Scheduler:
 
         # ── cancel follow-ups for what was just performed ──────────────────────────────────────
         for sid in services:
-            outcome.cancelled += await self._sched.cancel_kind(
+            dropped = await self._sched.cancel_kind(
                 tenant, subject, sid, "follow_up",
                 reason="عاد العميل قبل موعد المتابعة", now=now)
+            outcome.cancelled += dropped
+            # AND THIS IS WHERE THE MARGIN LOCK IS EARNED — the one place in the system that can
+            # see it happen, and nothing was writing it down.
+            #
+            # `ladder.is_locked` reads `first_rung_returns` off this row and, past the threshold,
+            # stops offering a discount to somebody who comes back without one (§5.6.1). It was
+            # complete, tested, and fed by a field that NOTHING in production ever incremented —
+            # so the lock read 0 for every customer for ever, and the shop paid a discount to the
+            # loyal exactly as it did to the lapsed. A rule that cannot be triggered is not a
+            # cautious rule; it is an absent one wearing a rule's name.
+            #
+            # A CANCELLED FOLLOW-UP IS THE PROOF, not an inference: rungs were still pending when
+            # he walked in, which means he returned on the first reminder alone. Zero cancelled
+            # means either no ladder or one that already ran, and neither earns the lock.
+            if dropped > 0:
+                key = f"{tenant}|{subject}|{sid}"
+                row = await self._rules.get(key)
+                if row is not None:
+                    row["first_rung_returns"] = int(row.get("first_rung_returns") or 0) + 1
+                    row["updated"] = now
+                    await self._rules.upsert(tenant, key, row)
 
         # ── the confirmation: the reply to what he just did ────────────────────────────────────
         #

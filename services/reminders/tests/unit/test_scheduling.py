@@ -117,6 +117,38 @@ def test_a_return_visit_cancels_the_pending_follow_up(st, sch):
     assert out.cancelled == 1
 
 
+def test_returning_before_the_follow_up_is_what_earns_the_margin_lock(st, sch):
+    """THE DEFECT. `ladder.is_locked` reads `first_rung_returns` and, past the threshold, stops
+    offering a discount to a customer who comes back without one (spec 5.6.1). Nothing in
+    production ever incremented that field — only tests did — so the lock read 0 for every
+    customer for ever, and the shop paid the loyal exactly what it paid the lapsed.
+
+    The proof is the cancelled follow-up: rungs were still pending when he walked in."""
+    from app.core.ladder import LOCK_AFTER_FIRST_RETURNS, is_locked
+
+    key = "t1|sub_a|tyres"
+    run(sch.on_visit(visit(service_ids=["tyres"]), now=NOW, service_config=CFG))
+    assert int((run(RuleStore(st).get(key)) or {}).get("first_rung_returns") or 0) == 0
+
+    for i in range(LOCK_AFTER_FIRST_RETURNS):
+        at = NOW + (i + 1) * 3 * DAY
+        run(sch.on_visit(visit(visit_id=f"vis_back_{i}", service_ids=["tyres"], occurred_at=at),
+                         now=at, service_config=CFG))
+        assert int(run(RuleStore(st).get(key))["first_rung_returns"]) == i + 1
+
+    assert is_locked(int(run(RuleStore(st).get(key))["first_rung_returns"]))
+
+
+def test_a_visit_with_no_pending_follow_up_earns_nothing(st, sch):
+    """The counter must mean «he came back on the first reminder alone», not «he came back». A
+    service with no follow-up configured cancels nothing, so there is nothing to have returned
+    early from — and a lock that engages for everyone protects no margin."""
+    run(sch.on_visit(visit(service_ids=["oil"]), now=NOW, service_config=CFG))
+    run(sch.on_visit(visit(visit_id="vis_2", service_ids=["oil"], occurred_at=NOW + 3 * DAY),
+                     now=NOW + 3 * DAY, service_config=CFG))
+    assert int((run(RuleStore(st).get("t1|sub_a|oil")) or {}).get("first_rung_returns") or 0) == 0
+
+
 def test_a_second_visit_moves_the_reminder_rather_than_adding_one(st, sch):
     """And it may move it EARLIER: a customer who came back after 40 days has told us their real
     rhythm, and the first observation is trusted over the sector default."""

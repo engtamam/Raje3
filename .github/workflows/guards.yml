@@ -65,6 +65,13 @@ jobs:
       - name: every per-branch read asks who is asking, and refuses when it cannot tell
         run: python3 ci/check_branch_scope.py
 
+      # THE QUIETEST SHAPE IN THE FAMILY. The follow-up ladder's margin lock read a count of
+      # early returns that NOTHING in production ever incremented — only the tests that proved the
+      # lock works. A dead engine is noticeable; a field nobody writes produces a DEFAULT, and a
+      # default behaves. The suite stayed green for as long as the rule never once fired.
+      - name: no rule is fed by a field that only the tests write
+        run: python3 ci/check_unwritten_fields.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was

@@ -34,7 +34,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_visit_confirmation_warm",
@@ -57,7 +58,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_visit_confirmation_formal",
@@ -80,7 +82,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_visit_redeemed_brief",
@@ -109,7 +112,8 @@
       ],
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_visit_redeemed_warm",
@@ -138,7 +142,8 @@
       ],
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_visit_redeemed_formal",
@@ -167,7 +172,8 @@
       ],
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_follow_up_brief",
@@ -192,7 +198,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "svc_follow_up_warm",
@@ -217,7 +224,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "svc_follow_up_formal",
@@ -242,7 +250,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "svc_service_reminder_brief",
@@ -267,7 +276,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "svc_service_reminder_warm",
@@ -292,7 +302,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "svc_service_reminder_formal",
@@ -317,7 +328,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "svc_receipt_brief",
@@ -344,7 +356,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_receipt_warm",
@@ -371,7 +384,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "svc_receipt_formal",
@@ -398,7 +412,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "drop"
     },
     {
       "name": "per_account_notice_brief",
@@ -425,7 +440,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_account_notice_warm",
@@ -452,7 +468,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_account_notice_formal",
@@ -479,7 +496,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_points_expiring_brief",
@@ -506,7 +524,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_points_expiring_warm",
@@ -533,7 +552,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_points_expiring_formal",
@@ -560,7 +580,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_dsar_code_brief",
@@ -587,7 +608,8 @@
       ],
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_dsar_code_warm",
@@ -614,7 +636,8 @@
       ],
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_dsar_code_formal",
@@ -641,7 +664,8 @@
       ],
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "awr_seasonal_care_brief",
@@ -668,7 +692,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "awr_seasonal_care_warm",
@@ -695,7 +720,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "awr_seasonal_care_formal",
@@ -722,7 +748,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "awr_care_tip_brief",
@@ -747,7 +774,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "awr_care_tip_warm",
@@ -772,7 +800,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "awr_care_tip_formal",
@@ -797,7 +826,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_weekly_digest_brief",
@@ -822,7 +852,8 @@
       ],
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_weekly_digest_warm",
@@ -847,7 +878,8 @@
       ],
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "per_weekly_digest_formal",
@@ -872,7 +904,8 @@
       ],
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "wrn_safety_notice_brief",
@@ -899,7 +932,8 @@
       ],
       "model": "both",
       "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "wrn_safety_notice_warm",
@@ -926,7 +960,8 @@
       ],
       "model": "both",
       "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "wrn_safety_notice_formal",
@@ -953,7 +988,8 @@
       ],
       "model": "both",
       "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_offer_brief",
@@ -982,7 +1018,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_offer_warm",
@@ -1011,7 +1048,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_offer_formal",
@@ -1040,7 +1078,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_coupon_brief",
@@ -1069,7 +1108,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_coupon_warm",
@@ -1098,7 +1138,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_coupon_formal",
@@ -1127,7 +1168,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_winback_brief",
@@ -1154,7 +1196,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_winback_warm",
@@ -1181,7 +1224,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_winback_formal",
@@ -1208,7 +1252,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_loyalty_activation_brief",
@@ -1235,7 +1280,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_loyalty_activation_warm",
@@ -1262,7 +1308,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_loyalty_activation_formal",
@@ -1289,7 +1336,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_cross_sell_brief",
@@ -1316,7 +1364,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_cross_sell_warm",
@@ -1343,7 +1392,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_cross_sell_formal",
@@ -1370,7 +1420,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_package_brief",
@@ -1399,7 +1450,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_package_warm",
@@ -1428,7 +1480,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_package_formal",
@@ -1457,7 +1510,8 @@
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_referral_brief",
@@ -1484,7 +1538,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_referral_warm",
@@ -1511,7 +1566,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_referral_formal",
@@ -1538,7 +1594,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_announcement_brief",
@@ -1563,7 +1620,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_announcement_warm",
@@ -1588,7 +1646,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_announcement_formal",
@@ -1613,7 +1672,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_personal_occasion_brief",
@@ -1640,7 +1700,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_personal_occasion_warm",
@@ -1667,7 +1728,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_personal_occasion_formal",
@@ -1694,7 +1756,8 @@
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_seasonal_brief",
@@ -1723,7 +1786,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_seasonal_warm",
@@ -1752,7 +1816,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     },
     {
       "name": "mkt_seasonal_formal",
@@ -1781,7 +1846,8 @@
       ],
       "model": "both",
       "model_why": "تناسب كل القطاعات.",
-      "active": true
+      "active": true,
+      "deferral": "defer"
     }
   ]
 }

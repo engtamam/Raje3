@@ -171,6 +171,19 @@ class TemplateLibrary:
             "class": cls, "category": cat, "language": t.get("language", "ar"),
             "body": body, "header": t.get("header", ""), "button": t.get("button"),
             "variables": variables, "fills": fills,
+            # WHAT TO DO WHEN IT CANNOT GO OUT NOW — quiet hours, or the day's ceiling.
+            #
+            # `reminders` has read this field since task 137 («a late confirmation is not late but
+            # strange») and NOTHING ever wrote it: not the spec, not the seed, not this row. So
+            # `str(t.get("deferral") or "defer")` resolved to «defer» for all 66, and a thank-you
+            # for today's visit arrived the next morning — which is the one outcome that task was
+            # written to prevent. A field a rule reads and nobody writes is not a conservative
+            # default; it is the rule never running.
+            #
+            # `drop` belongs to the messages whose value expires with the moment they describe: a
+            # visit confirmation, a redemption confirmation, a receipt. Everything else defers,
+            # because a reminder or an offer is just as good an hour later.
+            "deferral": t.get("deferral", "defer"),
             "active": bool(t.get("active", True)),
             "updated": int(time.time()),
         }
