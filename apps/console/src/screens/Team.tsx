@@ -77,7 +77,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
     if (o) {
       call<{ operators: Operator[] }>(session, o)
         .then((x) => setOperators(x.operators ?? []))
-        .catch(() => setOperators([]));
+        .catch(() => setOperators(null));
     } else {
       setOperators([]);
     }
@@ -85,7 +85,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
     if (listBranches) {
       call<{ branches: Branch[] }>(session, listBranches)
         .then((x) => setBranches(x.branches ?? []))
-        .catch(() => setBranches([]));
+        .catch(() => setBranches(null));
     } else {
       setBranches(null);
     }

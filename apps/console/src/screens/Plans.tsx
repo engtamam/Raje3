@@ -313,7 +313,7 @@ export function PlansPane({
     if (canBrowse) {
       call<{ plans: Plan[] }>(session, canBrowse)
         .then((x) => setPlans(ordered((x.plans ?? []).filter((p) => p.active !== false && p.listed !== false))))
-        .catch(() => setPlans([]));
+        .catch(() => setPlans(null));
     } else {
       setPlans([]);
     }

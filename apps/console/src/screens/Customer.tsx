@@ -142,7 +142,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         call<{ offers: Offer[] }>(session, o, { subject_ref: ref, include_expired: true })
           .then((x) => { if (!stale) setOffers(x.offers ?? []); })
           // An offers read that fails must not empty the record: his visits are still true.
-          .catch(() => { if (!stale) setOffers([]); });
+          .catch(() => { if (!stale) setOffers(null); });
 
         // EACH SECTION FAILS ALONE. They are four services, and one of them being slow or absent
         // is not a reason to show an empty customer — a shop without the loyalty feature has no

@@ -149,7 +149,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         // connection all rendered «لا توجد خدمات» — the screen telling an owner with a full
         // catalogue that he sells nothing, in the same words it uses for a genuinely new shop.
         // He cannot tell those apart, and the wrong one costs him the trust the true one needs.
-        .catch(() => { setServices([]); setUnread(true); });
+        .catch(() => { setServices(null); setUnread(true); });
     } else {
       setServices([]);
     }

@@ -490,7 +490,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
     if (!canList) { setRows([]); return; }
     call<{ invoices: Invoice[] }>(session, canList)
       .then((x) => setRows(x.invoices ?? []))
-      .catch(() => setRows([]));
+      .catch(() => setRows(null));
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!canList) return null;

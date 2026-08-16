@@ -54,9 +54,9 @@ const MIN_PREFIX = 3;
 
 export function Visit() {
   const { session } = useSession();
-  const [services, setServices] = useState<CatalogueService[]>([]);
+  const [services, setServices] = useState<CatalogueService[] | null>([]);
   const [fields, setFields] = useState<SectorField[]>([]);
-  const [recent, setRecent] = useState<CustomerHit[]>([]);
+  const [recent, setRecent] = useState<CustomerHit[] | null>([]);
   const [chosen, setChosen] = useState<string[]>([]);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -64,7 +64,7 @@ export function Visit() {
   /** What he sees while typing: the same string, with the separator placed for him. */
   const [plateText, setPlateText] = useState('');
   /** Cars whose plate starts with what he has typed. Two characters are enough to narrow a yard. */
-  const [plateHits, setPlateHits] = useState<CustomerHit[]>([]);
+  const [plateHits, setPlateHits] = useState<CustomerHit[] | null>([]);
   /** The number the plate resolved to — and whether the operator has overridden it. */
   const [plateKnown, setPlateKnown] = useState(false);
   const [changing, setChanging] = useState(false);
@@ -76,7 +76,7 @@ export function Visit() {
   const [queued, setQueued] = useState<Queued[]>([]);
   const pending = queued.filter((r) => !r.stuck);
   const stuck = queued.filter((r) => r.stuck);
-  const [matches, setMatches] = useState<CustomerHit[]>([]);
+  const [matches, setMatches] = useState<CustomerHit[] | null>([]);
 
   // THE SERVER SAID SO. Not a list of sector keys in this file — that would be our own data
   // living where our console cannot change it (spec 13.2).
@@ -88,8 +88,8 @@ export function Visit() {
     if (!isSignedIn(session)) return;
     fetchCatalogue(session)
       .then((r) => { setServices(r.services); setFields(r.fields ?? []); })
-      .catch(() => { setServices([]); setFields([]); });
-    recentCustomers(session).then((r) => setRecent(r.customers)).catch(() => setRecent([]));
+      .catch(() => { setServices(null); setFields([]); });
+    recentCustomers(session).then((r) => setRecent(r.customers)).catch(() => setRecent(null));
     // THE EARNING RULES, ONCE. A failure leaves the tiles without numbers rather than with zeros:
     // a shop that has not set points up must not be shown sixteen zeros, and a shop that has must
     // not be shown zeros because one read failed.
@@ -134,7 +134,7 @@ export function Visit() {
         .then((rows) => { if (!stale) setMatches(rows); })
         // A search that fails must never block the entry. He can still type the whole number and
         // save; a missing suggestion costs a second, a blocked screen costs the visit.
-        .catch(() => { if (!stale) setMatches([]); });
+        .catch(() => { if (!stale) setMatches(null); });
     }, 180);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phone, session]);
@@ -386,9 +386,9 @@ export function Visit() {
             <div className="max-h-24 shrink-0 overflow-y-auto">
               {/* THE MATCHES APPEAR WHILE HE TYPES. Spec 4.3: whoever types five correct digits and
                   sees nothing concludes the customer is new — and registers him a second time. */}
-              {matches.length > 0 ? (
+              {(matches ?? []).length > 0 ? (
                 <div className="flex flex-col gap-1">
-                  {matches.slice(0, 4).map((c) => (
+                  {(matches ?? []).slice(0, 4).map((c) => (
                     <button
                       key={c.id}
                       type="button"
@@ -628,7 +628,7 @@ export function Visit() {
           // noise standing between him and the one row he wants.
           setPlateHits(hits.filter((h) => h.plate).slice(0, 4));
         })
-        .catch(() => { if (!stale) setPlateHits([]); });
+        .catch(() => { if (!stale) setPlateHits(null); });
     }, 250);
     return () => { stale = true; window.clearTimeout(id); };
   }, [changing, plate, plateKnown, session, showPlate]);
@@ -647,9 +647,9 @@ export function Visit() {
 
       {/* THE MATCHES, TAPPABLE. He read four characters off a bumper; finishing the plate by hand
           when we already hold it is work we can do for him — and one tap fills the owner too. */}
-      {plateHits.length > 0 && !plateKnown ? (
+      {(plateHits ?? []).length > 0 && !plateKnown ? (
         <ul className="flex flex-col gap-2">
-          {plateHits.map((h) => (
+          {(plateHits ?? []).map((h) => (
             <li key={h.id || h.plate}>
               <button
                 type="button"
@@ -673,7 +673,7 @@ export function Visit() {
       <p className="text-center text-sm text-text-secondary">
         {plateKnown && !changing
           ? 'سيارة معروفة عندنا — صاحبها في الصفحة التالية.'
-          : plateHits.length > 0
+          : (plateHits ?? []).length > 0
             ? 'سيارات تبدأ بما كتبت — اختر واحدة.'
             : 'الأرقام ثم الحروف — والفاصل يظهر وحده.'}
       </p>
@@ -764,14 +764,18 @@ export function Visit() {
           can afford right now, each of which may BE a service («غسلة مجانية» is the wash, §9.4).
           No new call: the same two answers the page already holds, put where the decision is. */}
       <ServiceGrid
-        services={services}
+        // `?? []` AND NOT A LIE: the grid renders nothing when the catalogue could not be read,
+        // and the sentence above it — which the screen already shows on an unreadable read — is
+        // what tells the worker why. An empty grid with no sentence would read as «this shop sells
+        // nothing», which is the failure this whole pass is about.
+        services={services ?? []}
         selected={chosen}
         onToggle={toggle}
         offered={new Set(offer?.service_ids ?? [])}
         redeemable={new Set(
           (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
         )}
-        points={pointsByService(earn, services.map((x) => x.id))}
+        points={pointsByService(earn, (services ?? []).map((x) => x.id))}
       />
 
       {/* WHY HE NEVER SAW AN OFFERS PAGE. Skipping a step silently makes an operator wonder what

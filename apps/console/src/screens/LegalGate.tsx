@@ -91,7 +91,7 @@ export function LegalGate({
         return [];
       })
       .then(setOutstanding)
-      .catch(() => setOutstanding([]));
+      .catch(() => setOutstanding(null));
     // `accept` is deliberately absent: it is read through a ref-stable id, and the object itself
     // changes identity on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,7 +122,7 @@ export function LegalGate({
         // RE-READ RATHER THAN REMOVE-LOCALLY. Accepting one document can leave another outstanding
         // and the server is the only thing that knows; splicing the local array would let a person
         // through a gate that is still shut.
-        onDone={() => { load().then(setOutstanding).catch(() => setOutstanding([])); }}
+        onDone={() => { load().then(setOutstanding).catch(() => setOutstanding(null)); }}
         mapError={(e) => (e instanceof Error && e.message !== 'accept'
           ? 'تعذّر حفظ الموافقة. حاول مرة أخرى.'
           : 'الموافقة غير متاحة لحسابك — تواصل مع مالك الحساب.')}

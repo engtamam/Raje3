@@ -282,7 +282,7 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         // Preselected when there is one, so nobody answers a question with one possible answer.
         if (list.length === 1) setSector(list[0].key);
       })
-      .catch(() => setSectors([]));
+      .catch(() => setSectors(null));
   };
 
   useEffect(loadSectors, []);

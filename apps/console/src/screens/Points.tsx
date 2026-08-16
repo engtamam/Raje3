@@ -87,7 +87,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   const [tab, setTab] = useState<'rewards' | 'earning'>('rewards');
   const [rewards, setRewards] = useState<Reward[] | null>(null);
   const [report, setReport] = useState<Report | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Service[] | null>([]);
   const [earn, setEarn] = useState<EarnSettings | null>(null);
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState(TYPES[0].value);
@@ -113,7 +113,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
       // delete and leaves «تفعيل» with nothing to act on.
       call<{ rewards: Reward[] }>(session, r, { include_retired: true })
         .then((x) => setRewards(x.rewards ?? []))
-        .catch(() => setRewards([]));
+        .catch(() => setRewards(null));
     } else {
       setRewards([]);
     }
@@ -131,7 +131,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
     if (list) {
       call<{ services: Service[] }>(session, list)
         .then((x) => setServices(x.services ?? []))
-        .catch(() => setServices([]));
+        .catch(() => setServices(null));
     }
   };
 
@@ -279,7 +279,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   <select id="rw-service" name="service_id" required
                           className="h-10 rounded-lg bg-surface-2 px-3">
                     <option value="">—</option>
-                    {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </Field>
               ) : null}
@@ -290,7 +290,15 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
             </form>
           ) : null}
 
-          {rewards.length === 0 ? (
+          {rewards === null ? (
+            // «تعذّرت القراءة» AND NOT «جدول فارغ». The sentence below tells the owner his table
+            // was never seeded and asks him to call us — a serious claim, and one we may only make
+            // once we have actually read the table.
+            <EmptyState
+              title="تعذّرت قراءة جدول المكافآت"
+              description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+            />
+          ) : rewards.length === 0 ? (
             // A FAULT, NOT AN INVITATION. The table is seeded for his sector at creation, so empty
             // means the seeding did not run.
             <EmptyState
@@ -510,12 +518,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
             </div>
           ) : null}
 
-          {canSetService && services.length > 0 ? (
+          {canSetService && (services ?? []).length > 0 ? (
             <div className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4">
               <Head title="نقاط خدمة بعينها"
                     said="رقمٌ خاص يتقدّم على المجموعة وعلى العام." />
               <ul className="flex flex-col gap-2">
-                {services.map((s) => {
+                {(services ?? []).map((s) => {
                   const { points, own } = earnFor(s.id);
                   return (
                     <li key={s.id} className="flex items-center justify-between gap-3">

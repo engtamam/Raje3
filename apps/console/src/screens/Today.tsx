@@ -67,7 +67,7 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
     if (r) {
       call<{ customers: CustomerRow[] }>(session, r, { limit: 5 })
         .then((x) => setRecent(x.customers))
-        .catch(() => setRecent([]));
+        .catch(() => setRecent(null));
     }
 
     const w = action(catalog, 'whatsapp.connect_status');

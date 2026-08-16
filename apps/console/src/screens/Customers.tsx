@@ -49,7 +49,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
   const navigate = useNavigate();
   const [tab, setTab] = useState<'all' | 'overdue'>('all');
   const [query, setQuery] = useState('');
-  const [matches, setMatches] = useState<CustomerHit[]>([]);
+  const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [recent, setRecent] = useState<CustomerHit[] | null>(null);
   const [overdue, setOverdue] = useState<CustomerHit[] | null>(null);
   /**
@@ -60,14 +60,14 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
    * twice a year. Absent when there is nothing to answer: a permanent empty panel about a legal
    * duty is how a legal duty becomes wallpaper.
    */
-  const [asks, setAsks] = useState<PrivacyAsk[]>([]);
+  const [asks, setAsks] = useState<PrivacyAsk[] | null>([]);
 
   useEffect(() => {
     const a = action(catalog, 'operations.recent');
     if (!a) { setRecent([]); return; }
     call<{ customers: CustomerHit[] }>(session, a, { limit: 50 })
       .then((x) => setRecent(x.customers))
-      .catch(() => setRecent([]));
+      .catch(() => setRecent(null));
   }, [session, catalog]);
 
   /**
@@ -103,7 +103,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
         return call<{ customers: CustomerHit[] }>(session, resolve, { refs });
       })
       .then((x) => { if (!stale) setOverdue(x.customers ?? []); })
-      .catch(() => { if (!stale) setOverdue([]); });
+      .catch(() => { if (!stale) setOverdue(null); });
     return () => { stale = true; };
   }, [tab, overdue, session, catalog]);
 
@@ -120,7 +120,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
         .then((rows) => { if (!stale) setMatches(rows); })
         // A failed search must never block the screen: the list below still stands, and he can
         // still reach a customer through it.
-        .catch(() => { if (!stale) setMatches([]); });
+        .catch(() => { if (!stale) setMatches(null); });
     }, 180);
     return () => { stale = true; window.clearTimeout(id); };
   }, [query, session]);
@@ -134,7 +134,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
       .then((r) => setAsks(r.requests ?? []))
       // SILENT ON FAILURE, because this panel is absent when there is nothing to show and an
       // error box about a feature he has never used is noise on the screen he opens most.
-      .catch(() => setAsks([]));
+      .catch(() => setAsks(null));
   }, [session, catalog, asksAction]);
 
   const searching = query.length >= MIN_PREFIX;
@@ -150,7 +150,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
           under the PDPL the establishment is the controller and owes him an answer within thirty
           days. Before this the only way the shop could learn of it was a phone call — which is
           exactly what his page was built to replace. */}
-      {asks.length ? (
+      {asks?.length ? (
         <section className="flex flex-col gap-2 rounded-card border border-warning/40 bg-surface-1 p-4 shadow-sm">
           <h2 className="text-sm font-medium">
             طلبات على البيانات ({asks.length})
@@ -174,7 +174,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
                   variant="outline"
                   onClick={async () => {
                     await call(session, closeAsk, { request_id: a.id }).catch(() => null);
-                    setAsks((cur) => cur.filter((x) => x.id !== a.id));
+                    setAsks((cur) => (cur ?? []).filter((x) => x.id !== a.id));
                   }}
                 >
                   تم الرد
@@ -216,6 +216,16 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
 
       {loading ? (
         <Skeleton height={200} />
+      ) : showing === null ? (
+        // THE FOURTH STATE, AND THE ONE THAT WAS MISSING. A failed read used to become an empty
+        // list, so this screen told a shop with three thousand customers «لا يوجد عملاء بعد» —
+        // and, on the overdue tab, CONGRATULATED him with «لا أحد متأخر» at the exact moment he
+        // should have been chasing someone. An empty state is a claim about his shop; we may only
+        // make it when we actually read.
+        <EmptyState
+          title="تعذّرت القراءة"
+          description="لم نستطع جلب القائمة الآن — والخلل عندنا لا في محلك. أعد المحاولة بعد قليل."
+        />
       ) : showing.length === 0 ? (
         // THREE DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. "No customer matched" is a
         // search result; "you have no customers yet" is the state of the shop; and an empty

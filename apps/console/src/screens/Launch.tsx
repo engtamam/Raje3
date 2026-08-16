@@ -81,12 +81,12 @@ export function Launch({ session, catalog, onDone }:
    */
   // arabic-indic-digits: intentional — «٢٠٪» appears in the note above as the shape we refuse.
   const [offerValue, setOfferValue] = useState('');
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<Service[] | null>([]);
   // HIS BRANCHES, and the empty list is the common case — one branch, or a role that may not read
   // them. The picker below simply does not render then, which is right: a shop with one place has
   // no targeting decision to make, and a control offering one option is a control that lies about
   // having a choice.
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branches, setBranches] = useState<Branch[] | null>([]);
   const [branchId, setBranchId] = useState('');
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -117,7 +117,7 @@ export function Launch({ session, catalog, onDone }:
     if (list) {
       call<{ services: Service[] }>(session, list)
         .then((x) => setServices(x.services ?? []))
-        .catch(() => setServices([]));
+        .catch(() => setServices(null));
     }
 
     // AND HIS BRANCHES, for the same reason: a campaign aimed at one of them must name it, and a
@@ -126,7 +126,7 @@ export function Launch({ session, catalog, onDone }:
     if (brs) {
       call<{ branches: Branch[] }>(session, brs)
         .then((x) => setBranches((x.branches ?? []).filter((b) => b.active !== false)))
-        .catch(() => setBranches([]));
+        .catch(() => setBranches(null));
     }
   }, [session, catalog, goalsAction]);
 
@@ -140,7 +140,7 @@ export function Launch({ session, catalog, onDone }:
         // he decides on must be the count that goes out.
         branch_id: branchId,
         offer_value: offerValue,
-        service_name: services.find((x) => x.id === serviceId)?.name ?? '',
+        service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
         // CARRIED INTO THE PREVIEW TOO, not only into the launch: the spread refuses a plan that
         // would still be sending after the offer has ended, and that refusal is only useful
         // BEFORE he presses.
@@ -270,7 +270,7 @@ export function Launch({ session, catalog, onDone }:
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             >
               <option value="">اختر خدمة</option>
-              {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
         ) : null}
@@ -278,7 +278,7 @@ export function Launch({ session, catalog, onDone }:
         {/* WHICH BRANCH — only for a shop that has more than one, and «كل الفروع» stays the
             default. Changing it drops the preview: a count computed for the whole chain sitting
             under a branch's name is the exact kind of wrong that nobody notices. */}
-        {branches.length > 1 ? (
+        {(branches ?? []).length > 1 ? (
           <label className="flex flex-col gap-1">
             <span className="text-sm">لأي فرع؟</span>
             <select
@@ -287,7 +287,7 @@ export function Launch({ session, catalog, onDone }:
               className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
             >
               <option value="">كل الفروع</option>
-              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {(branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
             <span className="text-xs text-text-secondary">
               يصل من زار هذا الفرع آخر مرة — والعميل ينتقل مع فرعه بأول زيارة.
@@ -345,7 +345,7 @@ export function Launch({ session, catalog, onDone }:
                     goal: picked.goal, owner_text: ownerText, service_id: serviceId,
                     branch_id: branchId,
                     offer_value: offerValue,
-                    service_name: services.find((x) => x.id === serviceId)?.name ?? '',
+                    service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
                     expires_at: expiresAt,
                   });
                   setSent(preview.spread_says

@@ -171,12 +171,21 @@ export function MessagesScreen(
    * turns every rule in the engine into a suspected bug.
    */
   const [log, setLog] = useState<LogRow[] | null>(null);
+  // `null` IS «STILL LOADING» ON THIS SCREEN (see the read below), so the failure needs a field of
+  // its own — otherwise a dead peer looks exactly like a slow one, for ever, and the owner reads
+  // «لا شيء في السجل بعد» about messages that did go out.
+  const [logFailed, setLogFailed] = useState(false);
   const [only, setOnly] = useState<'' | 'sent' | 'suppressed'>('');
   /** Which branch's messages he is reading. '' is all of them; '_none' is the ones with none. */
   const [logBranch, setLogBranch] = useState('');
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string }[] | null>([]);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  // A SECOND FACT NEEDS A SECOND FIELD. `null` already means «the plan does not include
+  // campaigns» on this screen, so putting «we could not read» into it would collapse two
+  // different answers into one — the same mistake this pass exists to undo, committed in a new
+  // place. He is told to buy something he already owns, or told he owns nothing during an outage.
+  const [campaignsFailed, setCampaignsFailed] = useState(false);
   /** The composer, open only when he asks for it — this tab is a list first. */
   const [launching, setLaunching] = useState(false);
   /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
@@ -257,8 +266,8 @@ export function MessagesScreen(
       ...(only ? { outcome: only } : {}),
       ...(logBranch ? { branch_id: logBranch } : {}),
     })
-      .then((x) => setLog(x.log ?? []))
-      .catch(() => setLog([]));
+      .then((x) => { setLogFailed(false); setLog(x.log ?? []); })
+      .catch(() => { setLogFailed(true); setLog([]); });
   }, [tab, only, logBranch, session, catalog]);
 
   // THE NAMES, FROM THE SERVICE THAT OWNS THEM. reminders stores a branch id on every row and no
@@ -268,7 +277,7 @@ export function MessagesScreen(
     if (!b) return;
     call<{ branches: { id: string; name: string }[] }>(session, b)
       .then((x) => setBranches(x.branches ?? []))
-      .catch(() => setBranches([]));
+      .catch(() => setBranches(null));
   }, [session, catalog]);
 
   useEffect(() => {
@@ -347,8 +356,8 @@ export function MessagesScreen(
     const c = action(catalog, 'campaigns.list');
     if (!c) return;
     call<{ campaigns: Campaign[] }>(session, c)
-      .then((x) => setCampaigns(x.campaigns ?? []))
-      .catch(() => setCampaigns([]));
+      .then((x) => { setCampaignsFailed(false); setCampaigns(x.campaigns ?? []); })
+      .catch(() => setCampaignsFailed(true));
   };
 
   return (
@@ -551,7 +560,7 @@ export function MessagesScreen(
             </p>
             {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE. «صفِّ حسب فرعك الوحيد» is a control
                 that does nothing, and one more thing to read past. */}
-            {branches.length > 1 ? (
+            {(branches ?? []).length > 1 ? (
               <label className="flex items-center gap-2 px-1 text-sm">
                 <span className="text-text-secondary">الفرع</span>
                 <select
@@ -561,7 +570,7 @@ export function MessagesScreen(
                   onChange={(e) => setLogBranch(e.target.value)}
                 >
                   <option value="">كل الفروع</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  {(branches ?? []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   {/* A GROUP, NOT A LEFTOVER: campaign sends have no visit behind them, and rows
                       from before we carried the field will never have one. */}
                   <option value="_none">بلا فرع محدَّد</option>
@@ -572,6 +581,15 @@ export function MessagesScreen(
 
           {log === null ? (
             <Skeleton height={120} />
+          ) : logFailed ? (
+            // OURS, NOT HIS. «لا شيء في السجل بعد» is a statement about his shop, and we may only
+            // make it once we have actually read the log — otherwise an owner whose messages did
+            // go out is told they did not, on the one screen whose whole job is to say what left
+            // in his name.
+            <EmptyState
+              title="تعذّرت قراءة السجل"
+              description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+            />
           ) : log.length === 0 ? (
             // NOT AN APOLOGY AND NOT A FAULT. A shop whose engine has not had to refuse anything
             // yet is a shop working correctly, and the sentence says which.
@@ -626,6 +644,11 @@ export function MessagesScreen(
         // And the card now carries a way to buy it. Naming a feature he cannot reach, with no
         // button, is an advertisement rather than a product.
         <LockedCard appId="campaigns" />
+      ) : campaignsFailed ? (
+        <EmptyState
+          title="تعذّرت قراءة حملاتك"
+          description="لم نستطع جلب القائمة الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+        />
       ) : campaigns === null ? (
         // A DIFFERENT ABSENCE, KEPT SEPARATE: the shop HAS campaigns and this person may not use
         // them. Nothing to buy, so nothing to sell him — the sentence is about permission.

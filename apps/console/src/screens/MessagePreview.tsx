@@ -58,6 +58,9 @@ export function MessagePreview({
   onChosen: () => void;
 }) {
   const [options, setOptions] = useState<Option[] | null>(null);
+  // Same reason as the send log: `null` already means «loading» here, so «we could not read» gets
+  // its own field rather than borrowing one that means something else.
+  const [optionsFailed, setOptionsFailed] = useState(false);
   /** Bumped after a save, so both reads run again — the new draft appears without a reopen. */
   const [reload, setReload] = useState(0);
   /** The shop's tone — what it sends today when it has chosen no text of its own. */
@@ -74,8 +77,8 @@ export function MessagePreview({
    * saved, one waiting on Meta for a day, one refused — without them the editor's «حفظ» leads
    * nowhere visible, and a refusal nobody can see is a shop that quietly gives up.
    */
-  const [mine, setMine] = useState<Mine[]>([]);
-  const [help, setHelp] = useState<HelpRow[]>([]);
+  const [mine, setMine] = useState<Mine[] | null>([]);
+  const [help, setHelp] = useState<HelpRow[] | null>([]);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.preview_reason');
@@ -90,7 +93,7 @@ export function MessagePreview({
         setTone(x.tone ?? 'brief');
         setSlots(x.reason?.slots ?? []);
       })
-      .catch(() => setOptions([]));
+      .catch(() => { setOptionsFailed(true); setOptions([]); });
   }, [session, catalog, reasonId, reload]);
 
   useEffect(() => {
@@ -98,7 +101,7 @@ export function MessagePreview({
     if (!a) return;
     call<{ templates: Mine[] }>(session, a, { reason_id: reasonId })
       .then((x) => setMine((x.templates ?? []).filter((t) => t.status !== 'approved')))
-      .catch(() => setMine([]));
+      .catch(() => setMine(null));
   }, [session, catalog, reasonId, reload]);
 
   useEffect(() => {
@@ -108,7 +111,7 @@ export function MessagePreview({
       .then((x) => setHelp(x.requests ?? []))
       // SILENT ON FAILURE, and only here: the help state DECORATES the list. A shop that cannot
       // read it still sees its drafts and both buttons.
-      .catch(() => setHelp([]));
+      .catch(() => setHelp(null));
   }, [session, catalog, reload]);
 
   const pick = async (option: Option) => {
@@ -179,9 +182,15 @@ export function MessagePreview({
           <div className="flex flex-col gap-3">
             <Skeleton height={96} /><Skeleton height={96} />
           </div>
+        ) : optionsFailed ? (
+          // OURS, AND SAID SO. This sentence was already the honest one; it is now shown for the
+          // failure ALONE, so the case below can say something different and true.
+          <p className="text-sm text-text-secondary">
+            تعذّر عرض نصّ هذه الرسالة الآن — والخلل عندنا. حاول بعد قليل.
+          </p>
         ) : options.length === 0 ? (
           <p className="text-sm text-text-secondary">
-            تعذّر عرض نصّ هذه الرسالة الآن. حاول بعد قليل.
+            لا توجد صيغة معتمدة لهذه الرسالة بعد. القوالب تُراجَع لدى واتساب، وقد تستغرق ساعات.
           </p>
         ) : (
           <>
@@ -237,11 +246,11 @@ export function MessagePreview({
             ) : null}
 
             {/* ── what he wrote and where it stands ─────────────────────────────────────── */}
-            {mine.length > 0 ? (
+            {(mine ?? []).length > 0 ? (
               <section className="flex flex-col gap-2 border-t border-border-subtle pt-4">
                 <h3 className="text-sm font-medium">نصوصٌ لم تبدأ بعد</h3>
                 <ul className="flex flex-col gap-2">
-                  {mine.map((m) => (
+                  {(mine ?? []).map((m) => (
                     <li key={m.name}
                         className="flex flex-col gap-1 rounded-card border border-border-subtle p-3">
                       <span className="text-sm">{m.body}</span>
@@ -273,11 +282,11 @@ export function MessagePreview({
                         {/* OUR ANSWER, ON THE SCREEN HE ASKED FROM. A reply that lives only in a
                             support channel is one he reads once and cannot find the day he sits
                             down to fix the text. */}
-                        {help.find((h) => h.name === m.name)?.answer ? (
+                        {(help ?? []).find((h) => h.name === m.name)?.answer ? (
                           <span className="text-xs text-accent-on-soft">
-                            {help.find((h) => h.name === m.name)?.answer}
+                            {(help ?? []).find((h) => h.name === m.name)?.answer}
                           </span>
-                        ) : help.some((h) => h.name === m.name && h.status === 'open') ? (
+                        ) : (help ?? []).some((h) => h.name === m.name && h.status === 'open') ? (
                           <span className="text-xs text-text-secondary">
                             طلبك وصلنا — نرد عليك هنا.
                           </span>
