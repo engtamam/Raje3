@@ -333,6 +333,20 @@ class SignupService:
         return {"tenant": tenant, "phone": phone, "services": seeded,
                 "stamp_error": stamp_error, "data_map_error": map_error}
 
+    async def reassert_data_map(self, tenant: str) -> str:
+        """Re-register this tenant's data map, and say what could not be registered.
+
+        CALLED BEFORE AN ERASURE, because the map is the only thing that decides how far one
+        reaches. Signup writes it once; nothing has ever re-read it since, and the shop's own owner
+        holds `compliance.manage` — which he needs, since the erasure travels on his token — and
+        that capability also grants DELETE on those targets. A map narrowed at any point between
+        signup and today makes every erasure afterwards close COMPLETED over less than everything.
+
+        The registration is idempotent, so this restores rather than duplicates. Returns "" when
+        the map is whole — the caller refuses on anything else.
+        """
+        return await self._register_data_map(tenant)
+
     async def _register_data_map(self, tenant: str) -> str:
         """Tell compliance which services hold this tenant's data. Never raises.
 

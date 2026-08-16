@@ -837,3 +837,80 @@ def test_the_internal_scope_route_says_stopped_in_a_field_of_its_own(client, mon
     body = r.json()
     assert body["revoked"] is True
     assert body["branch_id"] == "", "an empty branch must never be the carrier of «stopped»"
+
+
+# ── an erasure must not fan out over a narrowed map (و-3) ──────────────────────────────────────
+#
+# The owner needs `compliance.manage` — the erase button travels on HIS token so the act is his —
+# and the same capability grants DELETE on his data targets. Narrow the map once and every erasure
+# afterwards closes COMPLETED over less than everything, while the customer is told he is gone.
+
+
+class _Map:
+    def __init__(self, missing: str = "") -> None:
+        self.missing = missing
+        self.asked: list[str] = []
+
+    async def reassert_data_map(self, tenant: str) -> str:
+        self.asked.append(tenant)
+        return self.missing
+
+
+def _customer(client, tenant: str, cid: str) -> None:
+    import asyncio
+
+    from app.core.models import Customer
+    from app.core.stores import CustomerStore
+
+    asyncio.run(CustomerStore(client.app.state.container.datastore).save(Customer(
+        id=cid, tenant=tenant, name="عميل", phone="0500000001", subject_ref="sub_x")))
+
+
+def test_an_erasure_reasserts_the_data_map_before_it_fans_out(client, monkeypatch):
+    fake = _Map()
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _customer(client, "t_map", "cus_map")
+
+    client.post("/api/v1/field/customers/cus_map/erase",
+                headers=_auth("operations.manage", tenant="t_map"))
+    assert fake.asked == ["t_map"], "the map must be re-read, not trusted from signup day"
+
+
+def test_an_incomplete_map_refuses_the_erasure_instead_of_closing_it(client, monkeypatch):
+    """A false «تم» on an erasure is the worst sentence this product can say."""
+    fake = _Map(missing="loyalty:points")
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _customer(client, "t_gap", "cus_gap")
+
+    r = client.post("/api/v1/field/customers/cus_gap/erase",
+                    headers=_auth("operations.manage", tenant="t_gap"))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False
+    assert "لم يبدأ" in body["reason"], "and he is told it did NOT happen"
+
+
+def test_todays_customers_strip_is_narrowed_to_his_branch(client):
+    """و-8: `public()` carries the name, the phone and `last_branch_id`. The strip returned the
+    whole chain's, ten at a time, to anyone who opened the field screen — and the branch gate
+    could not see it, because it exempts `branch_id` and this field is `last_branch_id`."""
+    import asyncio
+
+    from app.core.models import Customer, Operator
+    from app.core.stores import CustomerStore, OperatorStore
+
+    ds = client.app.state.container.datastore
+    asyncio.run(OperatorStore(ds).save(Operator(
+        id="opr_jed2", tenant="t_strip", name="مدير جدة", role="manager",
+        branch_id="brn-jeddah", person_id="op1", active=True)))
+    for cid, branch in (("c_jed", "brn-jeddah"), ("c_ryd", "brn-riyadh"), ("c_none", "")):
+        asyncio.run(CustomerStore(ds).save(Customer(
+            id=cid, tenant="t_strip", name=cid, phone=f"05000000{cid[-1]}",
+            subject_ref=f"sub_{cid}", last_branch_id=branch)))
+
+    r = client.get("/api/v1/field/customers/recent",
+                   headers=_auth("operations.read", tenant="t_strip"))
+    assert r.status_code == 200, r.text
+    got = {c["id"] for c in r.json()["customers"]}
+    assert "c_ryd" not in got, "another branch's customers, by name and phone"
+    assert "c_jed" in got and "c_none" in got

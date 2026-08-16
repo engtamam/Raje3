@@ -142,7 +142,17 @@ async def recent_customers(request: Request, limit: int = 10,
     """The strip along the top of the field screen — today's customers, one tap away."""
     limit = max(1, min(limit, 50))
     rows = await _svc(request).recent_customers(_tenant(principal), limit=limit)
-    return {"customers": [c.public() for c in rows]}
+    # HIS BRANCH ONLY — the strip was the one read on this screen that never narrowed. `public()`
+    # carries the name, the phone and `last_branch_id`, so a manager scoped to Jeddah opened the
+    # field screen and read Riyadh's customers by name and number, ten at a time, without asking
+    # for anything. The branch gate did not see it either: it exempts `branch_id`, and the field
+    # here is called `last_branch_id`.
+    #
+    # Unbranched customers stay visible, as everywhere else: a till records no branch, and hiding
+    # those would leave a manager looking at a shop that appears to have no customers at all.
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    kept = SCOPE.visible([c.public() for c in rows], scope, field="last_branch_id")
+    return {"customers": kept}
 
 
 @router.get("/customers/by-phone", dependencies=[Depends(rate_limit)])
@@ -257,6 +267,23 @@ async def erase_customer(request: Request, customer_id: str, authorization: str 
         "customer.erasure_requested", actor=principal.subject, tenant=_tenant(principal),
         resource=f"customer:{customer_id}",
         ip=request.client.host if request.client else "")
+
+    # THE MAP IS RE-ASSERTED BEFORE THE FAN-OUT, AND IT IS A RECONCILING READ, NOT BELT AND BRACES.
+    #
+    # An erasure reaches exactly the data targets compliance holds for this tenant. The owner's own
+    # role carries `compliance.manage` — it has to, because this very button travels on HIS token
+    # so the erasure is his act — and the same capability also grants DELETE on those targets. So
+    # the shop can narrow its own map, by accident or otherwise, and every erasure afterwards fans
+    # out to what is left, every one of those acknowledges, and the request closes COMPLETED. The
+    # customer is told his data is gone while a whole service still holds it. Nothing fails.
+    #
+    # Registration is idempotent by the store's own rule, so re-asserting costs one round trip and
+    # restores anything missing. A failure here is REPORTED, never swallowed: an erasure over a map
+    # we know to be incomplete is the false «تم» this whole path exists to avoid.
+    incomplete = await request.app.state.container.signup.reassert_data_map(_tenant(principal))
+    if incomplete:
+        return {"ok": False,
+                "reason": "تعذّر التأكد من اكتمال خريطة بياناتك، والحذف لم يبدأ. أعد المحاولة."}
 
     try:
         result = await run_in_threadpool(
@@ -384,7 +411,11 @@ async def apply_offer(request: Request, visit_id: str, body: ApplyOfferIn,
     """
     ops: Operations = request.app.state.container.operations
     try:
-        applied = await ops.apply_offer(tenant=principal.tenant, visit_id=visit_id,
+        # `_tenant`, NEVER `principal.tenant` — the only line in this module that read the claim
+        # raw. It is the same value on every good request, which is why it survived; on a token
+        # with no tenant it is "" and this call goes on with an empty establishment instead of the
+        # 403 every sibling route answers.
+        applied = await ops.apply_offer(tenant=_tenant(principal), visit_id=visit_id,
                                         subject_ref=body.subject_ref)
     except OperationError as e:
         # RETURNED, NEVER RAISED. The platform strips HTTPException detail on the way out, so a

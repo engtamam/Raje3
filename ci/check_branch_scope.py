@@ -49,7 +49,13 @@ BRANCH_READS = ("branch_rows", "branch_comparison", "branch_snapshot", "branch_c
                 # A READ THAT TAKES A BRANCH AS A FILTER is the other half: whoever may pass
                 # `branch_id=X` and get X's rows is choosing whose numbers to look at, and the
                 # answer must not be «whichever he typed».
-                "branch_id: str = \"\"", "branch_id: str = Query")
+                "branch_id: str = \"\"", "branch_id: str = Query",
+                # AND THE BRANCH A ROW CARRIES, not only the branch a caller names. The gate read
+                # `branch_id` and nothing else, so `last_branch_id` — the field on a customer that
+                # says where he was last served — was invisible to it. The strip along the top of
+                # the field screen returned every branch's customers by name and phone, ten at a
+                # time, and this check said the route was fine (و-8).
+                "last_branch_id")
 
 # Routes that are NOT a person reading branch data — each with the reason, because a list whose
 # entries nobody can justify is a list that grows until the check means nothing.
