@@ -210,6 +210,33 @@ def test_the_till_redeems_and_returns_what_the_receipt_must_carry(client, owner)
     assert body["transaction_ref"].startswith("rdm_")
 
 
+def test_a_service_reward_redeemed_at_the_till_is_recorded_as_a_visit(client, owner):
+    """THE DEFECT. The till route had copied the receipt out of `_after_redeem` and left the second
+    seam behind: a `service` reward is also recorded as a VISIT, which is what restarts the reminder
+    cycle. Without it the customer took his free wash at the counter and was reminded days later to
+    come in for the wash he had just had — on the one counter where nobody from the shop is looking
+    at our screen to catch it."""
+    recorded = []
+
+    class _Visits:
+        async def record(self, **kw):
+            recorded.append(kw)
+
+    client.app.state.container.visits = _Visits()
+    rid = _reward(client, owner, name="غسلة مجانية", cost=10, type="service",
+                  service_id="svc_wash")
+    _earn(client, points=200, visit="v-till-svc", subject="ref_tillsvc00001")
+    r = client.post("/internal/loyalty/redeem",
+                    json={"tenant": TENANT, "subject_ref": "ref_tillsvc00001",
+                          "reward_id": rid, "idempotency_key": "inv-svc-1",
+                          "actor": "cashier-9"}, headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert len(recorded) == 1, recorded
+    assert recorded[0]["service_id"] == "svc_wash"
+    assert recorded[0]["subject_ref"] == "ref_tillsvc00001"
+    assert recorded[0]["actor"] == "cashier-9"
+
+
 def test_the_till_needs_the_internal_token(client):
     r = client.post("/internal/loyalty/redeem",
                     json={"tenant": TENANT, "subject_ref": S, "reward_id": "x",

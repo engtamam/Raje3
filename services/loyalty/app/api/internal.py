@@ -398,7 +398,7 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
     # the rule FOR — the integrated till, where neither he nor the customer is looking at our
     # screen — was the one place it did not apply. A control that holds everywhere except the
     # place it was written for is not a control.
-    from app.api.v1.loyalty import _threshold
+    from app.api.v1.loyalty import _after_redeem, _threshold
 
     try:
         rec, is_new = await c.redeemer.redeem(
@@ -413,13 +413,17 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
 
     bal = await c.ledger.balance(body.tenant, body.subject_ref)
     if is_new:
-        try:
-            await c.notifier.receipt(tenant=body.tenant, subject_ref=rec.subject_ref,
-                                     redemption_id=rec.id, reward_name=rec.reward_name,
-                                     cost=rec.cost, remaining=bal.points)
-        except Exception as exc:                                        # noqa: BLE001
-            c.telemetry.event("loyalty_receipt_failed", tenant=body.tenant,
-                              error=str(exc)[:200])
+        # THE WHOLE TAIL, NOT THE RECEIPT ALONE — and this path had copied only the receipt.
+        #
+        # `_after_redeem` carries a second seam: a `service` reward is also RECORDED AS A VISIT, so
+        # the reminder cycle restarts from the free wash the customer just had. Reimplementing half
+        # of it here meant a reward redeemed at the till left no trace in operations: the customer
+        # received the service and was then reminded, days later, to come in for it — on the very
+        # counter where nobody from the shop is looking at our screen to notice.
+        #
+        # The docstring above says these two paths differ only in `channel`. Calling the same
+        # function is the only way that stays true when the tail grows a third seam.
+        await _after_redeem(c, body.tenant, rec, bal.points, body.actor)
     return {
         # What the printed receipt carries, so the paper becomes a second trail.
         "transaction_ref": rec.id,

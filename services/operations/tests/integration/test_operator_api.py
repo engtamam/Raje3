@@ -483,6 +483,44 @@ def test_an_unreachable_billing_never_stops_a_counter(client):
         client.app.state.container.api_licence = NullApiLicence(True)
 
 
+def test_one_unkeyable_sale_does_not_refuse_the_rest_of_the_batch(client):
+    """THE DEFECT. A sale carrying none of (idempotency_key, invoice_id, occurred_at) cannot be
+    told apart from a second sale on retry, so it is refused — correctly. But the whole POST was
+    refused with it: `accepted: 0` for all fifty. A till whose driver omits the invoice number on
+    cash sales lost every other sale in the same post, on every retry, silently.
+
+    The refusal is per item, the rest lands, and `total` still counts what the till SENT so the
+    partner can reconcile."""
+    body = {"visits": [
+        {"idempotency_key": "keyed-1", "phone": "0500000021",
+         "lines": [{"service_id": "svc_1", "qty": 1}]},
+        {"phone": "0500000022", "lines": [{"service_id": "svc_1", "qty": 1}]},
+        {"invoice_id": "inv-77", "phone": "0500000023",
+         "lines": [{"service_id": "svc_1", "qty": 1}]}]}
+    r = client.post("/api/v1/till/visits", json=body,
+                    headers=_auth("operations.record", tenant="t_batch_partial"))
+    assert r.status_code == 200
+    out = r.json()
+    assert out["total"] == 3, out
+    # ONE item carries the key refusal — not three. The other two reached the batch handler and
+    # were judged on their own merits there (this fixture has no service catalogue, so they are
+    # refused for a DIFFERENT reason), which is exactly the proof: they were forwarded.
+    key_refusals = [x for x in out["results"] if "idempotency_key, invoice_id" in x["reason"]]
+    assert len(key_refusals) == 1 and key_refusals[0]["index"] == 1
+    assert len(out["results"]) == 3, out
+
+
+def test_a_batch_of_nothing_but_unkeyable_sales_is_still_refused_whole(client):
+    """The narrowing must not become a hole: when NOTHING in the post can be keyed there is
+    nothing to accept, and the answer stays a refusal rather than an empty success."""
+    body = {"visits": [{"phone": "0500000031", "lines": [{"service_id": "svc_1", "qty": 1}]}]}
+    r = client.post("/api/v1/till/visits", json=body,
+                    headers=_auth("operations.record", tenant="t_batch_none"))
+    out = r.json()
+    assert out["accepted"] == 0 and out["total"] == 1
+    assert out["results"][0]["status"] == "rejected"
+
+
 # ── one base per shop, and an app bought once ─────────────────────────────────────────────────
 _BASE_LIMITS = {"messages.monthly": {"kind": "counter", "limit": -1},
                 "feature.campaigns": {"kind": "boolean", "limit": 0}}

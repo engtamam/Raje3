@@ -175,12 +175,18 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # still lands and their engineer reads a sentence instead of guessing.
     unstable = [i for i, v in enumerate(body.visits)
                 if not (v.idempotency_key or v.invoice_id or v.occurred_at)]
-    if unstable:
-        return {"accepted": 0, "total": len(body.visits),
-                "results": [{"idempotency_key": "", "status": "rejected",
-                             "reason": "send one of: idempotency_key, invoice_id, occurred_at — "
-                                       "without one a retry cannot be told from a second sale",
-                             "index": i} for i in unstable]}
+    refusals = [{"idempotency_key": "", "status": "rejected",
+                 "reason": "send one of: idempotency_key, invoice_id, occurred_at — "
+                           "without one a retry cannot be told from a second sale",
+                 "index": i} for i in unstable]
+    # AND ONLY THOSE ITEMS ARE REFUSED. The paragraph above promised «the rest of the batch still
+    # lands» and the code returned `accepted: 0` for all of it — so one till whose driver omits the
+    # invoice number on a single cash sale lost the other forty-nine sales of that post, on every
+    # retry, for as long as that one item stayed in the payload. A batch is a set of independent
+    # sales, and the way a shop discovers this is a day of missing visits nobody rejected out loud.
+    keep = [v for i, v in enumerate(body.visits) if i not in set(unstable)]
+    if not keep:
+        return {"accepted": 0, "total": len(body.visits), "results": refusals}
     forwarded = BatchIn(visits=[
         BatchVisitIn(
             tenant=tenant,
@@ -196,13 +202,21 @@ async def record_from_till(request: Request, body: TillBatchIn,
             idempotency_key=_key_for(tenant, v),
             occurred_at=v.occurred_at,
         )
-        for v in body.visits
+        for v in keep
     ])
 
     # REUSED, NOT REIMPLEMENTED. The batch handler holds the per-item outcome reporting, the
     # invoice resolution, the integration detection and the seams; a second copy here would be a
     # second set of behaviour to keep in step, and the one that drifts is always the newer.
     out = await record_visits_batch(request, forwarded)
+
+    # THE TWO HALVES ARE REPORTED AS ONE ANSWER, and `total` counts what the till SENT, not what we
+    # chose to forward. A partner reconciles «I posted 50, they took 49, here is the one and why»;
+    # a response that silently describes 49 as the whole batch is how a missing sale becomes nobody's
+    # to notice.
+    if refusals:
+        out = {**out, "results": list(out.get("results") or []) + refusals,
+               "total": len(body.visits)}
 
     # AND THE LINK'S PULSE IS WRITTEN HERE, where a till is known to be a till.
     #
