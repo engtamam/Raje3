@@ -20,51 +20,13 @@ ok(){   pass=$((pass+1)); printf '  %s✔ %s%s\n' "$C_G" "$1" "$C_N"; }
 no(){   fail=$((fail+1)); printf '  %s✘ %s%s\n' "$C_R" "$1" "$C_N"; }
 check(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1: expected [$3], got [$2]"; fi; }
 
-# ── ل-5 · registries.yaml has two authors and neither may erase the other ─────────────────────
-. "$ROOT/deploy/lib/registries.sh"
-
-install_writes(){          # what deploy/install.sh puts in the file
-  registries_entry "$1" configs '"ghcr.io"' <<YAML
-  "ghcr.io":
-    auth:
-      username: "x"
-      password: "$2"
-YAML
-}
-registry_writes(){         # what deploy/registry.sh puts in the file
-  registries_entry "$1" mirrors '"127.0.0.1:5055"' <<'YAML'
-  "127.0.0.1:5055":
-    endpoint:
-      - "http://127.0.0.1:5055"
-YAML
-  registries_entry "$1" configs '"127.0.0.1:5055"' <<'YAML'
-  "127.0.0.1:5055":
-    tls:
-      insecure_skip_verify: true
-YAML
-}
-
-F="$TMP/a.yaml"; : > "$F"
-install_writes "$F" SECRET; registry_writes "$F"
-check "install then registry: the ghcr credential survives" \
-      "$(grep -c 'SECRET' "$F")" "1"
-check "install then registry: the local mirror is there" \
-      "$(grep -c '127.0.0.1:5055' "$F")" "3"
-
-F="$TMP/b.yaml"; : > "$F"
-registry_writes "$F"; install_writes "$F" SECRET
-check "registry then install: the local mirror survives" \
-      "$(grep -c '127.0.0.1:5055' "$F")" "3"
-check "registry then install: the credential is there" "$(grep -c 'SECRET' "$F")" "1"
-
-# A ROTATED TOKEN REPLACES THE OLD ONE. Appending a second `"ghcr.io":` block leaves the stale
-# password first in the file, which is the one a YAML reader keeps — a rotation that silently does
-# nothing, discovered whenever the old token is finally revoked.
-install_writes "$F" ROTATED
-check "a re-run replaces the entry rather than appending one" "$(grep -c 'ghcr.io' "$F")" "1"
-check "the new password is the one in the file" "$(grep -c 'ROTATED' "$F")" "1"
-check "the old password is gone" "$(grep -c 'SECRET' "$F")" "0"
-check "the file is still one section each" "$(grep -c '^configs:' "$F")" "1"
+# ── ل-5 · registries.yaml had two authors, and now has one ───────────────────────────────────
+# The defect was that `install.sh` wrote the ghcr credential and `registry.sh` wrote a node-local
+# mirror, both with `cat >`, so whichever ran last erased the other and restarted k3s on top of
+# it. The mirror is gone with the ship road that needed it, so what is tested now is that only one
+# writer remains — a merge helper for two writers is a thing to remove, not to keep working.
+check "only install.sh writes registries.yaml"       "$(grep -rlc 'registries.yaml' "$ROOT"/deploy/*.sh 2>/dev/null | wc -l)" "1"
+check "and it writes ghcr, not a local mirror"       "$(grep -c '127.0.0.1' <(grep -A6 'registries.yaml <<REGEOF' "$ROOT/deploy/install.sh"))" "0"
 
 # ── ل-8 · a swallowed seed must not end as a completed install ────────────────────────────────
 # bring-up.sh is not runnable here — it wants a cluster — so the mechanism it now uses is what is
@@ -86,8 +48,13 @@ check "bring-up refuses to end 0 with a failed step" \
 # ── ل-3 · nothing committed may name a registry only one machine can reach ────────────────────
 check "the console manifest names a reachable registry" \
       "$(grep -c '127.0.0.1' "$ROOT/deploy/edge/console.yaml")" "0"
-check "ship.sh puts the tracked pin back after the upload" \
-      "$(grep -c 'sed -i "s|\$new_ref|\$old_ref|"' "$ROOT/deploy/ship.sh")" "2"
+# AND NOTHING REWRITES AN IMAGE ON THE WAY TO THE NODE. This used to assert that ship.sh put the
+# tracked pin BACK after uploading a rewritten one — a correct assertion about a road that should
+# not have existed. The road is gone: the file applied on the node is the file that is committed.
+check "ship.sh rewrites no image reference at all" \
+      "$(grep -c new_ref "$ROOT/deploy/ship.sh")" "0"
+check "ship.sh carries no image to the node" \
+      "$(grep -vE '^\s*#' "$ROOT/deploy/ship.sh" | grep -cE 'docker save|ctr images import')" "0"
 
 # ── every deploy script still parses ──────────────────────────────────────────────────────────
 for f in "$ROOT"/deploy/*.sh "$ROOT"/deploy/**/*.sh; do

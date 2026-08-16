@@ -234,6 +234,13 @@ jobs:
       - name: a template blank with nobody to fill it
         run: python3 ci/check_every_blank_says_who_fills_it.py
 
+      # AND NO IMAGE REACHES THE SERVER FROM A LAPTOP. The console ran
+      # `127.0.0.1:5055/raje3/console@…` in production — a registry one machine resolves, and only
+      # while a developer holds a tunnel open — because ship.sh rewrote the reference ON THE NODE,
+      # where no gate reading the repository could see it.
+      - name: an image from somewhere other than ghcr
+        run: python3 ci/check_no_image_travels_from_a_laptop.py
+
       # AND META IS ONE CONVERSATION, ON A VERSION THAT IS STILL ALIVE. The console pinned Graph
       # v21.0 while the onboarding adapter behind it called v26.0; and Embedded Signup v2 and v3
       # both retire on 2026-10-15, taking `featureType` and `sessionInfoVersion` with them. A
