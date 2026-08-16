@@ -241,3 +241,31 @@ test('the connection line never promises sending that cannot happen', async ({ s
   expect(claimsReady || admitsWaiting, 'the connection line said nothing at all').toBeTruthy();
   if (claimsReady) expect(admitsWaiting).toBeFalsy();
 });
+
+test('the PIN form is the step that turns «مربوط» into a number that sends', async ({ shop }) => {
+  /**
+   * THE ONE-STEP-SHORT JOURNEY. Meta refuses to send from a number until it is REGISTERED with the
+   * business's own 6-digit two-step-verification PIN (error 133010), and Embedded Signup does not
+   * do it — its authorization code lives thirty seconds and cannot wait for a person to fetch a
+   * code. So the connection is stored, the status line turns amber, and until this form exists
+   * there is nothing anywhere that finishes it: the shop records visits all week and not one
+   * message is ever attempted.
+   *
+   * ASSERTED BY WHAT THE SCREEN OFFERS, not by driving a real registration — the pilot's shop is
+   * not connected, so this proves the seam is present and honest rather than faking Meta.
+   */
+  const body = await open(shop, '/account');
+
+  // An unconnected shop must NOT be shown the PIN field: it would ask him to finish a step he has
+  // not started, which is the same lie in the other direction.
+  if (/واتساب غير مربوط|يحتاج ربط/.test(body)) {
+    expect(body).not.toMatch(/رمز التحقق بخطوتين/);
+    return;
+  }
+  // A connected shop that cannot send yet must be given the field AND told the 72-hour rule, so a
+  // refusal never sends him retrying into the lock.
+  if (/الإرسال لم يُفتح بعد|بانتظارنا/.test(body)) {
+    expect(body).toMatch(/رمز التحقق بخطوتين/);
+    expect(body).toMatch(/عشر محاولات كل 72 ساعة/);
+  }
+});

@@ -50,7 +50,7 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
    */
   const [today, setToday] = useState<Today | null | undefined>(undefined);
   const [recent, setRecent] = useState<CustomerRow[] | null>(null);
-  const [connected, setConnected] = useState<{ state: string; message: string } | null>(null);
+  const [connected, setConnected] = useState<{ state: string; message: string; can_send?: boolean } | null>(null);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.today');
@@ -71,7 +71,10 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
     }
 
     const w = action(catalog, 'whatsapp.connect_status');
-    if (w) call<{ state: string; message: string }>(session, w).then(setConnected).catch(() => {});
+    if (w) {
+      call<{ state: string; message: string; can_send?: boolean }>(session, w)
+        .then(setConnected).catch(() => {});
+    }
   }, [session, catalog]);
 
   /**
@@ -87,6 +90,13 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
     }
     if (connected && connected.state === '') {
       return 'واتساب غير مربوط — اربطه لتبدأ الرسائل. دقائق.';
+    }
+    // CONNECTED AND MUTE, WITH SOMETHING HE CAN DO — which is exactly why it belongs on this line
+    // now and did not before. The number is not registered with Meta until his own two-step PIN is
+    // entered (error 133010), and until then not one message is attempted. This screen stayed
+    // silent through it: its check was «state !== connected», and the state IS connected.
+    if (connected && connected.can_send === false) {
+      return 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.';
     }
     if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) {
       return 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.';

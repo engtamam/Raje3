@@ -56,6 +56,11 @@ export function Connect({
   // Meta's authorization code lives about thirty seconds; loading a script inside that window
   // would spend a third of it before the popup even appears.
   const [sdk, setSdk] = useState<SdkState>('loading');
+  // HIS OWN 6-DIGIT PIN, held only long enough to travel. It is his business account's two-step
+  // verification code — we do not have it, cannot look it up, and never store it.
+  const [pin, setPin] = useState('');
+  const [registering, setRegistering] = useState(false);
+  const [registerNote, setRegisterNote] = useState('');
 
   useEffect(() => { loadMetaSdk().then(setSdk); }, []);
 
@@ -113,6 +118,8 @@ export function Connect({
   // reason an owner records visits all week waiting for messages that were never attempted.
   // `can_send` is absent on an older answer, and absence is treated as «yes» so nothing regresses.
   const waiting = connected && state?.can_send === false;
+  const registerAction = action(catalog, 'whatsapp.register_number');
+  const statusAction = action(catalog, 'whatsapp.connect_status');
 
   return (
     <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-6 shadow-sm">
@@ -123,6 +130,74 @@ export function Connect({
       </p>
 
       {error ? <p className="text-danger">{error}</p> : null}
+
+      {/* ── THE STEP THAT TURNS «مربوط» INTO A NUMBER THAT SENDS ────────────────────────────────
+          Meta refuses to send from a number until it is REGISTERED with the business's own 6-digit
+          two-step-verification PIN (error 133010). Embedded Signup does not do it: it returns a
+          token in about thirty seconds and cannot pause for a person to fetch a code.
+
+          SO WITHOUT THIS FORM THE JOURNEY ENDS ONE STEP SHORT. The connection is stored, the
+          sentence above turns amber, and nothing anywhere lets him finish — he records visits all
+          week and not one message is ever attempted. The route, its three refusals and its audit
+          row were all built; this is the field that reaches them.
+
+          TEN ATTEMPTS PER 72 HOURS, so the field refuses a malformed PIN here rather than spending
+          one of them to learn what we already know. */}
+      {waiting && registerAction ? (
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (registering) return;
+            setRegistering(true);
+            setError('');
+            setRegisterNote('');
+            try {
+              const out = await call<{ registered: boolean; message: string }>(
+                session, registerAction, { pin });
+              setRegisterNote(out.message || '');
+              if (out.registered) {
+                setPin('');
+                // The sentence above is the server's, so it is re-read rather than rewritten here.
+                const fresh = statusAction
+                  ? await call<ConnectState>(session, statusAction)
+                  : null;
+                if (fresh) onChange(fresh);
+              }
+            } catch (err) {
+              // THE SERVER'S SENTENCE, NOT OURS. «الرمز غير صحيح» and «لا تعِد المحاولة قبل 72
+              // ساعة» are different instructions, and collapsing them into one «تعذّر» is what
+              // makes an owner burn his remaining attempts on a problem no attempt can fix.
+              setError(err instanceof Error ? err.message : 'تعذّر تفعيل الإرسال.');
+            } finally {
+              setRegistering(false);
+            }
+          }}
+        >
+          <label className="flex flex-col gap-1 text-sm" htmlFor="wa-pin">
+            <span>رمز التحقق بخطوتين لحساب أعمالك على واتساب — 6 أرقام</span>
+            <input
+              id="wa-pin"
+              className="rounded-input border border-border bg-surface-2 p-2 text-center tracking-widest"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={pin}
+              // WESTERN DIGITS AND NOTHING ELSE: Meta's field is numeric, and a keyboard that
+              // produces Arabic-Indic digits would send six characters it rejects.
+              onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+            />
+          </label>
+          <p className="text-xs text-text-secondary">
+            هذا رمزٌ تختاره أنت في إعدادات حساب أعمالك، ولا نملكه ولا نحفظه. وواتساب يسمح بعشر
+            محاولات كل 72 ساعة.
+          </p>
+          <Button type="submit" disabled={registering || pin.length !== 6}>
+            {registering ? 'جارٍ التفعيل…' : 'فعّل الإرسال'}
+          </Button>
+          {registerNote ? <p className="text-sm text-text-secondary">{registerNote}</p> : null}
+        </form>
+      ) : null}
 
       {connected ? null : (
         <div className="flex flex-col gap-2">
