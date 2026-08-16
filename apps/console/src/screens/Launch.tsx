@@ -61,6 +61,10 @@ interface Service { id: string; name: string }
 export function Launch({ session, catalog, onDone }:
     { session: Session; catalog: Catalog; onDone: () => void }) {
   const [goals, setGoals] = useState<Goal[] | null>(null);
+  // `null` MEANS «STILL READING» HERE — the screen shows a Waiting on it — so the failure needs a
+  // field of its own. Sharing one would make a dead peer indistinguishable from a slow one, and
+  // «لا أهداف متاحة الآن» is a claim about the product rather than about the read.
+  const [goalsFailed, setGoalsFailed] = useState(false);
   const [picked, setPicked] = useState<Goal | null>(null);
   const [ownerText, setOwnerText] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -108,7 +112,7 @@ export function Launch({ session, catalog, onDone }:
     if (!goalsAction) { setGoals([]); return; }
     call<{ goals: Goal[] }>(session, goalsAction)
       .then((r) => setGoals(r.goals ?? []))
-      .catch(() => setGoals([]));
+      .catch(() => { setGoalsFailed(true); setGoals([]); });
 
     // HIS OWN CATALOGUE, because «عرض على خدمة» must name one of HIS services. Without it that
     // goal would be an untargeted announcement wearing a targeted goal's name — which is exactly
@@ -370,7 +374,11 @@ export function Launch({ session, catalog, onDone }:
   return (
     <section className="flex flex-col gap-2">
       <p className="text-sm text-text-secondary">ماذا تريد أن تحقّق؟</p>
-      {goals.length === 0 ? (
+      {goalsFailed ? (
+        <p className="text-sm text-text-secondary">
+          تعذّرت قراءة الأهداف الآن، والخلل عندنا. أعد المحاولة بعد قليل.
+        </p>
+      ) : (goals ?? []).length === 0 ? (
         <p className="text-sm text-text-secondary">لا أهداف متاحة الآن.</p>
       ) : null}
       {goals.map((g) => (
