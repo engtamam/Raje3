@@ -259,7 +259,12 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, earner=container.earner,
         feed=(peers or {}).get("visit_feed"), telemetry=container.telemetry)
     container.rewards = Rewards(container.datastore)
-    container.redeemer = Redeemer(container.datastore, container.ledger, container.rewards)
+    # THE CACHE IS PASSED FOR ONE REASON: it is the only port in this service whose write is
+    # ATOMIC. `Ledger.post` reads a balance and then spends against what it read, and the
+    # datastore's only write is an unconditional upsert — so two redemptions for one customer in
+    # the same second both succeed. See core/spend_lock.py.
+    container.redeemer = Redeemer(container.datastore, container.ledger, container.rewards,
+                                  cache=container.cache)
     # WHAT THE SHOP BOUGHT. Consulted only where the programme GROWS — earning, adjusting, and
     # editing the rewards or the rules. Redemption and every read go around it on purpose: a
     # lapsed subscription must not strand points a customer already holds (core/licence.py).

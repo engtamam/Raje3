@@ -521,6 +521,35 @@ def test_a_batch_of_nothing_but_unkeyable_sales_is_still_refused_whole(client):
     assert out["results"][0]["status"] == "rejected"
 
 
+def test_a_shop_without_the_link_cannot_spend_points_or_offers_from_a_till(client):
+    """THE DEFECT. `feature.api` gates the machine link, and only the VISITS route checked it. A
+    shop whose subscription excludes «ربط برمجي» had its visits refused and its REDEMPTIONS
+    accepted: the loyalty ledger was debited and a customer receipt went out on a channel nobody
+    was billed for. The licence file's own justification for exempting a machine — that it «only
+    READS» — does not reach a ledger write."""
+    from app.core.licence import NOT_INCLUDED, NullApiLicence
+
+    client.app.state.container.api_licence = NullApiLicence(False)
+    try:
+        r = client.post("/api/v1/till/redeem",
+                        json={"phone": "0500000041", "reward_id": "rw_1",
+                              "idempotency_key": "k-1"},
+                        headers=_auth("operations.record", tenant="t_nolink"))
+        assert r.status_code == 200 and r.json()["message"] == NOT_INCLUDED
+
+        r = client.post("/api/v1/till/offer/apply",
+                        json={"phone": "0500000041", "visit_id": "vis_1"},
+                        headers=_auth("operations.record", tenant="t_nolink"))
+        assert r.status_code == 200 and r.json()["reason"] == NOT_INCLUDED
+
+        # AND THE READ STAYS OPEN — it is the one the exemption was written for.
+        r = client.get("/api/v1/till/customer?phone=0500000041",
+                       headers=_auth("operations.record", tenant="t_nolink"))
+        assert r.status_code == 200 and r.json().get("message") != NOT_INCLUDED
+    finally:
+        client.app.state.container.api_licence = NullApiLicence(True)
+
+
 # ── one base per shop, and an app bought once ─────────────────────────────────────────────────
 _BASE_LIMITS = {"messages.monthly": {"kind": "counter", "limit": -1},
                 "feature.campaigns": {"kind": "boolean", "limit": 0}}

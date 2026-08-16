@@ -339,6 +339,24 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
     """
     if not principal.tenant:
         return {"ok": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
+        # THE LINK THE SHOP DID NOT BUY — and this door was open while its sibling was shut.
+    #
+    # `feature.api` gates the machine link, and `record_from_till` checks it. This route did not:
+    # a shop whose subscription excludes «ربط برمجي» had its visits refused and its REDEMPTIONS
+    # accepted, so the ledger was debited and a customer receipt went out on a channel nobody was
+    # billed for. The licence file's own justification for exempting a machine — that it «only
+    # READS» — does not reach here: a redemption is a ledger write.
+    #
+    # SAME DIRECTION ON AN OUTAGE as the visits path: a definite «no» refuses, an unreachable
+    # billing lets it through, because a fleet-wide hiccup must not stop every counter in the
+    # country. `/till/customer` stays ungated, being the read the exemption was written for.
+    from app.core.licence import NOT_INCLUDED as API_NOT_INCLUDED
+    from app.core.licence import refuses_machine_writes
+
+    if await refuses_machine_writes(
+            getattr(request.app.state.container, "api_licence", None), principal.tenant):
+        return {"ok": False, "message": API_NOT_INCLUDED}
+
     tenant = principal.tenant
     svc = request.app.state.container.operations
 
@@ -411,6 +429,17 @@ async def apply_offer_at_the_counter(request: Request, body: TillOfferIn,
     """
     if not principal.tenant:
         return {"applied": False, "reason": "هذا الاعتماد غير مرتبط بمنشأة."}
+
+    # THE SAME GATE AS THE REDEMPTION ABOVE, for the same reason: applying an offer spends the
+    # customer's entitlement and writes to his record. It is a machine WRITE, not the read the
+    # licence exemption was written for.
+    from app.core.licence import NOT_INCLUDED as OFFER_NOT_INCLUDED
+    from app.core.licence import refuses_machine_writes as _refuses
+
+    if await _refuses(getattr(request.app.state.container, "api_licence", None),
+                      principal.tenant):
+        return {"applied": False, "reason": OFFER_NOT_INCLUDED}
+
     tenant = principal.tenant
     svc = request.app.state.container.operations
 

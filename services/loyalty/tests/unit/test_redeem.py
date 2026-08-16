@@ -292,3 +292,100 @@ def test_a_different_person_may_still_approve_it():
                             actor="سالم", approved_by="فهد"))
 
     assert rec.approved_by == "فهد"
+
+
+# ── one customer's balance, one spender at a time ──────────────────────────────────────────────
+def test_two_simultaneous_redemptions_cannot_overspend_one_balance():
+    """THE DEFECT. `Ledger.post` reads the balance, checks the overdraft, then writes — and the
+    datastore's only write is an unconditional upsert, with no compare-and-set anywhere in the
+    platform's port. This product opens TWO redemption doors on purpose: the field phone and the
+    integrated till. A customer with 100 points, at branch A's till while a cashier at branch B
+    redeems for him in the same second, walks away with BOTH rewards — the shop gives away twice
+    what he paid for, and the ledger sums to a negative number no screen can explain.
+
+    Driven through the real `MemoryCache`, so what is under test is the adapter's own atomicity
+    rather than a fake that agrees with the design."""
+    from app.adapters.cache.memory import MemoryCache
+    from app.core.spend_lock import SpendBusy
+
+    st = MemoryDataStore()
+    ledger, rewards = Ledger(st), Rewards(st)
+    r = Redeemer(st, ledger, rewards, cache=MemoryCache())
+
+    async def scenario():
+        rw = await rewards.create(T, name="جائزة", cost=100, type="item")
+        await ledger.post(tenant=T, subject_ref=S, delta=100, reason="earn", source="v1")
+
+        held, release = asyncio.Event(), asyncio.Event()
+        original = ledger.balance
+
+        async def slow_balance(tenant, subject_ref):
+            out = await original(tenant, subject_ref)
+            if not held.is_set():
+                held.set()
+                await release.wait()          # the second caller arrives INSIDE the window
+            return out
+
+        ledger.balance = slow_balance         # type: ignore[assignment]
+        first = asyncio.create_task(r.redeem(T, S, rw.id, idem_key="k-a", actor="a"))
+        await held.wait()
+
+        second = asyncio.create_task(r.redeem(T, S, rw.id, idem_key="k-b", actor="b"))
+        await asyncio.sleep(0)
+        release.set()
+        rec, _ = await first
+        assert rec.cost == 100
+        with pytest.raises(SpendBusy):
+            await second
+
+        ledger.balance = original             # type: ignore[assignment]
+        # AND THE LEDGER IS NOT NEGATIVE, which is the number a screen would have had to explain.
+        assert (await ledger.balance(T, S)).points == 0
+
+    run(scenario())
+
+
+def test_the_lock_is_released_so_the_next_redemption_is_not_refused():
+    """A lock that is not released turns one race into a customer who can never spend again."""
+    from app.adapters.cache.memory import MemoryCache
+
+    st = MemoryDataStore()
+    ledger, rewards = Ledger(st), Rewards(st)
+    r = Redeemer(st, ledger, rewards, cache=MemoryCache())
+
+    async def scenario():
+        rw = await rewards.create(T, name="شاي", cost=10, type="item")
+        await ledger.post(tenant=T, subject_ref=S, delta=100, reason="earn", source="v1")
+        await r.redeem(T, S, rw.id, idem_key="k-1", actor="a")
+        await r.redeem(T, S, rw.id, idem_key="k-2", actor="a")
+        assert (await ledger.balance(T, S)).points == 80
+
+    run(scenario())
+
+
+def test_a_cache_that_cannot_be_asked_refuses_rather_than_assumes_nobody_is_spending():
+    """«We could not check» must never render as «nobody is»: that is the fail-open shape, and here
+    it costs the shop a reward it did not sell."""
+    from app.core.spend_lock import SpendBusy
+
+    class Broken:
+        driver = "broken"
+
+        async def set_if_absent(self, key, value, ttl_seconds=None):
+            raise OSError("cache is gone")
+
+        async def delete(self, key):
+            return False
+
+    st = MemoryDataStore()
+    ledger, rewards = Ledger(st), Rewards(st)
+    r = Redeemer(st, ledger, rewards, cache=Broken())
+
+    async def scenario():
+        rw = await rewards.create(T, name="قهوة", cost=10, type="item")
+        await ledger.post(tenant=T, subject_ref=S, delta=100, reason="earn", source="v1")
+        with pytest.raises(SpendBusy):
+            await r.redeem(T, S, rw.id, idem_key="k-x", actor="a")
+        assert (await ledger.balance(T, S)).points == 100
+
+    run(scenario())

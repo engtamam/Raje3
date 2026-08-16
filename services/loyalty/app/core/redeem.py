@@ -27,13 +27,17 @@ from typing import Any
 from app.core.ledger import Ledger
 from app.core.models import (REDEMPTIONS, LoyaltyError, Overdraft, Redemption, Reward)
 from app.core.rewards import Rewards
+from app.core.spend_lock import SpendLock
 
 
 class Redeemer:
-    def __init__(self, store: Any, ledger: Ledger, rewards: Rewards) -> None:
+    def __init__(self, store: Any, ledger: Ledger, rewards: Rewards, cache: Any = None) -> None:
         self.store = store
         self.ledger = ledger
         self.rewards = rewards
+        # ONE SPENDER AT A TIME. See core/spend_lock.py: the balance read and the ledger write are
+        # not atomic against each other, and this product opens two redemption doors on purpose.
+        self.cache = cache
 
     async def _existing(self, tenant: str, idem_key: str) -> Redemption | None:
         if not idem_key:
@@ -54,6 +58,28 @@ class Redeemer:
         send a second receipt in that case. A field phone on a bad connection retries; the customer
         must not receive two messages for one reward.
         """
+        prior = await self._existing(tenant, idem_key)
+        if prior is not None:
+            return prior, False
+
+        # HELD FROM THE BALANCE READ TO THE LEDGER WRITE, and released whatever happens.
+        #
+        # Everything below reads a balance and then spends against what it read. Two callers in
+        # that window — the till at one branch and the phone at another, which the product
+        # deliberately allows — both see the same points and both hand a reward over. The customer
+        # paid for one. `SpendBusy` is raised as a refusal a cashier can read and retry.
+        async with SpendLock(self.cache, tenant, subject_ref):
+            return await self._redeem_locked(
+                tenant, subject_ref, reward_id, actor=actor, idem_key=idem_key, channel=channel,
+                approved_by=approved_by, manager_threshold=manager_threshold,
+                branch_id=branch_id, source=source)
+
+    async def _redeem_locked(self, tenant: str, subject_ref: str, reward_id: str, *,
+                             actor: str, idem_key: str, channel: str, approved_by: str,
+                             manager_threshold: int, branch_id: str,
+                             source: str) -> tuple[Redemption, bool]:
+        # RE-CHECKED INSIDE THE LOCK. The caller that lost the race above may have been waiting on
+        # the winner's own idempotency key — and outside the lock this read was the stale one.
         prior = await self._existing(tenant, idem_key)
         if prior is not None:
             return prior, False
