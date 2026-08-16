@@ -85,3 +85,35 @@ def test_a_malformed_reference_changes_nothing_and_says_nothing(client):
     an oracle for whether a customer exists."""
     r = client.put("/api/v1/prefs/not-a-reference", json={"stopped": []})
     assert r.status_code == 200 and r.json()["saved"] is False
+
+
+def test_a_customer_who_never_agreed_is_not_shown_an_agreed_switch(client):
+    """د-1 — AND THIS IS WHERE THE DEFECT LIVED, on the READ.
+
+    Every other class is opt-out: it runs until he stops it. Marketing is opt-in. Drawn from the
+    stopped map, its box showed TICKED to a customer who had never granted anything — because he
+    had never refused anything either — and the page that renders those switches sends back «what
+    is ON». So he opened his page to switch off a reminder, saved, and a tick he never made was
+    read as a grant and written as one, with a shop's name and a statement version on it.
+    """
+    r = client.get("/api/v1/prefs/shopx.ref_neveragreed001")
+    assert r.status_code == 200, r.text
+    marketing = next(p for p in r.json()["preferences"] if p["class"] == "marketing")
+    assert marketing["enabled"] is False, "never asked is not agreed"
+    # AND THE OTHERS ARE UNTOUCHED: a service reminder he bought is not opt-in.
+    service = next(p for p in r.json()["preferences"] if p["class"] == "service")
+    assert service["enabled"] is True
+
+
+def test_saving_the_page_for_another_reason_does_not_invent_a_grant(client):
+    """The whole journey: he reads his page, changes something else, and posts back exactly what
+    the page showed him — which no longer contains a marketing tick he never made."""
+    ref = "shopx.ref_othersave00001"
+    shown = client.get(f"/api/v1/prefs/{ref}").json()["preferences"]
+    # What a browser posts: the classes whose boxes are ticked. Everything else is stopped.
+    stopped = [p["class"] for p in shown if not p["enabled"]]
+    before = _count(client)
+
+    r = client.put(f"/api/v1/prefs/{ref}", json={"stopped": stopped + ["service"]})
+    assert r.status_code == 200, r.text
+    assert _count(client) == before, "a save he made for another reason granted nothing"

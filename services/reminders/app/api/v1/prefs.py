@@ -68,12 +68,27 @@ async def get_prefs(request: Request, ref: str) -> dict:
     holding a forwarded link, which is the leak this design exists to prevent.
     """
     tenant, subject = _tenant_and_subject(ref)
-    row = await PrefsStore(request.app.state.container.datastore).get(tenant, subject) \
-        if tenant and subject else None
+    ds = request.app.state.container.datastore
+    row = await PrefsStore(ds).get(tenant, subject) if tenant and subject else None
     stopped = (row or {}).get("stopped") or {}
+    enabled = {c: not stopped.get(c, False) for c in CLASSES}
+
+    # ── MARKETING IS DRAWN FROM THE CONSENT, NOT FROM THE ABSENCE OF A REFUSAL (د-1) ───────────
+    # Every other class here is opt-OUT: it runs until the customer stops it, which is right for a
+    # service reminder he asked for by buying something. Marketing is opt-IN — §8.5 and the PDPL's
+    # prior-consent rule — so «he never stopped it» is not «he agreed to it».
+    #
+    # Rendered from the stopped map, the box showed TICKED to a customer who had never granted
+    # anything, because he had never refused anything either. He opened his page to switch off one
+    # reminder, saved, and the tick he never made was read as a grant and written as one.
+    #
+    # Reading it from the consent record makes the first tick a real act — which is what the write
+    # side now requires before it records anything.
+    if tenant and subject:
+        enabled["marketing"] = await Consent(ds).state(tenant, subject) == GRANTED
+
     return {"preferences": [
-        {"class": c, "label": LABELS[c], "enabled": not stopped.get(c, False)}
-        for c in CLASSES]}
+        {"class": c, "label": LABELS[c], "enabled": enabled[c]} for c in CLASSES]}
 
 
 class PrefsIn(BaseModel):
@@ -138,10 +153,23 @@ async def set_prefs(request: Request, ref: str, body: PrefsIn) -> dict:
     # of identical grants is not evidence of anything, and it would inflate the owner's count.
     consent = Consent(ds)
     now_on = "marketing" not in stopped
-    was_on = "marketing" not in was_stopped
     state = await consent.state(tenant, subject)
+    # FROM THE RECORD, NOT FROM THE STOPPED MAP. `"marketing" not in was_stopped` was true for
+    # everybody who had never touched the page, so «was on» meant «never said anything» — and a
+    # transition measured against it could never be real.
+    was_on = state == GRANTED
     shop = await _shop_name(request, tenant)
-    if now_on and (state != GRANTED):
+    # WHAT MAKES THIS A REAL TICK IS THE READ SIDE, NOT A CONDITION HERE (د-1).
+    #
+    # `now_on` is only «marketing is absent from the stopped list». It used to be absent for every
+    # customer who had never touched this page — the box rendered TICKED because he had never
+    # refused — so saving the page for any other reason wrote a consent record, with a shop name
+    # and a statement version, against somebody who had agreed to nothing.
+    #
+    # No condition here can tell those apart: «he ticked it» and «it was never off» arrive as the
+    # same request. `get_prefs` now draws this one switch from the CONSENT record, so a customer
+    # who has not granted sees it off, sends it stopped, and only a deliberate tick clears it.
+    if now_on and state != GRANTED:
         # AUDITED SEPARATELY from the preference change, and write-ahead. A consent we cannot
         # prove is a consent we did not have, and the message that followed it is then unlawful
         # rather than merely unrecorded.
