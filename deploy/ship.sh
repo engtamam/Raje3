@@ -434,7 +434,26 @@ ship_one() {
     # address inside a repository; pinning the registry's manifest digest under `docker.io/...`
     # would name content that repository does not contain.
     sed -i "s|$digest|$manifest|" "$values"
-    sed -i "s|repository: docker.io/raje3/$svc|repository: 127.0.0.1:$REG_PORT/raje3/$svc|" "$values"
+    # THE REPOSITORY MOVES WITH THE DIGEST, AND THIS LINE USED TO MATCH NOTHING.
+    #
+    # It looked for the literal `repository: docker.io/raje3/$svc`, and not one of the twenty-four
+    # values files has said `docker.io` for a long time — they say `ghcr.io/engtamam/raje3/...`.
+    # So the substitution ran, changed nothing, reported success, and left the file pinning the
+    # LOCAL registry's manifest digest under the GHCR repository: a name that repository does not
+    # contain. kubelet then asks ghcr for a digest nobody published there.
+    #
+    # It has not bitten yet for one reason only — `publish-images.sh` pushes the same content to
+    # ghcr and lands on the same manifest digest — and that is luck, not a mechanism: the moment
+    # `ship.sh` builds an edit that was never published, the reference is unresolvable.
+    #
+    # MATCH THE LINE, NOT THE STRING; AND REFUSE TO CONTINUE WHEN NOTHING CHANGED. A rewrite that
+    # silently matched nothing is exactly the shape this script's own header lists five times.
+    sed -i -E "s|^([[:space:]]*repository:).*|\1 127.0.0.1:$REG_PORT/raje3/$svc|" "$values"
+    if ! grep -q "repository: 127.0.0.1:$REG_PORT/raje3/$svc" "$values"; then
+      red "$svc: could not point the values file at the node registry — the repository line moved"
+      red "   the image is on the node; fix the line in $values and re-run"
+      return 1
+    fi
     digest="$manifest"
     python3 "$ROOT/ci/check_deploy_wiring.py" >/dev/null 2>&1 || {
       red "$svc: deploy-wiring guard failed after re-pinning to the registry digest"
@@ -692,9 +711,14 @@ ship_many() {
       m="$(cat "$tmp/$svc.manifest")"
       values="$ROOT/deploy/services/$svc.values.yaml"
       sed -i "s|${DIGEST[$svc]}|$m|" "$values"
-      sed -i "s|repository: docker.io/raje3/$svc|repository: 127.0.0.1:$REG_PORT/raje3/$svc|" "$values"
+      # MATCH THE LINE, NOT A STRING NO VALUES FILE CONTAINS — see the single-service path above.
+      sed -i -E "s|^([[:space:]]*repository:).*|\1 127.0.0.1:$REG_PORT/raje3/$svc|" "$values"
+      grep -q "repository: 127.0.0.1:$REG_PORT/raje3/$svc" "$values" || {
+        red "$svc: could not point the values file at the node registry"; rc=1
+      }
       DIGEST[$svc]="$m"
     done
+    [ "$rc" -eq 0 ] || { rm -rf "$tmp"; return 1; }
     python3 "$ROOT/ci/check_deploy_wiring.py" >/dev/null 2>&1 || {
       red "deploy-wiring guard failed after re-pinning to the registry digests"
       python3 "$ROOT/ci/check_deploy_wiring.py" 2>&1 | tail -8

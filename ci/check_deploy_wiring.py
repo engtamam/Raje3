@@ -172,6 +172,37 @@ else:
                  f"{svc} serves /internal/privacy/erase but is NOT in PRIVACY_TARGETS — a deletion "
                  f"request will never reach it, and the customer will be told it was honoured")
 
+    # ── AND THE OTHER DIRECTION, WHICH NOTHING CHECKED (د-4) ──────────────────────────────────
+    #
+    # PRIVACY_TARGETS is what compliance CAN reach. TENANT_DATA_MAP is what operations REGISTERS
+    # for a shop at signup — and the fan-out goes to the registered targets, not to the reachable
+    # ones. So a service could sit in PRIVACY_TARGETS, serve the erase route, answer correctly if
+    # asked — and never be asked, because nobody ever put it on any shop's map.
+    #
+    # Seven were in exactly that state: job, wallet, analytics, webhook, connector, feature-flag
+    # and backup. Every erasure fanned out to the others, every one of THOSE acknowledged, and
+    # `derive_completion` closed the request COMPLETED. The customer was told his data was gone
+    # while seven stores still held it — and the check above was green the whole time, because it
+    # only ever looked the other way.
+    ops = ROOT / "deploy" / "services" / "operations.values.yaml"
+    map_line = ""
+    for line in read(ops).splitlines():
+        if line.strip().startswith("TENANT_DATA_MAP:"):
+            map_line = line.split(":", 1)[1].strip().strip('"')
+            break
+    mapped = {e.split(":", 1)[0].strip() for e in map_line.split(",") if ":" in e}
+    if not mapped:
+        fail("operations.values.yaml",
+             "TENANT_DATA_MAP is empty or unreadable — no shop has a data map, so every erasure "
+             "reaches nobody and closes COMPLETED")
+    for svc in sorted(listed):
+        if svc in ("api-gateway", "compliance-service"):
+            continue
+        if svc not in mapped:
+            fail("operations.values.yaml",
+                 f"{svc} is in PRIVACY_TARGETS but NOT in TENANT_DATA_MAP — no shop registers it, "
+                 f"so no erasure ever reaches it and the request still closes COMPLETED")
+
 # ── 4. every scheduled job points at a route that exists ─────────────────────────────────────
 for f in values_files():
     text = read(f)
