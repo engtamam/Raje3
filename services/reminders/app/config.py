@@ -226,6 +226,13 @@ class Settings(BaseSettings):
     # in this service. See adapters/message_sender for why this is a route and not a column.
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
     OPERATIONS_RECIPIENT_PATH: str = "/internal/operations/recipient"
+    # WHICH BRANCH THIS PERSON MAY SEE — asked of the only service that staffs the shop.
+    #
+    # The send log narrows by branch, and until now it narrowed by whatever branch the CALLER
+    # typed: a manager assigned to Jeddah could read every message that went out in Riyadh's name
+    # by changing one query parameter. «ما الذي خرج باسمي» is the question this service exists to
+    # answer, and it was answering it about other people's branches.
+    OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
     # The catch-up read. The event bus is at-most-once (see ports/event_bus.py), so a missed visit
     # is a reminder that never exists — for ever. This is the readable path that repairs it.
     OPERATIONS_VISITS_SINCE_PATH: str = "/internal/operations/visits/since"

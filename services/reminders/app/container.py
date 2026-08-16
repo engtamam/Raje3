@@ -269,6 +269,12 @@ def build_container(settings: Settings) -> Container:
         timeout=settings.PEER_TIMEOUT_SECONDS,
         ttl=settings.TEMPLATE_LIBRARY_TTL_SECONDS)
 
+    # WHO MAY SEE WHOSE MESSAGES. The send log narrows by branch; without this it narrows by
+    # whatever branch the caller typed.
+    from app.adapters.branch_scope import build as build_scope
+
+    container.branch_scope = build_scope(settings)
+
     # HIS OWN CYCLES. Without this the settings tree's default (90 days) is every shop's cycle
     # for every service it never hand-edited — see R.ShopCatalogue.
     container.catalogue = R.ShopCatalogue(

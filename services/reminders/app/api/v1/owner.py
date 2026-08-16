@@ -170,9 +170,32 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     group (campaigns, and shops that label nothing), and folding them into "everything" is how
     they stop being visible as a gap worth closing.
     """
-    store = SendLogStore(request.app.state.container.datastore)
+    c = request.app.state.container
+
+    # WHOSE MESSAGES MAY HE READ — asked before the query is built, not after.
+    #
+    # THE HOLE THIS CLOSES: the filter took whatever branch the CALLER typed, so a manager assigned
+    # to Jeddah read every message that went out in Riyadh's name by changing one query parameter.
+    # On the one screen this service exists to provide, about the one thing a shop is most
+    # sensitive about — what was said to its customers, in its name.
+    scope = ""
+    resolver = getattr(c, "branch_scope", None)
+    if resolver is not None:
+        scope = await resolver.scope(principal.tenant, getattr(principal, "subject", "") or "")
+    if scope == "_unreadable":
+        # «WE COULD NOT CHECK» IS NOT «NO LIMIT». Refusing costs him the log for a minute;
+        # guessing shows him somebody else's.
+        return {"log": [], "count": 0,
+                "unavailable": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."}
+
+    store = SendLogStore(c.datastore)
     where: dict[str, str] | None = {"outcome": outcome} if outcome else None
-    if branch_id:
+    if scope:
+        # HIS OWN BRANCH, AND THE PARAMETER IS IGNORED. Not refused — a bookmark carrying another
+        # branch is a stale link, not an attack, and answering it with his own rows is both the
+        # safe reading and the useful one.
+        where = {**(where or {}), "branch_id": scope}
+    elif branch_id:
         where = {**(where or {}), "branch_id": "" if branch_id == "_none" else branch_id}
     rows, _ = await store._find(principal.tenant, where, limit=limit, sort=("at", "desc"))
     # The visit-idempotency markers live in this collection (see core/scheduling.py) and are not

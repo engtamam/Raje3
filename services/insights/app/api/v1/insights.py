@@ -86,8 +86,19 @@ async def dashboard(request: Request, branch_id: str = "",
     # sees the establishment, exactly as before.
     ask = getattr(c.peers, "branch_scope", None)
     scope = await ask(tenant, getattr(principal, "subject", "")) if ask else ""
+    if scope == "_unreadable":
+        # FAIL CLOSED — and it used to fail OPEN, on the one question that decides who sees whose
+        # numbers. `_unreadable` means we could not learn which branch this person works at, and
+        # the old line turned that into `branch_id = ""`, which is «the whole establishment». So
+        # a branch manager, during any operations hiccup, was handed the entire chain's dashboard:
+        # every branch's revenue and traffic, from a read that failed.
+        #
+        # An unknown scope is not an empty scope. Refusing costs him a dashboard for a minute;
+        # guessing costs the owner a confidentiality he never agreed to give up.
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={
+            "message": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."})
     if scope:
-        branch_id = "" if scope == "_unreadable" else scope
+        branch_id = scope
 
     snap = await _snapshot(c, tenant, branch_id)
 
@@ -238,10 +249,28 @@ async def branches(request: Request, principal: Principal = Depends(_READ)):
     # needs nothing else: the switch does not render for it either (core/tick.py).
     c = request.app.state.container
     tenant = _tenant(principal)
+
+    # THE SAME SCOPE THE DASHBOARD APPLIES, and this route did not ask for it at all — which made
+    # it the widest hole in the product: the branch COMPARISON table is every branch's revenue and
+    # traffic side by side, and a branch-scoped manager read the whole chain's copy of it. The
+    # dashboard next door was scoped; this one was not, so the isolation held everywhere except
+    # the single screen that exists to compare people.
+    ask = getattr(c.peers, "branch_scope", None)
+    scope = await ask(tenant, getattr(principal, "subject", "")) if ask else ""
+    if scope == "_unreadable":
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={
+            "message": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."})
+
     snap = await _snapshot(c, tenant)
     cov = ((snap or {}).get("coverage") or {}).get("branch_comparison") or {}
-    return {"coverage": cov,
-            "rows": ((snap or {}).get("values") or {}).get("branch_rows") or [],
+    rows = ((snap or {}).get("values") or {}).get("branch_rows") or []
+    if scope:
+        # HIS OWN ROW, AND NO RANKING. A table of one cannot be ranked, and «الأول من ثلاثة» said
+        # to somebody who may not see the other two is a number he cannot check and we should not
+        # have shown.
+        rows = [r for r in rows if str(r.get("branch_id") or "") == scope]
+        return {"coverage": cov, "rows": rows, "unknown": 0, "can_rank": False}
+    return {"coverage": cov, "rows": rows,
             "unknown": cov.get("unknown", 0),
             "can_rank": bool(((snap or {}).get("values") or {}).get("branch_can_rank"))}
 

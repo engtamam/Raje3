@@ -382,3 +382,76 @@ def test_nobody_having_agreed_shows_no_card_rather_than_zero(client, owner):
     _seed(client, regulars(30, "aud3", ["wash"]))
     client.app.state.container.peers.extras = {"consented": 0}
     assert client.get("/api/v1/insights/dashboard", headers=owner).json()["audience"] is None
+
+
+# ── who may see whose numbers (spec §12.2) ─────────────────────────────────────────────────────
+def test_an_unreadable_branch_scope_refuses_instead_of_showing_the_whole_chain(client, owner):
+    """THE FAIL-OPEN, AND IT WAS ON THE ONE QUESTION THAT DECIDES WHO SEES WHOSE NUMBERS.
+
+    `branch_scope` answers `_unreadable` when operations — the only service that knows who works
+    where — could not be asked. The dashboard turned that into «no branch filter», which means THE
+    WHOLE ESTABLISHMENT: during any hiccup at the peer, a branch manager was handed the entire
+    chain's dashboard. An unknown scope is not an empty scope.
+    """
+    c = client.app.state.container
+
+    async def unreadable(tenant, subject):
+        return "_unreadable"
+
+    c.peers.branch_scope = unreadable
+    try:
+        r = client.get("/api/v1/insights/dashboard", headers=owner)
+        assert r.status_code == 503, r.text
+        assert "تعذّر التحقق" in r.json()["message"]
+    finally:
+        c.peers.branch_scope = None
+
+
+def test_the_branch_table_is_scoped_too(client, owner):
+    """THE WIDEST HOLE, because of WHAT this table is: every branch's revenue and traffic side by
+    side. The dashboard next door was scoped; this route did not ask for a scope at all — so the
+    isolation held everywhere except the single screen that exists to compare people."""
+    c = client.app.state.container
+
+    async def only_jeddah(tenant, subject):
+        return "jeddah"
+
+    c.peers.branch_scope = only_jeddah
+    try:
+        body = client.get("/api/v1/insights/branches", headers=owner).json()
+        assert all(str(r.get("branch_id") or "") == "jeddah" for r in body["rows"]), body["rows"]
+        assert body["can_rank"] is False, (
+            "«الأول من ثلاثة» said to somebody who may not see the other two is a number he "
+            "cannot check and we should not have shown")
+    finally:
+        c.peers.branch_scope = None
+
+
+def test_the_branch_table_refuses_on_an_unreadable_scope(client, owner):
+    c = client.app.state.container
+
+    async def unreadable(tenant, subject):
+        return "_unreadable"
+
+    c.peers.branch_scope = unreadable
+    try:
+        assert client.get("/api/v1/insights/branches", headers=owner).status_code == 503
+    finally:
+        c.peers.branch_scope = None
+
+
+def test_an_unscoped_person_still_sees_the_whole_establishment(client, owner):
+    """The other half: the owner, and everybody in a shop that assigns nobody, is unscoped by
+    design. A fix that locked them out would be the same defect facing the other way."""
+    c = client.app.state.container
+
+    async def unscoped(tenant, subject):
+        return ""
+
+    c.peers.branch_scope = unscoped
+    try:
+        r = client.get("/api/v1/insights/branches", headers=owner)
+        assert r.status_code == 200
+        assert "can_rank" in r.json()
+    finally:
+        c.peers.branch_scope = None
