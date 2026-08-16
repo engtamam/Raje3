@@ -122,7 +122,7 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         await request.app.state.auditor.record(
             "whatsapp.connect_stopped", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource="whatsapp_connection", ip=ip)
-        return attempt.public(can_send=bool(s.SIGNUP_OTP_DELIVERABLE))
+        return attempt.public(can_send=await _can_send(tenant, attempt))
 
     if not body.code:
         # A FINISH WITHOUT A CODE. Not a cancellation and not a failure of ours; it is the one shape
@@ -194,7 +194,38 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the
     # second is open the screen says so rather than sending him off to wait for messages that
     # cannot leave.
-    return attempt.public(can_send=bool(s.SIGNUP_OTP_DELIVERABLE))
+    return attempt.public(can_send=await _can_send(tenant, attempt))
+
+
+async def _can_send(tenant: str, attempt) -> bool:
+    """Can a message actually leave — the ONE answer both doors give (د-16).
+
+    THE DEFECT WAS TWO ANSWERS. The GET computed this properly; the POST returned
+    `SIGNUP_OTP_DELIVERABLE` alone. And the screen reads the POST first — `Connect.tsx`
+    renders the whole PIN form behind `connected && can_send === false` — so the moment the
+    flag was raised the owner read «جاهز للإرسال», the code field never appeared at all, and
+    every message bounced 133010 because his number was never registered. Green and mute,
+    with no way forward on the screen.
+
+    TWO FACTS, AND BOTH MUST BE TRUE.
+
+    1. OUR CHANNEL IS OPEN — the same flag the signup path obeys, flipped in the same change
+       that points WhatsApp at Meta, with a guard that fails the build if the two disagree.
+    2. HIS NUMBER IS REGISTERED — read live from Meta (v0.16.10). A token exchange
+       succeeding means Meta gave us credentials; it does not mean the number may send, and
+       assuming it is exactly how a shop ends up «مربوط» and mute.
+
+    AND «WE COULD NOT ASK» IS NOT «NOT READY». An unreadable status leaves the answer to the
+    deployment flag alone rather than telling him his number is unverified — a screen that
+    invents a fault sends him chasing one.
+    """
+    s = get_settings()
+    channel_open = bool(s.SIGNUP_OTP_DELIVERABLE)
+    if not channel_open or attempt.state != connect.STATE_CONNECTED:
+        return channel_open
+    live = await connect.build_registration(s).status(tenant, attempt.phone_number_id)
+    verified = str(live.get("code_verification_status") or "").upper()
+    return verified in ("VERIFIED", "EXPIRED_VERIFIED") if verified else channel_open
 
 
 @router.get("/connect", dependencies=[Depends(rate_limit)])
@@ -217,15 +248,7 @@ async def whatsapp_connect_status(request: Request, principal=Depends(_OWNER)) -
     # AND «WE COULD NOT ASK» IS NOT «NOT READY». An unreadable status leaves the answer to the
     # deployment flag alone rather than telling him his number is unverified — a screen that
     # invents a fault sends him chasing one.
-    s = get_settings()
-    channel_open = bool(s.SIGNUP_OTP_DELIVERABLE)
-    ready = channel_open
-    if channel_open and attempt.state == connect.STATE_CONNECTED:
-        live = await connect.build_registration(s).status(tenant, attempt.phone_number_id)
-        verified = str(live.get("code_verification_status") or "").upper()
-        if verified:
-            ready = verified in ("VERIFIED", "EXPIRED_VERIFIED")
-    return attempt.public(can_send=ready)
+    return attempt.public(can_send=await _can_send(tenant, attempt))
 
 
 class RegisterIn(BaseModel):

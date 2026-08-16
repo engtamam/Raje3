@@ -9,7 +9,7 @@
  * code is the one that goes stale the day marketing renames a row.
  */
 import { describe, expect, it } from 'vitest';
-import { appKey, kindOf, type Plan } from './Plans';
+import { appKey, canBuy, kindOf, type Plan } from './Plans';
 
 const plan = (name: string, limits: Record<string, { kind?: string; limit: number }>) =>
   ({ id: name, name, limits } as Plan);
@@ -75,5 +75,31 @@ describe('the purchase path', () => {
     expect(ours).toBeGreaterThan(-1);
     // Ours is read FIRST; theirs may remain only as the fallback after it.
     expect(theirs === -1 || ours < theirs).toBe(true);
+  });
+});
+
+// --- د-15 · a button that could never buy ------------------------------------------------------
+
+describe('canBuy', () => {
+  it('does not offer a purchase this browser cannot pay for', () => {
+    // THE DEFECT. The screen posted `{ plan_id }` and nothing else, and `subscription.activate`
+    // decides `paid = bool(payment_token)` — so every paid row was drawn as a live button and
+    // answered 402 on press. Only the base got through, and only because its 14-day trial skips
+    // the payment check entirely, which is why nobody noticed.
+    expect(canBuy({ hasAction: true, gatewayEnabled: true, canMint: false })).toBe(false);
+  });
+
+  it('does not offer a purchase with no gateway behind it', () => {
+    expect(canBuy({ hasAction: true, gatewayEnabled: false, canMint: true })).toBe(false);
+  });
+
+  it('does not offer a purchase his role cannot make', () => {
+    expect(canBuy({ hasAction: false, gatewayEnabled: true, canMint: true })).toBe(false);
+  });
+
+  it('offers it when all three are true', () => {
+    // The day the card form lands, this is the only combination that changes — and it changes in
+    // `payment.ts`, not here.
+    expect(canBuy({ hasAction: true, gatewayEnabled: true, canMint: true })).toBe(true);
   });
 });

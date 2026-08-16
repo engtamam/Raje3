@@ -24,9 +24,12 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-MARKERS = ("-----BEGIN RSA PRIVATE KEY", "-----BEGIN PRIVATE KEY",
-           "-----BEGIN OPENSSH PRIVATE KEY", "-----BEGIN EC PRIVATE KEY",
-           "-----BEGIN DSA PRIVATE KEY", "-----BEGIN PGP PRIVATE KEY")
+# ASSEMBLED, NOT WRITTEN OUT. A gate that spells the header it hunts for is a file that trips
+# itself — which it did on the first run, and it was right to: it must judge every tracked file by
+# the same rule, with no name of its own on an exceptions list.
+_HEAD = "-----" + "BEGIN "
+MARKERS = tuple(_HEAD + kind + " PRIVATE KEY"
+                for kind in ("RSA", "OPENSSH", "EC", "DSA", "PGP")) + (_HEAD + "PRIVATE KEY",)
 SUFFIXES = (".pem", ".key", ".p12", ".pfx")
 NAMES = ("id_rsa", "id_ed25519", "id_ecdsa", "id_dsa")
 

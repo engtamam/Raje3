@@ -29,6 +29,7 @@
  * thing left and what already works without it. A silent success here would be the real sale of
  * something undeliverable: he would learn it a week later from messages that never went.
  */
+import { canMintToken, mintPaymentToken, NO_CARD_FORM } from '../payment';
 import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
@@ -177,6 +178,25 @@ export function appKey(plan: Plan): string {
  * AND THE LIMITS ARE STILL THE SERVER'S. The lines under the price are the plan's own `limits`,
  * worded by LIMIT_WORDS and nothing else; a number typed here would be a second price list.
  */
+/**
+ * MAY THIS PRESS BUY ANYTHING? (د-15)
+ *
+ * Three separate facts, and the screen used to check two. `gatewayEnabled` answers «is there
+ * a gateway key on the server»; `canMint` answers «can this browser hand back a card token».
+ * They were read as one fact, so with a key configured every paid row was drawn live, posted
+ * `{ plan_id }` with no token, and came back 402 — while the base slipped through only
+ * because its trial skips the payment check entirely.
+ *
+ * A FUNCTION RATHER THAN A CONDITION INSIDE THE HANDLER, so the rule can be stated and broken
+ * on purpose — the condition in the press was reachable only by pressing.
+ */
+export function canBuy(
+  { hasAction, gatewayEnabled, canMint }:
+  { hasAction: boolean; gatewayEnabled: boolean; canMint: boolean },
+): boolean {
+  return hasAction && gatewayEnabled && canMint;
+}
+
 function PlanCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel,
 }: {
@@ -354,10 +374,19 @@ export function PlansPane({
     // all, which is a capability question and not a readiness one.
     // NOT WHILE THE TILL IS SHUT. The press is still remembered — his choice is not lost — but
     // nothing is written and no plan starts.
-    if (!canSubscribe || !pay?.enabled) return;
+    // AND NOT WITHOUT A TOKEN WE CAN ACTUALLY MINT (د-15). `pay.enabled` answers «is there a
+    // gateway key», which is a different question from «can this browser hand back a card
+    // token». The screen used to press on regardless, posting `{ plan_id }` alone, and every
+    // paid row came back 402 — a live-looking button that could never work, while the base
+    // slipped through only because its trial skips the check.
+    if (!canSubscribe) return;
+    if (!canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled),
+                 canMint: canMintToken })) return;
     setBusy(true);
     try {
-      const out = await call<{ notice?: string }>(session, canSubscribe, { plan_id: p.id });
+      const payment_token = await mintPaymentToken();
+      const out = await call<{ notice?: string }>(session, canSubscribe,
+                                                 { plan_id: p.id, payment_token });
       // THE SERVER'S SENTENCE, NOT OURS. What is still owed after a successful subscription is a
       // product rule and it lives in one place; a second copy here is the one that goes stale.
       setNotice(out?.notice ?? '');
@@ -436,6 +465,13 @@ export function PlansPane({
       {/* NO TILL, SO NOTHING IS SOLD — and it is said plainly rather than by a button that does
           nothing. The day a gateway is configured this sentence disappears by itself: one key
           decides, read from the server, with no edit here and no rebuild. */}
+      {pay?.enabled && !canMintToken ? (
+        <div className="rounded-card border border-border-subtle bg-surface-2 p-5 text-center">
+          <p className="mb-1 font-medium">الدفع بالبطاقة قريباً</p>
+          <p className="text-sm text-text-secondary">{NO_CARD_FORM}</p>
+        </div>
+      ) : null}
+
       {pay && !pay.enabled && pay.message ? (
         <div className="rounded-card border border-border-subtle bg-surface-2 p-5 text-center">
           <p className="mb-1 font-medium">الدفع مغلق مؤقتاً</p>
