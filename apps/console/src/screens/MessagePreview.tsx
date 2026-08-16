@@ -321,6 +321,10 @@ export function MessagePreview({
                 reasonId={reasonId}
                 label={label}
                 slots={slots}
+                // WHAT HE WROTE LAST TIME, if he wrote one. Without this the editor opened blank
+                // and his saved text sat in `mine` one component away, so a second edit meant
+                // typing the whole message again.
+                body={(isReady(mine) ? mine : []).find((t) => t.body)?.body ?? ''}
                 onClose={() => setWriting(false)}
                 onSaved={() => { setReload((n) => n + 1); onChosen(); }}
               />

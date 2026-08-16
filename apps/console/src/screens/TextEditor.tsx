@@ -42,6 +42,26 @@ function chipHtml(slot: Slot): string {
   return `<span contenteditable="false" data-kind="${slot.id}" class="${CHIP}">${slot.label}</span>`;
 }
 
+/**
+ * The inverse of `readBack`: his saved body — WhatsApp's `{{1}}` numbering — back into the editor's
+ * own markup, so «عدّل نصّي» opens on what he wrote rather than on a blank box.
+ *
+ * THE ORDER IS THE MEANING. `{{1}}` is the first slot this reason declares, `{{2}}` the second —
+ * the same contract `readBack` writes out, read the other way. A number with no slot behind it is
+ * left as the literal text: it is a template we no longer understand, and silently deleting a
+ * blank out of his message would be worse than showing it to him as it is.
+ */
+function toHtml(body: string, slots: Slot[]): string {
+  const escape = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escape(body)
+    .replace(/\{\{(\d+)\}\}/g, (whole, n) => {
+      const slot = slots[Number(n) - 1];
+      return slot ? chipHtml(slot) : whole;
+    })
+    .replace(/\n/g, '<br>');
+}
+
 /** Walk the editable and read back the text and the meanings, in the order they appear. */
 function readBack(root: HTMLElement): { body: string; fills: string[] } {
   const fills: string[] = [];
@@ -70,18 +90,22 @@ function readBack(root: HTMLElement): { body: string; fills: string[] } {
 }
 
 export function TextEditor({
-  session, catalog, reasonId, label, slots, onClose, onSaved,
+  session, catalog, reasonId, label, slots, body, onClose, onSaved,
 }: {
   session: Session;
   catalog: Catalog;
   reasonId: string;
   label: string;
   slots: Slot[];
+  /** WHAT HE WROTE LAST TIME. The editor opened blank while his saved text sat one component away
+   *  in `Mine.body`, unpassed — so «عدّل نصّي» meant «اكتبه again from nothing», and the second
+   *  edit of any template was a rewrite. `draft` was declared for this and never set. */
+  body?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const box = useRef<HTMLDivElement | null>(null);
-  const [draft, setDraft] = useState<Draft>({ html: '' });
+  const [draft, setDraft] = useState<Draft>({ html: toHtml(body ?? '', slots) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   /** What the customer would read — the same substitution the preview does, done live. */

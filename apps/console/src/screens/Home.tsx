@@ -20,7 +20,9 @@ import type { Session } from '../session';
 export function Home() {
   const { session, catalog } = useOutletContext<{ session: Session; catalog: Catalog }>();
   const sections = visibleSections(catalog);
-  const first = sections[0]?.id;
+  // NEVER LAND HIM ON A SECTION THAT CANNOT ANSWER. The rail still shows it — he must know it
+  // exists and why it is quiet — but the default screen has to be one that works.
+  const first = (sections.find((s) => !s.unavailable) ?? sections[0])?.id;
 
   if (first === 'today') return <TodayScreen session={session} catalog={catalog} />;
   if (first === 'visit') return <Visit />;

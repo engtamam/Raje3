@@ -28,6 +28,17 @@ export interface Section {
   label: string;
   /** Every id must be present for the section to appear. Empty = always available. */
   requires: string[];
+  /** WHICH SERVICE PROVIDES ITS ACTIONS. Named so a section can survive its service being down:
+   *  without it, a service that is unreachable takes its actions out of the catalogue, the
+   *  capability filter below finds nothing, and the row simply vanishes — which the owner reads
+   *  as «my subscription changed» or «I lost a permission», and he calls support about neither. */
+  service?: string;
+}
+
+/** A section as the shell must draw it: present, and possibly not usable right now. */
+export interface SectionState extends Section {
+  /** Its service did not answer. NOT «he may not have it» — a different sentence entirely. */
+  unavailable: boolean;
 }
 
 /**
@@ -47,10 +58,10 @@ export const SECTIONS: Section[] = [
   // `operations.record` and nothing else, so every read this screen makes 403s and the product
   // opens on a broken page for the person who uses it most. The section needs the read it is
   // built out of, exactly like every other one.
-  { id: 'today', path: '/', label: 'اليوم', requires: ['reminders.today'] },
+  { service: 'reminders', id: 'today', path: '/', label: 'اليوم', requires: ['reminders.today'] },
   // The field screen: one action, and it is the one every operator has.
-  { id: 'visit', path: '/visit', label: 'تسجيل زيارة', requires: ['operations.record_visit'] },
-  { id: 'customers', path: '/customers', label: 'عملائي', requires: ['operations.recent'] },
+  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', requires: ['operations.record_visit'] },
+  { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', requires: ['operations.recent'] },
   // OPEN TO ALL FOUR PLANS, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
@@ -64,7 +75,7 @@ export const SECTIONS: Section[] = [
   //
   // The gate here is the CAPABILITY — a role that may read indicators — which is a different
   // question from which plan he bought.
-  { id: 'shop', path: '/shop', label: 'محلّي', requires: ['insights.dashboard'] },
+  { service: 'insights', id: 'shop', path: '/shop', label: 'محلّي', requires: ['insights.dashboard'] },
   // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
   // MARKETER both hold — and neither may change a price. A section whose every control is inert
   // is worse than an absent one: the person tries, is refused, and learns to distrust the screen.
@@ -75,13 +86,13 @@ export const SECTIONS: Section[] = [
   // the market — a coffee shop or a spare-parts counter opening «خدماتي» reads a section that
   // apparently is not for them and does not open it again. The rail pays two extra words for a
   // sector that would otherwise think the product was not built for it.
-  { id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', requires: ['operations.update_service'] },
-  { id: 'messages', path: '/messages', label: 'رسائلي', requires: ['reminders.get_settings'] },
+  { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', requires: ['operations.update_service'] },
+  { service: 'reminders', id: 'messages', path: '/messages', label: 'رسائلي', requires: ['reminders.get_settings'] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
-  { id: 'points', path: '/points', label: 'نقاطي', requires: ['loyalty.rewards.update'] },
+  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', requires: ['loyalty.rewards.update'] },
   // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
   // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
   // once rather than a place to stand. The rail keeps the eight rows that are about the work.
@@ -102,8 +113,16 @@ export const SECTIONS: Section[] = [
 /** Where the account icon in the shell's user block leads. Not a Section: it is never filtered. */
 export const ACCOUNT_PATH = '/account';
 
-export function visibleSections(catalog: Catalog): Section[] {
-  return SECTIONS.filter((s) => s.requires.length === 0 || hasAll(catalog, ...s.requires));
+export function visibleSections(catalog: Catalog): SectionState[] {
+  const down = new Set(catalog.unreachable);
+  return SECTIONS
+    // A SECTION WHOSE SERVICE IS DOWN STAYS IN THE RAIL (م · النمط 3). `unreachable` was declared
+    // for exactly this and read by `isOutage` alone — which only fires when EVERY service is down.
+    // So loyalty falling over by itself deleted «نقاطي» from the rail without a word, and the
+    // owner who pays for it phoned support about his permissions.
+    .filter((s) => (s.service && down.has(s.service))
+      || s.requires.length === 0 || hasAll(catalog, ...s.requires))
+    .map((s) => ({ ...s, unavailable: Boolean(s.service && down.has(s.service)) }));
 }
 
 /**

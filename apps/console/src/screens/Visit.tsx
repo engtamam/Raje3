@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   applyOffer, balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
   offerFor, pointsByService, type EarnSettings,
-  recentCustomers, redeem,
+  redeem,
   suggestByPrefix,
   type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
   sentenceFor,
@@ -57,7 +57,10 @@ export function Visit() {
   const { session } = useSession();
   const [services, setServices] = useState<CatalogueService[] | null>([]);
   const [fields, setFields] = useState<SectorField[]>([]);
-  const [recent, setRecent] = useState<CustomerHit[] | null>([]);
+  // NO `recent` HERE. It was fetched on every entry to this screen and never rendered once — the
+  // matches come from search-service (see the note below), so this was a request the busiest screen
+  // in the product paid for and threw away, plus a state that made a reviewer believe a «عملاء
+  // اليوم» strip existed. `recentCustomers` still serves «عملائي», which does show it.
   const [chosen, setChosen] = useState<string[]>([]);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -90,7 +93,6 @@ export function Visit() {
     fetchCatalogue(session)
       .then((r) => { setServices(r.services); setFields(r.fields ?? []); })
       .catch(() => { setServices(null); setFields([]); });
-    recentCustomers(session).then((r) => setRecent(r.customers)).catch(() => setRecent(null));
     // THE EARNING RULES, ONCE. A failure leaves the tiles without numbers rather than with zeros:
     // a shop that has not set points up must not be shown sixteen zeros, and a shop that has must
     // not be shown zeros because one read failed.

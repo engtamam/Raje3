@@ -39,7 +39,9 @@ interface Tenant {
  */
 export function ShopPane({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [t, setT] = useState<Tenant | null | undefined>(undefined);
-  const [saving, setSaving] = useState(false);
+  // NO `saving` HERE. The save is delegated to `BrandCard`, which owns its own busy state — this
+  // pane held a second one that nothing ever set and nothing ever read, so a reviewer looking for
+  // «does the save show progress» found a variable that said yes and a screen that said nothing.
   const [said, setSaid] = useState('');
   const [error, setError] = useState('');
 

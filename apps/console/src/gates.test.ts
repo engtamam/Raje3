@@ -10,9 +10,13 @@ import { describe, expect, it } from 'vitest';
 // THE SOURCE AS A STRING, through Vite rather than `node:fs` — this app's tsconfig has no node
 // types, and adding them so a test can read a file would be the tail wagging the build.
 import doorSrc from './screens/Door.tsx?raw';
+import editorSrc from './screens/TextEditor.tsx?raw';
+import localSrc from './screens/Local.tsx?raw';
+import previewSrc from './screens/MessagePreview.tsx?raw';
 import pointsSrc from './screens/Points.tsx?raw';
 import { DENIED, isReady } from './loading';
 import { owns } from './apps';
+import { visibleSections } from './nav';
 
 describe('the grey box on «نقاطي» that never resolved', () => {
   it('a role that cannot ask about billing is not left loading for ever', () => {
@@ -63,5 +67,55 @@ describe('the door: «أكّد رقمك» on a screen with no code field', () =>
     // Two copies of «what counts as unverified» is one copy that goes stale the day it changes.
     const door = doorSrc;
     expect(door.match(/reason === 'unverified'/g)?.length).toBe(1);
+  });
+});
+
+describe('م · النمط 3: declared for a purpose, and nobody read it', () => {
+  it('a section whose service is down stays in the rail, named', () => {
+    // `catalog.unreachable` was declared with the reason written beside it — «a section missing
+    // because a service is down must be distinguishable from a section missing because this
+    // person may not have it» — and its only reader fired when EVERY service was down. So loyalty
+    // falling over alone deleted «نقاطي» silently, and the owner who pays for it phoned support
+    // about his permissions.
+    const catalog = {
+      services: [{ service: 'operations', actions: [{ id: 'operations.record_visit' } as never] }],
+      unreachable: ['loyalty'],
+    } as never;
+    const rows = visibleSections(catalog);
+
+    const points = rows.find((r) => r.id === 'points');
+    expect(points, 'the row must survive its service').toBeTruthy();
+    expect(points?.unavailable).toBe(true);
+  });
+
+  it('and a section he simply may not have is still absent', () => {
+    // The other half: this is a permission answer, and drawing a row for it would offer him a
+    // section his role does not include — a lock where there is nothing to unlock.
+    const catalog = { services: [], unreachable: [] } as never;
+    expect(visibleSections(catalog).find((r) => r.id === 'points')).toBeUndefined();
+  });
+
+  it('a healthy section is not marked unavailable', () => {
+    const catalog = {
+      services: [{ service: 'loyalty', actions: [{ id: 'loyalty.rewards.update' } as never] }],
+      unreachable: [],
+    } as never;
+    expect(visibleSections(catalog).find((r) => r.id === 'points')?.unavailable).toBe(false);
+  });
+
+  it('«محلّي» shows the 402 sentence instead of dropping the section', () => {
+    // `locked` was declared in Local.tsx with a paragraph explaining exactly this, and nothing
+    // ever called `setLocked` — so every 402 was swallowed into `null` and the section vanished.
+    // A capability nobody can see is a capability nobody can buy.
+    expect(localSrc).toContain('setLocked((was)');
+    expect(localSrc).toContain('locked.associations');
+    expect(localSrc).toContain('locked.bundles');
+  });
+
+  it('the editor opens on what he wrote', () => {
+    // His saved text sat one component away in `Mine.body`, unpassed, while `draft` was declared
+    // for it and never set — so «عدّل نصّي» meant typing the whole message again.
+    expect(editorSrc).toContain('toHtml(body ?? \'\', slots)');
+    expect(previewSrc).toContain('body={(isReady(mine) ? mine : [])');
   });
 });

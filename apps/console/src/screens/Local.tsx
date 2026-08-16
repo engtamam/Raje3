@@ -27,6 +27,7 @@ import { KpiCard } from '@base-ui/design-system/KpiCard';
 import { Ring } from '@base-ui/design-system/Ring';
 import { TrendingUp, Users, RefreshCw, AlertTriangle, Lock } from 'lucide-react';
 import { Waiting } from '../Waiting';
+import { ApiError, sentenceFor } from '../api';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -381,13 +382,28 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           setBundles(null);
           return;
         }
-        const assoc = action(catalog, 'insights.associations');
-        if (assoc) call<Pairs>(session, assoc).then(setPairs).catch(() => setPairs(null));
-        const bun = action(catalog, 'insights.bundles');
-        if (bun) {
-          call<{ bundles: Bundle[] }>(session, bun)
-            .then((r) => setBundles(r.bundles ?? [])).catch(() => setBundles(null));
-        }
+        // ── 402 IS AN OFFER, NOT AN OUTAGE (م · النمط 3) ──────────────────────────────────
+        //
+        // `locked` was declared here with a paragraph explaining exactly this, and NOTHING ever
+        // called `setLocked` and nothing ever read the state: dead code beside a live comment.
+        // Both of these routes answer 402 with a sentence naming what the plan does not include,
+        // and every one of those sentences was swallowed into `null` — so the owner saw a section
+        // that had silently disappeared, and a red 402 in a console he never opens. A capability
+        // nobody can see is a capability nobody can buy.
+        const paidRead = (id: string, key: string, take: (r: any) => void) => {
+          const a = action(catalog, id);
+          if (!a) return;
+          call<any>(session, a).then(take).catch((e) => {
+            if (e instanceof ApiError && e.status === 402) {
+              setLocked((was) => ({ ...was, [key]: sentenceFor(e, 'غير مشمول بباقتك.') }));
+              return;
+            }
+            take(null);
+          });
+        };
+        paidRead('insights.associations', 'associations', (r) => setPairs(r));
+        paidRead('insights.bundles', 'bundles',
+                 (r) => setBundles(r === null ? null : r.bundles ?? []));
       })
       .catch(() => setFailed(true));
   }, [session, catalog, branch]);
@@ -552,6 +568,14 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
                 نكتشف الخدمات التي تُطلب معاً في محلّك، ونقول لك أين الفرصة — والسعر سعرك.
               </p>
               <p className="text-xs text-text-secondary">هذه في باقة أعلى.</p>
+            </div>
+          </section>
+        ) : locked.bundles ? (
+          <section className="flex items-start gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+            <Lock size={16} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
+            <div className="flex flex-col gap-1">
+              <h2 className="text-sm font-medium">باقات مقترحة</h2>
+              <p className="text-sm text-text-secondary">{locked.bundles}</p>
             </div>
           </section>
         ) : bundles && bundles.length ? (
@@ -725,6 +749,18 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           A PAIR IS NOT ADVICE UNTIL IT IS EXPLAINED. Each row carries the engine's own sentence,
           because «غيار زيت + فلتر» with no reason is a coincidence the owner has to trust us
           about — and the one thing he cannot check is the one thing he will not act on. */}
+      {/* THE SERVICE'S OWN SENTENCE, SHOWN (م · النمط 3). This section used to vanish on a 402,
+          so the one thing that would make him buy — knowing the capability exists — was the one
+          thing he could not see. `locked` was declared for this and never written to. */}
+      {locked.associations ? (
+        <section className="flex items-start gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+          <Lock size={16} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-medium">ما يُطلب معاً</h2>
+            <p className="text-sm text-text-secondary">{locked.associations}</p>
+          </div>
+        </section>
+      ) : null}
       {pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
         <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
           <h2 className="text-sm text-text-secondary">ما يُطلب معاً</h2>

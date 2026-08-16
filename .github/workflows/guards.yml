@@ -162,6 +162,13 @@ jobs:
       - name: the same call gets the same care
         run: python3 ci/check_same_call_same_care.py
 
+      # DECLARED FOR A PURPOSE, AND NOBODY READ IT. `locked` in «محلّي» was declared with a
+      # paragraph explaining that a 402 names what the plan excludes — and nothing ever set it, so
+      # every 402 was swallowed and the section vanished. A capability nobody can see is one
+      # nobody can buy.
+      - name: no state is declared and left unjoined
+        run: python3 ci/check_declared_and_unread.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

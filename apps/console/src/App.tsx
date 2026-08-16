@@ -126,7 +126,13 @@ export function App() {
       brand={{ name: NAME_AR, mark: <Mark size={26} className="shrink-0" /> }}
       // DERIVED, NOT WRITTEN — see nav.ts. An operator's list has one entry and a manager's is
       // missing what the owner keeps, with no role check anywhere in this file.
-      navItems={sections.map((s) => ({ to: s.path, label: s.label }))}
+      // A SECTION WHOSE SERVICE IS DOWN IS NAMED, NOT DELETED (م · النمط 3). The row stays where
+      // his hand expects it and the label says why it will not answer — «رسائلي · متعذّر الآن»
+      // rather than a rail that quietly grew shorter and left him counting his own permissions.
+      navItems={sections.map((s) => ({
+        to: s.path,
+        label: s.unavailable ? `${s.label} · متعذّر الآن` : s.label,
+      }))}
       user={{ name: session.operatorName || session.operator }}
       labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج',
                 account: 'حسابي' }}
