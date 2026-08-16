@@ -87,7 +87,13 @@ EXEMPT_FILES = {
 }
 
 # Ours only. platform/ is read-only to us and its numbers are not our prices.
-SEARCH = ("services", "ci", "deploy", "scripts", "config")
+#
+# AND `apps` IS IN THE LIST, because the console is where the story at the top of this file
+# actually happens: «a helpful constant during a demo, so a screen has something to render before
+# billing answers». That screen is TSX. The suffix list has always admitted .ts and .tsx while the
+# search roots never reached them, so the one place the guard was written for was the one place it
+# could not look.
+SEARCH = ("services", "apps", "ci", "deploy", "scripts", "config")
 SUFFIXES = {".py", ".yaml", ".yml", ".sh", ".json", ".ts", ".tsx", ".js"}
 
 # CODE WE WROTE, and nothing else that happens to sit under services/.
@@ -133,7 +139,12 @@ def main() -> int:
                 continue
             try:
                 text = f.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
+            except (UnicodeDecodeError, OSError) as exc:
+                # A FILE THIS GUARD CANNOT READ IS REPORTED, NEVER SKIPPED. Skipping made the one
+                # file with a stray byte in it the one file where a price could sit forever, and
+                # the build would go on printing «ok» — a guard's blind spot is worth more to
+                # whoever is hiding something than the guard is to us.
+                problems.append(f"{rel}: unreadable ({exc})")
                 continue
             for line_no, line in enumerate(text.splitlines(), 1):
                 # A DIGEST IS NOT A PRICE. `sha256:...e598b9...` contains «598» surrounded by
@@ -154,7 +165,10 @@ def main() -> int:
     for p in problems:
         print(f"\033[31m  x {p}\033[0m")
     if problems:
-        print(f"\n\033[31m  x {len(problems)} price(s) in code\033[0m")
+        # «problem», not «price»: an unreadable file is one of these lines too, and a summary that
+        # calls it a price sends whoever reads the build looking for a number that is not there.
+        print(f"\n\033[31m  x {len(problems)} problem(s) — a price in code, or a file "
+              f"this guard could not read\033[0m")
         return 1
     print("\033[32m  ok no price appears anywhere but deploy/seed/plans.json\033[0m")
     return 0

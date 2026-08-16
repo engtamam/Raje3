@@ -132,8 +132,7 @@ def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) 
         # ALREADY UNDER WAY OR FINISHED — AND PRESSING AGAIN DESTROYS EVIDENCE. See the docstring:
         # a second `process` on an `in_progress` request rebuilds the per-target acknowledgement
         # map and every target that had already confirmed goes back to «not yet».
-        return {"dsar_id": dsar_id, "dispatched": True,
-                "targets": sorted(opened.get("targets") or [])}
+        return {"dsar_id": dsar_id, "dispatched": True}
 
     token = str(opened.get("verification_token") or "")
     if token:
@@ -164,5 +163,10 @@ def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) 
             raise EraseFailed("هذا العميل تحت حجزٍ نظاميّ، ولا يمكن حذف بياناته الآن.")
         raise EraseFailed("لم يُنفَّذ الحذف. أعد المحاولة، وإن تكرّر فتواصل معنا.")
 
-    return {"dsar_id": dsar_id, "dispatched": True,
-            "targets": result.get("targets") or result.get("dispatched") or []}
+    # NO `targets` IN THE ANSWER. It was carried for a screen that never read it, and the two
+    # paths above disagreed about what it even was: compliance answers `targets` as a COUNT from
+    # `/process` and as a LIST from the creation call, so one press returned `12` and the next
+    # returned `["operations", "reminders"]` under one name. A field with two meanings and no
+    # reader is how the next screen gets it wrong — the reader that eventually needs the target
+    # list can ask compliance for it in the shape compliance actually publishes.
+    return {"dsar_id": dsar_id, "dispatched": True}

@@ -423,4 +423,4 @@ def test_a_dispatched_erasure_still_reports_success():
                               authorization="Bearer x", subject_ref="sub_9")
     finally:
         E._post = original
-    assert out["dispatched"] is True and out["targets"] == ["loyalty", "reminders"]
+    assert out["dispatched"] is True
