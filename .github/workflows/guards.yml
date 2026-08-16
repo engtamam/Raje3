@@ -234,6 +234,13 @@ jobs:
       - name: a template blank with nobody to fill it
         run: python3 ci/check_every_blank_says_who_fills_it.py
 
+      # AND EVERY IMAGE IS PINNED TO CONTENT — including the two deployed by raw manifests, which
+      # check_deploy_wiring.py does not see because they have no values file. The edge ran
+      # `caddy:2.8-alpine`, a tag its owner may move at any time, on the one container every
+      # request in this product passes through; the change would have arrived at the next restart.
+      - name: a raw manifest that does not pin its image
+        run: python3 ci/check_a_raw_manifest_pins_its_image.py
+
       # AND NO IMAGE REACHES THE SERVER FROM A LAPTOP. The console ran
       # `127.0.0.1:5055/raje3/console@…` in production — a registry one machine resolves, and only
       # while a developer holds a tunnel open — because ship.sh rewrote the reference ON THE NODE,

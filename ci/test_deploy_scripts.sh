@@ -45,6 +45,18 @@ check "bring-up calls soft for the seeds" \
 check "bring-up refuses to end 0 with a failed step" \
       "$(grep -c 'FAILED\[@\]' "$ROOT/deploy/bring-up.sh")" "1"
 
+# ── the two components with no values file are VERIFIED, not merely watched ───────────────────
+# `verify-fleet.sh` walks deploy/services/*.values.yaml; the console and the edge have none. The
+# console's comparison read `` written as a raw 0x01 byte, so it compared a control character
+# against a digest — a line that could neither pass nor fail meaningfully. The edge had no
+# comparison at all and ran `caddy:2.8-alpine`, a tag its owner may move, on the one container
+# every request passes through.
+check "verify-fleet reads the console's pin as a digest"       "$(grep -c 'console_want=.*sha256:\[0-9a-f\]{64}' "$ROOT/deploy/verify-fleet.sh")" "1"
+check "verify-fleet reads the edge's pin as a digest"       "$(grep -c 'edge_want=.*sha256:\[0-9a-f\]{64}' "$ROOT/deploy/verify-fleet.sh")" "1"
+# AND BOTH COUNT AS DRIFT, which is what makes the comparison mean anything: the console's used to
+# print a note and increment the OK tally.
+check "and a mismatch in either counts as drift"       "$(grep -c 'bad=$((bad+1))' "$ROOT/deploy/verify-fleet.sh")" "5"
+
 # ── ل-3 · nothing committed may name a registry only one machine can reach ────────────────────
 check "the console manifest names a reachable registry" \
       "$(grep -c '127.0.0.1' "$ROOT/deploy/edge/console.yaml")" "0"

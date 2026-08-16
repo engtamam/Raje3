@@ -71,7 +71,7 @@ done
 # The console's pin lives in its manifest rather than a values file, so it is read from there and
 # compared the same way — imageID, never the spec (a `ctr images tag` reference is a NAME, and
 # nothing verifies the content behind it).
-console_want="$(sed -n 's/.*image: *[^@]*@\(sha256:[0-9a-f]*\).*//p'                 "$ROOT/deploy/edge/console.yaml" | head -1)"
+console_want="$(grep -oE 'sha256:[0-9a-f]{64}' "$ROOT/deploy/edge/console.yaml" | head -1)"
 console_got="$(printf '%s
 ' "$live" | awk '$1 ~ /^console-[0-9a-f]/ && $3=="true" {print $2; exit}')"
 console_got="${console_got##*@}"
@@ -79,26 +79,36 @@ if [ -z "$console_got" ]; then
   printf '  %s✗ %-24s no ready pod — every screen in the product is a blank page%s
 '          "$C_R" "console" "$C_N"; missing=$((missing+1))
 elif [ -n "$console_want" ] && [ "$console_want" != "$console_got" ]; then
-  # NOT A HARD FAILURE ON THE DIGEST ALONE: `ship.sh console` pins the node registry on the server
-  # and leaves the published reference in the repository, so the two names differ by design even
-  # when the content matches. What must never pass unnoticed is a console that is not RUNNING.
-  printf '  %s~ %-24s running %s… repository pins %s…%s
-'          "$C_Y" "console" "${console_got:0:19}" "${console_want:0:19}" "$C_N"
-  ok=$((ok+1))
+  # A HARD FAILURE NOW, AND IT USED TO BE A NOTE. `ship.sh console` once pinned a node-local
+  # registry on the server while the repository kept the published reference, so the two names
+  # differed BY DESIGN and this line could not tell that apart from real drift. That road is gone:
+  # the file applied on the node is the file that is committed, so a difference here is a console
+  # running something the repository does not name — which is exactly what this script is for.
+  printf '  %s✗ %-24s running %s… repository pins %s…%s
+'          "$C_R" "console" "${console_got:0:19}" "${console_want:0:19}" "$C_N"
+  bad=$((bad+1))
 else
   printf '  %s✔ %-24s%s
 ' "$C_G" "console" "$C_N"; ok=$((ok+1))
 fi
 
-# THE EDGE HAS NO PIN TO COMPARE — it runs an upstream Caddy image and its content is the rendered
-# Caddyfile. What is worth asserting is that it is ready, because the domain resolves to it and
-# nothing else answers on 443.
-edge_ready="$(printf '%s
-' "$live" | awk '$1 ~ /^edge-[0-9a-f]/ && $3=="true" {print $1; exit}')"
-if [ -z "$edge_ready" ]; then
+# THE EDGE HAS A PIN NOW, AND THAT IS WHY THIS COMPARES ONE. It used to say «no pin to compare»
+# — true at the time, and the reason the edge was the last image in the fleet nobody verified. It
+# ran `caddy:2.8-alpine`, a tag whose owner may move it whenever they like, on the one container
+# every request in this product passes through. A moved tag would have arrived at the next restart
+# and been invisible here.
+edge_want="$(grep -oE 'sha256:[0-9a-f]{64}' "$ROOT/deploy/edge/deployment.yaml" | head -1)"
+edge_got="$(printf '%s
+' "$live" | awk '$1 ~ /^edge-[0-9a-f]/ && $3=="true" {print $2; exit}')"
+edge_got="${edge_got##*@}"
+if [ -z "$edge_got" ]; then
   printf '  %s✗ %-24s no ready pod — the domain answers nothing%s
 ' "$C_R" "edge" "$C_N"
   missing=$((missing+1))
+elif [ -n "$edge_want" ] && [ "$edge_want" != "$edge_got" ]; then
+  printf '  %s✗ %-24s running %s… repository pins %s…%s
+'          "$C_R" "edge" "${edge_got:0:19}" "${edge_want:0:19}" "$C_N"
+  bad=$((bad+1))
 else
   printf '  %s✔ %-24s%s
 ' "$C_G" "edge" "$C_N"; ok=$((ok+1))
