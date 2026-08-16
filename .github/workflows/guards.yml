@@ -155,6 +155,13 @@ jobs:
       - name: screens send only declared fields
         run: python3 ci/check_screens_send_declared_fields.py
 
+      # THE SAME CALL, CHECKED IN ONE PLACE AND IGNORED IN ANOTHER. `/stop` — the one-tap link in
+      # every marketing message — threw away the answer to `set_prefs` and rendered «تم حفظ
+      # تفضيلاتك» regardless. The save fails, the offers keep coming, and he does not retry
+      # because he was told it worked: he blocks the shop's number instead.
+      - name: the same call gets the same care
+        run: python3 ci/check_same_call_same_care.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

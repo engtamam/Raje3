@@ -214,6 +214,19 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
     #
     # AND THE SECTION IS ABSENT WHEN HE HAS NOTHING — no empty card, no "you have no offers".
     # Telling somebody he has been given nothing is a worse page than not raising it at all.
+    # ── «AN UNAVAILABLE OFFERS SECTION SAYS SO» — and it never did ────────────────────────────
+    #
+    # `compose.py` promises exactly that, in writing, next to the field: the section «does not
+    # pretend he has none». This file then had one branch — available AND non-empty — so an offers
+    # read that FAILED rendered the same page as a customer who was sent nothing.
+    #
+    # He opened the link from a message that offered him something. A page with no offer on it
+    # tells him the offer was not real, and he does not come back to check whether a service was
+    # briefly down.
+    if page.offers.failed:
+        parts.append("<section><h2 class='ttl'>عروضك الحصرية</h2>"
+                     "<p class='sub'>تعذّر عرض عروضك الآن — والخلل عندنا لا عندك. "
+                     "افتح الرابط بعد قليل، وعروضك كما هي.</p></section>")
     if page.offers.available and page.offers.data:
         parts.append("<section><h2 class='ttl'>عروضك الحصرية</h2>"
                      "<p class='sub'>وصلتك أنت. اذكرها عند الزيارة.</p>")

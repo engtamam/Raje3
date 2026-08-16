@@ -57,9 +57,18 @@ class Section:
     `available` is separate from emptiness on purpose: "you have no visits yet" and "we could not
     load your visits" are different sentences, and showing the first when the second is true is a
     lie the customer has no way to detect.
+
+    AND `failed` IS SEPARATE FROM BOTH. `available=False` was carrying two meanings at once —
+    «this shop runs no such thing», which is a fact and renders nothing, and «the read threw»,
+    which is ours and must say so. The renderer could only see one of them, so a failed offers
+    read produced the same page as a customer who was simply never sent an offer: he opened a link
+    from a message that promised him something, found no offer on it, and concluded the message
+    was not real.
     """
     available: bool = False
     data: Any = None
+    #: The read raised or the peer refused. Never true for a shop that just has none of these.
+    failed: bool = False
 
 
 @dataclass
@@ -147,6 +156,9 @@ class Composer:
 
         if not isinstance(offers, BaseException) and offers is not None:
             page.offers = Section(available=True, data=_normalise_offers(offers))
+        elif isinstance(offers, BaseException):
+            # OURS, AND THE PAGE SAYS SO. Silence here reads to him as «the offer was a trick».
+            page.offers = Section(available=False, failed=True)
 
         # A SHOP WITHOUT REWARDS IS NOT AN OUTAGE. `to_next_reward` is 0 and the list is empty for
         # a shop that runs no programme; the section stays unavailable so the page renders nothing

@@ -38,6 +38,27 @@ NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate, private",
             "Vary": "Cookie"}
 
 
+async def _logo(c, tenant: str) -> str:
+    """The shop's mark, and NEVER the reason the page fails.
+
+    THE 500 THIS CLOSES. `compose.py` swallows a tenant-service outage on purpose — the page still
+    has his points, his visits and his switches, and half a page beats none. Then this read was
+    added after it, bare, and threw the exception straight out: an outage at tenant-service turned
+    the customer's page into an English error screen.
+
+    He arrived from a WhatsApp message sent by a shop he knows. A page that answers with a stack
+    trace does not read as «a service is down» to him — it reads as «that message was a scam», and
+    that is not a conclusion we get to correct later.
+    """
+    read = getattr(c.identity, "logo_url", None)
+    if read is None:
+        return ""
+    try:
+        return await read(tenant) or ""
+    except Exception:                                                         # noqa: BLE001
+        return ""
+
+
 def _render(request: Request, ref: str, *, saved: bool = False) -> Response:
     return HTMLResponse("", headers=NO_STORE)
 
@@ -63,7 +84,7 @@ async def page(request: Request, ref: str) -> Response:
 
     built = await c.composer.build(r.tenant, r.subject_ref)
     theme = build_theme(built.brand_colour)
-    logo = await c.identity.logo_url(r.tenant) if hasattr(c.identity, "logo_url") else ""
+    logo = await _logo(c, r.tenant)
     return HTMLResponse(render_page(built, theme, saved=False, logo_url=logo), headers=NO_STORE)
 
 
@@ -109,7 +130,7 @@ async def save_prefs(request: Request, ref: str) -> Response:
 
     built = await c.composer.build(r.tenant, r.subject_ref)
     theme = build_theme(built.brand_colour)
-    logo = await c.identity.logo_url(r.tenant) if hasattr(c.identity, "logo_url") else ""
+    logo = await _logo(c, r.tenant)
     # `saved` is the PEER's answer, not our optimism. A save that failed must not show a
     # confirmation — a customer who is told their choice was saved and keeps receiving messages
     # does not try again, they block the number.
@@ -187,12 +208,23 @@ async def stop(request: Request, ref: str) -> Response:
     """
     r = parse(ref)
     c = request.app.state.container
+    # THE ANSWER, NOT OUR OPTIMISM — the same rule the form path a hundred lines up already
+    # follows, and it explains itself there: «a customer who is told their choice was saved and
+    # keeps receiving messages does not try again, they block the number».
+    #
+    # THIS IS THE PATH THAT MATTERS MOST. It is the one-tap link inside every marketing message,
+    # made frictionless on purpose because somebody who wants out is already annoyed. It rendered
+    # «تم حفظ تفضيلاتك» unconditionally: the save could fail, the offers keep coming, and he does
+    # not retry — he was told it worked. The shop then loses him and its sender reputation
+    # together, for a save that never happened.
+    saved = False
     if r.valid:
-        await c.reminders.set_prefs(r.tenant, r.subject_ref, stopped=["marketing"], merge=True)
+        saved = bool(await c.reminders.set_prefs(
+            r.tenant, r.subject_ref, stopped=["marketing"], merge=True))
 
     built = (await c.composer.build(r.tenant, r.subject_ref)) if r.valid else None
     if built is None:
         from app.core.compose import Page
         built = Page(reference=ref, tenant="")
     theme = build_theme(built.brand_colour)
-    return HTMLResponse(render_page(built, theme, saved=True), headers=NO_STORE)
+    return HTMLResponse(render_page(built, theme, saved=saved), headers=NO_STORE)

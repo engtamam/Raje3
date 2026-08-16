@@ -270,3 +270,39 @@ def test_a_branch_name_cannot_carry_markup_onto_the_page():
         {"services": "غيار", "branch": "<script>alert(1)</script>", "date": "12 يونيو"}])), THEME)
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
+
+
+# ── the three the customer pays for (م · قواطع) ────────────────────────────────────────────────
+
+
+def test_a_failed_offers_read_says_so_rather_than_showing_a_page_without_offers():
+    """«AN UNAVAILABLE OFFERS SECTION SAYS SO» — compose.py promised it in writing and render.py
+    had no such branch.
+
+    He opened this link FROM a message that offered him something. A page with no offer on it does
+    not read to him as «a service is briefly down»; it reads as «that message was not real», and he
+    does not come back to check.
+    """
+    from app.core.compose import Page, Section
+
+    p = Page(reference="r", tenant="t")
+    p.offers = Section(available=False, failed=True)
+
+    html = render_page(p, THEME)
+
+    assert "عروضك الحصرية" in html, "the section must appear, saying why it is empty"
+    assert "تعذّر" in html
+    # AND IT BLAMES US, not him. «لا توجد عروض» would be a claim about his shop.
+    assert "عندنا" in html
+
+
+def test_a_shop_that_simply_sent_him_nothing_is_still_silent():
+    """THE OTHER DIRECTION, and it is why the third state had to exist rather than a wider `if`.
+    Most customers have no offer waiting, and «تعذّر عرض عروضك» on every one of those pages would
+    turn a correct page into an apology — and teach everybody to ignore the sentence on the day it
+    is true."""
+    from app.core.compose import Page
+
+    html = render_page(Page(reference="r", tenant="t"), THEME)
+
+    assert "عروضك الحصرية" not in html
