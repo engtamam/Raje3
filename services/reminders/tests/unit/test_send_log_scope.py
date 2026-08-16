@@ -69,5 +69,17 @@ def test_an_unreadable_scope_refuses_rather_than_showing_everything():
     from app.api.v1 import owner as O
 
     src = inspect.getsource(O.send_log)
-    assert '"_unreadable"' in src
+    # AGAINST THE SET, NOT ONE LITERAL. There are two answers that are not a branch — we could not
+    # ask, and his shop stopped him — and the route must refuse on BOTH. Naming one sentinel here
+    # would let a second be added that falls through to «no restriction», which is the whole
+    # defect: every one of these starts as a state nobody compared against.
+    assert "in DENIED" in src
     assert "تعذّر التحقق" in src, "and it says so in words the owner can act on"
+
+
+def test_denied_holds_every_answer_that_is_not_a_branch():
+    """The guard on the guard: whatever DENIED contains, none of it may be readable as a branch."""
+    from app.adapters.branch_scope import DENIED, REVOKED, UNREADABLE
+
+    assert DENIED == {UNREADABLE, REVOKED}
+    assert "" not in DENIED, "the empty scope is «the whole shop» and must never be refused"

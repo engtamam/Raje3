@@ -455,6 +455,35 @@ class SignupService:
                               {"id": canonical, "tenant": tenant, "verified": True})
         return {"person_id": str(body.get("person_id") or ""), "phone": canonical, "role": role}
 
+    async def revoke(self, tenant: str, person_id: str) -> bool:
+        """Undo `hire`: take the membership away, so the token stops being mintable.
+
+        THE HALF THAT WAS MISSING, AND IT IS THE HALF THAT MATTERS. `hire` creates two things —
+        the membership at identity and the operator row here — and it says so in its own note.
+        Stopping somebody only ever wrote the row. The membership lived on, so a man let go on
+        Thursday signed in on Thursday evening with the same password, and the shop's screen showed
+        him stopped while identity happily minted him a token.
+
+        AND HE DID NOT MERELY KEEP WHAT HE HAD. His operator row is what NARROWS him to his branch
+        (api/scope.py); an inactive row matched nothing, an unmatched person was read as
+        unnarrowed, and unnarrowed means the whole establishment. Being dismissed WIDENED what he
+        could read, from one branch to every branch. That path is closed twice now — here, so the
+        token cannot be minted at all, and there, so a stopped row can never widen again.
+
+        IDEMPOTENT, and a missing membership is success: this is also the compensation an
+        interrupted dismissal re-attempts.
+        """
+        if not tenant or not person_id:
+            return False
+        status, _ = self._http.call(
+            f"{self._identity}/internal/tenancy/membership/{tenant}::{person_id}",
+            method="DELETE", internal=True)
+        if status not in (200, 204, 404):
+            # REFUSED, NOT WARNED. The caller must not tell an owner that somebody was stopped
+            # while his login still works — that is the exact sentence this whole defect was.
+            raise SignupRefused("تعذّر إيقاف دخول الموظف. حاول بعد قليل.")
+        return status in (200, 204)
+
     async def _seed_main_branch(self, tenant: str, *, shop_name: str) -> None:
         """His first place, keyed on a fixed id so a retry cannot leave two. Never raises.
 

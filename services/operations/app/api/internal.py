@@ -1304,7 +1304,11 @@ async def branch_scope_of(request: Request, body: BranchScopeIn) -> dict:
 
     scope = await branch_scope(request.app.state.container.datastore,
                               SimpleNamespace(subject=body.subject, tenant=body.tenant))
-    return {"branch_id": scope}
+    # AND «STOPPED» IS ITS OWN FIELD, because it cannot be said in `branch_id`. Every consumer
+    # reads that field as `str(... or "")`, so a null — or any empty answer — becomes "", and ""
+    # means the WHOLE establishment. A dismissed employee would have been widened to the entire
+    # chain by three services at once. The flag is unmissable and the empty string stays honest.
+    return {"branch_id": scope or "", "revoked": scope is None}
 
 
 class EvidenceIn(BaseModel):

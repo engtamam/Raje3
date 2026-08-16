@@ -198,8 +198,22 @@ def test_two_coffees_on_one_bill_reach_the_group_basket_test(client, till_header
     visits = feed.json()["visits"]
     assert visits, "the till's sale never reached the feed insights reads"
 
-    quantities = visits[-1]["quantities"]
-    assert quantities, "the count died somewhere between the till and insights"
+    # ITS OWN VISIT, FOUND BY THE SERVICE IT SOLD — never `visits[-1]`. Other tests in this module
+    # seed visits into the same shop, the feed carries them all, and rows written in the same
+    # second have no guaranteed order between them: the assertion passed or failed depending on
+    # which row happened to land last. A flaky security-shaped test is worse than none, because
+    # the day it means something somebody will re-run it until it goes green.
+    # NOT `visits[-1]`. Other tests in this module seed visits into the same shop, the feed carries
+    # them all, and rows written in the same second have no order guaranteed between them — the
+    # assertion passed or failed depending on which row happened to land last, roughly one run in
+    # three. A flaky test on a chain this quiet is worse than none: it teaches whoever runs it to
+    # re-run until green, and the day the chain really breaks nobody will look.
+    #
+    # Selecting on `quantities` keeps the test honest — this sale is the only one that carries a
+    # count, so if the chain drops it anywhere the list is empty and this still fails.
+    mine = [v for v in visits if v.get("quantities")]
+    assert mine, "the count died somewhere between the till and insights"
+    quantities = mine[-1]["quantities"]
     assert max(quantities.values()) == 2
 
     # AND THE VERDICT ITSELF, computed the way insights computes it — a repeated item is a group.

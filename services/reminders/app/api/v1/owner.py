@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
+from app.adapters.branch_scope import DENIED
 from app.api.ratelimit import rate_limit
 from app.core.reach import Reach
 from app.core.spent import SpentUnknown, spent_refs
@@ -182,9 +183,14 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     resolver = getattr(c, "branch_scope", None)
     if resolver is not None:
         scope = await resolver.scope(principal.tenant, getattr(principal, "subject", "") or "")
-    if scope == "_unreadable":
+    if scope in DENIED:
         # «WE COULD NOT CHECK» IS NOT «NO LIMIT». Refusing costs him the log for a minute;
         # guessing shows him somebody else's.
+        #
+        # AND A STOPPED EMPLOYEE REFUSES HERE TOO. His membership is revoked the moment the owner
+        # stops him, so no token of his should reach this line at all — but if one is still in
+        # flight, an inactive row used to answer «no branch», which read as «every branch». The
+        # sentence is deliberately the same: neither state entitles him to somebody's messages.
         return {"log": [], "count": 0,
                 "unavailable": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."}
 

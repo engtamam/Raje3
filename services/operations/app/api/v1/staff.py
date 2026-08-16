@@ -246,10 +246,43 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
         "operator.updated", actor=principal.subject, tenant=tenant,
         resource=f"operator:{operator_id}", ip=request.client.host if request.client else "")
 
+    # ── STOPPING HIM MUST STOP HIM ────────────────────────────────────────────────────────────
+    #
+    # This row is not his access. `hire` created two things — the membership at identity, which is
+    # what a token is minted from, and this row — and until now `active=False` wrote only the row.
+    # He signed in the same evening with the same password. Worse, an inactive row narrows nobody,
+    # and a person nothing narrows reads the WHOLE establishment: being dismissed promoted him
+    # from his own branch to every branch.
+    #
+    # THE MEMBERSHIP GOES FIRST AND A FAILURE REFUSES. Writing "stopped" on a screen while the
+    # login still works is precisely the lie being fixed; a row still marked active after a failed
+    # revoke is at least true.
+    stopping = body.active is False and op.active
+    if stopping and op.person_id:
+        try:
+            await request.app.state.container.signup.revoke(tenant, op.person_id)
+        except SignupRefused as exc:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"error": "NOT_STOPPED", "message": str(exc)})
+
+    # AND HE IS NOT BROUGHT BACK BY A TOGGLE. His membership is gone, and only a password nobody
+    # here has can mint another; flipping this flag would return a name to «فريقي» that consumes a
+    # seat and cannot open the app — the half-employee `hire` refuses to create.
+    if body.active is True and not op.active and not op.person_id:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "REHIRE_REQUIRED",
+                     "message": "تم إلغاء دخوله عند إيقافه. أضِفه من جديد ليعمل حسابه."})
+
     op.name = body.name.strip() if body.name is not None else op.name
     op.role = body.role if body.role is not None else op.role
     op.branch_id = branch_id
     op.active = body.active if body.active is not None else op.active
+    # HIS ROW STAYS, HIS LOGIN DOES NOT. Old visits still name him — an employee who left is
+    # history, not a gap — but the link to a membership that no longer exists is cleared, so
+    # nothing later mistakes it for a live account.
+    if stopping:
+        op.person_id = ""
     await store.save(op)
     # SEATS ARE REPORTED AGAIN, because stopping somebody frees his seat — a gauge is the CURRENT
     # value, and an owner who deactivated two people must not be refused his next hire.

@@ -232,12 +232,21 @@ def test_an_assigned_person_is_scoped_to_his_own_branch(client):
     assert kept == [{"branch_id": "brn-jeddah"}, {"branch_id": ""}]
 
 
-def test_a_stopped_employee_is_not_scoped_by_his_old_row(client):
-    """He is not scoped BECAUSE he must not be reading anything at all — his account is what stops
-    him. A deactivated row narrowing a live token would be a rule enforced in the wrong place."""
+def test_a_stopped_employee_sees_nothing_rather_than_everything(client):
+    """THIS TEST USED TO ASSERT THE DEFECT, and its reasoning was «his account is what stops him».
+
+    It did not. Stopping somebody wrote this row and nothing else — the membership at identity
+    lived on, so he signed in that same evening. And an inactive row matched nobody, an unmatched
+    person was read as unnarrowed, and unnarrowed means the whole establishment: dismissal
+    PROMOTED him from one branch to every branch.
+
+    Both halves are closed now. The membership is revoked when he is stopped, and a stopped row is
+    its own answer here — REVOKED, which shows nothing, and which `visible` must not confuse with
+    the empty scope that shows everything.
+    """
     import asyncio
 
-    from app.api.scope import branch_scope
+    from app.api.scope import REVOKED, branch_scope, visible
     from app.core.models import Operator
     from app.core.stores import OperatorStore
     from types import SimpleNamespace
@@ -246,8 +255,12 @@ def test_a_stopped_employee_is_not_scoped_by_his_old_row(client):
     asyncio.run(OperatorStore(store).save(Operator(
         id="opr_gone", tenant="tnt_gone", name="من ترك", role="manager",
         branch_id="brn-jeddah", person_id="u_gone", active=False)))
-    assert asyncio.run(branch_scope(store, SimpleNamespace(subject="u_gone",
-                                                          tenant="tnt_gone"))) == ""
+    scope = asyncio.run(branch_scope(store, SimpleNamespace(subject="u_gone",
+                                                            tenant="tnt_gone")))
+    assert scope is REVOKED
+    # NOT ONE ROW — not even the unbranched ones everybody else may see.
+    assert visible([{"branch_id": "brn-jeddah"}, {"branch_id": "brn-riyadh"},
+                    {"branch_id": ""}], scope) == []
 
 
 # ── the mode: central by default, one way out, and never back from a screen ────────────────────

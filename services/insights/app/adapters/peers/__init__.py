@@ -21,6 +21,15 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+#: We could not ask operations who this person is. Not a branch, and not «no restriction».
+UNREADABLE = "_unreadable"
+#: His own shop stopped him — a decision, not a failure. Told apart because they are different
+#: facts, and refused identically.
+REVOKED = "_revoked"
+#: Compared as a set so a fourth state cannot be added and quietly fall through to «see
+#: everything», which is how this family of defect starts every time.
+DENIED = frozenset({UNREADABLE, REVOKED})
+
 
 def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:
     req = urllib.request.Request(
@@ -150,12 +159,20 @@ class HttpPeers:
         chain. A scope we could not read is answered as «his own nothing» — the dashboard renders
         the unbranched view, which shows him no other branch's figures — rather than as «no
         restriction», which would hand him everybody's.
+
+        AND A STOPPED EMPLOYEE IS ITS OWN ANSWER. `branch_id` cannot carry it: this line reads that
+        field as `str(... or "")`, so any empty answer became "" — and "" is «no restriction», the
+        opposite of what a dismissal means. operations therefore says `revoked` in a field of its
+        own, and it refuses exactly where an unreadable scope does.
         """
         try:
-            return str((_post(self._scope_url, {"tenant": tenant, "subject": subject},
-                              self._token, self._timeout)).get("branch_id") or "")
+            out = _post(self._scope_url, {"tenant": tenant, "subject": subject},
+                        self._token, self._timeout)
+            if out.get("revoked"):
+                return REVOKED
+            return str(out.get("branch_id") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
-            return "_unreadable"
+            return UNREADABLE
 
     async def branches(self, tenant: str) -> list[dict]:
         """This shop's places — ONLY so a table can print a name instead of `brn_9f2a`.

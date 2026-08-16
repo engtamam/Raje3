@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from app.config import get_settings
 
+from app.adapters.peers import DENIED
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
@@ -86,7 +87,7 @@ async def dashboard(request: Request, branch_id: str = "",
     # sees the establishment, exactly as before.
     ask = getattr(c.peers, "branch_scope", None)
     scope = await ask(tenant, getattr(principal, "subject", "")) if ask else ""
-    if scope == "_unreadable":
+    if scope in DENIED:
         # FAIL CLOSED — and it used to fail OPEN, on the one question that decides who sees whose
         # numbers. `_unreadable` means we could not learn which branch this person works at, and
         # the old line turned that into `branch_id = ""`, which is «the whole establishment». So
@@ -275,7 +276,7 @@ async def branches(request: Request, principal: Principal = Depends(_READ)):
     # the single screen that exists to compare people.
     ask = getattr(c.peers, "branch_scope", None)
     scope = await ask(tenant, getattr(principal, "subject", "")) if ask else ""
-    if scope == "_unreadable":
+    if scope in DENIED:
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={
             "message": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."})
 

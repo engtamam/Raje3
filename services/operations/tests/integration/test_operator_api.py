@@ -727,3 +727,113 @@ def test_a_cancelled_signup_publishes_nothing(client, monkeypatch):
                 json={"event": "CANCEL", "step": "PHONE_NUMBER"},
                 headers=_auth("billing.self", tenant="t1"))
     assert lib.registered == []
+
+
+# ── stopping somebody must actually stop him (و-1) ─────────────────────────────────────────────
+#
+# The whole chain, because every link was sound alone: the row was written, the flag was read, the
+# screen said «موقوف». What nothing did was take the membership away — and what nothing noticed
+# was that an inactive row stopped narrowing him, so the shop's own dismissal handed him the chain.
+
+
+class _Signup:
+    """Stands in for the identity round trip: records the revoke, or refuses it."""
+
+    def __init__(self, *, fails: bool = False) -> None:
+        self.revoked: list[tuple[str, str]] = []
+        self._fails = fails
+
+    async def revoke(self, tenant: str, person_id: str) -> bool:
+        from app.core.signup import SignupRefused
+
+        if self._fails:
+            raise SignupRefused("تعذّر إيقاف دخول الموظف. حاول بعد قليل.")
+        self.revoked.append((tenant, person_id))
+        return True
+
+
+def _hired(client, tenant: str, person_id: str, *, oid: str) -> None:
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    asyncio.run(OperatorStore(client.app.state.container.datastore).save(Operator(
+        id=oid, tenant=tenant, name="موظف", role="manager",
+        branch_id="brn-jeddah", person_id=person_id, active=True)))
+
+
+def test_stopping_an_employee_revokes_the_login_he_would_have_used(client, monkeypatch):
+    fake = _Signup()
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _hired(client, "t_stop", "u_stop", oid="opr_stop")
+
+    r = client.patch("/api/v1/staff/operators/opr_stop", json={"active": False},
+                     headers=_auth("operations.manage", tenant="t_stop"))
+    assert r.status_code == 200, r.text
+    assert fake.revoked == [("t_stop", "u_stop")], "the membership must be revoked, not just the row"
+    # AND THE ROW NO LONGER CLAIMS A LIVE ACCOUNT.
+    assert r.json().get("active") is False
+
+
+def test_a_failed_revoke_refuses_rather_than_reporting_him_stopped(client, monkeypatch):
+    """A row marked stopped beside a login that still works is the exact lie being fixed."""
+    fake = _Signup(fails=True)
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _hired(client, "t_fail", "u_fail", oid="opr_fail")
+
+    r = client.patch("/api/v1/staff/operators/opr_fail", json={"active": False},
+                     headers=_auth("operations.manage", tenant="t_fail"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "NOT_STOPPED"
+
+    import asyncio
+
+    from app.core.stores import OperatorStore
+
+    op = asyncio.run(OperatorStore(client.app.state.container.datastore).get("t_fail", "opr_fail"))
+    assert op.active is True, "still active is at least TRUE — a false «stopped» is the defect"
+
+
+def test_he_is_not_brought_back_by_flipping_the_flag(client, monkeypatch):
+    """His membership is gone and only a password nobody here holds can mint another. A toggle
+    would return a name to «فريقي» that consumes a seat and cannot open the app."""
+    fake = _Signup()
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _hired(client, "t_back", "u_back", oid="opr_back")
+    client.patch("/api/v1/staff/operators/opr_back", json={"active": False},
+                 headers=_auth("operations.manage", tenant="t_back"))
+
+    r = client.patch("/api/v1/staff/operators/opr_back", json={"active": True},
+                     headers=_auth("operations.manage", tenant="t_back"))
+    assert r.status_code == 400
+    assert r.json()["error"] == "REHIRE_REQUIRED"
+
+
+def test_the_internal_scope_route_says_stopped_in_a_field_of_its_own(client, monkeypatch):
+    """Every consumer reads `branch_id` as `str(... or "")`, and "" means the WHOLE establishment.
+    So «stopped» cannot be said there — three services would have widened him at once."""
+    fake = _Signup()
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _hired(client, "t_wire", "u_wire", oid="opr_wire")
+    client.patch("/api/v1/staff/operators/opr_wire", json={"active": False},
+                 headers=_auth("operations.manage", tenant="t_wire"))
+
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    # He keeps a row — old visits still name him — but it is stopped, and person_id was cleared on
+    # the way out, so the scope is asked about the subject his token still carries.
+    op = asyncio.run(OperatorStore(client.app.state.container.datastore).get("t_wire", "opr_wire"))
+    op.person_id = "u_wire"
+    asyncio.run(OperatorStore(client.app.state.container.datastore).save(op))
+
+    r = client.post("/internal/operations/branch-scope",
+                    json={"tenant": "t_wire", "subject": "u_wire"},
+                    headers={"X-Internal-Token": "t" * 40})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["revoked"] is True
+    assert body["branch_id"] == "", "an empty branch must never be the carrier of «stopped»"

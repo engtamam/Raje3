@@ -23,6 +23,12 @@ import urllib.request
 from typing import Any
 
 UNREADABLE = "_unreadable"
+#: His own shop stopped him. Told apart from UNREADABLE because they are different facts — one is
+#: our failure to ask, the other is a decision the owner made — and both refuse.
+REVOKED = "_revoked"
+#: Neither of these is a branch. Compared as a set so a fourth state cannot be added and quietly
+#: fall through to «no restriction», which is how this family of defect starts every time.
+DENIED = frozenset({UNREADABLE, REVOKED})
 
 
 class BranchScope:
@@ -52,6 +58,8 @@ class BranchScope:
                 if not 200 <= resp.status < 300:
                     return UNREADABLE
                 out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            if out.get("revoked"):
+                return REVOKED
             return str(out.get("branch_id") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return UNREADABLE
