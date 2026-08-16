@@ -234,6 +234,14 @@ jobs:
       - name: a template blank with nobody to fill it
         run: python3 ci/check_every_blank_says_who_fills_it.py
 
+      # AND META IS ONE CONVERSATION, ON A VERSION THAT IS STILL ALIVE. The console pinned Graph
+      # v21.0 while the onboarding adapter behind it called v26.0; and Embedded Signup v2 and v3
+      # both retire on 2026-10-15, taking `featureType` and `sessionInfoVersion` with them. A
+      # retired Graph version does not fail loudly — the field stops being returned, and the shop
+      # reads as connected and cannot send.
+      - name: Meta's version is one answer, and not a retired one
+        run: python3 ci/check_the_meta_versions_are_alive.py
+
       # AND EVERY DEPLOY SCRIPT ASKS THE SAME PLACE WHERE THE CLUSTER IS. Thirty-two of them
       # carried `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` — the node's path, on a laptop where no
       # such file exists — so eighteen proofs reported «connection refused to localhost» about a

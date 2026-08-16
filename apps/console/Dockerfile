@@ -35,11 +35,10 @@ COPY apps/console/ ./
 ARG VITE_META_APP_ID=""
 ARG VITE_META_CONFIG_ID=""
 ARG VITE_META_GRAPH_VERSION=""
-# WHICH EMBEDDED SIGNUP THE POPUP OPENS — v3 until the day a v4 Login-for-Business configuration
-# exists. It travels WITH `VITE_META_CONFIG_ID`, because the configuration is what actually selects
-# the version and the two disagreeing is a popup that opens for one and reports to the other.
-ARG VITE_META_SIGNUP_VERSION=""
-ENV VITE_META_APP_ID=$VITE_META_APP_ID VITE_META_CONFIG_ID=$VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION=$VITE_META_GRAPH_VERSION VITE_META_SIGNUP_VERSION=$VITE_META_SIGNUP_VERSION
+# NO ARGUMENT SELECTS THE EMBEDDED SIGNUP VERSION, because none can: v4 reads it from the Facebook
+# Login for Business configuration behind VITE_META_CONFIG_ID. A build argument here was a second
+# place to say it, and the two could disagree.
+ENV VITE_META_APP_ID=$VITE_META_APP_ID VITE_META_CONFIG_ID=$VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION=$VITE_META_GRAPH_VERSION
 RUN npm run build
 
 # ── runtime ──────────────────────────────────────────────────────────────────

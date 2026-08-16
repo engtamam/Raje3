@@ -35,36 +35,32 @@ const SRC = 'https://connect.facebook.net/en_US/sdk.js';
  * us on a date somebody else chooses, and the failure would arrive as a connect flow that stopped
  * returning what our exchange expects. A default here keeps a local run working; the deployment
  * names the version it was tested against.
+ *
+ * AND IT IS THE VERSION THE BACK END SPEAKS. This console pinned v21.0 while the onboarding
+ * adapter behind it was calling Graph v26.0 — one product holding two conversations with Meta,
+ * which nobody chose and nothing reported. `ci/check_the_meta_versions_are_alive.py` now refuses
+ * a second answer.
  */
-const VERSION = import.meta.env.VITE_META_GRAPH_VERSION || 'v21.0';
+export const GRAPH_VERSION = import.meta.env.VITE_META_GRAPH_VERSION || 'v26.0';
 
 /**
- * WHICH EMBEDDED SIGNUP THE POPUP OPENS — and it is READ, never decided here.
+ * The `extras` for `FB.login`, and it is EMPTY — that is Embedded Signup v4's whole shape.
  *
- * Meta retires v2 on 15 October 2026. The successor, v4, is NOT selected by anything in this file:
- * it is decided by the Facebook Login for Business configuration behind `config_id`, and the docs
- * are explicit that «the extras object is purposely empty for v4». Earlier versions are the
- * opposite — they are told which shape to use through `extras`.
+ * WHICH VERSION THE POPUP OPENS IS NOT DECIDED HERE, and cannot be. It is a property of the
+ * Facebook Login for Business configuration behind `config_id`, set on Meta's side; v4 reads it
+ * from there and takes no parameters. Earlier versions were the opposite — they were told through
+ * `extras` which payload shape to post back, with `featureType` and `sessionInfoVersion`.
  *
- * SO THE TWO MUST AGREE, AND ONLY THE DEPLOYMENT KNOWS. The day a new configuration id is pasted
- * in, this value moves with it in the same file — one deploy, no code change, and no window in
- * which the popup is opened for one version while the console asks for another. Hardcoding either
- * half here would make the switch a release rather than a setting.
+ * THOSE TWO KEYS ARE GONE FROM THIS FILE RATHER THAN KEPT BEHIND A SWITCH. v2 and v3 both retire
+ * on 15 October 2026, so a branch serving them is not compatibility — it is a path to a date. And
+ * there is nothing behind it: no shop has ever completed this flow, because the Meta application
+ * itself is not created yet.
+ *
+ * `setup` is where a pre-filled business profile would go, and we pre-fill nothing — the owner's
+ * own details are his to type, and a wrong guess costs him a correction inside a popup he cannot
+ * leave.
  */
-const SIGNUP_VERSION = import.meta.env.VITE_META_SIGNUP_VERSION || 'v3';
-
-/**
- * The `extras` for `FB.login`, for the version this deployment is configured against.
- *
- * `setup: {}` in both: it is where a pre-filled business profile would go, and we pre-fill nothing
- * — the owner's own details are his to type, and a wrong guess costs him a correction inside a
- * popup he cannot leave.
- */
-export function signupExtras(): Record<string, unknown> {
-  if (SIGNUP_VERSION === 'v4') return { setup: {} };
-  // v3 and earlier: the flow needs to be told which payload shape to post back.
-  return { setup: {}, featureType: '', sessionInfoVersion: '3' };
-}
+export const SIGNUP_EXTRAS: Record<string, unknown> = {};
 
 let pending: Promise<SdkState> | null = null;
 
@@ -89,7 +85,7 @@ export function loadMetaSdk(): Promise<SdkState> {
       // `cookie: false` — we take nothing from Meta but the message the popup posts back, and a
       // session cookie set on our origin is a thing to secure for no benefit.
       fb.init({ appId: import.meta.env.VITE_META_APP_ID, cookie: false,
-                xfbml: false, version: VERSION });
+                xfbml: false, version: GRAPH_VERSION });
       resolve('ready');
     };
     // A FAILED LOAD IS ANSWERED, NEVER LEFT HANGING. A promise that never settles leaves the

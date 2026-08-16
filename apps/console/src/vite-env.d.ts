@@ -10,7 +10,9 @@ interface ImportMetaEnv {
   /** Meta's app id. Its ABSENCE is the switch: with no id there is nothing to load, and the
    *  connect button says the connection is not enabled yet instead of asking for a refresh. */
   readonly VITE_META_APP_ID?: string;
-  /** The Graph version FB.init is pinned to — Meta retires versions on its own schedule. */
+  /** The Graph version FB.init is pinned to — Meta retires versions on its own schedule, and it
+   *  must be the one the onboarding adapter speaks. Absent, the console falls back to the version
+   *  named in `meta.ts`, which the gate holds equal to the deployment's. */
   readonly VITE_META_GRAPH_VERSION?: string;
 }
 interface ImportMeta {

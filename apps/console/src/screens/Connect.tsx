@@ -21,7 +21,7 @@ import { useEffect, useState } from 'react';
 import { hasFailed, isLoading } from '../loading';
 import { Button } from '@base-ui/design-system/Button';
 import { action, call, type Catalog } from '../catalog';
-import { loadMetaSdk, metaSdk, signupExtras, type SdkState } from '../meta';
+import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type SdkState } from '../meta';
 import type { Session } from '../session';
 
 interface ConnectState {
@@ -242,7 +242,7 @@ export function Connect({
                 config_id: import.meta.env.VITE_META_CONFIG_ID,
                 response_type: 'code',
                 override_default_response_type: true,
-                extras: signupExtras(),
+                extras: SIGNUP_EXTRAS,
               });
             }}
           >

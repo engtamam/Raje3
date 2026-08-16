@@ -101,8 +101,19 @@ env:
   # layer at all. Empty means Embedded Signup is simply disabled and the endpoint refuses cleanly.
   #
   # SEPARATE GRAPH VERSION FROM THE SEND PATH, deliberately: upgrading how we onboard must not
-  # quietly change how every message goes out.
-  WHATSAPP_ONBOARDING_GRAPH_BASE: "https://graph.facebook.com/v21.0"
+  # quietly change how every message goes out. Two knobs, so the two can be moved one at a time.
+  #
+  # AND TODAY THEY HOLD THE SAME VALUE, which is the part that was wrong. This said v21.0 while
+  # the send path took the platform's v26.0 default and the console initialised its SDK on v21.0
+  # — one product holding two conversations with Meta, chosen by nobody. A retired Graph version
+  # does not fail loudly: the field you asked for stops being returned, so the shop reads as
+  # connected and cannot send.
+  #
+  # BOTH ARE NAMED HERE RATHER THAN INHERITED. An inherited default moves when the platform moves,
+  # and the console — which is ours, and pinned — would not move with it.
+  # `ci/check_the_meta_versions_are_alive.py` holds all three equal.
+  WHATSAPP_GRAPH_BASE: "https://graph.facebook.com/v26.0"
+  WHATSAPP_ONBOARDING_GRAPH_BASE: "https://graph.facebook.com/v26.0"
 
   # ── Consent gate — the other half of §8.4 ─────────────────────────────────────────────────
   # http, not null. The null gate answers UNKNOWN forever and the production boot guard REFUSES

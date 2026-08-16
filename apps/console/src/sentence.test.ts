@@ -49,24 +49,31 @@ describe('sentenceFor keeps a sentence written for a person, whoever threw it', 
   });
 });
 
-/** Embedded Signup v2 dies 15 October 2026. v4 is chosen by the Facebook Login for Business
- *  configuration behind `config_id`, NOT by anything in our code — and the docs are explicit that
- *  «the extras object is purposely empty for v4». So the two must move together, from the same
- *  deployment, or the popup opens for one version while the console asks for another. */
-describe('the Embedded Signup version travels with the configuration', () => {
-  it('sends nothing but setup for v4, and the v3 shape otherwise', async () => {
-    const load = async (v: string | undefined) => {
-      vi.resetModules();
-      vi.stubEnv('VITE_META_SIGNUP_VERSION', v ?? '');
-      return (await import('./meta')).signupExtras();
-    };
+/** Embedded Signup v2 AND v3 both die on 15 October 2026. v4 takes no parameters at all: the
+ *  version is a property of the Facebook Login for Business configuration behind `config_id`, set
+ *  on Meta's side. Anything we put in `extras` is either ignored or rejected, and the two keys we
+ *  used to send — `featureType` and `sessionInfoVersion` — are exactly the ones that expire. */
+describe('the Embedded Signup extras', () => {
+  it('carries nothing, whatever the environment says', async () => {
+    vi.resetModules();
+    // THE ENVIRONMENT CANNOT PUT THE OLD SHAPE BACK. A leftover build argument on some machine is
+    // precisely how a retired parameter survives a migration, so the extras are a constant and
+    // read no variable at all.
+    vi.stubEnv('VITE_META_SIGNUP_VERSION', 'v3');
+    const { SIGNUP_EXTRAS } = await import('./meta');
+    expect(SIGNUP_EXTRAS).toEqual({});
+    vi.unstubAllEnvs();
+  });
 
-    expect(await load('v4')).toEqual({ setup: {} });
-
-    for (const older of [undefined, 'v3']) {
-      const extras = await load(older);
-      expect(extras).toEqual({ setup: {}, featureType: '', sessionInfoVersion: '3' });
-    }
+  it('falls back to the Graph version the back end speaks, not an older one', async () => {
+    // The console pinned v21.0 while the onboarding adapter behind it called v26.0 — one product
+    // holding two conversations with Meta. A retired Graph version does not fail loudly: the
+    // field you asked for stops appearing, so the shop is «connected» and cannot send. This is
+    // the default a deployment inherits when it names none, which is the half that drifted.
+    vi.resetModules();
+    vi.stubEnv('VITE_META_GRAPH_VERSION', '');
+    const { GRAPH_VERSION } = await import('./meta');
+    expect(GRAPH_VERSION).toBe('v26.0');
     vi.unstubAllEnvs();
   });
 });
