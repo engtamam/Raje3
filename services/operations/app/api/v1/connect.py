@@ -171,8 +171,95 @@ async def whatsapp_connect_status(request: Request, principal=Depends(_OWNER)) -
     if attempt is None:
         return {"state": "", "step": "", "message": "لم تبدأ الربط بعد.", "at": 0,
                 "can_send": False}
-    # THE SAME FLAG THE SIGNUP PATH ALREADY OBEYS, and deliberately not a second one. It says
-    # whether a message can reach a phone on this deployment, it is flipped in the same change
-    # that points WhatsApp at Meta, and a guard fails the build if the two ever disagree. A new
-    # setting here would be a second truth that drifts from the first.
-    return attempt.public(can_send=bool(get_settings().SIGNUP_OTP_DELIVERABLE))
+    # ── CAN A MESSAGE ACTUALLY LEAVE? TWO FACTS, AND BOTH MUST BE TRUE ────────────────────────
+    #
+    # 1. OUR CHANNEL IS OPEN — the same flag the signup path obeys, flipped in the same change that
+    #    points WhatsApp at Meta, with a guard that fails the build if the two disagree.
+    # 2. HIS NUMBER IS REGISTERED — read live from Meta (v0.16.10). A token exchange succeeding
+    #    means Meta gave us credentials; it does not mean the number may send, and assuming it is
+    #    exactly how a shop ends up «مربوط» and mute.
+    #
+    # AND «WE COULD NOT ASK» IS NOT «NOT READY». An unreadable status leaves the answer to the
+    # deployment flag alone rather than telling him his number is unverified — a screen that
+    # invents a fault sends him chasing one.
+    s = get_settings()
+    channel_open = bool(s.SIGNUP_OTP_DELIVERABLE)
+    ready = channel_open
+    if channel_open and attempt.state == connect.STATE_CONNECTED:
+        live = await connect.build_registration(s).status(tenant, attempt.phone_number_id)
+        verified = str(live.get("code_verification_status") or "").upper()
+        if verified:
+            ready = verified in ("VERIFIED", "EXPIRED_VERIFIED")
+    return attempt.public(can_send=ready)
+
+
+class RegisterIn(BaseModel):
+    """The 6-digit PIN, and which number it is for."""
+
+    # SHAPE-CHECKED HERE, BEFORE IT TRAVELS. Meta locks a number after 10 registration attempts in
+    # 72 hours, and a malformed PIN must never spend one of them.
+    pin: str = Field(pattern=r"^[0-9]{6}$")
+    # Empty is the establishment's own number — every shop in the default mode.
+    branch_id: str = Field(default="", max_length=64)
+
+
+# The three refusals Meta distinguishes, in the owner's language. Each says what to DO, and the
+# middle one says what NOT to do: retrying inside the lock spends attempts on a wait.
+_REGISTER_SENTENCE = {
+    "WRONG_PIN": "الرمز غير صحيح. أدخل رمز التحقق بخطوتين (6 أرقام) الخاص بحساب واتساب أعمالك.",
+    "RATE_LIMITED": "حاولنا كثيراً وقفلت واتساب المحاولات 72 ساعة. لا تعِد المحاولة الآن — "
+                    "انتظر ثم أدخل الرمز مرة واحدة.",
+    "NO_PIN": "أدخل رمز التحقق بخطوتين (6 أرقام).",
+    "NOT_CONNECTED": "أكمل ربط واتساب أولاً — لا يوجد حساب مرتبط بهذا الرقم بعد.",
+    "NOT_CONFIGURED": "تفعيل الإرسال غير مُهيَّأ لدينا بعد — عُطلٌ عندنا لا في حسابك.",
+}
+_REGISTER_FALLBACK = "تعذّر تفعيل الإرسال الآن. حاول بعد قليل، ولا تكرّر المحاولة كثيراً."
+
+
+@router.post("/connect/register", dependencies=[Depends(rate_limit)])
+async def whatsapp_register(request: Request, body: RegisterIn,
+                            principal=Depends(_OWNER)) -> Any:
+    """Finish the connection: register the number so it can actually send.
+
+    WHY IT IS A SEPARATE ACT AND NOT PART OF THE POPUP. The PIN is the business's own two-step
+    verification code — we do not have it and must never invent one. Embedded Signup returns a
+    token in about thirty seconds and cannot pause for a person to fetch a PIN, so the connection
+    is stored first and this completes it. That also makes it RETRYABLE: a number whose
+    registration failed is not lost, which was the whole trap before.
+
+    RETURNED, NEVER RAISED — the platform strips a raised detail, and every sentence here is one
+    the owner must be able to read and act on.
+    """
+    tenant = getattr(principal, "tenant", "") or ""
+    if not tenant:
+        return JSONResponse(status_code=403,
+                            content={"message": "لا توجد منشأة في هذه الجلسة."})
+
+    c = request.app.state.container
+    s = get_settings()
+    store = connect.ConnectionStore(c.datastore)
+
+    identity = await SI.resolve(c.datastore, tenant, body.branch_id)
+    branch_id = SI.split(identity)[1]
+    attempt = await store.get(tenant, branch_id)
+    if attempt is None or attempt.state != connect.STATE_CONNECTED:
+        return JSONResponse(status_code=400, content={
+            "registered": False, "message": _REGISTER_SENTENCE["NOT_CONNECTED"]})
+
+    ok, reason = await connect.build_registration(s).register(
+        # THE SEAL IS KEYED BY THE SENDING IDENTITY, exactly as the credentials are — so a chain's
+        # second number registers on its own rather than over the first.
+        tenant=identity, phone_number_id=attempt.phone_number_id, pin=body.pin)
+
+    await request.app.state.auditor.record(
+        "whatsapp.number_registered" if ok else "whatsapp.register_failed",
+        actor=getattr(principal, "subject", ""), tenant=tenant,
+        resource=f"phone:{attempt.phone_number_id}",
+        ip=request.client.host if request.client else "")
+
+    if ok:
+        return {"registered": True,
+                "message": "تم تفعيل الإرسال. رقمك جاهز الآن."}
+    return JSONResponse(status_code=400, content={
+        "registered": False,
+        "message": _REGISTER_SENTENCE.get(reason.split(":")[0], _REGISTER_FALLBACK)})

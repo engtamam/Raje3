@@ -243,6 +243,101 @@ class ConnectionStore:
         return out[:cap]
 
 
+class Registration:
+    """Registering the number, and reading whether it can actually send.
+
+    THE STEP EMBEDDED SIGNUP STOPS BEFORE. The exchange stores a token; Meta refuses to SEND from a
+    number until it is REGISTERED with the business's 6-digit two-step-verification PIN. Until
+    v0.16.10 the platform had no route for it at all — the escalation this closes — and every
+    connection ended «أخضر ولا يرسل».
+
+    THREE REFUSALS, NEVER ONE. A mistyped PIN is his to correct; the 10-attempts-per-72-hours lock
+    is a WAIT and retrying makes it worse; unreachable is ours. Collapsing them into one «تعذّر»
+    would have an owner burn his remaining attempts on a problem no attempt can fix.
+
+    AND THE PIN IS NEVER STORED HERE. It travels through this call into the platform's sealed store
+    and is not written to any row, log or audit of ours — see the register route, which seals it per
+    number so a re-registration needs no human.
+    """
+
+    driver = "http"
+
+    def __init__(self, *, base_url: str, register_path: str, status_path: str, token: str,
+                 timeout: int = 20) -> None:
+        self._register = (base_url.rstrip("/") + register_path) if base_url else ""
+        self._status = (base_url.rstrip("/") + status_path) if base_url else ""
+        self._token = token
+        self._timeout = timeout
+
+    @property
+    def configured(self) -> bool:
+        return bool(self._register)
+
+    async def register(self, *, tenant: str, phone_number_id: str = "",
+                       pin: str = "") -> tuple[bool, str]:
+        """`(registered, reason)` — the reason is one of Meta's, passed through untranslated."""
+        import json
+        import urllib.error
+        import urllib.request
+
+        if not self._register:
+            return False, "NOT_CONFIGURED"
+        body: dict[str, Any] = {"tenant": tenant}
+        if phone_number_id:
+            body["phone_number_id"] = phone_number_id
+        if pin:
+            body["pin"] = pin
+        req = urllib.request.Request(
+            self._register, data=json.dumps(body).encode(), method="POST",
+            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                out = json.loads(resp.read() or b"{}")
+            return bool(out.get("registered")), str(out.get("reason") or "")
+        except urllib.error.HTTPError as exc:
+            try:
+                out = json.loads(exc.read() or b"{}")
+                return False, str(out.get("reason") or exc.code)
+            except (ValueError, OSError):
+                return False, str(exc.code)
+        except (urllib.error.URLError, OSError) as exc:
+            return False, f"UNREACHABLE: {exc}"
+
+    async def status(self, tenant: str, phone_number_id: str = "") -> dict[str, Any]:
+        """What Meta says about the number right now. `{}` means we could not ask — NOT «not ready».
+
+        THE THIRD STATE, AGAIN. An unreadable status must never render as «غير جاهز»: the shop may
+        be perfectly able to send, and a screen that says otherwise sends him chasing a fault that
+        is ours or nobody's.
+        """
+        import json
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        if not self._status or not tenant:
+            return {}
+        query = urllib.parse.urlencode(
+            {"tenant": tenant, **({"phone_number_id": phone_number_id} if phone_number_id else {})})
+        req = urllib.request.Request(f"{self._status}?{query}",
+                                     headers={"X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                out = json.loads(resp.read() or b"{}")
+            return out if isinstance(out, dict) else {}
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return {}
+
+
+def build_registration(settings: Any) -> Registration:
+    return Registration(
+        base_url=getattr(settings, "NOTIFICATION_SERVICE_URL", "") or "",
+        register_path=getattr(settings, "WHATSAPP_REGISTER_PATH", "/internal/whatsapp/register"),
+        status_path=getattr(settings, "WHATSAPP_STATUS_PATH", "/internal/whatsapp/status"),
+        token=getattr(settings, "INTERNAL_SERVICE_TOKEN", ""),
+        timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 20) or 20))
+
+
 class NullExchange:
     """No Tech Provider credentials wired, or no route to reach them with.
 

@@ -309,6 +309,15 @@ class Settings(BaseSettings):
     # its messages went.
     WHATSAPP_ONBOARDING_DRIVER: str = "null"     # null | http
     WHATSAPP_ONBOARDING_PATH: str = "/internal/whatsapp/embedded-signup"
+    # ── THE STEP THE EXCHANGE STOPS BEFORE (base-services v0.16.10) ──────────────────────────
+    # Meta refuses to SEND from a number until it is registered (error 133010), so a connection
+    # that stops at the token exchange is «مربوط» and mute — this product's signature failure,
+    # and the reason we escalated it. Registration is PER NUMBER, which is what a number per
+    # branch needs.
+    WHATSAPP_REGISTER_PATH: str = "/internal/whatsapp/register"
+    # And the number's REAL readiness, read live from Meta: `code_verification_status` answers
+    # «can this shop actually send» instead of a screen assuming it from a successful exchange.
+    WHATSAPP_STATUS_PATH: str = "/internal/whatsapp/status"
 
     # ── retention (§14.5) ─────────────────────────────────────────────────────
     # HOW LONG A PERSON'S NUMBER IS KEPT. Two clocks, and neither is a constant in code:

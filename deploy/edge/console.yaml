@@ -32,7 +32,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: console
-          image: 127.0.0.1:5055/raje3/console@sha256:dbc61a8a5b73e0204f82338c6dd87876d533069a3cf1fd5035cae421b5192dfd
+          image: 127.0.0.1:5055/raje3/console@sha256:c1bda3c997612603223364744ddacb3ca42fb6967d118dacaea801298e0aa2c6
           ports:
             - { containerPort: 8080 }
           securityContext:

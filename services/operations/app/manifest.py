@@ -203,6 +203,10 @@ def build_manifest(
             {"path": "/api/v1/subscription/apps", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whatsapp/connect", "tier": "user", "method": "GET"},
+            # FINISHING THE CONNECTION (base-services v0.16.10). The exchange stores a token; Meta
+            # refuses to send until the number is REGISTERED with the business's own 6-digit PIN —
+            # which we do not have and must never invent, so it is his act and separate.
+            {"path": "/api/v1/whatsapp/connect/register", "tier": "user", "method": "POST"},
             # ── the door ──────────────────────────────────────────────────────────────────
             # PUBLIC, and it is the only user-facing surface here that is. One route creates the
             # account a token would come from and the other exchanges a phone and a password for

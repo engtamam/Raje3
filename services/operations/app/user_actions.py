@@ -178,6 +178,15 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "أين وصل ربط واتساب، وما الخطوة الباقية إن توقّف.",
     },
     {
+        "id": "whatsapp.register_number", "label": "تفعيل الإرسال", "method": "POST",
+        "path": "/api/v1/whatsapp/connect/register", "capability": "billing.self",
+        "group": "حسابي",
+        # THE STEP THAT TURNS «مربوط» INTO «يرسل». Meta refuses to send from an unregistered
+        # number, and the PIN is the business's own — so this is his act, retryable, and its three
+        # refusals are three sentences.
+        "help": "أدخل رمز التحقق بخطوتين لحساب واتساب أعمالك حتى يبدأ رقمك بالإرسال.",
+    },
+    {
         "id": "subscription.payment_state", "label": "حالة الدفع", "method": "GET",
         "path": "/api/v1/subscription/payment", "capability": "billing.self",
         "group": "الاشتراك",

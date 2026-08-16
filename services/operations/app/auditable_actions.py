@@ -388,4 +388,23 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "which window is the one thing an audit trail cannot survive not knowing, and it "
                "is recorded BEFORE the file is handed over rather than after",
     },
+    {
+        "action": "whatsapp.number_registered",
+        "source": "user",
+        "critical": True,
+        "resource": "whatsapp_connection",
+        "why": "the moment a shop's number became able to send. Meta refuses to send from an "
+               "unregistered number, so this is the line between a connection that works and one "
+               "that is green and mute — and it is the first thing to look at when an owner says "
+               "his messages stopped",
+    },
+    {
+        "action": "whatsapp.register_failed",
+        "source": "user",
+        "critical": False,
+        "resource": "whatsapp_connection",
+        "why": "Meta locks a number after ten registration attempts in 72 hours. Counting the "
+               "failures is the only way to tell a mistyped PIN apart from a shop that is now "
+               "locked out — and to know it before he calls",
+    },
 ]
