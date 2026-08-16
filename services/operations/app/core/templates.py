@@ -63,19 +63,34 @@ class TemplateLibrary:
         self._s = store
 
     # ── reads ─────────────────────────────────────────────────────────────────────────────────
-    async def list(self, *, cls: str = "", tone: str = "") -> list[dict[str, Any]]:
+    async def list(self, *, cls: str = "", tone: str = "",
+                    active_only: bool = True) -> list[dict[str, Any]]:
+        """The platform library.
+
+        DEFAULTS TO ACTIVE, DELIBERATELY — the same convention as `ServiceStore.list`. A retired
+        template is still in this table (see `deactivate`: we never delete, because an
+        establishment's registry and Meta's approval both still name it), so the naive `list()`
+        used to hand a caller who never thought about the question every retired row along with the
+        live ones. Two publish paths did exactly that: they pushed 66 rows at Meta's 100/hour cap
+        when 40 were dead text nobody chose, and the human reviewer saw wording we had pulled.
+        Filtering had to be the accident-proof direction — a caller that genuinely wants the
+        inactive rows (the platform console, managing the library) asks for them explicitly with
+        `active_only=False`.
+        """
         where: dict[str, Any] = {"tenant": PLATFORM}
         if cls:
             where["class"] = cls
         if tone:
             where["tone"] = tone
         rows, _ = await self._s.find(TEMPLATES, where, limit=500, sort=("name", "asc"))
+        if active_only:
+            rows = [r for r in rows if r.get("active", True)]
         return rows
 
     async def get(self, name: str) -> dict[str, Any] | None:
         return await self._s.get(TEMPLATES, f"{PLATFORM}|{name}")
 
-    async def for_model(self, model: str) -> list[dict[str, Any]]:
+    async def for_model(self, model: str, *, active_only: bool = True) -> list[dict[str, Any]]:
         """The set an establishment of this kind should have switched on at signup.
 
         `both` is always included: a confirmation and a receipt are the same message in any
@@ -85,7 +100,8 @@ class TemplateLibrary:
         """
         if model not in MODELS:
             raise TemplateError(f"unknown model {model!r} — one of {list(MODELS)}")
-        return [t for t in await self.list() if t.get("model", "both") in (model, "both")]
+        rows = await self.list(active_only=active_only)
+        return [t for t in rows if t.get("model", "both") in (model, "both")]
 
     async def for_tone(self, tone: str) -> list[dict[str, Any]]:
         """The set an establishment gets when it picks a tone.
@@ -95,7 +111,7 @@ class TemplateLibrary:
         """
         if tone not in TONES:
             raise TemplateError(f"unknown tone {tone!r} — one of {list(TONES)}")
-        return [t for t in await self.list(tone=tone) if t.get("active", True)]
+        return await self.list(tone=tone)
 
     # ── writes: the platform console ──────────────────────────────────────────────────────────
     async def upsert(self, t: dict[str, Any]) -> dict[str, Any]:

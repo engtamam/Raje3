@@ -170,10 +170,20 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
         # `own_row` is his stored template (core/custom_templates.py), which already holds the
         # numbering and the meaning of each blank — checked at write time, so nothing is re-derived
         # here from text we do not store.
-        row = own_row or {}
+        #
+        # AND ITS ABSENCE IS NEVER "NO CUSTOMIZATION" (ح-6). `own` is only set when the shop's own
+        # choices name a template it picked — so a missing `own_row` means the read failed or the
+        # row was lost, not that nothing was customized. This used to fall back to `{}`, which
+        # rendered `variables: []`: Meta refused the send for a parameter-count mismatch, or the
+        # template's numbered slots went out with nothing in them — a blank sentence under the
+        # shop's own approved name. The fallback is a refusal instead, which the send log can show
+        # and the shop can act on.
+        if own_row is None:
+            raise RenderError(
+                f"تعذّرت قراءة القالب الخاص «{own}» — لن تُرسَل رسالة بمتغيّرات فارغة.")
         return {"name": own, "type": template_type, "tone": tone, "active": True, "own": True,
-                "variables": list(row.get("variables") or []),
-                "fills": list(row.get("fills") or [])}
+                "variables": list(own_row.get("variables") or []),
+                "fills": list(own_row.get("fills") or [])}
 
     active = [t for t in library if t.get("type") == template_type and t.get("active", True)]
     if not active:

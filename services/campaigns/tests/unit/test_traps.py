@@ -211,6 +211,28 @@ def test_an_offer_must_carry_an_end_date():
     assert not offers_something("awareness")
 
 
+def test_occasion_is_an_offer_goal(): # ح-7
+    """`mkt_personal_occasion` — the template `occasion` sends — declares `offer_value` and
+    `ends_at` exactly like `win_back` and `reward_loyal` do. A card that says `offers=False` for a
+    goal whose template needs both never draws the value or date field in Launch.tsx, so the
+    console posts a campaign missing both and `preview.build` refuses it every single time: a whole
+    goal, unreachable, with no field on the screen the owner could have filled to fix it."""
+    from app.core.goals import cards
+    from app.core.models import GOAL_TEMPLATE, offers_something
+
+    assert offers_something("occasion"), \
+        "occasion's own template needs amount+date just like win_back and reward_loyal"
+
+    by_goal = {c.goal: c for c in cards(now=0)}
+    assert by_goal["occasion"].offers is True, \
+        "the card the console reads must carry the same answer"
+
+    # AND THE TEMPLATE ITSELF AGREES — the fill contract in reasons.py for this exact template
+    # type, cross-checked so this test fails if the two ever drift apart again.
+    template_type = GOAL_TEMPLATE["occasion"][0]
+    assert template_type == "mkt_personal_occasion"
+
+
 # ── the wires the container asks for by name ──────────────────────────────────────────────────
 def test_the_peer_builder_answers_every_key_the_container_reads():
     """THE DEFECT THIS CATCHES HAD RUN IN PRODUCTION SINCE THE FEATURE WAS WRITTEN.

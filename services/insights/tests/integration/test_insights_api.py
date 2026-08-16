@@ -285,7 +285,11 @@ def test_the_digest_sends_nothing_for_a_shop_it_could_not_compute(client, owner)
     assert r.status_code == 200 and r.json()["sent"] == 0
 
 
-def test_the_digest_goes_through_reminders_gate_as_a_service_message(client, owner):
+def test_the_digest_goes_through_reminders_gate_as_a_personal_message(client, owner):
+    """ح-4: the class the library actually filed this template under. `per_weekly_digest` is
+    `personal` in operations/data/templates.seed.json and in reasons.py's own claim for it — a
+    report with no price and no invitation is not a service notice, and sending it as `service`
+    quietly spent the wrong daily cap and quiet-hours exemption every week."""
     _seed(client, visits(30))
     client.put("/api/v1/insights/digest", json={"on": True}, headers=owner)
     c = client.app.state.container
@@ -293,7 +297,7 @@ def test_the_digest_goes_through_reminders_gate_as_a_service_message(client, own
     r = client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
     assert r.status_code == 200 and r.json()["sent"] == 1
     call = c.peers.sent[0]
-    assert call["cls"] == "service" and call["template_type"] == "per_weekly_digest"
+    assert call["cls"] == "personal" and call["template_type"] == "per_weekly_digest"
 
 
 # ── the platform surface and erasure ───────────────────────────────────────────────────────────
@@ -357,7 +361,7 @@ def test_the_digest_never_names_a_plan_or_a_price(client, owner):
     c.peers.sent.clear()
     client.post("/internal/insights/digest", json={"tenant": TENANT}, headers=INTERNAL)
     call = c.peers.sent[0]
-    assert call["cls"] == "service"
+    assert call["cls"] == "personal"  # ح-4 — see the library, not a guess repeated here
     for word in ("باقة", "رقّ", "ريال", "اشترك"):
         assert word not in call["owner_text"], word
 

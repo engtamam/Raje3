@@ -138,3 +138,29 @@ def test_a_placeholder_with_no_example_refuses_instead_of_submitting_a_short_lis
 
     with _pytest.raises(MissingExample):
         examples_for({"name": "svc_made_up", "variables": [1, 99]})
+
+
+# ── retired templates must not be pushed to Meta (ح-3) ──────────────────────────────────────────
+
+
+def test_list_defaults_to_active_only():
+    """`list()` with no argument is what the two publish paths call — the hourly Meta sync
+    (`c.templates.list()` in internal.py) and `connect.py`'s per-tenant push. Handing them a
+    retired row burns Meta's 100/hour cap on text nobody chose any more and shows a human reviewer
+    wording we pulled last month."""
+    store = Store({
+        f"{PLATFORM}|svc_live_brief": {"id": "svc_live_brief", "tenant": PLATFORM,
+                                        "name": "svc_live_brief", "active": True,
+                                        "class": "service", "category": "UTILITY"},
+        f"{PLATFORM}|svc_dead_brief": {"id": "svc_dead_brief", "tenant": PLATFORM,
+                                        "name": "svc_dead_brief", "active": False,
+                                        "class": "service", "category": "UTILITY"},
+    })
+    lib = TemplateLibrary(store)
+
+    names = {t["name"] for t in run(lib.list())}
+    assert names == {"svc_live_brief"}, "a retired template must not reach the default listing"
+
+    all_names = {t["name"] for t in run(lib.list(active_only=False))}
+    assert all_names == {"svc_live_brief", "svc_dead_brief"}, \
+        "the platform console must still be able to see what it retired"

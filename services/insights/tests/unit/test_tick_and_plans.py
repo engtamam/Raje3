@@ -269,6 +269,22 @@ def test_a_full_week_still_fits_the_field_it_is_posted_as():
     assert not msg["text"].endswith(":")
 
 
+def test_the_busiest_week_carries_no_literal_newline():
+    """ح-5. This text is posted as a WhatsApp template PARAMETER (`CampaignSendIn.owner_text`),
+    and Meta refuses a submission whose parameter contains a real newline or tab — silently, at
+    Meta itself, past every local check reminders runs (those only ever sanitise the owner's own
+    hand-typed field). A shop with the busiest week — the most lines to join — was exactly the
+    shop this never reached."""
+    msg = build_digest(snapshot=snap(associations={"pairs": [
+              {"a": "oil", "b": "filter", "verdict": "real", "customers": 340}]}),
+              previous={"visits": 100}, messages_sent=780,
+              points_redeemed=9, shop="مغسلة النخيل")
+    assert msg["lines"] > 1, "the test needs more than one line to prove anything"
+    assert "\n" not in msg["text"]
+    assert "\t" not in msg["text"]
+    assert "\r" not in msg["text"]
+
+
 def test_the_two_services_agree_on_the_one_ceiling():
     """A cap held on two sides of a network boundary that disagree fails SILENTLY: a 422 the caller
     converts into «not sent» and the route counts as zero. They are asserted equal here because
@@ -293,7 +309,9 @@ def test_the_finding_line_never_sells():
         {"a": "a", "b": "b", "verdict": "real", "customers": 340}]}))
     for word in ("باقة", "رقّ", "ريال", "اشترك", "ترقية"):
         assert word not in msg["text"], word
-    assert msg["cls"] == "service"
+    # ح-4: the class the library actually filed this template under (personal, not service) —
+    # see operations/data/templates.seed.json and reasons.py's own claim for per_weekly_digest.
+    assert msg["cls"] == "personal"
 
 
 def test_a_zero_line_is_dropped_rather_than_printed():

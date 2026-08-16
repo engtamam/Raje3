@@ -49,14 +49,19 @@ def test_and_the_message_comes_out_filled():
     assert out.variables == ["أحمد", "غسيل"], "every blank he wrote must arrive filled"
 
 
-def test_a_missing_row_does_not_invent_blanks():
+def test_a_missing_row_refuses_rather_than_sending_empty(): # ح-6
     """If his stored template cannot be read we must not guess a numbering: an invented parameter
-    list is a message Meta refuses, or worse, one that says something he did not write."""
-    chosen = R.choose(template_type="svc_visit_confirmation", tone="brief", library=LIBRARY,
-                      approved={"cst_my_text"}, own="cst_my_text", own_row=None)
+    list is a message Meta refuses, or worse, one that says something he did not write.
 
-    assert chosen["variables"] == []
-    assert chosen["fills"] == []
+    THIS USED TO FALL BACK TO `{}` — `variables: []`, `fills: []` — and the caller could still
+    build a `Rendered` with zero parameters and send it: either Meta refused the whole message for
+    a parameter-count mismatch, or a template whose blanks are filled positionally (not every
+    template is `not variables: return`) went out with silence where a sentence should be. A row
+    we cannot read is our failure, not an empty customization, and it must stop the send here where
+    it is visible — not arrive at a customer looking like nothing was wrong."""
+    with pytest.raises(R.RenderError):
+        R.choose(template_type="svc_visit_confirmation", tone="brief", library=LIBRARY,
+                 approved={"cst_my_text"}, own="cst_my_text", own_row=None)
 
 
 def test_our_own_library_template_is_untouched_by_this():
