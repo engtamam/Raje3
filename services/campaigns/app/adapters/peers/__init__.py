@@ -56,6 +56,23 @@ class NullTemplates:
 
 
 class HttpTemplates:
+    """What THIS shop can actually send — asked of reminders, per tenant.
+
+    IT USED TO THROW THE TENANT AWAY. This client took `tenant` in both methods, fetched the
+    platform library from operations once, cached it PROCESS-WIDE, and answered from the first row
+    of the matching type. Every establishment on the pod got the same answer — and three facts that
+    differ per establishment were missing from a docstring that promised them:
+
+      · THE TONE, so the preview showed one wording and the customer received another.
+      · META'S APPROVAL, which is per (tenant, name). A goal card read «متاح» for a shop whose
+        library was still under review; he launched, and every recipient failed at the delivery
+        layer for a reason he could do nothing about.
+      · HIS OWN RE-WRITTEN TEXT, which the preview never showed him.
+
+    THE CACHE IS PER TENANT NOW, and that is not a detail: a process-wide cache of a per-tenant
+    answer is the same defect wearing a performance argument.
+    """
+
     driver = "http"
 
     def __init__(self, *, url: str, path: str, token: str, timeout: int = 5,
@@ -64,32 +81,29 @@ class HttpTemplates:
         self._token = token
         self._timeout = timeout
         self._ttl = ttl_seconds
-        self._cache: tuple[float, list[dict[str, Any]]] | None = None
+        self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
-    def _library(self) -> list[dict[str, Any]]:
+    def _resolved(self, tenant: str) -> dict[str, Any]:
         import time
         now = time.time()
-        if self._cache and now - self._cache[0] < self._ttl:
-            return self._cache[1]
-        data = _get(self._url, self._token, self._timeout)
-        lib = list(data.get("templates") or [])
-        self._cache = (now, lib)
-        return lib
+        hit = self._cache.get(tenant)
+        if hit and now - hit[0] < self._ttl:
+            return hit[1]
+        q = urllib.parse.urlencode({"tenant": tenant})
+        data = _get(f"{self._url}?{q}", self._token, self._timeout)
+        rows = dict(data.get("templates") or {})
+        self._cache[tenant] = (now, rows)
+        return rows
 
     async def pick(self, tenant: str, template_type: str) -> dict[str, Any] | None:
-        """The tenant's tone of this template type, and only if it is active.
+        """The row this shop would send for this type, or None.
 
-        An INACTIVE template is not picked, which is what makes "this goal is not enabled" true
-        rather than decorative — a campaign built on a switched-off template would be approved by
-        Meta and refused by our own library at send time.
+        None is what makes «لا يوجد قالب مفعّل لهذا الهدف» true rather than decorative.
         """
-        for t in self._library():
-            if t.get("type") == template_type and t.get("active", True):
-                return t
-        return None
+        return self._resolved(tenant).get(template_type)
 
     async def enabled_types(self, tenant: str) -> set[str]:
-        return {t.get("type", "") for t in self._library() if t.get("active", True)}
+        return set(self._resolved(tenant))
 
 
 # ── the audience: built from operations' customers and reminders' learned intervals ────────────
@@ -351,8 +365,8 @@ def build_peers(settings) -> dict[str, Any]:
                                  end_hour=settings.SEND_WINDOW_END_HOUR)}
     t = settings.PEER_TIMEOUT_SECONDS
     return {
-        "templates": HttpTemplates(url=settings.OPERATIONS_SERVICE_URL,
-                                   path=settings.TEMPLATES_PATH,
+        "templates": HttpTemplates(url=settings.REMINDERS_SERVICE_URL,
+                                   path=settings.REMINDERS_SENDABLE_PATH,
                                    token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "audience": HttpAudience(operations_url=settings.OPERATIONS_SERVICE_URL,
                                  customers_path=settings.CUSTOMERS_PATH,

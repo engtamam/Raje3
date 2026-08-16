@@ -99,6 +99,7 @@ def build_manifest(
             # AND the two numbers behind «this will reach everyone in five days»: today's ceiling
             # and what the engine has already spent of it. campaigns owns neither.
             {"path": "/internal/reminders/room", "tier": "internal", "method": "GET"},
+            {"path": "/internal/reminders/sendable", "tier": "internal", "method": "GET"},
             # And the learned rhythm per customer — the number a win-back campaign targets by, and
             # the one operations does not hold.
             {"path": "/internal/reminders/rhythms", "tier": "internal", "method": "POST"},

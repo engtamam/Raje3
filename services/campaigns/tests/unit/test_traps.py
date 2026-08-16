@@ -141,8 +141,11 @@ def test_every_peer_path_names_a_route_the_peer_actually_serves():
     s = Settings(INTERNAL_SERVICE_TOKEN="x" * 40)
     # Verified against operations' and reminders' manifests when written, pinned here so a
     # careless edit fails a test rather than a customer's campaign.
-    assert s.TEMPLATES_PATH.startswith("/internal/operations/")
     assert s.CUSTOMERS_PATH.startswith("/internal/operations/")
+    # WHICH TEMPLATE THIS SHOP MAY SEND IS REMINDERS', NOT OPERATIONS'. operations owns the words;
+    # the tone, Meta's per-account approval and the owner's own re-written text all live in
+    # reminders, and asking operations for them is how a preview came to disagree with a send.
+    assert s.REMINDERS_SENDABLE_PATH.startswith("/internal/reminders/")
     assert s.ELIGIBILITY_PATH.startswith("/internal/reminders/")
     assert s.TENANT_READ_PATH == "/internal/tenants/{id}"
 
@@ -234,11 +237,11 @@ def test_the_peer_builder_answers_every_key_the_container_reads():
         REMINDERS_SERVICE_URL = "http://reminders:8000"
         TENANT_SERVICE_URL = "http://tenant-service:8000"
         INSIGHTS_SERVICE_URL = "http://insights:8000"
-        TEMPLATES_PATH = "/internal/operations/templates"
         CUSTOMERS_PATH = "/internal/operations/customers"
         ELIGIBILITY_PATH = "/internal/reminders/eligibility"
         SEND_PATH = "/internal/reminders/send"
         REMINDERS_ROOM_PATH = "/internal/reminders/room"
+        REMINDERS_SENDABLE_PATH = "/internal/reminders/sendable"
         REMINDERS_RHYTHMS_PATH = "/internal/reminders/rhythms"
         INSIGHTS_RESERVE_PATH = "/internal/insights/engine-reserve"
         TENANT_READ_PATH = "/internal/tenants/{id}"
@@ -327,3 +330,58 @@ def test_an_unreachable_rhythm_read_costs_precision_not_the_campaign():
     with patch("app.adapters.peers._post", fake_post):
         rows = asyncio.run(peer.customers("t1", service_id="oil"))
     assert rows == [{"subject_ref": "sub_a", "last_visit": 100}]
+
+
+def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
+    """The tenant argument was decorative, and three per-shop facts went missing with it.
+
+    The old client fetched the platform library from operations once, cached it PROCESS-WIDE, and
+    answered every establishment on the pod from the first row of the matching type — ignoring the
+    shop's tone, Meta's per-account approval, and the owner's own re-written text. A goal card read
+    «متاح» for a shop whose library was still under review; he launched, and every recipient failed
+    at the delivery layer for a reason he could do nothing about.
+
+    THIS FAILS ON THE OLD CLIENT: it asserts two tenants get two answers.
+    """
+    import asyncio
+    import json
+
+    from app.adapters import peers as P
+
+    asked: list[str] = []
+    library = {
+        "t-quiet": {"templates": {"mkt_winback": {"name": "wb_calm", "tone": "calm"}}},
+        "t-loud": {"templates": {"mkt_winback": {"name": "wb_warm", "tone": "warm"},
+                                 "mkt_offer": {"name": "of_warm", "tone": "warm"}}},
+        # Connected this morning: the whole library is still under review, so NOTHING is sendable.
+        "t-new": {"templates": {}, "blocked": {"mkt_winback": "قيد مراجعة واتساب"}},
+    }
+
+    def fake_get(url, token, timeout):
+        asked.append(url)
+        tenant = url.split("tenant=", 1)[1]
+        return json.loads(json.dumps(library[tenant]))
+
+    original, P._get = P._get, fake_get
+    try:
+        c = P.HttpTemplates(url="http://reminders:8000", path="/internal/reminders/sendable",
+                            token="t" * 40)
+        quiet = asyncio.run(c.pick("t-quiet", "mkt_winback"))
+        loud = asyncio.run(c.pick("t-loud", "mkt_winback"))
+        assert quiet["name"] == "wb_calm" and loud["name"] == "wb_warm", (
+            "one shop's tone was served to another")
+
+        assert asyncio.run(c.enabled_types("t-loud")) == {"mkt_winback", "mkt_offer"}
+        # AND THE SHOP STILL UNDER REVIEW GETS THE HONEST ANSWER, so its goal cards lock instead
+        # of inviting a launch that cannot deliver a single message.
+        assert asyncio.run(c.enabled_types("t-new")) == set()
+        assert asyncio.run(c.pick("t-new", "mkt_winback")) is None
+
+        # THE CACHE IS PER TENANT. A process-wide cache of a per-tenant answer is the same defect
+        # wearing a performance argument.
+        before = len(asked)
+        asyncio.run(c.pick("t-quiet", "mkt_winback"))
+        assert len(asked) == before, "a second read for a tenant already cached"
+        assert sorted({u.split("tenant=", 1)[1] for u in asked}) == ["t-loud", "t-new", "t-quiet"]
+    finally:
+        P._get = original

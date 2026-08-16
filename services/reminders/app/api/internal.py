@@ -972,6 +972,63 @@ async def room(request: Request, tenant: str) -> dict:
             "used": int(used or 0)}
 
 
+@router.get("/reminders/sendable", dependencies=[Depends(require_internal_token)])
+async def sendable(request: Request, tenant: str) -> dict:
+    """For each template type, the row THIS shop would actually send — or nothing.
+
+    THE ANSWER CAMPAIGNS HAS BEEN GUESSING. Its template peer took a `tenant` argument and threw it
+    away: it fetched the platform library once, cached it PROCESS-WIDE, and returned the first row
+    of the asked-for type. Three facts that differ per establishment were absent from a call whose
+    docstring promised all three —
+
+      · THE TONE. The library carries every type in three registers. Ignoring the shop's meant the
+        preview showed one wording and the customer received another.
+      · META'S APPROVAL, which is per (tenant, name): the same text is approved for one shop and
+        pending for another. A goal card read «متاح» for a shop whose library was still under
+        review, he launched, and every recipient failed at the delivery layer for a reason he could
+        do nothing about.
+      · HIS OWN TEXT, if he re-wrote the message and Meta approved it. The preview never showed it.
+
+    ONE READ PER TENANT, RESOLVED BY `rendering.choose` — the same function the tick calls, so the
+    preview and the send cannot disagree. Computing any of this inside campaigns would be a second
+    version of a fact this service owns.
+
+    `kind="campaign"` because that is what the caller is: `candidates` maps the type to the reasons
+    a campaign message could belong to, which is how his own re-written text is found.
+    """
+    from app.core import reasons as TR
+    from app.core.custom_templates import CustomTemplateStore
+    from app.core.reason_choices import ChoiceStore
+    from app.core.tick import _own_template
+
+    c = request.app.state.container
+    library = await _library(c, tenant)
+    shop = await _establishment(c, tenant)
+    tone = str(getattr(shop, "tone", "") or "")
+    approved = await c.approved_templates.names(tenant)
+    choices = await ChoiceStore(c.datastore).load(tenant)
+    customs = CustomTemplateStore(c.datastore)
+
+    out: dict[str, dict] = {}
+    blocked: dict[str, str] = {}
+    for template_type in sorted({str(t.get("type") or "") for t in library} - {""}):
+        own_name = _own_template(choices, list(TR.candidates("campaign", template_type)))
+        own_row = await customs.get(tenant, own_name) if own_name else None
+        try:
+            row = R.choose(template_type=template_type, tone=tone, library=library,
+                           approved=approved, own=own_name, own_row=own_row)
+        except R.RenderError as exc:
+            # NOTHING SENDABLE OF THIS TYPE FOR THIS SHOP — which is an ANSWER, and the one the
+            # goal card needs in order to lock itself honestly. `choose` already distinguishes
+            # «still under review» from «never seeded»: one resolves itself in an hour and the
+            # other is ours to fix, and the owner is entitled to know which he is waiting on.
+            blocked[template_type] = str(exc)
+            continue
+        if row:
+            out[template_type] = row
+    return {"templates": out, "types": sorted(out), "blocked": blocked, "count": len(out)}
+
+
 class RhythmsIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     # Empty means "his rhythm for anything" — the most recently updated row per customer. A

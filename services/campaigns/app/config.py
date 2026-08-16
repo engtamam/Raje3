@@ -175,7 +175,6 @@ class Settings(BaseSettings):
     OPERATIONS_SERVICE_URL: str = ""
     # THEIRS. The template library and the customer list, both verified against operations'
     # manifest rather than assumed.
-    TEMPLATES_PATH: str = "/internal/operations/templates"
     CUSTOMERS_PATH: str = "/internal/operations/customers"
     REMINDERS_SERVICE_URL: str = ""
     # THEIRS. Would the gate allow this, and send this — the second is the ONLY way this service
@@ -185,6 +184,11 @@ class Settings(BaseSettings):
     # The two numbers behind the spread promise — see adapters/peers/HttpRoom. Paths, not a URL
     # each: they are OUR services and their names are already here.
     REMINDERS_ROOM_PATH: str = "/internal/reminders/room"
+    # THEIRS, AND THE REASON THE TEMPLATE PEER MOVED HERE. Which template this SHOP would actually
+    # send for a type — resolved by the same `choose` the tick calls, so a preview and a send
+    # cannot disagree. operations owns the library's words; reminders owns whether this
+    # establishment may send them, in which tone, and whether he re-wrote them himself.
+    REMINDERS_SENDABLE_PATH: str = "/internal/reminders/sendable"
     REMINDERS_RHYTHMS_PATH: str = "/internal/reminders/rhythms"
     INSIGHTS_SERVICE_URL: str = ""           # e.g. http://insights:8000
     INSIGHTS_RESERVE_PATH: str = "/internal/insights/engine-reserve"

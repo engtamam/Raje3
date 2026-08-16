@@ -99,7 +99,7 @@ env:
   # errored, nothing logged, and the feature simply worked for people who had not bought it.
   BILLING_SERVICE_URL: "http://billing-service:8000"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
-  TEMPLATES_PATH: "/internal/operations/templates"
+  REMINDERS_SENDABLE_PATH: "/internal/reminders/sendable"
   CUSTOMERS_PATH: "/internal/operations/customers"
   REMINDERS_SERVICE_URL: "http://reminders:8000"
   # WHERE THE SPREAD PROMISE GETS ITS TWO NUMBERS. Today's ceiling and what the engine has already
