@@ -46,6 +46,7 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.core.operations import OperationError
 
 router = APIRouter(prefix="/till", tags=["till"])
 
@@ -362,3 +363,63 @@ async def redeem_at_the_counter(request: Request, body: TillRedeemIn,
         # reads to the customer; «409» is one he cannot.
         return {"ok": False, "reason": "REFUSED", "message": out.get("_reason") or "تعذّر الاستبدال."}
     return {"ok": True, **out}
+
+
+class TillOfferIn(BaseModel):
+    """Apply the offer this customer is holding, to the visit just recorded at the counter."""
+
+    # THE VISIT IS THE SUBJECT, exactly as on the field screen: the used-mark lives on the visit
+    # and nowhere else (§5.6.2), so a till that has not recorded one has nothing to mark.
+    visit_id: str = Field(min_length=1, max_length=128)
+    phone: str = Field(default="", max_length=32)
+    plate: str = Field(default="", max_length=32)
+    actor: str = Field(default="", max_length=64)
+
+
+@router.post("/offer/apply", dependencies=[Depends(rate_limit)])
+async def apply_offer_at_the_counter(request: Request, body: TillOfferIn,
+                                     principal: Principal = Depends(_TILL)) -> Any:
+    """Spend the customer's offer at their till — the door that did not exist.
+
+    THE GAP THIS CLOSES. An exclusive offer is the reason a customer came back, and the counter is
+    where it is honoured. The integrated till could read his points and his rewards and could not
+    see, let alone apply, the one thing the message he received had promised him. So a shop on a
+    cashier integration ran offers it could not redeem: the customer arrives holding it, the
+    cashier has no way to apply it, and the shop either gives the discount off the books or refuses
+    a customer it invited.
+
+    THE SAME RULES AS THE FIELD SCREEN, because they are the shop's rules and not the surface's:
+    reminders judges WHICH offer applies (only it knows what was sent, its scope and its expiry),
+    one offer per visit, and a second tap returns the same offer and spends nothing more.
+
+    NEVER THE PSEUDONYM, IN OR OUT. The till identifies its customer the way it always does — by
+    the phone number it already holds — and `subject_ref` is resolved here.
+    """
+    if not principal.tenant:
+        return {"applied": False, "reason": "هذا الاعتماد غير مرتبط بمنشأة."}
+    tenant = principal.tenant
+    svc = request.app.state.container.operations
+
+    c = None
+    if body.phone.strip():
+        c = await svc.customer_by_phone(tenant, body.phone.strip())
+    if c is None and body.plate.strip():
+        c = await svc.customer_by_plate(tenant, body.plate.strip())
+    if c is None or not c.subject_ref:
+        return {"applied": False, "reason": "لا يوجد عميل بهذا الرقم."}
+
+    await request.app.state.auditor.record(
+        "offer.applied", actor=f"till:{body.actor or 'unknown'}", tenant=tenant,
+        resource=f"visit:{body.visit_id}", ip=request.client.host if request.client else "")
+
+    try:
+        applied = await svc.apply_offer(tenant=tenant, visit_id=body.visit_id,
+                                        subject_ref=c.subject_ref)
+    except OperationError as e:
+        # RETURNED, NEVER RAISED — the platform strips a raised detail, and this sentence is read
+        # aloud to a customer standing at the counter.
+        return {"applied": False, "reason": str(e)}
+
+    if applied is None:
+        return {"applied": False, "reason": "لا يوجد عرضٌ ساري يشمل هذه الزيارة"}
+    return {"applied": True, "offer": applied}

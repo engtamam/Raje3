@@ -227,6 +227,7 @@ def build_manifest(
             # that cost at the counter. Same tier, same one capability.
             {"path": "/api/v1/till/customer", "tier": "user", "method": "GET"},
             {"path": "/api/v1/till/redeem", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/till/offer/apply", "tier": "user", "method": "POST"},
             {"path": "/api/v1/signup/code", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/verify", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/claim", "tier": "public", "method": "POST"},

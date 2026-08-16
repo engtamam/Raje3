@@ -486,4 +486,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "shop did not break. This row is the only way a duplicate created in that gap is "
                "ever found, explained and refunded",
     },
+    {
+        "action": "offer.applied",
+        "source": "internal",
+        "critical": False,
+        "resource": "visit",
+        "why": "a discount was honoured at an integrated till. It is money off an invoice the shop "
+               "has to explain later, and the till is the one surface where neither the owner nor "
+               "the customer is looking at our screen",
+    },
 ]
