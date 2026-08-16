@@ -873,3 +873,34 @@ def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
     assert logged, "the offer was sent, so it is on the log"
     assert logged[0]["offer_service_names"] == ["غيار الزيت", "الإطارات"]
     assert logged[0]["offer_code"], "and the coupon it was rendered with is kept beside them"
+
+
+def test_a_structured_offer_with_no_free_line_is_still_an_entitlement(st):
+    """أ-6 · END OF THE CHAIN. The campaign route composes the entitlement now, so a send whose
+    template has no `owner` fill still leaves something the till and his page can find. The row is
+    what those readers filter on: `if r.get("offer_text")` — and a blank one is invisible to all
+    of them while the message sits in the customer's phone.
+    """
+    from app.core.consent import Consent
+    from app.core.offer_text import compose
+
+    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    sender = FakeSender()
+    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
+           "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
+           # NO `owner_text` — which is the whole point: the three offer templates never ask for
+           # one, so this is the ordinary case rather than an edge one.
+           "owner_text": "", "idempotency_key": "idem_y", "id": "idem_y",
+           "offer_text": compose(value="20%", service_names=["غيار الزيت"], has_expiry=True),
+           "offer_expires_at": at(10, day=20), "offer_value": "20%",
+           "offer_services": ["oil"]}
+
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+
+    live = run(SendLogStore(st).live_offers("t1", "sub_a", used_refs=set(), now=at(10)))
+    assert live, "a campaign that sent an offer and left nothing to honour is the defect"
+    assert live[0]["offer_text"] == "خصم 20% على غيار الزيت"

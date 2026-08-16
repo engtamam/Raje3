@@ -19,6 +19,7 @@ from app.core.erasure import RemindersErasure
 from app.api.v1.prefs import PrefsIn
 from app.core.stores import ScheduleStore, SendLogStore
 from app.core import backup as _backup
+from app.core import offer_text as OT
 from app.core import rendering as R
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -703,7 +704,14 @@ async def campaign_send(request: Request, body: CampaignSendIn) -> dict:
         # THE OFFER'S OWN WORDS AND ITS END, so the send log records both. The text IS the owner's
         # text — the one field he wrote and the one the customer read. Copying anything else here
         # would be showing the operator a sentence the customer never received.
-        "offer_text": body.owner_text if body.offer_expires_at else "",
+        # THE ENTITLEMENT, AND IT NO LONGER DEPENDS ON A FIELD THE TEMPLATES NEVER ASK FOR (أ-6).
+        # This used to be `body.owner_text if body.offer_expires_at else ""` — and the three offer
+        # templates declare no `owner` fill, so the screen never asked, the owner never wrote, and
+        # the log recorded a blank. Every reader skips a blank: the campaign sends four hundred
+        # correct messages and then the till says «لا يوجد عرضٌ ساري» to the customer holding one.
+        "offer_text": OT.compose(owner_text=body.owner_text, value=body.offer_value,
+                                 service_names=list(body.service_names),
+                                 has_expiry=bool(body.offer_expires_at)),
         "offer_expires_at": body.offer_expires_at,
         "offer_services": list(body.offer_services),
         "offer_value": body.offer_value,

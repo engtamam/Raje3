@@ -167,3 +167,61 @@ def test_the_preview_withholds_whoever_the_send_would_withhold(client, monkeypat
         "owner is left with an unexplained gap between the two numbers")
 
     get_settings.cache_clear()
+
+
+def test_an_offer_campaign_with_no_free_line_still_carries_an_entitlement(client):
+    """أ-6 · THE WIRING, at the route.
+
+    `offer_text` on the send log IS the entitlement — the till, `choose_offer` and the customer's
+    page all skip a row whose text is blank — and this route used to take it from the owner's free
+    line alone. The three offer templates declare no `owner` fill, so that line does not exist for
+    the ordinary offer campaign: four hundred correct messages went out, and every one of them
+    left nothing to honour.
+    """
+    seen: dict = {}
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen.update(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    r = client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "", "idempotency_key": "cmp:2:sub_abcdefgh",
+        "offer_expires_at": 2_000_000_000, "offer_value": "20%",
+        "offer_services": ["svc_1"], "service_names": ["غسيل خارجي"]})
+
+    assert r.status_code == 200, r.text
+    assert seen["offer_text"] == "خصم 20% على غسيل خارجي"
+
+
+def test_the_owners_line_still_wins_at_the_route(client):
+    """It is what the customer read. A different sentence at the counter is how one offer becomes
+    an argument about two."""
+    seen: dict = {}
+
+    class Tick:
+        async def send_one(self, tenant, schedule, **kw):
+            seen.update(schedule)
+            return {"sent": True}
+
+    c = client.app.state.container
+    c.tick = Tick()
+    c.identity = Identity("calm")
+    c.library = Library()
+    c.approved_templates = Approved({"of_calm"})
+
+    r = client.post("/internal/reminders/send", headers=HEAD, json={
+        "tenant": "t-1", "subject_ref": "sub_abcdefgh", "template_type": "mkt_offer",
+        "class": "marketing", "owner_text": "لك غسلة مجانية",
+        "idempotency_key": "cmp:3:sub_abcdefgh", "offer_expires_at": 2_000_000_000,
+        "offer_value": "20%"})
+
+    assert r.status_code == 200, r.text
+    assert seen["offer_text"] == "لك غسلة مجانية"
