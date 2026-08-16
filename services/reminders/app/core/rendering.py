@@ -197,8 +197,24 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
     return active[0]
 
 
+#: The owner's own vocabulary — every name `custom_templates.check()` accepts on a `fills` list,
+#: which is `reasons.slots_for()`. This module used to know none of them.
+#:
+#: THE DEFECT (ح-1). `check()` validated an owner's blanks against these names and stored them;
+#: `render()` understood only its own six sources and dropped everything else into an `else` that
+#: reads `system[NUMBER]` — the LIBRARY row's meaning for that position. So «هلا {{1}}، جاهز {{2}}
+#: عندنا» with fills `[customer, service]` sent «هلا محمد، جاهز مغسلة النخيل عندنا»: slot 2 is the
+#: shop name in the library's layout. And the preview fills by MEANING and was right, so the owner
+#: approved one sentence and his customers received another — in his name.
+OWNER_SLOTS = frozenset({
+    "customer", "shop", "service", "reward", "points", "balance", "action", "digest",
+    "offer_value", "coupon", "ends_at", "free_text", "code", "minutes",
+})
+
+
 def render(*, template: dict[str, Any], system: dict[str, str],
-           catalogue: dict[str, str], owner: dict[str, str]) -> Rendered:
+           catalogue: dict[str, str], owner: dict[str, str],
+           by_meaning: dict[str, str] | None = None) -> Rendered:
     """Fill every variable the template declares, in order.
 
     `system`, `catalogue` and `owner` are keyed by variable NUMBER as a string ("1", "2", ...).
@@ -245,6 +261,19 @@ def render(*, template: dict[str, Any], system: dict[str, str],
                 # till long after it meant to stop. Refusing the send is the cheaper failure.
                 raise RenderError("العرض بلا تاريخ انتهاء — لا تُرسَل رسالة تعِد بخصمٍ بلا نهاية.")
             out.append(value)
+        elif source in OWNER_SLOTS:
+            # BY MEANING, AND REFUSED WHEN THE MEANING HAS NO VALUE. Positional lookup is what
+            # produced the wrong sentence; falling back to it here would keep the defect behind a
+            # nicer name. A refusal costs this one message and is visible in the send log; a guess
+            # reaches a customer, in the shop's name, and nothing anywhere records that it was
+            # wrong.
+            value = ((by_meaning or {}).get(source) or "").strip()
+            if not value and source == "customer":
+                value = FALLBACK_NAME
+            if not value:
+                raise RenderError(
+                    f"الفراغ «{source}» لا قيمة له في هذه الرسالة — لا تُرسَل بنصٍّ ناقص.")
+            out.append(sanitise_owner_text(value) if source == "free_text" else value)
         elif source == "owner":
             out.append(sanitise_owner_text(owner.get(key, "")))
         elif source == "catalogue":

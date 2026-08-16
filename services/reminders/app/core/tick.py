@@ -594,7 +594,20 @@ class Tick:
                     "4": str(row.get("redeemed_cost", "")) if redeemed else service_text,
                     "5": str(row.get("redeemed_remaining", ""))},
             catalogue={"3": service_text, "4": service_text},
-            owner={"3": row.get("owner_text", ""), "4": row.get("owner_text", "")})
+            owner={"3": row.get("owner_text", ""), "4": row.get("owner_text", "")},
+            # THE SAME VALUES, KEYED BY WHAT THEY MEAN (ح-1). A template the OWNER wrote declares
+            # its blanks by meaning, not by position — «{{2}} is the service» in his text and «the
+            # shop name» in the library's. Handing the renderer only the positional dicts is what
+            # made his sentence arrive rewritten.
+            by_meaning={
+                "customer": customer_name,
+                "shop": establishment,
+                "service": service_text,
+                "reward": redeemed,
+                "points": str(row.get("redeemed_cost", "")) if redeemed else "",
+                "balance": str(row.get("redeemed_remaining", "")),
+                "free_text": row.get("owner_text", ""),
+            })
 
         # ── 4. send ───────────────────────────────────────────────────────────────────────────
         # The key is generated and stored BEFORE the call and reused on every retry: a timeout is

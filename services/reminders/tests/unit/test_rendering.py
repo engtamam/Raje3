@@ -271,3 +271,60 @@ def test_the_end_date_is_riyadh_not_utc():
     """An offer ending at 01:00 UTC ends the previous evening for the person reading it."""
     # 2025-08-14 22:30 UTC is already the 15th in Riyadh.
     assert arabic_date(1_755_210_600) == "15 أغسطس"
+
+
+# ── the owner's own sentence arrives as he wrote it (ح-1) ──────────────────────────────────────
+
+
+def test_an_owners_blank_is_filled_by_meaning_not_by_position():
+    """THE MESSAGE THAT WENT OUT WAS NOT THE MESSAGE HE APPROVED.
+
+    `custom_templates.check()` validates his blanks against the OWNER vocabulary — `customer`,
+    `service`, `reward` … — and stores those names. `render()` knew only its own six sources and
+    dropped every other name into an `else` that reads `system[NUMBER]`: the LIBRARY row's meaning
+    for that position. So «هلا {{1}}، جاهز {{2}} عندنا» with `[customer, service]` sent «هلا محمد،
+    جاهز مغسلة النخيل عندنا» — slot 2 is the shop name in the library's layout.
+
+    And the preview fills by meaning and was right, so he approved one sentence and his customers
+    received another, in his name, with nothing in any log saying so.
+    """
+    from app.core import rendering as R
+
+    out = R.render(
+        template={"name": "own_1", "type": "svc_service_reminder", "class": "service",
+                  "variables": [1, 2], "fills": ["customer", "service"]},
+        # The positional dicts still carry the LIBRARY's layout: 2 is the shop.
+        system={"1": "محمد", "2": "مغسلة النخيل"},
+        catalogue={}, owner={},
+        by_meaning={"customer": "محمد", "shop": "مغسلة النخيل", "service": "تلميع"})
+
+    assert out.variables == ["محمد", "تلميع"], "slot 2 is his SERVICE, not the shop's name"
+
+
+def test_a_meaning_with_no_value_refuses_rather_than_filling_by_position():
+    """Falling back to the number is what produced the wrong sentence; keeping it behind a nicer
+    name would keep the defect. A refusal costs one message and is visible in the send log."""
+    import pytest as _pytest
+
+    from app.core import rendering as R
+
+    with _pytest.raises(R.RenderError):
+        R.render(
+            template={"name": "own_2", "type": "svc_service_reminder", "class": "service",
+                      "variables": [1, 2], "fills": ["customer", "reward"]},
+            system={"1": "محمد", "2": "مغسلة النخيل"},
+            catalogue={}, owner={},
+            by_meaning={"customer": "محمد"})
+
+
+def test_the_customer_name_still_falls_back_when_the_shop_never_took_one():
+    """A name is optional in our model, and an empty one is a Meta rejection at send time — so
+    this one meaning falls back rather than refusing, exactly as the positional path always did."""
+    from app.core import rendering as R
+
+    out = R.render(
+        template={"name": "own_3", "type": "svc_service_reminder", "class": "service",
+                  "variables": [1], "fills": ["customer"]},
+        system={}, catalogue={}, owner={}, by_meaning={"customer": ""})
+
+    assert out.variables == [R.FALLBACK_NAME]
