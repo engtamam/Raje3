@@ -132,15 +132,28 @@ async def subscribe(request: Request, body: SubscribeIn,
     plan_limits = await c.billing_plans.limits(body.plan_id)
     rows = await c.billing_plans.subscriptions(tenant)
     if plan_limits is None or rows is None:
-        # SKIPPED IS A FACT, AND A FACT WITH NO RECORD IS A GUESS LATER. Failing open here is a
-        # deliberate decision — refusing during an outage would block a purchase the shop did not
-        # break — but the consequence is a duplicate nobody can find afterwards. This row is how a
-        # second base subscription created during an outage is discovered, explained and refunded,
-        # instead of being argued about from memory.
+        # ── IT USED TO FAIL OPEN, AND ON THIS PATH THAT MEANS TAKING MONEY (ز-2) ──────────────
+        #
+        # The reasoning was «refusing during an outage would block a purchase the shop did not
+        # break», and the audit row below was the whole of the mitigation: the sale went through
+        # and somebody would find the duplicate later. But the two errors are not comparable.
+        #
+        # Failing OPEN charges a card for a second base — a real riyal amount, taken from a real
+        # shop, recoverable only by noticing it, explaining it and refunding it. Failing CLOSED
+        # costs him one press, on a screen that tells him to try again in a moment. The reversible
+        # one is the one to choose, and it is not close.
+        #
+        # STILL RECORDED, because «we could not check» is a fact about OUR availability, and a
+        # cluster of these rows is how a billing outage is seen from the product side.
         await request.app.state.auditor.record(
-            "subscription.gate_skipped", actor=getattr(principal, "subject", ""), tenant=tenant,
+            "subscription.gate_unreadable", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource=f"plan:{body.plan_id}",
             ip=request.client.host if request.client else "")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"error": "SUBSCRIPTION_UNAVAILABLE",
+                     "message": "تعذّر التحقق من اشتراكك الحالي. أعد المحاولة بعد قليل — "
+                                "لم يُخصم شيء."})
     if plan_limits is not None and rows is not None:
         addition = may_add(plan_limits=plan_limits, held=held_keys(rows),
                            has_base=any(is_base(r.get("limits_snapshot")) for r in rows))

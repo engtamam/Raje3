@@ -477,14 +477,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "is looking at our screen — so this row is the only account of what happened",
     },
     {
-        "action": "subscription.gate_skipped",
+        "action": "subscription.gate_unreadable",
         "source": "system",
         "critical": False,
         "resource": "subscription",
-        "why": "the duplicate-purchase check could not read billing and was skipped rather than "
-               "refused — a deliberate choice, so that an outage does not block a purchase the "
-               "shop did not break. This row is the only way a duplicate created in that gap is "
-               "ever found, explained and refunded",
+        "why": "the duplicate-purchase check could not read billing, so the purchase was REFUSED "
+               "rather than let through. It used to be let through — and that charged a card for "
+               "a second base, recoverable only by noticing and refunding it, while refusing "
+               "costs one press. A cluster of these rows is what a billing outage looks like "
+               "from the product side",
     },
     {
         "action": "offer.applied",

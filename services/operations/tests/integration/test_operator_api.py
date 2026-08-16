@@ -258,10 +258,13 @@ class FakePlans:
     def __init__(self, trial: int = 0, limits=None):
         self.trial = trial
         self.subscribed = []
-        # None is «could not read», which makes the base/duplicate rules stand aside — the state
-        # most of these tests are in, and the one they were written under.
-        self.plan_limits = limits
-        self.held: list | None = None
+        # READABLE BY DEFAULT, and this used to be None — «could not read». Every test here was
+        # therefore written in an outage, which is exactly the state the guard now refuses; the
+        # default state of a test must be the normal one, and the outage must be asked for.
+        # A REAL BASE ROW BY DEFAULT — an empty dict is not a plan at all, and `may_add` rightly
+        # refuses it («apps need a base first»). What these tests buy is a subscription.
+        self.plan_limits = {"messages.monthly": {"limit": "unlimited"}} if limits is None else limits
+        self.held: list | None = []
 
     async def trial_days(self, plan_id):
         return self.trial
@@ -340,7 +343,10 @@ def test_a_connected_shop_subscribes_to_a_paid_plan(client, monkeypatch):
 def test_the_interval_is_passed_through_rather_than_inferred(client, monkeypatch):
     """The plan's PRICE carries an interval but the SUBSCRIPTION takes its own — defaulting it
     here would repeat the bug that made a one-time pack renew every month."""
-    plans = _wire(client, connected=True, trial=0)
+    # A PACK, because `once` is now refused on a recurring plan (ز-1) — and a pack is exactly the
+    # row that is sold once. The limits say so: it carries no message meter, so it is not a base.
+    plans = _wire(client, connected=True, trial=0, limits={"messages.extra": {"limit": 500}})
+    _holding(client, plans, [{"limits_snapshot": {"messages.monthly": {"limit": "unlimited"}}}])
     client.post("/api/v1/subscription",
                 json={"plan_id": "pack_500", "interval": "once", "payment_token": "tok_1"},
                 headers=_auth("billing.self", tenant="t1"))
@@ -613,16 +619,20 @@ def test_an_app_on_a_base_goes_through(client):
     assert plans.subscribed == [("t1", "plan_campaigns", "month")]
 
 
-def test_a_billing_outage_does_not_block_a_legitimate_purchase(client):
-    """THE RULES STAND ASIDE WHEN THEY CANNOT BE DECIDED. Refusing on an unreadable answer would
-    stop a shop buying during an outage it did not cause; the entitlement gates in the services
-    still hold whatever happens here."""
+def test_a_billing_outage_refuses_the_purchase_and_takes_no_money(client):
+    """ز-2 — AND THIS TEST ASSERTED THE OPPOSITE. The rules used to stand aside when they could
+    not be decided, on the reasoning that refusing would stop a shop buying during an outage it
+    did not cause. But the two mistakes are not the same size: failing open charges a card for a
+    second base, recoverable only by noticing, explaining and refunding it; failing closed costs
+    one press. He is told plainly that nothing was taken."""
     plans = _wire(client, connected=True, trial=0, limits=_APP_LIMITS)
     _holding(client, plans, None)     # None is «could not read», not «holds nothing»
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "plan_campaigns", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t1"))
-    assert r.status_code == 201 and plans.subscribed
+    assert r.status_code == 503, r.text
+    assert plans.subscribed == [], "billing must never be asked when we could not check"
+    assert "لم يُخصم" in r.json()["message"]
 
 
 def test_the_apps_answer_carries_the_base_and_when_it_renews(client):
@@ -1008,6 +1018,9 @@ def test_a_pack_is_still_bought_once(client):
     """The other half: a row that carries no message meter is not a base, and `once` is exactly
     how a capacity pack is sold. The guard must not close that door."""
     plans = _wire(client, connected=True, limits={"staff.seats": {"limit": 10}})
+    # A pack is ADDED to a base, so the shop must already hold one — that rule is `may_add`'s and
+    # is not what this test is about.
+    _holding(client, plans, [{"limits_snapshot": {"messages.monthly": {"limit": "unlimited"}}}])
     r = client.post("/api/v1/subscription",
                     json={"plan_id": "p_seats", "interval": "once", "payment_token": "tok_1"},
                     headers=_auth("billing.self", tenant="t_pack"))

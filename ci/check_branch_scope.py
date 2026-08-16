@@ -36,6 +36,9 @@ C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 
 SCOPE_CALL = "branch_scope"
 SENTINEL = "_unreadable"
+#: How the sentinel appears in real code: its own literal, or the name bound to it. Matching the
+#: bare substring also matches every longer word that ends in it.
+SENTINEL_TOKENS = (f'"{SENTINEL}"', f"'{SENTINEL}'", "UNREADABLE", "DENIED")
 
 # A body that touches any of these is serving one branch's numbers ALONGSIDE another's.
 #
@@ -107,8 +110,12 @@ def main() -> int:
                                 f"asks for the caller's scope")
 
         # THE FAIL-OPEN SHAPE, wherever it appears: the sentinel resolved to «no filter».
+        # THE SENTINEL ITSELF, NOT A WORD THAT CONTAINS IT. A substring match fired on the audit
+        # action `subscription.gate_unreadable` — a line with nothing to do with branches, in a
+        # file with no branch read in it. A guard that flags an unrelated identifier is one whose
+        # findings get skimmed, and the next real one is skimmed with them.
         for i, line in enumerate(text.splitlines(), 1):
-            if SENTINEL not in line:
+            if not any(tok in line for tok in SENTINEL_TOKENS):
                 continue
             stripped = line.strip()
             if stripped.startswith("#"):
