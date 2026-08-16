@@ -152,7 +152,13 @@ def test_the_owner_route_passes_his_shops_own_name_to_submission():
     from app.api.v1 import owner as O
 
     src = inspect.getsource(O.submit_custom_template)
-    assert "c.identity.get(principal.tenant)" in src, "the shop's own name must be read"
+    # ASSERTED ON WHAT IS ASKED AND WHAT IS HANDED OVER, not on how the tenant is spelled. The
+    # first version pinned `c.identity.get(principal.tenant)` letter for letter, and broke the day
+    # that read went through the module's `_tenant()` guard — an edit that STRENGTHENED the very
+    # property this test is about, since a submission can no longer be filed under no shop at all.
+    # A test that fails when the code improves is a test that argues against improving it.
+    assert "c.identity.get(" in src, "the shop's own name must be read"
+    assert "tenant(principal)" in src, "and read for THIS request's shop, established at the door"
     assert '"establishment": shop.name' in src, "and handed to the submitter, not left to default"
 
 

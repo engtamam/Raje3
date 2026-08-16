@@ -16,7 +16,7 @@ and nothing visibly happens for up to five minutes. They press it again. Firing 
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -36,6 +36,22 @@ router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
 _READ = require_capability("campaigns.read")
 _MANAGE = require_capability("campaigns.manage")
+
+def _tenant(p: Principal) -> str:
+    """The establishment this request belongs to, or no request at all.
+
+    `Principal.tenant` is None whenever the token carries no tenant claim — a platform token, an
+    operator's, a machine key minted for the fleet — and `require_capability` has never looked at
+    it. Left raw, that None reaches the write side: a key becomes the literal string «None|...»,
+    a stored row's `tenant` becomes null, and the row belongs to nobody. No owner ever sees it, no
+    export carries it, and no erasure reaches it, because an erasure fans out per tenant.
+
+    Refused rather than defaulted, and the same four lines the other route modules already carry.
+    """
+    if not p.tenant:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "NO_TENANT")
+    return p.tenant
+
 
 
 class CampaignIn(BaseModel):
@@ -82,8 +98,8 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     either changed.
     """
     c = request.app.state.container
-    locks = await _locks(c, principal.tenant)
-    enabled = await c.templates.enabled_types(principal.tenant)
+    locks = await _locks(c, _tenant(principal))
+    enabled = await c.templates.enabled_types(_tenant(principal))
     return {"goals": [vars(card) for card in
                       cards(now=_now(), locks=locks, enabled_types=enabled)]}
 
@@ -100,7 +116,7 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": str(exc)})
 
-    template = await c.templates.pick(principal.tenant, spec["template_type"])
+    template = await c.templates.pick(_tenant(principal), spec["template_type"])
     if template is None:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
@@ -110,13 +126,13 @@ async def preview(request: Request, body: CampaignIn,
     # preview exists to tell the owner what will happen, and a preview run under different rules
     # than the send is a number that is worse than no number.
     audience = await c.audience.resolve_for(
-        principal.tenant, goal=body.goal, now=_now(), cls=spec["cls"],
+        _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
         already_reached=set(), service_id=body.service_id, branch_id=body.branch_id)
 
     try:
         p = build_preview(
             goal=body.goal, template=template,
-            establishment=await c.identity.name(principal.tenant),
+            establishment=await c.identity.name(_tenant(principal)),
             owner_text=body.owner_text, audience=audience,
             offer_value=body.offer_value,
             ends_at=arabic_date(body.expires_at or 0),
@@ -138,7 +154,7 @@ async def preview(request: Request, body: CampaignIn,
     # we plan it or not, and an owner who expected an afternoon and got a week will say the
     # product is broken. He will be right to: nothing told him.
     out = vars(p)
-    share = await _todays_share(c, principal.tenant)
+    share = await _todays_share(c, _tenant(principal))
     if share.known:
         # FOUR ARGUMENTS, WHICH IS ALL `plan` TAKES. It was being called with `offer_value=` and
         # `scope_service_names=` as well — a TypeError on every preview where the ceiling was
@@ -188,7 +204,7 @@ async def create(request: Request, body: CampaignIn,
     # (CWE-209) — right for a stack trace, and fatal for a sentence we wrote for an owner to read.
     # A raised refusal here would reach him as an empty 402.
     licence = getattr(c, "licence", None)
-    if licence is not None and not await licence.allowed(principal.tenant):
+    if licence is not None and not await licence.allowed(_tenant(principal)):
         return JSONResponse({"error": "PAYMENT_REQUIRED", "reason": LICENCE_NOT_INCLUDED},
                             status_code=status.HTTP_402_PAYMENT_REQUIRED)
     try:
@@ -198,7 +214,7 @@ async def create(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": str(exc)})
 
-    locks = await _locks(c, principal.tenant)
+    locks = await _locks(c, _tenant(principal))
     if int(locks.get(body.goal) or 0) > now:
         return JSONResponse(status_code=status.HTTP_409_CONFLICT,
                             content={"error": "CONFLICT",
@@ -206,7 +222,7 @@ async def create(request: Request, body: CampaignIn,
 
     # Validated BEFORE the campaign exists. Creating it and then refusing the text would leave a
     # draft the owner did not ask for, in a list they now have to clean.
-    template = await c.templates.pick(principal.tenant, spec["template_type"])
+    template = await c.templates.pick(_tenant(principal), spec["template_type"])
     if template is None:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "BAD_REQUEST",
@@ -248,7 +264,7 @@ async def create(request: Request, body: CampaignIn,
                                 content={"error": "BAD_REQUEST",
                                          "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
-    campaign = Campaign(tenant=principal.tenant, goal=body.goal, owner_text=clean,
+    campaign = Campaign(tenant=_tenant(principal), goal=body.goal, owner_text=clean,
                         template_type=spec["template_type"], cls=spec["cls"],
                         trigger=spec["trigger"], state="active", fire_at=body.fire_at,
                         expires_at=body.expires_at or 0,
@@ -273,7 +289,7 @@ async def create(request: Request, body: CampaignIn,
                             + list(body.scope_service_ids))))
 
     await request.app.state.auditor.record(
-        "campaign.created", actor=principal.subject, tenant=principal.tenant,
+        "campaign.created", actor=principal.subject, tenant=_tenant(principal),
         resource=f"campaign:{campaign.id}", ip=request.client.host if request.client else "")
     await c.datastore.put("campaigns", campaign.key, as_row(campaign))
 
@@ -284,7 +300,7 @@ async def create(request: Request, body: CampaignIn,
         # THE SAME NUMBER THE PREVIEW SHOWED HIM. The screen says «سنوزّعها على N أيام» from
         # `_todays_share`; the send used to ignore it entirely and spend the whole pass batch, so
         # the sentence was a promise nothing kept — and the engine's reserve went with it.
-        share = await _todays_share(c, principal.tenant)
+        share = await _todays_share(c, _tenant(principal))
         out = await c.dispatcher.fire(as_row(campaign), now=now, fired_by=principal.subject,
                                       # `None` WHEN WE COULD NOT READ THE CEILING, never 0: an
                                       # unknown share must not silence a shop, and a known zero
@@ -333,7 +349,7 @@ async def runs(request: Request, campaign_id: str,
         limit=2000, sort=("at", "asc"))
     reached = [{"subject_ref": r.get("subject_ref", ""), "since": int(r.get("at") or 0)}
               for r in reached_rows if r.get("subject_ref")]
-    redeemed = (await request.app.state.container.audience.redeemed(principal.tenant, reached)
+    redeemed = (await request.app.state.container.audience.redeemed(_tenant(principal), reached)
                if reached else 0)
 
     return {"runs": [vars(r) for r in history(rows)],
@@ -346,16 +362,16 @@ async def pause(request: Request, campaign_id: str,
     """Stop a standing campaign. PAUSED, never deleted — its runs are referenced by the send log,
     and an owner reading their history six months later must not find rows pointing at nothing."""
     c = request.app.state.container
-    row = await c.datastore.get("campaigns", f"{principal.tenant}|{campaign_id}")
-    if row is None or row.get("tenant") != principal.tenant:
+    row = await c.datastore.get("campaigns", f"{_tenant(principal)}|{campaign_id}")
+    if row is None or row.get("tenant") != _tenant(principal):
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND,
                             content={"error": "NOT_FOUND",
                                      "reason": "لم نجد هذه الحملة."})
     await request.app.state.auditor.record(
-        "campaign.paused", actor=principal.subject, tenant=principal.tenant,
+        "campaign.paused", actor=principal.subject, tenant=_tenant(principal),
         resource=f"campaign:{campaign_id}", ip=request.client.host if request.client else "")
     row["state"] = "paused"
-    await c.datastore.put("campaigns", f"{principal.tenant}|{campaign_id}", row)
+    await c.datastore.put("campaigns", f"{_tenant(principal)}|{campaign_id}", row)
     return {"campaign_id": campaign_id, "state": "paused"}
 
 

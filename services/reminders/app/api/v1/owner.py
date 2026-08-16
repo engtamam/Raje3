@@ -38,6 +38,22 @@ router = APIRouter(prefix="/reminders", tags=["reminders"])
 _READ = require_capability("reminders.read")
 _MANAGE = require_capability("reminders.manage")
 
+def _tenant(p: Principal) -> str:
+    """The establishment this request belongs to, or no request at all.
+
+    `Principal.tenant` is None whenever the token carries no tenant claim — a platform token, an
+    operator's, a machine key minted for the fleet — and `require_capability` has never looked at
+    it. Left raw, that None reaches the write side: a key becomes the literal string «None|...»,
+    a stored row's `tenant` becomes null, and the row belongs to nobody. No owner ever sees it, no
+    export carries it, and no erasure reaches it, because an erasure fans out per tenant.
+
+    Refused rather than defaulted, and the same four lines the other route modules already carry.
+    """
+    if not p.tenant:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "NO_TENANT")
+    return p.tenant
+
+
 
 @router.get("/schedule", dependencies=[Depends(rate_limit)])
 async def list_schedule(request: Request, state: str = Query(default="pending"),
@@ -49,7 +65,7 @@ async def list_schedule(request: Request, state: str = Query(default="pending"),
     against operations for display, which keeps the identifier in one place instead of two.
     """
     store = ScheduleStore(request.app.state.container.datastore)
-    rows, _ = await store._find(principal.tenant, {"state": state} if state else None,
+    rows, _ = await store._find(_tenant(principal), {"state": state} if state else None,
                                 limit=limit, sort=("due_at", "asc"))
     return {"schedule": rows, "count": len(rows)}
 
@@ -75,7 +91,7 @@ async def cancel(request: Request, schedule_key: str,
     # THE ID IS RESOLVED, NOT ACCEPTED BLINDLY. It is looked up inside the caller's own tenant, so
     # an id belonging to another establishment finds nothing here rather than being cancelled.
     if row is None:
-        found, _ = await store._find(principal.tenant, {"id": schedule_key}, limit=1)
+        found, _ = await store._find(_tenant(principal), {"id": schedule_key}, limit=1)
         if found:
             row = found[0]
             key = _sched_key(row)
@@ -83,15 +99,15 @@ async def cancel(request: Request, schedule_key: str,
     # THE TENANT CHECK IS EXPLICIT, because this key comes off the request. The store prefixes keys
     # by tenant, so a forged key from another establishment cannot be read — but relying on a key
     # format for authorisation is relying on a convention, and this makes it a check.
-    if row is None or row.get("tenant") != principal.tenant:
+    if row is None or row.get("tenant") != _tenant(principal):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     await request.app.state.auditor.record(
-        "reminders.schedule_cancelled", actor=principal.subject, tenant=principal.tenant,
+        "reminders.schedule_cancelled", actor=principal.subject, tenant=_tenant(principal),
         resource=f"schedule:{row.get('id','')}",
         ip=request.client.host if request.client else "")
     row["state"] = "cancelled"
     row["reason"] = "ألغاه المالك"
-    await store.upsert(principal.tenant, key, row)
+    await store.upsert(_tenant(principal), key, row)
     return {"cancelled": True, "id": row.get("id", "")}
 
 
@@ -113,12 +129,12 @@ async def list_rules(request: Request, service_id: str = Query(default=""),
     # (customer, service), and «هذا العميل يعود كل 47 يوماً» is the sentence §5.2 promises and no
     # screen could ask for, because the only filter here was the service.
     if subject_ref:
-        rows, _ = await store._find(principal.tenant, {"subject_ref": subject_ref},
+        rows, _ = await store._find(_tenant(principal), {"subject_ref": subject_ref},
                                     limit=100, sort=("updated", "desc"))
     elif service_id:
-        rows = await store.for_service(principal.tenant, service_id)
+        rows = await store.for_service(_tenant(principal), service_id)
     else:
-        rows = (await store._find(principal.tenant, limit=200, sort=("updated", "desc")))[0]
+        rows = (await store._find(_tenant(principal), limit=200, sort=("updated", "desc")))[0]
     for r in rows:
         r["learned"] = is_learned(int(r.get("observations") or 0), cfg)
     return {"rules": rows, "count": len(rows)}
@@ -142,15 +158,15 @@ async def set_rule(request: Request, rule_key: str, body: RuleIn,
     """
     store = RuleStore(request.app.state.container.datastore)
     row = await store.get(rule_key)
-    if row is None or row.get("tenant") != principal.tenant:
+    if row is None or row.get("tenant") != _tenant(principal):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"rule:{row.get('id','')}", ip=request.client.host if request.client else "")
     row["interval_days"] = body.interval_days
     row["lead_days"] = body.lead_days
     row["pinned"] = True
-    await store.upsert(principal.tenant, rule_key, row)
+    await store.upsert(_tenant(principal), rule_key, row)
     return {"rule": row, "adaptation": "paused",
             "note": "الفترة مثبّتة الآن ولن يعدّلها النظام تلقائياً."}
 
@@ -183,7 +199,7 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     scope = ""
     resolver = getattr(c, "branch_scope", None)
     if resolver is not None:
-        scope = await resolver.scope(principal.tenant, getattr(principal, "subject", "") or "")
+        scope = await resolver.scope(_tenant(principal), getattr(principal, "subject", "") or "")
     if scope in DENIED:
         # «WE COULD NOT CHECK» IS NOT «NO LIMIT». Refusing costs him the log for a minute;
         # guessing shows him somebody else's.
@@ -216,7 +232,7 @@ async def send_log(request: Request, outcome: str = Query(default=""),
         where = {**(where or {}), "branch_id": scope}
     elif branch_id:
         where = {**(where or {}), "branch_id": "" if branch_id == "_none" else branch_id}
-    rows, _ = await store._find(principal.tenant, where, limit=limit, sort=("at", "desc"))
+    rows, _ = await store._find(_tenant(principal), where, limit=limit, sort=("at", "desc"))
     # The visit-idempotency markers live in this collection (see core/scheduling.py) and are not
     # messages. Showing them would put rows in an owner's log that mean nothing to them.
     rows = [r for r in rows if r.get("subject_ref") != "_visit_marker"]
@@ -247,7 +263,7 @@ async def list_reasons(request: Request, principal: Principal = Depends(_READ)) 
     in the product, and the only way to stop a message was to cancel it one row at a time.
     """
     from app.core.reason_choices import ChoiceStore
-    choices = await ChoiceStore(request.app.state.container.datastore).load(principal.tenant)
+    choices = await ChoiceStore(request.app.state.container.datastore).load(_tenant(principal))
     return {"reasons": choices.public()}
 
 
@@ -262,11 +278,11 @@ async def set_reason(request: Request, reason_id: str, body: ReasonIn,
     """
     from app.core.reason_choices import ChoiceStore
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"reason:{reason_id}", ip=request.client.host if request.client else "")
     store = ChoiceStore(request.app.state.container.datastore)
     try:
-        choices = await store.set(principal.tenant, reason_id,
+        choices = await store.set(_tenant(principal), reason_id,
                                   on=body.on, template=body.template)
     except ValueError as exc:
         # RETURNED, NOT RAISED. The platform's handler strips an HTTPException's detail, and the
@@ -297,7 +313,7 @@ async def preview_reason(request: Request, reason_id: str,
         return {"ok": False, "error": "لا يوجد داعٍ للإرسال بهذا الاسم."}
 
     c = request.app.state.container
-    shop = await c.identity.get(principal.tenant)
+    shop = await c.identity.get(_tenant(principal))
     establishment = getattr(shop, "name", "") or "محلّك"
     library = await c.library.all()
 
@@ -319,7 +335,7 @@ async def preview_reason(request: Request, reason_id: str,
         options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
                         "text": body, "mine": False})
 
-    mine = await CustomTemplateStore(c.datastore).list(principal.tenant, reason_id=reason_id)
+    mine = await CustomTemplateStore(c.datastore).list(_tenant(principal), reason_id=reason_id)
     for row in mine:
         if row.get("status") != APPROVED:
             continue
@@ -328,7 +344,7 @@ async def preview_reason(request: Request, reason_id: str,
                         # his numbering is his, not the library's.
                         "text": _fill_custom(row, establishment=establishment)})
 
-    chosen = (await ChoiceStore(c.datastore).load(principal.tenant)).template_name(reason_id)
+    chosen = (await ChoiceStore(c.datastore).load(_tenant(principal))).template_name(reason_id)
     return {"reason": TR.public(reason), "options": options, "chosen": chosen,
             "tone": getattr(shop, "tone", "") or "brief"}
 
@@ -366,7 +382,7 @@ async def list_custom_templates(request: Request, reason_id: str = "",
     """His own texts and where each one stands."""
     from app.core.custom_templates import CustomTemplateStore
     store = CustomTemplateStore(request.app.state.container.datastore)
-    rows = await store.list(principal.tenant, reason_id=reason_id)
+    rows = await store.list(_tenant(principal), reason_id=reason_id)
     return {"templates": [{k: r.get(k) for k in
                            ("name", "reason_id", "body", "fills", "status", "reason",
                             "version", "updated")} for r in rows]}
@@ -384,14 +400,14 @@ async def write_custom_template(request: Request, body: CustomTemplateIn,
     from app.core.custom_templates import CustomTemplateError, CustomTemplateStore
     store = CustomTemplateStore(request.app.state.container.datastore)
     try:
-        row = await store.draft(principal.tenant, reason_id=body.reason_id, body=body.body,
+        row = await store.draft(_tenant(principal), reason_id=body.reason_id, body=body.body,
                                 fills=list(body.fills), cls=body.cls, replaces=body.replaces)
     except CustomTemplateError as exc:
         # RETURNED, NOT RAISED — the platform's handler strips an HTTPException's detail, and the
         # sentence is the whole answer.
         return {"ok": False, "error": str(exc)}
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"template:{row.name}", ip=request.client.host if request.client else "")
     return {"ok": True, "template": row.public()}
 
@@ -417,7 +433,7 @@ async def submit_custom_template(request: Request, name: str,
                                            PENDING, REJECTED)
     c = request.app.state.container
     store = CustomTemplateStore(c.datastore)
-    row = await store.get(principal.tenant, name)
+    row = await store.get(_tenant(principal), name)
     if row is None:
         return {"ok": False, "error": "لا يوجد نصّ بهذا الاسم."}
     if row.get("status") not in (DRAFT, REJECTED):
@@ -440,9 +456,9 @@ async def submit_custom_template(request: Request, name: str,
     # if Meta refuses, so a rejection does not cost him a slot he never got the use of.
     from app.core.quota import CUSTOM_TEMPLATE_KEY, QuotaError
 
-    idem = f"tpl:{principal.tenant}:{name}:{row.get('version') or 0}"
+    idem = f"tpl:{_tenant(principal)}:{name}:{row.get('version') or 0}"
     try:
-        await c.quota.take(tenant=principal.tenant, key=CUSTOM_TEMPLATE_KEY, idempotency_key=idem)
+        await c.quota.take(tenant=_tenant(principal), key=CUSTOM_TEMPLATE_KEY, idempotency_key=idem)
     except QuotaError as exc:
         # RETURNED, NEVER RAISED — the platform strips a raised detail, and «بلغت حدّ باقتك من
         # النصوص الخاصة» is the whole answer.
@@ -453,21 +469,21 @@ async def submit_custom_template(request: Request, name: str,
     # own comments say a review rejects — whenever the row it is handed carries none. `row` here
     # is `custom_templates.CustomTemplate.to_dict()`, which has no such key, so every submission
     # was reviewed against an example carrying the placeholder rather than the shop's real name.
-    shop = await c.identity.get(principal.tenant)
-    out = await c.submitter.submit(principal.tenant, {**row, "establishment": shop.name})
+    shop = await c.identity.get(_tenant(principal))
+    out = await c.submitter.submit(_tenant(principal), {**row, "establishment": shop.name})
     if not out.get("ok"):
         # HIS SLOT BACK. Meta refused the wording, and charging him a monthly allowance for a text
         # that never reached anybody would make the limit punish the attempt rather than the use.
-        await c.quota.release(tenant=principal.tenant, idempotency_key=idem,
+        await c.quota.release(tenant=_tenant(principal), idempotency_key=idem,
                               key=CUSTOM_TEMPLATE_KEY)
     status = PENDING if out.get("ok") else REJECTED
     try:
-        row = await store.mark(principal.tenant, name, status=status,
+        row = await store.mark(_tenant(principal), name, status=status,
                                reason=str(out.get("reason", "")))
     except CustomTemplateError as exc:
         return {"ok": False, "error": str(exc)}
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"template:{name}", ip=request.client.host if request.client else "")
     return {"ok": bool(out.get("ok")), "template": {k: row.get(k) for k in
                                                     ("name", "reason_id", "status", "reason",
@@ -504,7 +520,7 @@ async def ask_for_help(request: Request, name: str, body: HelpIn | None = None,
     from app.core.help_requests import HelpRequestStore
 
     c = request.app.state.container
-    row = await CustomTemplateStore(c.datastore).get(principal.tenant, name)
+    row = await CustomTemplateStore(c.datastore).get(_tenant(principal), name)
     if row is None:
         return {"ok": False, "error": "لا يوجد نصّ بهذا الاسم."}
     if row.get("status") != REJECTED:
@@ -514,11 +530,11 @@ async def ask_for_help(request: Request, name: str, body: HelpIn | None = None,
         return {"ok": False, "error": "لا يُطلب المساعدة إلا بعد رفض واتساب للنص."}
 
     saved = await HelpRequestStore(c.datastore).ask(
-        principal.tenant, name=name, reason_id=str(row.get("reason_id", "")),
+        _tenant(principal), name=name, reason_id=str(row.get("reason_id", "")),
         body=str(row.get("body", "")), refusal=str(row.get("reason", "")),
         note=(body.note if body else ""))
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"template_help:{name}", ip=request.client.host if request.client else "")
     return {"ok": True, "request": {k: saved.get(k) for k in
                                     ("name", "reason_id", "status", "note", "asked", "answer")}}
@@ -532,7 +548,7 @@ async def my_help_requests(request: Request, principal: Principal = Depends(_REA
     channel is one he reads once and cannot find again the day he sits down to fix the text.
     """
     from app.core.help_requests import HelpRequestStore
-    rows = await HelpRequestStore(request.app.state.container.datastore).list(principal.tenant)
+    rows = await HelpRequestStore(request.app.state.container.datastore).list(_tenant(principal))
     return {"requests": [{k: r.get(k) for k in
                           ("name", "reason_id", "status", "refusal", "note", "answer",
                            "asked", "updated")} for r in rows]}
@@ -589,12 +605,12 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
     # unreachable peer shows nothing rather than something possibly wrong.
     try:
         used = spent_refs(operations_url=_ops_url(request), token=_ops_token(request),
-                          tenant=principal.tenant, subject_ref=subject_ref)
+                          tenant=_tenant(principal), subject_ref=subject_ref)
     except SpentUnknown:
         return {"offer": None}
 
     row = await SendLogStore(request.app.state.container.datastore).active_offer(
-        principal.tenant, subject_ref, used_refs=used, now=int(time.time()))
+        _tenant(principal), subject_ref, used_refs=used, now=int(time.time()))
     if not row:
         return {"offer": None}
     return {"offer": {"text": row.get("offer_text", ""),
@@ -635,7 +651,7 @@ async def send_my_dsar_code(request: Request, body: DsarCodeOut,
     from app.api.internal import DsarCodeIn, send_dsar_code
 
     return await send_dsar_code(request, DsarCodeIn(
-        tenant=principal.tenant,
+        tenant=_tenant(principal),
         dsar_id=body.dsar_id,
         # HIS OWN PSEUDONYM, off the token. The one identifier a caller cannot choose.
         subject_ref=getattr(principal, "subject", "") or "",
@@ -658,7 +674,7 @@ async def customer_offers(request: Request, subject_ref: str = Query(min_length=
     """
     now = int(time.time())
     store = SendLogStore(request.app.state.container.datastore)
-    rows = await store.since(principal.tenant, subject_ref, since=0)
+    rows = await store.since(_tenant(principal), subject_ref, since=0)
     out = []
     for r in rows:
         if not r.get("offer_text") or r.get("outcome") != "sent":
@@ -685,7 +701,7 @@ async def read_settings(request: Request, service_id: str = Query(default=""),
     unless the API says which level answered. A response carrying only the numbers would force the
     console to re-derive it, and the two would disagree the first time the resolver changed.
     """
-    tree = await _settings(request).load(principal.tenant)
+    tree = await _settings(request).load(_tenant(principal))
     if service_id:
         return {"service_id": service_id,
                 "customised": tree.is_customised(service_id),
@@ -715,9 +731,9 @@ async def set_general_settings(request: Request, body: SettingsIn,
     minute setting the oil change to 60 days has not asked us to undo that minute.
     """
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource="settings:general", ip=request.client.host if request.client else "")
-    tree = await _settings(request).set_general(principal.tenant, body.values())
+    tree = await _settings(request).set_general(_tenant(principal), body.values())
     return {"general": tree.general,
             "note": "يسري على كل خدمة تتبع الإعداد العام. الخدمات المخصّصة تبقى كما هي."}
 
@@ -727,10 +743,10 @@ async def set_service_settings(request: Request, service_id: str, body: Settings
                                principal: Principal = Depends(_MANAGE)) -> dict:
     """Give one service its own values — which is what "customising" means here."""
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"settings:service:{service_id}",
         ip=request.client.host if request.client else "")
-    tree = await _settings(request).set_service(principal.tenant, service_id, body.values())
+    tree = await _settings(request).set_service(_tenant(principal), service_id, body.values())
     return {"service_id": service_id, "own": tree.services.get(service_id, {}),
             "note": "هذه الخدمة لها إعدادها الخاص الآن. للعودة إلى العام احذف تخصيصها."}
 
@@ -745,10 +761,10 @@ async def follow_general_again(request: Request, service_id: str,
     the next general edit would skip it.
     """
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"settings:service:{service_id}",
         ip=request.client.host if request.client else "")
-    await _settings(request).follow_again(principal.tenant, service_id)
+    await _settings(request).follow_again(_tenant(principal), service_id)
     return {"service_id": service_id, "follows": "general"}
 
 
@@ -762,10 +778,10 @@ async def set_group_settings(request: Request, name: str, body: GroupIn,
     """Create or update a group. Arrives late and by suggestion — never as a step somebody must
     complete before sending their first message."""
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"settings:group:{name}", ip=request.client.host if request.client else "")
     values = {k: v for k, v in body.values().items() if k != "service_ids"}
-    tree = await _settings(request).set_group(principal.tenant, name, values,
+    tree = await _settings(request).set_group(_tenant(principal), name, values,
                                               service_ids=body.service_ids)
     return {"group": name, "settings": tree.groups.get(name, {}),
             "services": [s for s, g in tree.service_group.items() if g == name]}
@@ -781,10 +797,10 @@ async def leave_group(request: Request, name: str, service_id: str,
     general, which is where it was before anyone grouped it.
     """
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"settings:group:{name}:service:{service_id}",
         ip=request.client.host if request.client else "")
-    await _settings(request).leave_group(principal.tenant, service_id)
+    await _settings(request).leave_group(_tenant(principal), service_id)
     return {"service_id": service_id, "group": "", "follows": "general"}
 
 
@@ -793,9 +809,9 @@ async def delete_group(request: Request, name: str,
                        principal: Principal = Depends(_MANAGE)) -> dict:
     """Delete a group. Its members become ungrouped and keep whatever they hold of their own."""
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor=principal.subject, tenant=principal.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=_tenant(principal),
         resource=f"settings:group:{name}", ip=request.client.host if request.client else "")
-    tree = await _settings(request).delete_group(principal.tenant, name)
+    tree = await _settings(request).delete_group(_tenant(principal), name)
     return {"group": name, "deleted": True, "groups": sorted(tree.groups)}
 
 
@@ -806,7 +822,7 @@ async def suggest_group(request: Request, principal: Principal = Depends(_READ))
     Proposes only. Acting on it would be a system rearranging their settings without being asked,
     which is the fastest way to lose their trust in a screen.
     """
-    return {"suggestion": await _settings(request).suggest_group(principal.tenant)}
+    return {"suggestion": await _settings(request).suggest_group(_tenant(principal))}
 
 
 @router.get("/today", dependencies=[Depends(rate_limit)])

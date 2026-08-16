@@ -220,6 +220,14 @@ jobs:
       - name: a browse of people that is not scoped
         run: python3 ci/check_a_browse_of_people_is_scoped.py
 
+      # AND THE ESTABLISHMENT ITSELF, ESTABLISHED RATHER THAN ASSUMED. `require_capability` has
+      # never looked at the tenant, so a token with no tenant claim reaches any surface whose
+      # capability it holds. Reads fail closed; the WRITE does not — the row is stored with a
+      # null tenant and belongs to nobody, which means no screen, no export and no erasure will
+      # ever reach it again.
+      - name: a tenant that is assumed rather than established
+        run: python3 ci/check_a_tenant_is_taken_at_the_door.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave
