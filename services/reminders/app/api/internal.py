@@ -497,12 +497,23 @@ async def eligibility(request: Request, body: EligibilityIn) -> dict:
     s = get_settings()
     now = int(time.time())
 
+    # THE CONSENT RECORD, READ HERE TOO — and the reason this line is not optional.
+    #
+    # `gate.evaluate` defaults `marketing_consent` to "never_asked", and its own rule is that a
+    # MARKETING message needs "granted". This route never passed it, so every marketing eligibility
+    # question was answered «no» no matter what the customer had actually agreed to: the campaign
+    # audience resolved to zero, the preview said the campaign would reach nobody, and the owner
+    # concluded the feature did not work. The send path (core/tick.py) reads consent correctly —
+    # which is precisely why nothing here ever looked wrong in a test of the gate itself.
+    from app.core.consent import Consent
+
+    consent = await Consent(c.datastore).state(body.tenant, body.subject_ref)
     prefs = await PrefsStore(c.datastore).get(body.tenant, body.subject_ref) or {}
     eng = await EngagementStore(c.datastore).get(body.tenant, body.subject_ref) or {}
     recent = await SendLogStore(c.datastore).since(body.tenant, body.subject_ref,
                                                    since=now - 31 * 86400)
     d = G.evaluate(
-        cls=body.cls, template_type="", now=now,
+        cls=body.cls, template_type="", now=now, marketing_consent=consent,
         limits=G.Limits(window_start_hour=s.SEND_WINDOW_START_HOUR,
                         window_end_hour=s.SEND_WINDOW_END_HOUR,
                         daily_service_cap=s.DAILY_SERVICE_CAP,
