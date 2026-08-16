@@ -47,7 +47,7 @@ class Dispatcher:
         # read a number would be our outage wearing their ceiling.
         self._daily_share = int(daily_share)
 
-    async def fire(self, campaign: dict[str, Any], *, now: int,
+    async def fire(self, campaign: dict[str, Any], *, now: int, daily_share: int = 0,
                    fired_by: str = "system") -> DispatchResult:
         """One pass over one campaign.
 
@@ -70,7 +70,13 @@ class Dispatcher:
         # SPREAD ACROSS DAYS RATHER THAN FAILING AT THE CEILING. Ten thousand recipients against a
         # share of two thousand is five days whether we plan it or not; the only question is
         # whether the system does it deliberately or the shop discovers it as a list of failures.
-        per_pass = self._daily_share or self._batch
+        # PER TENANT AND PER DAY, so it arrives with the call rather than with the process. The
+        # constructor's value was never passed by anything, and it could not have been right if it
+        # had been: the share is the shop's own ceiling minus the engine's reserve minus what has
+        # already gone today — three numbers from three services, none of them the same for two
+        # shops. The preview computes it exactly this way, and the two now agree instead of the
+        # screen promising a spread the sender did not perform.
+        per_pass = daily_share or self._daily_share or self._batch
 
         sent_this_pass = 0
         for candidate in audience.candidates:
@@ -81,10 +87,19 @@ class Dispatcher:
                 await self._save(run)
                 return DispatchResult(run=run, finished=False)
 
-            # THE KEY IS (campaign, run, subject) AND IT IS GENERATED BEFORE THE CALL. A timeout is
+            # THE KEY IS (campaign, subject) AND IT IS GENERATED BEFORE THE CALL. A timeout is
             # not evidence that nothing was sent, and the customer must not pay for our uncertainty
             # with a duplicate.
-            key = f"cmp:{cid}:{run.id}:{candidate.subject_ref}"
+            #
+            # AND `run.id` IS NOT IN IT ANY MORE, which was the whole defect. Every pass and every
+            # retry opens a NEW run, so a send that timed out — but arrived — was re-sent under a
+            # fresh key the moment the campaign was fired again: the customer got the same offer
+            # twice, and the shop paid twice against its cap. The key that protects a customer from
+            # our uncertainty cannot be derived from the attempt that is uncertain.
+            #
+            # ONE CAMPAIGN REACHES ONE PERSON ONCE — which is also what `_already_reached` says in
+            # the other direction, so the two now agree instead of one quietly undoing the other.
+            key = f"cmp:{cid}:{candidate.subject_ref}"
             try:
                 outcome = await self._sender.send(
                     tenant=tenant,

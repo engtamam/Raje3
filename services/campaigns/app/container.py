@@ -296,9 +296,22 @@ def build_container(settings: Settings) -> Container:
                                       telemetry=container.telemetry)
     from app.core.licence import build_licence
     container.licence = build_licence(settings)
+    async def _share_for(tenant: str) -> int:
+        """Today's share for one shop — the ceiling, minus the engine's reserve, minus what has
+        already gone. The same three numbers the preview shows, read the same way, so the screen's
+        «سنوزّعها على N أيام» and the cron's behaviour cannot disagree."""
+        from app.core.share import compute as compute_share
+
+        ceiling = await container.ceiling.read(tenant)
+        reserved, used = await container.engine_load(tenant)
+        share = compute_share(ceiling=ceiling.limit, reserved=reserved, used=used,
+                              fallback=settings.CAMPAIGN_MAX_AUDIENCE)
+        return share.per_day if share.known else 0
+
     container.tick = Tick(store=container.datastore, dispatcher=container.dispatcher,
                           licence=container.licence,
                           awareness_lock_days=settings.AWARENESS_LOCK_DAYS,
+                          share_reader=_share_for,
                           telemetry=container.telemetry)
     return container
 

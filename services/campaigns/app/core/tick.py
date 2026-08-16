@@ -59,7 +59,8 @@ def same_day(a: int, b: int) -> bool:
 
 class Tick:
     def __init__(self, *, store, dispatcher, telemetry=None, licence=None,
-                 awareness_lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS) -> None:
+                 awareness_lock_days: int = DEFAULT_AWARENESS_LOCK_DAYS,
+                 share_reader=None) -> None:
         self._s = store
         self._d = dispatcher
         self._t = telemetry
@@ -72,6 +73,22 @@ class Tick:
         # How often a shop may educate the same customer. A judgement, and a workshop is not a
         # clinic — so it comes from the deployment rather than from this file.
         self._lock_days = int(awareness_lock_days)
+        # TODAY'S SHARE FOR ONE SHOP, as a callable rather than as three peer clients: this file
+        # must not learn which service holds the ceiling, which holds the reserve, or which counts
+        # what has gone. `None` means unknown, and unknown falls back to the pass batch — the
+        # provider enforces its own limit regardless, and a campaign refusing to run because we
+        # could not read a number would be our outage wearing their ceiling.
+        self._share_reader = share_reader
+
+    async def _share_for(self, tenant: str) -> int:
+        if not self._share_reader or not tenant:
+            return 0
+        try:
+            return int(await self._share_reader(tenant) or 0)
+        except Exception:                                                   # noqa: BLE001
+            # UNKNOWN, NOT ZERO — and zero would mean «send nothing», which is the opposite of
+            # what an unreadable ceiling should cost a shop.
+            return 0
 
     async def run(self, tenant: str, *, now: int) -> TickResult:
         res = TickResult()
@@ -108,11 +125,18 @@ class Tick:
             if not fire_at or fire_at > now:
                 res.skipped += 1
                 return
-            await self._fire(campaign, now=now, res=res)
-            # DONE, not re-armed. A scheduled campaign that stayed active would fire on every tick
-            # after its time passed — the same failure as the standing rule, with no guard at all.
-            campaign["state"] = "done"
-            await self._save(campaign, now)
+            finished = await self._fire(campaign, now=now, res=res)
+            # DONE, not re-armed — but only once it IS done. A pass is bounded by the campaign's
+            # share of the day's ceiling, so a campaign to eight hundred people reaches two hundred
+            # and returns `finished=False`. Closing it there told the owner it had run, and the
+            # other six hundred were never contacted by anything: the flag existed, was returned,
+            # and nobody read it.
+            #
+            # Left active, the next tick continues it — and `_already_reached` means nobody is
+            # contacted twice.
+            if finished:
+                campaign["state"] = "done"
+                await self._save(campaign, now)
             return
 
         if trigger == "standing":
@@ -133,13 +157,19 @@ class Tick:
         # left active — harmless, and skipped rather than fired: the owner presses the button.
         res.skipped += 1
 
-    async def _fire(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> None:
+    async def _fire(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> bool:
+        """Fire one pass. Returns whether the campaign is FINISHED — see the caller."""
         if int(campaign.get("locked_until") or 0) > now:
             # The awareness lock (spec §10.9). Skipped rather than refused: the cron is not the
             # place an owner learns about a lock — the card in their screen is.
             res.skipped += 1
-            return
-        out = await self._d.fire(campaign, now=now, fired_by="system")
+            return True
+        # THE SHARE ON THE CRON PATH TOO, read the same way the screen reads it. `_share_for` is
+        # the tick's own resolver: a campaign fired by the clock spends from the same ceiling as
+        # one fired by a press, and honouring the reserve on only one of the two paths is the same
+        # bug with better odds.
+        out = await self._d.fire(campaign, now=now, fired_by="system",
+                                 daily_share=await self._share_for(campaign.get("tenant", "")))
         res.fired += 1
         res.sent += out.run.sent
         res.suppressed += out.run.suppressed
@@ -151,6 +181,7 @@ class Tick:
             # cost the owner a month for a send that never happened.
             campaign["locked_until"] = now + self._lock_days * DAY
             await self._save(campaign, now)
+        return out.finished
 
     async def _save(self, campaign: dict[str, Any], now: int) -> None:
         campaign["updated"] = now

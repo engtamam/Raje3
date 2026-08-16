@@ -77,11 +77,18 @@ def test_the_gates_refusal_reason_is_carried_verbatim(st):
 
 
 # ── idempotency and resumability ───────────────────────────────────────────────────────────────
-def test_the_idempotency_key_identifies_the_campaign_the_run_and_the_subject(st):
+def test_the_idempotency_key_identifies_the_campaign_and_the_subject_not_the_attempt(st):
     s = Sender()
     fire(st, s, resolver("a"))
     key = s.calls[0]["idempotency_key"]
-    assert key.startswith("cmp:cmp_1:run_") and key.endswith(":a")
+    # (CAMPAIGN, SUBJECT) — AND DELIBERATELY NOT THE RUN.
+    #
+    # The key used to carry `run.id`, and every pass and every retry opens a new run. So a send
+    # that timed out but ARRIVED was re-sent under a fresh key the moment the campaign fired
+    # again: the customer received the same offer twice and the shop paid twice against its cap.
+    # A key that protects the customer from our uncertainty cannot be derived from the attempt
+    # that is uncertain.
+    assert key == "cmp:cmp_1:a"
 
 
 def test_a_second_firing_never_reaches_the_same_person_again(st):

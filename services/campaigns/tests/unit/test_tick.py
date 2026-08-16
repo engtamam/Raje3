@@ -40,10 +40,15 @@ class Dispatcher:
         self.sent = sent
         self.boom = boom
 
-    async def fire(self, campaign, *, now, fired_by="system"):
+    async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
+        # `daily_share` IS PART OF THE CONTRACT NOW: a pass is bounded by the shop's slice of the
+        # day's ceiling, and the tick must hand it over on the cron path exactly as the API does on
+        # the press path. Recorded so a test can assert it travelled rather than assume it.
         if self.boom:
             raise RuntimeError("dispatch exploded")
         self.fired.append((campaign.get("id"), now))
+        self.shares = getattr(self, "shares", [])
+        self.shares.append(daily_share)
         return FakeOut(FakeRun(sent=self.sent))
 
 
@@ -180,10 +185,11 @@ def test_one_broken_campaign_does_not_freeze_the_others(st):
     save(st, Campaign(tenant="t1", goal="reward_loyal", state="active"))
 
     class Flaky(Dispatcher):
-        async def fire(self, campaign, *, now, fired_by="system"):
+        async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
             if campaign["goal"] == "win_back":
                 raise RuntimeError("boom")
-            return await Dispatcher.fire(self, campaign, now=now, fired_by=fired_by)
+            return await Dispatcher.fire(self, campaign, now=now, fired_by=fired_by,
+                                         daily_share=daily_share)
 
     d = Flaky()
     res = tick(st, d, at(10))
@@ -241,4 +247,84 @@ def test_a_deployment_with_no_licence_client_still_runs(st):
     save(st, Campaign(tenant="t1", goal="win_back", state="active"))
     d = Dispatcher()
     tick(st, d, at(9), licence=None)
+    assert len(d.fired) == 1
+
+
+# ── the pass that did not finish ───────────────────────────────────────────────────────────────
+def test_a_scheduled_campaign_that_did_not_finish_stays_open(st):
+    """THE DEFECT, AND IT WAS SILENT IN THE WORST WAY.
+
+    A pass is bounded by the shop's slice of the day's ceiling, so a campaign to eight hundred
+    people reaches two hundred and returns `finished=False`. The tick closed it anyway: the owner
+    read a run report saying it had gone out, and the other six hundred were never contacted by
+    anything, ever. The flag existed, was returned, and nothing read it.
+    """
+    class Partial(Dispatcher):
+        async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
+            out = await Dispatcher.fire(self, campaign, now=now, fired_by=fired_by,
+                                        daily_share=daily_share)
+            out.finished = False
+            return out
+
+    c = save(st, Campaign(tenant="t1", goal="occasion", state="active", fire_at=at(12)))
+    d = Partial()
+    tick(st, d, at(13))
+
+    assert run(st.get("campaigns", c.key))["state"] == "active", (
+        "closing it here is how six hundred people were dropped without a trace")
+
+
+def test_and_the_next_tick_continues_it(st):
+    class Partial(Dispatcher):
+        async def fire(self, campaign, *, now, fired_by="system", daily_share=0):
+            out = await Dispatcher.fire(self, campaign, now=now, fired_by=fired_by,
+                                        daily_share=daily_share)
+            out.finished = False
+            return out
+
+    save(st, Campaign(tenant="t1", goal="occasion", state="active", fire_at=at(12)))
+    d = Partial()
+    tick(st, d, at(13))
+    tick(st, d, at(14))
+
+    assert len(d.fired) == 2, "an unfinished campaign must be picked up again"
+
+
+def test_a_finished_scheduled_campaign_is_still_closed(st):
+    """The other half — the guard that stopped it firing for ever must survive the fix."""
+    c = save(st, Campaign(tenant="t1", goal="occasion", state="active", fire_at=at(12)))
+    d = Dispatcher()
+    tick(st, d, at(13))
+    tick(st, d, at(14))
+
+    assert len(d.fired) == 1
+    assert run(st.get("campaigns", c.key))["state"] == "done"
+
+
+def test_the_cron_path_hands_over_the_shops_share_of_the_day(st):
+    """A campaign fired by the clock spends from the same ceiling as one fired by a press.
+    Honouring the reserve on only one of the two paths is the same bug with better odds."""
+    save(st, Campaign(tenant="t1", goal="win_back", state="active"))
+    d = Dispatcher()
+
+    async def reader(tenant):
+        return 40
+
+    run(Tick(store=st, dispatcher=d, licence=None, share_reader=reader).run("t1", now=at(10)))
+
+    assert d.shares == [40]
+
+
+def test_an_unreadable_ceiling_does_not_stop_the_campaign(st):
+    """Unknown is not zero. A campaign refusing to run because we could not read a number would be
+    our outage wearing the provider's ceiling."""
+    save(st, Campaign(tenant="t1", goal="win_back", state="active"))
+    d = Dispatcher()
+
+    async def reader(tenant):
+        raise RuntimeError("ceiling unreadable")
+
+    run(Tick(store=st, dispatcher=d, licence=None, share_reader=reader).run("t1", now=at(10)))
+
+    assert d.shares == [0], "0 means «unknown», and the dispatcher falls back to its pass batch"
     assert len(d.fired) == 1

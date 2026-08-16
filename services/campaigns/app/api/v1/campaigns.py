@@ -278,7 +278,12 @@ async def create(request: Request, body: CampaignIn,
     if campaign.trigger == "manual":
         # INLINE, and bounded by the dispatcher. Letting the tick pick it up means the owner
         # presses send and nothing visibly happens for five minutes — so they press it again.
-        out = await c.dispatcher.fire(as_row(campaign), now=now, fired_by=principal.subject)
+        # THE SAME NUMBER THE PREVIEW SHOWED HIM. The screen says «سنوزّعها على N أيام» from
+        # `_todays_share`; the send used to ignore it entirely and spend the whole pass batch, so
+        # the sentence was a promise nothing kept — and the engine's reserve went with it.
+        share = await _todays_share(c, principal.tenant)
+        out = await c.dispatcher.fire(as_row(campaign), now=now, fired_by=principal.subject,
+                                      daily_share=share.per_day if share.known else 0)
         fired = vars(build_report(as_row(out.run)))
         until = lock_after_send(body.goal, now=now, sent=out.run.sent)
         if until:
