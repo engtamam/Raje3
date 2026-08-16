@@ -6,7 +6,7 @@
  * taps them; only then does he turn to the customer. A screen that asked for the phone number
  * first would be asking him to stop working in order to feed the system.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   applyOffer, balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
   offerFor, pointsByService, type EarnSettings,
@@ -167,6 +167,8 @@ export function Visit() {
   const [balance, setBalance] = useState<Balance | null | undefined>(undefined);
   const [earn, setEarn] = useState<EarnSettings | null | undefined>(undefined);
   const [redeeming, setRedeeming] = useState('');
+  /** The idempotency key of each redemption in flight, by (customer, reward) — see `spend`. */
+  const attempts = useRef<Record<string, string>>({});
   // THE MANAGER'S NAME, asked for only where the shop's own rule requires it. Kept as the id of
   // the reward being approved so the box appears under that one tile and nowhere else — a field
   // that is always on the screen is a field the counter learns to fill with anything.
@@ -240,8 +242,22 @@ export function Visit() {
   const spend = useCallback(async (rewardId: string, rewardName: string, approver = '') => {
     if (!subject || redeeming) return;
     setRedeeming(rewardId);
+    // ONE KEY PER INTENT, NOT PER PRESS (د-12).
+    //
+    // `redeem` used to mint a key inside itself, so a retry was a NEW redemption to the server.
+    // The phone loses signal after the request arrived: the points are already spent, the screen
+    // says «تعذّر», the cashier presses again with the customer watching — and the balance is
+    // deducted twice while two receipts go out. The visit queue learned this first; the same rule
+    // applies to the one act on this screen that moves a customer's balance.
+    //
+    // KEPT UNTIL IT SUCCEEDS, and cleared only then: every attempt at THIS reward for THIS
+    // customer carries the same key, so the server answers a repeat as the duplicate it is.
+    const intent = `${subject}:${rewardId}`;
+    const idem = attempts.current[intent] ?? newIdempotencyKey();
+    attempts.current[intent] = idem;
     try {
-      await redeem(session, subject, rewardId, approver);
+      await redeem(session, subject, rewardId, idem, approver);
+      delete attempts.current[intent];
       setRedeemed(rewardName);
       setApproving('');
       setApprovedBy('');

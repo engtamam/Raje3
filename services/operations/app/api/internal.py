@@ -861,6 +861,13 @@ async def record_visit_by_ref(request: Request, body: FreeVisitIn) -> dict:
             note="مكافأة ولاء")
     except OperationError as exc:
         return {"recorded": False, "reason": str(exc)}
+    if not res.duplicate:
+        # THE SEAMS RUN HERE TOO (د-20). A free wash is a visit like any other: it must restart
+        # the reminder cycle and reach the index. Without this the customer is reminded to come in
+        # for the service he was handed at the counter, and the search that finds him by plate does
+        # not know he was here. Inline rather than a background task, as in the batch door: nobody
+        # is watching this call, so there is no screen budget to protect.
+        await c.seams.after_visit(res)
     return {"recorded": True, "visit_id": res.visit.id, "duplicate": res.duplicate}
 
 

@@ -119,12 +119,26 @@ class Scheduler:
             if anomaly:
                 outcome.anomalies.append(sid)
 
-        # ── cancel follow-ups for what was just performed ──────────────────────────────────────
+        # ── cancel what a returning customer has made untrue ───────────────────────────────────
+        #
+        # THE LADDER RUNGS TOO, AND THEY WERE THE ONES THAT MATTERED (د-9). This cancelled the
+        # literal kind `follow_up` and nothing else, while the follow-up LADDER writes its rows as
+        # `ladder_1` and `ladder_2`. So the customer came back, and days later read «صار لنا فترة
+        # ما شفناك» followed by a discount — standing in the shop he had visited yesterday. The
+        # shop paid a win-back discount to somebody who had already won himself back.
+        LADDER_KINDS = ("ladder_1", "ladder_2")
         for sid in services:
             dropped = await self._sched.cancel_kind(
                 tenant, subject, sid, "follow_up",
                 reason="عاد العميل قبل موعد المتابعة", now=now)
             outcome.cancelled += dropped
+
+            rungs_dropped = 0
+            for kind in LADDER_KINDS:
+                rungs_dropped += await self._sched.cancel_kind(
+                    tenant, subject, sid, kind,
+                    reason="عاد العميل قبل رنّة المتابعة", now=now)
+            outcome.cancelled += rungs_dropped
             # AND THIS IS WHERE THE MARGIN LOCK IS EARNED — the one place in the system that can
             # see it happen, and nothing was writing it down.
             #
@@ -138,7 +152,16 @@ class Scheduler:
             # A CANCELLED FOLLOW-UP IS THE PROOF, not an inference: rungs were still pending when
             # he walked in, which means he returned on the first reminder alone. Zero cancelled
             # means either no ladder or one that already ran, and neither earns the lock.
-            if dropped > 0:
+            # AND THE LOCK COUNTS THE RUNG, NOT THE QUESTION (د-10). It used to increment on the
+            # `follow_up` cancellation — «كيف كانت الخدمة», a row created on EVERY visit — which
+            # measures something else entirely: a shop that enabled the question locked the ladder
+            # for anybody who visited twice, so no offer ever reached anyone; a shop that left it
+            # off (the default) never locked at all, so the discount went to everybody who came
+            # back on their own. Two shops, two opposite wrong answers, from one wrong subject.
+            #
+            # A CANCELLED RUNG IS THE PROOF: rungs were still pending when he walked in, so he
+            # returned on the first reminder alone and did not need a discount to do it.
+            if rungs_dropped > 0:
                 key = f"{tenant}|{subject}|{sid}"
                 row = await self._rules.get(key)
                 if row is not None:

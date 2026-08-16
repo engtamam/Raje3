@@ -123,7 +123,15 @@ def test_returning_before_the_follow_up_is_what_earns_the_margin_lock(st, sch):
     production ever incremented that field — only tests did — so the lock read 0 for every
     customer for ever, and the shop paid the loyal exactly what it paid the lapsed.
 
-    The proof is the cancelled follow-up: rungs were still pending when he walked in."""
+    AND THE COUNTER MUST MEASURE THE RUNG, NOT THE QUESTION (د-10). It used to increment when the
+    `follow_up` row was cancelled — «كيف كانت الخدمة», which is created on EVERY visit — so a shop
+    that enabled that question locked the ladder for anybody who came twice and never offered a
+    discount to anyone, while a shop that left it off (the default) never locked at all and gave
+    the discount to everybody who returned on their own. One wrong subject, two opposite wrong
+    answers.
+
+    The proof is a cancelled LADDER RUNG: rungs were still pending when he walked in, so he came
+    back on the first reminder alone."""
     from app.core.ladder import LOCK_AFTER_FIRST_RETURNS, is_locked
 
     key = "t1|sub_a|tyres"
@@ -132,11 +140,60 @@ def test_returning_before_the_follow_up_is_what_earns_the_margin_lock(st, sch):
 
     for i in range(LOCK_AFTER_FIRST_RETURNS):
         at = NOW + (i + 1) * 3 * DAY
+        # A PENDING RUNG, the way the tick writes one after the first reminder goes out.
+        rung = {"tenant": "t1", "subject_ref": "sub_a", "service_id": "tyres",
+                "kind": "ladder_1", "state": "pending", "cls": "service",
+                "template_type": "svc_service_reminder", "due_at": at + DAY,
+                "created": at, "updated": at}
+        run(ScheduleStore(st).upsert("t1", "t1|sub_a|tyres|ladder_1", rung))
+
         run(sch.on_visit(visit(visit_id=f"vis_back_{i}", service_ids=["tyres"], occurred_at=at),
                          now=at, service_config=CFG))
         assert int(run(RuleStore(st).get(key))["first_rung_returns"]) == i + 1
 
     assert is_locked(int(run(RuleStore(st).get(key))["first_rung_returns"]))
+
+
+def test_a_cancelled_follow_up_alone_does_not_earn_the_lock(st, sch):
+    """د-10 · THE DISCRIMINATING CASE, and the one the old test could not see.
+
+    «كيف كانت الخدمة» is created on EVERY visit, so cancelling it proves only that he came back at
+    all — which is the ordinary thing a customer does. Counting it locked the ladder for every
+    twice-visiting customer of any shop that enabled the question, and never locked it at all for
+    the shops that did not. Here a return cancels the follow-up and NOTHING else: the counter must
+    not move, because no rung was waiting.
+    """
+    key = "t1|sub_a|tyres"
+    run(sch.on_visit(visit(service_ids=["tyres"]), now=NOW, service_config=CFG))
+
+    at = NOW + 3 * DAY
+    out = run(sch.on_visit(visit(visit_id="vis_2", service_ids=["tyres"], occurred_at=at),
+                           now=at, service_config=CFG))
+
+    assert out.cancelled >= 1, "the follow-up itself is still cancelled — that part was right"
+    assert int((run(RuleStore(st).get(key)) or {}).get("first_rung_returns") or 0) == 0
+
+
+def test_a_returning_customer_does_not_get_the_win_back_he_earned_without(st, sch):
+    """د-9 · «صار لنا فترة ما شفناك» to a man standing in the shop.
+
+    The cancellation matched the literal kind `follow_up`, and the ladder writes its rows as
+    `ladder_1` and `ladder_2`. So a customer who came back kept both rungs: days later he read
+    that we had not seen him, and then a discount — for a visit he had already made without one.
+    """
+    at = NOW + 3 * DAY
+    for kind in ("ladder_1", "ladder_2"):
+        run(ScheduleStore(st).upsert("t1", f"t1|sub_a|tyres|{kind}", {
+            "tenant": "t1", "subject_ref": "sub_a", "service_id": "tyres", "kind": kind,
+            "state": "pending", "cls": "marketing", "template_type": "mkt_winback",
+            "due_at": at + 5 * DAY, "created": NOW, "updated": NOW}))
+
+    run(sch.on_visit(visit(visit_id="vis_back", service_ids=["tyres"], occurred_at=at),
+                     now=at, service_config=CFG))
+
+    left = [r for r in run(ScheduleStore(st).pending_for_subject("t1", "sub_a"))
+            if r.get("kind", "").startswith("ladder_")]
+    assert left == [], "a rung that survives the return is the message that arrives after it"
 
 
 def test_a_visit_with_no_pending_follow_up_earns_nothing(st, sch):

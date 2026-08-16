@@ -360,14 +360,28 @@ export function balanceFor(session: Session, subjectRef: string): Promise<Balanc
  * could check.
  */
 export function redeem(
-  session: Session, subjectRef: string, rewardId: string, approvedBy = '',
+  session: Session, subjectRef: string, rewardId: string,
+  /**
+   * THE KEY IS THE CALLER'S, AND IT HAS NO DEFAULT (د-12).
+   *
+   * This function used to mint one per CALL — `newIdempotencyKey()` on this line — so a retry was
+   * a different redemption to the server. The phone loses signal after the request arrives: the
+   * points are already spent, the screen says «تعذّر», the cashier presses again with the customer
+   * watching, and the balance is deducted TWICE while two receipts go out.
+   *
+   * The key must be minted where the INTENT is — at the press — and be the same on every retry of
+   * that intent, exactly as the visit queue mints one and keeps it. A default here would let the
+   * next screen forget again, silently, and the failure would only appear on a bad connection.
+   */
+  idempotencyKey: string,
+  approvedBy = '',
 ): Promise<{ balance?: number; entry_id?: string; message?: string }> {
   return call(session, '/api/v1/loyalty/redeem', {
     method: 'POST',
     body: JSON.stringify({
       subject_ref: subjectRef,
       reward_id: rewardId,
-      idempotency_key: newIdempotencyKey(),
+      idempotency_key: idempotencyKey,
       // WHO ALLOWED IT — and no screen in this app ever sent it. loyalty refuses any reward at or
       // above the shop's threshold without a name, so the owner who set that rule watched every
       // expensive reward be refused with no box anywhere to type the name into. Empty on the

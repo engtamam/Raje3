@@ -353,6 +353,9 @@ class Tick:
                        if own_name else None)
             template = R.choose(template_type=row.get("template_type", ""), tone=tone,
                                 library=library, approved=approved,
+                                # THE RUNG'S OWN VOICE (د-7). Stamped by `_ladder` and, until now,
+                                # read by nothing — so the second rung repeated the first verbatim.
+                                tone_index=int(row.get("tone_index") or 1),
                                 own=own_name, own_row=own_row)
             # SLOT BY SLOT, FROM THE TEMPLATE'S OWN DECLARATION. The previous version put the
             # owner's single sentence into slots 3 AND 4 through all three source dicts, so a
@@ -509,7 +512,21 @@ class Tick:
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))
 
         if not decision.allowed:
-            if decision.retry_at:
+            # `drop` MEANS DROP AT BOTH GATES (د-11).
+            #
+            # A template declares `deferral: drop` when arriving late is worse than not arriving:
+            # «سجّلنا زيارتك» tomorrow morning is not a late confirmation, it is a strange one —
+            # the customer left the shop yesterday. The CEILING branch below has always read this
+            # policy. This branch did not, so a quiet-hours or engagement deferral pushed exactly
+            # those messages a full day into the future — the case the policy was written to
+            # prevent, reached by the other door.
+            policy = ""
+            for t in library:
+                if t.get("type") == row.get("template_type"):
+                    policy = str(t.get("deferral") or "defer")
+                    break
+
+            if decision.retry_at and policy != "drop":
                 # DEFERRED: the row goes back to pending with a new due date. Deliberately not a
                 # terminal state — "wait" and "never" are different answers and an owner reading
                 # the log must be able to tell them apart.
@@ -581,6 +598,7 @@ class Tick:
                             # wire one of them and believe the feature works: an owner who
                             # customised his visit confirmation would see it on some messages and
                             # ours on others, which reads as a product that cannot make up its mind.
+                            tone_index=int(row.get("tone_index") or 1),
                             own=own_name2, own_row=own_row2)
         service_text = R.merged_service_text(
             [service_names.get(s, s) for s in

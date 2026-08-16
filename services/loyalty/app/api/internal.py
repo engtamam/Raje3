@@ -211,9 +211,21 @@ async def recover(request: Request, body: TickIn | None = None) -> dict:
     if recovery is None:
         return {"ok": False, "reason": "NOT_CONFIGURED"}
 
-    # EVERY TENANT WITH A LEDGER — the same list the tick walks, so a shop cannot be swept by one
-    # and skipped by the other.
+    # THE WORK LIST COMES FROM THE VISITS, NOT FROM OUR BALANCES (د-19).
+    #
+    # A balance row is written by the first point ever awarded. So the shop this repair exists for
+    # — the one whose very first visit event was the one that was dropped — has no balance row, is
+    # not in the scan, and is invisible to the repair FOR EVER. Its first customers are exactly the
+    # people who lost their points, and nothing anywhere would ever say so.
+    #
+    # `operations` answers with no tenant filter for this reason, and the visits name their own
+    # tenant. Our balances are still merged in: a peer we could not reach must narrow the pass, not
+    # empty it, and a shop that has points but no recent visits still has expiring windows to walk.
     tenants = await _tenants_with_balances(c)
+    feed = getattr(c, "visit_feed", None)
+    for tenant in (await feed.tenants() if feed is not None else []):
+        if tenant not in tenants:
+            tenants.append(tenant)
     read = awarded = 0
     unreadable = 0
     for tenant in tenants:

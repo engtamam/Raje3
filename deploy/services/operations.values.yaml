@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:867e8683a14cc8286d4f3057c96e789fd4075abfb5325d70e8ec5aac427e4a27"   # 0526fff, published by publish-images.sh
+  digest: "sha256:0a35ce11bdc348de56e3580c5e898614d180d2e1cc0196a3c1f8e73dbe553880"   # 0526fff, published by publish-images.sh
 
 replicas: 1
 

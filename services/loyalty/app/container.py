@@ -255,9 +255,13 @@ def build_container(settings: Settings) -> Container:
     # one. See core/recovery.py for why a service that has only the fast path has none at all.
     from app.core.recovery import Recovery
 
+    # HELD ON THE CONTAINER, not only inside the recovery: the sweep asks it WHICH establishments
+    # have visits at all, and taking that list from our own balance rows made the repair blind to
+    # the one shop it exists for (د-19).
+    container.visit_feed = (peers or {}).get("visit_feed")
     container.recovery = Recovery(
         store=container.datastore, earner=container.earner,
-        feed=(peers or {}).get("visit_feed"), telemetry=container.telemetry)
+        feed=container.visit_feed, telemetry=container.telemetry)
     container.rewards = Rewards(container.datastore)
     # THE CACHE IS PASSED FOR ONE REASON: it is the only port in this service whose write is
     # ATOMIC. `Ledger.post` reads a balance and then spends against what it read, and the

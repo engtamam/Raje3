@@ -904,3 +904,76 @@ def test_a_structured_offer_with_no_free_line_is_still_an_entitlement(st):
     live = run(SendLogStore(st).live_offers("t1", "sub_a", used_refs=set(), now=at(10)))
     assert live, "a campaign that sent an offer and left nothing to honour is the defect"
     assert live[0]["offer_text"] == "خصم 20% على غيار الزيت"
+
+
+# ── د-11 · `drop` means drop at BOTH gates ─────────────────────────────────────────────────────
+def test_a_drop_template_caught_by_quiet_hours_is_dropped_not_held_until_morning(st):
+    """«سجّلنا زيارتك» at seven the next morning is not a late confirmation — it is a strange one.
+
+    The template says `deferral: drop` for exactly that reason, and the CEILING branch has always
+    read it. The quiet-hours branch did not: a visit recorded at eleven at night was pushed a full
+    day forward and arrived after the customer had long gone home. The policy existed, was correct,
+    and was consulted at one of the two doors that can delay a message.
+    """
+    # A REMINDER, NOT A CONFIRMATION. The confirmation is deliberately EXEMPT from quiet hours —
+    # somebody who visits at eleven at night is not served by silence — so it is the one template
+    # this branch never sees. The policy belongs to the template, not to the class, and a shop can
+    # mark any of them `drop`.
+    drop_lib = [{**t, "deferral": "drop"} if t["type"] == "svc_service_reminder" else t
+                for t in LIB] + [{"name": "svc_service_reminder_drop",
+                                  "type": "svc_service_reminder", "tone": "brief",
+                                  "class": "service", "variables": [1, 2, 3],
+                                  "fills": ["system", "system", "catalogue"],
+                                  "active": True, "deferral": "drop"}]
+    row = sched(st, due_at=at(23))
+    s = FakeSender()
+
+    res = run(tick(st, s).run("t1", now=at(23), library=drop_lib, service_names=NAMES,
+                              establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}))
+
+    assert not s.calls, "nothing goes out during quiet hours either way"
+    assert res.deferred == 0, "a `drop` template must not be carried to tomorrow"
+    assert res.suppressed == 1
+    assert run(ScheduleStore(st).get(row.key))["state"] == "suppressed"
+
+
+def test_a_defer_template_caught_by_quiet_hours_is_still_held_until_morning(st):
+    """The other direction, and the one that must not break: nothing about a follow-up spoils
+    overnight, and dropping it would lose a message the shop wanted sent."""
+    row = sched(st, due_at=at(23))
+    s = FakeSender()
+
+    res = run(tick(st, s).run("t1", now=at(23), library=LIB, service_names=NAMES,
+                              establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}))
+
+    assert res.deferred == 1 and res.suppressed == 0
+    fresh = run(ScheduleStore(st).get(row.key))
+    assert fresh["state"] == "pending"
+
+
+# --- د-7 · the rung's voice reaches the sender ---------------------------------------------------
+
+_TWO_TONES = LIB + [{"name": "svc_service_reminder_warm", "type": "svc_service_reminder",
+                     "tone": "warm", "class": "service", "variables": [1, 2, 3],
+                     "fills": ["system", "system", "catalogue"], "active": True}]
+
+
+def _send_template(st, *, tone_index):
+    sched(st, kind="ladder_1", tone_index=tone_index, due_at=at(9))
+    s = FakeSender()
+    run(tick(st, s).run("t1", now=at(10), library=_TWO_TONES, service_names=NAMES,
+                        establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}))
+    assert s.calls, "the rung must go out"
+    return s.calls[0]["template_name"]
+
+
+def test_the_rungs_index_reaches_the_template_choice(st):
+    """د-7 · the whole wire, from the row `_ladder` stamped to the name on the wire.
+
+    Proving it in `choose` alone would leave the defect exactly where it was: the parameter existed
+    and nothing passed it.
+    """
+    first = _send_template(st, tone_index=1)
+    second = _send_template(MemoryDataStore(), tone_index=2)
+
+    assert first != second, "the second rung must not repeat the first word for word"

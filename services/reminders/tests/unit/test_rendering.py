@@ -328,3 +328,48 @@ def test_the_customer_name_still_falls_back_when_the_shop_never_took_one():
         system={}, catalogue={}, owner={}, by_meaning={"customer": ""})
 
     assert out.variables == [R.FALLBACK_NAME]
+
+
+# --- د-7 · the rung's voice ---------------------------------------------------------------------
+
+_TONES = [{"name": "svc_service_reminder_brief", "type": "svc_service_reminder", "tone": "brief",
+           "class": "service", "active": True},
+          {"name": "svc_service_reminder_warm", "type": "svc_service_reminder", "tone": "warm",
+           "class": "service", "active": True},
+          {"name": "svc_service_reminder_formal", "type": "svc_service_reminder", "tone": "formal",
+           "class": "service", "active": True}]
+
+
+def test_the_second_rung_does_not_repeat_the_first_word_for_word():
+    """د-7 · `tone_index` was stamped on every rung from the first day and read by NOBODY.
+
+    So the second rung was the first rung: same type, same tone, same sentence, days apart. §5.6.1
+    calls the ladder «تنويع لا تصعيد», and a customer who receives one sentence twice is the shape
+    that gets reported — and a reported number is a banned number.
+    """
+    first = choose(template_type="svc_service_reminder", tone="brief", library=_TONES,
+                     tone_index=1)
+    second = choose(template_type="svc_service_reminder", tone="brief", library=_TONES,
+                      tone_index=2)
+
+    assert first["name"] != second["name"]
+    assert first["tone"] == "brief", "rung one is the shop's own chosen voice, unchanged"
+
+
+def test_everything_that_is_not_a_rung_still_gets_the_shops_own_tone():
+    """The default must not move. Every confirmation, follow-up and campaign in the product calls
+    this function without an index, and a shop that chose «brief» chose it for all of them."""
+    for index in (0, 1, None):
+        got = choose(template_type="svc_service_reminder", tone="warm", library=_TONES,
+                       **({} if index is None else {"tone_index": index}))
+        assert got["tone"] == "warm"
+
+
+def test_a_shop_with_one_template_still_sends_the_second_rung():
+    """A library with a single active tone must not lose the rung to an index it cannot honour —
+    the variation is worth giving up, the message is not."""
+    one = [_TONES[0]]
+
+    got = choose(template_type="svc_service_reminder", tone="brief", library=one, tone_index=2)
+
+    assert got["name"] == "svc_service_reminder_brief"

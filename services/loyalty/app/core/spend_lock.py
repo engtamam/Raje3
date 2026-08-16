@@ -33,6 +33,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.models import LoyaltyError
+
 # Longer than any redemption can take (a peer read, two writes and a receipt), short enough that a
 # customer whose cashier's pod died is not locked out of a purchase he is standing there making.
 TTL_SECONDS = 15
@@ -41,8 +43,17 @@ BUSY = ("جارٍ تنفيذ عملية أخرى على نقاط هذا العم
 UNAVAILABLE = ("تعذّر التحقق من نقاط هذا العميل الآن — أعد المحاولة بعد لحظة.")
 
 
-class SpendBusy(Exception):
-    """Somebody else holds this customer's balance right now, or we could not find out."""
+class SpendBusy(LoyaltyError):
+    """Somebody else holds this customer's balance right now, or we could not find out.
+
+    IT INHERITS `LoyaltyError`, AND THAT IS THE WHOLE FIX (د-13). It used to inherit `Exception`,
+    and both redemption doors catch `Overdraft` and `LoyaltyError` — so the one sentence written
+    for this moment, «جارٍ تنفيذ عملية أخرى على رصيد هذا العميل — أعد المحاولة بعد لحظة», never
+    reached anybody. The cashier got a 500 and an English trace, read it as a failure, and pressed
+    again — which, before the key was made stable, deducted the customer's points a second time.
+
+    A refusal that is not of the family its handlers catch is a refusal that was never written.
+    """
 
 
 class SpendLock:

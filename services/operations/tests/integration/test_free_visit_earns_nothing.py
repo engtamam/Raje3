@@ -92,3 +92,51 @@ def test_an_ordinary_visit_is_not_marked_free(client):
 
     rows = [v for v in _feed(client, "t_paid") if v["visit_id"] == out["visit_id"]]
     assert rows[0]["free"] is False
+
+
+# --- د-20 · the visit was recorded and nothing followed it -------------------------------------
+
+
+def _watch_seams(client) -> list:
+    """Replace the seam with a recorder. What it does afterwards belongs to `reminders`; what is
+    at stake here is only whether anybody rings it."""
+    seen: list = []
+    container = client.app.state.container
+
+    async def after_visit(result):
+        seen.append(result)
+
+    container.seams.after_visit = after_visit
+    return seen
+
+
+def test_a_free_visit_runs_the_seams(client):
+    """د-20 · THE CYCLE RESTARTS FOR A FREE WASH TOO.
+
+    The batch door and the field screen both run the seams after a visit is durable. This one
+    returned instead. The reminder cycle was therefore never restarted and the plate index never
+    learned of the visit — so the customer was reminded to come in for the wash he had just been
+    handed at the counter, and nothing anywhere reported a failure.
+    """
+    ref = _shop(client, "t_seam")
+    seen = _watch_seams(client)
+
+    out = _record(client, "t_seam", ref, free=True, source="red_seam")
+
+    assert out["recorded"] is True
+    assert len(seen) == 1, "a recorded visit that nothing follows is the defect"
+    assert seen[0].visit.id == out["visit_id"]
+
+
+def test_a_replayed_redemption_does_not_run_the_seams_twice(client):
+    """The key is namespaced on the redemption, so a retry records one visit — and must ring the
+    seam once. Ringing it again would restart a cycle that is already correct and re-index a row
+    that never changed."""
+    ref = _shop(client, "t_seam_dup")
+    seen = _watch_seams(client)
+
+    first = _record(client, "t_seam_dup", ref, free=True, source="red_dup")
+    again = _record(client, "t_seam_dup", ref, free=True, source="red_dup")
+
+    assert again["visit_id"] == first["visit_id"] and again["duplicate"] is True
+    assert len(seen) == 1

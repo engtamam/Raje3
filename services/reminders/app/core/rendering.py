@@ -102,7 +102,7 @@ def sanitise_owner_text(value: str) -> str:
 
 def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
            approved: set[str] | None = None, own: str = "",
-           own_row: dict[str, Any] | None = None) -> dict[str, Any]:
+           own_row: dict[str, Any] | None = None, tone_index: int = 1) -> dict[str, Any]:
     """Pick the template for this type in this tenant's tone, preferring one Meta has approved.
 
     FALLS BACK TO ANY ACTIVE TONE rather than failing. A tenant whose tone was set to one we later
@@ -191,10 +191,21 @@ def choose(*, template_type: str, tone: str, library: list[dict[str, Any]],
                 f"قوالب {template_type} ما زالت قيد مراجعة واتساب — سترسل تلقائياً عند اعتمادها.")
         active = usable
 
-    for t in active:
-        if t.get("tone") == tone:
-            return t
-    return active[0]
+    # ── THE RUNG'S VOICE (د-7) ──────────────────────────────────────────────────────────────
+    #
+    # `tone_index` was stamped on every ladder rung from the day the ladder was built and READ BY
+    # NOBODY: this function had no such parameter. So the second rung was the first rung, word for
+    # word — the same template, the same tone, the same sentence, days apart. «تنويع لا تصعيد» is
+    # §5.6.1's rule, and a customer receiving one sentence twice is precisely the thing that gets
+    # reported, and a reported number is a banned number.
+    #
+    # The variation is a TONE, not a new template: no second text to author, nothing more for Meta
+    # to review, and the service/marketing wall untouched. Index 1 is the shop's chosen tone and
+    # everything that is not a rung, so nothing outside the ladder changes.
+    ordered = [t for t in active if t.get("tone") == tone] +               [t for t in active if t.get("tone") != tone]
+    if not ordered:
+        return active[0]
+    return ordered[(max(1, int(tone_index or 1)) - 1) % len(ordered)]
 
 
 #: The owner's own vocabulary — every name `custom_templates.check()` accepts on a `fills` list,

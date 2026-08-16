@@ -91,6 +91,14 @@ class Schedule:
     # UPDATED the first car's reminder instead of creating its own — one schedule where there
     # should be two, and a whole car falling silently out of the product.
     asset_id: str = ""
+    # WHICH VOICE THIS RUNG SPEAKS IN (د-7). 1 is the establishment's own chosen tone, which is
+    # every message in the product except a ladder rung; a rung above 1 asks `rendering.choose` for
+    # a different one, so the second rung is a variation and not the first one repeated verbatim.
+    #
+    # DECLARED HERE, not carried as a loose key on the row. `_ladder` stamped it on a dict copy for
+    # months and nothing read it — a field the model does not know about is a field nobody has to
+    # keep, which is how it stayed unread without anything failing.
+    tone_index: int = 1
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 

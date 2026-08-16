@@ -182,6 +182,13 @@ jobs:
       - name: a peer body the receiver discards
         run: python3 ci/check_peer_bodies_are_declared.py
 
+      # AND A VISIT THAT NOTHING FOLLOWS. The free wash a reward paid for was recorded and then
+      # dropped: no seam, so the reminder cycle was never restarted and the customer was told to
+      # come in for the service he had just been handed. A missing line, invisible to any test of
+      # what the route returns.
+      - name: a recorded visit that never runs the seams
+        run: python3 ci/check_a_recorded_visit_runs_the_seams.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

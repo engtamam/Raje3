@@ -224,12 +224,42 @@ class HttpVisitFeed:
             return {}
 
 
+    async def tenants(self, limit: int = 500) -> list[str]:
+        """Which establishments have visits AT ALL — the recovery's work list (د-19).
+
+        NOT OUR BALANCE ROWS. Those are written by the first point ever awarded, so a shop whose
+        very first visit event was the dropped one has no balance, is not in the list, and is
+        therefore invisible to the repair FOR EVER — the exact case the repair exists for, and its
+        first customers are the ones who lost their points.
+
+        The visits themselves name their tenant, and the peer's sweeper answers with no tenant
+        filter for precisely this reason. `[]` on an unreadable peer: the caller merges this with
+        what it already knows, so a failed read narrows the pass rather than emptying it.
+        """
+        if not self._url:
+            return []
+        try:
+            page = _post(self._url, {"tenant": "", "since": 0, "limit": int(limit)},
+                         self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return []
+        seen: list[str] = []
+        for visit in page.get("visits") or []:
+            tenant = str(visit.get("tenant") or "")
+            if tenant and tenant not in seen:
+                seen.append(tenant)
+        return seen
+
+
 class NullVisitFeed:
     driver = "null"
     configured = False
 
     async def since(self, tenant: str, mark: int) -> dict[str, Any]:
         return {}
+
+    async def tenants(self, limit: int = 500) -> list[str]:
+        return []
 
 
 def build_peers(settings) -> dict[str, Any]:
