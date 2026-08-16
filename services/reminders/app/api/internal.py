@@ -180,7 +180,11 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
         from app.core.reason_choices import ChoiceStore
         res = await c.tick.run(
             tenant, now=now, library=await _library(c, tenant),
-            service_names={k: v.get("name", k) for k, v in cfg.items()},
+            # `or k`, NOT `get(…, k)` — the config now always carries the key and its value is
+            # blank when the catalogue does not list the service. The identifier remains the last
+            # resort for that one case, and it is a worse message rather than no message: a shop
+            # holding a rule for a service its catalogue has dropped still has customers waiting.
+            service_names={k: v.get("name") or k for k, v in cfg.items()},
             establishment=shop.name, customer_names={}, tone=shop.tone,
             # ONE READ PER TENANT PER PASS, beside the library and the approved set — thirteen
             # small answers that cannot change while this loop runs.
@@ -460,10 +464,25 @@ async def _service_config(c, tenant: str) -> dict:
     # falling through to the default. A service the owner sells is a service the engine must know
     # the cycle of.
     cycles: dict[str, float] = {}
+    names: dict[str, str] = {}
     try:
         cycles = await c.catalogue.cycles(tenant) if tenant else {}
     except Exception:                                                        # noqa: BLE001
         cycles = {}
+    # HIS WORDS FOR HIS OWN SERVICES (أ-5), from the same cached read. The tick renders every
+    # message from this config — `service_names={k: v.get("name") or k …}` — and nothing ever put a
+    # name in it, so the fallback WAS the behaviour: «تذكير بخصوص svc_7f3a…» went to every customer
+    # of every shop. A name arriving in the answer and being dropped one line later is the whole
+    # defect; it is read here, beside the cycle it travelled with.
+    #
+    # ITS OWN TRY, AND THAT IS NOT TIDINESS. Sharing one with the cycles above meant a failure
+    # while fetching the words DISCARDED the cycles that had already arrived — every service in
+    # the shop falling back to our 90 days, which is the defect the line above exists to close.
+    # Losing a name costs a worse sentence; losing a cycle costs the schedule.
+    try:
+        names = await c.catalogue.names(tenant) if tenant else {}
+    except Exception:                                                        # noqa: BLE001
+        names = {}
     # ZERO IS NOT A CYCLE, and it is filtered HERE as well as in the reader. A service with no
     # natural rhythm (a puncture repair) must not be added to the known set — added, it resolves to
     # our default and starts reminding people about a repair that never repeats.
@@ -488,6 +507,10 @@ async def _service_config(c, tenant: str) -> dict:
             # owner turned off future reminders, not the one already promised to a customer this
             # week, and silently cancelling those would be a decision they did not make.
             "enabled": bool(v.get("enabled", True)),
+            # EMPTY, NEVER THE IDENTIFIER. A service the catalogue does not list has no name we
+            # can honestly print, and the reader decides what to do with that — putting `sid` here
+            # would push our primary key one step closer to a customer's screen.
+            "name": names.get(sid, ""),
         }
     return out
 

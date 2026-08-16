@@ -458,10 +458,31 @@ class ShopCatalogue:
         self._token = token
         self._timeout = timeout
         self._ttl = ttl
-        self._by_tenant: dict[str, tuple[float, dict[str, float]]] = {}
+        #: tenant -> (fetched_at, {service_id: {"cycle_days": float, "name": str}})
+        #:
+        #: THE NAME IS CACHED BESIDE THE CYCLE (أ-5), from the same answer. Operations has always
+        #: sent it — `{"id", "name", "cycle_days", …}` — and this adapter kept the number and threw
+        #: the word away, so every reminder in the product read «تذكير بخصوص svc_7f3a…». Fetching
+        #: it separately would be a second call for a field already in the response.
+        self._by_tenant: dict[str, tuple[float, dict[str, dict]]] = {}
 
     async def cycles(self, tenant: str) -> dict[str, float]:
-        """`{service_id: cycle_days}` for one establishment. Empty when unknown."""
+        """`{service_id: cycle_days}` for one establishment. Empty when unknown.
+
+        A service with no cycle is ABSENT: zero means «no natural rhythm» to the scheduler, and it
+        must keep meaning that. `names` does not filter — a puncture repair has a name even though
+        it has no cycle, and something that mentions it still needs the word.
+        """
+        rows = await self._rows(tenant)
+        return {sid: float(r.get("cycle_days") or 0) for sid, r in rows.items()
+                if float(r.get("cycle_days") or 0) > 0}
+
+    async def names(self, tenant: str) -> dict[str, str]:
+        """`{service_id: name}` — his words for his own services, from the same cached read."""
+        return {sid: str(r.get("name") or "") for sid, r in (await self._rows(tenant)).items()
+                if r.get("name")}
+
+    async def _rows(self, tenant: str) -> dict[str, dict]:
         import json
         import time as _time
         import urllib.error
@@ -485,12 +506,13 @@ class ShopCatalogue:
         rows = out.get("services")
         if not isinstance(rows, list):
             return dict(hit[1]) if hit else {}
-        # A service with no cycle (a puncture repair) is left OUT rather than stored as zero: zero
-        # means «no natural cycle» to the scheduler, and it must keep meaning that.
-        cycles = {str(r.get("id") or ""): float(r.get("cycle_days") or 0)
-                  for r in rows if r.get("id") and float(r.get("cycle_days") or 0) > 0}
-        self._by_tenant[tenant] = (now, cycles)
-        return dict(cycles)
+        # EVERY SERVICE IS KEPT HERE, cycle or none, because the name is wanted for all of them —
+        # `cycles()` is what drops the ones with no rhythm, and it still does.
+        kept = {str(r.get("id")): {"cycle_days": float(r.get("cycle_days") or 0),
+                                   "name": str(r.get("name") or "")}
+                for r in rows if r.get("id")}
+        self._by_tenant[tenant] = (now, kept)
+        return dict(kept)
 
 
 class ApprovedTemplates:
