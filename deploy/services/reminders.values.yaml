@@ -264,5 +264,18 @@ cronJobs:
     schedule: "*/5 * * * *"
     path: /internal/reminders/tick
 
+  # DID THEY ARRIVE. WhatsApp's status callbacks land on notification-service, which persists each
+  # receipt against the delivery it belongs to; this walks that log forward and writes the fact onto
+  # our own send row. Without this job the whole path is inert and every probe stays green — the
+  # send log would keep saying «sent» and nothing more, which is «we handed it to Meta» and not
+  # «it reached anybody». That is the state this service shipped in.
+  #
+  # Every ten minutes, and offset from the tick's five so the two passes do not contend for the same
+  # peer at the same second. A receipt is not urgent: nobody is waiting on it, and it feeds a score
+  # that decays over days.
+  - name: receipts
+    schedule: "3,13,23,33,43,53 * * * *"
+    path: /internal/reminders/receipts/pull
+
 ingress:
   enabled: false   # reached service-to-service; api-gateway is the only public door

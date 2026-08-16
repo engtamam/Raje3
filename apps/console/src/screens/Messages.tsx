@@ -74,6 +74,11 @@ interface LogRow {
   branch_id?: string;
   at?: number;
   outcome?: string;
+  /** WHAT HAPPENED AFTER IT LEFT. `outcome: 'sent'` only ever meant «we handed it to Meta», and
+   *  the screen said «خرجت» — which an owner reads as «وصلت». These two carry the answer to the
+   *  question he is actually asking, and absent means «لم نسمع بعد»: not delivered, not failed. */
+  delivered_at?: number;
+  read_at?: number;
   reason?: string;
   template_name?: string;
   cls?: string;
@@ -617,8 +622,21 @@ export function MessagesScreen(
                         {r.at ? `${when(r.at)} · ${OCCASION[r.cls ?? ''] ?? 'رسالة'}` : ''}
                       </span>
                     </span>
-                    <Badge tone={r.outcome === 'sent' ? 'success' : 'warning'}>
-                      {r.outcome === 'sent' ? 'خرجت' : 'لم تخرج'}
+                    {/* THREE STATES, NOT TWO — and «خرجت» was doing the work of all three.
+                        It meant «we handed it to Meta», the owner read it as «وصلت», and nothing
+                        in the product could tell those apart. Now a receipt says which:
+
+                          قرأها   — he opened it
+                          وصلت    — it reached his handset, and he has not opened it yet
+                          خرجت    — it left us, and we have not heard back
+
+                        The third is not a failure and must not be coloured as one: WhatsApp
+                        receipts arrive minutes late and a shop reading this at the counter would
+                        otherwise think every recent message had failed. */}
+                    <Badge tone={r.outcome !== 'sent' ? 'warning'
+                      : r.read_at ? 'success' : 'neutral'}>
+                      {r.outcome !== 'sent' ? 'لم تخرج'
+                        : r.read_at ? 'قرأها' : r.delivered_at ? 'وصلت' : 'خرجت'}
                     </Badge>
                   </div>
                   {/* THE SERVICE'S OWN SENTENCE, WORD FOR WORD. Every refusal in the engine

@@ -18,8 +18,16 @@ from typing import Protocol, runtime_checkable
 @runtime_checkable
 class MessageSender(Protocol):
     async def send(self, *, tenant: str, subject_ref: str, template_name: str,
-                   variables: list[str], cls: str, idempotency_key: str) -> None:
-        """Deliver one templated message.
+                   variables: list[str], cls: str, idempotency_key: str) -> str:
+        """Deliver one templated message, and return the peer's handle for it.
+
+        THE HANDLE IS WHY THIS RETURNS ANYTHING AT ALL. A WhatsApp delivery receipt arrives minutes
+        or hours later, and it names the message by the peer's `delivery_id`. Without keeping that
+        id on our own row, «هل وصلت؟» has no answer that is not a guess — and `read_at` sat on the
+        send log, declared for this purpose, fed by nothing, for as long as the log existed.
+
+        An empty string is a legitimate answer, and means «no handle»: a driver with no delivery
+        record. It must not be confused with «not delivered yet».
 
         `idempotency_key` is generated and persisted by the caller BEFORE this is called, and
         reused verbatim on every retry. A timeout is not evidence that nothing was sent, and the

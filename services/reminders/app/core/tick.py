@@ -395,7 +395,7 @@ class Tick:
             return {"sent": False, "reason": str(exc)}
 
         try:
-            await self._sender.send(
+            delivery_id = await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
                 variables=rendered.variables, cls=cls, idempotency_key=key,
                 # WHICH NUMBER IT LEAVES FROM. The schedule already carries the branch the visit
@@ -427,7 +427,7 @@ class Tick:
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
             schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), template_name=rendered.template_name,
-            outcome="sent", idempotency_key=key,
+            outcome="sent", idempotency_key=key, delivery_id=delivery_id,
             offer_text=row.get("offer_text", ""),
             offer_expires_at=int(row.get("offer_expires_at") or 0),
             offer_services=list(row.get("offer_services") or []),
@@ -608,7 +608,7 @@ class Tick:
             return
 
         try:
-            await self._sender.send(
+            delivery_id = await self._sender.send(
                 tenant=tenant, subject_ref=subject, template_name=rendered.template_name,
                 variables=rendered.variables, cls=cls, idempotency_key=key,
                 # WHICH NUMBER IT LEAVES FROM. The schedule already carries the branch the visit
@@ -650,7 +650,7 @@ class Tick:
         await self._log.append(tenant, as_row(SendLog(
             tenant=tenant, subject_ref=subject, cls=cls, at=now,
             schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""), template_name=rendered.template_name,
-            outcome="sent", idempotency_key=key)))
+            outcome="sent", idempotency_key=key, delivery_id=delivery_id)))
         await self._close(tenant, row, "sent", "", now)
 
         # ── 5b. close what rode along ─────────────────────────────────────────────────────────

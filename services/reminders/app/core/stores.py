@@ -133,6 +133,27 @@ class SendLogStore(_Base):
     async def get(self, tenant: str, send_id: str) -> dict[str, Any] | None:
         return await self._get(f"{tenant}|{send_id}")
 
+    # ── delivery receipts: the row a receipt belongs to ───────────────────────────────────────
+    #
+    # ACROSS TENANTS ON PURPOSE, and this is the one read here that has to be. A receipt arrives
+    # from the notification peer naming a `delivery_id` and nothing else — it cannot name the
+    # establishment, because the peer serves the whole fleet and the id is all Meta echoed back.
+    # A per-tenant read would need the answer before it could ask the question.
+    async def by_delivery_id(self, delivery_id: str) -> dict[str, Any] | None:
+        if not delivery_id:
+            return None
+        rows, _ = await self._s.find(SEND_LOG, {"delivery_id": delivery_id}, limit=1)
+        return rows[0] if rows else None
+
+    async def update(self, row: dict[str, Any]) -> None:
+        """Rewrite ONE row in place — for a delivery fact, never for its content.
+
+        The append-only rule above is about the LEDGER: a cap counted by rows must not be relieved
+        by deleting one. Recording that a message we already logged was delivered adds no row and
+        removes none, so the count this log is trusted for is untouched.
+        """
+        await self._s.put(SEND_LOG, f"{row.get('tenant', '')}|{row['id']}", row)
+
     async def live_offers(self, tenant: str, subject_ref: str, *,
                           used_refs: set[str], now: int) -> list[dict[str, Any]]:
         """EVERY offer this customer is still holding, soonest to expire first.

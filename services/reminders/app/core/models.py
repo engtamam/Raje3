@@ -175,6 +175,18 @@ class SendLog:
     # from ignored, and the score treats it that way.
     read_at: int = 0
     clicked_at: int = 0
+    # WHAT THE PEER CALLS THIS MESSAGE, kept so a receipt can be matched back to this row.
+    #
+    # The two fields above were declared for delivery facts and fed by NOTHING: the send returned
+    # no handle, so nothing could ever say which row a receipt belonged to. `read_at` stayed 0 for
+    # every message ever sent, and the engagement score read that as «we have not heard» — which
+    # was true, and would have stayed true for ever.
+    #
+    # `delivered_at` is separate from `read_at` on purpose: delivered-to-the-handset and read are
+    # different facts about the customer, and a product that treats them alike would call a man
+    # who never opened his phone «engaged».
+    delivery_id: str = ""
+    delivered_at: int = 0
     # WHAT THE OFFER SAID, AND UNTIL WHEN — recorded only on a message that carried one (§5.6.2).
     #
     # An offer the operator cannot see becomes a discount argued over at the counter: the customer

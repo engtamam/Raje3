@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import RemindersErasure
-from app.core.stores import ScheduleStore
+from app.core.stores import ScheduleStore, SendLogStore
 from app.core import backup as _backup
 from app.core import rendering as R
 from app.backup_manifest import BACKUP
@@ -322,6 +322,31 @@ async def redemption(request: Request, body: RedemptionIn) -> dict:
 def _sched_key(row: dict) -> str:
     return (f"{row.get('tenant','')}|{row.get('subject_ref','')}|"
             f"{row.get('service_id','')}|{row.get('kind','')}")
+
+
+@router.post("/reminders/receipts/pull", dependencies=[Depends(require_internal_token)])
+async def pull_receipts(request: Request) -> dict:
+    """Walk the notification peer's delivery receipts forward and write them onto the send log.
+
+    A CRON DRIVES THIS, and without the cron the whole path is inert while looking healthy — the
+    same shape as the tick above, and the reason that one is declared in the values file with a
+    guard checking the path exists.
+
+    NOT A WEBHOOK. Meta's status callback lands on notification-service, which owns the number and
+    the verify token; this service reads what that peer persisted. One door for Meta, one reader
+    per consumer, and no second signature to verify in a service that holds no credentials.
+
+    THE ANSWER NAMES ITS OWN LIMITS: `configured: false` when no peer is wired, `unreadable: true`
+    when the peer could not be asked. Neither is «no receipts», and a zero with no reason would
+    read as «every message accounted for».
+    """
+    from app.core.receipts import Receipts
+
+    c = request.app.state.container
+    out = await Receipts(store=c.datastore, log=SendLogStore(c.datastore),
+                         feed=getattr(c, "receipt_feed", None),
+                         telemetry=getattr(c, "telemetry", None)).run()
+    return out
 
 
 @router.post("/reminders/receipt", dependencies=[Depends(require_internal_token)])

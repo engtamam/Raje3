@@ -72,6 +72,10 @@ class NullSender:
                           "subject_ref": subject_ref,
                           "template_name": template_name, "variables": variables,
                           "cls": cls, "idempotency_key": idempotency_key})
+        # THE FAKE RETURNS A HANDLE TOO, derived from the key so it is stable across a retry —
+        # exactly as the peer's own delivery id is. A fake that returned "" would let the receipt
+        # reconciler's tests pass against a shape the real sender never produces.
+        return f"dlv_{idempotency_key}" if idempotency_key else ""
 
 
 class HttpSender:
@@ -140,6 +144,12 @@ class HttpSender:
             "variables": {str(i + 1): v for i, v in enumerate(variables)},
             "idempotency_key": idempotency_key,
             "event": f"reminders.{cls}",
+            # OUR OWN HANDLE, CARRIED THERE AND BACK. Meta echoes `biz_opaque_callback_data`
+            # verbatim in the status webhook (≤512 chars), so a receipt can name the send it
+            # belongs to without a join. The peer's `delivery_id` is the primary key we store; this
+            # is the second one, and it is the one that survives — a receipt arriving for a message
+            # whose delivery row we lost still says which of OUR sends it was about.
+            "biz_opaque_callback_data": idempotency_key,
         }).encode()
         req = urllib.request.Request(
             self._notify, data=body, method="POST",
@@ -171,6 +181,13 @@ class HttpSender:
             if code in self._ceiling:
                 raise CeilingReached(code, f"{code}: {result.get('error') or 'ceiling reached'}")
             raise SendFailed(f"{status}: {result.get('error') or 'no reason given'}")
+
+        # AND THE PEER'S HANDLE COMES BACK, so the send log can be matched to a receipt later.
+        #
+        # Empty is a real answer: the console driver has no delivery row and a peer we did not
+        # reach raised long before this line. An empty handle means «this send will never be
+        # matched», which the reconciler must be able to tell apart from «not delivered yet».
+        return str(result.get("delivery_id") or "")
 
     def _recipient(self, tenant: str, subject_ref: str) -> tuple[str, str]:
         body = json.dumps({"tenant": tenant, "subject_ref": subject_ref}).encode()

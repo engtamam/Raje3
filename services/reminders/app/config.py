@@ -178,6 +178,13 @@ class Settings(BaseSettings):
     # and every notification went to a silent 404 for weeks — a failed notification is not a failed
     # ticket, so nothing looked wrong.
     NOTIFICATION_SEND_PATH: str = "/internal/notify"
+    # DID IT ARRIVE, AND WAS IT READ. The status webhook is at-most-once and lands on the
+    # notification peer, which persists each receipt against the delivery it belongs to and serves
+    # them from a cursor, oldest first. This service reads that forward and writes the fact onto
+    # its own send log — the answer to «هل وصلت؟», which it could not give about its own work.
+    # Added in base-services v0.16.11, after we escalated that a receipt could not be matched to a
+    # send at all.
+    NOTIFICATION_RECEIPTS_PATH: str = "/internal/notifications/receipts"
     # WHICH TEMPLATES META HAS APPROVED, for this tenant. Added in base-services v0.13.5 after we
     # escalated: the user-tier list needed a JWT this service cannot mint, so choose(approved=) was
     # written and removed the same day. Empty means the filter is skipped and a send is spent

@@ -251,6 +251,12 @@ def build_container(settings: Settings) -> Container:
         daily_total_cap=settings.DAILY_TOTAL_CAP)
 
     container.sender = build_sender(settings)
+    # DID IT ARRIVE. The receipt feed is the other half of the sender: one hands the message over,
+    # the other hears back what happened to it. Built beside it deliberately — a deployment that
+    # can send and cannot hear is the state this service was in since it was written.
+    from app.adapters.receipt_feed import build as build_receipt_feed
+
+    container.receipt_feed = build_receipt_feed(settings)
     # Handing HIS OWN text to Meta — on his number, with no review of ours in between.
     from app.core.submission import build_submitter
 
