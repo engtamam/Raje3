@@ -24,7 +24,7 @@ from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
-from app.core.models import Campaign, as_row, offers_something
+from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.preview import PreviewError, build as build_preview, describe_when
 from app.core.share import compute as compute_share
@@ -100,8 +100,17 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     c = request.app.state.container
     locks = await _locks(c, _tenant(principal))
     enabled = await c.templates.enabled_types(_tenant(principal))
+    # AND WHAT EACH GOAL WILL ASK HIM TO FILL (ط-4). Read from the template this shop would
+    # actually send — including one he rewrote himself — so the screen draws the blanks that
+    # exist rather than one free box for every goal, four of which had nowhere to put it.
+    fills: dict[str, list[str]] = {}
+    for template_type, _cls in GOAL_TEMPLATE.values():
+        row = await c.templates.pick(_tenant(principal), template_type)
+        if row:
+            fills[template_type] = list(row.get("fills") or [])
     return {"goals": [vars(card) for card in
-                      cards(now=_now(), locks=locks, enabled_types=enabled)]}
+                      cards(now=_now(), fills_by_type=fills, locks=locks,
+                            enabled_types=enabled)]}
 
 
 @router.post("/preview", dependencies=[Depends(rate_limit)])

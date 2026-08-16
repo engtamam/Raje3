@@ -145,6 +145,14 @@ for ty in LIB["types"]:
             "body": text,
             "variables": variables,
             "examples": examples,
+            # WHICH BLANK IS WHOSE, AND IT TRAVELS OR IT IS NOT TRUE (ط-4). The library validates
+            # `fills` and every reader downstream branches on it — the campaign screen to know
+            # which blanks to draw, the preview to know what to substitute, `sanitise_owner_text`
+            # to know whether a free line is even wanted. The seeder never sent the field, so
+            # every template arrived declaring nothing: each blank resolved to «system», the
+            # owner's typed value reached no slot, and the preview rendered «…» where his
+            # discount should have been.
+            "fills": ty.get("fills") or [],
         })
         if s == 201:
             registered += 1

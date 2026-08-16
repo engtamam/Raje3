@@ -96,3 +96,44 @@ def test_an_unknown_goal_is_refused_with_the_valid_ones_listed():
     with pytest.raises(ValueError) as exc:
         resolve_goal("send_everything")
     assert "win_back" in str(exc.value)
+
+
+def test_a_goal_names_the_blanks_its_message_actually_has():
+    """ط-4 · The words are Meta's; the blanks are the only thing the shop decides.
+
+    THE SCREEN USED TO DRAW ONE FREE TEXT BOX FOR EVERY GOAL, labelled «سطرك في الرسالة». For
+    four of the six that was false: `mkt_offer` is «لك خصم {{3}} على {{4}}. ساري حتى {{5}}» — an
+    amount, a service and a date, and nowhere at all for a sentence. The owner typed one, pressed
+    launch, and the message went out without it. Nothing failed; he simply never saw his words
+    again.
+
+    So a goal now carries the blanks its own template declares — by KIND, in order — and the
+    screen draws exactly those. Asserted on two goals whose shapes differ, because a list that is
+    right for one and empty for the other is the failure this is about.
+    """
+    fills = {
+        "mkt_offer": ["system", "system", "amount", "catalogue", "date"],
+        "mkt_announcement": ["system", "system", "owner"],
+    }
+    by_goal = {c.goal: c for c in cards(now=0, fills_by_type=fills)}
+
+    # THE TYPED ONES, AND NOT THE TWO WE FILL. `system` never becomes a question: his name and
+    # his shop's name are ours to know, and asking for them would be asking him to type what we
+    # already have.
+    assert by_goal["service_offer"].blanks == ["amount", "catalogue", "date"]
+    # AND THE ONE GOAL THAT GENUINELY HAS A FREE BLANK KEEPS IT. «جديد في {{2}}: {{3}}» has
+    # nothing but his own words to put there — the fix is not to take the box away everywhere.
+    assert by_goal["announce"].blanks == ["owner"]
+
+
+def test_a_goal_whose_template_declares_nothing_asks_for_nothing():
+    """AND THE ABSENCE IS NOT A GUESS EITHER.
+
+    A template we could not resolve — never seeded, still in Meta's review, or a shop that has
+    switched the type off — leaves the screen with no blanks to draw. Drawing a free box on that
+    silence is exactly how the wrong one appeared for four goals in the first place: an empty
+    declaration read as «he may write anything».
+    """
+    by_goal = {c.goal: c for c in cards(now=0, fills_by_type={})}
+    assert by_goal["service_offer"].blanks == []
+    assert by_goal["announce"].blanks == []

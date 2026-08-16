@@ -24,12 +24,18 @@ sector model, and one number an owner can hold in their head.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.models import GOAL_TEMPLATE, GOAL_TRIGGER, offers_something
 
 DAY = 86400
+
+# THE KINDS HE FILLS HIMSELF. `system` is ours — his name, the shop, a balance — and never a
+# question. `catalogue` is a tap on his own service list rather than typing; the three typed ones
+# have a shape we can check, which is the whole reason «خصم كبير» cannot be sent; and `owner` is
+# the single free blank, where the sentence has nothing but his own words to put in it.
+MANUAL_BLANKS = ("catalogue", "amount", "code", "date", "owner")
 
 # What each card says. Two words and a line — the owner is choosing, not reading.
 CARDS = {
@@ -90,9 +96,20 @@ class Card:
     # which ones before it can ask for it. Derived here rather than listed in the console, where a
     # second copy would go stale the day a goal is added.
     offers: bool = False
+    # WHICH BLANKS THIS GOAL'S MESSAGE HAS FOR HIM TO FILL, in the order they appear, and named
+    # by KIND rather than by position (ط-4).
+    #
+    # Meta approves the WORDS. The only thing a shop decides is what goes in the numbered blanks,
+    # so «write your line» was never a true description of anything: `mkt_offer` has an amount, a
+    # service and a date, and no room for a sentence at all. The screen used to draw one free box
+    # for every goal — and for four of the six the words he typed reached nobody.
+    #
+    # Empty means every blank is ours to fill, which is most of the engine's messages: a visit
+    # confirmation asks him for nothing.
+    blanks: list[str] = field(default_factory=list)
 
 
-def cards(*, now: int, locks: dict[str, int] | None = None,
+def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks: dict[str, int] | None = None,
           enabled_types: set[str] | None = None) -> list[Card]:
     """The five cards, in the order an owner should see them.
 
@@ -115,6 +132,11 @@ def cards(*, now: int, locks: dict[str, int] | None = None,
             card.unavailable_reason = f"متاح بعد {days} يوم"
 
         tmpl_type = GOAL_TEMPLATE.get(goal, ("", ""))[0]
+        # THE BLANKS COME FROM THE TEMPLATE THIS SHOP WOULD ACTUALLY SEND, not from a table here.
+        # A shop that rewrote the message itself has its own blanks, and a second list in this
+        # file would describe the library's while the send used his.
+        card.blanks = [k for k in (fills_by_type or {}).get(tmpl_type, [])
+                       if k in MANUAL_BLANKS]
         if enabled_types is not None and tmpl_type not in enabled_types:
             card.needs_enabling = True
             card.available = False

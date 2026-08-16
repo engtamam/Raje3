@@ -228,6 +228,12 @@ jobs:
       - name: a tenant that is assumed rather than established
         run: python3 ci/check_a_tenant_is_taken_at_the_door.py
 
+      # AND EVERY BLANK IN A TEMPLATE NAMES ITS FILLER. Meta approves the WORDS, so the blanks are
+      # the only thing a shop decides — and a template that declares none of them silently makes
+      # all of them ours: the owner's discount reaches no slot and the preview draws «…».
+      - name: a template blank with nobody to fill it
+        run: python3 ci/check_every_blank_says_who_fills_it.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave
