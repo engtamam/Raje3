@@ -16,6 +16,15 @@ SHORT-LIVED, because it is not a session. It exists to carry one confirmation fr
 to the save a few seconds later. An hour would let a tablet left on a counter file work all evening
 under a name whose owner went home.
 
+AND IT IS A WINDOW, NOT A DEADLINE (أ-3). The screen this serves is the one that keeps working with
+no network: a visit taken at noon in a workshop with no signal is queued on the device and drains
+when the signal returns, sometimes hours later. Checking the ticket against the CLOCK AT ARRIVAL
+would drop the operator off every one of those visits — silently, because dropping attribution is
+not an error — so the shop with the worst connection is the one whose branch table stays empty.
+What is checked instead is that THE MOMENT BEING ATTRIBUTED falls inside the window the PIN opened.
+The window is still five minutes of work: a ticket cannot claim yesterday, and holding one for a
+week buys nothing but those same five minutes, which have already passed.
+
 AND IT IS NOT A CAPABILITY. The bearer token still decides what may be done at all; this only says
 WHO among the shop's own staff is doing it. A forged ticket buys nothing a caller could not already
 do — it buys attributing it to somebody else, which is the whole point.
@@ -30,30 +39,45 @@ import time
 #: stops being somebody else's signature.
 TTL_SECONDS = 300
 
+#: How long a queued visit may still carry the ticket it was taken under. It bounds the REPLAY, not
+#: the work: whatever arrives with this ticket is still only attributable inside the five minutes
+#: above. A device off the network for longer than this has a bigger problem than attribution, and
+#: `_sane_occurred_at` refuses the backdating anyway.
+GRACE_SECONDS = 7 * 24 * 3600
+
 
 def issue(salt: str, tenant: str, operator_id: str, *, now: int | None = None,
           ttl: int = TTL_SECONDS) -> str:
-    """A ticket for this operator, good for `ttl` seconds."""
-    expires = int(now if now is not None else time.time()) + int(ttl)
-    return f"{expires}.{_sign(salt, tenant, operator_id, expires)}"
+    """A ticket for this operator, good for work done in the next `ttl` seconds."""
+    opened = int(now if now is not None else time.time())
+    expires = opened + int(ttl)
+    return f"{opened}.{expires}.{_sign(salt, tenant, operator_id, opened, expires)}"
 
 
 def verifies(salt: str, tenant: str, operator_id: str, ticket: str,
-             *, now: int | None = None) -> bool:
-    """Does this ticket prove this operator, in this establishment, right now?"""
+             *, at: int | None = None, now: int | None = None) -> bool:
+    """Does this ticket prove this operator, in this establishment, for the work done at `at`?
+
+    `at` is when the work HAPPENED — the device's own clock at the moment of saving. It defaults to
+    arrival, which is right for a live save and wrong for a drained one; see the note on windows.
+    """
     if not salt or not tenant or not operator_id or not ticket:
         return False
-    head, _, mac = ticket.partition(".")
-    if not mac or not head.isdigit():
+    parts = ticket.split(".")
+    if len(parts) != 3 or not parts[0].isdigit() or not parts[1].isdigit():
         return False
-    expires = int(head)
-    if expires < int(now if now is not None else time.time()):
+    opened, expires, mac = int(parts[0]), int(parts[1]), parts[2]
+    clock = int(now if now is not None else time.time())
+    moment = int(at) if at else clock
+    if not opened <= moment <= expires:
+        return False
+    if clock > expires + GRACE_SECONDS:
         return False
     # compare_digest, because a naive `==` on a hex string leaks how much of a forgery was right.
-    return hmac.compare_digest(_sign(salt, tenant, operator_id, expires), mac)
+    return hmac.compare_digest(_sign(salt, tenant, operator_id, opened, expires), mac)
 
 
-def _sign(salt: str, tenant: str, operator_id: str, expires: int) -> str:
+def _sign(salt: str, tenant: str, operator_id: str, opened: int, expires: int) -> str:
     return hmac.new(salt.encode("utf-8"),
-                    f"ticket|{tenant}|{operator_id}|{expires}".encode("utf-8"),
+                    f"ticket|{tenant}|{operator_id}|{opened}|{expires}".encode("utf-8"),
                     hashlib.sha256).hexdigest()

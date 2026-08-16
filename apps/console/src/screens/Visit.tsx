@@ -21,6 +21,8 @@ import { Button } from '@base-ui/design-system/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
+import { proof } from '../operator';
+import { WhoIsSaving } from '../WhoIsSaving';
 import { isSignedIn, useSession } from '../session';
 
 /**
@@ -78,6 +80,8 @@ export function Visit() {
   // it as "waiting to be sent" counted visits that will never be sent among them, and the number
   // an operator watched go down would have stalled at one for ever with no explanation.
   const [queued, setQueued] = useState<Queued[]>([]);
+  /** The «من يحفظ؟» sheet is open. The press is held until it answers, either way. */
+  const [asking, setAsking] = useState(false);
   const pending = queued.filter((r) => !r.stuck);
   const stuck = queued.filter((r) => r.stuck);
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
@@ -274,27 +278,18 @@ export function Visit() {
   const plateOk = !showPlate || (/[0-9٠-٩]/.test(plate) && /\p{L}/u.test(plate));
   const ready = chosen.length > 0 && phoneOk && plateOk;
 
-  const save = useCallback(() => {
-    // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
-    // at this point is the expensive kind: the visit looks saved, the customer is never reached,
-    // and nobody learns why for months.
-    if (chosen.length > 0 && showPlate && !plateOk) {
-      // SAID BEFORE THE REQUEST, not after it. The server refuses this too — it must, since the
-      // till and any other client reach the same endpoint — but a round trip to be told about a
-      // box on the screen in front of him is a round trip that reads as a bug.
-      setNote('اكتب رقم اللوحة — حرفٌ واحد ورقمٌ واحد على الأقل');
-      window.setTimeout(() => setNote(null), 4000);
-      return;
-    }
-    if (chosen.length > 0 && !phoneOk) {
-      setNote('الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05');
-      window.setTimeout(() => setNote(null), 4000);
-      return;
-    }
-    if (!ready) return;
-    // MINTED HERE, AT THE PRESS. Not inside the queue and not inside the request — a key created
+  /**
+   * EVERYTHING THE SAVE DOES ONCE THE «WHO» IS SETTLED — proved or deliberately skipped.
+   *
+   * Split out of `save` because the answer to «من يحفظ؟» arrives from a sheet, one render later:
+   * the press cannot both ask and commit, and holding the entry in state until the answer comes
+   * back is what lets «تخطّي» and «تأكيد» end in the same place.
+   */
+  const commit = useCallback(() => {
+    // MINTED HERE, ONCE PER SAVE. Not inside the queue and not inside the request — a key created
     // where the request is sent would be a new key on every retry, which is exactly no key.
     const key = newIdempotencyKey();
+    const who = proof();
     queue.add({
       phone,
       service_ids: chosen,
@@ -302,6 +297,11 @@ export function Visit() {
       plate: showPlate && plate.trim() ? plate.trim() : undefined,
       meter: showMeter && meter ? Number(meter) : undefined,
       idempotency_key: key,
+      // EMPTY IS AN ANSWER. He skipped, or nobody in this shop has a PIN — and a visit filed under
+      // nobody is the truth, while a visit filed under whoever the device last remembered is the
+      // defect this whole path exists to close.
+      operator_id: who?.id,
+      operator_ticket: who?.ticket,
     }, session);
 
     // THE OFFER IS SPENT AGAINST THIS VISIT, and the visit's own key identifies it — the one
@@ -326,7 +326,32 @@ export function Visit() {
     setMeter('');
     setNote('تم الحفظ ✓');
     window.setTimeout(() => setNote(null), 1500);
-  }, [applying, chosen, meter, name, phone, plate, plateOk, ready, session, showMeter, showPlate, subject]);
+  }, [applying, chosen, meter, name, phone, plate, session, showMeter, showPlate, subject]);
+
+  const save = useCallback(() => {
+    // A WRONG NUMBER IS REFUSED HERE AND NOWHERE ELSE, and the refusal SAYS what is wrong. Silence
+    // at this point is the expensive kind: the visit looks saved, the customer is never reached,
+    // and nobody learns why for months.
+    if (chosen.length > 0 && showPlate && !plateOk) {
+      // SAID BEFORE THE REQUEST, not after it. The server refuses this too — it must, since the
+      // till and any other client reach the same endpoint — but a round trip to be told about a
+      // box on the screen in front of him is a round trip that reads as a bug.
+      setNote('اكتب رقم اللوحة — حرفٌ واحد ورقمٌ واحد على الأقل');
+      window.setTimeout(() => setNote(null), 4000);
+      return;
+    }
+    if (chosen.length > 0 && !phoneOk) {
+      setNote('الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05');
+      window.setTimeout(() => setNote(null), 4000);
+      return;
+    }
+    if (!ready) return;
+    // WHO IS SAVING, ASKED ONCE PER PROOF AND NOT ONCE PER VISIT. A live ticket goes straight
+    // through, so the busy hour is uninterrupted; an expired one opens the sheet, which remembers
+    // his name so re-proving is four digits.
+    if (!proof()) { setAsking(true); return; }
+    commit();
+  }, [chosen, commit, phoneOk, plateOk, ready, showPlate]);
 
   if (!isSignedIn(session)) {
     // SAYS SO PLAINLY RATHER THAN INVENTING A TENANT. A placeholder establishment would let every
@@ -944,6 +969,15 @@ export function Visit() {
           sidebar — the shell's own column, which it has no business covering. Sticky keeps it
           pinned to the bottom of the scrolling area it belongs to, and it can never reach past
           the column it lives in, at any width and with the sidebar collapsed or open. */}
+
+      {/* BOTH ANSWERS END IN THE SAME SAVE. «تأكيد» attaches the ticket, «تخطّي» files the visit
+          under nobody — and neither leaves the operator holding a screen that will not commit. */}
+      <WhoIsSaving
+        session={session}
+        open={asking}
+        onProved={() => { setAsking(false); commit(); }}
+        onSkip={() => { setAsking(false); commit(); }}
+      />
     </main>
   );
 }

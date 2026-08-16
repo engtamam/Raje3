@@ -169,6 +169,13 @@ jobs:
       - name: no state is declared and left unjoined
         run: python3 ci/check_declared_and_unread.py
 
+      # AND THE MIRROR OF `check_screens_send_declared_fields`: a field the DOOR accepts that no
+      # screen has ever sent. `operator_id` was one, from the day the field screen existed — so
+      # every visit taken on a phone was filed against nobody, and the branch that reads off that
+      # field was a column of zeros on a chain that had bought branches.
+      - name: a door field nothing sends
+        run: python3 ci/check_door_fields_are_sent.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

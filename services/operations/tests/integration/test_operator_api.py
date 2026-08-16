@@ -986,6 +986,83 @@ def test_an_unproven_operator_is_dropped_and_the_visit_still_records(client):
     assert r.json()["visit"]["branch_id"] == "", "and it must not carry his branch either"
 
 
+def test_a_visit_queued_through_an_outage_keeps_its_operator(client):
+    """أ-3 · THE SHOP WITH THE WORST CONNECTION LOSES THE MOST.
+
+    The field screen holds a visit on the device when the network is gone and drains it when the
+    signal returns — sometimes hours later. Checking the ticket against the clock AT ARRIVAL drops
+    the operator off every one of those visits, silently, because a dropped attribution is not an
+    error. What is checked is the moment being attributed, which the device now sends.
+    """
+    from app.core import operator_ticket as OT
+
+    ticket = OT.issue("s" * 32, "t_q", "opr_q", now=1_000)
+    took_it_at = 1_060                      # a minute into the window the PIN opened
+    drained_at = 1_000 + 6 * 3_600          # six hours later, when the signal came back
+
+    assert OT.verifies("s" * 32, "t_q", "opr_q", ticket, at=took_it_at, now=drained_at)
+    # AND THE WINDOW IS STILL FIVE MINUTES OF WORK. Holding the ticket buys nothing but the same
+    # five minutes, which have long passed: it cannot sign for what happened after them.
+    assert not OT.verifies("s" * 32, "t_q", "opr_q", ticket, at=drained_at, now=drained_at)
+    # Nor for anything before the PIN was typed.
+    assert not OT.verifies("s" * 32, "t_q", "opr_q", ticket, at=900, now=drained_at)
+
+
+def test_a_drained_visit_is_still_filed_against_the_man_who_did_the_work(client):
+    """THE WHOLE CHAIN, at the door: PIN → ticket → an outage → the drain → the branch.
+
+    Every link was sound alone and the value died between them. This is the one that proves the
+    route passes the visit's own moment to the ticket check rather than the arrival clock — the
+    difference between a shop with a bad connection keeping its branch numbers and losing them.
+    """
+    import asyncio
+    import time
+
+    from app.core import operator_ticket as OT
+    from app.core.stores import ServiceStore
+
+    _operator_with_pin(client, "t_late", "opr_late", "2222", branch="brn-riyadh")
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        __import__("app.core.models", fromlist=["Service"]).Service(
+            id="svc_l", tenant="t_late", name="غسيل", price_minor=1000)))
+
+    took_it_at = int(time.time()) - 4 * 3_600           # four hours ago, in the pit, no signal
+    ticket = OT.issue("s" * 32, "t_late", "opr_late", now=took_it_at - 30)
+
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234597", "service_ids": ["svc_l"],
+                          "operator_id": "opr_late", "operator_ticket": ticket,
+                          "occurred_at": took_it_at},
+                    headers=_auth("operations.record", tenant="t_late"))
+    assert r.status_code == 201, r.text
+    assert r.json()["visit"]["operator_id"] == "opr_late", (
+        "checking the ticket against the ARRIVAL clock drops the operator off every visit the "
+        "device held through an outage")
+    assert r.json()["visit"]["branch_id"] == "brn-riyadh", "and the branch follows the man"
+
+
+def test_the_field_door_records_when_the_visit_happened(client):
+    """أ-3 · the till door has always accepted `occurred_at`; the field door — the only one with a
+    queue behind it — did not, so a morning of visits was stamped with the reconnection."""
+    import asyncio
+    import time
+
+    from app.core.stores import ServiceStore
+
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        __import__("app.core.models", fromlist=["Service"]).Service(
+            id="svc_q", tenant="t_when", name="غسيل", price_minor=1000)))
+
+    took_it_at = int(time.time()) - 6 * 3_600
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234598", "service_ids": ["svc_q"],
+                          "occurred_at": took_it_at},
+                    headers=_auth("operations.record", tenant="t_when"))
+    assert r.status_code == 201, r.text
+    assert r.json()["visit"]["occurred_at"] == took_it_at, (
+        "the reminder is scheduled from this, and the confirmation is sent from it")
+
+
 # ── the interval is a word billing knows, and `once` is not for a recurring plan (ز-1) ─────────
 
 

@@ -261,7 +261,12 @@ class Operator:
                 "branch_id": self.branch_id, "active": self.active, "created": self.created,
                 # A BOOLEAN, NEVER THE ID. The screen needs to know he can sign in; the identifier
                 # itself is identity's and belongs in no response of ours.
-                "has_login": bool(self.person_id)}
+                "has_login": bool(self.person_id),
+                # ALSO A BOOLEAN, and for the field screen rather than for «فريقي»: the sheet that
+                # asks «من يحفظ؟» must not offer a name that cannot answer. An operator with no PIN
+                # listed there is a tap that ends in a refusal he has no way to satisfy, with a
+                # customer waiting.
+                "has_pin": bool(self.pin_hash)}
 
 
 @dataclass

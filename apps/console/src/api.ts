@@ -427,6 +427,27 @@ export interface VisitDraft {
    * double tap from a customer who genuinely came back an hour later.
    */
   idempotency_key: string;
+  /**
+   * WHEN HE PRESSED SAVE — seconds, his clock (أ-3).
+   *
+   * The queue held this all along and never sent it, so a morning of visits taken with no coverage
+   * were all stamped with the moment the network returned: «أوقات الذروة» named the reconnection,
+   * and the visit confirmation reached the customer hours after he had gone. The server bounds
+   * what a device clock may claim; what it cannot do is recover a time it was never told.
+   */
+  occurred_at?: number;
+  /**
+   * WHO SAVED IT, and the proof that the name is his to use (أ-2, و-4).
+   *
+   * The door has accepted `operator_id` since it was written and no screen has ever sent one — so
+   * every visit taken on a phone had no operator on it, and `_branch_for` reads exactly this field
+   * to decide which BRANCH the work belongs to. The branch comparison table was a column of zeros,
+   * `last_branch_id` was never written so a branch campaign found nobody, and «من صرف نقاط هذا
+   * العميل» had no answer. Empty is honest and means «nobody proved who this was»; what is refused
+   * is a name without its ticket.
+   */
+  operator_id?: string;
+  operator_ticket?: string;
 }
 
 export interface VisitAck {
@@ -436,6 +457,35 @@ export interface VisitAck {
   /** A repeat of the same key answers 201 with this true — a SUCCESS, not a conflict. The operator
    *  wanted one visit and there is one visit; a 409 on a double tap teaches him the screen lies. */
   duplicate: boolean;
+}
+
+/** A name the field sheet can offer. `has_pin` is what makes it offerable at all. */
+export interface FieldOperator {
+  id: string;
+  name: string;
+  active: boolean;
+  has_pin: boolean;
+}
+
+export async function listOperators(session: Session): Promise<FieldOperator[]> {
+  const out = await call<{ operators?: FieldOperator[] }>(session, '/api/v1/staff/operators');
+  return (out.operators ?? []).filter((o) => o.active && o.has_pin);
+}
+
+/**
+ * Confirm who is saving, and come back with the PROOF — not just the name.
+ *
+ * The route has existed since the field screen did and nothing has ever called it (أ-2). A name
+ * without this ticket is refused at the door, which is the point: `operator_id` decides which
+ * BRANCH the visit is filed under, so a free string there moves a shop's numbers between cities.
+ */
+export function verifyPin(
+  session: Session, operatorId: string, pin: string,
+): Promise<{ operator: { id: string; name: string }; ticket: string; ticket_ttl: number }> {
+  return call(session, '/api/v1/staff/operators/verify-pin', {
+    method: 'POST',
+    body: JSON.stringify({ operator_id: operatorId, pin }),
+  });
 }
 
 export function recordVisit(session: Session, draft: VisitDraft): Promise<VisitAck> {

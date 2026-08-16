@@ -77,7 +77,14 @@ export class VisitQueue {
   /** Take the visit. Returns immediately — the caller clears the screen on THIS, never on a
    *  server answer, because the five-second budget cannot contain a round trip on a bad link. */
   add(draft: VisitDraft, session: Session): void {
-    this.rows = [...this.rows, { draft, at: Date.now(), attempts: 0 }];
+    const at = Date.now();
+    // AND THE MOMENT GOES WITH IT (أ-3). `at` was recorded here from the first day, with the note
+    // above saying exactly why — and it was never put on the request, so the server read no
+    // `occurred_at` and answered «now». A workshop that lost coverage at noon had nine visits all
+    // recorded at eight in the evening: «أوقات الذروة» named the reconnection, the reminders were
+    // scheduled from it, and the visit confirmation reached a customer seven hours after he left.
+    this.rows = [...this.rows,
+                 { draft: { ...draft, occurred_at: Math.floor(at / 1000) }, at, attempts: 0 }];
     save(this.rows);
     this.emit();
     // THE SESSION IS PASSED IN, NEVER HELD. This queue outlives a token — an entry written before

@@ -84,6 +84,17 @@ class VisitIn(BaseModel):
     # CLIENT-generated, one per entry on the screen. See core/operations.py for why this cannot be
     # server-side: a server cannot tell a double tap from a customer who genuinely came back.
     idempotency_key: str = Field(default="", max_length=128)
+    # WHEN HE PRESSED SAVE, on his clock (أ-3). The queue on the device holds a visit through an
+    # outage and drains it when the signal returns — and it sent only the draft, so nine visits
+    # taken through a morning with no coverage were all recorded at the moment the network came
+    # back. `_sane_occurred_at` then read 0 and answered «now», which is a defensible default for
+    # a value nobody sent and a lie for one that was known and dropped. Peak-hours reports the
+    # busiest hour as whenever the shop last reconnected, and the visit confirmation reaches the
+    # customer seven hours after he left.
+    #
+    # The till door has accepted this since it existed; only the field door was missing it, and
+    # only the field door has a queue. `_sane_occurred_at` bounds what a device clock may claim.
+    occurred_at: int = Field(default=0, ge=0)
 
 
 @router.post("/visits", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit)])
@@ -120,7 +131,7 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     operator_id = body.operator_id.strip()
     if operator_id and not OT.verifies(
             request.app.state.container_settings.PII_SALT, tenant, operator_id,
-            body.operator_ticket):
+            body.operator_ticket, at=body.occurred_at):
         operator_id = ""
 
     # Write-ahead. Critical: a visit the log cannot witness must not happen.
@@ -133,7 +144,7 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
             tenant=tenant, phone=body.phone, service_ids=body.service_ids, name=body.name,
             plate=body.plate, operator_id=operator_id, branch_id=body.branch_id,
             meter=body.meter, note=body.note, custom_service=body.custom_service,
-            idempotency_key=body.idempotency_key)
+            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at)
     except OperationError as exc:
         # RETURNED, NOT RAISED — the third time this file says it, and the one place it was not
         # done. The plate refusal above and the offer refusal below both return; this raised, and
