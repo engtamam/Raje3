@@ -11,9 +11,14 @@ That direction catches typos. This one catches abandonment, which is the more ex
 a typo fails loudly on the first click, and an orphan is silent for months.
 
 AN UNCALLED ACTION IS NOT AUTOMATICALLY A BUG. Some belong to the till, some to a cron, some to our
-own panel, and some are genuinely coming next week. So this REPORTS rather than fails, and the
-allow-list below is where a deliberate one is written down WITH ITS REASON — which turns "we know
-about that one" from a thing somebody remembers into a thing the repository says.
+own panel. So the allow-list below is where a deliberate one is written down WITH ITS REASON —
+which turns "we know about that one" from a thing somebody remembers into a thing the repository
+says.
+
+IT FAILS THE BUILD. It used to print and exit 0, and that is precisely how `whatsapp.register_number`
+shipped with no caller: one warning line among many, unread, while every shop that connected sat
+«مربوط» and mute for want of a field to type six digits into. The allow-list costs one line and a
+reason; silence cost the product its WhatsApp path.
 
     python ci/check_unused_actions.py
 """
@@ -171,8 +176,24 @@ def main() -> int:
     else:
         print("\nevery declared action is either called by a screen or accounted for.")
 
-    # REPORTS, NEVER FAILS. See the module note: an orphan is a question, not a verdict, and a
-    # check that blocks a deploy over a question is a check people learn to skip.
+    # ── IT FAILS NOW, AND HERE IS WHAT CHANGED THE ANSWER ────────────────────────────────────
+    #
+    # This file used to print and exit 0, on the reasoning that an orphan is a question rather than
+    # a verdict. The reasoning was wrong in exactly one way, and it cost the product its whole
+    # WhatsApp path: `whatsapp.register_number` shipped with no caller. It printed one warning line
+    # among many, nobody read it, and every shop that connected sat «مربوط» and mute — because the
+    # step that turns a connection into a number that sends had no field anywhere.
+    #
+    # A question nobody answers is a verdict, delivered late.
+    #
+    # AND THE ALLOW-LIST IS THE PRESSURE VALVE, not a lock: an action that genuinely belongs to a
+    # cron, a till, or our own panel takes one line and its reason. What it may not do is stay
+    # silent. A STALE entry fails too — a reason for something that no longer exists is what makes
+    # the rest of the list stop being believed.
+    if orphans or stale:
+        print("\n  ✘ every declared action must be reachable, or written down with its reason in "
+              "NOT_FOR_A_SCREEN above.")
+        return 1
     return 0
 
 
