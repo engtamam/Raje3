@@ -10,8 +10,10 @@ the constant does not, because nobody remembers it is a price: it looks like a n
 What the customer is then shown and what he is charged disagree. That is not a display bug; in a
 country with a consumer protection authority it is a published price that is not the price.
 
-So the rule is mechanical: the three published amounts, in halalas or in riyals, may not appear in
-any Python, YAML or shell we wrote. The seed file is the single exception, because it IS the list.
+So the rule is mechanical: every published amount, in halalas or in riyals, may not appear in any
+Python, YAML or shell we wrote. The seed file is the single exception, because it IS the list —
+and the amounts are read OUT of it rather than copied here, so the guard cannot go on watching a
+price list we retired.
 
 IT ONLY READS WHAT WE WROTE. platform/ is somebody else's tree and read-only to us, and a test
 fixture that happens to charge 29800 for something is not our price list.
@@ -27,26 +29,61 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-# In riyals, as a customer says them, and in halalas, as billing stores them. Both, because the
-# constant somebody writes is whichever unit they had in their head at the time.
-#
-# THE PACK PRICES ARE NOT GUARDED, and the reason is worth writing down so nobody "fixes" it.
-#
-# They are 50 and 90 riyals — 5000 and 9000 halalas — and every one of those four numbers is a
-# port, a row limit, a timeout or a batch size somewhere in this repo. Adding them turned a guard
-# with zero false positives into one with 41, including OBJECTSTORE_ENDPOINT_URL ending in :9000
-# and SNAPSHOT_VISIT_LIMIT: 5000. A guard that cries 41 times is a guard somebody switches off,
-# and then it catches nothing at all — including the plan prices it was working for.
-#
-# So the guard covers the three plan prices, which are distinctive, and the pack prices rely on
-# the same thing every other value in plans.json relies on: they are read from billing, and there
-# is no code path that would want them locally.
-PRICES = ("148", "298", "598", "14800", "29800", "59800")
+SEED = ROOT / "deploy" / "seed" / "plans.json"
 
-# The price list itself, and this guard, which has to name the numbers to look for them.
+# NOT SPELLED OUT HERE — READ FROM THE LIST ITSELF, and that is the whole of ز-8.
+#
+# This tuple used to be typed by hand: ("148", "298", "598", "14800", "29800", "59800"), the three
+# tiers of a plan ladder that no longer exists. The product became a base plus apps, plans.json was
+# rewritten, and not one of those six numbers survived into it. The guard went on passing green
+# every build while watching for prices nobody charges — which is worse than no guard, because the
+# build says the rule holds.
+#
+# A price list that has to be copied into its own guard drifts from its guard. So the guard opens
+# the file, and the numbers it hunts for are by construction the numbers we charge on the day it
+# runs.
+#
+# HALALAS ONLY, AND ONLY THE ONES A NUMBER CANNOT BE MISTAKEN FOR. Both of those are measured
+# facts about this repo, not preferences, and both follow the rule this guard has always lived by:
+# a guard that cries about things nobody can fix is a guard somebody switches off, and then it
+# catches nothing at all — including the price it was working for.
+#
+#   the riyal forms are dropped.  Today's amounts are 99, 75 and 50 riyals. Searched bare across
+#                                 what we wrote, «50» appears 144 times and «99» 12 — a loop
+#                                 bound, a default priority, a hash range. Narrowing to lines that
+#                                 also mention a price still leaves 31, because «50 ريال» is a
+#                                 DISCOUNT a shop offers its own customer, which is his number and
+#                                 not ours. Nothing separates them, so they are not guarded.
+#   round hundreds are dropped.   The seat pack is a whole number of hundreds of riyals, and in
+#                                 halalas it appears 63 times across this repo as a batch size, a
+#                                 row limit, a reward cost and a basket total. An amount that
+#                                 round is a number people write for a dozen other reasons.
+#
+# What is left is every amount ending in a part-riyal figure — two of them today, including the
+# base plan — and those have zero false positives across the whole repo. The dropped ones rely on
+# what every other value in plans.json relies on: they are read from billing, and there is no code
+# path that would want them locally.
+#
+# NO NUMBER FROM THAT LIST IS WRITTEN ANYWHERE IN THIS FILE, deliberately. That is what lets this
+# guard be judged by its own pattern instead of exempting itself by path — the first draft of this
+# comment named the two amounts, and the guard failed on itself, correctly.
+def _prices() -> list[str]:
+    import json
+    plans = json.loads(SEED.read_text(encoding="utf-8"))
+    return sorted({str(h) for h in
+                   (int(p.get("amount") or 0) for p in (plans.get("plans") or []))
+                   # A free row costs nothing, and «0» is in every file we own.
+                   if h > 0 and h % 1000 != 0})
+
+
+PRICES = tuple(_prices())
+
+# The price list itself. The single exception, because it IS the list — and the only one: this
+# guard no longer spells the prices out, so it is judged by its own pattern like every other file.
+# A guard that exempts itself by path is a guard with a blind spot exactly where somebody would
+# reach for a constant.
 EXEMPT_FILES = {
     "deploy/seed/plans.json",
-    "ci/check_no_prices.py",
 }
 
 # Ours only. platform/ is read-only to us and its numbers are not our prices.
@@ -75,6 +112,13 @@ ALLOW: dict[str, str] = {}
 
 def main() -> int:
     problems: list[str] = []
+    # AN EMPTY PRICE LIST IS A BROKEN GUARD, NOT A CLEAN REPO. A renamed field or a restructured
+    # seed file would leave nothing to search for, and this would print «ok» forever — the exact
+    # silence ز-8 was.
+    if not PRICES:
+        print(f"\033[31m  x no prices found in {SEED.relative_to(ROOT).as_posix()} — this guard "
+              f"has nothing to look for, which is not the same as finding nothing\033[0m")
+        return 1
     for top in SEARCH:
         base = ROOT / top
         if not base.exists():

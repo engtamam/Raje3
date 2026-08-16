@@ -240,8 +240,7 @@ def cycle_completion(visits: list[dict], *, cycles: dict[str, int], now: int) ->
 
 
 def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
-                   percentile: float = 0.95, floor: int = 0, cap_share: float = 0.7,
-                   ceiling: int = 0, outlier_factor: float = 2.0,
+                   percentile: float = 0.95, floor: int = 0, outlier_factor: float = 2.0,
                    tz_offset_hours: int = 3) -> dict[str, Any]:
     """How much of today's WhatsApp ceiling to hold back for the automatic engine.
 
@@ -267,20 +266,28 @@ def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
     reserve with nobody touching anything.
 
     ────────────────────────────────────────────────────────────────────────────────────────────
-    AND THREE GUARDS, each for a way the arithmetic fails on its own
+    AND TWO GUARDS, each for a way the arithmetic fails on its own
 
-      `floor`      a shop with no history has no percentile, and its first fortnight is exactly
-                   when a dropped confirmation does the most damage. Below the floor we reserve
-                   the floor and campaigns wait.
-      `cap_share`  without it a busy shop reserves everything and can never run the campaign it
-                   is paying for.
-      and the CALLER releases what went unused late in the evening — a reserve held and never
-      spent is ceiling we wasted on his behalf. That is not this function's business; it only
-      says how much to hold at the start of the day.
+      `floor`           a shop with no history has no percentile, and its first fortnight is
+                        exactly when a dropped confirmation does the most damage. Below the floor
+                        we reserve the floor and campaigns wait.
+      `outlier_factor`  the percentile alone does not reject the outlier — see below.
+
+    ────────────────────────────────────────────────────────────────────────────────────────────
+    THE CEILING IS NOT CAPPED HERE, BECAUSE THIS SERVICE DOES NOT HOLD THE CEILING
+
+    A shop's traffic can warrant more than its whole WhatsApp allowance — 300 wanted against a
+    ceiling of 250 — and the reserve must not then swallow the campaign allowance whole. That cap
+    belongs where the ceiling is a known number, which is campaigns/core/share.py: it reads the
+    live ceiling from notification-service and subtracts this reserve from it.
+
+    This function once took `ceiling` and `cap_share` and capped here. No caller ever passed
+    them, so `if ceiling:` never fired and the cap was a paragraph of documentation with no
+    machine behind it — while the one place that could cap subtracted the reserve unbounded.
 
     Returns the reserve and the working, because a number an owner cannot question is a number he
-    does not trust — and because the day this is wrong, we will want to see which of the three
-    guards produced it.
+    does not trust — and because the day this is wrong, we will want to see which guard produced
+    it.
     """
     weekday = ((now + tz_offset_hours * 3600) // DAY + 4) % 7
     horizon = now - weeks * 7 * DAY
@@ -320,13 +327,6 @@ def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
     want = max(picked, floor)
     basis = "percentile" if picked >= floor else "floor"
 
-    if ceiling:
-        cap = int(ceiling * cap_share)
-        if want > cap:
-            # A busy shop that reserved everything could never run a campaign, which is a paid
-            # feature it bought.
-            return {"reserve": cap, "basis": "capped", "weekday": weekday,
-                    "samples": len(counts), "wanted": want}
     return {"reserve": want, "basis": basis, "weekday": weekday, "samples": len(counts)}
 
 

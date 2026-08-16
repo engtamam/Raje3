@@ -62,6 +62,10 @@ CONSENT = "marketing_consent"
 
 GRANTED, WITHDRAWN, NEVER_ASKED = "granted", "withdrawn", "never_asked"
 
+# One page of the append-only log, for the reads that must see all of it. The same 500 as
+# core/backup.py, which pages the same store for the same reason.
+_PAGE = 500
+
 # Where the decision was made. Recorded because "how did you obtain this consent?" is the first
 # question anybody asks about it, and an answer reconstructed later is not an answer.
 SOURCES = (
@@ -188,7 +192,7 @@ class Consent:
         await self._s.put(CONSENT, rec.id, rec.to_dict())
         return rec
 
-    async def count_granted(self, tenant: str, *, limit: int = 100000) -> int:
+    async def count_granted(self, tenant: str) -> int:
         """How many people currently allow this shop's offers (spec §8.5).
 
         A COUNT, NEVER A LIST. The number is what an owner is shown, and a route that returned who
@@ -197,9 +201,26 @@ class Consent:
         Counted from the newest row per person rather than by counting grants: somebody who granted
         and later withdrew has two rows and must not be counted, and somebody who granted twice is
         one person.
+
+        AND IT READS EVERY PAGE, WHICH IS NOT OPTIONAL HERE. This log is append-only — every grant
+        and every withdrawal is a row — so the row count is not the people count and grows without
+        limit for a shop that has been running a year. A single `find` returned the OLDEST page
+        (`seq asc`) and stopped, and «newest row per person» computed over the oldest page is not
+        a truncated answer, it is a WRONG one: a customer who withdrew last month still counts as
+        consenting, and the number goes UP as the shop loses people. It is shown to an owner and a
+        decision to upgrade is made on it.
+
+        Paged rather than bounded by a big `limit`, following core/backup.py: a bound large enough
+        to be safe is a bound nobody can defend the day it is reached, and it would be reached
+        silently.
         """
-        rows, _ = await self._s.find(CONSENT, {"tenant": tenant}, limit=limit, sort=("seq", "asc"))
         latest: dict[str, str] = {}
-        for r in rows or []:
-            latest[r["subject_ref"]] = r["state"]
+        cursor: str | None = None
+        while True:
+            rows, cursor = await self._s.find(CONSENT, {"tenant": tenant}, limit=_PAGE,
+                                              after=cursor, sort=("seq", "asc"))
+            for r in rows or []:
+                latest[r["subject_ref"]] = r["state"]
+            if not cursor:
+                break
         return sum(1 for s in latest.values() if s == GRANTED)

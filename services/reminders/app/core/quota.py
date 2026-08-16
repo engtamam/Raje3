@@ -136,7 +136,16 @@ class HttpQuota:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
                 return resp.status, json.loads(resp.read() or b"{}")
         except urllib.error.HTTPError as exc:
-            return exc.code, {}
+            # THE BODY IS READ, NOT DISCARDED. billing puts its verdict in the body — `allowed`
+            # and `error` — and `{}` here threw that verdict away for every status at or above
+            # 400. The callers then had only a number to reason from: `consume` read every one of
+            # them as «carry on», and `take` read every one of them as «you hit your plan limit»,
+            # which is a sentence an owner is shown about a quota he never touched.
+            try:
+                body = json.loads(exc.read() or b"{}")
+            except (ValueError, OSError):
+                body = {}
+            return exc.code, body if isinstance(body, dict) else {}
         except (urllib.error.URLError, OSError) as exc:
             raise QuotaError(f"unreachable: {exc}") from exc
 
@@ -156,13 +165,22 @@ class HttpQuota:
             # UNREACHABLE FAILS OPEN — see the module docstring. We lose the measurement, not the
             # message.
             return
+        # THE VERDICT IS IN THE BODY, AND IT IS READ WHATEVER THE STATUS CARRIES IT. billing today
+        # answers the unsubscribed establishment with 200 and `NOT_ENTITLED`, but the status check
+        # used to come first and return, so the same verdict arriving under a 402 or a 403 — from
+        # billing, or from a gateway in front of it — was dropped unread and the send went out on
+        # an expired subscription.
+        if str(out.get("error") or "") == "NOT_ENTITLED":
+            raise QuotaError("لا يوجد اشتراك فعّال — فعّل اشتراكك لاستئناف الإرسال.")
         if status >= 400:
+            # BILLING FAILING TO ANSWER, not billing answering «no»: a rotated internal token, a
+            # wrong path, a 500, a 429. There is no subscription decision in any of them, so this
+            # is the same case as unreachable and takes the same doctrine — we lose the
+            # measurement, not the message.
             return
         if not out.get("allowed"):
-            if str(out.get("error") or "") == "NOT_ENTITLED":
-                raise QuotaError("لا يوجد اشتراك فعّال — فعّل اشتراكك لاستئناف الإرسال.")
-            # Anything else is billing declining for a reason we did not ask about. Refusing the
-            # send on an answer we cannot explain to the owner would be worse than not counting it.
+            # Billing declining for a reason we did not ask about. Refusing the send on an answer
+            # we cannot explain to the owner would be worse than not counting it.
             return
 
     async def take(self, *, tenant: str, key: str, idempotency_key: str) -> None:
@@ -184,6 +202,15 @@ class HttpQuota:
             error = str(out.get("error") or "")
             if error == "NOT_ENTITLED":
                 raise QuotaError("لا يوجد اشتراك فعّال.")
+            # AN HTTP FAULT IS NOT «YOU HIT YOUR LIMIT». It still refuses — see the docstring, a
+            # submission we cannot verify is one we do not hand Meta — but the sentence has to be
+            # true. A 500 with no verdict in it told the owner he had exhausted a quota of custom
+            # texts he had not touched, which is a number about his own plan that we cannot defend
+            # and that sends him looking for a fault in himself.
+            # Narrowed to the fault statuses on purpose: a 200 that says `allowed: false` without
+            # naming an error IS the counter being spent, and that owner has hit his limit.
+            if status >= 400:
+                raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.")
             raise QuotaError("بلغت حدّ باقتك من النصوص الخاصة هذا الشهر.")
 
     async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1,

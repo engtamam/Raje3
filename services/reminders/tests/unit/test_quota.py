@@ -180,6 +180,75 @@ def test_an_unreachable_billing_loses_the_measurement_and_says_nothing_else():
     assert f.used == 0
 
 
+# ── the verdict is in the BODY, and it used to be thrown away (ز-3) ─────────────────────────────
+def test_a_refusal_that_arrives_with_a_status_still_stops_the_send():
+    """NOT_ENTITLED IS THE UNSUBSCRIBED ESTABLISHMENT WHATEVER CARRIES IT.
+
+    billing answers it 200 today. A gateway in front of it, or a later route, can carry the same
+    body under a 402 or a 403 — and the status check used to come first and `return`, so the
+    verdict was never read. A shop whose subscription lapsed went on sending on its own WhatsApp
+    account and on our reputation, which is the whole of ز-3.
+    """
+    f = FakeBilling()
+    f.post = lambda url, body: (402, {"allowed": False, "error": "NOT_ENTITLED"})
+    with pytest.raises(Q.QuotaError):
+        run(quota(f).consume(tenant=T, idempotency_key="a"))
+
+
+def test_an_http_fault_with_no_verdict_in_it_loses_the_measurement_not_the_message():
+    """A rotated internal token, a wrong path, a 500. None of them is billing saying «no», so none
+    of them is a subscription decision — the same case as unreachable, and the same doctrine."""
+    f = FakeBilling()
+    f.post = lambda url, body: (500, {})
+    run(quota(f).consume(tenant=T, idempotency_key="a"))          # must not raise
+
+
+def test_a_broken_billing_is_not_told_to_the_owner_as_his_own_limit():
+    """`take` DOES refuse on a fault — a submission we cannot verify is one we do not hand Meta —
+    but the sentence has to be true. A 500 carries no verdict, and «you used up your custom texts
+    this month» is a number about his own plan that we cannot defend and that sends him looking
+    for a fault in himself."""
+    f = FakeBilling()
+    f.post = lambda url, body: (500, {})
+    with pytest.raises(Q.QuotaError) as exc:
+        run(quota(f).take(tenant=T, key=Q.CUSTOM_TEMPLATE_KEY, idempotency_key="a"))
+    assert "تعذّر التحقق" in str(exc.value)
+
+
+def test_a_real_exhausted_plan_still_says_so():
+    """The other half: narrowing the sentence above must not blunt the true one."""
+    f = FakeBilling()
+    f.post = lambda url, body: (200, {"allowed": False, "error": "LIMIT_REACHED"})
+    with pytest.raises(Q.QuotaError) as exc:
+        run(quota(f).take(tenant=T, key=Q.CUSTOM_TEMPLATE_KEY, idempotency_key="a"))
+    assert "بلغت حدّ باقتك" in str(exc.value)
+
+
+def test_the_body_of_a_4xx_is_read_rather_than_discarded():
+    """THE LINE UNDER ALL FOUR ABOVE. `_post` returned `(code, {})` for every HTTPError, so the
+    verdict never reached the caller at all and no amount of care in `consume` could have found
+    it. Exercised through the real `_post`, because the fake used everywhere else replaces it."""
+    import io
+    import json
+    import urllib.error
+    import urllib.request
+
+    q = Q.HttpQuota(billing_url="http://billing", consume_path="/c", release_path="/r",
+                    check_path="/k", token="t")
+    body = json.dumps({"allowed": False, "error": "NOT_ENTITLED"}).encode()
+
+    def boom(req, timeout=0):
+        raise urllib.error.HTTPError("http://billing/c", 402, "Payment Required", {},
+                                     io.BytesIO(body))
+
+    original, urllib.request.urlopen = urllib.request.urlopen, boom
+    try:
+        status, out = q._post("http://billing/c", {})            # noqa: SLF001
+    finally:
+        urllib.request.urlopen = original
+    assert status == 402 and out["error"] == "NOT_ENTITLED"
+
+
 def test_the_key_is_one_name_defined_once():
     """A typo would create a second counter nobody has a limit for, which resolves deny-by-default
     and looks exactly like an exhausted quota."""

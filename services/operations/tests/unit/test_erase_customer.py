@@ -76,6 +76,60 @@ def test_a_second_press_dispatches_without_re_verifying(monkeypatch):
     assert not any("verify" in u for u, _ in seen)
 
 
+def test_a_press_on_a_dispatch_already_running_does_not_restart_it(monkeypatch):
+    """ز-6 — THE SECOND PRESS USED TO ERASE THE PROOF, NOT THE CUSTOMER.
+
+    compliance's `process` rebuilds the request's per-target acknowledgement map from the data map
+    every time it is called. On a request already `in_progress` that puts every target that had
+    ALREADY confirmed the erasure back to «not yet»: the request can no longer derive `completed`,
+    the shop's evidence that it honoured the request is gone, and the subject's thirty-day clock
+    keeps running. An impatient owner pressing «احذف نهائياً» twice is not an unusual event.
+
+    So a request that is already fanning out is left alone — the sweeper on that side resumes from
+    exactly the state we would be destroying.
+    """
+    seen: list[tuple[str, str]] = []
+    _fake(monkeypatch, {
+        "/compliance/dsar": {"id": "d1", "created": False, "status": "in_progress",
+                             "targets": ["reminders", "loyalty"]},
+    }, seen)
+
+    out = E.erase_subject(compliance_url="http://c:8000", authorization="Bearer t",
+                          subject_ref="ref-7")
+
+    assert not any("process" in u for u, _ in seen), "the fan-out was restarted from scratch"
+    assert out["dispatched"] is True and out["targets"] == ["loyalty", "reminders"]
+
+
+def test_a_request_compliance_refused_is_not_reported_as_done(monkeypatch):
+    """A refused request answers `process` with `{"ok": true, "reason": "already_final"}` — true,
+    and read by the branch at the bottom of `erase_subject` as «تم». The only reason compliance
+    refuses an erasure is a legal hold, so the owner is told the thing actually stopping it."""
+    seen: list[tuple[str, str]] = []
+    _fake(monkeypatch, {
+        "/compliance/dsar": {"id": "d1", "created": False, "status": "refused"},
+    }, seen)
+
+    with pytest.raises(E.EraseFailed) as err:
+        E.erase_subject(compliance_url="http://c:8000", authorization="Bearer t",
+                        subject_ref="ref-7")
+    assert "حجزٍ نظاميّ" in str(err.value)
+
+
+def test_a_status_we_do_not_recognise_still_dispatches(monkeypatch):
+    """UNKNOWN IS NOT «ALREADY RUNNING». The skip is keyed on the statuses that mean the fan-out
+    has started, never on the ones that mean it has not — so a status compliance adds later, or an
+    answer with no status field at all, costs a round trip rather than a customer's erasure."""
+    seen: list[tuple[str, str]] = []
+    _fake(monkeypatch, {
+        "/dsar/": {"ok": True, "targets": ["operations"]},
+        "/compliance/dsar": {"id": "d1", "status": "on_hold_pending_review"},
+    }, seen)
+
+    E.erase_subject(compliance_url="http://c:8000", authorization="Bearer t", subject_ref="ref-7")
+    assert any("process" in u for u, _ in seen)
+
+
 def test_a_missing_capability_says_which_one(monkeypatch):
     def urlopen(req, timeout=0):                                        # noqa: ARG001
         raise urllib.error.HTTPError(req.full_url, 403, "forbidden", {}, None)  # type: ignore[arg-type]

@@ -42,6 +42,16 @@ from typing import Any
 #: caller translates rather than the callee guessing.
 COMPLIANCE_ERASURE = "erasure"
 
+#: compliance's DSAR statuses, its words again — the ones in which the fan-out has ALREADY been
+#: started and a second `process` would only do damage (see `erase_subject`).
+#:
+#: NAMED AS THE THING WE SKIP FOR, never as the thing we dispatch for, and the difference is the
+#: whole safety of it. An absent status, or one compliance adds later, is not in this tuple, so
+#: the erasure is dispatched: an extra round trip is the wrong answer we can afford, and «we
+#: assumed it was already running» on a customer's erasure is not.
+ALREADY_DISPATCHED = ("in_progress", "completed")
+REFUSED = "refused"
+
 
 class EraseFailed(RuntimeError):
     """The erasure did not happen. Carries what to tell the person who pressed the button."""
@@ -87,9 +97,16 @@ def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) 
     history. The verification token comes back exactly once, from the creation call, and is spent
     immediately — it never touches a screen, a log, or a message.
 
-    IDEMPOTENT BY THE SERVICE'S OWN DESIGN. A second press re-uses the existing request rather than
-    opening a duplicate (`created: false`), and the erasure fan-out is itself idempotent — erasing
-    an already-erased subject is a success, not an error.
+    AND THE SECOND PRESS DOES NOT RE-DISPATCH. compliance re-uses the existing request rather than
+    opening a duplicate (`created: false`), but `process` on a request already `in_progress` rebuilds
+    its per-target acknowledgement map from scratch — every target that had already confirmed the
+    erasure goes back to «not yet», the request can no longer reach `completed`, and the shop's
+    proof that it honoured the request is gone. The subject's thirty-day clock keeps running.
+
+    So a request that is already fanning out is left alone: the sweeper on the other side resumes
+    from exactly the state we would be destroying, and pressing the button again has never had
+    anything to add to a dispatch already under way. Reported as ز-6; the map rebuild itself is
+    compliance-service's line to fix.
     """
     if not compliance_url:
         # A DEPLOYMENT FAULT, AND HE STILL READS IT. He can do nothing about it, so the
@@ -103,6 +120,20 @@ def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) 
     if not dsar_id:
         # OUR BUG OR A CONTRACT CHANGE, and either way not his to parse.
         raise EraseFailed("تعذّر تنفيذ الحذف الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.")
+
+    status = str(opened.get("status") or "")
+    if status == REFUSED:
+        # A REFUSAL SURVIVES THE SECOND PRESS. `process` on a refused request answers
+        # `{"ok": true, "reason": "already_final"}` — true, and read as «تم» by the branch at the
+        # bottom of this function. The only reason compliance refuses an erasure is a legal hold,
+        # so the owner is told the thing that is actually stopping it rather than that it worked.
+        raise EraseFailed("هذا العميل تحت حجزٍ نظاميّ، ولا يمكن حذف بياناته الآن.")
+    if status in ALREADY_DISPATCHED:
+        # ALREADY UNDER WAY OR FINISHED — AND PRESSING AGAIN DESTROYS EVIDENCE. See the docstring:
+        # a second `process` on an `in_progress` request rebuilds the per-target acknowledgement
+        # map and every target that had already confirmed goes back to «not yet».
+        return {"dsar_id": dsar_id, "dispatched": True,
+                "targets": sorted(opened.get("targets") or [])}
 
     token = str(opened.get("verification_token") or "")
     if token:
