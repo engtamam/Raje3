@@ -46,6 +46,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.sending_identity import SEPARATOR as SI_SEPARATOR
+
 CONNECTIONS = "whatsapp_connections"
 
 # The six steps Meta names when the owner cancels. A CLOSED vocabulary, transcribed from its
@@ -216,6 +218,27 @@ class ConnectionStore:
                         detail=str(r.get("detail") or ""), at=int(r.get("at") or 0),
                         branch_id=str(r.get("branch_id") or "")) for r in rows]
 
+
+    async def live_connections(self, *, limit: int = 500) -> list[Attempt]:
+        """Every NUMBER that is supposed to be able to send — the health sweep's work list.
+
+        NUMBERS, NOT TENANTS. `live_tenants` answers «which shops are live» for callers that work
+        per establishment; a chain loses access one number at a time, and a sweep keyed on the
+        tenant would ask about one number and then clear — or condemn — all of them.
+        """
+        cap = max(1, min(2000, limit))
+        out: list[Attempt] = []
+        for state in (STATE_CONNECTED, STATE_FINISHED_UNCONFIRMED):
+            rows, _ = await self._s.find(CONNECTIONS, {"state": state}, limit=cap,
+                                         sort=("at", "desc"))
+            out.extend(Attempt(
+                tenant=str(r.get("tenant") or ""), state=str(r.get("state") or ""),
+                step=str(r.get("step") or ""), waba_id=str(r.get("waba_id") or ""),
+                phone_number_id=str(r.get("phone_number_id") or ""),
+                business_id=str(r.get("business_id") or ""), detail=str(r.get("detail") or ""),
+                at=int(r.get("at") or 0), branch_id=str(r.get("branch_id") or ""))
+                for r in rows if r.get("tenant"))
+        return out[:cap]
 
     async def live_tenants(self, *, limit: int = 500) -> list[str]:
         """Every establishment whose connection reached WhatsApp — the sweep's work list.
@@ -414,3 +437,54 @@ def build_exchange(settings: Any) -> Any:
                         path=settings.WHATSAPP_ONBOARDING_PATH,
                         token=settings.INTERNAL_SERVICE_TOKEN,
                         timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+# WHAT THE OWNER IS TOLD WHEN THE ACCESS IS GONE. Written as the one thing that restores it: nobody
+# can re-grant a revoked permission except him, from the same button he used the first time.
+DISCONNECTED_SENTENCE = ("انقطع ربط واتساب — لم يعد لدينا إذن الوصول إلى حساب أعمالك. "
+                         "افتح الربط مرة أخرى لإعادة التفعيل.")
+
+
+async def health_sweep(store: ConnectionStore, registration: Registration, *,
+                       limit: int = 500) -> dict[str, Any]:
+    """Ask Meta about every live number, and stop the ones whose access is gone.
+
+    THE FAILURE THIS CLOSES. Access ends outside our product — an owner removes our app in his
+    Business Manager, or Meta disables the number. Nothing tells us. The row stays `connected`, the
+    screen keeps saying «مربوط», and every message is attempted against credentials that no longer
+    exist. The shop learns from a customer who mentions he stopped hearing from them.
+
+    ONLY A DEFINITE ANSWER FLIPS A ROW, and that is the whole design. `NOT_CONNECTED` means the
+    platform holds no credentials for that number — a fact, not a failure to read. Every other
+    non-ok answer is counted as UNREADABLE and changes nothing: an unreachable Graph, a timeout, a
+    rejection we cannot classify. Marking a working shop as disconnected on a network blip would
+    stop its reminders and walk its owner through the entire connect journey for nothing — a worse
+    outcome than learning of a real disconnection an hour later.
+
+    Returns the counts, so a sweep that could read nothing is visible as exactly that rather than as
+    a fleet in perfect health.
+    """
+    if not registration.configured:
+        return {"checked": 0, "stopped": 0, "unreadable": 0, "stopped_keys": [],
+                "reason": "NOT_CONFIGURED"}
+    checked = stopped = unreadable = 0
+    stopped_keys: list[str] = []
+    for attempt in await store.live_connections(limit=limit):
+        checked += 1
+        # The SENDING IDENTITY, exactly as the credentials were sealed — a branch's number is not
+        # reachable under the bare tenant.
+        who = f"{attempt.tenant}{SI_SEPARATOR}{attempt.branch_id}" if attempt.branch_id             else attempt.tenant
+        live = await registration.status(who, attempt.phone_number_id)
+        if live.get("ok"):
+            continue
+        if str(live.get("reason") or "") != "NOT_CONNECTED":
+            unreadable += 1
+            continue
+        attempt.state = STATE_STOPPED
+        attempt.detail = DISCONNECTED_SENTENCE
+        attempt.at = _now()
+        await store.record(attempt)
+        stopped += 1
+        stopped_keys.append(attempt.key)
+    return {"checked": checked, "stopped": stopped, "unreadable": unreadable,
+            "stopped_keys": stopped_keys, "reason": ""}

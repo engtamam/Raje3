@@ -978,6 +978,31 @@ async def privacy_request(request: Request, body: PrivacyRequestIn) -> dict:
     return {"ok": True, "id": req.id, "at": req.at}
 
 
+@router.post("/operations/whatsapp/health", dependencies=[Depends(require_internal_token)])
+async def whatsapp_health(request: Request) -> dict:
+    """Hourly: ask Meta about every live number and stop the ones whose access is gone.
+
+    A CONNECTION HAS NO EVENT TO WAIT FOR. Access ends in the owner's Business Manager or at Meta,
+    and the webhook that would announce it is at-most-once — a service restarting during that one
+    delivery never hears about it again. So this is a READ, run on a clock: the state of a
+    connection is always recoverable from Meta rather than from an event we may have missed.
+
+    NO BODY AND NO TENANT: the clock decides the work list, not the caller.
+    """
+    from app.core import connect as connect_core
+
+    c = request.app.state.container
+    out = await connect_core.health_sweep(
+        connect_core.ConnectionStore(c.datastore), connect_core.build_registration(get_settings()))
+    for key in out.get("stopped_keys", []):
+        # AUDITED PER NUMBER, because «متى توقّف رقمي» is the first question after «لماذا توقّفت
+        # الرسائل» — and the actor is this sweep, not a person.
+        await request.app.state.auditor.record(
+            "whatsapp.connection_lost", actor="cron:whatsapp-health",
+            tenant=key.split("|")[0], resource=f"connection:{key}", ip="")
+    return out
+
+
 @router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])
 async def retention_sweep(request: Request) -> dict:
     """The nightly retention pass (§14.5). Driven by a CronJob, never by a person.

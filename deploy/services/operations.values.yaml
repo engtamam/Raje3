@@ -26,7 +26,7 @@ image:
   # and for the same reason: a tag can be moved and a tag-pinned rollback is a hope. repin.sh takes
   # over the moment this is published.
   repository: ghcr.io/engtamam/raje3/operations
-  digest: "sha256:e957138d844f644d5dcf29dbb86e34c91e17885fd0859f707a61d0175d939a05"   # 0526fff, published by publish-images.sh
+  digest: "sha256:2442e56e3243645f7fccc02d6da0a68411201f0e1e74498578a0aacac950e535"   # 0526fff, published by publish-images.sh
 
 replicas: 1
 
@@ -333,6 +333,20 @@ cronJobs:
   #
   # HOURLY, AND AT :23. Meta's review runs up to 24 hours, so hourly is as fine-grained as the
   # answer ever gets; and an off-minute keeps this off the same wake-up as every other job here.
+  # IS THE CONNECTION STILL THERE — the question no event answers.
+  #
+  # Access ends outside our product: an owner removes our app from his Business Manager, or Meta
+  # disables the number. The row stays `connected`, the screen keeps saying مربوط, and every
+  # message is attempted against credentials that no longer exist. Meta's webhook would announce
+  # it, but the bus is at-most-once — a pod restarting through that one delivery never hears it
+  # again — so the state is READ on a clock instead of waited for.
+  #
+  # HOURLY AT :47, off every other job's minute. An hour of latency on a disconnection costs the
+  # shop the reminders of that hour; asking Meta about every live number more often costs the
+  # whole fleet a Graph call for a fact that changes perhaps once a year per shop.
+  - name: whatsapp-health
+    schedule: "47 * * * *"
+    path: /internal/operations/whatsapp/health
   - name: template-approvals
     schedule: "23 * * * *"
     path: /internal/operations/templates/sync-approvals

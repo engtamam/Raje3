@@ -407,4 +407,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "failures is the only way to tell a mistyped PIN apart from a shop that is now "
                "locked out — and to know it before he calls",
     },
+    {
+        "action": "whatsapp.connection_lost",
+        "source": "system",
+        "critical": True,
+        "resource": "whatsapp_connection",
+        "why": "the hour a shop's WhatsApp access ended — revoked in its Business Manager or "
+               "disabled by Meta. Every message attempted afterwards fails, so this row is where "
+               "«منذ متى توقّفت رسائلي» is answered, and it is the only record of a decision taken "
+               "outside our product",
+    },
 ]
