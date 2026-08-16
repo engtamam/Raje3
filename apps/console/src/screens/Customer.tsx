@@ -35,7 +35,10 @@ import type { Session } from '../session';
 
 interface Record {
   customer: { id: string; phone: string; name?: string; subject_ref?: string; visits?: number };
-  visits: { id: string; services?: string; occurred_at?: number }[];
+  /** `meter` and `note` are typed by the operator on the field screen and were read by nothing
+   *  at all (أ-9): both doors accept them, the visit row stores them, and no screen in the
+   *  product showed them back. Daily effort on a screen whose whole budget is five seconds. */
+  visits: { id: string; services?: string; occurred_at?: number; meter?: number; note?: string }[];
   /** His vehicles, when the sector has any. The record has always carried them. */
   assets?: { id: string; plate?: string; make?: string; model?: string }[];
 }
@@ -385,9 +388,22 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         ) : (
           <ul className="flex flex-col gap-2">
             {record.visits.slice(0, 20).map((v) => (
-              <li key={v.id} className="flex items-center justify-between gap-3">
-                <span>{v.services || 'زيارة'}</span>
-                <span className="text-sm text-text-secondary">{when(v.occurred_at ?? 0)}</span>
+              <li key={v.id} className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  {v.services || 'زيارة'}
+                  {/* WHAT THE TECHNICIAN TYPED, SHOWN TO THE PERSON WHO ASKED FOR IT. The reading
+                      is how a vehicle shop knows whether a service is due by distance rather than
+                      by date, and the note is the sentence that explains a visit months later. */}
+                  {v.meter ? (
+                    <span className="block text-sm tabular-nums text-text-secondary">
+                      العدّاد: {v.meter.toLocaleString('en-US')}
+                    </span>
+                  ) : null}
+                  {v.note ? (
+                    <span className="block truncate text-sm text-text-secondary">{v.note}</span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-sm text-text-secondary">{when(v.occurred_at ?? 0)}</span>
               </li>
             ))}
           </ul>

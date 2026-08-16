@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 // THE SOURCE AS A STRING, through Vite rather than `node:fs` — this app's tsconfig has no node
 // types, and adding them so a test can read a file would be the tail wagging the build.
+import customerSrc from './screens/Customer.tsx?raw';
 import doorSrc from './screens/Door.tsx?raw';
 import editorSrc from './screens/TextEditor.tsx?raw';
 import localSrc from './screens/Local.tsx?raw';
@@ -117,5 +118,15 @@ describe('م · النمط 3: declared for a purpose, and nobody read it', () =>
     // for it and never set — so «عدّل نصّي» meant typing the whole message again.
     expect(editorSrc).toContain('toHtml(body ?? \'\', slots)');
     expect(previewSrc).toContain('body={(isReady(mine) ? mine : [])');
+  });
+});
+
+describe('أ-9 · what the operator typed, shown to the person who asked for it', () => {
+  it('the visit list renders the meter reading and the note', () => {
+    // Both doors accept `meter` and `note`, the visit row stores them, `public()` emits them —
+    // and no screen in the product ever showed them. That is daily typing on the one screen
+    // whose whole budget is five seconds, thrown away.
+    expect(customerSrc).toContain('العدّاد:');
+    expect(customerSrc).toContain('{v.note}');
   });
 });

@@ -108,6 +108,12 @@ class Seams:
                 "customer_id": c.id,
                 "subject_ref": c.subject_ref,
                 "service_ids": list(v.service_ids),
+                # HOW MANY OF EACH (أ-8). `/since` carries this and says the two shapes are the
+                # same — «loyalty's catch-up reads this row when the bus drops one» — and the event
+                # did not, so the promise held only until somebody believed it. A consumer that
+                # subscribes here reads a basket with no quantities and cannot tell one oil change
+                # from four, which is exactly what the group-basket test exists to catch.
+                "quantities": dict(v.quantities or {}),
                 "asset_id": v.asset_id,
                 "operator_id": v.operator_id,
                 "branch_id": v.branch_id,
