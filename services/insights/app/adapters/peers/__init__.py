@@ -68,6 +68,12 @@ class NullPeers:
         # is not applicable — which is the state the digest must be correct about.
         self.extras: dict[str, Any] = {}
         self.sent: list[dict] = []
+        # WHAT THE SEND LOG SAYS, and whether it could be read at all. The default is a read that
+        # SUCCEEDED and found nothing — a shop that has sent no messages — because that is the
+        # ordinary state of a test fixture. A test for the unreadable case sets `ok` to False, and
+        # the two must not be the same object (ي-3).
+        self.effect_answer: dict[str, Any] = {"ok": True, "sends": [], "sent_count": 0,
+                                              "opt_outs": 0, "truncated": False}
 
     async def visits(self, tenant: str, *, since: int = 0, limit: int = 5000) -> list[dict]:
         return [v for v in self._visits if not tenant or v.get("tenant") == tenant]
@@ -95,7 +101,7 @@ class NullPeers:
         return dict(self.extras)
 
     async def effect(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
-        return {"sends": [], "sent_count": 0, "opt_outs": 0}
+        return dict(self.effect_answer)
 
     async def consented(self, tenant: str) -> int:
         return int(self.extras.get("consented") or 0)
@@ -288,15 +294,24 @@ class HttpPeers:
         tenant on a tick; a reminders that is slow or restarting must not take the whole dashboard
         with it, so this answers empty and the two surfaces that need it render their «not yet»
         state rather than a wrong number.
+
+        AND `ok` IS WHAT MAKES THAT SENTENCE TRUE (ي-3). The failure answer used to be
+        `{"sends": [], "sent_count": 0, "opt_outs": 0}` — which is character for character what a
+        shop that has never sent a message looks like. The caller could not tell them apart, so
+        «reminders timed out» was rendered as «0 زيارة عادت بعد رسالة»: our outage printed as his
+        engine's result, in the one number that argues for renewal. `ok` is set ONLY on a read that
+        returned, and its absence is what every indicator downstream checks.
         """
         try:
             q = urllib.parse.urlencode({"tenant": tenant, "since": since})
             req = urllib.request.Request(self._reminders_url + self._effect_path + "?" + q,
                                          headers={"X-Internal-Token": self._token})
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:      # nosec B310
-                return json.loads(resp.read() or b"{}")
+                # `ok` LAST, so a peer that one day sends its own `ok: false` cannot make a read
+                # that plainly succeeded look like a failure. What arrived is what we read.
+                return {**json.loads(resp.read() or b"{}"), "ok": True}
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
-            return {"sends": [], "sent_count": 0, "opt_outs": 0}
+            return {"ok": False, "sends": [], "sent_count": 0, "opt_outs": 0}
 
     async def digest_extras(self, tenant: str, *, since: int = 0) -> dict[str, Any]:
         """The FOUR things the weekly report needs and this service does not hold.

@@ -31,10 +31,32 @@ import { ApiError, sentenceFor } from '../api';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
-interface Blocked { indicator: string; message?: string; reason?: string }
+/**
+ * Why an indicator cannot run yet — IN THE FIELDS THE SERVICE ACTUALLY SENDS (ي-5).
+ *
+ * `coverage.blocked()` answers `{indicator, why, owner, request}`. This interface declared
+ * `message` and `reason`, which exist on neither side of the wire, and the list rendered
+ * `{b.message || b.reason}` — two undefined values, so every row was an empty bullet. The one
+ * sentence on this screen that tells the owner what to DO about a missing indicator, and the
+ * text he forwards to his POS vendor to get it, never reached him at all.
+ */
+interface Blocked {
+  indicator: string;
+  /** The cause in his words: «نظام الكاشير لا يرسل الفرع مع العملية». */
+  why?: string;
+  /** Who can act — pos_vendor | establishment | time. Not rendered; it decides nothing here. */
+  owner?: string;
+  /** The message he forwards to his vendor. Empty when there is nobody to forward it to. */
+  request?: string;
+  /** How far along the learning is, when waiting is the whole answer. */
+  progress?: { have?: number; need?: number };
+}
 /** Visits credited to a message, and stops per thousand — what the engine moved, and what it cost. */
-interface Effect { visits?: number; window_days?: number }
-interface OptOut { ready?: boolean; rate?: number; per?: number; sent?: number; need?: number; opt_outs?: number }
+interface Effect { ready?: boolean; reason?: string; visits?: number; window_days?: number; partial?: boolean }
+interface OptOut {
+  ready?: boolean; reason?: string; rate?: number; per?: number; sent?: number; need?: number;
+  opt_outs?: number; partial?: boolean;
+}
 /** The two groups: what the tenth we leave alone did, against what everyone else did. */
 interface Holdout {
   ready?: boolean; reason?: string; held?: number; reached?: number; need?: number;
@@ -116,6 +138,32 @@ export function outsideVisits(
   const total = rows.reduce((n, r) => n + (r.visits ?? 0), 0) + unknown;
   const here = rows.find((r) => r.branch_id === branch)?.visits ?? 0;
   return Math.max(0, total - here);
+}
+
+/**
+ * The sentence under «مؤشرات تحتاج بيانات أكثر» — or nothing, when we have no cause to name (ي-5).
+ *
+ * THE ROW IS THE ONLY PLACE THIS SCREEN TELLS HIM WHAT TO DO. Everything else on it is a number he
+ * reads; this is «نظام الكاشير لا يرسل الفرع مع العملية» — the reason a table is missing, in the
+ * words of the person who can fix it. The list used to read `b.message || b.reason`, neither of
+ * which the service sends, so it drew a bullet with nothing beside it: the gap was shown and its
+ * cause, which is the entire value, was not.
+ *
+ * A ROW WITH NO CAUSE IS NOT DRAWN. An empty bullet is worse than a shorter list — it reads as a
+ * missing indicator we could not even name, and there is nothing he can do with it.
+ *
+ * The progress is appended where there is any: «لم تكتمل بيانات التعلّم بعد» alone reads as
+ * indefinite, and indefinite reads as never.
+ */
+export function blockedSentence(b: Blocked): string {
+  const why = (b.why ?? '').trim();
+  if (!why) return '';
+  const have = b.progress?.have;
+  const need = b.progress?.need;
+  if (typeof have === 'number' && typeof need === 'number' && need > 0) {
+    return `${why} — ${have} من ${need}.`;
+  }
+  return why;
 }
 
 /**
@@ -675,14 +723,30 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         if (!eff && !opt) return null;
         return (
           <div className="grid grid-cols-2 gap-2">
+            {/* BOTH CARDS REFUSE THE SAME FAILURE THE SAME WAY (ي-3). The left one had no refused
+                state at all: an unreadable send log arrived as an empty list and it printed «0
+                زيارة عادت بعد رسالة» — our outage in his engine's name, beside a right-hand card
+                that was already saying «we cannot measure yet» about the identical outage. */}
             {eff ? (
               <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
-                <span className="text-2xl font-bold tabular-nums text-accent-on-soft">
-                  {eff.visits ?? 0}
-                </span>
-                <span className="text-xs leading-relaxed text-text-secondary">
-                  زيارة عادت بعد رسالة، خلال {eff.window_days ?? 30} يوماً
-                </span>
+                {eff.ready ? (
+                  <>
+                    <span className="text-2xl font-bold tabular-nums text-accent-on-soft">
+                      {eff.visits ?? 0}
+                    </span>
+                    <span className="text-xs leading-relaxed text-text-secondary">
+                      {/* A CAPPED SEND LOG MAKES THIS A FLOOR, and says so. Older messages are
+                          missing from the join, so the count can only be low — and the shops that
+                          hit the cap are the ones sending most. */}
+                      زيارة عادت بعد رسالة، خلال {eff.window_days ?? 30} يوماً
+                      {eff.partial ? ' — على الأقل' : ''}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs leading-relaxed text-text-secondary">
+                    لم نستطع قراءة سجل الرسائل — الرقم يظهر بعد أول حساب ناجح.
+                  </span>
+                )}
               </div>
             ) : null}
             {opt ? (
@@ -695,11 +759,20 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
                     </span>
                     <span className="text-xs leading-relaxed text-text-secondary">
                       إيقافاً لكل ألف رسالة{(opt.rate ?? 0) > 20 ? ' — راجع حملاتك' : ''}
+                      {/* THE SAMPLE, NAMED (ي-6). A truncated log means both halves of this rate
+                          were counted over the newest slice rather than the whole window, so the
+                          label «لكل ألف رسالة» is true of a shorter period than it implies. */}
+                      {opt.partial ? ` (على آخر ${opt.sent ?? 0} رسالة)` : ''}
                     </span>
                   </>
                 ) : (
                   <span className="text-xs leading-relaxed text-text-secondary">
-                    نقيس الإزعاج بعد {opt.need ?? 200} رسالة — أرسلت {opt.sent ?? 0}.
+                    {/* «WE COULD NOT READ THE LOG» IS NOT «YOU SENT NOTHING». The service names
+                        which one it is, and telling a shop that sent forty thousand messages that
+                        it has sent none is the more damaging of the two mistakes. */}
+                    {opt.reason === 'no_send_log'
+                      ? 'لم نستطع قراءة سجل الرسائل — القياس يظهر بعد أول حساب ناجح.'
+                      : `نقيس الإزعاج بعد ${opt.need ?? 200} رسالة — أرسلت ${opt.sent ?? 0}.`}
                   </span>
                 )}
               </div>
@@ -738,9 +811,25 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
           {/* SHOW THE GAP, SILENCE ONLY THE CLAIM. These are indicators whose inputs are too thin
               to be honest yet — and every one of them names something he can do to close it. */}
           <ul className="flex flex-col gap-2">
-            {data.not_enabled.map((b) => (
-              <li key={b.indicator} className="text-sm">{b.message || b.reason}</li>
-            ))}
+            {data.not_enabled.map((b) => {
+              const sentence = blockedSentence(b);
+              if (!sentence) return null;
+              return (
+                <li key={b.indicator} className="flex flex-col gap-1 text-sm">
+                  <span>{sentence}</span>
+                  {/* THE TEXT HE FORWARDS, VERBATIM AND SELECTABLE. He sends it to his POS vendor
+                      as it stands; he does not have to explain our API to somebody else's
+                      engineer, which is the step that would otherwise never happen. Absent where
+                      there is nobody to forward it to — «الموظفون لا يسجّلون دخولهم» is his own
+                      shop's to fix. */}
+                  {b.request ? (
+                    <span className="select-all rounded-card bg-surface-2 p-2 text-xs text-text-secondary">
+                      {b.request}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
