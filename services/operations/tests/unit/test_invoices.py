@@ -205,3 +205,38 @@ def test_an_empty_sector_is_left_empty():
     cat = _cat(st)
     run(cat.upsert({"key": "draft", "name": "مسودة", "services": []}))
     assert run(cat.get("draft"))["services"] == []
+
+
+# ── the count, all the way from the till's own field name ──────────────────────────────────────
+def test_the_till_s_own_field_name_is_the_one_we_read(store):
+    """`TillLineIn.qty` is what OUR till API declares — and this parser read only `quantity`.
+
+    `line.model_dump()` hands it a dict keyed by `qty`, so every line arrived as one, and the
+    clearest group-basket signal there is — «two coffees on one bill» — never fired in production.
+    A shop's association engine learned «من طلب قهوة طلب قهوة» from tables of four.
+    """
+    res = resolve(store, [{"product_id": "P1", "name": "قهوة", "qty": 2}])
+    sid = res.service_ids[0]
+    assert res.quantities[sid] == 2, "the till's own field name was ignored"
+
+
+def test_a_third_party_till_may_still_say_quantity(store):
+    """A partner posting to the batch endpoint directly is not required to know our spelling —
+    the same courtesy `label` gets beside `name`."""
+    res = resolve(store, [{"product_id": "P1", "name": "قهوة", "quantity": 3}])
+    assert res.quantities[res.service_ids[0]] == 3
+
+
+def test_the_same_product_twice_on_one_receipt_adds_up(store):
+    """Some tills send one line per item rather than a count. Two lines of one coffee is the same
+    receipt as one line of two, and the group-basket test must read it the same way."""
+    res = resolve(store, [{"product_id": "P1", "name": "قهوة", "qty": 1},
+                          {"product_id": "P1", "name": "قهوة", "qty": 1}])
+    assert res.quantities[res.service_ids[0]] == 2
+
+
+def test_a_missing_or_odd_count_is_one_not_zero(store):
+    """A line the till sent with no count is one item. Zero would erase it from the receipt."""
+    res = resolve(store, [{"product_id": "P1", "name": "قهوة"},
+                          {"product_id": "P2", "name": "شاي", "qty": "كثير"}])
+    assert all(v >= 1 for v in res.quantities.values())

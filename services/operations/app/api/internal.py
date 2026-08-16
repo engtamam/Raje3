@@ -182,6 +182,7 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
         # Resolved per item rather than per batch: two items may belong to different tenants, and
         # a catalogue write scoped to the wrong one is the worst bug this endpoint could have.
         extra_custom = ""
+        item_quantities: dict[str, int] = {}
         if item.lines:
             try:
                 res = await _invoices.resolve(
@@ -189,6 +190,10 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                     service_store=ServiceStore(c.datastore), new_id=new_id,
                     now=int(time.time()))
                 item.service_ids = list(dict.fromkeys(list(item.service_ids) + res.service_ids))
+                # THE COUNT TRAVELS WITH THE IDS, or the group-basket test reads an empty map for
+                # ever — which is what it did: `parse_lines` looked for `quantity` while our own
+                # till model calls the field `qty`, so every line arrived as one.
+                item_quantities = dict(res.quantities)
                 # THE SHOP HAS JUST TOLD US IT IS INTEGRATED, by doing the one thing only an
                 # integrated shop does. Nobody could answer this at signup — the till company
                 # often connects weeks later, sometimes without the owner — so it is read from
@@ -239,6 +244,7 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 name=item.name, plate=item.plate, operator_id=item.operator_id,
                 branch_id=item.branch_id, meter=item.meter, note=item.note,
                 custom_service=item.custom_service,
+                quantities=item_quantities,
                 idempotency_key=item.idempotency_key, occurred_at=item.occurred_at,
                 # ONLY on this path. A till cannot know our catalogue, and refusing a service it
                 # sent would lose the visit — which loses the customer from the product. On the
@@ -712,6 +718,10 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
             "customer_id": r.get("customer_id", ""),
             "subject_ref": (cust or {}).get("subject_ref", ""),
             "service_ids": list(r.get("service_ids") or []),
+            # READ BY THE GROUP-BASKET TEST, and by nothing else. insights asked for `quantities`
+            # from the first day; this row never carried the key, so the test that drops a party's
+            # receipt from learning has never had anything to work with.
+            "quantities": dict(r.get("quantities") or {}),
             "asset_id": r.get("asset_id", ""),
             "operator_id": r.get("operator_id", ""),
             "branch_id": r.get("branch_id", ""),

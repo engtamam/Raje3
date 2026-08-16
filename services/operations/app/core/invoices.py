@@ -64,6 +64,13 @@ class InvoiceResult:
     free_text: list[str] = field(default_factory=list)
     created_services: list[str] = field(default_factory=list)
     renamed_services: list[str] = field(default_factory=list)
+    # HOW MANY OF EACH SERVICE THIS ONE RECEIPT HELD, keyed by OUR service id.
+    #
+    # It is evidence about the RECEIPT, not about the shop: two coffees on one bill say a group was
+    # served, and insights drops that receipt from LEARNING while still counting it everywhere else
+    # (§10.6.2). Without it the association engine treats a table of four as one person with
+    # extraordinary habits, and «من اشترى س اشترى ص» is learned from parties rather than people.
+    quantities: dict[str, int] = field(default_factory=dict)
 
 
 def normalise_id(raw: Any) -> str:
@@ -111,7 +118,14 @@ def parse_lines(raw_lines: list[dict[str, Any]], *,
         name = normalise_name(str(raw.get("name") or raw.get("label") or ""))
         if not pid and not name:
             continue
-        qty = raw.get("quantity", 1)
+        # `qty` FIRST, BECAUSE IT IS OUR OWN NAME FOR IT.
+        #
+        # `TillLineIn.qty` is the field OUR till API declares, and `line.model_dump()` hands this
+        # parser a dict keyed by it. Reading only `quantity` meant every line arrived as 1 — so the
+        # clearest group-basket signal we have, «two coffees on one bill», never once fired in
+        # production. `quantity` stays for the third-party tills that post to the batch endpoint
+        # directly, exactly as `label` stands beside `name` two lines up.
+        qty = raw.get("qty", raw.get("quantity", 1))
         amount = raw.get("amount_minor", raw.get("amount", 0))
         out.append(Line(product_id=pid, name=name,
                         quantity=int(qty) if isinstance(qty, (int, float)) else 1,
@@ -162,6 +176,7 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
                 res.renamed_services.append(found.id)
                 by_name[line.name] = found
             res.service_ids.append(found.id)
+            res.quantities[found.id] = res.quantities.get(found.id, 0) + max(1, line.quantity)
             continue
 
         if not auto_create:
@@ -180,5 +195,6 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
         by_name[svc.name] = svc
         res.service_ids.append(svc.id)
         res.created_services.append(svc.id)
+        res.quantities[svc.id] = res.quantities.get(svc.id, 0) + max(1, line.quantity)
 
     return res

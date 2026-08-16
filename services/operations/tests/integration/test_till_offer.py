@@ -162,3 +162,46 @@ def test_the_pseudonym_never_leaves(till_headers, client):
                       headers=till_headers["headers"]).text
 
     assert subject not in raw
+
+
+def test_two_coffees_on_one_bill_reach_the_group_basket_test(client, till_headers):
+    """THE WHOLE CHAIN, because it was broken in four places and each looked fine alone.
+
+    The till posts an invoice line with a count. That count has to survive:
+
+      1. `parse_lines`, which read `quantity` while our own model calls the field `qty`,
+      2. `resolve`, which returned service ids and dropped the counts,
+      3. the visit row, which had no field for them,
+      4. `/internal/operations/visits/since`, which never emitted the key insights reads.
+
+    Any one of the four breaks it, and NONE of them fails out loud: the map arrives empty,
+    `is_group_basket` says «one person», and a table of four teaches the association engine that
+    somebody drinks two coffees. The engine's own docstring calls this «the clearest evidence there
+    is»; it had never once fired.
+
+    So the assertion is at the END of the chain — the shape insights actually receives.
+    """
+    r = client.post("/api/v1/till/visits", headers=till_headers["headers"], json={
+        "visits": [{
+            "phone": "0501234567",
+            "invoice_id": "INV-9001",
+            "lines": [{"product_id": "P-COFFEE", "name": "قهوة", "qty": 2, "amount_minor": 1800}],
+        }],
+    })
+    assert r.status_code == 200, r.text
+    assert r.json().get("accepted") == 1, r.json()
+
+    feed = client.post("/internal/operations/visits/since",
+                       headers={"X-Internal-Token": "t" * 40},
+                       json={"tenant": till_headers["tenant"], "since": 0})
+    assert feed.status_code == 200, feed.text
+    visits = feed.json()["visits"]
+    assert visits, "the till's sale never reached the feed insights reads"
+
+    quantities = visits[-1]["quantities"]
+    assert quantities, "the count died somewhere between the till and insights"
+    assert max(quantities.values()) == 2
+
+    # AND THE VERDICT ITSELF, computed the way insights computes it — a repeated item is a group.
+    assert any(int(q) > 1 for q in quantities.values()), (
+        "a receipt with two of one item did not read as a group basket")

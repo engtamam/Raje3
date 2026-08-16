@@ -202,6 +202,10 @@ class Operations:
                            operator_id: str = "", branch_id: str = "", name: str = "",
                            plate: str = "", meter: int = 0, note: str = "",
                            idempotency_key: str = "", custom_service: str = "",
+                           # HOW MANY OF EACH SERVICE — an integrated till knows this and the field
+                           # screen does not, so empty is the ordinary case and not a gap. It is
+                           # read by exactly one thing: the group-basket test (§10.6.2).
+                           quantities: dict[str, int] | None = None,
                            occurred_at: int = 0,
                            allow_unknown_services: bool = False) -> RecordedVisit:
         if not tenant:
@@ -281,6 +285,11 @@ class Operations:
                       service_ids=list(service_ids), asset_id=asset_id, operator_id=operator_id,
                       branch_id=branch_id, meter=meter, note=note.strip(),
                       custom_service=custom_service.strip()[:200],
+                      # ONLY WHAT THIS VISIT ACTUALLY HELD. A count for a service that is not on
+                      # the visit would be a fact about nothing, and `is_group_basket` reads the
+                      # values alone — one stray entry would mark an honest receipt as a party.
+                      quantities={k: int(v) for k, v in (quantities or {}).items()
+                                  if k in set(service_ids) and int(v) > 0},
                       idempotency_key=idempotency_key, created=now,
                       occurred_at=_sane_occurred_at(occurred_at, now,
                                                                     self._max_backdate))

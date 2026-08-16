@@ -183,6 +183,14 @@ class Visit:
     # and because a name appearing here repeatedly is exactly the signal that it should become a
     # real catalogue entry.
     custom_service: str = ""
+    # HOW MANY OF EACH SERVICE THIS ONE VISIT HELD — empty for every visit recorded by hand, where
+    # the screen records the act and not a count, and that emptiness is correct rather than missing.
+    #
+    # IT EXISTS FOR ONE READER: the group-basket test (§10.6.2). Two coffees on one bill is one
+    # receipt and more than one person, and a receipt like that must be dropped from LEARNING while
+    # still counting as the real visit and real money it was. Without it the association engine
+    # learns «من طلب قهوة طلب قهوة» from a table of four.
+    quantities: dict[str, int] = field(default_factory=dict)
     idempotency_key: str = ""
     # TWO CLOCKS, kept separately and on purpose.
     #
