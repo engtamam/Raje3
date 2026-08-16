@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
+from app.adapters.branch_scope import DENIED
 from app.api.ratelimit import rate_limit
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
 from app.core.models import LoyaltyError, Overdraft
@@ -120,9 +121,14 @@ class RedeemIn(BaseModel):
     # Set by a manager approving a reward above the threshold (spec §9.5). Empty otherwise, and
     # the core decides whether that is allowed — not this model.
     approved_by: str = Field(default="", max_length=128)
-    # WHERE. Sent by the field screen, which knows which branch it is standing in. NOT taken from
-    # the token: an employee can work at more than one branch of the same establishment, so the
-    # token says which SHOP and only the screen knows which BRANCH.
+    # WHERE — AND IT IS NO LONGER SENT. This field said the screen knew which branch it stood in.
+    # It did not: `redeem()` in the console never passed one, so every redemption in a branched
+    # shop was filed under «غير محدَّد» while the till's were filed correctly, and «أيّ فرع يصرف
+    # أكثر؟» answered from half the data. Meanwhile loyalty holds no staff list, so whatever a
+    # caller DID send was written unchecked.
+    #
+    # The branch is now resolved from the person's own operator row, exactly as the visit path
+    # resolves it (spec 12.2). The field is kept so an old client is not rejected, and ignored.
     branch_id: str = Field(default="", max_length=64)
 
 
@@ -139,6 +145,17 @@ async def redeem(request: Request, body: RedeemIn,
     tenant = _tenant(principal)
     actor = getattr(principal, "subject", "") or ""
 
+    # HIS BRANCH, FROM HIS ROW — asked before anything is written, and refused if it cannot be
+    # had. Filing a spend under the wrong branch is not a display detail: the branch comparison is
+    # what an owner closes a place on.
+    branch_id = ""
+    resolver = getattr(c, "branch_scope", None)
+    if resolver is not None:
+        branch_id = await resolver.scope(tenant, actor)
+        if branch_id in DENIED:
+            return _refuse("تعذّر التحقق من فرعك الآن. أعد المحاولة بعد قليل.",
+                           status.HTTP_503_SERVICE_UNAVAILABLE)
+
     await request.app.state.auditor.record(
         "loyalty.redeemed", actor=actor, tenant=tenant, resource="redemption",
         ip=request.client.host if request.client else "")
@@ -147,7 +164,7 @@ async def redeem(request: Request, body: RedeemIn,
         rec, is_new = await c.redeemer.redeem(
             tenant, body.subject_ref, body.reward_id, actor=actor,
             idem_key=body.idempotency_key, channel="field",
-            approved_by=body.approved_by, branch_id=body.branch_id,
+            approved_by=body.approved_by, branch_id=branch_id,
             manager_threshold=await _threshold(c, tenant))
     except Overdraft as exc:
         return _refuse(str(exc), status.HTTP_409_CONFLICT)

@@ -273,4 +273,10 @@ def build_container(settings: Settings) -> Container:
     container.expiry = Expiry(container.datastore, container.ledger,
                               days=settings.EXPIRY_DAYS, warn_days=settings.EXPIRY_WARN_DAYS)
     container.notifier = Notifier(container.sender)
+
+    # WHERE A REDEMPTION HAPPENED. Resolved from the person's own operator row at operations —
+    # never from the request body, which nothing here could check (spec 12.2).
+    from app.adapters.branch_scope import build as build_scope
+
+    container.branch_scope = build_scope(settings)
     return container

@@ -249,6 +249,8 @@ class Settings(BaseSettings):
     # sends goes through here — there is no loyalty-shaped path to notification-service.
     REMINDERS_SEND_PATH: str = "/internal/reminders/send"
     OPERATIONS_SERVICE_URL: str = ""
+    # The branch a person may act for — asked of the only service that staffs the shop.
+    OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
     # THEIRS. Records the free service a reward bought, identified by PSEUDONYM — the route exists
     # precisely so this service never has to hold a phone number (spec §9.4).
     OPERATIONS_VISIT_PATH: str = "/internal/operations/visits/by-ref"

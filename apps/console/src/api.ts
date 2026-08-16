@@ -334,12 +334,17 @@ export function balanceFor(session: Session, subjectRef: string): Promise<Balanc
  * THE KEY IS REQUIRED BY THE ROUTE and minted here, at the press. A field phone retries, and a
  * retry without a key is a second spend the customer holds a receipt for.
  *
- * `branch_id` is the SCREEN's to send, never the token's: an employee can work at more than one
- * branch of the same establishment, so the token says which shop and only the screen knows where
- * it is standing.
+ * NO `branch_id`, AND THE PARAMETER IS GONE. This used to take one, on the reasoning that only the
+ * screen knows where it is standing. The screen does not: nothing in this app ever asked, no caller
+ * ever passed one, and every redemption made from here was filed under «غير محدَّد» — while the
+ * till's were filed correctly, so «أيّ فرع يصرف أكثر؟» was answered from half the shop.
+ *
+ * The branch is a fact about the PERSON, and loyalty now resolves it from his operator row, the
+ * same way the visit path always has (spec 12.2). Sending one from here would be a value nobody
+ * could check.
  */
 export function redeem(
-  session: Session, subjectRef: string, rewardId: string, branchId = '',
+  session: Session, subjectRef: string, rewardId: string,
 ): Promise<{ balance?: number; entry_id?: string; message?: string }> {
   return call(session, '/api/v1/loyalty/redeem', {
     method: 'POST',
@@ -347,7 +352,6 @@ export function redeem(
       subject_ref: subjectRef,
       reward_id: rewardId,
       idempotency_key: newIdempotencyKey(),
-      branch_id: branchId,
     }),
   });
 }

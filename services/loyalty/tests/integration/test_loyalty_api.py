@@ -321,20 +321,69 @@ def test_a_token_with_no_establishment_is_refused(client):
 
 
 # ── which branch (spec §12.2: one balance, and still a place it happened) ──────────────────────
-def test_a_redemption_records_which_branch_handed_it_over(client, owner, operator):
+class _Scope:
+    """Stands in for operations, the only service that knows who works where."""
+
+    def __init__(self, answer: str) -> None:
+        self.answer = answer
+
+    async def scope(self, tenant: str, subject: str) -> str:
+        return self.answer
+
+
+def test_a_redemption_records_the_branch_the_PERSON_works_at(client, owner, operator, monkeypatch):
+    """و-5 و و-9 معاً. The branch used to arrive in the body — and the field screen never sent one,
+    so every redemption in a branched shop was filed under «غير محدَّد» while the till's were filed
+    correctly. loyalty holds no staff list either, so whatever a caller DID send was written
+    unchecked. It is now resolved from his own operator row, and a body value is ignored."""
+    monkeypatch.setattr(client.app.state.container, "branch_scope",
+                        _Scope("riyadh-north"), raising=False)
     rid = _reward(client, owner, name="بسكويت", cost=15)
     _earn(client, points=100, visit="v-branch", subject="ref_branchcust01")
     r = client.post("/api/v1/loyalty/redeem",
                     json={"subject_ref": "ref_branchcust01", "reward_id": rid,
-                          "idempotency_key": "k-branch", "branch_id": "riyadh-north"},
+                          "idempotency_key": "k-branch", "branch_id": "jeddah-FAKE"},
                     headers=operator)
     assert r.status_code == 200, r.text
-    assert r.json()["redemption"]["branch_id"] == "riyadh-north"
+    assert r.json()["redemption"]["branch_id"] == "riyadh-north", (
+        "his row decides, not the body — which nothing here can check")
     # ON THE MOVEMENT TOO, because the ledger is the truth. A branch report built from receipts
     # alone would silently omit every earn and every expiry — neither of which has a receipt.
     hist = client.get("/api/v1/loyalty/history/ref_branchcust01", headers=operator).json()
     spend = next(e for e in hist["entries"] if e["reason"] == "redeem")
     assert spend["branch_id"] == "riyadh-north"
+
+
+def test_an_unreadable_branch_refuses_the_spend_rather_than_filing_it_nowhere(
+        client, owner, operator, monkeypatch):
+    """«تعذّر أن نسأل» ليست «بلا فرع». A spend filed under «غير محدَّد» is invisible to the
+    comparison an owner closes a place on."""
+    from app.adapters.branch_scope import UNREADABLE
+
+    monkeypatch.setattr(client.app.state.container, "branch_scope",
+                        _Scope(UNREADABLE), raising=False)
+    rid = _reward(client, owner, name="شاي", cost=5)
+    _earn(client, points=50, visit="v-unread", subject="ref_unreadcust01")
+    r = client.post("/api/v1/loyalty/redeem",
+                    json={"subject_ref": "ref_unreadcust01", "reward_id": rid,
+                          "idempotency_key": "k-unread"},
+                    headers=operator)
+    assert r.status_code == 503, r.text
+
+
+def test_a_stopped_employee_cannot_spend_a_customers_points(client, owner, operator, monkeypatch):
+    """His shop stopped him. That is a different fact from «we could not ask», and it refuses too."""
+    from app.adapters.branch_scope import REVOKED
+
+    monkeypatch.setattr(client.app.state.container, "branch_scope",
+                        _Scope(REVOKED), raising=False)
+    rid = _reward(client, owner, name="قهوة", cost=5)
+    _earn(client, points=50, visit="v-revoked", subject="ref_revokedcus1")
+    r = client.post("/api/v1/loyalty/redeem",
+                    json={"subject_ref": "ref_revokedcus1", "reward_id": rid,
+                          "idempotency_key": "k-revoked"},
+                    headers=operator)
+    assert r.status_code == 503, r.text
 
 
 def test_a_till_that_sends_no_branch_still_records_the_redemption(client, owner):
