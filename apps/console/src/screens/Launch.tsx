@@ -44,6 +44,12 @@ interface Goal {
   needs_enabling?: boolean;
   /** Whether this goal promises something — and therefore must name the day it stops. */
   offers?: boolean;
+  /**
+   * The blanks this goal's message has for HIM to fill, by kind and in order — `amount`,
+   * `catalogue`, `date`, `code`, `owner`. Read from the template this shop would actually send,
+   * so a shop that rewrote its own message gets its own blanks.
+   */
+  blanks?: string[];
 }
 
 interface Preview {
@@ -60,18 +66,30 @@ interface Preview {
 }
 
 /**
- * WHAT TO CALL HIS ONE FREE LINE (ط-4).
+ * DOES THIS GOAL'S MESSAGE HAVE A BLANK OF THIS KIND FOR HIM TO FILL? (ط-4)
  *
- * «سطرك في الرسالة» is a claim about where the words land, and for an offer goal it was false:
- * `mkt_offer`, `mkt_winback` and `mkt_personal_occasion` declare `fills` with no `owner` slot, so
- * this text never reaches the approved WhatsApp body no matter what he types — see the note beside
- * where this is rendered. What it DOES become, when he gives one, is the entitlement (أ-6): the
- * sentence the till and his own offer page read back to him at redemption, in place of our
- * generic «خصم 20% على غسيل خارجي». Naming that destination, pure so it is one thing this file can
- * be wrong about and a test can catch on its own.
+ * Meta approves the WORDS. The numbered blanks are the only thing a shop decides, and each one
+ * belongs to somebody: `system` is ours — his name, the shop, a balance — and never a question;
+ * `catalogue` is a tap on his own service list; `amount`/`code`/`date` are typed values with a
+ * shape we can check; `owner` is the single free blank, and only where the sentence has nothing
+ * but his own words to put there.
+ *
+ * WHAT THIS REPLACED. The screen drew a free text box for EVERY goal under «سطرك في الرسالة»,
+ * and decided the three typed fields from `offers` — a fact about the goal rather than about the
+ * message it sends. For four of the six goals that free line reached nothing: `mkt_offer` is «لك
+ * خصم {{3}} على {{4}}. ساري حتى {{5}}» and has no room for a sentence at all. He typed one,
+ * pressed launch, and never saw his words again. Nothing failed.
+ *
+ * Pure and exported so the rule is one thing a test can hold, rather than a condition spread
+ * across four JSX branches that only a rendered page could check.
  */
-export function ownerLineLabel(picked: { offers?: boolean }): string {
-  return picked.offers ? 'سطرك عند الصندوق' : 'سطرك في الرسالة';
+export function hasBlank(picked: { blanks?: string[]; goal?: string }, kind: string): boolean {
+  return (picked.blanks ?? []).includes(kind);
+}
+
+/** What to call the free blank, named by what it fills rather than by where it lands. */
+export function freeBlankLabel(goal: string): string {
+  return goal === 'announce' ? 'ما الجديد؟' : 'نصّ الرسالة';
 }
 
 interface Branch { id: string; name: string; active?: boolean }
@@ -209,44 +227,42 @@ export function Launch({ session, catalog, onDone }:
           <p className="text-sm text-text-secondary">{picked.behaviour}</p>
         ) : null}
 
-        {/* THE ONE FREE FIELD, AND ITS LIMIT IS THE SERVER'S. The counter read «/ 200» while the
-            server refused at 61 — so a shop wrote three lines, pressed, and was told to shorten
-            something the screen had just told it was fine. Sixty is the template's room.
+        {/* THE FREE BLANK — DRAWN ONLY WHERE THE MESSAGE HAS ONE (ط-4).
+            
+            This box used to appear for every goal, labelled «سطرك في الرسالة». Four of the six
+            goals send a template with no free slot at all — `mkt_offer` is «لك خصم {{3}} على
+            {{4}}. ساري حتى {{5}}», three typed values and no room for a sentence — so the owner
+            wrote one, launched, and his words reached nobody. Nothing failed anywhere.
 
-            THE LABEL LIES FOR AN OFFER GOAL (ط-4). The approved offer templates compose their
-            sentence from the amount, the services and the date — `fills` never names an `owner`
-            slot for `mkt_offer`/`mkt_winback`/`mkt_personal_occasion` — so this line never reaches
-            the WhatsApp text no matter what he types. What it DOES become, when he gives one, is
-            the entitlement (أ-6): the words the till and his own offer page show back to him when
-            he redeems it, replacing our generic «خصم 20% على غسيل خارجي». Naming that instead of
-            promising the message is the honest half of this fix; the other half — an `owner` slot
-            on the templates themselves — is a change to a Meta-approved template body and out of
-            what a console commit can ship. */}
-        <label className="flex flex-col gap-1">
-          <span className="text-sm">{ownerLineLabel(picked)}</span>
-          <textarea
-            value={ownerText}
-            maxLength={60}
-            rows={2}
-            onChange={(e) => { setOwnerText(e.target.value); setPreview(null); }}
-            placeholder="مثال: غسيل خارجي وداخلي"
-            className="rounded-lg bg-surface-2 p-3 text-sm"
-          />
-          <span className="text-xs text-text-secondary tabular-nums">
-            {ownerText.length} / 60
-          </span>
-          {picked.offers ? (
-            <span className="text-xs text-text-secondary">
-              يظهر هذا السطر عند صرف العرض في المحل وعلى صفحة العميل — لا داخل الرسالة نفسها.
+            Now the server says which blanks exist and this draws exactly those. The label names
+            what the blank FILLS rather than promising a place in the message: «ما الجديد؟» for
+            an announcement, whose whole content is that blank.
+
+            THE LIMIT IS THE SERVER'S. The counter read «/ 200» while the server refused at 61 —
+            a shop wrote three lines, pressed, and was told to shorten what the screen had just
+            called fine. Sixty is the template's room. */}
+        {hasBlank(picked, 'owner') ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">{freeBlankLabel(picked.goal)}</span>
+            <textarea
+              value={ownerText}
+              maxLength={60}
+              rows={2}
+              onChange={(e) => { setOwnerText(e.target.value); setPreview(null); }}
+              placeholder="مثال: افتتحنا فرعاً في حي الياسمين"
+              className="rounded-lg bg-surface-2 p-3 text-sm"
+            />
+            <span className="text-xs text-text-secondary tabular-nums">
+              {ownerText.length} / 60
             </span>
-          ) : null}
-        </label>
+          </label>
+        ) : null}
 
         {/* ── how much ────────────────────────────────────────────────────────────────────
             TWO BUTTONS AND A NUMBER, not a free field. He taps «نسبة» or «مبلغ» and types the
             number; we build «20%» or «50 ريال». A field that accepts anything accepts «خصم كبير»,
             and the send refuses it after he has already decided he is done. */}
-        {picked.offers ? (
+        {hasBlank(picked, 'amount') ? (
           <div className="flex flex-col gap-1">
             <span className="text-sm">قيمة الخصم</span>
             <div className="flex items-center gap-2">
@@ -284,7 +300,7 @@ export function Launch({ session, catalog, onDone }:
             NO DEFAULT, DELIBERATELY (§10.9.1). A date we picked is a date he honours at the till
             without having agreed to it — and «إلى متى؟» is the one question a customer asks about
             an offer. */}
-        {picked.offers ? (
+        {hasBlank(picked, 'date') ? (
           <label className="flex flex-col gap-1">
             <span className="text-sm">العرض ساري حتى</span>
             <input
@@ -303,7 +319,7 @@ export function Launch({ session, catalog, onDone }:
 
         {/* WHICH SERVICE, when the goal is about one. The cycle lock (§10.9.1) holds back whoever
             took it too recently — and it can only do that if the campaign names the service. */}
-        {picked.goal === 'service_offer' ? (
+        {hasBlank(picked, 'catalogue') ? (
           <label className="flex flex-col gap-1">
             <span className="text-sm">على أي خدمة؟</span>
             <select
