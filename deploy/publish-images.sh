@@ -33,6 +33,21 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+
+# META'S THREE VALUES REACH THE CONSOLE AT BUILD TIME OR NOT AT ALL.
+#
+# Vite inlines `import.meta.env.*` into the bundle, so these cannot be set on the pod the way every
+# service setting is: an image built without them cannot be configured later, and the screen
+# correctly says «الربط غير مُفعَّل بعد» for ever. They were declared in the Dockerfile and passed
+# by nothing — a setting nobody could supply, which is the shape this repo keeps finding.
+#
+# NOT IN GIT, and read from the same file the ship already reads: they are an operator's own
+# application credentials. Absent is a valid state — the button then says so honestly.
+[ -f "$ROOT/deploy/target.env" ] && . "$ROOT/deploy/target.env"
+META_ARGS=()
+for v in VITE_META_APP_ID VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION VITE_META_SIGNUP_VERSION; do
+  [ -n "${!v:-}" ] && META_ARGS+=(--build-arg "$v=${!v}")
+done
 OWNER="${GHCR_OWNER:-engtamam}"
 REG="ghcr.io/$OWNER/raje3"
 
@@ -66,7 +81,9 @@ LOGS="$(mktemp -d)"; trap 'rm -rf "$LOGS"' EXIT
 one(){
   local name="$1" d=""
   {
-    docker build -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" || exit 1
+    # `${META_ARGS[@]+"${META_ARGS[@]}"}` — empty-array expansion that survives `set -u`, which is
+    # on. Every other image ignores the args it was not asked about.
+    docker build ${META_ARGS[@]+"${META_ARGS[@]}"}       -t "$REG/$name:$COMMIT" -t "$REG/$name:latest" -f "$(dfl "$name")" "$(ctx "$name")" || exit 1
     docker push "$REG/$name:$COMMIT" || exit 1
     docker push "$REG/$name:latest"  || true
     # ASK THE REGISTRY, DO NOT READ THE LOCAL IMAGE. RepoDigests is empty for an image built from

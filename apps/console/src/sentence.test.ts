@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApiError, sentenceFor } from './api';
 
 /** A cashier with a customer in front of him cannot act on a route or a status code.
@@ -46,5 +46,27 @@ describe('sentenceFor keeps a sentence written for a person, whoever threw it', 
   it('still refuses a Latin log line from those same throwers', () => {
     expect(sentenceFor(new Error('POST /api/v1/signup → 409'), 'تعذّر إنشاء الحساب.'))
       .toBe('تعذّر إنشاء الحساب.');
+  });
+});
+
+/** Embedded Signup v2 dies 15 October 2026. v4 is chosen by the Facebook Login for Business
+ *  configuration behind `config_id`, NOT by anything in our code — and the docs are explicit that
+ *  «the extras object is purposely empty for v4». So the two must move together, from the same
+ *  deployment, or the popup opens for one version while the console asks for another. */
+describe('the Embedded Signup version travels with the configuration', () => {
+  it('sends nothing but setup for v4, and the v3 shape otherwise', async () => {
+    const load = async (v: string | undefined) => {
+      vi.resetModules();
+      vi.stubEnv('VITE_META_SIGNUP_VERSION', v ?? '');
+      return (await import('./meta')).signupExtras();
+    };
+
+    expect(await load('v4')).toEqual({ setup: {} });
+
+    for (const older of [undefined, 'v3']) {
+      const extras = await load(older);
+      expect(extras).toEqual({ setup: {}, featureType: '', sessionInfoVersion: '3' });
+    }
+    vi.unstubAllEnvs();
   });
 });

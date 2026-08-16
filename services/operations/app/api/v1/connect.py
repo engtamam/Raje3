@@ -48,6 +48,16 @@ class SignupResultIn(BaseModel):
     # default mode. Ignored entirely while the shop is central: see `sending_identity.resolve`,
     # which drops it rather than letting one screen decide differently from another.
     branch_id: str = Field(default="", max_length=64)
+    # WHAT META SAID WHEN THE OWNER REPORTED A PROBLEM FROM INSIDE THE POPUP (Embedded Signup v4
+    # sends `error_message` / `error_code` on that CANCEL). The popup is Meta's window and we
+    # cannot see into it, so this is the only account of a failure that had a stated cause.
+    #
+    # HELD, NEVER SHOWN. It is English and it is theirs — `Attempt.public()` does not carry
+    # `detail`, and `sentence_for` writes the owner's sentence in Arabic from the STATE. Support
+    # reads this to answer «why did the connect fail on Thursday» instead of guessing from a step.
+    #
+    # AND IT IS THE BROWSER'S WORD, so it is bounded and never interpreted: nothing branches on it.
+    detail: str = Field(default="", max_length=400)
 
 
 @router.post("/connect", dependencies=[Depends(rate_limit)])
@@ -83,7 +93,13 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     if (body.event or "").upper() == "CANCEL":
         state = connect.classify_cancel(body.step)
         attempt = await store.record(connect.Attempt(
-            tenant=tenant, state=state, step=(body.step or "").upper(), branch_id=branch_id))
+            tenant=tenant, state=state, step=(body.step or "").upper(), branch_id=branch_id,
+            # WHAT META SAID, WHEN META SAID ANYTHING. Embedded Signup v4 sends `error_message`
+            # and `error_code` on the CANCEL an owner raises from inside the popup — and that
+            # popup is Meta's window, so this is the only account of a failure we can ever get.
+            # Without it, «توقف عند خطوة الصلاحيات» was the whole record of a connect that failed
+            # for a stated reason nobody kept.
+            detail=body.detail))
         await request.app.state.auditor.record(
             "whatsapp.connect_stopped", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource="whatsapp_connection", ip=ip)

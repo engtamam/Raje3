@@ -38,6 +38,34 @@ const SRC = 'https://connect.facebook.net/en_US/sdk.js';
  */
 const VERSION = import.meta.env.VITE_META_GRAPH_VERSION || 'v21.0';
 
+/**
+ * WHICH EMBEDDED SIGNUP THE POPUP OPENS — and it is READ, never decided here.
+ *
+ * Meta retires v2 on 15 October 2026. The successor, v4, is NOT selected by anything in this file:
+ * it is decided by the Facebook Login for Business configuration behind `config_id`, and the docs
+ * are explicit that «the extras object is purposely empty for v4». Earlier versions are the
+ * opposite — they are told which shape to use through `extras`.
+ *
+ * SO THE TWO MUST AGREE, AND ONLY THE DEPLOYMENT KNOWS. The day a new configuration id is pasted
+ * in, this value moves with it in the same file — one deploy, no code change, and no window in
+ * which the popup is opened for one version while the console asks for another. Hardcoding either
+ * half here would make the switch a release rather than a setting.
+ */
+const SIGNUP_VERSION = import.meta.env.VITE_META_SIGNUP_VERSION || 'v3';
+
+/**
+ * The `extras` for `FB.login`, for the version this deployment is configured against.
+ *
+ * `setup: {}` in both: it is where a pre-filled business profile would go, and we pre-fill nothing
+ * — the owner's own details are his to type, and a wrong guess costs him a correction inside a
+ * popup he cannot leave.
+ */
+export function signupExtras(): Record<string, unknown> {
+  if (SIGNUP_VERSION === 'v4') return { setup: {} };
+  // v3 and earlier: the flow needs to be told which payload shape to post back.
+  return { setup: {}, featureType: '', sessionInfoVersion: '3' };
+}
+
 let pending: Promise<SdkState> | null = null;
 
 export function metaSdk(): MetaSdk | null {

@@ -20,7 +20,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { action, call, type Catalog } from '../catalog';
-import { loadMetaSdk, metaSdk, type SdkState } from '../meta';
+import { loadMetaSdk, metaSdk, signupExtras, type SdkState } from '../meta';
 import type { Session } from '../session';
 
 interface ConnectState {
@@ -39,7 +39,12 @@ interface ConnectState {
 interface SignupMessage {
   type?: string;
   event?: string;
-  data?: { code?: string; waba_id?: string; phone_number_id?: string; business_id?: string; current_step?: string };
+  // `error_message` and `error_code` arrive on the CANCEL that Meta sends when the OWNER reports a
+  // problem from inside the popup (v4). They are the only account we get of what he saw — the
+  // popup is Meta's window and we cannot look into it — so dropping them leaves «تعذّر إكمال
+  // الربط» as the whole story for a failure that had a stated cause.
+  data?: { code?: string; waba_id?: string; phone_number_id?: string; business_id?: string;
+           current_step?: string; error_message?: string; error_code?: string };
 }
 
 export function Connect({
@@ -99,6 +104,12 @@ export function Connect({
           phone_number_id: msg.data?.phone_number_id ?? '',
           business_id: msg.data?.business_id ?? '',
           step: msg.data?.current_step ?? '',
+          // WHAT META SAID, IF IT SAID ANYTHING. Kept by operations beside the attempt (never
+          // shown to the owner — it is English and it is theirs), so support can answer «why did
+          // the connect fail on Thursday» instead of guessing from a step name.
+          detail: msg.data?.error_message
+            ? `${msg.data.error_code ?? ''} ${msg.data.error_message}`.trim().slice(0, 400)
+            : '',
         });
         onChange(answer);
       } catch (e) {
@@ -217,7 +228,7 @@ export function Connect({
                 config_id: import.meta.env.VITE_META_CONFIG_ID,
                 response_type: 'code',
                 override_default_response_type: true,
-                extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
+                extras: signupExtras(),
               });
             }}
           >

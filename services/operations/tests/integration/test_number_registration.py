@@ -159,3 +159,37 @@ def test_a_shop_that_never_connected_is_told_to_connect_first(client, monkeypatc
     assert r.status_code == 400
     assert "أكمل ربط واتساب أولاً" in r.json()["message"]
     assert fake.calls == [], "nothing may travel for a shop with no stored token"
+
+
+def test_metas_own_reason_for_a_stopped_connect_is_kept(client, owner_headers):
+    """The popup is Meta's window and we cannot look into it.
+
+    Embedded Signup v4 sends `error_message` and `error_code` on the CANCEL an owner raises from
+    inside that popup — the ONLY account we will ever get of a failure that had a stated cause.
+    Without it the whole record of the attempt was «he stopped at the permissions step», and
+    support had to guess.
+
+    HELD, NEVER SHOWN. It is English and it is Meta's; the owner's sentence is written in Arabic
+    from the STATE, and `Attempt.public()` does not carry `detail` at all.
+    """
+    from app.core import connect
+
+    r = client.post("/api/v1/whatsapp/connect", headers=owner_headers, json={
+        "event": "CANCEL", "step": "PHONE_NUMBER_SELECTION",
+        "detail": "132000 Business verification required"})
+
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "detail" not in body, "Meta's English reached the owner's screen"
+    assert not any(ch.isascii() and ch.isalpha() for ch in body.get("message", "")), body
+
+    store = connect.ConnectionStore(client.app.state.container.datastore)
+    held = _run(store.get("tnt_reg"))
+    assert held is not None
+    assert held.detail == "132000 Business verification required", (
+        "the only account of why this connect failed was dropped")
+
+
+def _run(coro):
+    import asyncio
+    return asyncio.run(coro)
