@@ -914,3 +914,63 @@ def test_todays_customers_strip_is_narrowed_to_his_branch(client):
     got = {c["id"] for c in r.json()["customers"]}
     assert "c_ryd" not in got, "another branch's customers, by name and phone"
     assert "c_jed" in got and "c_none" in got
+
+
+# ── a name on a visit must be a name somebody proved (و-4) ─────────────────────────────────────
+
+
+def _operator_with_pin(client, tenant: str, oid: str, pin: str, branch: str = "") -> None:
+    import asyncio
+
+    from app.api.v1.staff import _pin_hash
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    op = Operator(id=oid, tenant=tenant, name="فنّي", role="operator",
+                  branch_id=branch, active=True)
+    op.pin_hash = _pin_hash("s" * 32, tenant, oid, pin)
+    asyncio.run(OperatorStore(client.app.state.container.datastore).save(op))
+
+
+def test_verify_pin_issues_a_ticket_and_not_only_a_name(client):
+    _operator_with_pin(client, "t_tkt", "opr_t1", "4321")
+    r = client.post("/api/v1/staff/operators/verify-pin",
+                    json={"operator_id": "opr_t1", "pin": "4321"},
+                    headers=_auth("operations.read", tenant="t_tkt"))
+    assert r.status_code == 200, r.text
+    assert r.json()["ticket"], "confirming who is saving and issuing nothing was the whole defect"
+
+
+def test_a_ticket_proves_one_operator_and_not_another(client):
+    """The signature covers the id, so a device that holds one man's ticket cannot file work
+    against his colleague — which is how another BRANCH's numbers used to be reachable."""
+    from app.core import operator_ticket as OT
+
+    mine = OT.issue("s" * 32, "t_tkt", "opr_t1")
+    assert OT.verifies("s" * 32, "t_tkt", "opr_t1", mine)
+    assert not OT.verifies("s" * 32, "t_tkt", "opr_OTHER", mine)
+    assert not OT.verifies("s" * 32, "t_OTHER", "opr_t1", mine)
+    # AND IT EXPIRES. A tablet left on a counter stops being somebody's signature.
+    stale = OT.issue("s" * 32, "t_tkt", "opr_t1", now=0, ttl=1)
+    assert not OT.verifies("s" * 32, "t_tkt", "opr_t1", stale, now=10)
+
+
+def test_an_unproven_operator_is_dropped_and_the_visit_still_records(client):
+    """The visit is the product: losing it costs a customer, losing the attribution costs a column.
+    What must never happen is the attribution being wrong — the branch is read off this field."""
+    import asyncio
+
+    from app.core.stores import ServiceStore
+
+    _operator_with_pin(client, "t_drop", "opr_jed", "1111", branch="brn-jeddah")
+    asyncio.run(ServiceStore(client.app.state.container.datastore).save(
+        __import__("app.core.models", fromlist=["Service"]).Service(
+            id="svc_x", tenant="t_drop", name="غسيل", price_minor=1000)))
+
+    r = client.post("/api/v1/field/visits",
+                    json={"phone": "0501234599", "service_ids": ["svc_x"],
+                          "operator_id": "opr_jed"},
+                    headers=_auth("operations.record", tenant="t_drop"))
+    assert r.status_code == 201, r.text
+    assert r.json()["visit"]["operator_id"] == "", "a name nobody proved must not be written"
+    assert r.json()["visit"]["branch_id"] == "", "and it must not carry his branch either"

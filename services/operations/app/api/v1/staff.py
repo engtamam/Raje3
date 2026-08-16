@@ -35,6 +35,7 @@ from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.models import Branch, Operator, Service
 from app.core import branches as B
+from app.core import operator_ticket as OT
 from app.core import seats as S
 from app.core import shop_mode as SM
 from app.core.signup import SignupRefused
@@ -330,7 +331,12 @@ async def verify_pin(request: Request, body: PinVerifyIn,
             ip=request.client.host if request.client else "")
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "PIN_REJECTED")
 
-    return {"operator": op.public()}
+    # AND IT ISSUES THE PROOF, which it never used to. Confirming an operator and then handing back
+    # only his name left the visit that followed to name whoever it liked in `operator_id` — and
+    # that field decides which BRANCH the work is filed under. See core/operator_ticket.py.
+    return {"operator": op.public(),
+            "ticket": OT.issue(settings.PII_SALT, tenant, body.operator_id),
+            "ticket_ttl": OT.TTL_SECONDS}
 
 
 # ── how this establishment runs its branches ──────────────────────────────────────────────────

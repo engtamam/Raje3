@@ -27,6 +27,7 @@ from app.api import scope as SCOPE
 from app.api.scope import branch_scope
 from app.config import get_settings
 from app.core import erase_customer as E
+from app.core import operator_ticket as OT
 from app.core import plate as P
 from app.core.operations import OperationError, Operations
 
@@ -64,6 +65,15 @@ class VisitIn(BaseModel):
     # Vehicle sectors only. A salon never sends it, and the screen never shows the field.
     plate: str = Field(default="", max_length=32)
     operator_id: str = Field(default="", max_length=64)
+    # THE PROOF THAT `operator_id` IS HIS TO CLAIM (و-4). `verify-pin` establishes who is saving
+    # and used to hand back only a name, so this field was a free string: a device could file its
+    # work against any operator in the shop — and `_branch_for` reads exactly this field to decide
+    # which BRANCH the visit belongs to, so the branch numbers moved with it. That is the same hole
+    # `_branch_for`'s own note describes closing, one field to the left.
+    #
+    # Empty is allowed and means «no person» — the till sends none, and a shop that never set PINs
+    # records visits with no operator at all. What is refused is a NAME WITHOUT A TICKET.
+    operator_ticket: str = Field(default="", max_length=200)
     branch_id: str = Field(default="", max_length=64)
     meter: int = Field(default=0, ge=0, le=10_000_000)
     note: str = Field(default="", max_length=1000)
@@ -101,6 +111,18 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
         # entire value of the answer to the person holding the phone.
         return {"recorded": False, "reason": P.REFUSAL, "field": "plate"}
 
+    # ── A NAME ON THE VISIT MUST BE A NAME SOMEBODY PROVED (و-4) ──────────────────────────────
+    # `verify-pin` now issues a short-lived signed ticket for the operator it confirmed, and this
+    # is where the two halves finally meet. An unproven name is dropped rather than refused: the
+    # visit is the product and losing it costs the shop a customer, while losing the attribution
+    # costs it a column. What must never happen is the attribution being WRONG — «من سجّل هذه
+    # الزيارة» and «في أي فرع» are both read off this field.
+    operator_id = body.operator_id.strip()
+    if operator_id and not OT.verifies(
+            request.app.state.container_settings.PII_SALT, tenant, operator_id,
+            body.operator_ticket):
+        operator_id = ""
+
     # Write-ahead. Critical: a visit the log cannot witness must not happen.
     await request.app.state.auditor.record(
         "visit.recorded", actor=principal.subject, tenant=tenant, resource="visit",
@@ -109,7 +131,7 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     try:
         result = await _svc(request).record_visit(
             tenant=tenant, phone=body.phone, service_ids=body.service_ids, name=body.name,
-            plate=body.plate, operator_id=body.operator_id, branch_id=body.branch_id,
+            plate=body.plate, operator_id=operator_id, branch_id=body.branch_id,
             meter=body.meter, note=body.note, custom_service=body.custom_service,
             idempotency_key=body.idempotency_key)
     except OperationError as exc:
