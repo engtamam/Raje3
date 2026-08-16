@@ -116,3 +116,29 @@ def test_the_rendered_page_can_never_carry_an_identifier():
     src = inspect.getsource(render_page)
     for field in ("phone", "subject_ref", "customer_id", "operator", "amount"):
         assert field not in src
+
+
+# ── TRAP 6: a peer's outage rendered as a JSON blob to a customer exercising a legal right ─────
+def test_the_privacy_request_survives_an_unreachable_operations():
+    """THE DEFECT. `HttpOperations.privacy_request` lets a urllib error propagate, and the call had
+    nothing around it. So a restarting operations pod reached the app-wide handler, which answers
+    `{"error":"INTERNAL_ERROR"}` with a 500 — JSON rendered into a CUSTOMER's browser, on the page
+    he opened from a WhatsApp message, on the one action that is his right under the PDPL. He
+    cannot tell whether his request was recorded, and the thirty-day clock never starts.
+
+    The honest sentence was already written four lines below and simply could not be reached.
+
+    ASSERTED ON THE SOURCE, in this file's own idiom (see TRAP 2): the failure is a network error
+    from a peer built at container time, and a test that stubs the peer proves the stub is
+    catchable rather than that the call site catches."""
+    import ast
+    import inspect
+
+    import app.api.page as mod
+
+    tree = ast.parse(inspect.getsource(mod.ask_about_data))
+    guarded = [n for n in ast.walk(tree) if isinstance(n, ast.Try)
+               for c in ast.walk(n) if isinstance(c, ast.Attribute) and c.attr == "privacy_request"]
+    assert guarded, "the peer call is unguarded — an outage renders INTERNAL_ERROR to the customer"
+    # AND THE FALLBACK IS THE SENTENCE, not a silent success: `ok` must end up False.
+    assert "تعذّر تسجيل طلبك الآن" in inspect.getsource(mod.ask_about_data)

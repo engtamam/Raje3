@@ -314,6 +314,11 @@ def build_container(settings: Settings) -> Container:
         partners=PartnerRegistry(container.datastore, salt=settings.PII_SALT),
         owner_role=settings.SIGNUP_OWNER_ROLE,
         otp_deliverable=settings.SIGNUP_OTP_DELIVERABLE,
+        # AN INCOMPLETE DATA MAP MUST BE AUDIBLE. A shop registered while compliance was briefly
+        # unreachable for ONE entry keeps a map missing that service for ever — and every later
+        # erasure then closes as COMPLETED while a whole service's copy is untouched. The failure
+        # used to be a string in a response body nobody reads.
+        telemetry=container.telemetry,
         require_otp=settings.SIGNUP_REQUIRE_OTP)
     # WHO CAN ANSWER FOR CONSENT AND FOR WHAT WENT OUT. None when reminders is not configured,
     # and the evidence file says so rather than showing an empty section (core/evidence.py).

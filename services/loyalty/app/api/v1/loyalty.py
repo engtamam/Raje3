@@ -335,7 +335,15 @@ class GeneralIn(BaseModel):
     points: int = Field(ge=0, le=100_000)
     # The manager-approval threshold (spec §9.5), kept at the general level because it is one
     # number for the whole establishment rather than a per-service one.
-    manager_threshold: int = Field(default=0, ge=0, le=1_000_000)
+    #
+    # `None` MEANS «LEAVE IT», AND 0 MEANS «REMOVE THE REQUIREMENT» — two different intentions that
+    # `default=0` collapsed into one value. The write was guarded by `if body.manager_threshold:`,
+    # so an owner who set 500 and then decided his operators should redeem freely sent 0, got a
+    # 200, and saw the response echo 500 back at him: the screen reported the change as accepted
+    # while every reward over 500 kept demanding an approval. Writing it unconditionally instead
+    # would have been the opposite bug — every request that only changes `points` would silently
+    # clear the threshold. So the field carries the three states it actually has.
+    manager_threshold: int | None = Field(default=None, ge=0, le=1_000_000)
 
 
 class GroupIn(BaseModel):
@@ -378,10 +386,13 @@ async def set_general(request: Request, body: GeneralIn,
     c = request.app.state.container
     tenant = _tenant(principal)
     tree = await c.earn_settings.set_general(tenant, {"points": body.points})
-    if body.manager_threshold:
+    if body.manager_threshold is not None:
         # Stored on the same row but outside the inheriting FIELDS — it is not a per-service
         # value, and putting it in the tree would make it inheritable, which it is not.
-        tree.general["manager_threshold"] = body.manager_threshold
+        #
+        # `is not None`, never truthiness: 0 is a decision — «no reward needs approval» — and the
+        # truthiness test silently discarded exactly that one.
+        tree.general["manager_threshold"] = int(body.manager_threshold)
         await c.earn_settings._save(tree)        # noqa: SLF001 — same module's storage shape
     return {"general": tree.general}
 

@@ -168,7 +168,7 @@ class SignupService:
                  partners=None,
                  owner_role: str = "owner",
                  default_cc: str = "966", otp_deliverable: bool = False,
-                 require_otp: bool = True) -> None:
+                 require_otp: bool = True, telemetry=None) -> None:
         self._store = store
         self._sectors = sectors
         self._http = http
@@ -185,6 +185,10 @@ class SignupService:
         self._data_map = list(data_map or [])
         self._roles = list(roles or [])
         self._partners = partners
+        # AN INCOMPLETE DATA MAP HAS TO BE AUDIBLE SOMEWHERE. See `_register_data_map`: it was
+        # returned as a string in a response body nobody reads, and the consequence is a PDPL
+        # erasure that reports COMPLETED while a whole service's copy is never touched.
+        self._telemetry = telemetry
         self._claims = CL.Claims(store)
         self._owner_role = owner_role
         self._cc = default_cc
@@ -352,6 +356,23 @@ class SignupService:
                       "category": category.strip()})
             if status >= 300:
                 failed.append(f"{entry}={status}")
+
+        # SAID OUT LOUD, because the alternative is the quietest compliance failure we have.
+        #
+        # This used to return a string into the signup response and stop there — no audit row, no
+        # telemetry, no screen. A shop registered while compliance was briefly unreachable for ONE
+        # entry keeps a data map missing that service for ever. Every later erasure then fans out
+        # to the registered targets only, all of them acknowledge, and `derive_completion` closes
+        # the request as COMPLETED — while the customer's records in the missing service are never
+        # touched. The customer is told his data is gone. It is not.
+        #
+        # A REPAIR IS POSSIBLE AND CHEAP; noticing was the missing half.
+        if failed and self._telemetry is not None:
+            try:
+                self._telemetry.event("data_map_incomplete", tenant=tenant,
+                                      missing=", ".join(failed)[:200], count=len(failed))
+            except Exception:                                               # noqa: BLE001
+                pass        # a telemetry failure must not fail a signup
         return ", ".join(failed)[:400]
 
     # ── hiring somebody into a shop that already exists ──────────────────────────────────────

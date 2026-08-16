@@ -46,6 +46,11 @@ interface Series {
 }
 interface Dashboard {
   computing: boolean;
+  /** His BRANCH has no visits yet — which is not «we are still computing». The sweep derives its
+   *  branch list from the visits themselves, so a branch that has never recorded one has no
+   *  snapshot and never will until it does; telling its manager that work is in progress makes him
+   *  refresh for ever on his first day. */
+  empty_branch?: boolean;
   message?: string;
   values: Record<string, unknown>;
   audience?: { consented: number; message: string } | null;
@@ -424,6 +429,16 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
       setRefreshing(false);
     }
   };
+
+  if (data.empty_branch) {
+    // WAITING ON HIM, NOT ON US — and «احسبها الآن» is deliberately absent: recomputing produces
+    // the same nothing, and offering the button would teach him to press it and be disappointed.
+    return (
+      <div className="p-4">
+        <EmptyState title="فرعك لم يبدأ بعد" description={data.message || ''} />
+      </div>
+    );
+  }
 
   if (data.computing) {
     // NOT AN EMPTY DASHBOARD. A first-day shop that sees zeros concludes the product does not

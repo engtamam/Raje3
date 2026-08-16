@@ -141,7 +141,21 @@ async def ask_about_data(request: Request, ref: str) -> Response:
     kind = (urllib.parse.parse_qs(raw).get("ask") or [""])[0]
     ok = False
     if kind in ("export", "erase"):
-        ok = await c.operations.privacy_request(r.tenant, r.subject_ref, kind)
+        # THE PEER'S FAILURE IS AN ANSWER, NOT A CRASH — and this call had nothing around it.
+        #
+        # `HttpOperations.privacy_request` lets a urllib error propagate, so a restarting or slow
+        # operations pod reached the app-wide handler, which answers `{"error":"INTERNAL_ERROR"}`
+        # with a 500 — a JSON blob rendered into a CUSTOMER's browser, on the page he opened from a
+        # WhatsApp message, on the one action that is his legal right. He cannot tell whether his
+        # request was recorded, and the thirty-day clock never starts.
+        #
+        # The honest sentence was already written four lines below and simply could not be reached:
+        # «تعذّر تسجيل طلبك الآن … ولم يتغيّر شيء في بياناتك» — which is true, and is what he needs
+        # to know in order to try again.
+        try:
+            ok = await c.operations.privacy_request(r.tenant, r.subject_ref, kind)
+        except Exception:                                                   # noqa: BLE001
+            ok = False
 
     built = await c.composer.build(r.tenant, r.subject_ref)
     theme = build_theme(built.brand_colour)

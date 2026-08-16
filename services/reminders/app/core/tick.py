@@ -413,7 +413,21 @@ class Tick:
             # A campaign message is always deferrable — see the 8.4.3 table, where every mkt_* is
             # `defer`. It goes when the ceiling opens; nobody is waiting for an offer.
             await self._quota.release(tenant=tenant, idempotency_key=key)
-            return {"sent": False, "reason": f"سقف واتساب اليومي ({exc.code}) — سترسل تلقائياً"}
+            # «سترسل تلقائياً» WAS A PROMISE NOTHING KEPT, and this is the campaign path.
+            #
+            # `send_one`'s own docstring two hundred lines up says it: a campaign message has no
+            # schedule to close, «it is decided, sent, and recorded, and nothing waits for it». So
+            # there was no row for anything to retry, the subject was never written to the reached
+            # set, and no queue held him. A shop near its ceiling read «سترسل تلقائياً» beside a
+            # hundred and forty customers, waited, and the offer expired unsent.
+            #
+            # WHAT IS TRUE — and it is better news than the lie was: pressing send again continues
+            # from where it stopped. `_already_reached` means the second pass contacts only the
+            # remainder, so nobody is messaged twice and the owner keeps the decision about a
+            # marketing send, which is the whole reason a manual campaign is manual.
+            return {"sent": False,
+                    "reason": f"سقف واتساب اليومي ({exc.code}) — لم تُرسل. أعد الإرسال غداً "
+                              f"وتُكمل من حيث توقّفت دون تكرار على أحد."}
         except Exception:
             # Every other failure — a template still in Meta's review, a peer down — is transient
             # and retried. It must not be charged either.

@@ -123,6 +123,24 @@ async def dashboard(request: Request, branch_id: str = "",
         except Exception:               # noqa: BLE001 — a failed compute is not a failed screen
             snap = None
         if not snap:
+            # A BRANCH WITH NO VISITS IS NOT A COMPUTATION IN PROGRESS.
+            #
+            # The sweep derives its branch list FROM THE VISITS, so a branch that has never
+            # recorded one has no snapshot and never will until it does. Its manager — hired the
+            # day the branch opened, which is exactly when this happens — was told «أحسب مؤشرات
+            # محلك الآن — حدّث الصفحة بعد قليل» on every open, for ever. The sentence promises work
+            # in progress, so he refreshes, and refreshes, and concludes the product is broken on
+            # his first day.
+            #
+            # THE HONEST ANSWER NAMES HIS BRANCH AND WHAT IT IS WAITING FOR — a visit, which he is
+            # the one who can record. «لا توجد بيانات» and «أحسب الآن» are different states and
+            # collapsing them is the same three-state failure as an empty list standing in for a
+            # failed read.
+            if branch_id:
+                return {"computing": False, "empty_branch": True,
+                        "message": "لا توجد زيارات مسجّلة في فرعك بعد — سجّل أول زيارة "
+                                   "وتظهر مؤشرات الفرع فوراً.",
+                        "values": {}, "as_of": 0}
             return {"computing": True,
                     "message": "أحسب مؤشرات محلك الآن — حدّث الصفحة بعد قليل",
                     "values": {}, "as_of": 0}

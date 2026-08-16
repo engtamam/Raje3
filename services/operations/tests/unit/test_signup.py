@@ -222,6 +222,12 @@ def test_a_new_shop_gets_a_data_map_so_a_dsar_has_somewhere_to_go():
     svc._data_map = ["operations:visits", "loyalty:points", "broken"]
     svc._http = Http()
 
+    class Telemetry:
+        def __init__(self): self.events = []
+        def event(self, name, **kw): self.events.append((name, kw))
+
+    svc._telemetry = Telemetry()
+
     failed = asyncio.run(svc._register_data_map("tnt_x"))
 
     assert len(calls) == 2, "a malformed entry must not become a request"
@@ -229,3 +235,60 @@ def test_a_new_shop_gets_a_data_map_so_a_dsar_has_somewhere_to_go():
     # AND THE BAD ONE IS REPORTED, not swallowed: a list that drifts from what is deployed is
     # exactly the thing that leaves a shop half-covered while everything looks fine.
     assert "broken" in failed
+
+
+def test_an_incomplete_data_map_is_said_out_loud_not_returned_into_a_body_nobody_reads():
+    """The quietest compliance failure we have.
+
+    Compliance is unreachable for one entry during signup. The shop is created anyway, with a map
+    that omits that service FOR EVER — and every later erasure fans out to the registered targets
+    only, all of them acknowledge, and `derive_completion` closes the request as COMPLETED while
+    the customer's records in the missing service are never touched. He is told his data is gone.
+
+    Before this, the only trace was a string in the signup response body. No screen read it, no
+    audit row held it, no telemetry carried it. A repair is cheap; NOTICING was the missing half.
+    """
+    import asyncio
+
+    class Http:
+        def call(self, url, method="GET", body=None, internal=False, **kw):
+            return (503, {}) if body.get("service") == "loyalty" else (201, {})
+
+    class Telemetry:
+        def __init__(self): self.events = []
+        def event(self, name, **kw): self.events.append((name, kw))
+
+    svc = SignupService.__new__(SignupService)
+    svc._compliance = "http://compliance:8000"
+    svc._data_map = ["operations:visits", "loyalty:points"]
+    svc._http = Http()
+    svc._telemetry = Telemetry()
+
+    failed = asyncio.run(svc._register_data_map("tnt_x"))
+
+    assert "loyalty" in failed
+    assert svc._telemetry.events, "an incomplete data map that nothing reports is an absent one"
+    name, kw = svc._telemetry.events[0]
+    assert name == "data_map_incomplete"
+    assert kw["tenant"] == "tnt_x" and kw["count"] == 1
+    assert "loyalty" in kw["missing"], "the event must name WHICH service is uncovered"
+
+
+def test_telemetry_is_optional_so_a_missing_seam_never_fails_a_signup():
+    """Reporting a failure must not become a second failure."""
+    import asyncio
+
+    class Http:
+        def call(self, url, method="GET", body=None, internal=False, **kw):
+            return 503, {}
+
+    class Angry:
+        def event(self, *a, **kw): raise RuntimeError("collector down")
+
+    for tele in (None, Angry()):
+        svc = SignupService.__new__(SignupService)
+        svc._compliance = "http://compliance:8000"
+        svc._data_map = ["operations:visits"]
+        svc._http = Http()
+        svc._telemetry = tele
+        assert "operations" in asyncio.run(svc._register_data_map("tnt_x"))

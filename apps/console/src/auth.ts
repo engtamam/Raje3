@@ -122,8 +122,22 @@ export async function openShop(shop: NewShop): Promise<Session> {
   //
   // FAILURE IS NOT FATAL TO SIGNUP. His account exists and every screen works; what he loses is
   // sending, which «اليوم» now says out loud and «حسابي» repairs in one field.
-  try {
-    await fetch(`${BASE}/api/v1/tenant/branding`, {
+  // TRIED TWICE, BECAUSE THE LIKELY FAILURE IS A RACE WE CAUSED.
+  //
+  // The result used to be ignored entirely — `await fetch(...)` with no `res.ok` — so a 403 from a
+  // token whose capability has not propagated yet was indistinguishable from success, and only a
+  // network throw ever reached the catch. That is the most probable failure here and the one that
+  // fixes itself in a moment: this write happens ONE call after the door opens.
+  //
+  // ONE RETRY, NOT A LOOP. If the second attempt fails the cause is not timing, and hammering the
+  // tenant service during signup would turn a naming problem into a slow signup.
+  //
+  // AND STILL NOT FATAL. «اليوم» reads `can_send`/`blocked` from reminders — which checks the same
+  // identity adapter the tick checks — so a shop whose name never landed is TOLD, in a sentence
+  // that names the repair, on the screen whose whole question is «هل كل شيء يعمل؟». The retry
+  // makes that sentence rarer; it is not what makes the failure visible.
+  const writeBranding = async () =>
+    fetch(`${BASE}/api/v1/tenant/branding`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -131,8 +145,15 @@ export async function openShop(shop: NewShop): Promise<Session> {
       },
       body: JSON.stringify({ branding: { display_name: shop.shopName.trim() } }),
     });
+
+  try {
+    const first = await writeBranding();
+    if (!first.ok) {
+      await new Promise((r) => setTimeout(r, 700));
+      await writeBranding();
+    }
   } catch {
-    // Swallowed on purpose: see above. The shop is open either way.
+    // Swallowed on purpose: see above. The shop is open either way, and «اليوم» says what is wrong.
   }
 
   return session;

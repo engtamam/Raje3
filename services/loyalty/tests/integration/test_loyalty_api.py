@@ -87,6 +87,33 @@ def _earn(client, points=500, visit="v1", subject=S):
     return r.json()
 
 
+# ── the manager threshold, and the three states it actually has ───────────────────────────────
+def test_zero_removes_the_manager_requirement_instead_of_being_ignored(client, owner):
+    """THE DEFECT. The write was guarded by `if body.manager_threshold:`, and the field defaulted
+    to 0 — so «leave it» and «remove it» were the same value, and the truthiness test discarded
+    exactly the one that mattered. An owner who set 500 and then decided his operators should
+    redeem freely sent 0, got a 200, and read 500 back: the screen reported his change as accepted
+    while every reward over 500 kept demanding an approval no till path could supply."""
+    h = _auth("loyalty.manage")
+    r = client.put("/api/v1/loyalty/settings/general",
+                   json={"points": 10, "manager_threshold": 500}, headers=h)
+    assert r.json()["general"]["manager_threshold"] == 500
+
+    r = client.put("/api/v1/loyalty/settings/general",
+                   json={"points": 10, "manager_threshold": 0}, headers=h)
+    assert r.json()["general"]["manager_threshold"] == 0, r.text
+
+
+def test_omitting_the_threshold_leaves_it_alone(client, owner):
+    """AND THE OPPOSITE BUG IS NOT THE FIX. Writing it unconditionally would clear the threshold on
+    every request that only changes the points rule — which is most of them."""
+    h = _auth("loyalty.manage")
+    client.put("/api/v1/loyalty/settings/general",
+               json={"points": 10, "manager_threshold": 300}, headers=h)
+    r = client.put("/api/v1/loyalty/settings/general", json={"points": 20}, headers=h)
+    assert r.json()["general"]["manager_threshold"] == 300, r.text
+
+
 # ── the field screen ───────────────────────────────────────────────────────────────────────────
 def test_a_customer_with_nothing_reads_as_zero_rather_than_404(client, operator):
     r = client.get("/api/v1/loyalty/balance/ref_nobody00000", headers=operator)
