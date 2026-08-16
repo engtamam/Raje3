@@ -80,6 +80,15 @@ jobs:
       - name: every refusal written for a person survives the trip to them
         run: python3 ci/check_refusal_survives.py
 
+      # A SERVICE MUST NOT REACH A PEER THROUGH A DOOR BUILT FOR A PERSON. portal read the
+      # customer's switches through reminders' user-tier route, which rate limits per caller — and
+      # a pod has no subject, so the limiter keyed on the portal pod's IP and every customer of
+      # every shop shared one 600/60s bucket. Past it: a switches section that says «تعذّرت
+      # القراءة» to people who did nothing, and a one-tap unsubscribe that returns no confirmation
+      # — which is how a stop becomes a block on the shop's number.
+      - name: no peer call spends a person's rate limit
+        run: python3 ci/check_peer_tier.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was

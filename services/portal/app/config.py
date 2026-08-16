@@ -183,7 +183,13 @@ class Settings(BaseSettings):
     # it.
     LOYALTY_SERVICE_URL: str = ""
     # THEIRS, and the reference goes in the path exactly as reminders parses it.
-    REMINDERS_PREFS_PATH: str = "/api/v1/prefs/{ref}"
+    #
+    # THE INTERNAL TIER, and the change is not cosmetic. The user-tier route carries a per-caller
+    # rate limit; portal sends no bearer token, so it keyed on this POD's IP and every customer
+    # page view of every establishment spent one unit of one shared bucket. Past it, a customer's
+    # one-tap stop returned no confirmation — and an unconfirmed stop is how a customer blocks the
+    # shop's number instead.
+    REMINDERS_PREFS_PATH: str = "/internal/portal/prefs/{ref}"
     # Short: three of these run under ONE page deadline, and a customer is waiting.
     PEER_TIMEOUT_SECONDS: int = 3
     IDENTITY_CACHE_TTL_SECONDS: int = 300

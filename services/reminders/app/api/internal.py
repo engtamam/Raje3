@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import RemindersErasure
+from app.api.v1.prefs import PrefsIn
 from app.core.stores import ScheduleStore, SendLogStore
 from app.core import backup as _backup
 from app.core import rendering as R
@@ -970,6 +971,36 @@ async def room(request: Request, tenant: str) -> dict:
     return {"limit": int(getattr(ceiling, "limit", 0) or 0),
             "tier": str(getattr(ceiling, "tier", "") or ""),
             "used": int(used or 0)}
+
+
+# ── the customer's five switches, on the tier the caller actually is ────────────────────────────
+#
+# THE SAME TWO HANDLERS, ON A DOOR WITH NO PER-CALLER LIMIT. portal read and wrote these through
+# `/api/v1/prefs/{ref}`, which carries `Depends(rate_limit)`. portal presents no bearer token, only
+# X-Internal-Token — so the limiter had no subject and keyed on the IP it could see: the PORTAL
+# POD's. Every customer page view of every establishment spent one unit of ONE 600/60s bucket.
+#
+# WHAT THAT COSTS ON A BUSY EVENING: past the bucket, reminders answers 429. The switches section
+# renders «تعذّرت القراءة» for customers who did nothing, and — the part that matters — a customer
+# tapping the one-tap unsubscribe gets `saved: False` and no confirmation that his stop was
+# recorded. The code's own comment says what he does next: he blocks the number.
+#
+# NOT A HIGHER LIMIT, A CORRECT TIER. A number tuned for one pod is a number that is wrong again at
+# the next customer. The internal token IS the authentication here, and every other portal→reminders
+# read (`/internal/portal/offers`) was already on this side of the wall.
+#
+# DELEGATED, NEVER COPIED. Both routes call the very same handlers the public tier calls — a second
+# implementation of an audited, consent-writing action is a second version of what «stop» means.
+@router.get("/portal/prefs/{ref}", dependencies=[Depends(require_internal_token)])
+async def portal_prefs(request: Request, ref: str) -> dict:
+    from app.api.v1.prefs import get_prefs
+    return await get_prefs(request, ref)
+
+
+@router.put("/portal/prefs/{ref}", dependencies=[Depends(require_internal_token)])
+async def portal_set_prefs(request: Request, ref: str, body: PrefsIn) -> dict:
+    from app.api.v1.prefs import set_prefs
+    return await set_prefs(request, ref, body)
 
 
 @router.get("/reminders/sendable", dependencies=[Depends(require_internal_token)])

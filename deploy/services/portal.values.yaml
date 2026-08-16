@@ -104,7 +104,7 @@ env:
   # loyalty programme is a whole legitimate product, and portal must compose four sections rather
   # than refuse to serve a customer's page over a feature that shop never bought.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
-  REMINDERS_PREFS_PATH: "/api/v1/prefs/{ref}"
+  REMINDERS_PREFS_PATH: "/internal/portal/prefs/{ref}"
 
   # Three seconds each, and a three-second budget for the WHOLE page — the calls run concurrently,
   # so the slowest peer sets the ceiling rather than the sum. A nine-second page is a page nobody
