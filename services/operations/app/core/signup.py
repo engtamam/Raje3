@@ -218,12 +218,29 @@ class SignupService:
             raise SignupRefused("أدخل رقم جوال صحيح.")
         if not (shop.shop_name or "").strip():
             raise SignupRefused("أدخل اسم المحل.")
-        if await self.tenant_of_phone(phone):
+        held = await self._row(phone)
+        if held:
             # THE ONE PLACE THIS IS SAFE TO SAY. Signup already reveals that a number is taken by
             # refusing to create a second account for it — the platform's uniqueness does that
             # whatever we answer — so a clear sentence here costs nothing and saves a person from
             # trying four passwords on a door they already have a key to.
-            raise SignupRefused("لهذا الرقم حساب بالفعل — سجّل الدخول.")
+            #
+            # BUT «سجّل الدخول» IS ONLY TRUE IF SOMEBODY PROVED THIS NUMBER (و-7). Nothing stands
+            # between typing a number and an account being created on it — the proof is deferred
+            # to sign-in — so a stranger can open a shop on a number he does not hold. Everything
+            # after that lands on the person who does: he is refused here, told to sign in with a
+            # password he never chose, and has no way through. The account is useless to whoever
+            # made it (the same unproven number blocks HIS sign-in) — so the whole thing is a lock
+            # on somebody else's door with the key thrown away.
+            #
+            # Told apart, and each state gets its own true sentence. The full fix is that a number
+            # is not reserved until it is proven, and that waits on being able to send a code at
+            # all (SIGNUP_OTP_DELIVERABLE, task #167).
+            if held.get("verified"):
+                raise SignupRefused("لهذا الرقم حساب بالفعل — سجّل الدخول.")
+            raise SignupRefused(
+                "هذا الرقم مُسجَّل في طلبٍ لم يكتمل تأكيده. تواصل معنا لنُكمله معك.",
+                reason="unverified_hold")
 
         slug = "t-" + uuid.uuid4().hex[:16]
 
@@ -270,8 +287,22 @@ class SignupService:
         # ── 3. the roles, and the owner made an owner ────────────────────────────────────────
         # THE PERSON'S ID, which is what a membership token's `sub` will be. seed-owner returns
         # `person_id` alongside an undo reference shaped `tenant::person_id`.
-        if not await self._bootstrap_roles(tenant, subject=str(body.get("person_id") or "")):
-            # BOTH UNDONE. See the module note: an account with no capabilities is worse than none.
+        person_id = str(body.get("person_id") or "")
+        if not await self._bootstrap_roles(tenant, subject=person_id):
+            # BOTH UNDONE — AND FOR A LONG TIME ONLY ONE WAS. This comment said «both» and the code
+            # deleted the tenant alone, so the person and the membership seed-owner had just
+            # created lived on with no tenant behind them. His number was then spoken for at
+            # identity and unknown to us: signing up again answers «هذا الرقم مسجّل», signing in
+            # answers «الرقم أو كلمة المرور غير صحيحة», and nothing anywhere can be repaired from a
+            # screen. The number is reserved against him for ever, by a failure that was ours.
+            #
+            # ORDER: the membership first, because it is the half that makes the number look taken.
+            # Neither undo may raise — we are already on the failure path, and a rollback that
+            # throws replaces a clear refusal with a 500.
+            try:
+                await self.revoke(tenant, person_id)
+            except Exception:                                                 # noqa: BLE001
+                pass
             self._http.call(f"{self._tenants}/internal/tenants/{tenant}",
                             method="DELETE", internal=True)
             raise SignupRefused("تعذّر إنشاء الحساب. حاول بعد قليل.")

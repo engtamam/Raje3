@@ -196,6 +196,12 @@ async def test_no_role_definitions_refuses_rather_than_creating_a_dead_account()
             NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
 
     assert ("DELETE", "http://tenants:8000/internal/tenants/t-1") in http.calls
+    # AND THE MEMBERSHIP TOO — و-6. The comment on this path said «BOTH UNDONE» and the code
+    # deleted the tenant alone, so the person seed-owner had just created lived on with no tenant
+    # behind him. His number was then taken at identity and unknown to us: signing up again says
+    # «هذا الرقم مسجّل»، signing in says «الرقم أو كلمة المرور غير صحيحة»، and no screen can repair
+    # either. The number was reserved against him for ever by a failure that was ours.
+    assert ("DELETE", "http://identity:8000/internal/tenancy/membership/t-1::p-9") in http.calls
 
 
 def test_a_new_shop_gets_a_data_map_so_a_dsar_has_somewhere_to_go():
@@ -292,3 +298,38 @@ def test_telemetry_is_optional_so_a_missing_seam_never_fails_a_signup():
         svc._http = Http()
         svc._telemetry = tele
         assert "operations" in asyncio.run(svc._register_data_map("tnt_x"))
+
+
+@pytest.mark.anyio
+async def test_an_unverified_hold_is_not_called_an_account(monkeypatch):
+    """و-7. Nothing stands between typing a number and an account existing on it, so a stranger
+    can open a shop on somebody else's. The person who actually holds the number then arrives and
+    is told «لهذا الرقم حساب بالفعل — سجّل الدخول» — with a password he never chose, and no way
+    through. Both sentences are now told apart, and only one of them claims an account."""
+    from app.core.signup import PHONE_INDEX
+
+    store = FakeStore()
+    await store.put(PHONE_INDEX, "+966501234567",
+                    {"id": "+966501234567", "tenant": "t-old", "verified": False})
+    svc = build(FakeHttp([]), store=store)
+
+    with pytest.raises(SignupRefused) as caught:
+        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+    assert getattr(caught.value, "reason", "") == "unverified_hold"
+    assert "سجّل الدخول" not in str(caught.value)
+
+
+@pytest.mark.anyio
+async def test_a_verified_number_still_says_sign_in():
+    """The other half stays exactly as it was — a real account, and the sentence that saves him
+    from trying four passwords on a door he holds the key to."""
+    from app.core.signup import PHONE_INDEX
+
+    store = FakeStore()
+    await store.put(PHONE_INDEX, "+966501234567",
+                    {"id": "+966501234567", "tenant": "t-old", "verified": True})
+    svc = build(FakeHttp([]), store=store)
+
+    with pytest.raises(SignupRefused) as caught:
+        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+    assert "سجّل الدخول" in str(caught.value)
