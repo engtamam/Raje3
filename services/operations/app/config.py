@@ -192,8 +192,20 @@ class Settings(BaseSettings):
     # connection at all. And it is the CONNECTION (minutes) rather than Meta's business
     # VERIFICATION (days, and not required to send).
     BILLING_PLANS_DRIVER: str = "null"       # null | http
-    BILLING_PLANS_PATH: str = "/api/v1/billing/plans"
-    BILLING_SUBSCRIBE_PATH: str = "/api/v1/billing/subscriptions"
+    # THE INTERNAL TWINS, ADDED IN PLATFORM v0.16.12 AT OUR ESCALATION.
+    #
+    # These two were the last user-tier routes any service of ours called. The user tier rate
+    # limits per caller; this service presents only X-Internal-Token and cannot mint a bearer (the
+    # signing key lives in identity-service and stays there), so the limiter had no subject and
+    # keyed on the IP it could see — THIS POD'S. Every establishment on the fleet shared one
+    # bucket, and past it billing answered 429 on the purchase path, which is the one path that
+    # must fail closed: our own code could not tell that 429 from «you already hold this plan».
+    #
+    # Raising the number was never the fix — a limit tuned for one pod is wrong at the next
+    # customer. `tenant` rides in the body and the query exactly as it already did, so the shape
+    # this service sends did not change; only the door it knocks on.
+    BILLING_PLANS_PATH: str = "/internal/billing/plans"
+    BILLING_SUBSCRIBE_PATH: str = "/internal/billing/subscriptions"
     # WHAT THIS SHOP HOLDS — the internal, token-authed list (base-services v0.16.7). It is the
     # same billable set the entitlement resolver computes over, so the purchase rules and the
     # gates in every service can never disagree about what was bought.
