@@ -139,3 +139,48 @@ def test_driver_http_with_no_peer_url_falls_back_instead_of_building_a_relative_
 
     _S.NOTIFICATION_SERVICE_URL = "http://notification-service:8000"
     assert connect.build_exchange(_S()).configured is True
+
+
+# ── an outage of OURS must not be read as «try again» (هـ-5) ──────────────────────────────────
+def test_an_unwired_exchange_tells_the_owner_the_fault_is_ours():
+    """He completed every screen Meta showed him. Told «حاول مرة أخرى» he repeats the whole
+    journey, fails identically, and goes looking through his Facebook account for a fault that is
+    on our side of the wire — while the register route on the SAME journey says «عُطلٌ عندنا»."""
+    _, why = run(connect.NullExchange().exchange(
+        tenant="t", code="c", waba_id="w", phone_number_id="p"))
+    said = connect.sentence_for(connect.Attempt(tenant="t", state=connect.STATE_FAILED,
+                                                detail=why))
+    assert "عندنا" in said
+    assert "حاول مرة أخرى" not in said
+
+
+def test_an_unreachable_peer_says_it_is_ours_and_still_asks_him_to_retry():
+    """The other half. Unreachable is transient, so the retry IS the right advice — but he must
+    know it is not his account that failed, or he spends the wait editing settings that are fine."""
+    said = connect.sentence_for(connect.Attempt(
+        tenant="t", state=connect.STATE_FAILED,
+        detail=f"{connect.EXCHANGE_UNREACHABLE}: connection refused"))
+    assert "عندنا" in said
+    assert "أعد المحاولة" in said
+
+
+def test_a_code_meta_refused_is_still_his_to_retry():
+    """A rejection from Meta is not ours, and blaming ourselves for it would leave him waiting for
+    a fix nobody is making. Only the two named reasons change the sentence."""
+    said = connect.sentence_for(connect.Attempt(tenant="t", state=connect.STATE_FAILED,
+                                                detail="400"))
+    assert "عندنا" not in said
+    assert "حاول مرة أخرى" in said
+
+
+def test_the_driver_may_not_be_switched_on_with_nowhere_to_send_in_production():
+    """`build_exchange` falls back to the null driver, which is right — and silent, which is how a
+    deployment served traffic looking configured while refusing every connection."""
+    import pytest
+
+    from app.config import Settings
+
+    s = Settings(ENV="production", WHATSAPP_ONBOARDING_DRIVER="http",
+                 NOTIFICATION_SERVICE_URL="", INTERNAL_SERVICE_TOKEN="x" * 40)
+    with pytest.raises(ValueError, match="NOTIFICATION_SERVICE_URL"):
+        s.assert_onboarding_config_ok()

@@ -116,6 +116,71 @@ def test_a_closed_branch_stops_counting_against_the_plan(client):
     assert reported[-2:] == [2, 1]
 
 
+# ── the lock the screen draws is the shop's plan, not the caller's role (هـ-3) ─────────────────
+def test_the_branch_list_carries_the_plan_limit_so_the_screen_need_not_guess(client):
+    """«فريقي» locked its branches tab on whether the CALLER holds `operations.list_branches` and
+    wrote a sentence about the shop's PLAN on the lock. An owner capped at one branch holds that
+    capability on every plan, so he saw no lock, typed a name, and met a 402 — and somebody who
+    merely lacks the permission was told his shop must upgrade, which is a claim about money.
+
+    So the entitlement travels with the read, exactly as `shop_mode.available` does."""
+    class _Capped:
+        driver = "capped"
+        reported: list = []
+
+        async def report(self, tenant, key, value):
+            pass
+
+        async def allows_one_more(self, tenant, key, current):
+            return current + 1 <= 1, 1
+
+    saved = client.app.state.container.gauges
+    client.app.state.container.gauges = _Capped()
+    try:
+        body = client.get(BRANCHES, headers=_headers("tnt_capped")).json()
+    finally:
+        client.app.state.container.gauges = saved
+    assert body["branch_limit"] == 1
+
+
+def test_a_shop_at_its_ceiling_is_told_before_it_types_a_name(client):
+    """THE CEILING ALONE ONLY ANSWERS FOR A PLAN THAT ALLOWS EXACTLY ONE.
+
+    A shop allowed THREE branches and already holding three is at its limit too, and `branch_limit`
+    of 3 draws no lock — so «إضافة فرع» stays live, the owner types a name, presses save, and reads
+    the refusal at the end of the journey. That is the same defect هـ-3 named, met at a different
+    number, and the gauge was already computing the answer: `allows_one_more` returns whether one
+    more fits, and the route was keeping only the ceiling beside it.
+    """
+    class _Full:
+        driver = "full"
+        reported: list = []
+
+        async def report(self, tenant, key, value):
+            pass
+
+        async def allows_one_more(self, tenant, key, current):
+            # Three allowed, three held: a real ceiling that `branch_limit` alone cannot express.
+            return False, 3
+
+    saved = client.app.state.container.gauges
+    client.app.state.container.gauges = _Full()
+    try:
+        body = client.get(BRANCHES, headers=_headers("tnt_full")).json()
+    finally:
+        client.app.state.container.gauges = saved
+    assert body["branch_limit"] == 3
+    assert body["may_add_branch"] is False, "the screen cannot tell he is full from the limit alone"
+
+
+def test_a_billing_we_could_not_ask_reports_no_ceiling_rather_than_a_lock(client):
+    """`allows_one_more` fails open by design (core/seats.py), and its `-1` covers an unlimited
+    plan AND an unreachable billing. Neither may draw a lock: telling a paying shop it has not
+    paid is the worst sentence in the product, and an outage must not be what says it."""
+    body = client.get(BRANCHES, headers=_headers("tnt_open")).json()
+    assert body["branch_limit"] == -1
+
+
 def test_a_customers_page_shows_HIS_visits_even_in_a_busy_shop(client):
     """THE READ USED TO BE THE SHOP'S LAST 200 VISITS, FILTERED. So a customer of a busy
     establishment opened the page we messaged him a link to and found no history at all — the

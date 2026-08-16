@@ -198,19 +198,26 @@ class HttpQuota:
                                                      "idempotency_key": idempotency_key})
         except QuotaError as exc:
             raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.") from exc
-        if status >= 400 or not out.get("allowed"):
-            error = str(out.get("error") or "")
-            if error == "NOT_ENTITLED":
-                raise QuotaError("لا يوجد اشتراك فعّال.")
-            # AN HTTP FAULT IS NOT «YOU HIT YOUR LIMIT». It still refuses — see the docstring, a
-            # submission we cannot verify is one we do not hand Meta — but the sentence has to be
-            # true. A 500 with no verdict in it told the owner he had exhausted a quota of custom
-            # texts he had not touched, which is a number about his own plan that we cannot defend
-            # and that sends him looking for a fault in himself.
-            # Narrowed to the fault statuses on purpose: a 200 that says `allowed: false` without
-            # naming an error IS the counter being spent, and that owner has hit his limit.
-            if status >= 400:
-                raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.")
+        # THE VERDICT FIRST, WHATEVER STATUS CARRIES IT. billing answers the unsubscribed
+        # establishment with NOT_ENTITLED, and a gateway in front of it can hand that same body
+        # back under a 402 or a 403. It is the one refusal we can name to the owner precisely, so
+        # it is read before anything else decides for him.
+        if str(out.get("error") or "") == "NOT_ENTITLED":
+            raise QuotaError("لا يوجد اشتراك فعّال.")
+        # THEN «DID BILLING ANSWER AT ALL» — ON ITS OWN LINE, and that separation is the whole
+        # point rather than a style. `_post` hands back an EMPTY body when the call failed, so a
+        # status test joined by `or` to a body test lets `{}` decide the sentence: every 500
+        # billing ever returned told the owner «بلغت حدّ باقتك من النصوص الخاصة هذا الشهر» about a
+        # limit he had not approached, and he telephoned support about a package rather than about
+        # an outage — the support call that costs us the customer and teaches us nothing.
+        #
+        # It still REFUSES: a submission we cannot verify is one we do not hand Meta (see the
+        # docstring). Only the sentence changes, and the sentence has to be true.
+        if status >= 400:
+            raise QuotaError("تعذّر التحقق من باقتك الآن — حاول بعد قليل.")
+        if not out.get("allowed"):
+            # BILLING ANSWERED, AND THE ANSWER IS «NO». A 200 that says `allowed: false` without
+            # naming an error IS the counter being spent, and this owner really has hit his limit.
             raise QuotaError("بلغت حدّ باقتك من النصوص الخاصة هذا الشهر.")
 
     async def release(self, *, tenant: str, idempotency_key: str, amount: int = 1,

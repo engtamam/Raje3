@@ -114,6 +114,23 @@ def test_omitting_the_threshold_leaves_it_alone(client, owner):
     assert r.json()["general"]["manager_threshold"] == 300, r.text
 
 
+# ── does this shop run a programme at all (هـ-1) ───────────────────────────────────────────────
+def test_the_customer_page_read_says_whether_the_shop_runs_a_programme(client):
+    """PORTAL CANNOT INFER IT, so this route has to state it.
+
+    Every key in this answer has a value for a shop that runs nothing — zero points, no rewards,
+    a threshold of zero — so the dictionary is never empty and portal's «if we got points back,
+    show the card» could not be false. A customer of a shop with no loyalty read «0 نقطة» on his
+    own page: a balance nobody can spend, under a heading for a programme that does not exist."""
+    r = client.get("/internal/loyalty/portal/balance",
+                   params={"tenant": "shop-with-no-rewards", "subject_ref": "ref_noprogram001"},
+                   headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert r.json()["has_programme"] is False
+    # The rest of the answer is a full row of zeros, which is exactly why the flag is needed.
+    assert r.json()["points"] == 0 and r.json()["rewards"] == []
+
+
 # ── the field screen ───────────────────────────────────────────────────────────────────────────
 def test_a_customer_with_nothing_reads_as_zero_rather_than_404(client, operator):
     r = client.get("/api/v1/loyalty/balance/ref_nobody00000", headers=operator)
@@ -473,6 +490,13 @@ def test_the_menu_says_which_rewards_need_a_manager_before_the_tap(client, owner
         flags = {r["id"]: r["needs_approval"] for r in got["rewards"]}
         assert flags[big] is True, flags
         assert flags[small] is False, flags
+
+    # AND THE OTHER HALF OF هـ-1, on the route that carries it: a shop that HAS rewards says so,
+    # or the fix would have closed the customer's points card on everybody. Asserted on the key
+    # itself and not through a default — an absent flag is the failure being tested for.
+    assert client.get("/internal/loyalty/portal/balance",
+                      params={"tenant": TENANT, "subject_ref": "ref_menucust0001"},
+                      headers=INTERNAL).json()["has_programme"] is True
 
 
 def test_the_body_cannot_choose_which_branch_a_spend_is_filed_under():

@@ -15,7 +15,7 @@
  * the product. It could not be built until operations could turn a pseudonym into a customer,
  * because the overdue list comes from reminders and reminders holds no names at all, deliberately.
  */
-import { isDenied, isLoading, isReady, DENIED, type Loading } from '../loading';
+import { hasFailed, isDenied, isLoading, isReady, DENIED, type Loading } from '../loading';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search } from 'lucide-react';
@@ -35,7 +35,7 @@ const MIN_PREFIX = 3;
 interface Due { subject_ref?: string; due_at?: number }
 
 /** One request a customer made from his own page. It carries a pseudonym and never a name. */
-interface PrivacyAsk { id: string; type: string; at: number }
+interface PrivacyAsk { id: string; type: string; at: number; subject_ref?: string }
 
 /** How long ago, in the words an owner uses — the clock started then, and that is the point. */
 function ago(at: number): string {
@@ -128,6 +128,19 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
 
   const asksAction = action(catalog, 'operations.privacy_requests');
   const closeAsk = action(catalog, 'operations.close_privacy_request');
+  /**
+   * WHO EACH REQUEST IS, resolved from its pseudonym — the same join the overdue tab makes.
+   *
+   * THE PANEL COULD NOT ACT WITHOUT IT. A request arrives as a `subject_ref` and nothing else, so
+   * the row said «طلب حذف بياناته» about nobody in particular and the only button closed it. An
+   * owner meeting a PDPL deadline had no way from this panel to find the man, and no way to
+   * honour the request — «تم الرد» marked it answered while every byte of the customer's data
+   * stayed exactly where it was.
+   *
+   * `undefined` while the join is out, `null` when it failed: a name we could not look up must
+   * not render as «عميل غير معروف», which is a claim about his records.
+   */
+  const [askWho, setAskWho] = useState<Loading<Record<string, CustomerHit>>>(undefined);
 
   useEffect(() => {
     if (!asksAction) return;
@@ -137,6 +150,24 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
       // error box about a feature he has never used is noise on the screen he opens most.
       .catch(() => setAsks(null));
   }, [session, catalog, asksAction]);
+
+  useEffect(() => {
+    const resolve = action(catalog, 'operations.customers_by_refs');
+    if (!isReady(asks) || asks.length === 0) return;
+    if (!resolve) { setAskWho(DENIED); return; }
+    const refs = asks.map((a) => a.subject_ref).filter((r): r is string => Boolean(r));
+    if (refs.length === 0) { setAskWho({}); return; }
+    let stale = false;
+    call<{ customers: (CustomerHit & { subject_ref?: string })[] }>(session, resolve, { refs })
+      .then((x) => {
+        if (stale) return;
+        const by: Record<string, CustomerHit> = {};
+        for (const c of x.customers ?? []) if (c.subject_ref) by[c.subject_ref] = c;
+        setAskWho(by);
+      })
+      .catch(() => { if (!stale) setAskWho(null); });
+    return () => { stale = true; };
+  }, [asks, session, catalog]);
 
   const searching = query.length >= MIN_PREFIX;
   // THE TAB'S OWN VALUE, WITH ITS OWN STATE. Each of the four — loading, failed, denied, arrived —
@@ -165,27 +196,16 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
             ثلاثين يوماً من تاريخ الطلب.
           </p>
           {asks.map((a) => (
-            <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-2">
-              <span className="flex flex-col">
-                <span className="text-sm">
-                  {a.type === 'erase' ? 'طلب حذف بياناته' : 'طلب نسخة من بياناته'}
-                </span>
-                {/* THE DATE IS THE POINT: the clock started on it, and «قبل يومين» is what tells
-                    him whether this is urgent without arithmetic. */}
-                <span className="text-xs text-text-secondary">{ago(a.at)}</span>
-              </span>
-              {closeAsk ? (
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    await call(session, closeAsk, { request_id: a.id }).catch(() => null);
-                    setAsks((cur) => (cur ?? []).filter((x) => x.id !== a.id));
-                  }}
-                >
-                  تم الرد
-                </Button>
-              ) : null}
-            </div>
+            <PrivacyAskRow
+              key={a.id}
+              session={session}
+              ask={a}
+              who={isReady(askWho) ? askWho[a.subject_ref ?? ''] ?? null : undefined}
+              whoFailed={hasFailed(askWho) || isDenied(askWho)}
+              close={closeAsk}
+              onDone={() => setAsks((cur) => (cur ?? []).filter((x) => x.id !== a.id))}
+              onOpen={(id) => navigate(`/customers/${id}`)}
+            />
           ))}
         </section>
       ) : null}
@@ -287,6 +307,86 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * One request, with the person it is about and a way to finish it.
+ *
+ * THE ROW USED TO BE A TYPE, A DATE AND ONE BUTTON. The request arrives as a pseudonym, so the
+ * panel said «طلب حذف بياناته» about nobody in particular — and «تم الرد» closed it while every
+ * byte of that customer's data stayed exactly where it was. An owner on a thirty-day legal clock
+ * was given a screen that could mark the duty done and could not perform it.
+ *
+ * SO IT NAMES HIM AND IT OPENS HIM. The erasure itself lives on the customer's own page, behind a
+ * confirmation that repeats his name — an irreversible act belongs in one place, and a second
+ * copy of it inside a summary panel is the copy that drifts. This row is the route to it.
+ *
+ * AND CLOSING IS NEVER DRESSED AS DELETING. «تم الرد» records that HE answered — kept with his
+ * name and the hour, and audited — and on an erasure request the row says in words that closing
+ * deletes nothing, because that is precisely the belief the old panel encouraged.
+ */
+function PrivacyAskRow({ session, ask, who, whoFailed, close, onDone, onOpen }: {
+  session: Session;
+  ask: PrivacyAsk;
+  /** The customer, `null` when this establishment holds no such ref, `undefined` while resolving. */
+  who: CustomerHit | null | undefined;
+  /** The join failed or was never permitted — which is not «we hold nobody by that name». */
+  whoFailed: boolean;
+  close: ReturnType<typeof action>;
+  onDone: () => void;
+  onOpen: (customerId: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const erasure = ask.type === 'erase';
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border-subtle pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex flex-col">
+          <span className="text-sm">
+            {erasure ? 'طلب حذف بياناته' : 'طلب نسخة من بياناته'}
+          </span>
+          {/* WHO ASKED. Three different answers, and none of them may borrow another's words: a
+              name we have, a lookup that failed, and a shop that genuinely holds no such customer
+              — the last of which usually means his data is already gone. */}
+          <span className="text-xs text-text-secondary" dir={who?.name ? undefined : 'ltr'}>
+            {who ? (who.name || asLocal(who.phone))
+              : whoFailed ? 'تعذّر التعرّف على صاحب الطلب'
+              : who === null ? 'لا يوجد عميل بهذا المرجع في سجلاتك'
+              : '…'}
+          </span>
+          {/* THE DATE IS THE POINT: the clock started on it, and «قبل يومين» is what tells him
+              whether this is urgent without arithmetic. */}
+          <span className="text-xs text-text-secondary">{ago(ask.at)}</span>
+        </span>
+        <span className="flex flex-wrap gap-2">
+          {who ? (
+            <Button onClick={() => onOpen(who.id)}>
+              {erasure ? 'افتح سجله لتنفيذ الحذف' : 'افتح سجله'}
+            </Button>
+          ) : null}
+          {close ? (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                await call(session, close, { request_id: ask.id }).catch(() => null);
+                onDone();
+              }}
+            >
+              تم الرد
+            </Button>
+          ) : null}
+        </span>
+      </div>
+      {erasure ? (
+        <p className="text-xs text-text-secondary">
+          «تم الرد» يسجّل أنك أجبته، ولا يحذف شيئاً. الحذف من صفحة العميل نفسه.
+        </p>
+      ) : null}
     </div>
   );
 }

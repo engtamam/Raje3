@@ -335,6 +335,24 @@ async def customer_at_the_counter(request: Request, phone: str = "", plate: str 
         out["points_unavailable"] = True
         return out
 
+    # AND A SHOP THAT RUNS NO PROGRAMME GETS NO SECTION EITHER, which `desk.configured` above
+    # cannot answer: that flag is about whether WE have a loyalty peer wired, one setting for the
+    # whole fleet. loyalty says whether THIS shop has anything to redeem, and without asking it
+    # the counter showed «0 نقطة» — the same grievance the check above exists to prevent, one
+    # answer further along. Absent means loyalty did not say, which is not «no»: `points_unavailable`
+    # says we could not tell, exactly as an unreachable peer does.
+    # AND A SHOP THAT RUNS NO PROGRAMME GETS NO SECTION EITHER, which `desk.configured` above
+    # cannot answer: that flag is about whether WE have a loyalty peer wired, one setting for the
+    # whole fleet. loyalty says whether THIS shop has anything to redeem, and without asking it
+    # the counter showed «0 نقطة» — the same grievance the check above exists to prevent, one
+    # answer further along. Absent means loyalty did not say, which is not «no»: `points_unavailable`
+    # says we could not tell, exactly as an unreachable peer does.
+    if "has_programme" not in bal:
+        out["points_unavailable"] = True
+        return out
+    if not bal["has_programme"]:
+        return out
+
     out["points"] = bal.get("points", 0)
     out["to_next_reward"] = bal.get("to_next_reward", 0)
     # ONLY WHAT HE CAN AFFORD, exactly as the field screen shows it: a list of things he cannot

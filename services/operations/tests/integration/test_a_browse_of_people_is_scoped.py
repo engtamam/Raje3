@@ -109,6 +109,44 @@ def test_the_owner_still_sees_the_whole_chain(client):
     assert {c["name"] for c in got} == {"عميل جدة", "عميل الرياض"}
 
 
+def test_each_resolved_customer_carries_back_the_ref_that_asked_for_him(client):
+    """THE ANSWER HAS TO BE PAIRABLE WITH THE QUESTION (هـ-2).
+
+    Unknown refs are deliberately absent from this answer, so position proves nothing — and the
+    privacy-request panel holds ONE pseudonym per request and has to say which customer each one
+    is. Without the ref echoed back it could only ever say «طلب حذف بياناته» about nobody, which
+    is what it did: a legal duty with a thirty-day clock, and no way to find the man."""
+    refs = _shop(client)
+
+    got = _resolve(client, refs, "u_owner_with_no_operator_row")
+
+    assert {c["subject_ref"] for c in got} == set(refs.values())
+    by = {c["subject_ref"]: c["name"] for c in got}
+    assert by[refs["brn-jeddah"]] == "عميل جدة"
+
+
+def test_saying_we_answered_him_is_witnessed_by_the_log(client, monkeypatch):
+    """BOTH HALVES OF THE ONE THING A REGULATOR ASKS, or neither is worth anything (هـ-2).
+
+    `privacy.requested` — the hour the thirty-day clock started — was audited from the day the
+    route existed. The ANSWER was a pair of fields on a row and nothing else, so the ledger held
+    the accusation and not the defence: «we answered him within thirty days» was a claim with no
+    witness, made by the same screen whose button could close the request without doing anything.
+    """
+    seen: list[tuple[str, str]] = []
+
+    async def record(action, **kw):
+        seen.append((action, kw.get("actor", "")))
+
+    monkeypatch.setattr(client.app.state.auditor, "record", record)
+    r = client.post("/api/v1/field/privacy-requests/req_nope/close", headers=_headers("u_owner"))
+
+    assert r.status_code == 200
+    # WRITTEN AHEAD, so it holds even for a request id that resolves to nothing: a closure the log
+    # could not witness must not be attempted, and «it did not exist» is decided after.
+    assert ("privacy.answered", "u_owner") in seen
+
+
 def test_the_team_screen_shows_his_branchs_team_not_the_chains(client):
     """FOUND BY THE GATE, NAMED BY NO FINDING. `Operator.public()` carries the name, the role and
     the branch, and «فريقي» handed the whole roster to whoever could read."""

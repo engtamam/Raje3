@@ -133,7 +133,8 @@ def test_the_tenant_comes_off_the_token_on_the_read_too():
     a read that took the tenant from a query string would let one shop's till look up another
     shop's customers by changing a word."""
     ops = _Ops(customer=_Customer())
-    desk = _Desk(balance={"points": 30, "rewards": [], "to_next_reward": 70})
+    desk = _Desk(balance={"has_programme": True, "points": 30, "rewards": [],
+                           "to_next_reward": 70})
     asyncio.run(till_routes.customer_at_the_counter(
         _request(ops, desk), phone="0500000000", principal=_Principal(tenant="t_9")))
     assert ops.asked_tenant == "t_9"
@@ -144,7 +145,8 @@ def test_the_pseudonym_never_leaves():
     """It is our join key between services and a till has no use for it — it identifies its
     customer by the number it already holds. Handing it over would put a durable cross-service
     identifier in a third party's database for nothing."""
-    desk = _Desk(balance={"points": 30, "rewards": [{"id": "r1", "name": "غسلة", "cost": 20}],
+    desk = _Desk(balance={"has_programme": True, "points": 30,
+                          "rewards": [{"id": "r1", "name": "غسلة", "cost": 20}],
                           "to_next_reward": 0})
     out = asyncio.run(till_routes.customer_at_the_counter(
         _request(_Ops(customer=_Customer()), desk), phone="0500000000", principal=_Principal()))
@@ -175,6 +177,30 @@ def test_a_shop_without_the_programme_is_shown_no_points_section_at_all():
         phone="0500000000", principal=_Principal()))
     assert "points" not in out and "points_unavailable" not in out
     assert out["found"] is True
+
+
+def test_a_shop_with_the_desk_wired_and_no_rewards_is_shown_no_points_section_either():
+    """`desk.configured` is one setting for the whole fleet — «do WE have a loyalty peer» — and it
+    was the only question this route asked. It cannot answer «does THIS shop run a programme», so
+    a wired deployment showed «0 نقطة» at the counter of every shop that runs none: a balance the
+    cashier cannot spend, about a programme the shop never bought (هـ-1)."""
+    out = asyncio.run(till_routes.customer_at_the_counter(
+        _request(_Ops(customer=_Customer()),
+                 _Desk(balance={"has_programme": False, "points": 0, "manager_threshold": 0,
+                                "rewards": [], "to_next_reward": 0})),
+        phone="0500000000", principal=_Principal()))
+    assert "points" not in out and "points_unavailable" not in out
+
+
+def test_a_balance_that_does_not_say_is_not_read_as_a_no():
+    """Unknown is not zero and it is not «no programme» either. A peer that answered without the
+    flag has told us nothing about this shop, and the cashier is told we could not check rather
+    than being handed a silence he would read as «this customer has nothing»."""
+    out = asyncio.run(till_routes.customer_at_the_counter(
+        _request(_Ops(customer=_Customer()), _Desk(balance={"points": 30, "rewards": []})),
+        phone="0500000000", principal=_Principal()))
+    assert out["points_unavailable"] is True
+    assert "points" not in out
 
 
 def test_redemption_passes_the_tills_own_idempotency_key_through_untouched():
@@ -365,7 +391,8 @@ def test_the_counter_shows_how_many_times_he_has_actually_been_here():
     the same answer, on the one screen a cashier uses to decide whether this is a regular.
     """
     ops = _Ops(customer=_Customer(visit_count=47))
-    desk = _Desk(balance={"points": 30, "rewards": [], "to_next_reward": 70})
+    desk = _Desk(balance={"has_programme": True, "points": 30, "rewards": [],
+                           "to_next_reward": 70})
 
     out = asyncio.run(till_routes.customer_at_the_counter(
         _request(ops, desk), phone="0500000000", principal=_Principal(tenant="t_9")))

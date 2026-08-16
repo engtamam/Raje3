@@ -162,7 +162,10 @@ class NullReminders:
     driver = "null"
 
     async def prefs_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
-        return {"stopped": {}}
+        # THE SHAPE reminders ACTUALLY SERVES, and nothing else. This answered `{"stopped": {}}`,
+        # a shape no route has ever returned, and the page read it as «nothing is switched off» —
+        # which for marketing means «he agreed», about a customer nobody asked.
+        return {"preferences": []}
 
     async def offers_for(self, tenant: str, subject_ref: str) -> dict[str, Any]:
         return {"offers": []}

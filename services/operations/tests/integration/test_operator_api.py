@@ -1122,7 +1122,8 @@ def test_the_till_door_carries_the_approval_in_both_directions(client):
         configured = True
 
         async def balance(self, **kw):
-            return {"points": 400, "to_next_reward": 0, "manager_threshold": 100,
+            return {"has_programme": True, "points": 400, "to_next_reward": 0,
+                    "manager_threshold": 100,
                     "rewards": [{"id": "rw_big", "name": "خصم كبير", "cost": 150,
                                  "needs_approval": True},
                                 {"id": "rw_small", "name": "خصم صغير", "cost": 20,
