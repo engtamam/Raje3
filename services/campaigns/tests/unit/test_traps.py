@@ -238,6 +238,7 @@ def test_the_peer_builder_answers_every_key_the_container_reads():
         TENANT_SERVICE_URL = "http://tenant-service:8000"
         INSIGHTS_SERVICE_URL = "http://insights:8000"
         CUSTOMERS_PATH = "/internal/operations/customers"
+        OFFERS_REDEEMED_PATH = "/internal/operations/offers-redeemed"
         ELIGIBILITY_PATH = "/internal/reminders/eligibility"
         SEND_PATH = "/internal/reminders/send"
         REMINDERS_ROOM_PATH = "/internal/reminders/room"

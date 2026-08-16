@@ -23,8 +23,8 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import (AssetStore, BranchStore, PrivacyRequestStore, ServiceStore,
-                             VisitStore, new_id)
+from app.core.stores import (AssetStore, BranchStore, CustomerStore, PrivacyRequestStore,
+                             ServiceStore, VisitStore, new_id)
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -446,6 +446,49 @@ async def offers_spent(request: Request, body: CustomerVisitsIn) -> dict:
         return {"refs": []}
     refs = await VisitStore(c.datastore).offers_spent(body.tenant, str(crows[0].get("id") or ""))
     return {"refs": refs}
+
+
+class RedeemedIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # ONE ROW PER RECIPIENT campaigns REACHED, each carrying its OWN `since` — the moment THIS
+    # campaign sent to them, not a shared cutoff. Bounded the same way `resolve_customers` is:
+    # a report card, not a hot path, and a shop's whole customer table is thousands at most.
+    reached: list[dict] = Field(default_factory=list, max_length=2000)
+
+
+@router.post("/operations/offers-redeemed", dependencies=[Depends(require_internal_token)])
+async def offers_redeemed(request: Request, body: RedeemedIn) -> dict:
+    """How many of a campaign's recipients came back and spent an offer (ط-3).
+
+    THE QUESTION THAT HAD NOWHERE TO BE ASKED. `offer_ref` has been written on every visit that
+    spent one since §5.6.2 shipped, and `campaigns` has recorded exactly who it reached and when
+    in `campaign_reached` since the day dedup needed it — «كم واحداً رجع وصرف؟» sat unanswered with
+    every piece of its answer already on disk in two services that never spoke to each other.
+
+    ONLY REDEMPTIONS AT OR AFTER `since` COUNT. A customer holding an unrelated, earlier offer from
+    a DIFFERENT campaign must not inflate this one's number — the spend has to have happened after
+    THIS campaign reached him, which is why `since` travels per recipient rather than once for the
+    whole call.
+    """
+    c = request.app.state.container
+    tenant = body.tenant
+    since_by_ref: dict[str, int] = {}
+    for row in body.reached:
+        ref = str(row.get("subject_ref") or "")
+        if ref:
+            since_by_ref[ref] = int(row.get("since") or 0)
+    if not since_by_ref:
+        return {"redeemed": 0}
+
+    customers = await CustomerStore(c.datastore).by_refs(tenant, set(since_by_ref))
+    visits = VisitStore(c.datastore)
+    redeemed = 0
+    for customer in customers:
+        since = since_by_ref.get(customer.subject_ref, 0)
+        rows = await visits.for_customer(tenant, customer.id, limit=20)
+        if any(v.offer_ref and v.offer_used_at >= since for v in rows):
+            redeemed += 1
+    return {"redeemed": redeemed}
 
 
 @router.post("/operations/customer-visits", dependencies=[Depends(require_internal_token)])

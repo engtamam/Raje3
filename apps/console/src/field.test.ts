@@ -114,3 +114,58 @@ describe('the queue does not run over itself', () => {
     expect(calls).toBe(1);
   });
 });
+
+describe('the offer is spent only once the visit it is spent against exists (ط-1)', () => {
+  /** Every call this queue makes, in the order the mocked fetch actually saw them. */
+  function trackCalls() {
+    const seen: { path: string; body: unknown }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      const path = String(url).replace(/^https?:\/\/[^/]*/, '');
+      seen.push({ path, body: init.body ? JSON.parse(String(init.body)) : undefined });
+      if (path.startsWith('/api/v1/field/visits/') && path.endsWith('/offer')) {
+        return new Response(JSON.stringify({ applied: true }), { status: 200 });
+      }
+      // recordVisit — answers with a server-minted visit id distinct from the idempotency key,
+      // exactly the case a same-tick race could not have known.
+      return new Response(JSON.stringify({
+        visit: { id: 'srv-visit-9', service_ids: ['s1'] },
+        customer: { id: 'c1' }, created_customer: false, duplicate: false,
+      }), { status: 201 });
+    }));
+    return seen;
+  }
+
+  it('applies the offer to the SERVER visit id, only after the visit call has answered', async () => {
+    const seen = trackCalls();
+    const q = new VisitQueue();
+    q.add(draft('k'), SESSION, 'subj_1');
+    await q.drain(SESSION);
+
+    const recordCall = seen.findIndex((c) => c.path === '/api/v1/field/visits');
+    const offerCall = seen.findIndex((c) => c.path.endsWith('/offer'));
+    expect(recordCall).toBeGreaterThanOrEqual(0);
+    expect(offerCall).toBeGreaterThan(recordCall);
+    // NOT THE IDEMPOTENCY KEY THE SCREEN MINTED — the id the server actually assigned this visit,
+    // which the queue could only have after `recordVisit` resolved.
+    expect(seen[offerCall].path).toBe('/api/v1/field/visits/srv-visit-9/offer');
+    expect((seen[offerCall].body as { subject_ref: string }).subject_ref).toBe('subj_1');
+  });
+
+  it('never applies an offer when the operator did not check «طبّق العرض»', async () => {
+    const seen = trackCalls();
+    const q = new VisitQueue();
+    q.add(draft('k'), SESSION); // no subject passed
+    await q.drain(SESSION);
+    expect(seen.some((c) => c.path.endsWith('/offer'))).toBe(false);
+  });
+
+  it('never applies an offer for a visit that failed to record', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"message":"لا"}', { status: 400 })));
+    const q = new VisitQueue();
+    q.add(draft('k'), SESSION, 'subj_1');
+    await q.drain(SESSION);
+    // 400 is stuck, not retried — and crucially nothing tried to spend an offer against a visit
+    // the server never created.
+    expect(q.stuck()).toHaveLength(1);
+  });
+});

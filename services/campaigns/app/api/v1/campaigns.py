@@ -324,7 +324,20 @@ async def runs(request: Request, campaign_id: str,
     rows, _ = await request.app.state.container.datastore.find(
         "campaign_runs", {"tenant": principal.tenant, "campaign_id": campaign_id},
         limit=200, sort=("at", "desc"))
-    return {"runs": [vars(r) for r in history(rows)], "totals": totals(rows)}
+
+    # WHO THIS CAMPAIGN REACHED, so `redeemed` can ask operations who among them came back and
+    # spent an offer (ط-3). `campaign_reached` already names every recipient and when — the piece
+    # that was always missing was asking the other half of the question, not recording the first.
+    reached_rows, _ = await request.app.state.container.datastore.find(
+        "campaign_reached", {"tenant": principal.tenant, "campaign_id": campaign_id},
+        limit=2000, sort=("at", "asc"))
+    reached = [{"subject_ref": r.get("subject_ref", ""), "since": int(r.get("at") or 0)}
+              for r in reached_rows if r.get("subject_ref")]
+    redeemed = (await request.app.state.container.audience.redeemed(principal.tenant, reached)
+               if reached else 0)
+
+    return {"runs": [vars(r) for r in history(rows)],
+            "totals": {**totals(rows), "redeemed": redeemed}}
 
 
 @router.post("/{campaign_id}/pause", dependencies=[Depends(rate_limit)])

@@ -176,6 +176,9 @@ class Settings(BaseSettings):
     # THEIRS. The template library and the customer list, both verified against operations'
     # manifest rather than assumed.
     CUSTOMERS_PATH: str = "/internal/operations/customers"
+    # THEIRS (ط-3). Given who a campaign reached and when, how many of them came back and spent
+    # an offer since — the question the campaign's own send log can name and had nowhere to ask.
+    OFFERS_REDEEMED_PATH: str = "/internal/operations/offers-redeemed"
     REMINDERS_SERVICE_URL: str = ""
     # THEIRS. Would the gate allow this, and send this — the second is the ONLY way this service
     # sends anything.

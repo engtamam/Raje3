@@ -124,6 +124,9 @@ class NullAudience:
     async def allows(self, tenant: str, subject_ref: str, cls: str) -> bool:
         return True
 
+    async def redeemed(self, tenant: str, reached: list[dict[str, Any]]) -> int:
+        return 0
+
 
 class HttpRoom:
     """Today's ceiling and what the engine has already spent — from the two services that own them.
@@ -185,10 +188,11 @@ class HttpAudience:
 
     def __init__(self, *, operations_url: str, customers_path: str, reminders_url: str,
                  eligibility_path: str, token: str, timeout: int = 8,
-                 rhythms_path: str = "") -> None:
+                 rhythms_path: str = "", redeemed_path: str = "") -> None:
         self._customers = operations_url.rstrip("/") + customers_path
         self._eligibility = reminders_url.rstrip("/") + eligibility_path
         self._rhythms = (reminders_url.rstrip("/") + rhythms_path) if rhythms_path else ""
+        self._redeemed = (operations_url.rstrip("/") + redeemed_path) if redeemed_path else ""
         self._token = token
         self._timeout = timeout
 
@@ -257,6 +261,33 @@ class HttpAudience:
             return bool(data["allowed"])
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return True
+
+    async def redeemed(self, tenant: str, reached: list[dict[str, Any]]) -> int:
+        """How many of the people this campaign reached came back and spent an offer (ط-3).
+
+        THE QUESTION NOBODY COULD ANSWER. «كم واحداً رجع وصرف؟» is the one number a shop paid for
+        this feature to produce, and every piece of it already existed: `campaign_reached` names
+        exactly who a campaign sent to and when, and operations records every offer spend on the
+        visit it happened on (§5.6.2). Nothing joined the two.
+
+        `reached` IS `campaign_reached`, SHAPED FOR THE ASK — `{"subject_ref": ..., "since": at}`
+        for each recipient, `since` being the moment THIS campaign reached them. operations
+        resolves the pseudonyms to customers (the join it already serves reminders) and counts
+        whoever holds a visit with a spent offer at or after their own `since` — never before it,
+        or a discount redeemed from a DIFFERENT, earlier campaign would inflate this one's number.
+
+        FAILS TO ZERO, NOT TO AN EXCEPTION. This is a report card, read well after the campaign
+        ran; a shop that opens it while operations is restarting should see «0» and reload, not a
+        500 in a place that used to just show a number.
+        """
+        if not reached or not self._redeemed:
+            return 0
+        try:
+            data = _post(self._redeemed, {"tenant": tenant, "reached": reached},
+                        self._token, self._timeout)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            return 0
+        return int(data.get("redeemed") or 0)
 
 
 # ── the send: reminders, always ────────────────────────────────────────────────────────────────
@@ -385,6 +416,7 @@ def build_peers(settings) -> dict[str, Any]:
                                  reminders_url=settings.REMINDERS_SERVICE_URL,
                                  eligibility_path=settings.ELIGIBILITY_PATH,
                                  rhythms_path=settings.REMINDERS_RHYTHMS_PATH,
+                                 redeemed_path=settings.OFFERS_REDEEMED_PATH,
                                  token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
         "sender": HttpSender(url=settings.REMINDERS_SERVICE_URL, path=settings.SEND_PATH,
                              token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
