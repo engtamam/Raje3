@@ -596,7 +596,12 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
                       "sent_at": int(row.get("at") or 0),
                       # THE CODE THE CUSTOMER IS HOLDING. Shown to the operator so the two are
                       # looking at the same string when one of them reads it aloud.
-                      "code": row.get("offer_code", "")}}
+                      "code": row.get("offer_code", ""),
+                      # AND THE AMOUNT ITSELF (أ-7). It was typed at creation — «20%», «50 ريال» —
+                      # rendered into the message, and then existed nowhere a person could read it
+                      # again. When the owner wrote his own line the sentence may not restate it at
+                      # all, so the operator's only source was the customer's word for it.
+                      "value": row.get("offer_value", "")}}
 
 
 class DsarCodeOut(BaseModel):

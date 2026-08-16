@@ -480,6 +480,12 @@ export function Visit() {
               <div className="rounded-xl bg-accent-soft p-3 text-accent-on-soft shadow-sm">
                 <div className="mb-1 text-sm font-semibold">عرضٌ خاص بهذا العميل</div>
                 <div>{offer.text}</div>
+                {/* THE AMOUNT, STATED. The sentence above is whatever was sent — often the
+                    owner's own line, which need not name the discount at all. An operator who
+                    cannot see it takes the customer's word for what he is owed. */}
+                {offer.value ? (
+                  <div className="mt-1 text-sm font-semibold">الخصم: {offer.value}</div>
+                ) : null}
                 {offer.expires_at ? (
                   <div className="mt-1 text-sm tabular-nums opacity-80">
                     ينتهي {new Date(offer.expires_at * 1000).toLocaleDateString('ar-SA-u-ca-gregory')}

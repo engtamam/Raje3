@@ -46,3 +46,20 @@ def test_no_expiry_is_no_offer():
     marketing messages — the opposite mistake, and the more expensive one."""
     assert compose(owner_text="لك غسلة مجانية", value="20%", has_expiry=False) == ""
     assert compose(value="20%", service_names=["غسيل"], has_expiry=False) == ""
+
+
+# ── أ-7 · the discount is data at creation and prose everywhere after ──────────────────────────
+def test_the_amount_travels_on_the_row_to_both_readers():
+    """`offer_value` was filled into a message slot and went no further: not onto the send log,
+    not to `choose_offer`, not to the till, not to the customer's page. So the message says «خصم
+    20%» and the operator's screen shows only a sentence — which, when the owner wrote his own
+    line, may not restate the amount at all. The employee asks the customer, and the customer's
+    word becomes the source.
+    """
+    from app.core.models import SendLog, as_row
+
+    row = as_row(SendLog(tenant="t1", subject_ref="sub_a", cls="marketing", at=0,
+                         offer_text="خصم 20% على الغسيل", offer_expires_at=1,
+                         offer_value="20%", offer_code="RJ-1"))
+
+    assert row["offer_value"] == "20%", "the row is the entitlement, and this is part of it"

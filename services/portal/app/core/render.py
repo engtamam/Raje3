@@ -233,6 +233,8 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
         for o in page.offers.data:
             parts.append(f"<article class='offer' data-until='{int(o['expires_at'])}'>")
             parts.append(f"<p class='txt'>{_e(o['text'])}</p>")
+            if o.get("value"):
+                parts.append(f"<p class='scope'>الخصم: {_e(o['value'])}</p>")
             # WHAT IT COVERS, in words. "The whole shop" is a real answer and a good one; leaving
             # it blank would make the most generous offer look like the least specified.
             if o["services"]:

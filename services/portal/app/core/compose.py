@@ -208,7 +208,11 @@ def _normalise_offers(raw: Any) -> list[dict[str, Any]]:
                     # THE CODE HE READS OUT AT THE COUNTER. It is the only handle the till has on
                     # this offer, and a customer holding an offer he cannot name is a customer
                     # arguing with an operator who has nothing to check.
-                    "code": str(r.get("code") or "")})
+                    "code": str(r.get("code") or ""),
+                    # THE AMOUNT, TYPED (أ-7). The sentence may be the owner's own line, which does
+                    # not have to name the discount — and a customer who cannot see what he was
+                    # given argues about it at the counter with somebody who cannot see it either.
+                    "value": str(r.get("value") or "")})
     return sorted(out, key=lambda o: o["expires_at"])
 
 

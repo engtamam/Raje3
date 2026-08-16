@@ -215,6 +215,11 @@ class SendLog:
     # stored separately (core/coupons.py), and kept on the row because this row IS the entitlement
     # — the till looks the offer up by what the customer says, and «عرض وصلني» is not a handle.
     offer_code: str = ""
+    # THE DISCOUNT ITSELF, TYPED (أ-7). «20%» or «50 ريال» — it was filled into the message slot
+    # and went no further, so the customer read a number and the operator read only the sentence.
+    # When the sentence is the owner's own free line it may not restate the amount at all, and the
+    # only source left at the counter is the customer's word for it.
+    offer_value: str = ""
 
 
 @dataclass

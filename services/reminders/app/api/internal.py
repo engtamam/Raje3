@@ -850,6 +850,10 @@ async def choose_offer(request: Request, body: ChooseOfferIn) -> dict:
     return {"offer": {"ref": str(row.get("id") or ""),
                       "text": row.get("offer_text", ""),
                       "code": row.get("offer_code", ""),
+                      # THE AMOUNT, so the till states the discount rather than reading it off a
+                      # sentence — or, when the owner wrote his own line, not at all. An operator
+                      # who cannot see the value takes the customer's word for it.
+                      "value": row.get("offer_value", ""),
                       "expires_at": int(row.get("offer_expires_at") or 0)}}
 
 
@@ -909,7 +913,8 @@ async def portal_offers(request: Request, tenant: str, subject_ref: str) -> dict
                         # never emitted — so the page opened FROM the message that carried the
                         # offer was the one place the code could not be found. The till has no
                         # other handle on it, and «عرض وصلني» is not a handle.
-                        "code": str(r.get("offer_code") or "")}
+                        "code": str(r.get("offer_code") or ""),
+                        "value": str(r.get("offer_value") or "")}
                        for r in rows]}
 
 

@@ -233,6 +233,15 @@ export interface FieldOffer {
   service_ids?: string[];
   /** The code the customer reads off his phone — shown so both sides quote the same string. */
   code?: string;
+  /**
+   * THE DISCOUNT ITSELF — «20%», «50 ريال» (أ-7).
+   *
+   * It was typed when the campaign was built, rendered into the message the customer is holding,
+   * and then existed nowhere a person could read it again. `text` may be the owner's own line,
+   * which does not have to restate the amount — so the operator's only source was the customer
+   * telling him what his discount was.
+   */
+  value?: string;
 }
 
 export async function offerFor(session: Session, subjectRef: string): Promise<FieldOffer | null> {

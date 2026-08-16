@@ -452,6 +452,9 @@ class Tick:
                                  if s in service_names],
             # RECORDED WITH THE OFFER IT BELONGS TO. The customer will read it back to an operator
             # who has to find this row from that string alone.
+            # RECORDED WITH THE OFFER, like the code: it is a fact about what was granted, and
+            # every reader of this row needs it to say what the discount actually is.
+            offer_value=str(row.get("offer_value", "")),
             offer_code=coupon)))
         return {"sent": True, "reason": ""}
 

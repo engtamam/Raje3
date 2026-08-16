@@ -108,3 +108,22 @@ def test_an_offer_with_no_scope_says_so_separately_from_one_we_cannot_name(clien
     _offer(client, "t_old", names=[], ids=["svc_9f2a"], code="RJ-3C3C")
     assert _offers(client, "t_old")[0]["scoped"] is True, (
         "limited, and we cannot say to what — which is neither «the whole shop» nor a gap")
+
+
+def test_the_amount_reaches_his_page_beside_the_sentence(client):
+    """أ-7 · «20%» was typed at creation, rendered into the message, and then existed nowhere a
+    person could read it again. The sentence is often the owner's own line and need not restate
+    it — so both sides of the counter were reading a text neither could check."""
+    from app.core.models import SendLog, as_row
+    from app.core.stores import SendLogStore
+    import asyncio as _a
+
+    row = SendLog(tenant="t_val", subject_ref="sub_" + "a" * 24, cls="marketing",
+                  at=int(time.time()), outcome="sent", idempotency_key="idem_v",
+                  offer_text="لك مفاجأة عندنا", offer_expires_at=int(time.time()) + 86_400,
+                  offer_value="20%", offer_code="RJ-9Z")
+    _a.run(SendLogStore(client.app.state.container.datastore).append("t_val", as_row(row)))
+
+    got = _offers(client, "t_val")
+    assert got[0]["value"] == "20%", (
+        "his own line does not name the discount — this is the only place it survives")

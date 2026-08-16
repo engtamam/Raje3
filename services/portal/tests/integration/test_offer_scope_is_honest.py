@@ -52,3 +52,14 @@ def test_the_code_is_rendered_when_it_arrives():
     it — large, `dir=ltr`, to be read across a counter."""
     html = _page([_offer(code="RJ-7K2M")])
     assert "RJ-7K2M" in html
+
+
+def test_the_discount_is_stated_and_not_only_implied():
+    """أ-7 · the sentence may be the owner's own line, which need not name the amount at all."""
+    html = _page([_offer(text="لك مفاجأة عندنا", value="20%")])
+    assert "الخصم: 20%" in html
+
+
+def test_an_offer_with_no_typed_amount_says_nothing_about_one():
+    """Inventing «الخصم: » with nothing after it would be worse than the silence it replaces."""
+    assert "الخصم:" not in _page([_offer()])
