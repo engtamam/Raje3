@@ -112,5 +112,26 @@ def erase_subject(*, compliance_url: str, authorization: str, subject_ref: str) 
               authorization=authorization)
 
     result = _post(f"{base}/dsar/{dsar_id}/process", authorization=authorization)
-    return {"dsar_id": dsar_id, "dispatched": bool(result.get("ok", True)),
+
+    # ── A REFUSAL ARRIVES AS 200, AND IT USED TO ARRIVE AS «تم» (د-3) ─────────────────────────
+    #
+    # compliance answers HTTP 200 with `{"ok": false, "reason": ...}` for every refusal except
+    # NOT_FOUND — a legal hold over this subject, a request it will not dispatch, a target that
+    # would not take it. Nothing above raises, because nothing failed at the HTTP layer.
+    #
+    # This line read `result.get("ok", True)`: the refusal set `dispatched` to False and the route
+    # still answered `{"ok": True, ...}`, which is the field the screen reads. So the owner pressed
+    # «احذف بياناته», compliance declined, and he was told it was done — with a legal deadline
+    # running and no reason to look again. And the default made the same true of any answer whose
+    # shape we did not expect.
+    #
+    # A LEGAL HOLD IS NAMED, because it is the one refusal that is not a fault and not retryable:
+    # the law is overriding the erasure, and the owner needs to know that rather than press again.
+    if not result.get("ok", False):
+        reason = str(result.get("reason") or "")
+        if "HOLD" in reason.upper():
+            raise EraseFailed("هذا العميل تحت حجزٍ نظاميّ، ولا يمكن حذف بياناته الآن.")
+        raise EraseFailed("لم يُنفَّذ الحذف. أعد المحاولة، وإن تكرّر فتواصل معنا.")
+
+    return {"dsar_id": dsar_id, "dispatched": True,
             "targets": result.get("targets") or result.get("dispatched") or []}

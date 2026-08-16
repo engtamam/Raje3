@@ -247,7 +247,14 @@ class HttpAudience:
             data = _post(self._eligibility,
                          {"tenant": tenant, "subject_ref": subject_ref, "class": cls},
                          self._token, self._timeout)
-            return bool(data.get("allowed", True))
+            if "allowed" not in data:
+                # THE SAME CALL AS THE TRANSPORT FAILURE BELOW, SAID OUT LOUD. An answer with no
+                # verdict in it is a contract break rather than a refusal, and this is a PREVIEW —
+                # the gate runs again at send time and is the one that decides. Written as an
+                # explicit branch and not as `.get("allowed", True)`, because a default hides which
+                # of the two situations produced the «yes».
+                return True
+            return bool(data["allowed"])
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return True
 

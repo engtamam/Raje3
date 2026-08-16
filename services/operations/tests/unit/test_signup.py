@@ -379,3 +379,48 @@ def test_no_owner_facing_sentence_in_the_erase_path_is_a_log_line():
     assert raised, "the guard itself must not go blind"
     for text in raised:
         assert re.search(r"[؀-ۿ]", text), f"not a sentence a shop owner can read: {text}"
+
+
+@pytest.mark.parametrize("reply,expect_arabic", [
+    ({"ok": False, "reason": "LEGAL_HOLD"}, "حجزٍ نظاميّ"),
+    ({"ok": False, "reason": "WHATEVER"}, "لم يُنفَّذ الحذف"),
+    ({}, "لم يُنفَّذ الحذف"),
+])
+def test_a_refusal_from_compliance_does_not_reach_the_owner_as_done(reply, expect_arabic):
+    """د-3. compliance answers HTTP 200 with `ok: false` for every refusal except NOT_FOUND, so
+    nothing raises. The reply was read as `.get("ok", True)` — a refusal set `dispatched` False
+    while the route above still answered `ok: True`, which is the field the screen reads. He was
+    told his customer's data was erased, on a legal deadline, and had no reason to look again."""
+    from app.core import erase_customer as E
+
+    def fake_post(url, *, authorization, body=None, timeout=10):
+        if url.endswith("/dsar"):
+            return {"id": "dsar_1", "verification_token": ""}
+        return reply
+
+    original, E._post = E._post, fake_post
+    try:
+        with pytest.raises(E.EraseFailed) as caught:
+            E.erase_subject(compliance_url="http://compliance:8000",
+                            authorization="Bearer x", subject_ref="sub_1")
+    finally:
+        E._post = original
+    assert expect_arabic in str(caught.value)
+
+
+def test_a_dispatched_erasure_still_reports_success():
+    """The other half: the guard must not refuse what actually happened."""
+    from app.core import erase_customer as E
+
+    def fake_post(url, *, authorization, body=None, timeout=10):
+        if url.endswith("/dsar"):
+            return {"id": "dsar_9", "verification_token": ""}
+        return {"ok": True, "targets": ["loyalty", "reminders"]}
+
+    original, E._post = E._post, fake_post
+    try:
+        out = E.erase_subject(compliance_url="http://compliance:8000",
+                              authorization="Bearer x", subject_ref="sub_9")
+    finally:
+        E._post = original
+    assert out["dispatched"] is True and out["targets"] == ["loyalty", "reminders"]

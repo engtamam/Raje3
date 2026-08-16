@@ -104,6 +104,13 @@ jobs:
       - name: no screen shows a person a log line
         run: python3 ci/check_operator_sentences.py
 
+      # SILENCE IS NOT A YES. `bool(result.get("ok", True))` asks another service whether it did the
+      # thing and, when it does not say, records that it did. compliance answers HTTP 200 with
+      # `ok: false` for every refusal short of NOT_FOUND — so an erasure it declined was reported to
+      # a shop owner as done, on a PDPL deadline, by a line that never failed at any layer.
+      - name: no peer's silence is read as its success
+        run: python3 ci/check_absent_means_ok.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was
