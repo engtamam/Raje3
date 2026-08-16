@@ -113,7 +113,17 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
             meter=body.meter, note=body.note, custom_service=body.custom_service,
             idempotency_key=body.idempotency_key)
     except OperationError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        # RETURNED, NOT RAISED — the third time this file says it, and the one place it was not
+        # done. The plate refusal above and the offer refusal below both return; this raised, and
+        # the platform's handler strips `detail` (CWE-209 by design), so the operator with a
+        # customer in front of him saw `{"error": "BAD_REQUEST"}`: no field named, no reason. He
+        # retries the same input, fails again, and either abandons the visit — the customer leaves
+        # the product entirely, no reminder and no points — or registers him a second way.
+        #
+        # AND THE SENTENCES THEMSELVES WERE ENGLISH. «a phone number is required» is not a refusal
+        # an operator in a workshop can act on even when it does arrive; the five reachable ones in
+        # core/operations.py are Arabic now.
+        return {"recorded": False, "reason": str(exc)}
 
     # A repeat of the same key is a SUCCESS, not a conflict: the operator's intent was satisfied,
     # and a 409 on a double tap teaches them the screen is unreliable. `duplicate` is reported so

@@ -205,14 +205,14 @@ class Operations:
                            occurred_at: int = 0,
                            allow_unknown_services: bool = False) -> RecordedVisit:
         if not tenant:
-            raise OperationError("no establishment on the request")
+            raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
         phone = _normalise_phone(phone)
         if not phone:
-            raise OperationError("a phone number is required")
+            raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
         if not service_ids:
-            raise OperationError("select at least one service")
+            raise OperationError("اختر خدمة واحدة على الأقل")
         if any(not str(s).strip() for s in service_ids):
-            raise OperationError("a service id is blank")
+            raise OperationError("إحدى الخدمات المختارة بلا معرّف — أعد اختيارها")
 
         # The double-tap guard, first, before anything is created. Cheapest possible check: one
         # indexed read. If it hits, nothing else in this method runs — including customer creation,
@@ -260,8 +260,8 @@ class Operations:
                     # A tenant provisioned before the catch-all existed. A clean refusal that names
                     # the fix, rather than a crash or a silently dropped service.
                     raise OperationError(
-                        "this establishment has no 'خدمة أخرى' entry, so an unrecognised service "
-                        "cannot be recorded — re-seed its catalogue")
+                        "لا توجد خانة «خدمة أخرى» في قائمة هذا المحل، فلا يمكن تسجيل خدمة "
+                        "غير معروفة — راسِلنا لإعادة تهيئة القائمة")
                 service_ids = [sid for sid in service_ids if sid in known] or []
                 if catch.id not in service_ids:
                     service_ids = service_ids + [catch.id]

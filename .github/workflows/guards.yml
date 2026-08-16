@@ -72,6 +72,14 @@ jobs:
       - name: no rule is fed by a field that only the tests write
         run: python3 ci/check_unwritten_fields.py
 
+      # A REFUSAL WRITTEN FOR A PERSON MUST REACH THAT PERSON. The platform's handler strips
+      # `detail` from every HTTPException (CWE-209 by design), so a raised refusal arrives as a
+      # bare code: an operator with a customer waiting is told only that something is invalid,
+      # and a cashier cannot tell an empty balance from a retired reward. Three files already
+      # said «RETURNED, NOT RAISED» in their own comments — and 19 sites did it anyway.
+      - name: every refusal written for a person survives the trip to them
+        run: python3 ci/check_refusal_survives.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was

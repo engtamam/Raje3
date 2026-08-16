@@ -126,9 +126,12 @@ def test_a_missing_phone_says_what_to_do(ops):
     svc, _ = ops
     with pytest.raises(OperationError) as exc:
         run(svc.record_visit(tenant=A, phone="", service_ids=["srv_1"]))
-    # The message reaches an operator's screen. "a phone number is required" is actionable;
-    # "ValidationError" is not, and an unactionable error trains people to ignore errors.
-    assert "phone" in str(exc.value).lower()
+    # The message reaches an operator's screen — AND HE READS ARABIC. The assertion used to look
+    # for the English word «phone», which passed while the sentence it was guarding was one no
+    # operator in a workshop could act on. An unactionable error trains people to ignore errors;
+    # an error in the wrong language is unactionable by definition.
+    said = str(exc.value)
+    assert "الجوال" in said and not any("a" <= ch.lower() <= "z" for ch in said), said
 
 
 def test_a_seam_failure_does_not_lose_the_visit(ops):

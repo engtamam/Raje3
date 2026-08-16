@@ -11,6 +11,7 @@ import hmac
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
 from app.core.erasure import TemplateErasure
@@ -406,10 +407,22 @@ async def till_redeem(request: Request, body: TillRedeemIn) -> dict:
             idem_key=body.idempotency_key, channel="till", branch_id=body.branch_id,
             approved_by=getattr(body, "approved_by", "") or "",
             manager_threshold=await _threshold(c, body.tenant))
+    # RETURNED, NOT RAISED — and the reader here is a cashier with a customer in front of him.
+    #
+    # `Overdraft` says «الرصيد 30 نقطة، والمكافأة 100 — لا يكفي». Raised, the platform's handler
+    # strips `detail` (CWE-209 by design) and the body becomes {"error": "CONFLICT"}. operations'
+    # `LoyaltyDesk` then reads `payload["detail"] or payload["reason"]`, finds neither, and the till
+    # prints «تعذّر الاستبدال.» — so the cashier cannot tell an insufficient balance from a retired
+    # reward from a duplicate key, and tells the customer nothing.
+    #
+    # THE STATUS IS KEPT, so every existing caller behaves as before; only the sentence survives.
+    # The desk already reads `reason`, which is the whole reason this shape was chosen.
     except Overdraft as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        return JSONResponse({"error": "CONFLICT", "reason": str(exc)},
+                            status_code=status.HTTP_409_CONFLICT)
     except LoyaltyError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        return JSONResponse({"error": "BAD_REQUEST", "reason": str(exc)},
+                            status_code=status.HTTP_400_BAD_REQUEST)
 
     bal = await c.ledger.balance(body.tenant, body.subject_ref)
     if is_new:

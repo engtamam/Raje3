@@ -16,6 +16,7 @@ is already gone by the time anybody looks.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
@@ -69,6 +70,22 @@ def _runtime_config(request: Request) -> RuntimeConfig:
     return RuntimeConfig(request.app.state.container.datastore, Settings, policy=RUNTIME_POLICY)
 
 
+
+def _refuse(reason: str, status_code: int = 400) -> JSONResponse:
+    """A refusal the OPERATOR can read — returned, not raised.
+
+    The platform's error handler strips `detail` from every HTTPException on purpose (CWE-209),
+    which is right for a stack trace and wrong for this: these are sentences WE wrote, naming a
+    rule the operator broke. Raised, they arrive as `{"error": "BAD_REQUEST"}` and the operator on
+    our own panel is told only that something is invalid — so he tries the same thing again.
+
+    THE STATUS IS KEPT. A caller checking `response.ok` behaves exactly as before; only the body
+    gains the sentence. Changing the status to 200 would have made the refusal look like a success
+    to every existing reader, which is a worse defect than the one being fixed.
+    """
+    return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=status_code)
+
+
 class SecretIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     value: str = Field(..., min_length=1, max_length=8192)
@@ -115,7 +132,7 @@ async def set_secret(request: Request, body: SecretIn,
         info = await _secret_store(request).set(
             tenant=body.tenant, name=body.name, value=body.value, actor_ref=_actor(principal))
     except SecretError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        return _refuse(str(exc))
     return {"name": info.name, "hint": info.hint, "rotating": info.rotating}
 
 
@@ -154,7 +171,7 @@ async def set_config(request: Request, body: ConfigIn,
         o = await _runtime_config(request).set(
             tenant=body.tenant, key=body.key, value=body.value, actor_ref=_actor(principal))
     except RuntimeConfigError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        return _refuse(str(exc))
     # The tenant is NOT echoed. The caller supplied it, so returning it adds nothing, and a
     # response field named "tenant" is indistinguishable — to a reader and to the tenancy gate —
     # from a verified claim. The one wall between every company on this platform is that the

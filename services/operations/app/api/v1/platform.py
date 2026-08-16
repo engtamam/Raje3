@@ -18,6 +18,7 @@ at the wrong time.
 """
 from __future__ import annotations
 
+from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
@@ -42,6 +43,21 @@ def _cat(request: Request) -> SectorCatalogue:
 
 def _lib(request: Request) -> TemplateLibrary:
     return TemplateLibrary(request.app.state.container.datastore)
+
+
+
+def _refuse(reason: str) -> JSONResponse:
+    """A refusal OUR OWN OPERATOR can read — returned, not raised.
+
+    The platform's handler strips `detail` from every HTTPException (CWE-209 by design), which is
+    right for a stack trace and wrong for these: `SectorError`, `TemplateError` and `PartnerError`
+    each name a rule the panel broke — a template body over the limit, a partner name already
+    taken. Raised, they arrive as `{"error": "BAD_REQUEST"}` and the operator is told only that
+    something is wrong with a form he has to guess at.
+
+    THE STATUS IS KEPT, so every caller that checks `response.ok` behaves exactly as before.
+    """
+    return JSONResponse({"error": "BAD_REQUEST", "reason": reason}, status_code=400)
 
 
 class ServiceDefault(BaseModel):
@@ -94,7 +110,7 @@ async def upsert_sector(request: Request, key: str, body: SectorIn,
     try:
         row = await _cat(request).upsert(body.model_dump())
     except SectorError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return _refuse(str(exc))
     return row
 
 
@@ -183,7 +199,7 @@ async def list_templates(request: Request, cls: str = "", tone: str = "", model:
         try:
             rows = await lib.for_model(model)
         except TemplateError as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+            return _refuse(str(exc))
         if cls:
             rows = [r for r in rows if r.get("class") == cls]
         if tone:
@@ -210,7 +226,7 @@ async def upsert_template(request: Request, name: str, body: TemplateIn,
     try:
         return await _lib(request).upsert(body.model_dump(by_alias=True))
     except TemplateError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return _refuse(str(exc))
 
 
 @router.delete("/templates/{name}", dependencies=[Depends(rate_limit)])
@@ -260,7 +276,7 @@ async def create_partner(request: Request, body: PartnerIn,
         row, key = await reg.create(name=body.name, commission_rate=body.commission_rate,
                                     contact=body.contact)
     except PartnerError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+        return _refuse(str(exc))
     return {"partner": {k: v for k, v in row.items() if k != "key_hash"},
             "key": key,
             "note": "المفتاح يظهر مرة واحدة فقط. احفظه الآن — لا يمكن استرجاعه."}
