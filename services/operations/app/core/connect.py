@@ -168,6 +168,12 @@ def sentence_for(attempt: Attempt, *, can_send: bool = True) -> str:
                 "ولا حاجة لإعادة العملية.")
     if attempt.state == STATE_FAILED:
         return "تعذّر إكمال الربط. حاول مرة أخرى، وإن تكرر تواصل معنا."
+    # A CONNECTION THAT ENDED AFTER IT WORKED IS NOT AN UNFINISHED ONE. The sweep stops a row whose
+    # access was revoked and writes WHY into `detail`; a stopped row carries a `step` only when the
+    # owner closed the popup partway through. Without this line a shop that sent for a year read
+    # «لم يكتمل الربط» and went looking for a step it had completed long ago.
+    if not attempt.step and attempt.detail:
+        return attempt.detail
     return _SENTENCE.get(attempt.step, _DEFAULT_SENTENCE)
 
 
@@ -481,6 +487,9 @@ async def health_sweep(store: ConnectionStore, registration: Registration, *,
             unreadable += 1
             continue
         attempt.state = STATE_STOPPED
+        # NO STEP: this row did not stop partway through the journey, and a leftover step would
+        # make `sentence_for` describe a screen he never saw.
+        attempt.step = ""
         attempt.detail = DISCONNECTED_SENTENCE
         attempt.at = _now()
         await store.record(attempt)

@@ -138,3 +138,26 @@ def test_an_unconfigured_deployment_says_so_instead_of_reporting_health():
     assert out["reason"] == "NOT_CONFIGURED"
     assert out["checked"] == 0
     assert s.rows["tnt_x"]["state"] == connect.STATE_CONNECTED
+
+
+def test_the_owner_reads_that_access_ended_not_that_he_never_finished():
+    """THE SENTENCE, which is the only part of this a shop ever sees.
+
+    A stopped row used to fall through to «لم يكتمل الربط. افتح الربط مرة أخرى وأكمل الخطوات» —
+    true for someone who closed the popup, and badly wrong for a shop that sent for a year and then
+    had its access revoked. It sends him looking for a step he completed long ago.
+    """
+    s = store_with(row("tnt_said"))
+    run(connect.health_sweep(connect.ConnectionStore(s),
+                             Meta({"tnt_said": {"ok": False, "reason": "NOT_CONNECTED"}})))
+
+    said = connect.sentence_for(run(connect.ConnectionStore(s).get("tnt_said")))
+    assert "انقطع ربط واتساب" in said
+    assert "أكمل الخطوات" not in said
+
+
+def test_an_abandoned_journey_still_reads_as_an_abandoned_journey():
+    """The other half: a cancel carries a `step`, and its own sentence must survive the fix above."""
+    at = connect.Attempt(tenant="t", state=connect.STATE_STOPPED, step=connect.STEP_VERIFY,
+                         detail="whatever")
+    assert "رمز التحقق" in connect.sentence_for(at)
