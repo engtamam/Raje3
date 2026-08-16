@@ -26,6 +26,11 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SEED = ROOT / "deploy" / "seed" / "templates.json"
+#: THE FILE THAT IS ACTUALLY SUBMITTED. `SEED` above feeds the manual seeder script; the LIVE
+#: path — `library.register`, run the moment a shop connects — reads this one. The gate checked
+#: only the generated file, so it stayed green while all 66 live rows went to Meta with an empty
+#: example list: refused on arrival, «connected» in green, every send «under review» for ever.
+LIVE = ROOT / "services" / "operations" / "data" / "templates.seed.json"
 
 # Lowercase letters, digits and underscores only, up to 512 characters. Anything else is refused at
 # creation — the one class of failure that IS immediate.
@@ -125,7 +130,26 @@ def expand(lib: dict) -> list[dict]:
     return out
 
 
+def live_rows() -> list[dict]:
+    """The library as `library.register` submits it — examples resolved off `variable_examples`,
+    exactly as `library.examples_for` resolves them. Checked here so a row that Meta would refuse
+    fails in CI rather than at 66 shops on their first morning."""
+    lib = json.loads(LIVE.read_text(encoding="utf-8"))
+    by_number = lib.get("variable_examples") or {}
+    out: list[dict] = []
+    for row in lib.get("templates") or []:
+        used = list(row.get("variables") or [])
+        out.append({**row,
+                    "variables": [f"var_{n}" for n in used],
+                    "examples": [e for e in (str(by_number.get(str(n), "")).strip()
+                                             for n in used) if e]})
+    return out
+
+
 def main() -> int:
+    if not LIVE.exists():
+        print(f"[31m  x {LIVE} is missing[0m")
+        return 1
     if not SEED.exists():
         print(f"[31m  x {SEED} is missing - run: python ci/gen_templates.py[0m")
         return 1
@@ -136,17 +160,25 @@ def main() -> int:
         return 1
 
     problems: list[str] = []
-    seen: set = set()
-    for t in templates:
-        name, lang = t["name"], t["language"]
-        # UNIQUE PER (name, language). A duplicate is not two templates: the second submission
-        # EDITS the first, and editing an approved template re-opens it for review.
-        if (name, lang) in seen:
-            problems.append(name + " [" + lang + "]: defined twice - the second submission would "
-                            "EDIT the first and re-open it for review")
-        seen.add((name, lang))
-        for pr in check(t):
-            problems.append(name + ": " + pr)
+    # ONE PASS PER SOURCE, AND THE UNIQUENESS SET IS PER SOURCE TOO. Both files describe the SAME
+    # 66 templates — the generated one for the manual seeder, the live one that `library.register`
+    # submits when a shop connects — so a shared `seen` set would report every row as «defined
+    # twice» and say nothing true. Every OTHER rule applies to both, because Meta applies it to
+    # whichever of the two actually reaches it.
+    checked = 0
+    for label, rows in (("generated", templates), ("live", live_rows())):
+        seen: set = set()
+        checked += len(rows)
+        for t in rows:
+            name, lang = t["name"], t["language"]
+            # UNIQUE PER (name, language). A duplicate is not two templates: the second submission
+            # EDITS the first, and editing an approved template re-opens it for review.
+            if (name, lang) in seen:
+                problems.append(f"[{label}] {name} [{lang}]: defined twice - the second submission "
+                                "would EDIT the first and re-open it for review")
+            seen.add((name, lang))
+            for pr in check(t):
+                problems.append(f"[{label}] {name}: {pr}")
 
     for p in problems:
         print(f"\033[31m  x {p}\033[0m")
@@ -154,7 +186,8 @@ def main() -> int:
         print(f"\n\033[31m  x {len(problems)} problem(s) — every one is a name burned on "
               f"submission\033[0m")
         return 1
-    print(f"\033[32m  ok {len(templates)} templates pass Meta's documented rules\033[0m")
+    print(f"\033[32m  ok {checked} templates pass Meta's documented rules "
+          f"({len(templates)} generated + {len(live_rows())} live)\033[0m")
     return 0
 
 

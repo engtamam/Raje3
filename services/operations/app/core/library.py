@@ -28,6 +28,51 @@ recording which half.
 from __future__ import annotations
 
 import json
+import pathlib
+
+#: The library as it is submitted, read once. `variable_examples` maps a variable NUMBER to an
+#: example VALUE, and it lives beside the rows because it is submitted with them.
+_SEED = pathlib.Path(__file__).resolve().parents[2] / "data" / "templates.seed.json"
+
+
+def _variable_examples() -> dict[str, str]:
+    try:
+        return dict((json.loads(_SEED.read_text(encoding="utf-8")) or {})
+                    .get("variable_examples") or {})
+    except (OSError, ValueError):
+        return {}
+
+
+class MissingExample(ValueError):
+    """A template declares a placeholder we have no example for — Meta refuses it at creation."""
+
+
+def examples_for(template: dict) -> list[str]:
+    """An example VALUE per declared variable, in order (ح-2).
+
+    META REQUIRES ONE FOR EVERY PLACEHOLDER and refuses the template without it. This read
+    `template.get("examples") or []`, and not one of the 66 curated rows carried the key — so every
+    submission was refused, and the shop sat «connected» in green with every send «under review».
+    The real values existed in `deploy/seed/templates.json`, which only the manual script reads.
+
+    RAISES RATHER THAN SUBMITTING A SHORT LIST. A submission Meta will refuse is not a submission;
+    failing here names the template while somebody can still fix it, instead of leaving a rejection
+    to be discovered weeks later against a name that cannot be reused.
+    """
+    explicit = list(template.get("examples") or [])
+    numbers = list(template.get("variables") or [])
+    if len(explicit) == len(numbers):
+        return explicit
+    table = _variable_examples()
+    out: list[str] = []
+    for n in numbers:
+        value = (table.get(str(n)) or "").strip()
+        if not value:
+            raise MissingExample(
+                f"{template.get('name', '?')}: variable {n} has no example — Meta refuses a "
+                f"template whose placeholder carries none")
+        out.append(value)
+    return out
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -84,9 +129,9 @@ class HttpLibrary:
     async def register(self, tenant: str, template: dict[str, Any]) -> bool:
         """Upsert ONE template into this shop's registry. No Meta call, so no cap applies.
 
-        THE SHAPE IS THE LIBRARY'S OWN. `body`, `variables` and `examples` travel as the seed file
-        wrote them — Meta requires an example for every placeholder, and a template submitted
-        without them is rejected by the review rather than by us.
+        THE SHAPE IS THE LIBRARY'S OWN. `body` and `variables` travel as the seed file wrote them.
+        `examples` are BUILT from the seed's own variable map — see `examples_for`, and see ح-2 for
+        what happened while the rows carried none.
         """
         status, _ = self._post(self._register, {
             "tenant": tenant,
@@ -95,7 +140,7 @@ class HttpLibrary:
             "category": template.get("category", ""),
             "body": template.get("body", ""),
             "variables": template.get("variables") or [],
-            "examples": template.get("examples") or [],
+            "examples": examples_for(template),
         })
         return status < 400
 

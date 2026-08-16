@@ -103,3 +103,38 @@ def test_an_empty_path_does_nothing(tmp_path):
 
     assert run(lib.seed_from_file("")) == 0
     assert store.rows[f"{PLATFORM}|svc_a_brief"]["active"] is True
+
+
+# ── every submitted template carries an example per placeholder (ح-2) ──────────────────────────
+
+
+def test_every_curated_template_can_be_submitted_with_examples():
+    """META REFUSES A TEMPLATE WHOSE PLACEHOLDER HAS NO EXAMPLE, and not one of the 66 rows carried
+    any: `register` read `template.get("examples") or []` and sent an empty list every time. So
+    every submission was refused, the shop showed «connected» in green, and every send sat «under
+    review» for ever. The real values lived in `deploy/seed/templates.json` — read only by the
+    manual script, never by the live path."""
+    import json
+    import pathlib
+
+    from app.core.library import examples_for
+
+    seed = json.loads((pathlib.Path(__file__).resolve().parents[2] / "data" /
+                       "templates.seed.json").read_text(encoding="utf-8"))
+    rows = seed["templates"]
+    assert rows, "the library is empty"
+    for row in rows:
+        got = examples_for(row)
+        assert len(got) == len(row.get("variables") or []), row["name"]
+        assert all(v.strip() for v in got), row["name"]
+
+
+def test_a_placeholder_with_no_example_refuses_instead_of_submitting_a_short_list():
+    """A submission Meta will refuse is not a submission. Failing here names the template while
+    somebody can still fix it."""
+    import pytest as _pytest
+
+    from app.core.library import MissingExample, examples_for
+
+    with _pytest.raises(MissingExample):
+        examples_for({"name": "svc_made_up", "variables": [1, 99]})

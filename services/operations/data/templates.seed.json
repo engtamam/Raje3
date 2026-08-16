@@ -12,6 +12,24 @@
     "counting them caught two templates that opened at {{2}} and would have been rejected at",
     "submission with a message blaming the wording."
   ],
+  "variable_examples": {
+    "1": "محمد",
+    "2": "مغسلة النخيل",
+    "3": "غيار الزيت",
+    "4": "1234",
+    "5": "40"
+  },
+  "_variable_examples_why": [
+    "META REQUIRES AN EXAMPLE FOR EVERY PLACEHOLDER at creation, and refuses the template",
+    "without one. This library had none: `library.py` read `template.get('examples') or []`",
+    "and every one of the 66 rows sent an empty list, so every submission was refused and",
+    "the shop sat «connected» in green with every send «under review» for ever.",
+    "",
+    "The real values existed — in deploy/seed/templates.json, which only the manual script",
+    "reads. They are here now, in the file the live path actually submits, keyed by the",
+    "variable NUMBER because that is how Meta fills them. ci/check_meta_rules.py checks",
+    "this file too, not only the generated one."
+  ],
   "templates": [
     {
       "name": "svc_visit_confirmation_brief",
