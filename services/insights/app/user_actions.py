@@ -53,4 +53,11 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         "path": "/api/v1/insights/digest", "capability": "insights.read", "group": "المؤشرات",
         # Per person, not per establishment: a manager may want it and the owner may not.
     },
+    {
+        # AND THE READ THAT TELLS THE SWITCH WHERE IT STANDS. Without it the control was
+        # `useState(true)` — always shown ON, so an owner who turned the report off saw it ON
+        # again on his next visit and could not tell whether his choice had been saved.
+        "id": "insights.digest_state", "label": "حالة التقرير الأسبوعي", "method": "GET",
+        "path": "/api/v1/insights/digest", "capability": "insights.read", "group": "المؤشرات",
+    },
 ]

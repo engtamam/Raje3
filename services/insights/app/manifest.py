@@ -104,6 +104,9 @@ def build_manifest(
             {"path": "/api/v1/insights/bundles", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/insights/digest", "tier": "user", "method": "PUT"},
+            # AND ITS READ. A switch that cannot report its own position is a button that
+            # argues with the person pressing it.
+            {"path": "/api/v1/insights/digest", "tier": "user", "method": "GET"},
             # OURS: support recomputing a snapshot for a shop that is not theirs.
             {"path": "/api/v1/insights/platform/recompute", "tier": "user", "method": "POST"},
             {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},

@@ -379,3 +379,42 @@ def test_a_sector_with_no_rewards_yields_none_rather_than_inventing_one(cat, tmp
     run(c.seed_from_file(_seed_file(tmp_path)))          # the sectors without a `rewards` key
     run(c.seed_tenant(tenant=T, sector_key="salon"))
     assert run(c.rewards_for(tenant=T, sector_key="salon")) == []
+
+
+def test_a_sector_added_to_the_shipped_file_reaches_a_running_deployment(cat, tmp_path):
+    """THE DEFECT. The seeder read the file ONCE — «only when the table is empty» — so a sector we
+    added afterwards, a new trade we decided to serve, reached no existing deployment ever. The
+    file looked like a source of truth and behaved like a first-run fixture. It is the same shape
+    the TEMPLATE seeder was rewritten to remove, left in place here."""
+    import json as _json
+
+    c, _ = cat
+    run(c.seed_from_file(_seed_file(tmp_path)))
+    assert {s["key"] for s in run(c.list())} == {"tyres", "salon"}
+
+    grown = {**SEED, "sectors": [*SEED["sectors"],
+                                 {"key": "laundry", "name": "مغسلة", "asset": "none",
+                                  "fields": [], "sort": 30,
+                                  "services": [{"name": "غسيل", "cycle_days": 7, "sort": 10}]}],
+             "fields": {**SEED["fields"],
+                        "bag": {"label": "رقم الكيس", "type": "text", "required": False}}}
+    p = tmp_path / "sectors.seed.json"
+    p.write_text(_json.dumps(grown, ensure_ascii=False), encoding="utf-8")
+
+    # ONLY the new one is written, and the answer says so.
+    assert run(c.seed_from_file(str(p))) == 1
+    assert {s["key"] for s in run(c.list())} == {"tyres", "salon", "laundry"}
+    assert "bag" in run(c.fields())
+
+
+def test_the_second_pass_still_does_not_touch_an_operators_field_edit(cat, tmp_path):
+    """AND THE FIX MUST NOT REINTRODUCE THE BUG IT REPLACED. `set_field_specs` is also a panel
+    route: an operator can rename a field. Writing the shipped dict wholesale on every boot would
+    undo his edit on the next restart — the exact thing «only when empty» was protecting."""
+    c, _ = cat
+    path = _seed_file(tmp_path)
+    run(c.seed_from_file(path))
+    run(c.set_field_specs({**run(c.fields()), "plate": {"label": "لوحة السيارة", "type": "text"}}))
+
+    run(c.seed_from_file(path))
+    assert run(c.fields())["plate"]["label"] == "لوحة السيارة"

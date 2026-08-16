@@ -203,6 +203,23 @@ class Subscriptions:
         await self.store.put(SUBSCRIPTIONS, key, row)
         return row
 
+    async def state_for(self, tenant: str, subject: str) -> bool | None:
+        """Is THIS person subscribed? `None` means «never decided», which is not «off».
+
+        WHY IT HAS TO BE THREE STATES. The switch on «محلّي» was `useState(true)` — hardcoded on,
+        because nothing could read this back. An owner who turned the weekly report off saw it ON
+        again the moment he reopened the screen, and a second tap turned it… off again, or on,
+        depending on what he believed. A control that does not report its own position is not a
+        control; it is a button that argues with the person pressing it.
+
+        `None` lets the screen show the DEFAULT honestly (subscribed, which is what a new owner
+        gets) without claiming to have read a decision he never made.
+        """
+        from app.core.models import SUBSCRIPTIONS
+
+        row = await self.store.get(SUBSCRIPTIONS, f"{tenant}|{subject}")
+        return None if row is None else bool(row.get("on"))
+
     async def recipients(self, tenant: str) -> list[str]:
         from app.core.models import SUBSCRIPTIONS
 

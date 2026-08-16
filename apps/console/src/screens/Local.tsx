@@ -283,7 +283,19 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
   /** The recompute in flight, and whatever the service said about it. */
   const [refreshing, setRefreshing] = useState(false);
   const [note, setNote] = useState('');
-  /** Whether HE receives the weekly report. Optimistic, and reverted if the save fails. */
+  /**
+   * Whether HE receives the weekly report. Optimistic on write, and reverted if the save fails.
+   *
+   * READ ON MOUNT, and it was not. This was `useState(true)` with nothing behind it: the switch
+   * showed ON whatever the truth was, so an owner who turned the report off saw it ON again the
+   * moment he came back to this screen — and could not tell whether his choice had been saved,
+   * or whether tapping again would turn it off or on. The setting was real the whole time; only
+   * its reflection was missing, which is the harder kind to notice, because everything appears to
+   * work and the only person who knows otherwise is the one using it.
+   *
+   * `true` remains the starting value because it is the real default for a new owner, and the
+   * read tells us within a moment whether he has since decided otherwise.
+   */
   const [digest, setDigest] = useState(true);
   /**
    * THE THREE PANELS THE ENGINE COMPUTES AND NOTHING RENDERED.
@@ -320,6 +332,19 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
     // simply gets an empty comparison rather than a refusal.
     const br = action(catalog, 'insights.branches');
     if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
+
+    // WHERE THE WEEKLY-REPORT SWITCH ACTUALLY STANDS. `decided: false` means he has never chosen,
+    // and the default (subscribed) is then the honest thing to show — so only a real decision
+    // moves the switch off its default.
+    //
+    // A FAILED READ CHANGES NOTHING, deliberately: flipping the switch to «off» because a request
+    // timed out would tell him he had unsubscribed when he had not.
+    const dg = action(catalog, 'insights.digest_state');
+    if (dg) {
+      call<{ on?: boolean; decided?: boolean }>(session, dg)
+        .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
+        .catch(() => undefined);
+    }
   }, [session, catalog]);
 
   useEffect(() => {

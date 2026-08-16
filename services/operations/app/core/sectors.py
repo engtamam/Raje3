@@ -175,14 +175,20 @@ class SectorCatalogue:
 
     # ── the one-time seed ─────────────────────────────────────────────────────────────────────
     async def seed_from_file(self, path: str) -> int:
-        """Apply the shipped defaults ONCE, when the table is empty.
+        """Apply the shipped defaults — ADDING what is missing, never overwriting what exists.
 
-        Only when empty: re-applying on every boot would silently undo an operator's edits, which
-        is the worst kind of bug — the console appears to work, and the change is gone tomorrow.
+        NOT «ONLY WHEN THE TABLE IS EMPTY», which is what this used to be, and which is the exact
+        shape the TEMPLATE seeder was rewritten to remove. Under that rule the file was read once,
+        on the first boot of a fresh deployment, and never again: a sector added to the shipped
+        file afterwards — a new trade we decided to serve — reached no existing deployment, ever.
+        The seed looked like a source of truth and behaved like a first-run fixture.
+
+        AND STILL NOTHING IS OVERWRITTEN. Re-applying every entry on every boot would silently undo
+        an operator's edits, which is the worst kind of bug: the console appears to work, and the
+        change is gone tomorrow. So an entry whose key already exists is LEFT ALONE — his edit
+        wins over our default, permanently and by design — and only genuinely new keys are written.
         """
         if not path:
-            return 0
-        if await self.list():
             return 0
         p = Path(path)
         if not p.is_file():
@@ -194,10 +200,21 @@ class SectorCatalogue:
         except json.JSONDecodeError as exc:
             raise SectorError(f"the sector seed file is not valid JSON: {exc}") from exc
 
-        await self.set_field_specs({k: v for k, v in data.get("fields", {}).items()
-                                    if not k.startswith("_")})
+        # THE FIELD SPECS ARE MERGED, NEVER REPLACED — and this line is why the whole-file rewrite
+        # above had to be careful. `set_field_specs` is also a panel route: an operator can edit a
+        # field's label or options, and this runs on every boot now. Writing the shipped dict
+        # wholesale would silently undo his edit on the next restart — the exact bug the old
+        # «only when empty» rule was protecting against, reintroduced by the fix for it.
+        shipped = {k: v for k, v in data.get("fields", {}).items() if not k.startswith("_")}
+        held = await self.fields()
+        added = {k: v for k, v in shipped.items() if k not in held}
+        if added:
+            await self.set_field_specs({**held, **added})
+        existing = {str(r.get("key") or "") for r in (await self.list() or [])}
         n = 0
         for entry in data.get("sectors", []):
+            if str(entry.get("key") or "") in existing:
+                continue        # his, not ours — see the docstring
             await self.upsert(entry)
             n += 1
         return n

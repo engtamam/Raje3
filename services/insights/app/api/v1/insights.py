@@ -282,6 +282,27 @@ class DigestIn(BaseModel):
     subject: str = Field(default="", max_length=128)
 
 
+@router.get("/digest", dependencies=[Depends(rate_limit)])
+async def get_digest(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Is this person subscribed to the weekly report?
+
+    THE READ THAT DID NOT EXIST. The switch was `useState(true)`: hardcoded on, because there was
+    nothing to ask. An owner who turned the report off saw it ON again on his next visit to the
+    screen, and could not tell whether his choice had been saved. The setting was real; only its
+    reflection was missing, which is the harder version to notice — everything works, and the
+    person using it is the only one who knows something is wrong.
+
+    `decided: false` says «he has never chosen», so the screen can show the default (subscribed)
+    without pretending to have read a decision.
+    """
+    c = request.app.state.container
+    subject = str(getattr(principal, "subject", "") or "")
+    if not subject:
+        return {"on": True, "decided": False}
+    state = await c.subscriptions.state_for(_tenant(principal), subject)
+    return {"on": True if state is None else state, "decided": state is not None}
+
+
 @router.put("/digest", dependencies=[Depends(rate_limit)])
 async def set_digest(request: Request, body: DigestIn,
                      principal: Principal = Depends(_READ)) -> dict:
