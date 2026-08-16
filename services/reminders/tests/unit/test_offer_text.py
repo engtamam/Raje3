@@ -63,3 +63,47 @@ def test_the_amount_travels_on_the_row_to_both_readers():
                          offer_value="20%", offer_code="RJ-1"))
 
     assert row["offer_value"] == "20%", "the row is the entitlement, and this is part of it"
+
+
+# ── ب-4 · «طبّق العرض» wired to a field the route never sent ───────────────────────────────────
+def test_the_offer_says_which_services_it_covers():
+    """The field screen reads `offer.service_ids` twice: to decide whether the visit in front of
+    the operator is one this offer applies to, and to badge those services in the grid. The route
+    answered `{text, expires_at, sent_at, code}` — so the set was empty on every visit, the apply
+    control was never rendered once, and no service ever carried its badge. An offer the operator
+    cannot apply is an offer the customer argues about at the counter.
+    """
+    import asyncio
+    import types
+
+    from app.api.v1 import owner as O
+
+    row = {"offer_text": "خصم 20%", "offer_expires_at": 2_000_000_000, "at": 1,
+           "offer_code": "RJ-1", "offer_value": "20%",
+           "offer_services": ["svc_wash", "svc_oil"]}
+
+    class _Store:
+        def __init__(self, _):
+            pass
+
+        async def active_offer(self, tenant, subject_ref, *, used_refs, now):
+            return row
+
+    O.SendLogStore = _Store
+    O.spent_refs = lambda **kw: set()
+    O._ops_url = lambda r: "http://ops.invalid"
+    O._ops_token = lambda r: "t" * 40
+
+    request = types.SimpleNamespace(
+        app=types.SimpleNamespace(state=types.SimpleNamespace(
+            container=types.SimpleNamespace(datastore=None))))
+    principal = types.SimpleNamespace(tenant="t1")
+
+    out = asyncio.run(O.active_offer(request, subject_ref="sub_" + "a" * 24,
+                                     principal=principal))
+
+    assert out["offer"]["service_ids"] == ["svc_wash", "svc_oil"], (
+        "the screen decides whether this visit is covered, and badges the grid, from this list")
+    # AND THE REST OF THE ANSWER IS UNCHANGED: the sentence, the end, the code, the amount.
+    assert out["offer"]["text"] == "خصم 20%" and out["offer"]["code"] == "RJ-1"
+    assert out["offer"]["value"] == "20%"

@@ -34,7 +34,7 @@ class Earner:
 
     async def from_visit(self, tenant: str, *, visit_id: str, subject_ref: str,
                          service_ids: list[str], amount_halalas: int = 0,
-                         actor: str = "", branch_id: str = "",
+                         actor: str = "", branch_id: str = "", free: bool = False,
                          tree: EarnTree | None = None) -> dict:
         """Award points for one visit. Returns what happened, and never raises for a redelivery.
 
@@ -44,6 +44,13 @@ class Earner:
         """
         if not subject_ref or not visit_id:
             return {"earned": 0, "reason": "missing subject or visit"}
+
+        # A VISIT BOUGHT WITH POINTS EARNS NONE (ب-6). The wash happened and the visit is real —
+        # the cycle restarts, the history shows it — but paying the customer for redeeming a
+        # reward gives the same thing away twice, and the balance climbs for a reason no owner
+        # would recognise if he ever traced it.
+        if free:
+            return {"earned": 0, "reason": "زيارة مجانية مقابل مكافأة — لا نقاط عليها"}
 
         t = tree if tree is not None else await self.settings.load(tenant)
         cfg = t.config
@@ -88,7 +95,10 @@ class Earner:
                 service_ids=list(v.get("service_ids") or []),
                 amount_halalas=int(v.get("amount_halalas") or 0),
                 actor=str(v.get("operator_id") or ""),
-                branch_id=str(v.get("branch_id") or ""), tree=t)
+                branch_id=str(v.get("branch_id") or ""),
+                # SAME RULE ON THE REPAIRED PATH. A free visit that earned nothing live must not
+                # earn when the catch-up replays it.
+                free=bool(v.get("free")), tree=t)
             if res.get("earned"):
                 awarded += 1
             else:

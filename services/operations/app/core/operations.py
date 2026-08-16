@@ -211,6 +211,10 @@ class Operations:
                            # known» rather than «free». It is what loyalty's earn rule multiplies.
                            total_minor: int = 0,
                            occurred_at: int = 0,
+                           # Bought with points rather than money (ب-6). Recorded on the visit so
+                           # every consumer of it — the event, the feed, the earner — sees the
+                           # same fact rather than inferring it from the note.
+                           free: bool = False,
                            allow_unknown_services: bool = False) -> RecordedVisit:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
@@ -295,6 +299,7 @@ class Operations:
                       total_minor=max(0, int(total_minor or 0)),
                       quantities={k: int(v) for k, v in (quantities or {}).items()
                                   if k in set(service_ids) and int(v) > 0},
+                      free=bool(free),
                       idempotency_key=idempotency_key, created=now,
                       occurred_at=_sane_occurred_at(occurred_at, now,
                                                                     self._max_backdate))
@@ -415,6 +420,9 @@ class Operations:
         customer = await self._customers.get(tenant, customer_id)
         if customer is None:
             return None
+        # INACTIVE ONES INCLUDED: a visit for a service the shop has since retired is still a
+        # visit for that service, and «زيارة» in its place is the defect this closes.
+        names = {s.id: s.name for s in await self._services.list(tenant, active_only=False)}
         return {
             # THE PSEUDONYM TRAVELS WITH THIS ONE RECORD, and with nothing else.
             #
@@ -427,11 +435,28 @@ class Operations:
             # tenant, means nothing anywhere else, and cannot be turned back into a number.
             "customer": {**customer.public(), "subject_ref": customer.subject_ref},
             "assets": [a.public() for a in await self._assets.for_customer(tenant, customer_id)],
-            "visits": [v.public() for v in await self._visits.for_customer(tenant, customer_id)],
+            # NAMED, NOT KEYED (ب-3). `public()` carries `service_ids`, and the owner's card
+            # reads `services` — so twenty rows all read «زيارة», identically, and the shop's own
+            # screen told him less than his customer's page did: the portal feed joins the same
+            # names and always has. The join happens once for the whole record rather than per
+            # row, which is why it is here and not in `public()`.
+            "visits": [{**v.public(), "services": _labels(v, names)}
+                       for v in await self._visits.for_customer(tenant, customer_id)],
         }
 
     async def catalogue(self, tenant: str) -> list[dict[str, Any]]:
         return [s.public() for s in await self._services.list(tenant)]
+
+
+def _labels(visit, names: dict[str, str]) -> str:
+    """What this visit was, in his words — the same phrasing the customer's own page uses.
+
+    Falls back to the catch-all's typed label, then to «زيارة», so a row is never blank: an empty
+    line in a history reads as a broken record rather than as an unnamed service.
+    """
+    got = [names.get(sid, "") for sid in (visit.service_ids or [])]
+    got = [x for x in got if x] or [(visit.custom_service or "").strip() or "زيارة"]
+    return "، ".join(got[:3])
 
 
 # A device clock may be wrong by days, and occasionally by years — a tablet that lost its battery

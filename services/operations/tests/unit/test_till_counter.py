@@ -28,11 +28,22 @@ class _Principal:
 
 
 class _Customer:
-    def __init__(self, *, subject_ref: str = "sub_1", name: str = "أحمد") -> None:
+    """The row as `Customer` really is (ب-5).
+
+    It used to omit `visit_count`, and the route read `getattr(c, "visits", 0)` — a spelling the
+    row has never had. The double was permissive enough to accept the wrong name and the default
+    was silent enough to hide it, so the till told a shop that a fortnightly customer of two years
+    had been in zero times. A stub that answers questions the real object cannot is a test that
+    passes on behalf of code that fails.
+    """
+
+    def __init__(self, *, subject_ref: str = "sub_1", name: str = "أحمد",
+                 visit_count: int = 0) -> None:
         self.id = "cus_1"
         self.phone = "966500000000"
         self.name = name
         self.subject_ref = subject_ref
+        self.visit_count = visit_count
 
 
 class _Ops:
@@ -276,3 +287,19 @@ def test_a_sale_with_nothing_stable_on_it_is_refused_with_a_sentence():
     assert out["results"][0]["status"] == "rejected"
     for named in ("idempotency_key", "invoice_id", "occurred_at"):
         assert named in out["results"][0]["reason"]
+
+
+def test_the_counter_shows_how_many_times_he_has_actually_been_here():
+    """ب-5 · «زياراته: 0» about a man who comes every fortnight.
+
+    The row counts visits in `visit_count`; the route asked for `visits`. `getattr` with a default
+    cannot fail — that is what the third argument is for — so the wrong name and a real zero were
+    the same answer, on the one screen a cashier uses to decide whether this is a regular.
+    """
+    ops = _Ops(customer=_Customer(visit_count=47))
+    desk = _Desk(balance={"points": 30, "rewards": [], "to_next_reward": 70})
+
+    out = asyncio.run(till_routes.customer_at_the_counter(
+        _request(ops, desk), phone="0500000000", principal=_Principal(tenant="t_9")))
+
+    assert out["visits"] == 47

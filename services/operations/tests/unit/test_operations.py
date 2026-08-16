@@ -456,3 +456,45 @@ def test_an_operator_from_another_shop_decides_nothing_here(ops):
     out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
                                operator_id="opr_shared", branch_id=BR.MAIN))
     assert out.visit.branch_id == BR.MAIN
+
+
+def test_the_customer_record_names_the_services_it_lists(ops):
+    """ب-3 · twenty rows of «زيارة».
+
+    `Visit.public()` carries `service_ids`, and the owner's customer card reads `services` — so
+    every row fell back to the same word, and the shop's own screen told him less about his
+    customer than the page we send that customer does: the portal feed has always joined the
+    names. He opens a customer to answer «متى كان آخر تغيير زيت؟» and reads twenty identical lines.
+    """
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    run(ServiceStore(store).save(Service(id="svc_oil", tenant=A, name="تغيير زيت")))
+    run(ServiceStore(store).save(Service(id="svc_wash", tenant=A, name="غسيل")))
+    rec_a = run(svc.record_visit(tenant=A, phone="0501111111", service_ids=["svc_oil"]))
+    run(svc.record_visit(tenant=A, phone="0501111111", service_ids=["svc_wash", "svc_oil"]))
+
+    got = run(svc.customer_record(A, rec_a.customer.id))
+
+    labels = [v["services"] for v in got["visits"]]
+    assert "تغيير زيت" in labels
+    assert "غسيل، تغيير زيت" in labels
+    assert "زيارة" not in labels, "the placeholder is for a visit we genuinely cannot name"
+
+
+def test_a_visit_we_cannot_name_still_reads_as_something(ops):
+    """The catch-all's own label first, and «زيارة» only when there is nothing at all: a blank
+    line in a history reads as a broken record rather than as an unnamed service."""
+    from app.core.models import Service
+    from app.core.stores import ServiceStore
+
+    svc, store = ops
+    # THE CATCH-ALL, because a shop without one refuses an unknown service outright — a different
+    # rule, and not this one's subject.
+    run(ServiceStore(store).save(Service(id="svc_other", tenant=A, name="", catchall=True)))
+    rec = run(svc.record_visit(tenant=A, phone="0502222222", service_ids=["svc_gone"],
+                               custom_service="تلميع كامل", allow_unknown_services=True))
+
+    got = run(svc.customer_record(A, rec.customer.id))
+    assert got["visits"][0]["services"] == "تلميع كامل"

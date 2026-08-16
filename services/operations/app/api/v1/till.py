@@ -285,7 +285,11 @@ async def customer_at_the_counter(request: Request, phone: str = "", plate: str 
     if c is None:
         return {"found": False}
 
-    out: dict[str, Any] = {"found": True, "name": c.name or "", "visits": getattr(c, "visits", 0)}
+    # `visit_count`, NOT `visits` (ب-5). `getattr` with a default cannot fail — that is the point
+    # of the third argument, and it is what made this invisible: the row has never had a `visits`
+    # attribute, so the till showed «زياراته: 0» about a man who has come every fortnight for two
+    # years. Read straight off the field, so a rename breaks loudly instead of answering zero.
+    out: dict[str, Any] = {"found": True, "name": c.name or "", "visits": c.visit_count}
 
     desk = getattr(request.app.state.container, "loyalty_desk", None)
     if desk is None or not desk.configured or not c.subject_ref:

@@ -733,6 +733,10 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
             # SAME NAME AS THE EVENT, because loyalty's catch-up reads this row when the bus drops
             # one — two spellings would make a repaired visit earn differently from a live one.
             "amount_halalas": int(r.get("total_minor") or 0),
+            # SAME NAME AS THE EVENT, for the same reason every other field here is: the catch-up
+            # reads this row when the bus drops one, and a free wash must not earn on the repaired
+            # path when it earned nothing on the live one.
+            "free": bool(r.get("free")),
             "asset_id": r.get("asset_id", ""),
             "operator_id": r.get("operator_id", ""),
             "branch_id": r.get("branch_id", ""),
@@ -811,6 +815,13 @@ class FreeVisitIn(BaseModel):
     # The redemption's id. Also the idempotency key, because the redemption is the only thing that
     # knows whether two calls are the same free wash.
     source: str = Field(min_length=1, max_length=128)
+    # THIS VISIT WAS BOUGHT WITH POINTS, NOT WITH MONEY (ب-6). loyalty has sent this flag since the
+    # route existed and the model did not declare it, so pydantic dropped it: the free wash was
+    # recorded as an ordinary visit, and the earn rule then paid the customer points for spending
+    # points. The reward costs the shop twice and the balance drifts upward for nobody's reason.
+    #
+    # Default False, because every OTHER caller of a visit door is recording a sale.
+    free: bool = False
 
 
 @router.post("/operations/visits/by-ref", dependencies=[Depends(require_internal_token)])
@@ -846,6 +857,7 @@ async def record_visit_by_ref(request: Request, body: FreeVisitIn) -> dict:
             operator_id=body.actor,
             # Namespaced on the redemption, so a retry of the same redemption records one visit.
             idempotency_key=f"loyalty:{body.source}",
+            free=body.free,
             note="مكافأة ولاء")
     except OperationError as exc:
         return {"recorded": False, "reason": str(exc)}

@@ -123,6 +123,9 @@ class Seams:
                 # the key absent that is `(0 // 100) * n`, so an integrated shop earned zero points
                 # on every invoice and the recorded reason said «no points configured».
                 "amount_halalas": v.total_minor,
+                # BOUGHT WITH POINTS (ب-6). The earner reads this and awards nothing: a reward
+                # that pays the customer for redeeming it gives the same thing away twice.
+                "free": bool(v.free),
                 "occurred_at": v.occurred_at or v.created,
                 "created": v.created,
             }))

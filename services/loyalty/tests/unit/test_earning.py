@@ -172,3 +172,42 @@ def test_the_catch_up_reads_the_same_rule_as_the_subscription():
         {"id": "v1", "subject_ref": S, "service_ids": ["wash"]},   # already paid
     ]))
     assert res == {"awarded": 2, "skipped": 1, "seen": 3}
+
+
+# ── ب-6 · a visit bought with points earns none ────────────────────────────────────────────────
+def test_a_free_visit_earns_nothing():
+    """THE REWARD PAID FOR ITSELF, TWICE.
+
+    A reward of type `service` is a real wash performed for no money: operations records the visit
+    so the cycle restarts and the history is true. The flag saying it was bought with points was
+    sent from the first day and dropped by a model that never declared it — so the earn rule saw
+    an ordinary visit and paid the customer for spending his points.
+    """
+    _, _, earner = build()
+
+    res = run(earner.from_visit(T, visit_id="v_free", subject_ref=S,
+                                service_ids=["wash"], free=True))
+
+    assert res["earned"] == 0
+    assert "مجانية" in res["reason"], "and the reason says which rule refused, in his words"
+
+
+def test_a_paid_visit_still_earns():
+    """The other direction is the expensive one: a real sale marked free stops the programme."""
+    _, _, earner = build()
+    res = run(earner.from_visit(T, visit_id="v_paid", subject_ref=S,
+                                service_ids=["wash"], free=False))
+    assert res["earned"] == 10
+
+
+def test_the_catch_up_honours_it_too():
+    """The repaired path reads the SAME function — a free visit that earned nothing live must not
+    earn when the bus drops the event and the feed replays it."""
+    _, _, earner = build()
+
+    out = run(earner.catch_up(T, [
+        {"visit_id": "v_a", "subject_ref": S, "service_ids": ["wash"], "free": True},
+        {"visit_id": "v_b", "subject_ref": S, "service_ids": ["wash"]},
+    ]))
+
+    assert out["awarded"] == 1 and out["skipped"] == 1

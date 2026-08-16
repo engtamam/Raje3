@@ -288,6 +288,10 @@ class EarnIn(BaseModel):
     # Invoice mode only, and only for an integrated establishment. Halalas, so no float ever
     # touches money.
     amount_halalas: int = 0
+    # THE VISIT WAS A REDEMPTION, NOT A SALE (ب-6). Declared here as well as on the visit door,
+    # because this is where the event arrives and a field the model does not declare is a field
+    # pydantic drops — which is the whole defect this closes.
+    free: bool = False
     actor: str = ""
     # WHO ALLOWED IT, when the reward is above the shop's threshold. Empty is the ordinary case —
     # most redemptions are below it — and the core refuses the expensive ones without a name, and
@@ -327,7 +331,8 @@ async def earn(request: Request, body: EarnIn) -> dict:
 
     return await c.earner.from_visit(
         body.tenant, visit_id=body.visit_id, subject_ref=body.subject_ref,
-        service_ids=body.service_ids, amount_halalas=body.amount_halalas, actor=body.actor,
+        service_ids=body.service_ids, amount_halalas=body.amount_halalas,
+        free=body.free, actor=body.actor,
         branch_id=body.branch_id)
 
 

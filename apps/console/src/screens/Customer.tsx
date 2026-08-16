@@ -35,7 +35,11 @@ import type { Session } from '../session';
 
 interface Record {
   customer: { id: string; phone: string; name?: string; subject_ref?: string; visits?: number };
-  /** `meter` and `note` are typed by the operator on the field screen and were read by nothing
+  /** `services` is the NAME the server joins for this row (ب-3), not the identifiers `public()`
+   *  carries: reading `service_ids` here would print «svc_9f2a…» to the owner, and reading a key
+   *  the server never sent printed «زيارة» on twenty identical lines.
+   *
+   *  `meter` and `note` are typed by the operator on the field screen and were read by nothing
    *  at all (أ-9): both doors accept them, the visit row stores them, and no screen in the
    *  product showed them back. Daily effort on a screen whose whole budget is five seconds. */
   visits: { id: string; services?: string; occurred_at?: number; meter?: number; note?: string }[];

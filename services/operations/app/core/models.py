@@ -191,6 +191,10 @@ class Visit:
     # still counting as the real visit and real money it was. Without it the association engine
     # learns «من طلب قهوة طلب قهوة» from a table of four.
     quantities: dict[str, int] = field(default_factory=dict)
+    # PAID FOR WITH POINTS (ب-6). The visit is real — the work was done, the cycle restarts, the
+    # history shows it — and it must not earn points of its own: a reward that pays the customer
+    # for redeeming it is the shop giving the same thing away twice.
+    free: bool = False
     # WHAT THIS VISIT WAS WORTH, in halalas, and only ever from an integrated till — the field
     # screen records no money. 0 means «not known», which is exactly what a field visit is.
     total_minor: int = 0
@@ -225,6 +229,7 @@ class Visit:
                 "operator_id": self.operator_id, "branch_id": self.branch_id,
                 "meter": self.meter, "note": self.note, "custom_service": self.custom_service,
                 "created": self.created,
+                "free": self.free,
                 "occurred_at": self.occurred_at or self.created,
                 "offer_ref": self.offer_ref, "offer_text": self.offer_text,
                 "offer_used_at": self.offer_used_at}

@@ -176,6 +176,12 @@ jobs:
       - name: a door field nothing sends
         run: python3 ci/check_door_fields_are_sent.py
 
+      # AND THE SAME BOUNDARY BETWEEN SERVICES. loyalty told operations a wash was free, in a key
+      # `FreeVisitIn` did not declare — so pydantic dropped it, the redemption was recorded as an
+      # ordinary visit, and the customer earned points for spending points.
+      - name: a peer body the receiver discards
+        run: python3 ci/check_peer_bodies_are_declared.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

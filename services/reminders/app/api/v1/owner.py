@@ -601,7 +601,13 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
                       # rendered into the message, and then existed nowhere a person could read it
                       # again. When the owner wrote his own line the sentence may not restate it at
                       # all, so the operator's only source was the customer's word for it.
-                      "value": row.get("offer_value", "")}}
+                      "value": row.get("offer_value", ""),
+                      # WHICH SERVICES IT COVERS (ب-4). The field screen reads `offer.service_ids`
+                      # to decide whether the visit in front of the operator is one the offer
+                      # applies to — and to badge those services in the grid. The route never sent
+                      # the key, so the set was empty on every visit: the «طبّق العرض» control was
+                      # never rendered once, and no service ever carried its badge.
+                      "service_ids": list(row.get("offer_services") or [])}}
 
 
 class DsarCodeOut(BaseModel):
