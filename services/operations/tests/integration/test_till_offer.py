@@ -219,3 +219,40 @@ def test_two_coffees_on_one_bill_reach_the_group_basket_test(client, till_header
     # AND THE VERDICT ITSELF, computed the way insights computes it — a repeated item is a group.
     assert any(int(q) > 1 for q in quantities.values()), (
         "a receipt with two of one item did not read as a group basket")
+
+
+def test_the_invoice_amount_reaches_the_feed_that_earns_points(client, till_headers):
+    """أ-1 — A 480-RIYAL INVOICE WAS WORTH ZERO POINTS, AND NOTHING FAILED.
+
+    The till sends `amount_minor` per line and `parse_lines` read it into `Line.amount_minor`. It
+    stopped there: `InvoiceResult` had no amount field, `Visit` had no amount field, and neither the
+    event nor the catch-up feed emitted one. loyalty's earn rule asks for `amount_halalas` and
+    computes `(amount // 100) * points_per_riyal` — with the key absent that is `(0 // 100) * n`.
+    Zero points, on every invoice, for every integrated shop, with «no points configured» recorded
+    as the reason and no error in any log on the way.
+
+    The assertion is at the END of the chain: the shape loyalty actually receives.
+    """
+    r = client.post("/api/v1/till/visits", headers=till_headers["headers"], json={
+        "visits": [{
+            "phone": "0501234570",
+            "invoice_id": "INV-9500",
+            "lines": [{"product_id": "P-OIL", "name": "تغيير زيت", "qty": 1,
+                       "amount_minor": 45000},
+                      {"product_id": "P-FILTER", "name": "فلتر", "qty": 1,
+                       "amount_minor": 3000}],
+        }],
+    })
+    assert r.status_code == 200, r.text
+    assert r.json().get("accepted") == 1, r.json()
+
+    feed = client.post("/internal/operations/visits/since",
+                       headers={"X-Internal-Token": "t" * 40},
+                       json={"tenant": till_headers["tenant"], "since": 0})
+    assert feed.status_code == 200, feed.text
+    mine = [v for v in feed.json()["visits"] if v.get("amount_halalas")]
+    assert mine, "the amount died somewhere between the till and loyalty"
+    assert mine[-1]["amount_halalas"] == 48000, "480 riyals, summed from both lines"
+
+    # AND THE RULE THAT READS IT, computed the way loyalty computes it.
+    assert (mine[-1]["amount_halalas"] // 100) * 1 == 480

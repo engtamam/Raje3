@@ -71,6 +71,14 @@ class InvoiceResult:
     # (§10.6.2). Without it the association engine treats a table of four as one person with
     # extraordinary habits, and «من اشترى س اشترى ص» is learned from parties rather than people.
     quantities: dict[str, int] = field(default_factory=dict)
+    # WHAT THE RECEIPT CAME TO, in halalas, summed from the lines (أ-1).
+    #
+    # The till sends `amount_minor` per line, `parse_lines` reads it into `Line.amount_minor` — and
+    # there it stopped. Nothing carried it out of this function, so the visit had no amount, the
+    # event had no amount, and loyalty's earn rule computed `(0 // 100) * points_per_riyal = 0`.
+    # A 480-riyal invoice earned zero points, and the reason recorded was «no points configured»:
+    # no error, in any log, anywhere on the chain.
+    total_minor: int = 0
 
 
 def normalise_id(raw: Any) -> str:
@@ -177,6 +185,7 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
                 by_name[line.name] = found
             res.service_ids.append(found.id)
             res.quantities[found.id] = res.quantities.get(found.id, 0) + max(1, line.quantity)
+            res.total_minor += max(0, line.amount_minor)
             continue
 
         if not auto_create:
@@ -196,5 +205,6 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
         res.service_ids.append(svc.id)
         res.created_services.append(svc.id)
         res.quantities[svc.id] = res.quantities.get(svc.id, 0) + max(1, line.quantity)
+        res.total_minor += max(0, line.amount_minor)
 
     return res

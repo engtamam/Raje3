@@ -37,6 +37,30 @@ async def _resolve(flag: Any, tenant: str) -> bool:
     return bool(flag)
 
 
+async def _resolve_config(config: Any, tenant: str) -> dict:
+    """The same treatment for the SERVICE CONFIG, and for the same reason (ج-5).
+
+    `confirm_visits` has been resolved per visit since the day discovery was added, with a comment
+    saying why: one global cursor reads across every tenant, so a single answer here applies one
+    shop's setting to another shop's customer. The service config was left as a flat dict — and
+    the tick passed `{}` for it, because at that point it has no tenant to look one up for.
+
+    An empty config means every service falls back to the default cycle. Discovery runs FIRST and
+    consumes the visit, writing the «seen» mark; the per-tenant catch-up that follows — the only
+    caller with the real configuration — then finds it `duplicate` and changes nothing. So a car
+    wash on a 10-day cycle had its reminder scheduled at 90 days and locked there, and the whole
+    per-service cycle feature worked only for visits the bus happened to drop.
+
+    A dict still works unchanged for the single-tenant path.
+    """
+    if callable(config):
+        out = config(tenant)
+        if hasattr(out, "__await__"):
+            out = await out
+        return dict(out or {})
+    return dict(config or {})
+
+
 class Ingest:
     """Both paths into the scheduler."""
 
@@ -125,9 +149,10 @@ class Ingest:
                 # global cursor, so a single boolean here would apply one shop's answer to another
                 # shop's customer. A resolver keeps the setting owned by the establishment it
                 # belongs to; a plain bool still works for the single-tenant path.
-                confirm = await _resolve(confirm_visits, str(v.get("tenant") or tenant))
-                out = await self._sched.on_visit(v, now=now,
-                                                 service_config=service_config or {},
+                of_tenant = str(v.get("tenant") or tenant)
+                confirm = await _resolve(confirm_visits, of_tenant)
+                cfg = await _resolve_config(service_config, of_tenant)
+                out = await self._sched.on_visit(v, now=now, service_config=cfg,
                                                  confirm_visits=confirm)
                 read += 1
                 if not out.duplicate:

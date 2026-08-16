@@ -146,3 +146,53 @@ def test_the_global_cursor_does_not_collide_with_a_tenants_own(st, ing):
     run(ing.discover(now=NOW, service_config=CFG))
     assert run(ing._watermark("_all")) == NOW + 5
     assert run(ing._watermark("t1")) == 0
+
+
+# ── discovery must use each shop's own cycle, not the default (ج-5) ────────────────────────────
+
+
+def test_discovery_schedules_on_the_shops_own_cycle_not_the_default(st):
+    """THE FIRST REMINDER ARRIVED 83 DAYS LATE, AND NOTHING FAILED.
+
+    Discovery reads across every tenant from one global cursor, so it has no single shop to look a
+    config up for — and it was handed `{}`, which makes every service fall back to the default 90
+    days. It runs FIRST and CONSUMES the visit, writing the «seen» mark, so the per-tenant catch-up
+    that follows — the only caller holding the real configuration — found it `duplicate` and
+    changed nothing. A car wash on a 10-day cycle had its reminder scheduled at 90 days and locked
+    there, and the whole per-service cycle feature worked only for visits the bus happened to drop.
+    """
+    s = Scheduler(store=st, cfg=adaptive.AdaptiveConfig(), eng_cfg=engagement.EngagementConfig())
+    ing = Ingest(store=st, scheduler=s,
+                 visits_client=FakeVisits([{"tenant": "wash", "subject_ref": "sub_1",
+                                            "visit_id": "vis_1", "service_ids": ["oil"],
+                                            "occurred_at": NOW, "created": NOW + 1}]))
+
+    async def config_of(tenant: str):
+        assert tenant == "wash", "the resolver must be asked about the visit's own shop"
+        return {"oil": {"cycle_days": 10, "lead_days": 0, "follow_up_days": 0}}
+
+    run(ing.discover(now=NOW, service_config=config_of))
+
+    rows, _ = run(ScheduleStore(st)._find("wash", limit=10))
+    # THE REMINDER, not the confirmation. A visit schedules both, and the confirmation is due in
+    # minutes — reading the earliest row would measure the wrong one.
+    due = [int(r["due_at"]) for r in rows if r.get("kind") == "reminder"]
+    assert due, "the visit was never scheduled a reminder at all"
+    days = (min(due) - NOW) // 86400
+    assert days == 10, f"scheduled {days} days out — the shop's cycle is 10, the default is 90"
+
+
+def test_a_plain_dict_still_works_for_the_single_tenant_path(st):
+    """The resolver is an addition, not a replacement: `catch_up` for one known tenant still hands
+    a dict, and nothing about that path changes."""
+    s = Scheduler(store=st, cfg=adaptive.AdaptiveConfig(), eng_cfg=engagement.EngagementConfig())
+    ing = Ingest(store=st, scheduler=s,
+                 visits_client=FakeVisits([{"tenant": "t1", "subject_ref": "sub_9",
+                                            "visit_id": "vis_9", "service_ids": ["oil"],
+                                            "occurred_at": NOW, "created": NOW + 1}]))
+    run(ing.catch_up("t1", now=NOW,
+                     service_config={"oil": {"cycle_days": 30, "lead_days": 0,
+                                             "follow_up_days": 0}}))
+    rows, _ = run(ScheduleStore(st)._find("t1", limit=10))
+    due = [int(r["due_at"]) for r in rows if r.get("kind") == "reminder"]
+    assert due and (min(due) - NOW) // 86400 == 30

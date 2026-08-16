@@ -137,7 +137,16 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
     # by the time the list is read.
     if not body.tenant:
         try:
-            got = await c.ingest.discover(now=now, service_config={},
+            # THE CONFIG IS A RESOLVER, NOT `{}` (ج-5). Discovery reads across every tenant from
+            # one global cursor, so it has no single shop to look a config up for — and `{}` meant
+            # every service fell back to the default cycle. It runs FIRST and consumes the visit,
+            # writing the «seen» mark, so the per-tenant catch-up below — the only caller with the
+            # real configuration — then found it `duplicate` and changed nothing. A car wash on a
+            # 10-day cycle had its first reminder scheduled at 90 days and locked there.
+            #
+            # Asked per visit, by the tenant on the visit — exactly as `confirm_visits` already is.
+            got = await c.ingest.discover(now=now,
+                                          service_config=lambda t: _service_config(c, t),
                                           confirm_visits=lambda t: _confirms_visits(c, t))
             caught["read"] += got.get("read", 0)
             caught["scheduled"] += got.get("scheduled", 0)

@@ -191,6 +191,9 @@ class Visit:
     # still counting as the real visit and real money it was. Without it the association engine
     # learns «من طلب قهوة طلب قهوة» from a table of four.
     quantities: dict[str, int] = field(default_factory=dict)
+    # WHAT THIS VISIT WAS WORTH, in halalas, and only ever from an integrated till — the field
+    # screen records no money. 0 means «not known», which is exactly what a field visit is.
+    total_minor: int = 0
     idempotency_key: str = ""
     # TWO CLOCKS, kept separately and on purpose.
     #

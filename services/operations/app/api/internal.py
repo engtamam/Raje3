@@ -183,6 +183,8 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
         # a catalogue write scoped to the wrong one is the worst bug this endpoint could have.
         extra_custom = ""
         item_quantities: dict[str, int] = {}
+        # 0 IS «NOT KNOWN», and for a field visit that is the truth — the screen records no money.
+        item_total_minor = 0
         if item.lines:
             try:
                 res = await _invoices.resolve(
@@ -194,6 +196,12 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 # ever — which is what it did: `parse_lines` looked for `quantity` while our own
                 # till model calls the field `qty`, so every line arrived as one.
                 item_quantities = dict(res.quantities)
+                # AND THE MONEY, on the same journey as the count (أ-1). The till sends
+                # `amount_minor` per line and `parse_lines` read it — into a field nothing carried
+                # any further. So the visit reached loyalty with no amount, its earn rule computed
+                # `(0 // 100) * points_per_riyal`, and a 480-riyal invoice was worth zero points
+                # while the recorded reason said «no points configured».
+                item_total_minor = res.total_minor
                 # THE SHOP HAS JUST TOLD US IT IS INTEGRATED, by doing the one thing only an
                 # integrated shop does. Nobody could answer this at signup — the till company
                 # often connects weeks later, sometimes without the owner — so it is read from
@@ -244,7 +252,7 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 name=item.name, plate=item.plate, operator_id=item.operator_id,
                 branch_id=item.branch_id, meter=item.meter, note=item.note,
                 custom_service=item.custom_service,
-                quantities=item_quantities,
+                quantities=item_quantities, total_minor=item_total_minor,
                 idempotency_key=item.idempotency_key, occurred_at=item.occurred_at,
                 # ONLY on this path. A till cannot know our catalogue, and refusing a service it
                 # sent would lose the visit — which loses the customer from the product. On the
@@ -722,6 +730,9 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
             # from the first day; this row never carried the key, so the test that drops a party's
             # receipt from learning has never had anything to work with.
             "quantities": dict(r.get("quantities") or {}),
+            # SAME NAME AS THE EVENT, because loyalty's catch-up reads this row when the bus drops
+            # one — two spellings would make a repaired visit earn differently from a live one.
+            "amount_halalas": int(r.get("total_minor") or 0),
             "asset_id": r.get("asset_id", ""),
             "operator_id": r.get("operator_id", ""),
             "branch_id": r.get("branch_id", ""),

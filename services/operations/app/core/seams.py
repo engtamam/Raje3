@@ -112,6 +112,11 @@ class Seams:
                 "operator_id": v.operator_id,
                 "branch_id": v.branch_id,
                 "visit_count": c.visit_count,
+                # THE NAME loyalty READS, and it read a key nobody emitted (أ-1). `earn.py` asks
+                # for `amount_halalas` and multiplies `(amount // 100) * points_per_riyal`; with
+                # the key absent that is `(0 // 100) * n`, so an integrated shop earned zero points
+                # on every invoice and the recorded reason said «no points configured».
+                "amount_halalas": v.total_minor,
                 "occurred_at": v.occurred_at or v.created,
                 "created": v.created,
             }))

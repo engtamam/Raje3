@@ -206,6 +206,10 @@ class Operations:
                            # screen does not, so empty is the ordinary case and not a gap. It is
                            # read by exactly one thing: the group-basket test (§10.6.2).
                            quantities: dict[str, int] | None = None,
+                           # WHAT THE RECEIPT CAME TO, in halalas. Same shape as `quantities`: an
+                           # integrated till knows it, the field screen does not, and 0 means «not
+                           # known» rather than «free». It is what loyalty's earn rule multiplies.
+                           total_minor: int = 0,
                            occurred_at: int = 0,
                            allow_unknown_services: bool = False) -> RecordedVisit:
         if not tenant:
@@ -288,6 +292,7 @@ class Operations:
                       # ONLY WHAT THIS VISIT ACTUALLY HELD. A count for a service that is not on
                       # the visit would be a fact about nothing, and `is_group_basket` reads the
                       # values alone — one stray entry would mark an honest receipt as a party.
+                      total_minor=max(0, int(total_minor or 0)),
                       quantities={k: int(v) for k, v in (quantities or {}).items()
                                   if k in set(service_ids) and int(v) > 0},
                       idempotency_key=idempotency_key, created=now,
