@@ -22,6 +22,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from starlette.concurrency import run_in_threadpool
+
 
 class LoyaltyDesk:
     """The two calls the counter makes: what does he hold, and hand it over."""
@@ -71,7 +73,11 @@ class LoyaltyDesk:
         if not self.configured:
             return None
         q = f"?tenant={urllib.parse.quote(tenant)}&subject_ref={urllib.parse.quote(subject_ref)}"
-        out = self._call("/internal/loyalty/portal/balance" + q)
+        # OFF THE EVENT LOOP (ك-9). `_call` blocks on `urlopen` for up to `self._timeout` seconds,
+        # and this runs while a customer stands at the till. An unthreaded call here freezes the
+        # whole worker — other shops' counters and the field screen stall on ONE slow loyalty read,
+        # not just this one customer's balance.
+        out = await run_in_threadpool(self._call, "/internal/loyalty/portal/balance" + q)
         return None if out is None or "_status" in out else out
 
     async def redeem(self, *, tenant: str, subject_ref: str, reward_id: str,
@@ -85,7 +91,8 @@ class LoyaltyDesk:
         """
         if not self.configured:
             return None
-        return self._call("/internal/loyalty/redeem", body={
+        # OFF THE EVENT LOOP, same reason as `balance` above.
+        return await run_in_threadpool(self._call, "/internal/loyalty/redeem", body={
             "tenant": tenant, "subject_ref": subject_ref, "reward_id": reward_id,
             "idempotency_key": idempotency_key, "actor": actor, "branch_id": branch_id,
             # PASSED THROUGH, NEVER INVENTED HERE. It names the person who took responsibility;

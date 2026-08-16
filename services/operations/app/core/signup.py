@@ -126,7 +126,14 @@ class NewShop:
     # first invoice, and written ONCE — a key arriving later is recorded and changes nothing, or a
     # till company that replaced another's software six months on would inherit its commission
     # (core/partners.py).
+    #
+    # A RAW KEY, ONLY WHEN THIS FIELD IS SET DIRECTLY BY A CALLER THAT HOLDS ONE. `claim()` never
+    # sets it — it passes `partner_id` below, already resolved (ك-5).
     partner_key: str = ""
+    # THE RESOLVED ID, for a claim that already looked its key up at invite time. Takes priority
+    # over `partner_key` in `open_shop` when both could apply, since a caller that resolved the key
+    # already spent the round trip a raw key would repeat.
+    partner_id: str = ""
     # The till will send this shop's catalogue, so seeding the sector's seventeen names would
     # leave the owner unable to tell which of them his own invoices actually mention (§4.2).
     integrated: bool = False
@@ -359,14 +366,29 @@ class SignupService:
 
         # THE STAMP, AND A BAD KEY DOES NOT COST HIM HIS SHOP. Attribution is our commercial
         # bookkeeping; failing a signup over a mistyped partner key would punish the owner for a
-        # mistake made by his till company. Reported in the response instead, where an operator
-        # can act on it — and the stamp can be applied by hand afterwards.
+        # mistake made by his till company. Reported here for an operator to act on — never in the
+        # response, which is HIS answer, not ours: he did not type the key, cannot fix it, and «unknown
+        # partner key» is an English sentence about a company he has never heard of.
+        #
+        # THIS USED TO RETURN THE STRING TO THE ROUTE, and the route spread it straight into the
+        # owner's signup answer (ك-4) — with no audit row and no telemetry, so the one party who
+        # could actually repair the stamp never learned it needed repairing. It follows
+        # `_register_data_map`'s own pattern below exactly.
         stamp_error = ""
         if self._partners is not None:
             try:
-                await self._partners.stamp(tenant, key=shop.partner_key)
+                if shop.partner_id:
+                    await self._partners.stamp_by_partner_id(tenant, partner_id=shop.partner_id)
+                else:
+                    await self._partners.stamp(tenant, key=shop.partner_key)
             except Exception as exc:                                          # noqa: BLE001
                 stamp_error = str(exc)[:200]
+                if self._telemetry is not None:
+                    try:
+                        self._telemetry.event("partner_stamp_failed", tenant=tenant,
+                                              reason=stamp_error)
+                    except Exception:                                          # noqa: BLE001
+                        pass    # a telemetry failure must not fail a signup
 
         return {"tenant": tenant, "phone": phone, "services": seeded,
                 "stamp_error": stamp_error, "data_map_error": map_error}
@@ -609,9 +631,23 @@ class SignupService:
             # than wait for a claim that never comes.
             raise SignupRefused("لهذا الرقم حساب بالفعل.")
 
+        # RESOLVED HERE, NOT AT CLAIM TIME (ك-5). Two things follow from doing it now: the till
+        # company that typoed its key learns immediately, at the one moment it can still fix the
+        # call, instead of the failure surfacing days later on the OWNER's claim with nobody able to
+        # act on it (see `open_shop`'s own note on `stamp_error`) — and the raw key never has to be
+        # stored anywhere for the week the invitation stays open. Only the resolved id does.
+        partner_id = ""
+        if partner_key and self._partners is not None:
+            partner = await self._partners.resolve(partner_key)
+            if partner is None:
+                raise SignupRefused("مفتاح شريكٍ غير معروف.", reason="UNKNOWN_PARTNER_KEY")
+            if not partner.get("active", True):
+                raise SignupRefused("مفتاح هذا الشريك غير مُفعَّل.", reason="PARTNER_INACTIVE")
+            partner_id = str(partner.get("id") or "")
+
         now = int(time.time())
         await self._claims.invite(phone=canonical, shop_name=shop_name,
-                                  partner_key=partner_key, now=now)
+                                  partner_id=partner_id, now=now)
         # THE CODE IS THE PROOF, and it is identity's to issue and consume — we hold none of it.
         # A failure to send is REPORTED rather than raised: the invitation is recorded and he can
         # ask for a code from the claim screen, so losing the message must not lose the shop.
@@ -646,8 +682,9 @@ class SignupService:
         out = await self.open_shop(NewShop(
             phone=canonical, password=password, shop_name=inv.shop_name,
             # FROM THE INVITATION, NEVER FROM THE REQUEST. A body that could name its own partner
-            # key would be a body that could redirect somebody else's commission.
-            sector=UNSPECIFIED, partner_key=inv.partner_key, integrated=True))
+            # key would be a body that could redirect somebody else's commission. ALREADY
+            # RESOLVED, not a raw key (ك-5) — `invite_partner_shop` did that at invite time.
+            sector=UNSPECIFIED, partner_id=inv.partner_id, integrated=True))
 
         # HE PROVED IT A MOMENT AGO, so the row created by the saga says so. Without this he would
         # open his shop and be refused at the very next sign-in for a number he just confirmed.
