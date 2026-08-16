@@ -12,7 +12,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
-import { hasFailed, isLoading } from '../loading';
+import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -484,11 +484,11 @@ interface Invoice { id: string; number?: string; status?: string; total_minor?: 
  * sends half the shops to support.
  */
 export function InvoicesPane({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [rows, setRows] = useState<Invoice[] | null | undefined>(undefined);
+  const [rows, setRows] = useState<Loading<Invoice[]>>(undefined);
   const canList = action(catalog, 'billing.my_invoices');
 
   useEffect(() => {
-    if (!canList) { setRows([]); return; }
+    if (!canList) { setRows(DENIED); return; }
     call<{ invoices: Invoice[] }>(session, canList)
       .then((x) => setRows(x.invoices ?? []))
       .catch(() => setRows(null));
@@ -503,7 +503,11 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
   return (
     <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
       <h3 className="text-sm text-text-secondary">فواتيري</h3>
-      {hasFailed(rows) ? (
+      {isDenied(rows) ? (
+        // A ROLE ANSWER, AND IT SAYS WHICH. «لا فواتير بعد» to somebody whose role simply
+        // excludes billing is a fact about the shop that is not his to be given (م · 2).
+        <p className="text-sm text-text-secondary">لا يشمل دورك فواتير المحل.</p>
+      ) : hasFailed(rows) ? (
         // HE CAME HERE FOR HIS ACCOUNTANT. «لا فواتير بعد» to a shop that has been paying for
         // months is a sentence that sends him looking for a receipt he will not find.
         <p className="text-sm text-text-secondary">
@@ -572,7 +576,7 @@ function whenAgo(ts?: number): string {
  * this is not a daily errand — it is the one thing that survives him.
  */
 export function KeysPane({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [rows, setRows] = useState<MachineAccount[] | null | undefined>(undefined);
+  const [rows, setRows] = useState<Loading<MachineAccount[]>>(undefined);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
@@ -630,7 +634,9 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
         فاسحب ما لم يعد يُستعمل.
       </p>
 
-      {rows.length === 0 ? (
+      {isDenied(rows) ? (
+        <Quiet>لا يشمل دورك مفاتيح الأنظمة المرتبطة.</Quiet>
+      ) : !isReady(rows) || rows.length === 0 ? (
         <Quiet>لا يوجد برنامج مرتبط بمحلك. تُصدَر المفاتيح عند ربط نظام الكاشير.</Quiet>
       ) : (
         <ul className="flex flex-col gap-2">

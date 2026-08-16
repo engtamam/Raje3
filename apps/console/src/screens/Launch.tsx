@@ -28,7 +28,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Badge } from '@base-ui/design-system/Badge';
-import { hasFailed, isLoading } from '../loading';
+import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -61,7 +61,7 @@ interface Service { id: string; name: string }
 
 export function Launch({ session, catalog, onDone }:
     { session: Session; catalog: Catalog; onDone: () => void }) {
-  const [goals, setGoals] = useState<Goal[] | null | undefined>(undefined);
+  const [goals, setGoals] = useState<Loading<Goal[]>>(undefined);
   // `null` MEANS «STILL READING» HERE — the screen shows a Waiting on it — so the failure needs a
   // field of its own. Sharing one would make a dead peer indistinguishable from a slow one, and
   // «لا أهداف متاحة الآن» is a claim about the product rather than about the read.
@@ -110,7 +110,7 @@ export function Launch({ session, catalog, onDone }:
   const createAction = action(catalog, 'campaigns.create');
 
   useEffect(() => {
-    if (!goalsAction) { setGoals([]); return; }
+    if (!goalsAction) { setGoals(DENIED); return; }
     call<{ goals: Goal[] }>(session, goalsAction)
       .then((r) => setGoals(r.goals ?? []))
       .catch(() => { setGoalsFailed(true); setGoals([]); });
@@ -382,6 +382,8 @@ export function Launch({ session, catalog, onDone }:
         <p className="text-sm text-text-secondary">
           تعذّرت قراءة الأهداف الآن، والخلل عندنا. أعد المحاولة بعد قليل.
         </p>
+      ) : isDenied(goals) ? (
+        <p className="text-sm text-text-secondary">لا يشمل دورك إطلاق الحملات.</p>
       ) : hasFailed(goals) ? (
         // «لا أهداف متاحة» IS A CLAIM ABOUT HIS PLAN. Said after a failed read it sends him to
         // the pricing page for something he already owns.
@@ -391,7 +393,7 @@ export function Launch({ session, catalog, onDone }:
       ) : goals.length === 0 ? (
         <p className="text-sm text-text-secondary">لا أهداف متاحة الآن.</p>
       ) : null}
-      {(goals ?? []).map((g) => (
+      {(isReady(goals) ? goals : []).map((g) => (
         <button
           key={g.goal}
           type="button"

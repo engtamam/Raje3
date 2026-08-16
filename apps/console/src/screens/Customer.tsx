@@ -26,7 +26,7 @@ import { Drawer } from '@base-ui/design-system/Drawer';
 import { Hint } from '../Hint';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { hasFailed, isLoading } from '../loading';
+import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -108,7 +108,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [record, setRecord] = useState<Record | null | undefined>(undefined);
-  const [offers, setOffers] = useState<Offer[] | null | undefined>(undefined);
+  const [offers, setOffers] = useState<Loading<Offer[]>>(undefined);
   const [balance, setBalance] = useState<Balance | null | undefined>(undefined);
   const [moves, setMoves] = useState<Move[] | null | undefined>(undefined);
   const [sends, setSends] = useState<Send[] | null | undefined>(undefined);
@@ -139,7 +139,8 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         // reminders knows him by, and only this record carries it.
         const o = action(catalog, 'reminders.customer_offers');
         const ref = r.customer?.subject_ref;
-        if (!o || !ref) { setOffers([]); return; }
+        if (!ref) { setOffers([]); return; }
+        if (!o) { setOffers(DENIED); return; }
         call<{ offers: Offer[] }>(session, o, { subject_ref: ref, include_expired: true })
           .then((x) => { if (!stale) setOffers(x.offers ?? []); })
           // An offers read that fails must not empty the record: his visits are still true.
@@ -198,7 +199,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const c = record.customer;
   // FROM THE TESTED MODULE, NOT FROM A COPY HERE. A rule that lives inside a component is a rule
   // only a rendered page can check — and the rendered page is the thing most likely to be rewritten.
-  const [live, past] = partitionOffers(offers ?? []);
+  const [live, past] = partitionOffers(isReady(offers) ? offers : []);
   // NOT OFFERED AT ALL WHERE IT IS NOT PERMITTED. The gateway has already filtered
   // the catalogue by capability, so a supervisor sees a shorter tab rather than a
   // button that refuses him — and `operations.manage` is deliberately not the
@@ -324,6 +325,8 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         <h2 className="mb-3 text-sm text-text-secondary">عروضه</h2>
         {isLoading(offers) ? (
           <Skeleton height={90} />
+        ) : isDenied(offers) ? (
+          <p className="text-sm text-text-secondary">لا يشمل دورك عروض العملاء.</p>
         ) : hasFailed(offers) ? (
           // «لم يصله أي عرض» IS A FACT ABOUT HIM. Said after a failed read it tells the owner his
           // customer was never invited to anything, which he may then act on.

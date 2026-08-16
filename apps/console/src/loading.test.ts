@@ -9,9 +9,9 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { hasFailed, isLoading, isReady } from './loading';
+import { DENIED, hasFailed, isDenied, isLoading, isReady } from './loading';
 
-describe('the three states of a fetched value', () => {
+describe('the four states of a fetched value', () => {
   it('undefined is «not yet»', () => {
     expect(isLoading(undefined)).toBe(true);
     expect(hasFailed(undefined)).toBe(false);
@@ -32,6 +32,24 @@ describe('the three states of a fetched value', () => {
     expect(isReady([])).toBe(true);
     expect(hasFailed([])).toBe(false);
     expect(isLoading([])).toBe(false);
+  });
+
+  it('DENIED is «not yours to see» — never empty, never failed, never loading', () => {
+    // THE FOURTH STATE (م · النمط 2). Eleven screens resolved a missing capability to `[]`, so a
+    // question about his ROLE was answered with a fact about his SHOP: «لا يوجد عملاء بعد» to a
+    // shop with three thousand, and «لا أحد متأخر» — a congratulation — to a supervisor who was
+    // never allowed to ask.
+    expect(isDenied(DENIED)).toBe(true);
+    expect(isReady(DENIED)).toBe(false);
+    expect(hasFailed(DENIED)).toBe(false);
+    expect(isLoading(DENIED)).toBe(false);
+  });
+
+  it('an empty list is not denied', () => {
+    // The other direction matters just as much: a shop that genuinely has nothing must still be
+    // told so, rather than being told the section is not his.
+    expect(isDenied([])).toBe(false);
+    expect(isReady([])).toBe(true);
   });
 
   it('a falsy value that arrived is ready', () => {

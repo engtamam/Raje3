@@ -141,6 +141,13 @@ jobs:
       - name: loading is not failure
         run: python3 ci/check_loading_is_not_failure.py
 
+      # A PERMISSION ANSWER MUST NOT BE SERVED AS EMPTINESS. Eight screens resolved a missing
+      # capability to `[]`, so «not yours to see» reached the render as «there is nothing here»:
+      # «لا يوجد عملاء بعد» to a shop with three thousand, and «لا أحد متأخر» — a congratulation —
+      # at the moment somebody should have been chasing people.
+      - name: denied is not empty
+        run: python3 ci/check_denied_is_not_empty.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

@@ -15,6 +15,7 @@
  * the product. It could not be built until operations could turn a pseudonym into a customer,
  * because the overdue list comes from reminders and reminders holds no names at all, deliberately.
  */
+import { isDenied, isLoading, isReady, DENIED, type Loading } from '../loading';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search } from 'lucide-react';
@@ -50,8 +51,8 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
   const [tab, setTab] = useState<'all' | 'overdue'>('all');
   const [query, setQuery] = useState('');
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
-  const [recent, setRecent] = useState<CustomerHit[] | null | undefined>(undefined);
-  const [overdue, setOverdue] = useState<CustomerHit[] | null | undefined>(undefined);
+  const [recent, setRecent] = useState<Loading<CustomerHit[]>>(undefined);
+  const [overdue, setOverdue] = useState<Loading<CustomerHit[]>>(undefined);
   /**
    * WHAT HIS CUSTOMERS ASKED HIM FOR, from their own pages — a copy of their data, or its erasure.
    *
@@ -64,7 +65,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
 
   useEffect(() => {
     const a = action(catalog, 'operations.recent');
-    if (!a) { setRecent([]); return; }
+    if (!a) { setRecent(DENIED); return; }
     call<{ customers: CustomerHit[] }>(session, a, { limit: 50 })
       .then((x) => setRecent(x.customers))
       .catch(() => setRecent(null));
@@ -86,7 +87,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
     if (tab !== 'overdue' || overdue !== null) return;
     const schedule = action(catalog, 'reminders.list_schedule');
     const resolve = action(catalog, 'operations.customers_by_refs');
-    if (!schedule || !resolve) { setOverdue([]); return; }
+    if (!schedule || !resolve) { setOverdue(DENIED); return; }
 
     let stale = false;
     call<{ schedule: Due[] }>(session, schedule, { state: 'pending', limit: 200 })
@@ -138,10 +139,14 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
   }, [session, catalog, asksAction]);
 
   const searching = query.length >= MIN_PREFIX;
-  const showing = tab === 'overdue'
-    ? (overdue ?? [])
-    : searching ? matches : (recent ?? []);
-  const loading = tab === 'overdue' ? overdue === null : recent === null;
+  // THE TAB'S OWN VALUE, WITH ITS OWN STATE. Each of the four — loading, failed, denied, arrived —
+  // gets its own sentence below, and «لا أحد متأخر» is the one empty state in this product that
+  // is a compliment: saying it to somebody whose role never asked the question, or after a read
+  // that failed, congratulates a shop at the moment it should be chasing people (م · النمط 2).
+  const source = tab === 'overdue' ? overdue : searching ? matches : recent;
+  const showing = isReady(source) ? source : [];
+  const loading = isLoading(source);
+  const denied = isDenied(source);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -225,6 +230,11 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
         <EmptyState
           title="تعذّرت القراءة"
           description="لم نستطع جلب القائمة الآن — والخلل عندنا لا في محلك. أعد المحاولة بعد قليل."
+        />
+      ) : denied ? (
+        <EmptyState
+          title={tab === 'overdue' ? 'لا يشمل دورك متابعة المتأخرين' : 'لا يشمل دورك قائمة العملاء'}
+          description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
         />
       ) : showing.length === 0 ? (
         // THREE DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. "No customer matched" is a

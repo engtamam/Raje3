@@ -29,7 +29,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Segmented } from '@base-ui/design-system/Segmented';
-import { hasFailed, isLoading } from '../loading';
+import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Toggle } from '@base-ui/design-system/Toggle';
 import { Lock } from 'lucide-react';
@@ -161,7 +161,7 @@ export function MessagesScreen(
    * never said WHAT THE SYSTEM SENDS AT ALL, so the only way to stop a kind of message was to
    * cancel its rows one at a time, for ever, as they appeared.
    */
-  const [reasons, setReasons] = useState<ReasonRow[] | null | undefined>(undefined);
+  const [reasons, setReasons] = useState<Loading<ReasonRow[]>>(undefined);
   const [busy, setBusy] = useState('');
   /** The row he opened to read its wording. `null` is closed — it is not a screen of its own. */
   const [reading, setReading] = useState<ReasonRow | null | undefined>(undefined);
@@ -176,7 +176,7 @@ export function MessagesScreen(
    * we wrote in plain Arabic goes to a place nobody opens. That is not a missing feature; it
    * turns every rule in the engine into a suspected bug.
    */
-  const [log, setLog] = useState<LogRow[] | null | undefined>(undefined);
+  const [log, setLog] = useState<Loading<LogRow[]>>(undefined);
   // `null` IS «STILL LOADING» ON THIS SCREEN (see the read below), so the failure needs a field of
   // its own — otherwise a dead peer looks exactly like a slow one, for ever, and the owner reads
   // «لا شيء في السجل بعد» about messages that did go out.
@@ -227,7 +227,7 @@ export function MessagesScreen(
   // skeleton to somebody who is already looking at the answer.
   useEffect(() => {
     const a = action(catalog, 'reminders.reasons');
-    if (!a) { setReasons([]); return; }
+    if (!a) { setReasons(DENIED); return; }
     call<{ reasons: ReasonRow[] }>(session, a)
       .then((x) => setReasons(x.reasons ?? []))
       // A FAILED READ IS NOT AN EMPTY SYSTEM. `[]` here would tell an owner his shop sends
@@ -241,18 +241,26 @@ export function MessagesScreen(
     setBusy(row.id); setSwitchError('');
     // OPTIMISTIC, AND CORRECTED BY THE ANSWER. A switch that waits for a round trip before moving
     // reads as broken on a phone, and this screen is opened on a phone.
-    setReasons((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on } : r)));
+    // THE OPTIMISTIC MOVE APPLIES TO ROWS THAT EXIST. A denied or unread value has no rows to
+    // move, and mapping over it would turn a permission state into an empty list — the exact
+    // collapse this pattern is about.
+    setReasons((rows) => (isReady(rows) ? rows.map((r) => (r.id === row.id ? { ...r, on } : r))
+                                        : rows));
     try {
       const out = await call<{ ok?: boolean; error?: string; reasons?: ReasonRow[] }>(
         session, a, { reason_id: row.id, on });
       if (out?.error) {
         setSwitchError(out.error);
-        setReasons((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
+        setReasons((rows) => (isReady(rows)
+          ? rows.map((r) => (r.id === row.id ? { ...r, on: !on } : r))
+          : rows));
       } else if (out?.reasons) {
         setReasons(out.reasons);
       }
     } catch (e) {
-      setReasons((rows) => (rows || []).map((r) => (r.id === row.id ? { ...r, on: !on } : r)));
+      setReasons((rows) => (isReady(rows)
+        ? rows.map((r) => (r.id === row.id ? { ...r, on: !on } : r))
+        : rows));
       setSwitchError(e instanceof Error ? e.message : 'تعذّر الحفظ.');
     } finally {
       setBusy('');
@@ -265,7 +273,7 @@ export function MessagesScreen(
   useEffect(() => {
     if (tab !== 'log') return;
     const a = action(catalog, 'reminders.log');
-    if (!a) { setLog([]); return; }
+    if (!a) { setLog(DENIED); return; }
     setLog(null);
     call<{ log: LogRow[] }>(session, a, {
       limit: 100,
@@ -315,8 +323,8 @@ export function MessagesScreen(
     const resolve = action(catalog, 'operations.customers_by_refs');
     if (!resolve) return;
     const refs = [
-      ...(schedule?.schedule ?? []).map((r) => r.subject_ref),
-      ...(log ?? []).map((r) => r.subject_ref),
+      ...(isReady(schedule) ? schedule.schedule ?? [] : []).map((r) => r.subject_ref),
+      ...(isReady(log) ? log : []).map((r) => r.subject_ref),
     ].filter((r): r is string => Boolean(r) && !asked.current.has(r!));
     if (refs.length === 0) return;
     // MARKED BEFORE THE CALL, not after it. A failed request must not put the ref back in the
@@ -396,6 +404,13 @@ export function MessagesScreen(
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
           {isLoading(reasons) ? (
             <Skeleton height={200} />
+          ) : isDenied(reasons) ? (
+            // THE ONE ANSWER WAITING NEVER CHANGES. This section is decided by his role, so
+            // «حاول بعد قليل» sends him back tomorrow to the same closed door (م · النمط 2).
+            <EmptyState
+              title="لا يشمل دورك دواعي الإرسال"
+              description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
+            />
           ) : hasFailed(reasons) ? (
             // THE ONLY PATH TO THIS SENTENCE USED TO BE AN EMPTY LIST, and an empty list here
             // meant «the action is not in your catalogue» — a permission answer wearing an outage
@@ -406,8 +421,8 @@ export function MessagesScreen(
             />
           ) : reasons.length === 0 ? (
             <EmptyState
-              title="لا تظهر لك دواعي الإرسال"
-              description="لا يشمل دورك هذا القسم — راجع صاحب المحل."
+              title="لا دواعي إرسال بعد"
+              description="تظهر هنا حالما يبدأ محلك في تسجيل الزيارات."
             />
           ) : (
             <ul className="flex flex-col gap-2">
@@ -602,6 +617,11 @@ export function MessagesScreen(
 
           {isLoading(log) ? (
             <Skeleton height={120} />
+          ) : isDenied(log) ? (
+            <EmptyState
+              title="لا يشمل دورك سجلّ الإرسال"
+              description="راجع صاحب المحل إن كنت تحتاج هذا القسم."
+            />
           ) : logFailed || hasFailed(log) ? (
             // OURS, NOT HIS. «لا شيء في السجل بعد» is a statement about his shop, and we may only
             // make it once we have actually read the log — otherwise an owner whose messages did
@@ -611,7 +631,7 @@ export function MessagesScreen(
               title="تعذّرت قراءة السجل"
               description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
             />
-          ) : (log ?? []).length === 0 ? (
+          ) : !isReady(log) || log.length === 0 ? (
             // NOT AN APOLOGY AND NOT A FAULT. A shop whose engine has not had to refuse anything
             // yet is a shop working correctly, and the sentence says which.
             <EmptyState

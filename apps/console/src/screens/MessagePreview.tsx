@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '@base-ui/design-system/Modal';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
-import { hasFailed, isLoading } from '../loading';
+import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check, Lock } from 'lucide-react';
 import { TextEditor, type Slot } from './TextEditor';
@@ -58,7 +58,7 @@ export function MessagePreview({
   onClose: () => void;
   onChosen: () => void;
 }) {
-  const [options, setOptions] = useState<Option[] | null | undefined>(undefined);
+  const [options, setOptions] = useState<Loading<Option[]>>(undefined);
   // Same reason as the send log: `null` already means «loading» here, so «we could not read» gets
   // its own field rather than borrowing one that means something else.
   const [optionsFailed, setOptionsFailed] = useState(false);
@@ -83,7 +83,7 @@ export function MessagePreview({
 
   useEffect(() => {
     const a = action(catalog, 'reminders.preview_reason');
-    if (!a) { setOptions([]); return; }
+    if (!a) { setOptions(DENIED); return; }
     call<{ options: Option[]; chosen?: string; tone?: string; error?: string;
            reason?: { slots?: Slot[] } }>(
       session, a, { reason_id: reasonId })
@@ -171,8 +171,11 @@ export function MessagePreview({
     }
   };
 
-  const ours = (options ?? []).filter((o) => !o.mine);
-  const his = (options ?? []).filter((o) => o.mine);
+  // ONLY WHAT ARRIVED IS SPLIT. `undefined`, `null` and DENIED each have their own sentence
+  // below; treating any of them as an empty list here is how the four states became one.
+  const arrived: Option[] = isReady(options) ? options : [];
+  const ours = arrived.filter((o) => !o.mine);
+  const his = arrived.filter((o) => o.mine);
 
   return (
     <Modal open onClose={onClose} size="lg" title={label} subtitle={when}>
@@ -183,13 +186,15 @@ export function MessagePreview({
           <div className="flex flex-col gap-3">
             <Skeleton height={96} /><Skeleton height={96} />
           </div>
+        ) : isDenied(options) ? (
+          <p className="text-sm text-text-secondary">لا يشمل دورك تحرير نصوص الرسائل.</p>
         ) : optionsFailed || hasFailed(options) ? (
           // OURS, AND SAID SO. This sentence was already the honest one; it is now shown for the
           // failure ALONE, so the case below can say something different and true.
           <p className="text-sm text-text-secondary">
             تعذّر عرض نصّ هذه الرسالة الآن — والخلل عندنا. حاول بعد قليل.
           </p>
-        ) : (options ?? []).length === 0 ? (
+        ) : !isReady(options) || options.length === 0 ? (
           <p className="text-sm text-text-secondary">
             لا توجد صيغة معتمدة لهذه الرسالة بعد. القوالب تُراجَع لدى واتساب، وقد تستغرق ساعات.
           </p>
