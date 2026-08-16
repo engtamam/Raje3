@@ -476,4 +476,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "balance he earned, and the till is the one surface where neither he nor the owner "
                "is looking at our screen — so this row is the only account of what happened",
     },
+    {
+        "action": "subscription.gate_skipped",
+        "source": "system",
+        "critical": False,
+        "resource": "subscription",
+        "why": "the duplicate-purchase check could not read billing and was skipped rather than "
+               "refused — a deliberate choice, so that an outage does not block a purchase the "
+               "shop did not break. This row is the only way a duplicate created in that gap is "
+               "ever found, explained and refunded",
+    },
 ]

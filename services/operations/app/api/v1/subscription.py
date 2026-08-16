@@ -126,6 +126,16 @@ async def subscribe(request: Request, body: SubscribeIn,
     # flag plus a five-key entitlement sweep, which was two reads that could disagree.
     plan_limits = await c.billing_plans.limits(body.plan_id)
     rows = await c.billing_plans.subscriptions(tenant)
+    if plan_limits is None or rows is None:
+        # SKIPPED IS A FACT, AND A FACT WITH NO RECORD IS A GUESS LATER. Failing open here is a
+        # deliberate decision — refusing during an outage would block a purchase the shop did not
+        # break — but the consequence is a duplicate nobody can find afterwards. This row is how a
+        # second base subscription created during an outage is discovered, explained and refunded,
+        # instead of being argued about from memory.
+        await request.app.state.auditor.record(
+            "subscription.gate_skipped", actor=getattr(principal, "subject", ""), tenant=tenant,
+            resource=f"plan:{body.plan_id}",
+            ip=request.client.host if request.client else "")
     if plan_limits is not None and rows is not None:
         addition = may_add(plan_limits=plan_limits, held=held_keys(rows),
                            has_base=any(is_base(r.get("limits_snapshot")) for r in rows))
