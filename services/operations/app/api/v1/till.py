@@ -129,8 +129,13 @@ def _key_for(tenant: str, visit: "TillVisitIn") -> str:
         return visit.idempotency_key
     if visit.invoice_id:
         # NAMESPACED, so a till whose invoice numbers restart at 1 each day cannot collide with a
-        # key some other integration chose.
-        return f"till:{tenant}:{visit.invoice_id}"
+        # key some other integration chose. `inv:`, NOT `till:` (ك-8) — `record_visits_batch`
+        # derives the SAME key from the SAME invoice number with `inv:{tenant}:{invoice_id}`
+        # (api/internal.py), and this route forwards into that exact handler. A vendor moving from
+        # the internal door to this one, or a till whose driver posts through both during a
+        # migration, produced two idempotency keys for one invoice — `till:…` here, `inv:…` there —
+        # so the same sale was recorded twice: doubled history, doubled reminders, doubled points.
+        return f"inv:{tenant}:{visit.invoice_id}"
     return content_key(tenant=tenant, visit=visit)
 
 
@@ -144,9 +149,33 @@ async def record_from_till(request: Request, body: TillBatchIn,
     forever; everything behind it stops moving while the shop believes it is syncing. Nothing
     errors anywhere a human is looking.
     """
+    async def _write_health(tenant: str, out: dict) -> None:
+        """Write the till's pulse row FOR EVERY OUTCOME THAT HAS A TENANT (ك-2).
+        A shop whose link is refused for a definite reason — no licence, or every item unstable —
+        is still a till we heard from tonight, and a panel built to say «لم يبدأ أبداً» for a shop
+        that has been rejected every night for a month is the opposite of the diagnosis it exists
+        to give. Only skipped when there is no tenant to key the row by.
+        """
+        if not tenant:
+            return
+        try:
+            from app.core.till_health import TillHealth
+            results = out.get("results") or []
+            rejected = [r for r in results if r.get("status") == "rejected"]
+            await TillHealth(request.app.state.container.datastore).record(
+                tenant,
+                accepted=int(out.get("accepted", 0)),
+                rejected=len(rejected),
+                duplicate=len([r for r in results if r.get("status") == "duplicate"]),
+                reason=(rejected[0].get("reason") or "") if rejected else "")
+        except Exception as exc:                                                # noqa: BLE001
+            request.app.state.container.telemetry.event("till_health_write_failed",
+                                                        tenant=tenant, error=str(exc)[:200])
+
     if not principal.tenant:
         # A token with no tenant claim is REFUSED, never widened. A machine credential always
-        # belongs to exactly one establishment; one that does not is not a till.
+        # belongs to exactly one establishment; one that does not is not a till. No health row
+        # either — there is no tenant to key one by.
         return {"accepted": 0, "total": len(body.visits),
                 "message": "هذا الاعتماد غير مرتبط بمنشأة."}
 
@@ -158,7 +187,18 @@ async def record_from_till(request: Request, body: TillBatchIn,
 
     if await refuses_machine_writes(
             getattr(request.app.state.container, "api_licence", None), principal.tenant):
-        return {"accepted": 0, "total": len(body.visits), "message": API_NOT_INCLUDED}
+        # PER ITEM, LIKE EVERY OTHER OUTCOME (ك-6). The generated contract (gen_till_contract.py)
+        # tells the till's SDK that a batch answer carries one verdict per item; a bare `message`
+        # here answered the shape the SDK does not expect, so an integration reading `results[i]`
+        # to decide what to retry saw an empty list, treated the whole batch as accepted, and
+        # dropped every visit in it — the 200 that was meant to stop that exact loss.
+        refusals = [{"idempotency_key": v.idempotency_key or v.invoice_id or "",
+                     "status": "rejected", "reason": API_NOT_INCLUDED, "index": i}
+                    for i, v in enumerate(body.visits)]
+        out = {"accepted": 0, "total": len(body.visits), "results": refusals,
+              "message": API_NOT_INCLUDED}
+        await _write_health(principal.tenant, out)
+        return out
 
     from app.api.internal import BatchIn, BatchVisitIn, record_visits_batch
 
@@ -186,7 +226,9 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # sales, and the way a shop discovers this is a day of missing visits nobody rejected out loud.
     keep = [v for i, v in enumerate(body.visits) if i not in set(unstable)]
     if not keep:
-        return {"accepted": 0, "total": len(body.visits), "results": refusals}
+        out = {"accepted": 0, "total": len(body.visits), "results": refusals}
+        await _write_health(tenant, out)
+        return out
     forwarded = BatchIn(visits=[
         BatchVisitIn(
             tenant=tenant,
@@ -227,19 +269,7 @@ async def record_from_till(request: Request, body: TillBatchIn,
     #
     # NEVER AT THE COST OF THE SALE. The visits are already durable at this point; a health row
     # that cannot be written is a health row we do without.
-    try:
-        from app.core.till_health import TillHealth
-        results = out.get("results") or []
-        rejected = [r for r in results if r.get("status") == "rejected"]
-        await TillHealth(request.app.state.container.datastore).record(
-            tenant,
-            accepted=int(out.get("accepted", 0)),
-            rejected=len(rejected),
-            duplicate=len([r for r in results if r.get("status") == "duplicate"]),
-            reason=(rejected[0].get("reason") or "") if rejected else "")
-    except Exception as exc:                                                    # noqa: BLE001
-        request.app.state.container.telemetry.event("till_health_write_failed",
-                                                    tenant=tenant, error=str(exc)[:200])
+    await _write_health(tenant, out)
     return out
 
 

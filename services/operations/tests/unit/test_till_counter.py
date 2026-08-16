@@ -91,8 +91,30 @@ class _Auditor:
         self.calls.append((action, kw))
 
 
-def _request(ops, desk):
-    container = types.SimpleNamespace(operations=ops, loyalty_desk=desk)
+class _Store:
+    """A minimal datastore, real enough for `TillHealth` to read back what it wrote (ك-2)."""
+
+    def __init__(self) -> None:
+        self.rows: dict[tuple[str, str], dict] = {}
+
+    async def get(self, collection, key):
+        return self.rows.get((collection, key))
+
+    async def put(self, collection, key, row):
+        self.rows[(collection, key)] = row
+
+
+class _Telemetry:
+    def __init__(self) -> None:
+        self.events: list[tuple] = []
+
+    def event(self, name, **kw):
+        self.events.append((name, kw))
+
+
+def _request(ops, desk, *, api_licence=None):
+    container = types.SimpleNamespace(operations=ops, loyalty_desk=desk, datastore=_Store(),
+                                      telemetry=_Telemetry(), api_licence=api_licence)
     state = types.SimpleNamespace(container=container, auditor=_Auditor())
     return types.SimpleNamespace(app=types.SimpleNamespace(state=state), client=None)
 
@@ -240,7 +262,20 @@ def test_the_invoice_number_is_namespaced_by_tenant():
     """A till whose invoice numbers restart at 1 each day must not collide with a key some other
     integration chose."""
     key = till_routes._key_for("t_1", _visit(invoice_id="1"))
-    assert key.startswith("till:t_1:") and key.endswith("1")
+    assert key.startswith("inv:t_1:") and key.endswith("1")
+
+
+def test_the_invoice_key_matches_the_internal_doors_own_derivation():
+    """ك-8: the SAME invoice number through EITHER door must produce the SAME idempotency key, or
+    a shop moving from the internal door to this one — or a till posting through both during a
+    migration — records every invoice twice: doubled history, doubled reminders, doubled points."""
+    from app.api.internal import BatchVisitIn
+
+    till_key = till_routes._key_for("t_1", _visit(invoice_id="INV-42"))
+    item = BatchVisitIn(tenant="t_1", invoice_id="INV-42")
+    if item.invoice_id and not item.idempotency_key:
+        item.idempotency_key = f"inv:{item.tenant}:{item.invoice_id}"
+    assert till_key == item.idempotency_key
 
 
 def test_the_same_sale_sent_twice_produces_the_same_key():
@@ -281,12 +316,45 @@ def test_a_sale_with_nothing_stable_on_it_is_refused_with_a_sentence():
     a retry from a second sale — and inventing one from OUR clock is what doubled a shop's
     history. The refusal names all three so their engineer reads instead of guessing."""
     body = till_routes.TillBatchIn(visits=[till_routes.TillVisitIn(phone="0500000000")])
-    out = asyncio.run(till_routes.record_from_till(
-        _request(_Ops(), _Desk()), body, principal=_Principal()))
+    request = _request(_Ops(), _Desk())
+    out = asyncio.run(till_routes.record_from_till(request, body, principal=_Principal()))
     assert out["accepted"] == 0
     assert out["results"][0]["status"] == "rejected"
     for named in ("idempotency_key", "invoice_id", "occurred_at"):
         assert named in out["results"][0]["reason"]
+    # ك-2: a wholly-refused batch is STILL a till heard from — the health row must not stay
+    # absent, or a panel reads a shop refused every night for a month as "لم يبدأ أبداً".
+    from app.core.till_health import TillHealth
+    row = asyncio.run(TillHealth(request.app.state.container.datastore).get("t_1"))
+    assert row is not None and row["rejected"] == 1 and row["accepted"] == 0
+
+
+def test_a_shop_without_the_licence_is_refused_per_item_and_leaves_a_health_row():
+    """ك-1 / ك-6: `feature.api` was checked once per BATCH with a bare `message` — the generated
+    contract (gen_till_contract.py) promises the SDK one verdict PER ITEM, so an integration
+    reading `results[i]` to decide what to retry saw an empty list on this refusal, treated the
+    whole batch as accepted, and dropped every visit in it. And the shop is still a till heard
+    from tonight — refused for a definite reason, not silent (ك-2)."""
+
+    class _RefusingLicence:
+        async def allowed(self, tenant):
+            return False
+
+    body = till_routes.TillBatchIn(visits=[
+        till_routes.TillVisitIn(phone="0500000000", invoice_id="1"),
+        till_routes.TillVisitIn(phone="0500000001", invoice_id="2")])
+    request = _request(_Ops(), _Desk(), api_licence=_RefusingLicence())
+    out = asyncio.run(till_routes.record_from_till(request, body, principal=_Principal()))
+
+    assert out["accepted"] == 0
+    assert out["total"] == 2
+    assert len(out["results"]) == 2
+    assert all(r["status"] == "rejected" for r in out["results"])
+    assert {r["index"] for r in out["results"]} == {0, 1}
+
+    from app.core.till_health import TillHealth
+    row = asyncio.run(TillHealth(request.app.state.container.datastore).get("t_1"))
+    assert row is not None and row["rejected"] == 2 and row["accepted"] == 0
 
 
 def test_the_counter_shows_how_many_times_he_has_actually_been_here():

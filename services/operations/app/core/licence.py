@@ -33,6 +33,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from starlette.concurrency import run_in_threadpool
+
 KEY = "feature.api"
 
 # What the till's engineer reads. English, unlike every other refusal in this repository, and
@@ -76,8 +78,16 @@ class HttpApiLicence:
         req = urllib.request.Request(f"{self._url}?{query}",
                                      headers={"X-Internal-Token": self._token})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                out: dict[str, Any] = json.loads(resp.read() or b"{}")
+            # OFF THE EVENT LOOP (ك-9). `urlopen` blocks the calling thread for up to
+            # `self._timeout` seconds, and this coroutine is awaited from the hottest write path in
+            # the fleet — every till in the country posts through it. A slow billing peer used to
+            # freeze the whole worker's event loop, not just this one tenant's request: other shops'
+            # tills and the field screen stopped moving while ONE billing call was slow, which is
+            # exactly the outage the module docstring says a "could not ask" answer must never cause.
+            def _fetch() -> dict[str, Any]:
+                with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+                    return json.loads(resp.read() or b"{}")
+            out = await run_in_threadpool(_fetch)
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return None
         return bool(out.get("allowed"))
@@ -88,6 +98,35 @@ async def refuses_machine_writes(licence: Any, tenant: str) -> bool:
     if licence is None:
         return False
     return await licence.allowed(tenant) is False
+
+
+# A MACHINE CREDENTIAL'S SUBJECT, AND WHY THIS IS THE ONE PLACE THAT KNOWS IT (ك-1).
+#
+# identity mints a till's own token from OAuth2 client-credentials, and its subject reads
+# `svc_…` — the till.py module note states this as the fact the whole door design rests on: a
+# machine credential's subject never reads as a person's.
+#
+# `feature.api` gates a MACHINE writing visits, never a human recording one — a shop's own staff
+# on the field screen needs no programmatic-link purchase to do their job. So the check cannot
+# live on `operations.record` itself, which both a till and an operator hold; it has to ask WHO
+# is calling, on the ACT of writing a visit, wherever that act is reachable — not on which route
+# happened to receive the call. `till.py` asked this on its own door and nowhere else, so the same
+# credential handed to `POST /field/visits` — which needs only `operations.record`, the identical
+# capability — recorded visits for a shop that never bought the link, at a door with none of the
+# stability requirements the till door demands either.
+def is_machine_subject(subject: str) -> bool:
+    return subject.startswith("svc_")
+
+
+async def refuses_machine_write(licence: Any, tenant: str, subject: str) -> bool:
+    """`refuses_machine_writes`, but only for a caller who actually IS a machine.
+
+    A human operator's subject never matches, so this is always False for the field screen's
+    ordinary traffic — the licence question is only ever asked of a credential that could be one.
+    """
+    if not is_machine_subject(subject):
+        return False
+    return await refuses_machine_writes(licence, tenant)
 
 
 def build_api_licence(settings: Any) -> Any:

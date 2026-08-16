@@ -194,11 +194,33 @@ class PartnerRegistry:
         Called on tenant creation and on the first integration call. Passing no key stamps the
         establishment as directly acquired, which is a decision rather than an absence.
         """
+        partner = await self.resolve(key) if key else None
+        if key and partner is None:
+            # An unknown key is REFUSED rather than silently treated as a direct signup. Silently
+            # downgrading it would mean a partner whose key was mistyped in a deployment sees its
+            # shops attributed to us, and would have no way to discover why.
+            raise PartnerError("unknown partner key")
+        return await self._stamp_row(tenant, partner)
+
+    async def stamp_by_partner_id(self, tenant: str, *, partner_id: str = "") -> dict[str, Any]:
+        """`stamp`, for a caller that already resolved the key to a partner id (ك-5).
+
+        `core/claim.py` used to hold the raw partner key in an invitation row for up to seven
+        days — a bearer credential this module's own docstring says is «shown once, stored
+        hashed» — because resolving it happened here, at stamp time, days later. Resolving it at
+        INVITE time instead and storing only the id this method takes means the plaintext key never
+        outlives the request that carried it.
+        """
+        partner = await self.get(partner_id) if partner_id else None
+        if partner_id and partner is None:
+            raise PartnerError("unknown partner")
+        return await self._stamp_row(tenant, partner)
+
+    async def _stamp_row(self, tenant: str, partner: dict[str, Any] | None) -> dict[str, Any]:
         if not tenant:
             raise PartnerError("cannot stamp without a tenant")
 
         existing = await self.stamp_of(tenant)
-        partner = await self.resolve(key) if key else None
 
         if existing is not None:
             # ALREADY DECIDED. A different key arriving later is recorded so support can answer
@@ -212,11 +234,6 @@ class PartnerRegistry:
                     await self._s.put(STAMPS, f"{tenant}|stamp", existing)
             return existing
 
-        if key and partner is None:
-            # An unknown key is REFUSED rather than silently treated as a direct signup. Silently
-            # downgrading it would mean a partner whose key was mistyped in a deployment sees its
-            # shops attributed to us, and would have no way to discover why.
-            raise PartnerError("unknown partner key")
         if partner is not None and not partner.get("active", True):
             raise PartnerError(f"partner {partner['name']} is not active — its key cannot be used "
                                f"to onboard new establishments")

@@ -23,6 +23,13 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+# THIS FILE ITSELF, EXCLUDED — and only this one. Its own source necessarily carries every marker
+# below as a Python string literal (that is the whole detector), so scanning it against its own
+# rule always self-matched: the gate that exists to catch a tracked secret could never pass while
+# it was tracked itself, which is another way of saying it never actually ran clean. A real key
+# dropped into ANY other tracked file — including a copy of this one under a different name — is
+# still caught; only the exact detector file is exempt, by path, not by content or extension.
+_SELF = pathlib.Path(__file__).resolve()
 
 MARKERS = ("-----BEGIN RSA PRIVATE KEY", "-----BEGIN PRIVATE KEY",
            "-----BEGIN OPENSSH PRIVATE KEY", "-----BEGIN EC PRIVATE KEY",
@@ -45,6 +52,8 @@ def main() -> int:
         if not name:
             continue
         path = ROOT / name
+        if path.resolve() == _SELF:
+            continue
         # A public key is not a secret, and `.pub` next to a private one is the normal shape.
         if name.endswith(".pub"):
             continue

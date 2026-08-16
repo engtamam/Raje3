@@ -57,7 +57,8 @@ class ClaimError(Exception):
 class Invitation:
     phone: str
     shop_name: str
-    partner_key: str
+    # THE RESOLVED PARTNER ID, NEVER THE RAW KEY (ك-5). See `Claims.invite` below.
+    partner_id: str
     created: int
     expires: int
 
@@ -73,13 +74,22 @@ class Claims:
     def __init__(self, store) -> None:
         self._s = store
 
-    async def invite(self, *, phone: str, shop_name: str, partner_key: str,
+    async def invite(self, *, phone: str, shop_name: str, partner_id: str,
                      now: int, ttl: int = TTL_SECONDS) -> Invitation:
-        inv = Invitation(phone=phone, shop_name=shop_name, partner_key=partner_key,
+        """Record the invitation with the partner ALREADY RESOLVED, never the bearer key itself.
+
+        `partners.py` states its own rule plainly: a partner key is «shown once, stored hashed».
+        This row used to hold the raw key for up to seven days — the invitation's whole TTL — in a
+        collection with none of that module's hashing, because resolving it happened at CLAIM time,
+        days later. `core/signup.py.invite_partner_shop` now resolves it the moment the till company
+        calls, and only the id — worthless to steal, since attributing a shop needs no secret once
+        it is your own partner id in your own row — lives here for the week the invitation is open.
+        """
+        inv = Invitation(phone=phone, shop_name=shop_name, partner_id=partner_id,
                          created=now, expires=now + ttl)
         await self._s.put(CLAIMS, phone, {
             "id": phone, "phone": phone, "shop_name": shop_name,
-            "partner_key": partner_key, "created": inv.created, "expires": inv.expires,
+            "partner_id": partner_id, "created": inv.created, "expires": inv.expires,
         })
         return inv
 
@@ -89,7 +99,7 @@ class Claims:
             return None
         return Invitation(phone=str(row.get("phone") or ""),
                           shop_name=str(row.get("shop_name") or ""),
-                          partner_key=str(row.get("partner_key") or ""),
+                          partner_id=str(row.get("partner_id") or ""),
                           created=int(row.get("created") or 0),
                           expires=int(row.get("expires") or 0))
 

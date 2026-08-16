@@ -41,8 +41,12 @@ def test_no_code_path_can_rewrite_an_existing_stamp(reg):
 
 
 def test_the_stamp_writer_has_no_overwrite_branch():
-    """Structural, not behavioural: a future edit that adds one would pass every test above."""
-    src = inspect.getsource(PartnerRegistry.stamp)
+    """Structural, not behavioural: a future edit that adds one would pass every test above.
+
+    Both `stamp` (by key) and `stamp_by_partner_id` (ك-5's resolved-id path) share ONE writer,
+    `_stamp_row` — checked here directly so the guarantee holds for either entry point rather than
+    only the one this test happened to import."""
+    src = inspect.getsource(PartnerRegistry._stamp_row)                        # noqa: SLF001
     body = src.split("existing = await self.stamp_of(tenant)", 1)[1]
     early = body.split("if existing is not None:", 1)[1].split("return existing", 1)[0]
     assert "partner_id" not in early or "seen_also" in early

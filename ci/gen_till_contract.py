@@ -49,6 +49,7 @@ WHY: dict[str, str] = {
     "amount_minor": "المبلغ بالهللات — لا ريالات ولا كسور عشرية.",
     "reward_id": "معرّف المكافأة كما وصلكم من /till/customer.",
     "actor": "حساب الكاشير الذي سلّم المكافأة.",
+    "visit_id": "معرّف الزيارة التي سُجِّلت عندنا للتوّ — عليها يُسجَّل استعمال العرض، لا على العرض نفسه.",
 }
 
 # Where a field name means two different things, the model decides.
@@ -61,6 +62,9 @@ WHY_BY_MODEL: dict[str, dict[str, str]] = {
                      # would ship without it and double a customer's spent points.
                      "idempotency_key": "مفتاحكم لهذه العملية — إلزامي. بلا مفتاحٍ ثابت تُصرف "
                                         "نقاط العميل مرتين عند أول إعادة إرسال."},
+    "TillOfferIn": {"phone": "رقم العميل صاحب العرض.",
+                    "plate": "أو لوحته، إن كان التعريف عندكم باللوحة.",
+                    "actor": "حساب الكاشير الذي طبّق العرض."},
 }
 
 
@@ -82,6 +86,20 @@ def models(text: str) -> dict[str, list[tuple[str, str, bool]]]:
         if fields:
             out[name] = fields
     return out
+
+
+def routes(text: str) -> list[tuple[str, str]]:
+    """[(METHOD, path)] for every route actually mounted on this router — read from the decorator,
+    not from `render()`'s own prose.
+
+    THIS IS THE HALF THE OLD GATE NEVER HAD (ك-10). `--check` compared the generated document to
+    `render()`'s OWN output — so a document that hand-picked which endpoints to describe could
+    drift from the router forever and `--check` would keep saying it matched, because the thing it
+    matched was equally incomplete. `/till/offer/apply` shipped, was never added to `render()`, and
+    the generator had no way to notice — it was never asked to look at the router at all.
+    """
+    return [(m.group(1).upper(), m.group(2))
+           for m in re.finditer(r'@router\.(get|post|patch|delete)\("([^"]*)"', text)]
 
 
 def _row(model: str, field: str, typ: str, required: bool) -> str:
@@ -184,6 +202,23 @@ def render() -> str:
     add("")
     add("---")
     add("")
+
+    add("## 4. تطبيق عرض على الزيارة — `POST /api/v1/till/offer/apply`")
+    add("")
+    add("**العرض الذي يحمله العميل يُطبَّق على الزيارة، لا يُخمَّن.** لا شيء يصرف عرضاً لأن "
+        "زيارة وصلت — و`reminders` وحدها تقرّر أيّ عرضٍ ينطبق، لأنها الوحيدة العارفة بما "
+        "أُرسل ونطاقه وانتهاءه.")
+    add("")
+    add("| الحقل | النوع | إلزامي | لماذا |")
+    add("|---|---|---|---|")
+    for field, typ, req in m.get("TillOfferIn", []):
+        add(_row("TillOfferIn", field, typ, req))
+    add("")
+    add("**واحدٌ لكل زيارة**: تطبيقٌ ثانٍ على نفس الزيارة يعيد العرض نفسه ولا يصرف شيئاً "
+        "إضافياً — نقرةٌ ثانية عند الكاشير نيّةٌ واحدة، لا عرضين.")
+    add("")
+    add("---")
+    add("")
     add("## ما لا نرسله لكم أبداً")
     add("")
     add("**الاسم المستعار للعميل** (`subject_ref`): مفتاح ربطٍ بين خدماتنا، ولا حاجة لكم به — "
@@ -193,8 +228,26 @@ def render() -> str:
     return "\n".join(lines) + "\n"
 
 
+def missing_routes(text: str, body: str) -> list[tuple[str, str]]:
+    """Every mounted route whose full path string is absent from the rendered document (ك-10).
+
+    Checked in BOTH modes, not only `--check` — a route added and documented in the same commit
+    must still be caught if whoever wrote the prose typed the path wrong, and this is the one
+    honest way to know: read the router, not `render()`'s idea of the router.
+    """
+    return [(method, path) for method, path in routes(text)
+           if f"{method} /api/v1/till{path}" not in body]
+
+
 def main() -> int:
+    text = TILL.read_text(encoding="utf-8")
     body = render()
+    gaps = missing_routes(text, body)
+    if gaps:
+        named = ", ".join(f"{m} /api/v1/till{p}" for m, p in gaps)
+        print(f"{C_R}  ✗ mounted but undocumented: {named} — add it to render() in "
+              f"ci/gen_till_contract.py before this can be generated or checked{C_N}")
+        return 1
     if "--check" in sys.argv:
         current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
         if current != body:

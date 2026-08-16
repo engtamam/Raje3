@@ -107,6 +107,12 @@ async def open_shop(request: Request, body: OpenShopIn) -> Any:
     # NO TOKEN IN THIS RESPONSE. The account exists; the console signs in with it immediately,
     # through the same door every later sign-in uses. Minting here would be a second mint path to
     # keep correct for ever, and the first one is one call away.
+    #
+    # `stamp_error` IS DROPPED HERE, NEVER FORWARDED (ك-4). It is an English sentence about a
+    # partner company's key — a mistake the owner did not make and cannot fix — and `open_shop`
+    # already told telemetry so an operator can. An owner shown it learns nothing actionable and a
+    # partner shown nothing learns even less; the fix is that somebody who CAN act, does.
+    out.pop("stamp_error", None)
     return {"ok": True, **out}
 
 
@@ -141,9 +147,14 @@ async def claim(request: Request, body: ClaimIn) -> Any:
     name its own partner key would be a body that could redirect somebody else's commission.
     """
     try:
-        return await _svc(request).claim(body.phone, body.code, body.password)
+        out = await _svc(request).claim(body.phone, body.code, body.password)
     except SignupRefused as exc:
         return _refused(exc)
+    # SAME DROP AS `open_shop` (ك-4), and the more important of the two: THIS is the route a
+    # mistyped partner key actually reaches, since a till-company invitation is the one path that
+    # carries one at all. See `open_shop` above for why the owner never sees it.
+    out.pop("stamp_error", None)
+    return out
 
 
 @router.post("/signin", dependencies=[Depends(rate_limit)])

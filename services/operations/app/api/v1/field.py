@@ -103,6 +103,29 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     """Record a visit. This endpoint is the product, as far as the shop floor is concerned."""
     tenant = _tenant(principal)
 
+    # ── THE SAME GATE THE TILL DOOR HOLDS, ON THE ACT AND NOT THE ROUTE (ك-1) ─────────────────
+    # `operations.record` is the identical capability a till's own credential carries, and this
+    # route asked nothing more of it — so the licence a shop must buy to point a till at us, and
+    # the stable idempotency key a batched retry needs, could both be skipped by calling THIS door
+    # with THAT credential instead. `is_machine_subject` answers False for every human operator,
+    # so nothing here changes for the field screen's ordinary traffic.
+    from app.core.licence import NOT_INCLUDED as _API_NOT_INCLUDED
+    from app.core.licence import is_machine_subject, refuses_machine_write
+
+    if is_machine_subject(principal.subject):
+        if await refuses_machine_write(
+                getattr(request.app.state.container, "api_licence", None),
+                tenant, principal.subject):
+            return {"recorded": False, "reason": _API_NOT_INCLUDED}
+        if not (body.idempotency_key or body.occurred_at):
+            # THE SAME REFUSAL THE TILL DOOR MAKES for a sale with nothing stable on it — a machine
+            # retrying a lost reply with neither key doubles the visit here exactly as it would
+            # there, and this door's `idempotency_key` is optional because a HUMAN retyping the
+            # same visit twice is a second real visit, which is not true of a machine's retry.
+            return {"recorded": False,
+                   "reason": "send idempotency_key or occurred_at — without one a retry "
+                             "cannot be told from a second sale"}
+
     # ── THE PLATE IS REQUIRED WHERE THE VEHICLE IS THE ASSET ──────────────────────────────────
     # A tyre shop could record a visit with the plate box empty, and the row was then unfindable
     # by the one thing that counter searches by: the car. Its cycle is the car's, its reminder says

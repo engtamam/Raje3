@@ -40,11 +40,25 @@ class FakeSectors:
 
 
 class FakePartners:
-    def __init__(self) -> None:
+    def __init__(self, known: dict[str, dict] | None = None) -> None:
         self.stamped: list[tuple[str, str]] = []
+        self.stamped_by_id: list[tuple[str, str]] = []
+        # key -> partner row, so `resolve` can behave like the real registry's key lookup.
+        # "pk_1" is every test's key here — resolving to a stable id so the ك-5 flow (resolve at
+        # invite time, stamp by id at claim time) has something real to resolve against.
+        self._known = known if known is not None else {
+            "pk_1": {"id": "partner-1", "name": "Partner One",
+                     "commission_rate": 0.1, "active": True}}
+
+    async def resolve(self, key: str):
+        return self._known.get(key)
 
     async def stamp(self, tenant, *, key=""):
         self.stamped.append((tenant, key))
+        return {}
+
+    async def stamp_by_partner_id(self, tenant, *, partner_id=""):
+        self.stamped_by_id.append((tenant, partner_id))
         return {}
 
 
@@ -70,13 +84,21 @@ HAPPY = [("/otp/request", (200, {"delivered": True})),
 ROLES = [{"name": "owner", "capabilities": ["operations.record"], "description": ""}]
 
 
-def build(http=None, store=None, sectors=None, partners=None):
+class FakeTelemetry:
+    def __init__(self) -> None:
+        self.events: list[tuple] = []
+
+    def event(self, name, **kw):
+        self.events.append((name, kw))
+
+
+def build(http=None, store=None, sectors=None, partners=None, telemetry=None):
     return SignupService(
         store=store or FakeStore(), sectors=sectors or FakeSectors(),
         http=http or FakeHttp(HAPPY),
         identity_url="http://identity:8000", tenants_url="http://tenants:8000",
         authz_url="http://authz:8000", roles=ROLES, partners=partners or FakePartners(),
-        otp_deliverable=True)
+        otp_deliverable=True, telemetry=telemetry)
 
 
 # ── the invitation ────────────────────────────────────────────────────────────────────────────
@@ -122,6 +144,54 @@ async def test_a_number_that_already_has_a_shop_is_refused_plainly():
         await svc.invite_partner_shop(phone="0501234567", shop_name="بنشر", partner_key="pk_1")
 
 
+@pytest.mark.anyio
+async def test_an_unknown_partner_key_is_refused_at_invite_time_not_at_claim_time():
+    """ك-4 / ك-5: resolving at invite time means the TILL COMPANY learns its typo immediately,
+    while it can still fix the call — instead of the failure surfacing days later on the OWNER's
+    claim, where nobody who could act on it ever sees it."""
+    svc = build(partners=FakePartners(known={}))          # nothing resolves
+
+    with pytest.raises(SignupRefused):
+        await svc.invite_partner_shop(phone="0501234567", shop_name="بنشر",
+                                      partner_key="typo_key")
+
+
+@pytest.mark.anyio
+async def test_the_invitation_never_stores_the_raw_partner_key():
+    """ك-5: `partners.py` states its own rule — a partner key is «shown once, stored hashed». This
+    row used to hold the raw key in plaintext for up to seven days. Only the resolved id may
+    appear anywhere in the stored row."""
+    store = FakeStore()
+    svc = build(store=store)
+    await svc.invite_partner_shop(phone="0501234567", shop_name="بنشر", partner_key="pk_1")
+
+    row = store.rows[("partner_claims", "+966501234567")]
+    assert row.get("partner_id") == "partner-1"
+    assert "pk_1" not in row.values()
+    assert "partner_key" not in row
+
+
+@pytest.mark.anyio
+async def test_a_stamp_failure_is_telemetried_for_an_operator_to_act_on():
+    """ك-4, core half: `open_shop`'s stamp failure must reach telemetry — the only place an
+    operator who can actually repair it will see it. The route layer (api/v1/signup.py) is what
+    keeps it off the owner's screen; see the sibling test there."""
+
+    class _RejectingPartners(FakePartners):
+        async def stamp_by_partner_id(self, tenant, *, partner_id=""):
+            raise Exception("partner is not active")               # noqa: BLE001
+
+    telemetry = FakeTelemetry()
+    partners = _RejectingPartners()
+    svc = build(partners=partners, telemetry=telemetry)
+    await svc.invite_partner_shop(phone="0501234567", shop_name="بنشر", partner_key="pk_1")
+
+    out = await svc.claim("0501234567", "123456", "his-own-passphrase")
+
+    assert out["stamp_error"]                                  # core dict still carries it
+    assert any(name == "partner_stamp_failed" for name, _ in telemetry.events)
+
+
 # ── the claim ─────────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.anyio
@@ -136,8 +206,10 @@ async def test_the_owner_opens_it_with_a_password_of_his_own():
     # THE SECTOR IS «غير محدَّد» AND THE CATALOGUE IS NOT SEEDED FULL: his invoices build it, and
     # seventeen names his till never mentions would leave him unable to tell which are real.
     assert sectors.calls == [{"tenant": "t-1", "sector": UNSPECIFIED, "integrated": True}]
-    # AND THE COMMISSION FOLLOWS THE INVITATION, not the request.
-    assert partners.stamped == [("t-1", "pk_1")]
+    # AND THE COMMISSION FOLLOWS THE INVITATION, not the request — by the RESOLVED id, since
+    # `invite_partner_shop` resolved the key at invite time (ك-5) and never stores it raw.
+    assert partners.stamped == []
+    assert partners.stamped_by_id == [("t-1", "partner-1")]
 
 
 @pytest.mark.anyio
@@ -188,7 +260,7 @@ def test_unknown_expired_and_claimed_are_one_answer():
     """Told apart, they answer "has a till company registered this number" to anyone who asks —
     and the person who legitimately holds an invitation is not helped by knowing which, because in
     all three his next step is the same: ask the till company again."""
-    expired = CL.Invitation(phone="+966501234567", shop_name="x", partner_key="k",
+    expired = CL.Invitation(phone="+966501234567", shop_name="x", partner_id="k",
                             created=NOW - 40 * 86400, expires=NOW - 30 * 86400)
     messages = set()
     for inv in (None, expired):
@@ -202,7 +274,7 @@ def test_unknown_expired_and_claimed_are_one_answer():
 def test_an_invitation_expires():
     """One that never expires is a way into a shop nobody remembers issuing — the till company
     changes staff, the record survives, and a claim arrives a year later."""
-    inv = CL.Invitation(phone="+966501234567", shop_name="x", partner_key="k",
+    inv = CL.Invitation(phone="+966501234567", shop_name="x", partner_id="k",
                         created=NOW, expires=NOW + CL.TTL_SECONDS)
 
     assert inv.alive(NOW + 6 * 86400)
