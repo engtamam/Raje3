@@ -59,6 +59,21 @@ interface Preview {
   why?: string[];
 }
 
+/**
+ * WHAT TO CALL HIS ONE FREE LINE (ط-4).
+ *
+ * «سطرك في الرسالة» is a claim about where the words land, and for an offer goal it was false:
+ * `mkt_offer`, `mkt_winback` and `mkt_personal_occasion` declare `fills` with no `owner` slot, so
+ * this text never reaches the approved WhatsApp body no matter what he types — see the note beside
+ * where this is rendered. What it DOES become, when he gives one, is the entitlement (أ-6): the
+ * sentence the till and his own offer page read back to him at redemption, in place of our
+ * generic «خصم 20% على غسيل خارجي». Naming that destination, pure so it is one thing this file can
+ * be wrong about and a test can catch on its own.
+ */
+export function ownerLineLabel(picked: { offers?: boolean }): string {
+  return picked.offers ? 'سطرك عند الصندوق' : 'سطرك في الرسالة';
+}
+
 interface Branch { id: string; name: string; active?: boolean }
 
 interface Service { id: string; name: string }
@@ -196,9 +211,19 @@ export function Launch({ session, catalog, onDone }:
 
         {/* THE ONE FREE FIELD, AND ITS LIMIT IS THE SERVER'S. The counter read «/ 200» while the
             server refused at 61 — so a shop wrote three lines, pressed, and was told to shorten
-            something the screen had just told it was fine. Sixty is the template's room. */}
+            something the screen had just told it was fine. Sixty is the template's room.
+
+            THE LABEL LIES FOR AN OFFER GOAL (ط-4). The approved offer templates compose their
+            sentence from the amount, the services and the date — `fills` never names an `owner`
+            slot for `mkt_offer`/`mkt_winback`/`mkt_personal_occasion` — so this line never reaches
+            the WhatsApp text no matter what he types. What it DOES become, when he gives one, is
+            the entitlement (أ-6): the words the till and his own offer page show back to him when
+            he redeems it, replacing our generic «خصم 20% على غسيل خارجي». Naming that instead of
+            promising the message is the honest half of this fix; the other half — an `owner` slot
+            on the templates themselves — is a change to a Meta-approved template body and out of
+            what a console commit can ship. */}
         <label className="flex flex-col gap-1">
-          <span className="text-sm">سطرك في الرسالة</span>
+          <span className="text-sm">{ownerLineLabel(picked)}</span>
           <textarea
             value={ownerText}
             maxLength={60}
@@ -210,6 +235,11 @@ export function Launch({ session, catalog, onDone }:
           <span className="text-xs text-text-secondary tabular-nums">
             {ownerText.length} / 60
           </span>
+          {picked.offers ? (
+            <span className="text-xs text-text-secondary">
+              يظهر هذا السطر عند صرف العرض في المحل وعلى صفحة العميل — لا داخل الرسالة نفسها.
+            </span>
+          ) : null}
         </label>
 
         {/* ── how much ────────────────────────────────────────────────────────────────────

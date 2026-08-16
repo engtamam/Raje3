@@ -22,7 +22,7 @@
  * never ran, because the shop believes the visits are recorded.
  */
 import type { Session } from './session';
-import { ApiError, recordVisit, type VisitDraft } from './api';
+import { ApiError, applyOffer, recordVisit, type VisitDraft } from './api';
 
 const KEY = 'raje3.field.queue.v1';
 
@@ -35,6 +35,19 @@ export interface Queued {
   /** Set when the server refused for a reason a retry cannot fix. The entry stays, and the screen
    *  can show it: silently dropping it would tell the shop a visit was recorded that was not. */
   stuck?: string;
+  /**
+   * THE PSEUDONYM TO SPEND AN OFFER AGAINST — set only when the operator checked «طبّق العرض»
+   * (ط-1). It travels WITH the visit rather than firing beside it: `applyOffer` used to be called
+   * in the same breath as `queue.add`, racing the request this queue was about to make. The two
+   * requests reach the server in whatever order the network gives them, and the server has no
+   * visit to attach an offer to until `recordVisit` has actually landed — so the tap that read
+   * «تم الحفظ ✓» silently lost the discount on every single save, worse still when offline, where
+   * `applyOffer` fired against a visit that had not been sent yet and could not exist for minutes.
+   *
+   * SO IT WAITS ITS TURN IN THE SAME QUEUE, applied only after `recordVisit` for THIS row has
+   * actually succeeded — never before, never in parallel.
+   */
+  applyOfferSubject?: string;
 }
 
 function load(): Queued[] {
@@ -75,8 +88,11 @@ export class VisitQueue {
   private listeners = new Set<(rows: Queued[]) => void>();
 
   /** Take the visit. Returns immediately — the caller clears the screen on THIS, never on a
-   *  server answer, because the five-second budget cannot contain a round trip on a bad link. */
-  add(draft: VisitDraft, session: Session): void {
+   *  server answer, because the five-second budget cannot contain a round trip on a bad link.
+   *
+   *  `applyOfferSubject`, WHEN GIVEN, IS NOT SENT HERE (ط-1). It is carried on the row and spent
+   *  only once `recordVisit` for this same row has actually succeeded — see `run`. */
+  add(draft: VisitDraft, session: Session, applyOfferSubject?: string): void {
     const at = Date.now();
     // AND THE MOMENT GOES WITH IT (أ-3). `at` was recorded here from the first day, with the note
     // above saying exactly why — and it was never put on the request, so the server read no
@@ -84,7 +100,8 @@ export class VisitQueue {
     // recorded at eight in the evening: «أوقات الذروة» named the reconnection, the reminders were
     // scheduled from it, and the visit confirmation reached a customer seven hours after he left.
     this.rows = [...this.rows,
-                 { draft: { ...draft, occurred_at: Math.floor(at / 1000) }, at, attempts: 0 }];
+                 { draft: { ...draft, occurred_at: Math.floor(at / 1000) }, at, attempts: 0,
+                   applyOfferSubject: applyOfferSubject || undefined }];
     save(this.rows);
     this.emit();
     // THE SESSION IS PASSED IN, NEVER HELD. This queue outlives a token — an entry written before
@@ -139,8 +156,16 @@ export class VisitQueue {
       for (const row of [...this.rows]) {
         if (row.stuck) continue;
         try {
-          await recordVisit(session, row.draft);
+          const ack = await recordVisit(session, row.draft);
           this.rows = this.rows.filter((r) => r !== row);
+          if (row.applyOfferSubject) {
+            // ONLY NOW DOES THE VISIT EXIST ON THE SERVER (ط-1) — `ack.visit.id` names it, so
+            // there is nothing left to race. STILL FIRE-AND-FORGET: the operator moved on the
+            // moment `add` returned, and this queue is not the place to surface a spend failure —
+            // the offer stays live and can be tapped again on the customer's next visit.
+            void applyOffer(session, row.applyOfferSubject, String(ack.visit.id))
+              .catch(() => undefined);
+          }
         } catch (e) {
           row.attempts += 1;
           if (!retriable(e)) {

@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  applyOffer, balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
+  balanceFor, customerByPhone, customerByPlate, earnSettings, fetchCatalogue,
   offerFor, pointsByService, type EarnSettings,
   redeem,
   suggestByPrefix,
@@ -306,6 +306,12 @@ export function Visit() {
     // where the request is sent would be a new key on every retry, which is exactly no key.
     const key = newIdempotencyKey();
     const who = proof();
+    // THE OFFER TRAVELS WITH THE VISIT, NOT BESIDE IT (ط-1). Calling `applyOffer` here, alongside
+    // `queue.add`, raced the very request the queue was about to send: the server has no visit to
+    // attach an offer to until `recordVisit` has landed, and the two calls reached it in whatever
+    // order the network gave them — a race the operator's own «تم الحفظ ✓» told him he had won.
+    // Passing the pseudonym into the queue lets it apply the offer only once THIS visit is
+    // confirmed recorded — see queue.ts.
     queue.add({
       phone,
       service_ids: chosen,
@@ -318,18 +324,7 @@ export function Visit() {
       // defect this whole path exists to close.
       operator_id: who?.id,
       operator_ticket: who?.ticket,
-    }, session);
-
-    // THE OFFER IS SPENT AGAINST THIS VISIT, and the visit's own key identifies it — the one
-    // value that is the same on every retry, which is exactly what "one offer per visit" needs.
-    //
-    // FIRE AND FORGET, DELIBERATELY. The visit is already queued and will reach the server on its
-    // own schedule; making the operator wait for a second round trip would spend the five-second
-    // budget on something the customer is not watching. A failure here loses the application, not
-    // the visit — and the offer is still live, so it can be applied again.
-    if (applying && subject) {
-      applyOffer(session, subject, key).catch(() => undefined);
-    }
+    }, session, applying ? subject || undefined : undefined);
     setApplying(false);
 
     // CLEARED ON THE QUEUE, NOT ON THE SERVER. The next customer is already waiting; a screen that

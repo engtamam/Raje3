@@ -374,3 +374,7 @@ class _AudienceFacade:
                                    already_reached=already_reached or set(),
                                    max_audience=self._max_audience,
                                    service_id=service_id)
+
+    async def redeemed(self, tenant: str, reached: list[dict]) -> int:
+        """Passthrough to the peer (ط-3) — see `HttpAudience.redeemed` for the join it makes."""
+        return await self._c.redeemed(tenant, reached)
