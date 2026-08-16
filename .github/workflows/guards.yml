@@ -89,6 +89,14 @@ jobs:
       - name: no peer call spends a person's rate limit
         run: python3 ci/check_peer_tier.py
 
+      # AN ENGINE NOTHING CALLS. A redemption engine complete to the last branch that no screen
+      # invoked; a campaign runner with no button; a commission statement whose `build()` was
+      # called by its own tests and by nothing that ever produced an invoice; a 179-line
+      # trial-expiry notice no container constructed. Each had passing tests, a full docstring,
+      # and zero effect on a single customer. A dead module does not fail — it is never asked.
+      - name: no core module is waiting to be called
+        run: python3 ci/check_dead_core.py
+
       # ONE ACT, TWO ENTRANCES. A reward redeemed at an integrated till and the same reward
       # redeemed on our screen must leave the same trace behind. The till had copied the receipt
       # and not the free-visit record, so the reminder cycle never restarted and the customer was
