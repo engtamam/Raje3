@@ -341,11 +341,12 @@ cronJobs:
   # it, but the bus is at-most-once — a pod restarting through that one delivery never hears it
   # again — so the state is READ on a clock instead of waited for.
   #
-  # HOURLY AT :47, off every other job's minute. An hour of latency on a disconnection costs the
+  # HOURLY AT :53, off every other job's minute — :47 is already the library publish, and two jobs
+  # in this service waking together turn one pod's hour into a spike for no reason. An hour of latency on a disconnection costs the
   # shop the reminders of that hour; asking Meta about every live number more often costs the
   # whole fleet a Graph call for a fact that changes perhaps once a year per shop.
   - name: whatsapp-health
-    schedule: "47 * * * *"
+    schedule: "53 * * * *"
     path: /internal/operations/whatsapp/health
   - name: template-approvals
     schedule: "23 * * * *"
