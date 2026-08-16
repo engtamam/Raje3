@@ -24,7 +24,9 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.core import evidence as EV
 from app.core.sectors import SectorCatalogue, SectorError
+from app.core.stores import PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry
 from app.core.templates import TemplateError, TemplateLibrary
 
@@ -456,3 +458,37 @@ async def mark_sandbox(request: Request, body: SandboxIn,
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     return {"tenant": body.tenant, "sandbox": True, "days": body.days,
             "note": "لا عمولة على محل تجريبي، ولا يُحسب عميلاً."}
+
+
+class EvidenceRequest(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # A WINDOW, NOT «EVERYTHING» — see core/evidence.py. Zero means "from the beginning" and
+    # "until now", which is the honest default for the first question anybody asks.
+    since: int = Field(default=0, ge=0)
+    until: int = Field(default=0, ge=0)
+
+
+@router.post("/evidence", dependencies=[Depends(rate_limit)])
+async def evidence_file(request: Request, body: EvidenceRequest,
+                        principal: Principal = Depends(_PLATFORM)) -> dict:
+    """One establishment's evidence file, for whoever is handling the complaint.
+
+    THE PANEL'S DOOR, AND THE INTERNAL ROUTE STAYS SEPARATE. The panel is rendered from declared
+    admin actions, and the contract is explicit that an internal-token route is never one of them —
+    correctly: an operator surface must be gated by a capability that a person holds and an audit
+    that names them, not by a shared service token.
+
+    THE ACTOR IS THE TOKEN'S SUBJECT, never a field in the body. «Who took a copy of this» is the
+    one fact this record exists for, and a self-declared name is not an answer.
+    """
+    c = request.app.state.container
+    actor = getattr(principal, "subject", "") or ""
+    await request.app.state.auditor.record(
+        "compliance.evidence_exported", actor=actor, tenant=body.tenant,
+        resource="evidence_file", ip=request.client.host if request.client else "",
+        metadata={"since": body.since, "until": body.until, "asked_by": actor})
+    file = EV.EvidenceFile(
+        privacy_store=PrivacyRequestStore(c.datastore),
+        consent_reader=getattr(c, "evidence_peer", None),
+        legal_reader=getattr(c, "legal_acceptances", None))
+    return await file.build(body.tenant, since=body.since, until=body.until, actor=actor)

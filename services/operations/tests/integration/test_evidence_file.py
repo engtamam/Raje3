@@ -145,3 +145,20 @@ def test_a_shops_privacy_requests_are_in_the_file_open_and_closed(client):
     assert row["type"] == "erasure"
     assert row["closed_by"] == "owner@shop"
     assert row["opened_at"] > 0 and row["closed_at"] > 0
+
+
+def test_the_operator_route_names_the_person_not_a_field(client):
+    """«Who took a copy of this» is the one fact the record exists for.
+
+    The internal route accepts an `actor` because its caller is our own panel. The OPERATOR route
+    must not: a self-declared name in a disclosure record is not an answer, and the token's subject
+    is the only party the platform can vouch for.
+    """
+    import inspect
+
+    from app.api.v1 import platform as P
+
+    src = inspect.getsource(P.evidence_file)
+    assert "getattr(principal, \"subject\"" in src
+    # And the body model has no actor field at all — it cannot be claimed.
+    assert "actor" not in P.EvidenceRequest.model_fields

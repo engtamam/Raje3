@@ -30,6 +30,29 @@ from typing import Any
 
 
 ADMIN_ACTIONS: list[dict[str, Any]] = [
+    # ── COMPLIANCE: THE EVIDENCE FILE ─────────────────────────────────────────────────────────
+    # The one control that turns «show me what happened» into an answer instead of a week of
+    # cross-service archaeology. Declared here so the panel renders it — the panel is a MAP and the
+    # route re-checks the capability on every call.
+    {
+        "id": "operations.evidence_file",
+        "label": "ملف الأدلة",
+        "method": "POST",
+        "path": "/api/v1/platform/evidence",
+        "capability": "platform.operations",
+        "params": [
+            {"name": "tenant", "in": "body", "type": "string", "required": True},
+            # A WINDOW, and both ends optional: the first question is usually «everything about
+            # this shop», and narrowing comes after.
+            {"name": "since", "in": "body", "type": "integer", "required": False},
+            {"name": "until", "in": "body", "type": "integer", "required": False},
+        ],
+        # NOT DANGEROUS, BUT CONFIRMED. Producing it is a disclosure that is recorded against the
+        # person who asked, and a control that discloses should never fire on a stray click.
+        "confirm": True,
+        "danger": False,
+        "group": "الامتثال",
+    },
     # THE BACK OFFICE. Everything here is the owner's, not the operator's — which is why it sits
     # behind operations.manage and not behind operations.record.
 
