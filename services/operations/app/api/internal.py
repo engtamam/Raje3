@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
+from app.core import evidence as EV
 from app.core import privacy_requests as PR
 from app.core.erasure import OperationsErasure
 from app.core import retention as retention_core
@@ -22,7 +23,8 @@ from app.core.models import CUSTOMERS, VISITS
 from app.core import invoices as _invoices
 from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
-from app.core.stores import AssetStore, BranchStore, ServiceStore, VisitStore, new_id
+from app.core.stores import (AssetStore, BranchStore, PrivacyRequestStore, ServiceStore,
+                             VisitStore, new_id)
 from app.core.operations import OperationError
 from app.core.sectors import SectorError
 from app.core import backup as _backup
@@ -1194,3 +1196,43 @@ async def branch_scope_of(request: Request, body: BranchScopeIn) -> dict:
     scope = await branch_scope(request.app.state.container.datastore,
                               SimpleNamespace(subject=body.subject, tenant=body.tenant))
     return {"branch_id": scope}
+
+
+class EvidenceIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    # A WINDOW, NOT «EVERYTHING». Every real question is about a period — a complaint, an audit, a
+    # dispute — and a file that answers "everything" is both unreadable and a disclosure larger
+    # than the question asked.
+    since: int = Field(default=0, ge=0)
+    until: int = Field(default=0, ge=0)
+    # Who asked. Carried rather than inferred: this route is internal-tier, so the caller is our
+    # own panel and the person behind it is the fact that matters.
+    actor: str = Field(default="", max_length=128)
+
+
+@router.post("/operations/evidence", dependencies=[Depends(require_internal_token)])
+async def evidence_file(request: Request, body: EvidenceIn) -> dict:
+    """One establishment's evidence file — see core/evidence.py for what it is and is not.
+
+    THE DISCLOSURE IS RECORDED FIRST, and that order is the point. A file handed over and then
+    audited is a file whose record can be lost between the two — and the one moment this trail
+    exists for is the moment somebody takes a copy of it.
+    """
+    c = request.app.state.container
+    await request.app.state.auditor.record(
+        "compliance.evidence_exported", actor=body.actor or "internal", tenant=body.tenant,
+        resource="evidence_file", ip=request.client.host if request.client else "",
+        # BOTH NAMES, BECAUSE THEY ARE DIFFERENT FACTS — proven on the cluster, where the row came
+        # back carrying the CALLING SERVICE's subject rather than the person we passed. The caller
+        # is what the platform can verify; `asked_by` is the human who pressed the button, and a
+        # disclosure record that names only the machine answers «which service» when the question
+        # is «which person».
+        metadata={"since": body.since, "until": body.until,
+                  "asked_by": body.actor or "unnamed"})
+
+    file = EV.EvidenceFile(
+        privacy_store=PrivacyRequestStore(c.datastore),
+        consent_reader=getattr(c, "evidence_peer", None),
+        legal_reader=getattr(c, "legal_acceptances", None))
+    return await file.build(body.tenant, since=body.since, until=body.until,
+                            actor=body.actor)

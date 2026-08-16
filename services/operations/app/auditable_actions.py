@@ -378,4 +378,14 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "one of those steps is not a cancellation at all — closing on the final screen "
                "means the signup completed",
     },
+    {
+        "action": "compliance.evidence_exported",
+        "source": "internal",
+        "critical": True,
+        "resource": "evidence_file",
+        "why": "an evidence file is a disclosure — it leaves this system toward a regulator, a "
+               "lawyer or a support ticket. Who asked for it, about which establishment and for "
+               "which window is the one thing an audit trail cannot survive not knowing, and it "
+               "is recorded BEFORE the file is handed over rather than after",
+    },
 ]

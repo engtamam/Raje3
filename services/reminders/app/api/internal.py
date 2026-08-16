@@ -972,3 +972,86 @@ async def rhythms(request: Request, body: RhythmsIn) -> dict:
                     "last_visit": int(r.get("last_visit_at") or 0),
                     "observations": int(r.get("observations") or 0)}
     return {"rhythms": out, "count": len(out)}
+
+
+class EvidenceIn(BaseModel):
+    """One establishment, one window. Nothing about a single customer — see below."""
+
+    tenant: str = Field(min_length=1, max_length=128)
+    # INCLUSIVE FROM, EXCLUSIVE TO, both epoch seconds. A window rather than "everything" because
+    # the question is always about a period — a complaint, an audit, a dispute — and a file that
+    # answers "everything" is a file nobody can read and a disclosure larger than the question.
+    since: int = Field(default=0, ge=0)
+    until: int = Field(default=0, ge=0)
+    limit: int = Field(default=1000, ge=1, le=5000)
+
+
+@router.post("/reminders/evidence", dependencies=[Depends(require_internal_token)])
+async def evidence(request: Request, body: EvidenceIn) -> dict:
+    """What this service can prove about one establishment: consent, and what went out.
+
+    WHY IT IS ASSEMBLED RATHER THAN RECONSTRUCTED. Both halves are already written at the moment
+    they happen and never updated: a consent transition records the statement TEXT the customer
+    actually saw (not a pointer to a document we can edit later), and the send log records every
+    message and every suppression with its reason. This route does no interpretation at all — it
+    reads two append-only ledgers and returns them. A file we reason our way to is a file the other
+    side can reason its way out of.
+
+    PSEUDONYMS, NEVER NUMBERS. Every row here is keyed by `subject_ref`. An evidence file is a
+    document that leaves this system — to a regulator, to a lawyer, to a support ticket — and it
+    must not be the place a customer's phone number travels to. Whoever needs to tie a pseudonym
+    to a person can do it deliberately, once, through the customer's own record.
+
+    THE COUNT AND THE CAP ARE BOTH RETURNED, and `truncated` says so out loud. A file that silently
+    stops at a thousand rows is worse than no file: it looks complete, and the gap is invisible
+    exactly where it matters.
+    """
+    from app.core.consent import CONSENT
+    from app.core.stores import SEND_LOG
+
+    c = request.app.state.container
+    until = body.until or (int(time.time()) + 1)
+
+    def _window(rows: list[dict], field_name: str) -> list[dict]:
+        return [r for r in rows
+                if body.since <= int(r.get(field_name) or 0) < until]
+
+    consent_rows, _ = await c.datastore.find(
+        CONSENT, {"tenant": body.tenant}, limit=body.limit, sort=("seq", "asc"))
+    sends, _ = await c.datastore.find(
+        SEND_LOG, {"tenant": body.tenant}, limit=body.limit, sort=("at", "asc"))
+
+    kept_consent = _window(consent_rows, "at")
+    kept_sends = _window(sends, "at")
+
+    return {
+        "tenant": body.tenant,
+        "since": body.since,
+        "until": until,
+        "consent": {
+            # EVERY FIELD THAT MAKES IT DEFENSIBLE: what they saw, which version, who recorded it,
+            # and the sequence that orders two events inside the same second.
+            "records": [{"subject_ref": r.get("subject_ref", ""), "state": r.get("state", ""),
+                         "source": r.get("source", ""), "statement": r.get("statement", ""),
+                         "statement_version": r.get("statement_version", ""),
+                         "actor": r.get("actor", ""), "at": int(r.get("at") or 0),
+                         "seq": int(r.get("seq") or 0)} for r in kept_consent],
+            "count": len(kept_consent),
+            "truncated": len(consent_rows) >= body.limit,
+        },
+        "messages": {
+            # WHY IT WENT, NOT ONLY THAT IT WENT. `cls` is the lawful basis in practice — a service
+            # reminder rides a visit, a marketing message rides consent — and `reason` is what a
+            # suppression was for. Both are the answer to «why did you message my customer».
+            "records": [{"subject_ref": r.get("subject_ref", ""), "cls": r.get("cls", ""),
+                         "template_name": r.get("template_name", ""),
+                         "branch_id": r.get("branch_id", ""),
+                         "outcome": r.get("outcome", ""), "reason": r.get("reason", ""),
+                         "at": int(r.get("at") or 0),
+                         "offer_text": r.get("offer_text", ""),
+                         "offer_expires_at": int(r.get("offer_expires_at") or 0)}
+                        for r in kept_sends],
+            "count": len(kept_sends),
+            "truncated": len(sends) >= body.limit,
+        },
+    }

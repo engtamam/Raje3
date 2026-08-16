@@ -315,4 +315,10 @@ def build_container(settings: Settings) -> Container:
         owner_role=settings.SIGNUP_OWNER_ROLE,
         otp_deliverable=settings.SIGNUP_OTP_DELIVERABLE,
         require_otp=settings.SIGNUP_REQUIRE_OTP)
+    # WHO CAN ANSWER FOR CONSENT AND FOR WHAT WENT OUT. None when reminders is not configured,
+    # and the evidence file says so rather than showing an empty section (core/evidence.py).
+    from app.adapters.evidence_peer import build_evidence_peer
+
+    container.evidence_peer = build_evidence_peer(settings)
+
     return container

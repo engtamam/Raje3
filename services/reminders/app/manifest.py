@@ -103,6 +103,10 @@ def build_manifest(
             {"path": "/internal/reminders/rhythms", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/receipt", "tier": "internal", "method": "POST"},
             {"path": "/internal/reminders/dsar-code", "tier": "internal", "method": "POST"},
+            # THE EVIDENCE FILE'S HALF THAT LIVES HERE: consent transitions with the statement the
+            # customer actually saw, and every message and suppression with its reason. Read-only,
+            # pseudonymous, and assembled from two append-only ledgers rather than reconstructed.
+            {"path": "/internal/reminders/evidence", "tier": "internal", "method": "POST"},
             # A COUNT of who consents, never who. The owner sees a number (§8.5).
             {"path": "/internal/reminders/consent/count", "tier": "internal", "method": "POST"},
             # For portal: the offers a customer is holding, read on his behalf. His page carries no

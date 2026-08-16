@@ -114,6 +114,9 @@ def build_manifest(
              "method": "POST"},
             # Service names and cycles, for insights. Includes retired services on purpose.
             {"path": "/internal/operations/catalogue", "tier": "internal", "method": "POST"},
+            # THE EVIDENCE FILE (task 283). Assembled from ledgers written at the moment each
+            # thing happened, never reconstructed — and the extraction is itself audited.
+            {"path": "/internal/operations/evidence", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/branches", "tier": "internal", "method": "POST"},
             # Who may see which branch — the staffing join no other service can make.
             {"path": "/internal/operations/branch-scope", "tier": "internal", "method": "POST"},

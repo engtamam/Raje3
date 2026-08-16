@@ -84,6 +84,12 @@ class PrivacyRequestStore(_Base):
         rows, _ = await self._find(tenant, {"status": PR.OPEN}, limit=limit, sort=("at", "asc"))
         return [PR.PrivacyRequest(**r) for r in rows]
 
+    async def all_for_tenant(self, tenant: str, limit: int = 500) -> list[dict[str, Any]]:
+        """Open AND closed — the evidence file needs both, and closed is the half that proves we
+        answered. `list_open` is the working queue and deliberately shows only what is owed."""
+        rows, _ = await self._find(tenant, {}, limit=limit, sort=("at", "asc"))
+        return list(rows)
+
     async def close(self, tenant: str, request_id: str, by: str) -> bool:
         """Answered. WHO closed it is kept, because "we answered him" is a claim that needs a name."""
         row = await self._get(tenant, request_id)
