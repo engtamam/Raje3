@@ -28,6 +28,22 @@ export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
 C_G="\033[32m"; C_R="\033[31m"; C_Y="\033[33m"; C_D="\033[2m"; C_N="\033[0m"
 pass=0; fail=0
 
+# ── 0. CAN WE READ THE CLUSTER AT ALL? ─────────────────────────────────────────────────────────
+# THIS SCRIPT ONCE PRINTED A CLEAN SECURITY POSTURE FROM A LAPTOP THAT COULD NOT REACH THE CLUSTER.
+# Every kubectl below swallows its own errors with `2>/dev/null`, so an unreachable API server does
+# not look like an error — it looks like an empty answer, and three checks read "empty" as "fine":
+# the shared-secret comparison counted 0 distinct values and said "the same value everywhere", the
+# egress check saw no declared hosts and said "only the messaging host is reachable", and the image
+# loop `continue`d over all 24 services in silence. The footer then said "4 ok".
+#
+# An unreadable cluster is not a posture. It is the absence of one, and it must stop the run.
+if ! kubectl -n "$NS" get ns "$NS" >/dev/null 2>&1; then
+  echo -e "  ${C_R}✗ cannot read the cluster${C_N} (namespace $NS, KUBECONFIG=$KUBECONFIG)" >&2
+  echo -e "       ${C_Y}fix:${C_N} run this ON the node — it reads the live cluster, not the repo:" >&2
+  echo -e "            ssh <node> 'sudo bash /root/raje3/deploy/check-posture.sh'" >&2
+  exit 2
+fi
+
 ok(){   pass=$((pass+1)); [[ $QUIET -eq 1 ]] || echo -e "  ${C_G}ok${C_N}   $1"; }
 bad(){  fail=$((fail+1)); echo -e "  ${C_R}FAIL${C_N} $1"; echo -e "       ${C_Y}fix:${C_N} $2"; }
 note(){ [[ $QUIET -eq 1 ]] || echo -e "  ${C_D}·    $1${C_N}"; }
@@ -143,7 +159,12 @@ for key in PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK; do
   vals=$(for s in $(kubectl -n "$NS" get secrets -o name 2>/dev/null | grep -o '[a-z-]*-secrets'); do
            kubectl -n "$NS" get secret "$s" -o jsonpath="{.data.$key}" 2>/dev/null | md5sum | cut -c1-8
          done | grep -v '^d41d8cd9$' | sort -u | wc -l)
-  if [[ "$vals" -le 1 ]]; then
+  # 0 IS NOT 1. No secret carried this key — either none is set, or the read failed. Saying "the
+  # same value everywhere" about a key that was read nowhere is the same sentence as agreement.
+  if [[ "$vals" -eq 0 ]]; then
+    bad "$key was not readable in any service secret — this check proved nothing" \
+        "confirm the secrets exist: kubectl -n $NS get secrets | grep -- -secrets"
+  elif [[ "$vals" -eq 1 ]]; then
     ok "$key is the same value everywhere"
   else
     bad "$key differs between services ($vals distinct values)" \
@@ -157,7 +178,13 @@ out=$(kubectl -n "$NS" get networkpolicies -o json 2>/dev/null | grep -c '"0.0.0
 allowed=$(kubectl -n "$NS" get deploy -o json 2>/dev/null \
           | grep -o '"name":"EGRESS_ALLOWED_HOSTS","value":"[^"]*"' | sed 's/.*value":"//;s/"//' | sort -u)
 note "hosts declared: ${allowed:-none}"
-if [[ -z "$allowed" || "$allowed" == "graph.facebook.com" ]]; then
+# NO DECLARATION IS NOT A NARROW DECLARATION. An empty EGRESS_ALLOWED_HOSTS everywhere means either
+# nothing restricts egress, or the deployments were not readable. Neither is "only the messaging
+# host is reachable" — that sentence claims a restriction that was never observed.
+if [[ -z "$allowed" ]]; then
+  bad "no service declares EGRESS_ALLOWED_HOSTS — egress is unrestricted or unreadable" \
+      "set EGRESS_ALLOWED_HOSTS on the sending services, or confirm the NetworkPolicies"
+elif [[ "$allowed" == "graph.facebook.com" ]]; then
   ok "only the messaging host is reachable"
 else
   bad "more hosts are allowed than the messaging provider: $allowed" \
@@ -165,7 +192,16 @@ else
 fi
 
 # ── 6. every pod on the digest its values file pins ───────────────────────────────────────────
+# WHICH PINS? THE ONES BESIDE THIS SCRIPT — AND ON THE NODE THOSE GO STALE. A ship syncs only the
+# values file it shipped, so /opt/raje3/deploy/services drifts from the repo service by service.
+# Measured once against a healthy cluster: all 24 pods were correct, and this section accused 8 of
+# them because the node still held the previous release's digests. A mismatch here therefore means
+# "the pod disagrees with THIS COPY of the pins", which is a question, not a verdict.
+#
+# deploy/verify-fleet.sh answers it: it runs from the repo — the only place that holds the whole
+# fleet's intended pins — and reads the cluster over ssh.
 head "running images"
+note "compared against the values files beside this script; the repo's pins are authoritative — deploy/verify-fleet.sh"
 drift=0
 for f in deploy/services/*.values.yaml; do
   svc=$(basename "$f" .values.yaml)
@@ -174,13 +210,20 @@ for f in deploy/services/*.values.yaml; do
   # two-version-old code under a correct-looking pin and every dashboard agrees (playbook 4.29).
   got=$(kubectl -n "$NS" get pods -l "app.kubernetes.io/name=$svc" \
         -o jsonpath='{.items[0].status.containerStatuses[0].imageID}' 2>/dev/null)
-  [[ -z "$got" ]] && continue
+  # A SERVICE WITH NO READABLE POD IS A FINDING, NOT A SKIP. `continue` here once swallowed all 24
+  # services and printed an empty section under a green footer.
+  if [[ -z "$got" ]]; then
+    drift=$((drift+1))
+    bad "$svc has no readable running pod — its image could not be checked" \
+        "kubectl -n $NS get pods -l app.kubernetes.io/name=$svc"
+    continue
+  fi
   if [[ "$got" == *"$want"* ]]; then
     ok "$svc runs its pinned digest"
   else
     drift=$((drift+1))
-    bad "$svc is NOT running its pinned digest (${want:0:19}…)" \
-        "bash deploy/repin.sh <tag> then update.sh --only $svc"
+    bad "$svc does not match the pin in THIS copy of its values file (${want:0:19}…)" \
+        "confirm against the repo first: bash deploy/verify-fleet.sh — if it agrees, ship $svc"
   fi
 done
 [[ $drift -eq 0 ]] || note "a pod on the wrong image makes every proof above it meaningless"

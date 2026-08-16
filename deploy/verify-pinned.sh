@@ -14,6 +14,16 @@ ROOT="${ROOT:-$(cd "$HERE/.." && pwd)}"
 VALUES_DIR="${VALUES_DIR:-$ROOT/deploy/services}"
 [ -d "$VALUES_DIR" ] || { echo "  ✗ no values directory at $VALUES_DIR" >&2; exit 2; }
 export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
+# THIS SCRIPT IS NODE-ONLY, AND OFF THE NODE IT USED TO ACCUSE THE WHOLE FLEET. The KUBECONFIG above
+# exists only on the k3s node; run anywhere else, every kubectl fails, every `got` comes back empty,
+# and the loop below prints "NOT DEPLOYED" 24 times at a cluster that is serving perfectly. An
+# unreachable API server is not evidence about deployments. Prove the connection, or say nothing.
+if ! kubectl -n "$NS" get ns "$NS" >/dev/null 2>&1; then
+  echo "  ✗ cannot reach the cluster (namespace $NS, KUBECONFIG=$KUBECONFIG)" >&2
+  echo "    this script reads the live cluster and must run ON the node." >&2
+  echo "    from a workstation use: bash deploy/verify-fleet.sh   (it goes over ssh)" >&2
+  exit 2
+fi
 ok=0; bad=0; missing=0
 for f in "$VALUES_DIR"/*.values.yaml; do
   svc=$(basename "$f" .values.yaml)
