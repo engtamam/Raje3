@@ -449,3 +449,39 @@ def test_the_establishments_own_connection_keeps_its_old_key(client):
     assert raw is not None, "a central shop's row must still be stored under its tenant id"
     assert got is not None and got.phone_number_id == "pn_1"
     assert got.branch_id == ""
+
+
+def test_the_screen_does_not_promise_sending_it_cannot_do(client):
+    """«حسابك جاهز للإرسال» IS A CLAIM, and it was made without checking.
+
+    Meta handing us a token means the connection worked. It does not mean a message can leave —
+    and on a deployment whose WhatsApp channel is not open, none can. An owner read «جاهز
+    للإرسال», recorded visits all week, and wondered where his messages went.
+    """
+    from app.core import connect
+
+    ready = connect.Attempt(tenant="t", state=connect.STATE_CONNECTED)
+
+    open_line = connect.sentence_for(ready, can_send=True)
+    shut_line = connect.sentence_for(ready, can_send=False)
+
+    assert "جاهز للإرسال" in open_line
+    # THE CONNECTION IS STILL HIS, and the sentence keeps it: he did the work and it succeeded.
+    assert "تم الربط" in shut_line
+    assert "جاهز للإرسال" not in shut_line
+    # AND IT SAYS WHOSE FAULT IT IS. A shop told to wait waits; a shop told it is ready blames
+    # itself, then us, then leaves.
+    assert "من طرفنا" in shut_line
+    assert "لا ينقصك" in shut_line
+
+    assert ready.public(can_send=False)["can_send"] is False
+    assert ready.public(can_send=True)["can_send"] is True
+
+
+def test_a_failed_connection_is_not_reported_as_unable_to_send(client):
+    """`can_send` answers «could a message leave», and for a shop that never connected the honest
+    answer is the connection sentence — not a second complaint about our own channel."""
+    from app.core import connect
+
+    failed = connect.Attempt(tenant="t", state=connect.STATE_FAILED)
+    assert failed.public(can_send=False)["can_send"] is True

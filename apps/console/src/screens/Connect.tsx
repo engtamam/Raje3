@@ -23,7 +23,17 @@ import { action, call, type Catalog } from '../catalog';
 import { loadMetaSdk, metaSdk, type SdkState } from '../meta';
 import type { Session } from '../session';
 
-interface ConnectState { state: string; message: string }
+interface ConnectState {
+  state: string;
+  message: string;
+  /**
+   * WHETHER A MESSAGE CAN ACTUALLY LEAVE — which is not the same question as «did the connection
+   * succeed», and the screen used to answer only the second. The server decides it (operations
+   * core/connect.py) from the one flag that also governs signup's verification code, so the two
+   * cannot drift apart.
+   */
+  can_send?: boolean;
+}
 
 /** What Embedded Signup posts back. Meta's shape, not ours. */
 interface SignupMessage {
@@ -98,10 +108,17 @@ export function Connect({
   }, [session, catalog, onChange]);
 
   const connected = state?.state === 'connected';
+  // CONNECTED IS NOT THE SAME AS SENDING. A shop can hold a perfectly good connection while our
+  // side cannot put a message on WhatsApp yet — and the green tick over that sentence is the
+  // reason an owner records visits all week waiting for messages that were never attempted.
+  // `can_send` is absent on an older answer, and absence is treated as «yes» so nothing regresses.
+  const waiting = connected && state?.can_send === false;
 
   return (
     <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-6 shadow-sm">
-      <p className={connected ? 'text-success' : 'text-text-primary'}>
+      {/* AMBER, NOT GREEN, WHILE IT WAITS. The colour is read before the words are, and green over
+          «الإرسال لم يُفتح بعد» tells him the opposite of the sentence under it. */}
+      <p className={waiting ? 'text-warning' : connected ? 'text-success' : 'text-text-primary'}>
         {state?.message || 'لم تبدأ الربط بعد.'}
       </p>
 

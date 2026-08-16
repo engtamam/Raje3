@@ -87,7 +87,7 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         await request.app.state.auditor.record(
             "whatsapp.connect_stopped", actor=getattr(principal, "subject", ""), tenant=tenant,
             resource="whatsapp_connection", ip=ip)
-        return attempt.public()
+        return attempt.public(can_send=bool(s.SIGNUP_OTP_DELIVERABLE))
 
     if not body.code:
         # A FINISH WITHOUT A CODE. Not a cancellation and not a failure of ours; it is the one shape
@@ -155,7 +155,11 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
         from app.core.library import publish
 
         background.add_task(publish, c.library, await c.templates.list(), tenant)
-    return attempt.public()
+    # THE SENTENCE AT THE END OF THE JOURNEY, and the one that used to promise sending. See
+    # core/connect.py `sentence_for`: the connection is his, the sending is ours, and until the
+    # second is open the screen says so rather than sending him off to wait for messages that
+    # cannot leave.
+    return attempt.public(can_send=bool(s.SIGNUP_OTP_DELIVERABLE))
 
 
 @router.get("/connect", dependencies=[Depends(rate_limit)])
@@ -165,5 +169,10 @@ async def whatsapp_connect_status(request: Request, principal=Depends(_OWNER)) -
     tenant = getattr(principal, "tenant", "") or ""
     attempt = await connect.ConnectionStore(request.app.state.container.datastore).get(tenant)
     if attempt is None:
-        return {"state": "", "step": "", "message": "لم تبدأ الربط بعد.", "at": 0}
-    return attempt.public()
+        return {"state": "", "step": "", "message": "لم تبدأ الربط بعد.", "at": 0,
+                "can_send": False}
+    # THE SAME FLAG THE SIGNUP PATH ALREADY OBEYS, and deliberately not a second one. It says
+    # whether a message can reach a phone on this deployment, it is flipped in the same change
+    # that points WhatsApp at Meta, and a guard fails the build if the two ever disagree. A new
+    # setting here would be a second truth that drifts from the first.
+    return attempt.public(can_send=bool(get_settings().SIGNUP_OTP_DELIVERABLE))

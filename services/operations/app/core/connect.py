@@ -124,17 +124,39 @@ class Attempt:
                 "business_id": self.business_id, "detail": self.detail, "at": self.at,
                 "branch_id": self.branch_id}
 
-    def public(self) -> dict[str, Any]:
+    def public(self, *, can_send: bool = True) -> dict[str, Any]:
         """What the owner's screen may see. NO identifiers of Meta's — they are ours to hold and
         his to never need, and a WABA id on a screen is one more thing that can be pasted into a
-        support chat."""
-        return {"state": self.state, "step": self.step, "message": sentence_for(self),
+        support chat.
+
+        `can_send` IS NOT ABOUT HIM. It is whether THIS DEPLOYMENT can put a message on WhatsApp at
+        all — see `sentence_for`. Carried in the answer so the screen can show the truth instead of
+        deciding it for itself.
+        """
+        return {"state": self.state, "step": self.step,
+                "message": sentence_for(self, can_send=can_send),
+                "can_send": bool(can_send) or self.state != STATE_CONNECTED,
                 "at": self.at, "branch_id": self.branch_id}
 
 
-def sentence_for(attempt: Attempt) -> str:
-    """The sentence the owner reads. Never a step name and never an English error."""
+def sentence_for(attempt: Attempt, *, can_send: bool = True) -> str:
+    """The sentence the owner reads. Never a step name and never an English error.
+
+    «جاهز للإرسال» IS A CLAIM, AND UNTIL TODAY WE MADE IT WITHOUT CHECKING. The exchange succeeding
+    means Meta gave us a token — it does not mean a message can leave. On this deployment nothing
+    can be delivered at all yet, so an owner finished the whole journey, read «حسابك جاهز للإرسال»,
+    recorded visits all week and wondered where his messages went. That is this product's signature
+    failure written into the one screen whose entire job is to report the truth.
+
+    SO THE CLAIM IS SPLIT IN TWO. The connection succeeded — that part is true and his to keep. The
+    sending is not open yet, and the sentence says so, says it is OURS, and tells him he need do
+    nothing. A shop that is told to wait waits; a shop that is told it is ready blames itself, then
+    us, then leaves.
+    """
     if attempt.state == STATE_CONNECTED:
+        if not can_send:
+            return ("تم الربط، وحسابك محفوظ. والإرسال لم يُفتح بعد من طرفنا — "
+                    "لا ينقصك شيء، وسنبلغك فور تشغيله.")
         return "تم الربط. حسابك جاهز للإرسال."
     if attempt.state == STATE_FINISHED_UNCONFIRMED:
         # HE FINISHED. Meta created the account and the popup closed before we heard the code — so

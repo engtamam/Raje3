@@ -34,7 +34,8 @@ import { TeamScreen } from './Team';
 import type { Owned } from '../apps';
 
 interface Subscription { id: string; plan_name?: string; status?: string; period_end?: number }
-interface ConnectState { state: string; message: string }
+/** Mirrors what operations answers — see Connect.tsx for why `can_send` is its own question. */
+interface ConnectState { state: string; message: string; can_send?: boolean }
 
 /**
  * FOUR TABS, AND FOUR OLD NAMES THAT STILL RESOLVE.
@@ -145,6 +146,10 @@ export function AccountScreen(
   const [pane, setPane] = useState<Pane>(() => resolvePane(openOn));
   const active = tabs.some((t) => t.id === pane) ? pane : tabs[0].id;
   const isConnected = connected?.state === 'connected';
+  // «يعمل» IS THE STRONGEST CLAIM ON THIS PAGE, and it was made on the strength of a successful
+  // connection alone. A shop can be connected while nothing can leave — see Connect.tsx — and this
+  // badge is what an owner glances at to decide everything is fine.
+  const sendingOpen = isConnected && connected?.can_send !== false;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -163,10 +168,17 @@ export function AccountScreen(
           </div>
         )}
         <div className="flex items-center justify-between">
-          <span>{isConnected ? 'واتساب مربوط' : 'واتساب غير مربوط'}</span>
-          {isConnected
-            ? <Badge tone="success">يعمل</Badge>
-            : <Badge tone="warning">يحتاج ربط</Badge>}
+          <span>
+            {!isConnected ? 'واتساب غير مربوط'
+              : sendingOpen ? 'واتساب مربوط' : 'واتساب مربوط — الإرسال لم يُفتح بعد'}
+          </span>
+          {!isConnected
+            ? <Badge tone="warning">يحتاج ربط</Badge>
+            : sendingOpen
+              ? <Badge tone="success">يعمل</Badge>
+              // NOT «يحتاج ربط»: he did the work and it succeeded. What is missing is ours, and a
+              // badge that sends him back to a button he already pressed is the worse lie.
+              : <Badge tone="warning">بانتظارنا</Badge>}
         </div>
       </div>
 
