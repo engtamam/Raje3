@@ -194,9 +194,27 @@ class TemplateLibrary:
 
     # ── the one-time seed ─────────────────────────────────────────────────────────────────────
     async def seed_from_file(self, path: str) -> int:
+        """Bring the library to what the file says — on EVERY boot, not once.
+
+        THE DEFECT THIS REPLACES, AND IT KILLED THE WHOLE PRODUCT SILENTLY. This used to return
+        early whenever the table was non-empty: `if await self.list(): return 0`. So the library
+        written on the first boot was the library for ever, and no deploy could correct it.
+
+        On the cluster that meant 78 rows written in one second on 2026-08-12 — an older file, from
+        an older image — EVERY ONE OF THEM `active: False`. Every preview in «رسائلي» answered
+        «تعذّر عرض نصّ هذه الرسالة», because a text that is not active is not offered; and the send
+        path had nothing to pick either. Nothing failed anywhere. A shop with an inactive library is
+        a shop that cannot send a single message, and eleven redeploys could not have fixed it.
+
+        SO IT RECONCILES. Every template in the file is upserted — that repairs a wrong `active`, a
+        reworded body, a changed category — and any PLATFORM row the file no longer names is
+        deactivated rather than deleted (see `deactivate` for why: establishments carry the name and
+        Meta holds an approved copy under it).
+
+        IT TOUCHES ONLY OUR OWN ROWS. A shop's custom templates live under its own tenant and are
+        never in this file; `list()` here is the platform library alone.
+        """
         if not path:
-            return 0
-        if await self.list():
             return 0
         p = Path(path)
         if not p.is_file():
@@ -206,10 +224,20 @@ class TemplateLibrary:
             data = json.loads(p.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise TemplateError(f"the template seed is not valid JSON: {exc}") from exc
+        wanted = {str(row.get("name") or ""): row for row in data.get("templates", [])
+                  if row.get("name")}
         n = 0
-        for t in data.get("templates", []):
-            await self.upsert(t)
+        for row in wanted.values():
+            await self.upsert(row)
             n += 1
+
+        # RETIRED, NOT DELETED. A template we stopped shipping is one an establishment may still
+        # have registered with Meta under that exact name — deleting our row leaves both pointing
+        # at something we cannot explain.
+        for existing in await self.list():
+            name = str(existing.get("name") or "")
+            if name and name not in wanted and existing.get("active", True):
+                await self.deactivate(name)
         return n
 
 

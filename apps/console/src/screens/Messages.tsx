@@ -409,12 +409,23 @@ export function MessagesScreen(
                     ) : null}
                   </button>
                   {t.can_switch ? (
-                    <Toggle
-                      label={t.label}
-                      checked={t.on}
-                      disabled={busy === t.id}
-                      onChange={(on) => flip(t, on)}
-                    />
+                    // THE NAME STAYS, THE SECOND COPY GOES. The kit uses `label` for BOTH the
+                    // switch's accessible name and a visible caption beside it — so every row
+                    // printed its own title twice, once as the heading and once next to the
+                    // switch. Dropping the label would fix the look and leave the switch unnamed
+                    // to a screen reader and to our own tests, which find it by name.
+                    //
+                    // So the caption is hidden VISUALLY ONLY: `sr-only` keeps it in the
+                    // accessibility tree, where it is the one thing that makes thirteen identical
+                    // switches distinguishable.
+                    <span className="shrink-0 [&_label>span]:sr-only">
+                      <Toggle
+                        label={t.label}
+                        checked={t.on}
+                        disabled={busy === t.id}
+                        onChange={(on) => flip(t, on)}
+                      />
+                    </span>
                   ) : (
                     // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying does
                     // nothing; a lock with a reason answers before he asks.

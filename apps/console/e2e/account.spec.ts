@@ -15,15 +15,18 @@ import { expect, open, test } from './fixtures';
 test('it opens as tabs, and the open one says what it is for', async ({ shop }) => {
   const body = await open(shop, '/account');
 
-  expect(body).toMatch(/الاشتراك/);
-  expect(body).toMatch(/واتساب/);
+  // FOUR TABS, NOT EIGHT. «منشأتي» now holds the identity, the branches, the team, the
+  // connection and the keys as SECTIONS — five tabs became one, because they answer one question:
+  // who and what may act in this shop, and under whose name.
+  expect(body).toMatch(/منشأتي/);
+  expect(body).toMatch(/اشتراكي/);
   expect(body).toMatch(/دخولي/);
+  expect(body).toMatch(/بياناتي/);
   // THE SENTENCE UNDER THE STRIP, which is what stops five nouns being five things he must open
   // to understand. It follows the tab, so it is asserted on the tab that is actually open.
-  // THE HINT OF THE TAB THAT IS OPEN. It was «باقتك، فواتيرك» when one tab carried both; the
-  // invoices moved to a tab of their own — an accountant asking for last month's should not have
-  // to scroll past four plans nobody is buying today — and the sentence narrowed with it.
-  expect(body).toMatch(/باقتك ووسيلة الدفع/);
+  // THE HINT OF THE TAB THAT IS OPEN, and the page opens on «منشأتي» — not on a hardcoded
+  // billing tab a manager cannot even read.
+  expect(body).toMatch(/هويّتك وفروعك وفريقك وربط واتساب/);
 
   await shop.getByRole('radio', { name: 'دخولي' }).click();
   expect(await shop.locator('body').innerText()).toMatch(/جوالك وكلمة مرورك/);
@@ -166,4 +169,75 @@ test('«منشأتي» actually saves — the envelope the server asks for, not 
   // THE SERVER'S ANSWER, NOT A SPINNER THAT STOPPED. «حُفظ» renders only after the call resolves,
   // so a 422 leaves «تعذّر الحفظ» here instead — which is what this asserts against.
   await expect(shop.getByText('حُفظ. هذا ما يراه عميلك.')).toBeVisible({ timeout: 30_000 });
+});
+
+
+test('every old deep link still lands on the tab that now holds it', async ({ shop }) => {
+  /**
+   * FOUR TABS BECAME FOUR SECTIONS, and every «أضِفه إلى اشتراكي» lock in the product, every
+   * bookmark and every link a shop passed to a colleague names a tab in a query string. A rename
+   * that forgets one does not fail loudly — it opens the wrong page, which reads as the button
+   * being broken.
+   */
+  for (const [tab, hint] of [
+    ['whatsapp', 'هويّتك وفروعك وفريقك وربط واتساب'],
+    ['team', 'هويّتك وفروعك وفريقك وربط واتساب'],
+    ['keys', 'هويّتك وفروعك وفريقك وربط واتساب'],
+    ['invoices', 'باقتك وفواتيرك ووسيلة الدفع'],
+  ] as const) {
+    const body = await open(shop, `/account?tab=${tab}`);
+    expect(body, `?tab=${tab} landed on the wrong page`).toMatch(new RegExp(hint));
+  }
+});
+
+test('«منشأتي» carries the branches, the team and the connection on one page', async ({ shop }) => {
+  /**
+   * THE SECTIONS ARE THE POINT. They were five tabs, and a person looking for «who works here»
+   * had to guess which one held it.
+   */
+  await open(shop, '/account');
+  await shop.getByRole('radio', { name: 'منشأتي' }).click();
+  const body = await shop.locator('body').innerText();
+
+  expect(body).toMatch(/العاملون/);      // the team's own switch, inside the section
+  expect(body).toMatch(/الفروع/);
+  expect(body).toMatch(/واتساب/);
+});
+
+test('the branch mode is offered honestly — both shown, the locked one explained', async ({ shop }) => {
+  /**
+   * A CONTROL WITH NOTHING BEHIND IT IS THIS PRODUCT'S SIGNATURE DEFECT. «رقم لكل فرع» is not
+   * sellable until the sending identity ships, so the screen shows the choice, explains it, and
+   * does not offer it — rather than hiding it, which would mean an owner cannot discover it
+   * exists.
+   */
+  await open(shop, '/account');
+  await shop.getByRole('radio', { name: 'منشأتي' }).click();
+  await shop.getByRole('radio', { name: /الفروع/ }).click();
+  const body = await shop.locator('body').innerText();
+
+  expect(body).toMatch(/نظام إدارة الفروع/);
+  // The central description — what he is on today.
+  expect(body).toMatch(/رقم واحد للمنشأة/);
+  // AND THE LOCK SAYS WHY, in a sentence he can act on (which is: wait, and we will tell you).
+  expect(body).toMatch(/قيد التجهيز|التحوّل إلى رقم لكل فرع/);
+});
+
+test('the connection line never promises sending that cannot happen', async ({ shop }) => {
+  /**
+   * «تم الربط. حسابك جاهز للإرسال» was said on the strength of a successful token exchange alone.
+   * Meta handing us a token is not a message leaving — and on a deployment whose WhatsApp channel
+   * is not open, none can. An owner read that sentence, recorded visits all week, and wondered
+   * where his messages went.
+   */
+  await open(shop, '/account');
+  await shop.getByRole('radio', { name: 'منشأتي' }).click();
+  const body = await shop.locator('body').innerText();
+
+  // Either it is genuinely open, or the screen says the wait is OURS. What it must never do is
+  // claim readiness while «يعمل» is impossible.
+  const claimsReady = /جاهز للإرسال/.test(body);
+  const admitsWaiting = /لم يُفتح بعد|بانتظارنا|غير مربوط|لم تبدأ الربط/.test(body);
+  expect(claimsReady || admitsWaiting, 'the connection line said nothing at all').toBeTruthy();
+  if (claimsReady) expect(admitsWaiting).toBeFalsy();
 });
