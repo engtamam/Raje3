@@ -19,6 +19,18 @@ def store():
     return ChoiceStore(MemoryDataStore())
 
 
+def _own(store, *, name: str, reason_id: str, status: str = "approved"):
+    """Give the shop a template it actually owns, so a test points at something real.
+
+    THE TESTS USED TO POINT AT A NAME NOTHING HAD WRITTEN, and passed — which is how the defect
+    survived: a trigger could be aimed at any string, including a row drafted for a DIFFERENT
+    reason, and the message then went out under a text written for another event. Pointing is a
+    reference now, so a test creates what it refers to."""
+    run(store._s.put("custom_templates", name, {
+        "id": name, "tenant": "t1", "name": name, "reason_id": reason_id,
+        "status": status, "body": "نص", "variables": ["1"], "fills": ["system"]}))
+
+
 def test_a_shop_that_has_chosen_nothing_still_sends():
     """The engine is what he bought. A product whose messages all arrive switched off does
     nothing on the day it is installed."""
@@ -42,6 +54,7 @@ def test_switching_back_on_is_a_value_not_a_deletion(store):
 
 
 def test_the_text_and_the_switch_do_not_disturb_each_other(store):
+    _own(store, name="shop_reminder_1", reason_id="service_due")
     run(store.set("t1", "service_due", on=False))
     run(store.set("t1", "service_due", template="shop_reminder_1"))
     c = run(store.load("t1"))
@@ -50,6 +63,7 @@ def test_the_text_and_the_switch_do_not_disturb_each_other(store):
 
 
 def test_going_back_to_our_text_deletes_rather_than_storing_a_blank(store):
+    _own(store, name="shop_reminder_1", reason_id="service_due")
     run(store.set("t1", "service_due", template="shop_reminder_1"))
     run(store.set("t1", "service_due", template=""))
     assert run(store.load("t1")).template_name("service_due") == ""
@@ -111,3 +125,35 @@ def test_a_template_serving_two_reasons_is_silenced_only_when_both_are_off():
 def test_a_peer_send_with_one_owner_is_attributed_exactly():
     assert T.candidates("campaign", "mkt_winback") == ("gone_missing",)
     assert T.candidates("", "per_weekly_digest") == ("weekly_digest",)
+
+
+# ── a trigger may only point at a text that is his, for this reason, and approved ──────────────
+def test_a_trigger_cannot_be_pointed_at_a_name_the_shop_does_not_own(store):
+    """A typo'd or foreign name was stored raw. `choose()` accepts anything when the approved-set
+    peer is unreadable, so the send was attempted against a name the shop's WhatsApp account does
+    not hold — and failed where nobody was looking."""
+    with pytest.raises(ValueError) as exc:
+        run(store.set("t1", "service_due", template="nakheel_visit_redeemed_1"))
+    assert "قوالب محلّك" in str(exc.value)
+    assert run(store.load("t1")).template_name("service_due") == ""
+
+
+def test_a_text_written_for_one_reason_cannot_answer_another(store):
+    """THE DEFECT, exactly. A row drafted against `visit_redeemed` — whose blanks are reward,
+    points and balance — could be made to answer `service_due`, whose only blank is the service.
+    The message then goes out in the shop's name under a text written for a different event,
+    filled from a different table. `custom_templates.check()` enforces the agreement, but at DRAFT
+    time, against the reason the draft was written for; nothing re-asked when the pointing changed."""
+    _own(store, name="shop_redeemed_1", reason_id="visit_redeemed")
+    with pytest.raises(ValueError) as exc:
+        run(store.set("t1", "service_due", template="shop_redeemed_1"))
+    assert "كُتب لداعٍ آخر" in str(exc.value)
+
+
+def test_a_text_meta_has_not_approved_cannot_be_wired_yet(store):
+    """Wiring a pending text is a trigger that silently sends nothing until Meta answers — and the
+    owner has no way to tell that from a trigger that is simply not firing."""
+    _own(store, name="shop_pending_1", reason_id="service_due", status="pending")
+    with pytest.raises(ValueError) as exc:
+        run(store.set("t1", "service_due", template="shop_pending_1"))
+    assert "لم تعتمده واتساب" in str(exc.value)

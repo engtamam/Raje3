@@ -40,6 +40,24 @@ class NullSubmitter:
         return {"ok": False, "reason": "الرفع إلى واتساب غير مهيّأ الآن — حاول بعد قليل."}
 
 
+def _examples(template: dict[str, Any]) -> list[str]:
+    """One example value per numbered slot, in the order Meta expects them.
+
+    `sample_slots` returns a map keyed by the slot NUMBER; Meta wants a positional list, and the
+    order has to follow `variables` rather than the dictionary — a body whose slots are {{2}},{{1}}
+    is legal and would otherwise be described backwards.
+    """
+    from app.core.reasons import sample_slots
+
+    numbers = [str(v) for v in (template.get("variables") or [])]
+    if not numbers:
+        return []
+    filled = sample_slots(template, establishment=str(template.get("establishment") or "محلّك"))
+    # NEVER THE NUMBER ITSELF as a fallback — that is the exact value Meta rejects, and returning
+    # it here would reproduce the defect while looking like a fix.
+    return [filled.get(n) or "مثال" for n in numbers]
+
+
 class HttpSubmitter:
     """notification-service's internal register + submit twins."""
 
@@ -80,7 +98,18 @@ class HttpSubmitter:
             "category": _category(str(template.get("cls", "service"))),
             "body": str(template.get("body", "")),
             "variables": [str(v) for v in (template.get("variables") or [])],
-            "examples": [str(e) for e in (template.get("examples") or [])],
+            # AN EXAMPLE PER SLOT, OR META REJECTS THE TEXT FOR A REASON HE CANNOT ACT ON.
+            #
+            # `CustomTemplate.to_dict()` has no `examples` key, so this sent `[]`. The meta driver
+            # then falls back per slot to the variable NAME — literally "1" and "2" — and Meta's
+            # review refuses placeholder-looking examples. The owner's own words came back rejected,
+            # he pressed «ساعدوني», and a human spent time on a defect of ours. The LIBRARY path
+            # never had this: the seed carries real examples, so only a shop's own text went out
+            # bare.
+            #
+            # BUILT FROM THE FILLS HE ALREADY CHOSE, through the same `SAMPLE` table the preview
+            # uses — so what Meta reviews is what he saw before he pressed send.
+            "examples": _examples(template),
         })
         if status >= 400:
             return {"ok": False, "reason": _sentence(out, "تعذّر تجهيز النص للإرسال.")}

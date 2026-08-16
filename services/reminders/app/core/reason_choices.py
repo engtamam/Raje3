@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core import reasons as T
+from app.core.custom_templates import CustomTemplateStore
 
 CHOICES = "reason_choices"
 
@@ -108,7 +109,30 @@ class ChoiceStore:
             # an empty value that means "follow" is the copy-versus-inherit mistake the settings
             # tree exists to avoid.
             if template.strip():
-                row["template"] = template.strip()
+                # IT HAS TO BE HIS, FOR THIS REASON, AND APPROVED — and none of the three was
+                # checked. The name was stored raw, so a trigger could be pointed at any string.
+                #
+                # A row drafted against `visit_redeemed` — whose blanks are reward, points, balance
+                # — could be made to answer `service_due`, whose only blank is the service. The
+                # send then goes out under a text written for a different event, filled from a
+                # different table, in the shop's name. `custom_templates.check()` enforces
+                # reason↔fills agreement, but it runs at DRAFT time, against the reason the draft
+                # was written for; nothing re-asked the question when the pointing changed.
+                #
+                # AND A NAME THAT DOES NOT EXIST behaves the same way: `choose()` accepts anything
+                # when the approved-set peer is unreadable, so a typo is attempted against a name
+                # the shop's WhatsApp account does not hold, and fails where nobody is looking.
+                name = template.strip()
+                own = await CustomTemplateStore(self._s).get(tenant, name)
+                if own is None:
+                    raise ValueError(f"لا يوجد نصّ بهذا الاسم في قوالب محلّك: {name}")
+                if str(own.get("reason_id") or "") != reason_id:
+                    raise ValueError(
+                        f"«{t.label}» لا يقبل هذا النص — كُتب لداعٍ آخر، وفراغاته لا تطابقه.")
+                if str(own.get("status") or "") != "approved":
+                    raise ValueError(
+                        f"هذا النص لم تعتمده واتساب بعد — لا يمكن ربطه بـ«{t.label}» قبل اعتماده.")
+                row["template"] = name
             else:
                 row.pop("template", None)
         if row:
