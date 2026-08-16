@@ -10,7 +10,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core import engagement as E
 from app.core import gate as G
 from app.core.models import Preferences, Schedule, as_row
-from app.core.stores import PrefsStore, ScheduleStore, SendLogStore
+from app.core.stores import EngagementStore, PrefsStore, ScheduleStore, SendLogStore
 from app.core.tick import Tick
 
 ECFG = E.EngagementConfig()
@@ -840,3 +840,36 @@ def test_a_message_with_no_branch_behind_it_stays_empty(st):
     go(st, FakeSender())
     rows, _ = run(SendLogStore(st)._find("t1", {"outcome": "sent"}, limit=10))
     assert rows[0]["branch_id"] == ""
+
+
+# ── أ-4 · the words travel with the offer, not only into the message ───────────────────────────
+def test_the_send_log_keeps_the_service_names_the_message_was_rendered_with(st):
+    """THE FIRST LINK. `send_one` is handed the names — the caller owns the catalogue and sends
+    the words — renders «خصم على غيار الزيت» with them, and used to drop them on the floor. The
+    customer's page is read days later, when nobody holds that map any more, and it printed our
+    identifiers to him: «على: oil».
+    """
+    from app.core.consent import Consent
+
+    # A CUSTOMER THE SHOP HAS SEEN. Marketing to somebody who has not been near the place for
+    # months is paused by the engagement rule, which is a different guard and not this one's
+    # subject.
+    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
+    # MARKETING NEEDS AN EXPLICIT YES — «لم يرفض» is not consent, and the gate says so.
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    sender = FakeSender()
+    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
+           "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
+           "owner_text": "خصم 20%", "idempotency_key": "idem_x", "id": "idem_x",
+           "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
+           "offer_services": ["oil", "tyres"]}
+
+    out = run(tick(st, sender).send_one("t1", row, now=at(10), library=LIB,
+                                        service_names=NAMES, establishment="ورشة النخبة"))
+    assert out["sent"] is True, out
+
+    logged = run(SendLogStore(st).live_offers("t1", "sub_a", used_refs=set(), now=at(10)))
+    assert logged, "the offer was sent, so it is on the log"
+    assert logged[0]["offer_service_names"] == ["غيار الزيت", "الإطارات"]
+    assert logged[0]["offer_code"], "and the coupon it was rendered with is kept beside them"

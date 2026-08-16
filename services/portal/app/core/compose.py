@@ -201,6 +201,10 @@ def _normalise_offers(raw: Any) -> list[dict[str, Any]]:
                     # Which services it covers. Empty means the whole shop, which is a real answer
                     # and not a missing one — the page says so in words rather than showing a gap.
                     "services": [str(s) for s in (r.get("services") or []) if s],
+                    # SCOPED BUT UNNAMEABLE IS ITS OWN ANSWER. Empty services used to mean «the
+                    # whole shop», and the page said so — which turned an offer on one service
+                    # into a promise covering everything the moment the names were missing.
+                    "scoped": bool(r.get("scoped")),
                     # THE CODE HE READS OUT AT THE COUNTER. It is the only handle the till has on
                     # this offer, and a customer holding an offer he cannot name is a customer
                     # arguing with an operator who has nothing to check.

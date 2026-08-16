@@ -866,7 +866,19 @@ async def portal_offers(request: Request, tenant: str, subject_ref: str) -> dict
     return {"offers": [{"text": r.get("offer_text", ""),
                         "expires_at": int(r.get("offer_expires_at") or 0),
                         "sent_at": int(r.get("at") or 0),
-                        "services": list(r.get("offer_services") or [])}
+                        # THE WORDS, AND WHETHER IT IS SCOPED AT ALL (أ-4). This route used to emit
+                        # `offer_services` — our identifiers — straight onto a customer's page,
+                        # which read «على: svc_9f2a…». The two facts are separate on purpose:
+                        # empty names with `scoped` true is «we know it is limited and cannot name
+                        # the services», which is neither «the whole shop» nor a gap. Only an
+                        # offer recorded before the names were kept can be in that state.
+                        "services": list(r.get("offer_service_names") or []),
+                        "scoped": bool(r.get("offer_services")),
+                        # THE CODE HE READS OUT AT THE COUNTER. Written on the row at send, and
+                        # never emitted — so the page opened FROM the message that carried the
+                        # offer was the one place the code could not be found. The till has no
+                        # other handle on it, and «عرض وصلني» is not a handle.
+                        "code": str(r.get("offer_code") or "")}
                        for r in rows]}
 
 

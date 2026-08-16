@@ -204,6 +204,13 @@ class SendLog:
     # the screens say so in words rather than showing a gap. The sentence persuades and cannot be
     # enforced; this is the part a screen can act on.
     offer_services: list[str] = field(default_factory=list)
+    # AND THE SAME SERVICES IN WORDS (أ-4). This service holds identifiers and the catalogue lives
+    # in operations, so every screen that showed «على: svc_9f2a…» was showing the customer our
+    # primary key. The names arrive with the send — the caller owns the catalogue and sends the
+    # words, exactly as `CampaignSendIn.service_names` says — and were used to render the message
+    # and then dropped. Kept here because the customer's page is read days later, when nobody is
+    # holding that map any more.
+    offer_service_names: list[str] = field(default_factory=list)
     # THE CODE THE CUSTOMER READS OUT AT THE COUNTER. Derived from the send's own key rather than
     # stored separately (core/coupons.py), and kept on the row because this row IS the entitlement
     # — the till looks the offer up by what the customer says, and «عرض وصلني» is not a handle.

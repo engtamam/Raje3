@@ -445,6 +445,11 @@ class Tick:
             offer_text=row.get("offer_text", ""),
             offer_expires_at=int(row.get("offer_expires_at") or 0),
             offer_services=list(row.get("offer_services") or []),
+            # THE WORDS, NOT ONLY THE KEYS (أ-4). They were used to render this very message and
+            # then thrown away, so his page — read days later, by which time nobody holds the
+            # catalogue map — printed «على: svc_9f2a…» to a customer.
+            offer_service_names=[service_names[s] for s in (row.get("offer_services") or [])
+                                 if s in service_names],
             # RECORDED WITH THE OFFER IT BELONGS TO. The customer will read it back to an operator
             # who has to find this row from that string alone.
             offer_code=coupon)))

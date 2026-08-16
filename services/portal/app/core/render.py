@@ -238,6 +238,11 @@ def render_page(page: Page, theme: Theme, *, saved: bool = False,
             if o["services"]:
                 names = "، ".join(_e(s) for s in o["services"][:4])
                 parts.append(f"<p class='scope'>على: {names}</p>")
+            elif o.get("scoped"):
+                # NAMED AS LIMITED WITHOUT NAMING THE SERVICES. Saying «كل الخدمات» here would
+                # promise him the whole shop over a missing word, and he would find that out at
+                # the counter, in front of somebody who has to refuse him.
+                parts.append("<p class='scope'>على خدمات محدّدة — اسأل عند الزيارة</p>")
             else:
                 parts.append("<p class='scope'>على كل الخدمات</p>")
             # THE CODE, BIG ENOUGH TO READ FROM A PHONE HELD AT ARM'S LENGTH across a counter.
