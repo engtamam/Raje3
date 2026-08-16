@@ -37,6 +37,7 @@ import { OtpVerify } from '@base-ui/auth/OtpVerify';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
+import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
@@ -77,7 +78,7 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   /** Set when the server says this number was never proven — see the catch below. */
-  const [proving, setProving] = useState<{ phone: string; password: string; problem: string } | null>(null);
+  const [proving, setProving] = useState<{ phone: string; password: string; problem: string } | null | undefined>(undefined);
 
   /**
    * OUR OWN FIELDS, AND THE KIT'S `LoginForm` DELIBERATELY UNUSED.
@@ -270,7 +271,7 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [sector, setSector] = useState('');
   /** null while the list is still being fetched — NOT an empty list. See the field below. */
-  const [sectors, setSectors] = useState<Sector[] | null>(null);
+  const [sectors, setSectors] = useState<Sector[] | null | undefined>(undefined);
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -433,14 +434,18 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         <span className="text-label font-medium text-text-secondary">
           نوع النشاط<span className="ms-1 text-danger" aria-hidden>*</span>
         </span>
-        {sectors === null ? (
+        {/* THREE STATES, NOT TWO (م · النمط 1). This read failed into the SAME value it started
+            from, so a failed load rendered the skeleton for ever: a permanent grey rectangle above
+            a dead «ابدأ», on the first screen of the product. `undefined` is «on its way»; `null`
+            is «it failed», and only now can the sentence below ever be reached. */}
+        {isLoading(sectors) ? (
           <Skeleton height={40} />
-        ) : sectors.length === 0 ? (
+        ) : hasFailed(sectors) || sectors.length === 0 ? (
           // A FAULT, AND IT SAYS SO. Silence here is what produced the dead button — the sector is
           // required, so a missing list has to be visible and retryable rather than absent.
           <button
             type="button"
-            onClick={() => { setSectors(null); loadSectors(); }}
+            onClick={() => { setSectors(undefined); loadSectors(); }}
             className="text-sm text-danger underline"
           >
             تعذّر تحميل أنواع النشاط — أعد المحاولة

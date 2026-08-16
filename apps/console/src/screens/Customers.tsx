@@ -50,8 +50,8 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
   const [tab, setTab] = useState<'all' | 'overdue'>('all');
   const [query, setQuery] = useState('');
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
-  const [recent, setRecent] = useState<CustomerHit[] | null>(null);
-  const [overdue, setOverdue] = useState<CustomerHit[] | null>(null);
+  const [recent, setRecent] = useState<CustomerHit[] | null | undefined>(undefined);
+  const [overdue, setOverdue] = useState<CustomerHit[] | null | undefined>(undefined);
   /**
    * WHAT HIS CUSTOMERS ASKED HIM FOR, from their own pages — a copy of their data, or its erasure.
    *

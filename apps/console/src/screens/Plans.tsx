@@ -284,7 +284,7 @@ export function PlansPane({
   /** Takes him to the connection pane. Passed in, because this pane does not own the navigation. */
   onGoConnect: () => void;
 }) {
-  const [plans, setPlans] = useState<Plan[] | null>(null);
+  const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

@@ -23,6 +23,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
+import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Lock } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
@@ -62,8 +63,8 @@ const MAIN_BRANCH = 'brn-main';
 
 export function TeamScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [tab, setTab] = useState<'people' | 'branches'>('people');
-  const [operators, setOperators] = useState<Operator[] | null>(null);
-  const [branches, setBranches] = useState<Branch[] | null>(null);
+  const [operators, setOperators] = useState<Operator[] | null | undefined>(undefined);
+  const [branches, setBranches] = useState<Branch[] | null | undefined>(undefined);
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
@@ -137,8 +138,8 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
 
 function People({ session, operators, branches, add, edit, hire, onChanged }: {
   session: Session;
-  operators: Operator[] | null;
-  branches: Branch[] | null;
+  operators: Operator[] | null | undefined;
+  branches: Branch[] | null | undefined;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
   hire: ReturnType<typeof action>;
@@ -198,11 +199,18 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
     }
   }
 
-  if (operators === null) return <Skeleton height={200} />;
+  if (isLoading(operators)) return <Skeleton height={200} />;
 
   return (
     <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-      {operators.length === 0 ? (
+      {hasFailed(operators) ? (
+        // «لا يوجد موظفون بعد» INVITES HIM TO ADD PEOPLE HE ALREADY HAS. Said after a failed read
+        // it is an instruction to redo work, on the screen that decides who sees whose data.
+        <EmptyState
+          title="تعذّرت قراءة فريقك"
+          description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+        />
+      ) : operators.length === 0 ? (
         <EmptyState
           title="لا يوجد موظفون بعد"
           description="أضف موظفيك ليسجّلوا الزيارات بحساباتهم."
@@ -371,8 +379,8 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
 function Branches({ session, catalog, branches, operators, add, edit, available, onChanged }: {
   session: Session;
   catalog: Catalog;
-  branches: Branch[] | null;
-  operators: Operator[] | null;
+  branches: Branch[] | null | undefined;
+  operators: Operator[] | null | undefined;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
   available: boolean;
@@ -386,7 +394,7 @@ function Branches({ session, catalog, branches, operators, add, edit, available,
   // customers per branch for «محلّي», and a second count here would be a second opinion that
   // disagrees. `null` means we could not ask - and the card then shows no figure at all rather
   // than a zero, because «لا أعرف» is not «صفر».
-  const [stats, setStats] = useState<BranchStat[] | null>(null);
+  const [stats, setStats] = useState<BranchStat[] | null | undefined>(undefined);
 
   useEffect(() => {
     const a = action(catalog, 'insights.branches');
@@ -433,7 +441,9 @@ function Branches({ session, catalog, branches, operators, add, edit, available,
     <div className="flex flex-col gap-4">
       <ModeCard session={session} catalog={catalog} />
       <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-      {branches.length === 0 ? (
+      {isLoading(branches) ? (
+        <Skeleton height={120} />
+      ) : hasFailed(branches) || branches.length === 0 ? (
         // AN EMPTY LIST IS NOW A FAILURE, NOT A STATE. Every establishment owns its main branch
         // from signup, and the read repairs a shop that somehow has none — so nothing left here
         // means the request did not answer, and «أضف فرعاً حين تفتح الثاني» would be us blaming
@@ -447,10 +457,10 @@ function Branches({ session, catalog, branches, operators, add, edit, available,
               session={session}
               branch={b}
               edit={edit}
-              staff={operators === null
-                ? null
-                : operators.filter((o) => o.active !== false && o.branch_id === b.id).length}
-              stat={stats === null ? null : stats.find((r) => r.branch_id === b.id) ?? {}}
+              staff={isReady(operators)
+                ? operators.filter((o) => o.active !== false && o.branch_id === b.id).length
+                : null}
+              stat={isReady(stats) ? stats.find((r) => r.branch_id === b.id) ?? {} : null}
               onChanged={onChanged}
             />
           ))}
@@ -495,7 +505,7 @@ function Branches({ session, catalog, branches, operators, add, edit, available,
 function ModeCard({ session, catalog }: { session: Session; catalog: Catalog }) {
   const read = action(catalog, 'operations.shop_mode');
   const write = action(catalog, 'operations.set_shop_mode');
-  const [mode, setMode] = useState<Mode | null>(null);
+  const [mode, setMode] = useState<Mode | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [asking, setAsking] = useState(false);

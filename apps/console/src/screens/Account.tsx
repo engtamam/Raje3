@@ -104,7 +104,7 @@ export function AccountScreen(
   { session: Session; catalog: Catalog; openOn?: PaneLink; owned?: Owned | null },
 ) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
-  const [connected, setConnected] = useState<ConnectState | null>(null);
+  const [connected, setConnected] = useState<ConnectState | null | undefined>(undefined);
 
   useEffect(() => {
     const a = action(catalog, 'billing.my_subscriptions');

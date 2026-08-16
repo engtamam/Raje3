@@ -29,6 +29,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Segmented } from '@base-ui/design-system/Segmented';
+import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Toggle } from '@base-ui/design-system/Toggle';
 import { Lock } from 'lucide-react';
@@ -160,10 +161,10 @@ export function MessagesScreen(
    * never said WHAT THE SYSTEM SENDS AT ALL, so the only way to stop a kind of message was to
    * cancel its rows one at a time, for ever, as they appeared.
    */
-  const [reasons, setReasons] = useState<ReasonRow[] | null>(null);
+  const [reasons, setReasons] = useState<ReasonRow[] | null | undefined>(undefined);
   const [busy, setBusy] = useState('');
   /** The row he opened to read its wording. `null` is closed — it is not a screen of its own. */
-  const [reading, setReading] = useState<ReasonRow | null>(null);
+  const [reading, setReading] = useState<ReasonRow | null | undefined>(undefined);
   const [switchError, setSwitchError] = useState('');
 
   /**
@@ -175,7 +176,7 @@ export function MessagesScreen(
    * we wrote in plain Arabic goes to a place nobody opens. That is not a missing feature; it
    * turns every rule in the engine into a suspected bug.
    */
-  const [log, setLog] = useState<LogRow[] | null>(null);
+  const [log, setLog] = useState<LogRow[] | null | undefined>(undefined);
   // `null` IS «STILL LOADING» ON THIS SCREEN (see the read below), so the failure needs a field of
   // its own — otherwise a dead peer looks exactly like a slow one, for ever, and the owner reads
   // «لا شيء في السجل بعد» about messages that did go out.
@@ -184,8 +185,8 @@ export function MessagesScreen(
   /** Which branch's messages he is reading. '' is all of them; '_none' is the ones with none. */
   const [logBranch, setLogBranch] = useState('');
   const [branches, setBranches] = useState<{ id: string; name: string }[] | null>([]);
-  const [schedule, setSchedule] = useState<Schedule | null>(null);
-  const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
+  const [schedule, setSchedule] = useState<Schedule | null | undefined>(undefined);
+  const [campaigns, setCampaigns] = useState<Campaign[] | null | undefined>(undefined);
   // A SECOND FACT NEEDS A SECOND FIELD. `null` already means «the plan does not include
   // campaigns» on this screen, so putting «we could not read» into it would collapse two
   // different answers into one — the same mistake this pass exists to undo, committed in a new
@@ -194,7 +195,7 @@ export function MessagesScreen(
   /** The composer, open only when he asks for it — this tab is a list first. */
   const [launching, setLaunching] = useState(false);
   /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
-  const [runs, setRuns] = useState<Run[] | null>(null);
+  const [runs, setRuns] = useState<Run[] | null | undefined>(undefined);
   /**
    * PSEUDONYM → THE CUSTOMER, and this is what made the whole section useless without it.
    *
@@ -393,12 +394,20 @@ export function MessagesScreen(
               engine the first time a reason changed, and he would be reading a promise nothing
               keeps. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
-          {reasons === null ? (
+          {isLoading(reasons) ? (
             <Skeleton height={200} />
-          ) : reasons.length === 0 ? (
+          ) : hasFailed(reasons) ? (
+            // THE ONLY PATH TO THIS SENTENCE USED TO BE AN EMPTY LIST, and an empty list here
+            // meant «the action is not in your catalogue» — a permission answer wearing an outage
+            // sentence, so he retried every day on something waiting would never open.
             <EmptyState
               title="تعذّر قراءة رسائلك"
-              description="حسابك سليم. حاول بعد قليل."
+              description="حسابك سليم، والخلل عندنا. حاول بعد قليل."
+            />
+          ) : reasons.length === 0 ? (
+            <EmptyState
+              title="لا تظهر لك دواعي الإرسال"
+              description="لا يشمل دورك هذا القسم — راجع صاحب المحل."
             />
           ) : (
             <ul className="flex flex-col gap-2">
@@ -485,8 +494,15 @@ export function MessagesScreen(
             and three dashes: a shop with one queued reminder read «تذكير الموعد … 1» and «—» three
             times, and could not tell whose reminder it was without opening a nested panel. Nothing
             on the screen was about a customer, which is the only thing this section is about. */}
-        {schedule === null ? (
+        {isLoading(schedule) ? (
           <Skeleton height={160} />
+        ) : hasFailed(schedule) ? (
+          // HE CAME TO STOP ONE. «ما في رسائل بانتظار الخروج» after a failed read closes the
+          // screen for him, reassured, while the message he wanted to stop goes out on time.
+          <EmptyState
+            title="تعذّرت قراءة الرسائل المجدولة"
+            description="والخلل عندنا. أعد المحاولة بعد قليل — لم يُلغَ شيء."
+          />
         ) : (schedule.schedule ?? []).length === 0 ? (
           <EmptyState
             title="ما في رسائل بانتظار الخروج"
@@ -584,9 +600,9 @@ export function MessagesScreen(
             ) : null}
           </div>
 
-          {log === null ? (
+          {isLoading(log) ? (
             <Skeleton height={120} />
-          ) : logFailed ? (
+          ) : logFailed || hasFailed(log) ? (
             // OURS, NOT HIS. «لا شيء في السجل بعد» is a statement about his shop, and we may only
             // make it once we have actually read the log — otherwise an owner whose messages did
             // go out is told they did not, on the one screen whose whole job is to say what left
@@ -595,7 +611,7 @@ export function MessagesScreen(
               title="تعذّرت قراءة السجل"
               description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
             />
-          ) : log.length === 0 ? (
+          ) : (log ?? []).length === 0 ? (
             // NOT AN APOLOGY AND NOT A FAULT. A shop whose engine has not had to refuse anything
             // yet is a shop working correctly, and the sentence says which.
             <EmptyState
@@ -667,7 +683,7 @@ export function MessagesScreen(
           title="تعذّرت قراءة حملاتك"
           description="لم نستطع جلب القائمة الآن، والخلل عندنا. أعد المحاولة بعد قليل."
         />
-      ) : campaigns === null ? (
+      ) : isLoading(campaigns) ? (
         // A DIFFERENT ABSENCE, KEPT SEPARATE: the shop HAS campaigns and this person may not use
         // them. Nothing to buy, so nothing to sell him — the sentence is about permission.
         <section className="rounded-card bg-surface-1 p-4 text-center shadow-sm">
@@ -690,7 +706,14 @@ export function MessagesScreen(
             <div><Button onClick={() => setLaunching(true)}>أطلق حملة</Button></div>
           ) : null}
 
-          {campaigns.length === 0 ? (
+          {hasFailed(campaigns) ? (
+            // «لم تُطلق حملة بعد» IS A FACT ABOUT HIS SHOP. Said after a failed read it tells an
+            // owner mid-campaign that nothing of his is running.
+            <EmptyState
+              title="تعذّرت قراءة حملاتك"
+              description="لم نستطع جلبها الآن، والخلل عندنا. أعد المحاولة بعد قليل."
+            />
+          ) : (campaigns ?? []).length === 0 ? (
             <EmptyState
               title="لم تُطلق حملة بعد"
               description="اختر شريحة من عملائك الموافقين وأرسل لهم عرضاً."

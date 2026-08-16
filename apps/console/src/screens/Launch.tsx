@@ -28,6 +28,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Badge } from '@base-ui/design-system/Badge';
+import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -60,12 +61,12 @@ interface Service { id: string; name: string }
 
 export function Launch({ session, catalog, onDone }:
     { session: Session; catalog: Catalog; onDone: () => void }) {
-  const [goals, setGoals] = useState<Goal[] | null>(null);
+  const [goals, setGoals] = useState<Goal[] | null | undefined>(undefined);
   // `null` MEANS «STILL READING» HERE — the screen shows a Waiting on it — so the failure needs a
   // field of its own. Sharing one would make a dead peer indistinguishable from a slow one, and
   // «لا أهداف متاحة الآن» is a claim about the product rather than about the read.
   const [goalsFailed, setGoalsFailed] = useState(false);
-  const [picked, setPicked] = useState<Goal | null>(null);
+  const [picked, setPicked] = useState<Goal | null | undefined>(undefined);
   const [ownerText, setOwnerText] = useState('');
   const [serviceId, setServiceId] = useState('');
   /**
@@ -92,7 +93,7 @@ export function Launch({ session, catalog, onDone }:
   // having a choice.
   const [branches, setBranches] = useState<Branch[] | null>([]);
   const [branchId, setBranchId] = useState('');
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<Preview | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
@@ -160,7 +161,10 @@ export function Launch({ session, catalog, onDone }:
     }
   };
 
-  if (goals === null) return <Waiting what="نقرأ أهداف الحملات" />;
+  // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). The guard read `=== null` and the failure
+  // handler set `null`, so a failed read rendered this for ever and the sentence written
+  // for the failure was unreachable. `undefined` waits; `null` says so.
+  if (isLoading(goals)) return <Waiting what="نقرأ أهداف الحملات" />;
 
   if (sent) {
     return (
@@ -378,10 +382,16 @@ export function Launch({ session, catalog, onDone }:
         <p className="text-sm text-text-secondary">
           تعذّرت قراءة الأهداف الآن، والخلل عندنا. أعد المحاولة بعد قليل.
         </p>
-      ) : (goals ?? []).length === 0 ? (
+      ) : hasFailed(goals) ? (
+        // «لا أهداف متاحة» IS A CLAIM ABOUT HIS PLAN. Said after a failed read it sends him to
+        // the pricing page for something he already owns.
+        <p className="text-sm text-text-secondary">
+          تعذّرت قراءة الأهداف الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+        </p>
+      ) : goals.length === 0 ? (
         <p className="text-sm text-text-secondary">لا أهداف متاحة الآن.</p>
       ) : null}
-      {goals.map((g) => (
+      {(goals ?? []).map((g) => (
         <button
           key={g.goal}
           type="button"

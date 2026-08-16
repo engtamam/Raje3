@@ -26,6 +26,7 @@ import { Drawer } from '@base-ui/design-system/Drawer';
 import { Hint } from '../Hint';
 import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -107,10 +108,10 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const [record, setRecord] = useState<Record | null | undefined>(undefined);
-  const [offers, setOffers] = useState<Offer[] | null>(null);
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [moves, setMoves] = useState<Move[] | null>(null);
-  const [sends, setSends] = useState<Send[] | null>(null);
+  const [offers, setOffers] = useState<Offer[] | null | undefined>(undefined);
+  const [balance, setBalance] = useState<Balance | null | undefined>(undefined);
+  const [moves, setMoves] = useState<Move[] | null | undefined>(undefined);
+  const [sends, setSends] = useState<Send[] | null | undefined>(undefined);
   const [tab, setTab] = useState<'overview' | 'points' | 'messages' | 'manage'>('overview');
   const [adjustBy, setAdjustBy] = useState('');
   const [adjustNote, setAdjustNote] = useState<string>(ADJUST_REASONS[0]);
@@ -321,8 +322,14 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
         <>
       <section className="rounded-card bg-surface-1 p-4 shadow-sm">
         <h2 className="mb-3 text-sm text-text-secondary">عروضه</h2>
-        {offers === null ? (
+        {isLoading(offers) ? (
           <Skeleton height={90} />
+        ) : hasFailed(offers) ? (
+          // «لم يصله أي عرض» IS A FACT ABOUT HIM. Said after a failed read it tells the owner his
+          // customer was never invited to anything, which he may then act on.
+          <p className="text-sm text-text-secondary">
+            تعذّرت قراءة عروضه الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+          </p>
         ) : offers.length === 0 ? (
           // NOT A FAULT, unlike an empty service catalogue. Nobody seeds a customer an offer — he
           // gets one when the shop runs one, and saying so plainly beats an apology.
@@ -392,9 +399,16 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               person whose points they are, and an owner who cannot answer it in front of him has
               a loyalty programme that costs trust instead of earning it. */}
           <h2 className="mb-3 text-sm text-text-secondary">نقاطه</h2>
-          {balance === null ? (
+          {/* ONE SENTENCE FOR TWO CONTRADICTORY STATES, until the states themselves were told
+              apart. «لا يوجد برنامج نقاط في باقتك، أو تعذّرت قراءة رصيده» asks the owner to work
+              out which of two entirely different things happened — one he fixes by buying, one he
+              fixes by waiting. The lock for «not in your plan» is drawn elsewhere on this screen;
+              here `undefined` waits and `null` says the read failed. */}
+          {isLoading(balance) ? (
+            <Skeleton height={70} />
+          ) : hasFailed(balance) ? (
             <p className="text-sm text-text-secondary">
-              لا يوجد برنامج نقاط في باقتك، أو تعذّرت قراءة رصيده.
+              تعذّرت قراءة رصيده الآن — والخلل عندنا. أعد المحاولة بعد قليل.
             </p>
           ) : (
             <>
@@ -413,7 +427,11 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 </ul>
               ) : null}
               <h3 className="mb-1 text-sm text-text-secondary">حركة النقاط</h3>
-              {moves === null ? <Skeleton height={60} /> : moves.length === 0 ? (
+              {isLoading(moves) ? <Skeleton height={60} /> : hasFailed(moves) ? (
+                <p className="text-sm text-text-secondary">
+                  تعذّرت قراءة حركة نقاطه الآن — أعد المحاولة بعد قليل.
+                </p>
+              ) : moves.length === 0 ? (
                 <p className="text-sm text-text-secondary">لا حركة بعد.</p>
               ) : (
                 <ul className="flex flex-col gap-1 text-sm">
@@ -787,7 +805,13 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               the only question this engine generates, and every correct refusal (quiet hours, the
               ceiling, consent, an unapproved template) reads as a fault until it is named. */}
           <h2 className="mb-3 text-sm text-text-secondary">رسائله</h2>
-          {sends === null ? <Skeleton height={80} /> : sends.length === 0 ? (
+          {isLoading(sends) ? <Skeleton height={80} /> : hasFailed(sends) ? (
+            // «لم يخرج له شيء» ANSWERS THE ONE QUESTION THIS SCREEN EXISTS FOR. Said after a
+            // failed read, the owner concludes the engine never wrote to his customer at all.
+            <p className="text-sm text-text-secondary">
+              تعذّرت قراءة رسائله الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+            </p>
+          ) : sends.length === 0 ? (
             <p className="text-sm text-text-secondary">لم يخرج له شيء بعد.</p>
           ) : (
             <ul className="flex flex-col gap-2 text-sm">

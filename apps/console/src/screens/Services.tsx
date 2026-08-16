@@ -24,6 +24,7 @@ import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Check, Pencil, Power, RotateCcw } from 'lucide-react';
 import { Hint } from '../Hint';
 import { Toggle } from '@base-ui/design-system/Toggle';
+import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -84,15 +85,15 @@ interface EarnSettings {
 }
 
 export function ServicesScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [services, setServices] = useState<Service[] | null>(null);
+  const [services, setServices] = useState<Service[] | null | undefined>(undefined);
   /** The list could not be READ — as opposed to being read and found empty. Two different facts,
    *  and this screen used to say the same sentence for both. */
   const [unread, setUnread] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<Settings | null | undefined>(undefined);
   const [open, setOpen] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [suggestion, setSuggestion] = useState<Suggestion | null | undefined>(undefined);
   /** The name box, shown only after he asks for the group — never as a field waiting to be filled. */
   const [naming, setNaming] = useState<string | null>(null);
   /**
@@ -102,7 +103,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * and an owner reading a zero next to a service that does earn points would type the number
    * again — turning "follows the general setting" into a frozen copy that stops tracking it (§9.2).
    */
-  const [earn, setEarn] = useState<EarnSettings | null>(null);
+  const [earn, setEarn] = useState<EarnSettings | null | undefined>(undefined);
   /**
    * WHICH GROUP THE WORKSPACE IS SHOWING. `null` means all of them.
    *
@@ -508,17 +509,20 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
   // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
   // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
-  if (services === null) return <Waiting what="نقرأ خدماتك" />;
+  // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). This guard read `=== null` and the failure
+  // handler set `null` too, so a failed read waited here for ever and the `unread` sentence below
+  // — which was written for exactly this — could never be reached.
+  if (isLoading(services)) return <Waiting what="نقرأ خدماتك" />;
 
-  if (services.length === 0) {
+  if (hasFailed(services) || services.length === 0) {
     // A SHOP SHOULD NEVER SEE THIS. Its catalogue is seeded full from its sector at creation
     // (§4.6) precisely so nobody starts from a blank page — so an empty list means the seeding did
     // not run, which is a fault to report rather than an invitation to type twenty services.
     return (
       <div className="p-4">
         <EmptyState
-          title={unread ? 'تعذّر عرض خدماتك' : 'لا توجد خدمات'}
-          description={unread
+          title={unread || hasFailed(services) ? 'تعذّر عرض خدماتك' : 'لا توجد خدمات'}
+          description={unread || hasFailed(services)
             ? 'خدماتك موجودة ولم نستطع قراءتها الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.'
             : 'قائمة قطاعك تُضاف تلقائياً عند إنشاء الحساب — تواصل معنا إن بقيت فارغة.'}
           action={unread ? <Button onClick={load}>أعد المحاولة</Button> : undefined}

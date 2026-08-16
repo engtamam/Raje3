@@ -70,7 +70,7 @@ export function Visit() {
   const [plateKnown, setPlateKnown] = useState(false);
   const [changing, setChanging] = useState(false);
   const [meter, setMeter] = useState('');
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null | undefined>(undefined);
   // EVERY ROW THE QUEUE HOLDS — waiting AND stuck. `subscribe` emits the whole list, so counting
   // it as "waiting to be sent" counted visits that will never be sent among them, and the number
   // an operator watched go down would have stalled at one for ever with no explanation.
@@ -150,7 +150,7 @@ export function Visit() {
    * AND IT NEVER BLOCKS THE ENTRY. A failed lookup leaves the offer unshown and the visit
    * recordable — this screen is used a hundred times a day and its budget is five seconds.
    */
-  const [offer, setOffer] = useState<FieldOffer | null>(null);
+  const [offer, setOffer] = useState<FieldOffer | null | undefined>(undefined);
   /**
    * WHAT HE HAS, AND WHAT HE CAN SPEND IT ON — beside the offer, from the same lookup.
    *
@@ -158,8 +158,8 @@ export function Visit() {
    * two lookups for one number would double a request that sits inside a five-second journey.
    */
   const [subject, setSubject] = useState('');
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [earn, setEarn] = useState<EarnSettings | null>(null);
+  const [balance, setBalance] = useState<Balance | null | undefined>(undefined);
+  const [earn, setEarn] = useState<EarnSettings | null | undefined>(undefined);
   const [redeeming, setRedeeming] = useState('');
   // THE MANAGER'S NAME, asked for only where the shop's own rule requires it. Kept as the id of
   // the reward being approved so the box appears under that one tile and nowhere else — a field
@@ -174,7 +174,7 @@ export function Visit() {
    * against something that may never be recorded.
    */
   const [applying, setApplying] = useState(false);
-  const [redeemed, setRedeemed] = useState<string | null>(null);
+  const [redeemed, setRedeemed] = useState<string | null | undefined>(undefined);
 
   /**
    * WHAT WE KNOW ABOUT HIS ENTITLEMENTS, and «we have not asked yet» is not «he has none».
@@ -822,7 +822,7 @@ export function Visit() {
         redeemable={new Set(
           (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
         )}
-        points={pointsByService(earn, (services ?? []).map((x) => x.id))}
+        points={pointsByService(earn ?? null, (services ?? []).map((x) => x.id))}
       />
 
       {/* WHY HE NEVER SAW AN OFFERS PAGE. Skipping a step silently makes an operator wonder what

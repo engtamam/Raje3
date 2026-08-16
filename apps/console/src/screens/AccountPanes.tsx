@@ -12,6 +12,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
+import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -483,7 +484,7 @@ interface Invoice { id: string; number?: string; status?: string; total_minor?: 
  * sends half the shops to support.
  */
 export function InvoicesPane({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [rows, setRows] = useState<Invoice[] | null>(null);
+  const [rows, setRows] = useState<Invoice[] | null | undefined>(undefined);
   const canList = action(catalog, 'billing.my_invoices');
 
   useEffect(() => {
@@ -494,12 +495,21 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
   }, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!canList) return null;
-  if (rows === null) return <Skeleton height={80} />;
+  // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). The guard read `=== null` and the failure
+  // handler set `null`, so a failed read rendered this for ever and the sentence written
+  // for the failure was unreachable. `undefined` waits; `null` says so.
+  if (isLoading(rows)) return <Skeleton height={80} />;
 
   return (
     <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
       <h3 className="text-sm text-text-secondary">فواتيري</h3>
-      {rows.length === 0 ? (
+      {hasFailed(rows) ? (
+        // HE CAME HERE FOR HIS ACCOUNTANT. «لا فواتير بعد» to a shop that has been paying for
+        // months is a sentence that sends him looking for a receipt he will not find.
+        <p className="text-sm text-text-secondary">
+          تعذّرت قراءة فواتيرك الآن — والخلل عندنا. أعد المحاولة بعد قليل.
+        </p>
+      ) : rows.length === 0 ? (
         // NOT AN APOLOGY. No invoices before the first subscription is the correct state, and
         // «لا توجد فواتير» dressed as an empty-state illustration would imply something failed.
         <p className="text-sm text-text-secondary">لا فواتير بعد — تصدر أول فاتورة مع أول باقة.</p>

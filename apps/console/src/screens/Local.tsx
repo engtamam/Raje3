@@ -283,7 +283,7 @@ function Group({ title, hint, children, folded = false }: {
 }
 
 export function LocalScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [data, setData] = useState<Dashboard | null>(null);
+  const [data, setData] = useState<Dashboard | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   /** The recompute in flight, and whatever the service said about it. */
   const [refreshing, setRefreshing] = useState(false);
@@ -314,8 +314,8 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
    * the action from the catalogue, so the panel is not rendered at all rather than rendered locked
    * — the teaser line above already does the selling, once, in a sentence that is true.
    */
-  const [pairs, setPairs] = useState<Pairs | null>(null);
-  const [bundles, setBundles] = useState<Bundle[] | null>(null);
+  const [pairs, setPairs] = useState<Pairs | null | undefined>(undefined);
+  const [bundles, setBundles] = useState<Bundle[] | null | undefined>(undefined);
   /**
    * THE PAID SURFACES THIS PLAN DOES NOT INCLUDE, and what the service said about each.
    *
@@ -324,7 +324,7 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
    * missing and a red 402 in his console. A capability nobody can see is one nobody can buy.
    */
   const [locked, setLocked] = useState<Record<string, string>>({});
-  const [branches, setBranches] = useState<Branches | null>(null);
+  const [branches, setBranches] = useState<Branches | null | undefined>(undefined);
   // WHICH SCOPE HE IS READING. Empty is «كل الفروع» and is the default for everybody — a shop with
   // one branch never sees this control at all (§10.6.4).
   const [branch, setBranch] = useState('');

@@ -18,6 +18,7 @@
  * his shop's dashboard has no use for a page confirming he agreed to something.
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { isReady } from '../loading';
 import { AcceptTerms, type OutstandingDoc } from '@base-ui/auth/AcceptTerms';
 import { AGREED_KEY } from '../auth';
 import { action, call, type Catalog } from '../catalog';
@@ -33,7 +34,7 @@ export function LegalGate({
   catalog: Catalog;
   children: ReactNode;
 }) {
-  const [outstanding, setOutstanding] = useState<OutstandingDoc[] | null>(null);
+  const [outstanding, setOutstanding] = useState<OutstandingDoc[] | null | undefined>(undefined);
 
   const load = useCallback(async () => {
     const res = await fetch(
@@ -107,7 +108,10 @@ export function LegalGate({
   // So the children mount immediately and fetch in parallel, and the gate covers them the moment
   // it has something to say. He cannot act through it — the overlay takes the pointer — and by
   // the time it lifts, the screen underneath has already loaded.
-  const blocking = outstanding !== null && outstanding.length > 0;
+  // ONLY WHAT WE ACTUALLY READ BLOCKS HIM. `undefined` is the check still running and `null` is
+  // the check having failed — and neither is «he owes a signature». Blocking on either would put
+  // an unclosable overlay in front of a working product because compliance was slow (م · النمط 1).
+  const blocking = isReady(outstanding) && outstanding.length > 0;
 
   if (!blocking) return <>{children}</>;
 

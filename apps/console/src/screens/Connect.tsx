@@ -18,6 +18,7 @@
  * itself what a CANCEL means.
  */
 import { useEffect, useState } from 'react';
+import { hasFailed, isLoading } from '../loading';
 import { Button } from '@base-ui/design-system/Button';
 import { action, call, type Catalog } from '../catalog';
 import { loadMetaSdk, metaSdk, signupExtras, type SdkState } from '../meta';
@@ -52,7 +53,11 @@ export function Connect({
 }: {
   session: Session;
   catalog: Catalog;
-  state: ConnectState | null;
+  /** `undefined` while the read is in flight, `null` if it failed — see ../loading.ts. The two
+   *  used to be one value, so a WhatsApp status we could not read rendered as «غير مربوط» with a
+   *  «يحتاج ربط» badge, and the owner started the whole Embedded Signup journey again for a
+   *  connection that was working. */
+  state: ConnectState | null | undefined;
   onChange: (s: ConnectState) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -137,7 +142,16 @@ export function Connect({
       {/* AMBER, NOT GREEN, WHILE IT WAITS. The colour is read before the words are, and green over
           «الإرسال لم يُفتح بعد» tells him the opposite of the sentence under it. */}
       <p className={waiting ? 'text-warning' : connected ? 'text-success' : 'text-text-primary'}>
-        {state?.message || 'لم تبدأ الربط بعد.'}
+        {/* THREE ANSWERS, NOT TWO. `undefined` is the read still running and `null` is the read
+            having failed — and «لم تبدأ الربط بعد» is true of neither. An owner whose WhatsApp is
+            connected and whose status we could not fetch was told he had never started, next to a
+            badge asking him to connect: so he ran the whole Embedded Signup journey again for a
+            connection that was already working. */}
+        {isLoading(state)
+          ? 'نقرأ حالة الربط…'
+          : hasFailed(state)
+            ? 'تعذّرت قراءة حالة الربط الآن — لم يتغيّر شيء في حسابك. أعد المحاولة بعد قليل.'
+            : state?.message || 'لم تبدأ الربط بعد.'}
       </p>
 
       {error ? <p className="text-danger">{error}</p> : null}

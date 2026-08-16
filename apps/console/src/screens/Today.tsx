@@ -10,6 +10,7 @@
  * opening a paid product onto "not enough data yet" is the worst first impression available, while
  * this screen works from the first visit.
  */
+import { hasFailed, isLoading } from '../loading';
 import { useEffect, useState } from 'react';
 // The icons the shell already depends on — no second icon set, and no bespoke SVG for a card.
 import { Clock, Send, Signal } from 'lucide-react';
@@ -49,8 +50,8 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
    * and completely unactionable.
    */
   const [today, setToday] = useState<Today | null | undefined>(undefined);
-  const [recent, setRecent] = useState<CustomerRow[] | null>(null);
-  const [connected, setConnected] = useState<{ state: string; message: string; can_send?: boolean } | null>(null);
+  const [recent, setRecent] = useState<CustomerRow[] | null | undefined>(undefined);
+  const [connected, setConnected] = useState<{ state: string; message: string; can_send?: boolean } | null | undefined>(undefined);
 
   useEffect(() => {
     const a = action(catalog, 'reminders.today');
@@ -176,8 +177,15 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
 
       <section className="rounded-card bg-surface-1 p-4 shadow-sm">
         <h2 className="mb-3 text-sm text-text-secondary">آخر الزيارات</h2>
-        {recent === null ? (
+        {isLoading(recent) ? (
           <Skeleton height={64} />
+        ) : hasFailed(recent) ? (
+          // «لم تُسجَّل زيارة بعد» TO A SHOP THAT HAS BEEN BUSY ALL MORNING reads as «the system
+          // stopped recording» — which is the one fear this screen exists to answer.
+          <EmptyState
+            title="تعذّرت قراءة آخر الزيارات"
+            description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل."
+          />
         ) : recent.length === 0 ? (
           // "لم تُسجَّل زيارة بعد" AND NEVER A ZERO. A zero in this place reads as a fault — the
           // shop wonders whether the system stopped recording rather than whether anyone came in.

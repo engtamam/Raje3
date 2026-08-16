@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '@base-ui/design-system/Modal';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
+import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check, Lock } from 'lucide-react';
 import { TextEditor, type Slot } from './TextEditor';
@@ -57,7 +58,7 @@ export function MessagePreview({
   onClose: () => void;
   onChosen: () => void;
 }) {
-  const [options, setOptions] = useState<Option[] | null>(null);
+  const [options, setOptions] = useState<Option[] | null | undefined>(undefined);
   // Same reason as the send log: `null` already means «loading» here, so «we could not read» gets
   // its own field rather than borrowing one that means something else.
   const [optionsFailed, setOptionsFailed] = useState(false);
@@ -178,17 +179,17 @@ export function MessagePreview({
       <div className="flex flex-col gap-5">
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-        {options === null ? (
+        {isLoading(options) ? (
           <div className="flex flex-col gap-3">
             <Skeleton height={96} /><Skeleton height={96} />
           </div>
-        ) : optionsFailed ? (
+        ) : optionsFailed || hasFailed(options) ? (
           // OURS, AND SAID SO. This sentence was already the honest one; it is now shown for the
           // failure ALONE, so the case below can say something different and true.
           <p className="text-sm text-text-secondary">
             تعذّر عرض نصّ هذه الرسالة الآن — والخلل عندنا. حاول بعد قليل.
           </p>
-        ) : options.length === 0 ? (
+        ) : (options ?? []).length === 0 ? (
           <p className="text-sm text-text-secondary">
             لا توجد صيغة معتمدة لهذه الرسالة بعد. القوالب تُراجَع لدى واتساب، وقد تستغرق ساعات.
           </p>

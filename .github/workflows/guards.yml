@@ -134,6 +134,13 @@ jobs:
       - name: a paged read keeps the recent end
         run: python3 ci/check_paging_keeps_the_recent.py
 
+      # A SCREEN MUST TELL «NOT YET» FROM «IT FAILED». Twenty-seven states started at `null` and
+      # failed back to `null`, so a failed read rendered the skeleton for ever and every Arabic
+      # failure sentence in the app was unreachable code — including the whole payments screen and
+      # the first screen of the product.
+      - name: loading is not failure
+        run: python3 ci/check_loading_is_not_failure.py
+
       # AND THE DEPLOY SCRIPTS ARE EXERCISED, not only read. Family ل is six defects in files no
       # test ever ran, every one of which shows first on a machine nobody has yet.
       - name: deploy scripts behave

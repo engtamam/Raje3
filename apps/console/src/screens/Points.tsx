@@ -29,6 +29,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
+import { isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
@@ -87,10 +88,10 @@ function typeLabel(t: string): string {
 
 export function PointsScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [tab, setTab] = useState<'rewards' | 'earning'>('rewards');
-  const [rewards, setRewards] = useState<Reward[] | null>(null);
-  const [report, setReport] = useState<Report | null>(null);
+  const [rewards, setRewards] = useState<Reward[] | null | undefined>(undefined);
+  const [report, setReport] = useState<Report | null | undefined>(undefined);
   const [services, setServices] = useState<Service[] | null>([]);
-  const [earn, setEarn] = useState<EarnSettings | null>(null);
+  const [earn, setEarn] = useState<EarnSettings | null | undefined>(undefined);
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState(TYPES[0].value);
   const [saving, setSaving] = useState(false);
@@ -191,7 +192,10 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
 
   // A PAGE WITH NO KNOWN SHAPE YET WAITS IN OUR OWN MARK, not as one grey rectangle —
   // see Waiting.tsx. The skeletons inside the page stay: there the shape IS known.
-  if (rewards === null) return <Waiting what="نقرأ نقاطك وجوائزك" />;
+  // «NOT YET» IS NOT «IT FAILED» (م · النمط 1). This guard read `=== null`, and the failure
+  // handler set `null` too — so a failed read waited here for ever and the «تعذّرت القراءة»
+  // sentence below could never be reached. Now the wait is `undefined` and the sentence is live.
+  if (isLoading(rewards)) return <Waiting what="نقرأ نقاطك وجوائزك" />;
 
   /** A service's effective points, and whether the number is its own (§9.2: inherit, never copy). */
   /** The groups the engine already knows — from his own «خدماتي», never a second list. */
