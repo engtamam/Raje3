@@ -23,6 +23,7 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 
@@ -189,8 +190,21 @@ class SettlementsSource:
                 return None
             if not (period_start <= when < period_end):
                 continue
+            net = _net_of_tax(row)
+            if net is None:
+                # SEE `_net_of_tax`: a row that will not say what the tax was is a row we cannot
+                # commission without overpaying, and this adapter fails closed rather than guess.
+                return None
             acc.setdefault(t, {"settled_minor": 0, "refunded_minor": 0})
-            acc[t]["settled_minor"] += int(row.get("total_minor") or row.get("amount_minor") or 0)
+            acc[t]["settled_minor"] += net
+            # AND A PARTIAL REFUND, WHICH IS NOT A VOID (ح-3). An invoice with 150 of 299 returned
+            # stays `paid` — it never enters the void list at all — so the whole 299 used to earn
+            # commission on money that went back to the shop. `refunded_minor` is VAT-inclusive
+            # like `total_minor`, so it is carried to net in the same proportion.
+            back = int(row.get("refunded_minor") or 0)
+            if back > 0:
+                total = int(row.get("total_minor") or 0)
+                acc[t]["refunded_minor"] += _net_share(back, net=net, total=total)
         # AND THE REFUND SIDE STILL CANNOT BE DATED — ESCALATED. billing's list projects `created`
         # and `paid_at` and nothing else: there is no `voided_at`. So a void is placed by the month
         # its invoice was ISSUED, which is exactly the defect fixed above for payments, and it
@@ -201,9 +215,51 @@ class SettlementsSource:
             t = str(row.get("tenant") or "")
             if not t:
                 continue
+            net = _net_of_tax(row)
+            if net is None:
+                return None
             acc.setdefault(t, {"settled_minor": 0, "refunded_minor": 0})
-            acc[t]["refunded_minor"] += int(row.get("total_minor") or row.get("amount_minor") or 0)
+            acc[t]["refunded_minor"] += net
         return acc
+
+
+def _net_of_tax(row: dict[str, Any]) -> int | None:
+    """What the shop paid US, with the state's VAT taken out (ح-2).
+
+    OUR PRICES INCLUDE VAT — the owner is quoted 299 and pays 299, and `deploy/seed/plans.json`
+    says so — so `total_minor` is 299.00 of which 39.00 is tax we collect and remit to ZATCA. A
+    commission on the inclusive figure hands the partner a QUARTER OF THE STATE'S TAX: at 25%,
+    7475 halalas instead of 6500. Nine hundred and seventy-five halalas per shop per month, and
+    at five hundred shops that is 4,875 riyals a month leaving on money that was never ours.
+
+    THE NET IS BILLING'S OWN NUMBER, NOT OUR SUBTRACTION. `subtotal_minor` arrives in the same
+    projection as `total_minor` (platform v0.16.16), so nothing here divides by a rate: a VAT rate
+    in this file would be a second place to change on the day the rate changes, and the day it
+    changes is the day nobody remembers the second place.
+
+    AND A ROW THAT WILL NOT SAY ITS TAX RETURNS None. The tempting fallback — «use total when
+    subtotal is missing» — is the defect itself, silently, on exactly the rows we cannot check.
+    The caller fails the whole sweep instead, which is what this adapter already does when billing
+    cannot be read at all: a partner statement that is quietly 15% high is worse than none.
+    """
+    sub = row.get("subtotal_minor")
+    if sub is None:
+        return None
+    return max(0, int(sub))
+
+
+def _net_share(refunded_minor: int, *, net: int, total: int) -> int:
+    """The VAT-exclusive part of a VAT-inclusive refund.
+
+    `refunded_minor` is inclusive like `total_minor`, so it carries to the net in the same
+    proportion. Rounding is HALF-UP on the refund rather than down: rounding a claw-back down
+    would leave a halala of commission standing on money that went back.
+    """
+    if total <= 0 or net <= 0:
+        return 0
+    back = min(int(refunded_minor), total)
+    exact = Decimal(back) * Decimal(net) / Decimal(total)
+    return int(exact.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def build_settlements(settings) -> SettlementsSource:

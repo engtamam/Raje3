@@ -27,7 +27,15 @@ AUGUST_START = 1_785_542_400      # 2026-08-01T00:00:00Z
 
 
 def _row(tenant: str, minor: int, paid_at: str) -> dict:
-    return {"tenant": tenant, "total_minor": minor, "status": "paid", "paid_at": paid_at}
+    """One invoice as billing's platform projection really sends it.
+
+    `subtotal_minor` IS PART OF THE ROW, and this fixture was written before it was (ح-2). The
+    figure a partner earns on is the net one — our prices include VAT — so a fixture carrying only
+    `total_minor` describes a projection that no longer exists, and the adapter is right to refuse
+    it. The window logic under test is unchanged: these numbers are already the net ones.
+    """
+    return {"tenant": tenant, "subtotal_minor": minor, "total_minor": minor,
+            "status": "paid", "paid_at": paid_at}
 
 
 class _Billing(SettlementsSource):
