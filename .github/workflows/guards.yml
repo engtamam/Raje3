@@ -478,6 +478,13 @@ jobs:
       - name: a setting an operator can change changes something
         run: python3 ci/check_a_setting_an_operator_can_change_changes_something.py
 
+      # The mint list is a transcription of `services/*/`, and a transcription drifts the day the
+      # thing it copies moves. A service missing from it boots with no INTERNAL_SERVICE_TOKEN and a
+      # DIFFERENT PII_SALT — so the same customer becomes two people across the fleet, which is the
+      # د-2 failure arriving by a second road.
+      - name: every service we own gets the shared secrets
+        run: python3 ci/check_every_service_we_own_gets_the_shared_secrets.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already
