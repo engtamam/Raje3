@@ -206,27 +206,43 @@ fi
 # This is arithmetic, not a probe: it cannot start a run and it does not try. It multiplies what
 # the repository declares by what the cluster registered and says whether the sum fits.
 #
-# AND IT IS A FAMILY, NOT ONE SERVICE. Sweeping every values file for a cron that declares a
-# per-item timeout and a bound finds four, all measured against the same 300s caller:
+# AND IT IS A FAMILY, NOT ONE SERVICE — AND THIS SCRIPT NO LONGER KEEPS ITS OWN COPY OF THE LIST.
 #
-#   reminders tick   TICK_MAX_TENANTS 200 x TICK_BATCH_SIZE      30 x PEER_TIMEOUT 8 = 48000s
-#   campaigns tick   TICK_MAX_TENANTS 200 x DISPATCH_BATCH_SIZE  30 x PEER_TIMEOUT 8 = 48000s
-#   operations sync  TEMPLATE_SYNC_MAX_TENANTS 200               x SEARCH_TIMEOUT  5 =  1000s
-#   backup    run    <targets> 20 x BACKUP_TARGET_TIMEOUT_SECONDS 120                =  2400s
+# It used to carry a hand-written table of the members. Then the gate found a fifth
+# (notification-service's queue drain, 100 x 15s) and this comment still said «four», so the two
+# halves of one finding disagreed about how big it was — a table transcribed by hand drifts the
+# moment the thing it describes moves, which is the defect this whole section is about.
 #
-# THE FIRST VERSION OF THIS TABLE WAS WRONG BY A FACTOR OF TWO HUNDRED, and the error is worth
-# keeping written down because it is the one this whole family is made of. It multiplied ONE batch
-# by ONE timeout — `reminders 100 x 8 = 800s` — and never noticed the loop is NESTED: the tick walks
-# `for tenant in tenants[:TICK_MAX_TENANTS]` and runs the batch inside EACH tenant. Two numbers in
-# two files, and nobody had multiplied them; then two more, and I multiplied only two of them.
+# So the declared half is printed by the gate that computes it —
+# `ci/check_a_cron_can_finish_before_its_caller_gives_up.py`, run below — and this script keeps
+# only the half the gate cannot know: the number of targets ACTUALLY registered on the cluster,
+# which is a fact about a running fleet rather than a declaration.
 #
-# WHICH MEANS NO REPOSITORY VALUE MAKES THEM FIT. Even one row per tenant is 200 x 8s = 1600s. The
-# ticks are not «less urgent than the backup» as this comment used to claim — they are the members
-# no local edit can rescue. `ci/check_a_cron_can_finish_before_its_caller_gives_up.py` judges the
-# half that is ours (one tenant's slice) and prints the rest as a standing escalation; this script
-# does the live half, where the backup's target COUNT is a cluster fact rather than a declaration.
+# THE ERROR WORTH KEEPING WRITTEN DOWN, because the family is made of it: the first version of that
+# table multiplied ONE batch by ONE timeout — `reminders 100 x 8 = 800s` — and never noticed the
+# loop is NESTED, walking `for tenant in tenants[:TICK_MAX_TENANTS]` with the batch inside EACH
+# tenant. Wrong by a factor of two hundred, and a batch size was lowered on the strength of it.
 #
-# The fix for all four is the same single escalation: the 300 in the platform chart. See #340.
+# NO REPOSITORY VALUE MAKES THEM FIT. Even one row per tenant is 200 x 8s = 1600s. The fix for
+# every member is the same single escalation: the 300 in the platform chart. See #340.
+# THE DECLARED HALF, PRINTED BY THE GATE THAT COMPUTES IT. Not summarised and not counted here:
+# the membership of this family is derived from the values files, and any sentence about it kept
+# in a second place goes stale the day a sixth member appears — which is exactly what happened to
+# the table that used to sit above.
+if command -v python3 >/dev/null 2>&1; then
+  cron_out="$(python3 "$ROOT/ci/check_a_cron_can_finish_before_its_caller_gives_up.py" 2>&1)"
+  cron_rc=$?
+  printf '%s
+' "$cron_out" | sed 's/^/  /'
+  [ "$cron_rc" -eq 0 ] || bad=$((bad+1))
+else
+  # NOT A PASS. Without python3 the declared half is unread, and «unread» must never print
+  # green — the same rule the rest of this script already lives by.
+  printf '  %s✗ %-24s python3 missing — the declared half was NOT checked%s\n' \
+    "$C_R" "cron windows" "$C_N"
+  bad=$((bad+1))
+fi
+
 per_target="$(sed -n 's/^  BACKUP_TARGET_TIMEOUT_SECONDS: *"\([0-9]*\)".*/\1/p' \
   "$ROOT/deploy/services/backup-service.values.yaml" | head -1)"
 caller_wait=300     # `platform/deploy/chart/templates/cronjob.yaml` — read-only, hence the escalation
