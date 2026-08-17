@@ -53,7 +53,17 @@ C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 A_MANIFEST = re.compile(r"^kind:\s*\w+", re.M)
 
 # `image: something`, ignoring a commented line. The value may be quoted.
-AN_IMAGE = re.compile(r"^\s*image:\s*[\"']?([^\"'\s#]+)")
+#
+# THE `-` IS NOT OPTIONAL DECORATION (د-5). This used to be `^\s*image:` with `.match()`, so the
+# perfectly ordinary list form
+#
+#     containers:
+#       - image: caddy:2.8-alpine
+#
+# was NOT CHECKED AT ALL — the gate walked straight past the one syntax Kubernetes manifests use
+# most. It reported «ok» while an unpinned image sat two lines below the sentence saying every
+# image is pinned.
+AN_IMAGE = re.compile(r"^\s*-?\s*image:\s*[\"']?([^\"'\s#]+)")
 
 # Registries that will refuse an anonymous pull. ghcr is ours and private; the rest of the world's
 # public registries are not the question here — rule 2 is about credentials, not about ownership.
@@ -110,6 +120,16 @@ def main() -> int:
             print(f"  {line}")
         print("\n  A digest for a public image:  docker buildx imagetools inspect <ref>")
         print("  Ours are written by deploy/publish-images.sh, from what the registry answered.")
+        return 1
+
+    # THE COUNTER THAT MATTERS IS THE ONE THE CLAIM IS ABOUT (د-5). An empty-set guard on
+    # `files` said «there are yaml files under deploy/», which is true of a repository where the
+    # image syntax changed and this gate now matches nothing: it printed `ok 0 images` in a
+    # confident green. The claim here is «every image is pinned», so the refusal is on IMAGES.
+    if pinned == 0:
+        print(f"{C_R}no image reference was found in any manifest — either they moved or this "
+              f"gate no longer recognises them, and «found none» is not «all are pinned»{C_N}\n"
+              f"  {checked} manifest(s) were read.")
         return 1
 
     print(f"{C_G}ok{C_N}  {pinned} images across {checked} manifests — every one pinned to content")

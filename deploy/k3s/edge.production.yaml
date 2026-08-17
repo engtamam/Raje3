@@ -107,7 +107,7 @@ spec:
           # would arrive at the next pod restart, on the one container every request in
           # this product passes through. The tag is kept beside it so a human can read
           # which release this is; the digest is what kubelet resolves.
-          image: caddy:2.8-alpine@sha256:af32e97399febea808609119bb21544d0265c58a02836576e32a2d082c262c17
+          image: caddy:2.8.4-alpine@sha256:af32e97399febea808609119bb21544d0265c58a02836576e32a2d082c262c17
           ports:
             - { containerPort: 80,  hostPort: 80 }
             - { containerPort: 443, hostPort: 443 }

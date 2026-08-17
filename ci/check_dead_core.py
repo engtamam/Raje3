@@ -85,6 +85,44 @@ def _imports(path: pathlib.Path) -> set[str]:
     return found
 
 
+
+def _code_only(source: str) -> str:
+    """The source with comments and docstrings removed — what can actually call something.
+
+    WHY THIS EXISTS (د-8). The reachability search read the RAW TEXT of every other file, so a
+    docstring saying «see `build_statement`» or a comment naming the function satisfied the gate.
+    «A module nothing calls» is exactly the defect whose commentary tends to name it, so prose was
+    the one place a mention proved nothing and was believed anyway.
+
+    Tokenised rather than stripped with a regex: a `#` inside a string is not a comment, and a
+    gate that got that wrong would erase real code and start reporting live modules as dead.
+    """
+    import io
+    import tokenize
+
+    out: list[str] = []
+    prev_type = tokenize.INDENT
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+            if tok.type == tokenize.COMMENT:
+                continue
+            # A STRING ALONE AS A STATEMENT is a docstring; one inside an expression is data.
+            # `prev_type` separates them: a docstring follows a NEWLINE, NL, INDENT or DEDENT.
+            if tok.type == tokenize.STRING and prev_type in (
+                    tokenize.NEWLINE, tokenize.NL, tokenize.INDENT, tokenize.DEDENT):
+                prev_type = tok.type
+                continue
+            if tok.type not in (tokenize.NL, tokenize.NEWLINE,
+                                tokenize.INDENT, tokenize.DEDENT):
+                out.append(tok.string)
+            prev_type = tok.type
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        # UNREADABLE MEANS UNREADABLE. Returning the raw text here would quietly restore the old,
+        # weaker behaviour for exactly the files that are hardest to reason about.
+        return ""
+    return " ".join(out)
+
+
 def main() -> int:
     problems: list[str] = []
 
@@ -133,7 +171,12 @@ def main() -> int:
                        and not n.name.startswith("_")]
             if not surface:
                 continue
-            elsewhere = chr(10).join(v for p, v in texts.items() if p != module_path)
+            # NAMED IN CODE, NOT MENTIONED IN PROSE (د-8). This searched the RAW TEXT of every
+            # other file, so a docstring saying «see build_statement» or a comment naming the
+            # function satisfied the gate — and «a module nothing calls» is precisely the defect
+            # whose commentary tends to mention it. Comments and docstrings are stripped first,
+            # so what remains is code that could actually reach it.
+            elsewhere = chr(10).join(_code_only(v) for p, v in texts.items() if p != module_path)
             if not any(re.search(rf"\b{re.escape(n)}\b", elsewhere) for n in surface):
                 problems.append(
                     f"{service}/app/core/{module_path.stem}.py declares {surface} and NOT ONE of "

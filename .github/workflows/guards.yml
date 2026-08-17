@@ -247,6 +247,13 @@ jobs:
       - name: a raw manifest that does not pin its image
         run: python3 ci/check_a_raw_manifest_pins_its_image.py
 
+      # AND ONE DIGEST CARRIES ONE VERSION LABEL (د-5). `caddy:2.8.4-alpine@sha256:af32…` and
+      # `caddy:2.8-alpine@sha256:af32…` — the same image, two labels, in three files. Nothing ran
+      # wrong; the tag beside a digest is decoration to the kubelet and the ONLY part a person
+      # reads. Whichever label is wrong is the one somebody believes.
+      - name: one digest carries one tag
+        run: python3 ci/check_one_digest_carries_one_tag.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values
@@ -285,6 +292,22 @@ jobs:
       # This does not unpick the six; it stops the seventh.
       - name: the product's clock is not written by hand in a new place
         run: python3 ci/check_the_products_clock_is_not_written_by_hand.py
+
+      # AND THE SET OF PLACES NOBODY CHECKS HAS A CEILING (د-10). Six gates above print a note and
+      # exit zero — a body assembled at runtime cannot be read from source, and refusing the build
+      # over that would be a gate that overreaches. Each note is the right call; together they were
+      # FORTY places passing green every day with no ceiling, no date and no baseline, and nothing
+      # would have said so when the number became fifty. This runs last because it runs the others.
+      - name: the unchecked set does not grow
+        run: python3 ci/check_the_unchecked_set_does_not_grow.py
+
+      # AND THE SET OF PLACES NOBODY CHECKS HAS A CEILING (د-10). Six gates above print a note and
+      # exit zero — a body assembled at runtime cannot be read from source, and refusing the build
+      # over that would be a gate that overreaches. Each note is the right call; together they were
+      # FORTY places passing green every day with no ceiling, no date and no baseline, and nothing
+      # would have said so when the number became fifty. This runs last because it runs the others.
+      - name: the unchecked set does not grow
+        run: python3 ci/check_the_unchecked_set_does_not_grow.py
 
       # AND NO IMAGE REACHES THE SERVER FROM A LAPTOP. The console ran
       # `127.0.0.1:5055/raje3/console@…` in production — a registry one machine resolves, and only

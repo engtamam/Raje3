@@ -25,7 +25,10 @@ check(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1: expected [$3], got [$2]"
 # mirror, both with `cat >`, so whichever ran last erased the other and restarted k3s on top of
 # it. The mirror is gone with the ship road that needed it, so what is tested now is that only one
 # writer remains — a merge helper for two writers is a thing to remove, not to keep working.
-check "only install.sh writes registries.yaml"       "$(grep -rlc 'registries.yaml' "$ROOT"/deploy/*.sh 2>/dev/null | wc -l)" "1"
+# `grep -rl`, NOT `-rlc` (د-12). `-l` prints file names and CANCELS `-c`, so the old command was
+# counting files by accident rather than by intent — it gave the right answer for the wrong
+# reason, which is the kind of line that breaks the day somebody "tidies" it.
+check "only install.sh writes registries.yaml"       "$(grep -rl 'registries.yaml' "$ROOT"/deploy/*.sh 2>/dev/null | wc -l)" "1"
 check "and it writes ghcr, not a local mirror"       "$(grep -c '127.0.0.1' <(grep -A6 'registries.yaml <<REGEOF' "$ROOT/deploy/install.sh"))" "0"
 
 # ── ل-8 · a swallowed seed must not end as a completed install ────────────────────────────────
@@ -99,11 +102,21 @@ check "ship.sh carries no image to the node" \
       "$(grep -vE '^\s*#' "$ROOT/deploy/ship.sh" | grep -cE 'docker save|ctr images import')" "0"
 
 # ── every deploy script still parses ──────────────────────────────────────────────────────────
+# COUNTED, AND THE TICK IS CONDITIONAL (د-12). `ok "every deploy script parses"` used to run
+# UNCONDITIONALLY after the loop: a script with a syntax error printed its own red line and then
+# this printed a green one underneath it, so the summary said both. And a loop that matched
+# nothing — a moved directory, a changed glob — printed the same tick over zero files.
+parsed=0
+broken=0
 for f in "$ROOT"/deploy/*.sh "$ROOT"/deploy/**/*.sh; do
   [ -f "$f" ] || continue
-  if bash -n "$f" 2>/dev/null; then :; else no "$(basename "$f"): syntax error"; fi
+  if bash -n "$f" 2>/dev/null; then parsed=$((parsed+1)); else broken=$((broken+1)); no "$(basename "$f"): syntax error"; fi
 done
-ok "every deploy script parses"
+if [ "$parsed" -eq 0 ]; then
+  no "no deploy script was parsed at all — the glob matched nothing, and an empty set is not agreement"
+elif [ "$broken" -eq 0 ]; then
+  ok "every deploy script parses ($parsed)"
+fi
 
 printf '\n  %d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

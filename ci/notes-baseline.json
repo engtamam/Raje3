@@ -1,0 +1,26 @@
+{
+  "_comment": [
+    "GENERATED-ADJACENT, HAND-EDITED ON PURPOSE. Every number here is a count of places a gate",
+    "looked at, could not decide about, and let through with a note. Each one is defensible on its",
+    "own — a body built at runtime genuinely cannot be read from source. Together they are a hole,",
+    "and the hole had no size, no date and no ceiling until this file existed (د-10).",
+    "",
+    "THE RULE IS A RATCHET, AND IT IS STRICT IN BOTH DIRECTIONS. A count that RISES fails: the",
+    "unchecked set grew and nobody decided that. A count that FALLS also fails, and that is not",
+    "pedantry — a baseline that silently absorbs an improvement is a baseline that will silently",
+    "absorb a regression on the next line. Lowering the number is a one-line diff a person makes",
+    "while looking at what they just fixed.",
+    "",
+    "TO CHANGE A NUMBER: fix the sites, run ci/check_the_unchecked_set_does_not_grow.py, and write",
+    "down what it tells you. Never the other way round."
+  ],
+  "recorded": "2026-08-17",
+  "gates": {
+    "check_deploy_wiring": 1,
+    "check_internal_contracts": 13,
+    "check_audit_actions": 12,
+    "check_screens_send_declared_fields": 4,
+    "check_undefined_names": 9,
+    "check_undeclared_field_read": 1
+  }
+}

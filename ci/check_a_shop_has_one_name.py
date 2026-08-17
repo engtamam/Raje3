@@ -43,7 +43,11 @@ def main() -> int:
                 continue
             try:
                 text = path.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, OSError):
+            except (UnicodeDecodeError, OSError) as exc:
+                # NOT SKIPPED (د-8). A file this gate cannot open is a file it did not check, and
+                # the one place the shop's name is written wrongly could be exactly there. Saying
+                # «could not read it» costs one line; skipping it silently costs the whole claim.
+                problems.append(f"{path.relative_to(ROOT).as_posix()}: cannot read it — {exc}")
                 continue
             for number, line in enumerate(text.splitlines(), start=1):
                 if FIELD not in line:

@@ -54,10 +54,18 @@ def schema_validate(data: dict, schema: dict) -> None:
     try:
         import jsonschema  # type: ignore
     except ImportError:
-        for key in schema.get("required", []):
-            if key not in data:
-                fail(f"schema(required): top-level key '{key}' is missing")
-        print(f"{C_Y}  ⚠ jsonschema not installed — ran structural fallback only{C_N}")
+        # A MISSING TOOL IS A CHECK THAT DID NOT RUN, NOT A CHECK THAT PASSED (د-7).
+        #
+        # This used to degrade to «are the top-level keys present» and exit zero — so a machine
+        # without jsonschema ran a fundamentally weaker check and reported the same green tick as
+        # one that validated the whole document. Types, enums, formats and every nested rule went
+        # unexamined, and nothing in the output said which of the two had happened.
+        #
+        # `check_undefined_names.py` already had this right — a missing pyflakes returns 1 — so
+        # the principle was known and applied in exactly one place.
+        fail("jsonschema is not installed — this check cannot validate product.json at all, and "
+             "«could not check» must never print the same tick as «checked and correct». "
+             "Install it: python -m pip install jsonschema")
         return
     try:
         jsonschema.validate(instance=data, schema=schema)
