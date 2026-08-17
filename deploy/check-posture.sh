@@ -246,6 +246,42 @@ fi
 #
 # deploy/verify-fleet.sh answers it: it runs from the repo — the only place that holds the whole
 # fleet's intended pins — and reads the cluster over ssh.
+# ── 6. the wall between pods ──────────────────────────────────────────────────────────────────
+# PROVEN ONCE AT INSTALL, AND NEVER ASKED AGAIN — which is the shape this whole file exists for.
+#
+# `platform/deploy/k3s/preflight.sh` does the honest thing at bring-up: it deploys a denied pod,
+# sends a real packet and requires a refusal. That is a proof, and `bring-up.sh` runs it. But it
+# runs ONCE. A CNI can be replaced, a policy deleted by a hurried `kubectl delete`, a namespace
+# relabelled — and nothing between that moment and an incident asks again. The fleet keeps
+# serving, every pod is green, and the wall is gone.
+#
+# WHAT IS CHECKED HERE IS EXISTENCE AND CAPABILITY, NOT ENFORCEMENT, and the difference is stated
+# rather than blurred: sending a packet from a denied pod means CREATING one, and this script only
+# ever reads. So it answers «are the policies still here, and is the CNI one that can enforce
+# them» — and points at preflight for the packet.
+section "the wall between pods"
+policies=$(kubectl -n "$NS" get networkpolicy --no-headers 2>&1 | grep -c . || true)
+if [[ "$policies" =~ ^[0-9]+$ ]] && [[ "$policies" -gt 0 ]]; then
+  ok "$policies network policies in $NS"
+else
+  bad "no network policy in '$NS' — every pod can reach every other pod, and the internal token
+       is the same for all of them" \
+      "re-run the install: the chart ships a default-deny per service"
+fi
+
+# THE CNI DECIDES WHETHER ANY OF THAT IS REAL. Stock K3s ships Flannel, which does not implement
+# NetworkPolicy: the objects exist, `kubectl get` lists them, and traffic FAILS OPEN. Checking that
+# a policy-capable CNI is present is the cheapest way to tell an enforced wall from a decorative
+# one — and «a Calico pod exists» is itself only capability, which is why preflight sends a packet.
+cni=$(kubectl get pods -n kube-system -o name 2>/dev/null | grep -c 'calico\|cilium' || true)
+if [[ "$cni" =~ ^[0-9]+$ ]] && [[ "$cni" -gt 0 ]]; then
+  ok "a policy-capable CNI is running (enforcement proven at install by k3s/preflight.sh)"
+else
+  bad "no policy-capable CNI found — stock K3s ships Flannel, which IGNORES NetworkPolicy. The
+       policies above would then be objects nobody enforces, and traffic fails OPEN" \
+      "sudo bash platform/deploy/k3s/bootstrap.sh, then platform/deploy/k3s/preflight.sh to prove it"
+fi
+
 section "running images"
 note "compared against the values files beside this script; the repo's pins are authoritative — deploy/verify-fleet.sh"
 drift=0
