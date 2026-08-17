@@ -390,6 +390,18 @@ jobs:
       - name: the price list has one word for unlimited
         run: python3 ci/check_the_price_list_has_one_word_for_unlimited.py
 
+      # ب-5 · THE ONE QUESTION AN AUDIT TRAIL EXISTS TO ANSWER. The route where WE answer a shop's
+      # «ساعدوني» wrote `actor="platform"` — every sibling in the same file names the person, and
+      # that route did not even take a `Principal` to name one from. Our answer is what the owner
+      # then edits into a sentence a thousand of his customers receive, and «من قال هذا؟» came
+      # back «المنصة»: all of us, so nobody.
+      #
+      # Scoped by AVAILABILITY, not by spelling. `actor="playbook"`, `actor="schedule"`,
+      # `actor="cron:whatsapp-health"` are correct — nobody pressed those. The gate only reads
+      # functions that already hold a Principal, where a person is standing there to be named.
+      - name: an audit line names whoever is there
+        run: python3 ci/check_an_audit_line_names_whoever_is_there.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
