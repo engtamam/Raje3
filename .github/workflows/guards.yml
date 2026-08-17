@@ -402,6 +402,19 @@ jobs:
       - name: an audit line names whoever is there
         run: python3 ci/check_an_audit_line_names_whoever_is_there.py
 
+      # ز-2 · A DEFENCE THAT PASSES EVERY TEST AND FAILS THE ONLY CASE IT EXISTS FOR. The reminder
+      # tick fell back to `uuid4()` when a row carried no key — and a row with no key is exactly
+      # the never-sent row two replicas race over. The quota, the notifier and the send log all
+      # recognise a repeat BY THE KEY, so they were handed two unrelated keys and saw two unrelated
+      # sends: the customer read «حان موعد صيانتك» twice in the same minute, and Meta billed the
+      # shop twice. The sequential retry — the case anyone reproduces locally — was always fine.
+      #
+      # Randomness is banned from this ONE parameter, not from the codebase: a queue job id, a
+      # lease token, a request id and a coupon code identify a thing rather than recognise the
+      # repetition of one, and stay drawn.
+      - name: an idempotency key is derived not drawn
+        run: python3 ci/check_an_idempotency_key_is_derived_not_drawn.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
