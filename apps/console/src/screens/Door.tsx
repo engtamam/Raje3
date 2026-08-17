@@ -43,6 +43,7 @@ import { DoorLayout } from './DoorLayout';
 import { openShop, requestCode, signIn, verifyCode, AGREED_KEY, Refused } from '../auth';
 import { sentenceFor } from '../api';
 import type { Session } from '../session';
+import { western } from '../digits';
 
 export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [mode, setMode] = useState<'in' | 'new'>('in');
@@ -201,7 +202,7 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       <Field label="رقم الجوال" required htmlFor="in-phone">
         <Input
           id="in-phone" name="phone" value={phone}
-          onChange={(e) => { setPhone(e.target.value); setError(''); }}
+          onChange={(e) => { setPhone(western(e.target.value)); setError(''); }}
           type="tel" inputMode="tel" dir="ltr" autoComplete="username" placeholder="05XXXXXXXX"
         />
       </Field>
@@ -318,7 +319,17 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
     && agree;
 
   const set = (k: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setV((p) => ({ ...p, [k]: e.target.value }));
+    // FOLD THE PHONE, AND ONLY FOLD IT. `western` changes the script of a digit and removes
+    // nothing, which is the right strength at a boundary whose accepted format is not ours:
+    // identity-service owns it, and a leading `+` is legitimate there. Stripping would be us
+    // deciding what a valid number looks like on somebody else's behalf.
+    //
+    // WITHOUT THIS HE CANNOT GET IN AT ALL. A number typed on an Arabic keyboard is not the
+    // number we hold, so the sign-in is refused — and the message he reads blames his phone or
+    // his password. He is locked out of his own product by a keyboard setting, with our text
+    // telling him he got his own number wrong.
+    const raw = e.target.value;
+    setV((p) => ({ ...p, [k]: k === 'phone' ? western(raw) : raw }));
     setError('');
   };
   const blur = (k: FieldName) => () => setTouched((p) => ({ ...p, [k]: true }));

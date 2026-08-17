@@ -37,4 +37,14 @@ describe('a digit typed on an arabic keyboard reaches the box', () => {
     // whole product hangs on, since recognising the returning customer starts here.
     expect(digitsOnly('٠٥٠١٢٣٤٥٦٧').slice(0, 10)).toBe('0501234567');
   });
+  it('folds at the door without removing anything else', () => {
+    // THE DOOR IS THE HARSHEST PLACE FOR THIS. Sign-in and sign-up post the phone to
+    // identity-service, which owns the format — so we FOLD and never strip: a leading `+` is
+    // legitimate there, and deciding otherwise would be us rewriting somebody else's rule. Before
+    // this, an owner whose keyboard is Arabic was refused entry and told he had his phone or his
+    // password wrong.
+    expect(western('٠٥٠١٢٣٤٥٦٧')).toBe('0501234567');
+    expect(western('+٩٦٦٥٠١٢٣٤٥٦٧')).toBe('+966501234567');
+    expect(western('05 01 234567')).toBe('05 01 234567');
+  });
 });

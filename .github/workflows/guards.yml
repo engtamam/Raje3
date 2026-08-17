@@ -466,6 +466,12 @@ jobs:
       - name: a screen does not delete what he typed
         run: python3 ci/check_a_screen_does_not_delete_what_he_typed.py
 
+      # The omission the gate above cannot see: a box that does nothing at all and passes an
+      # Arabic-Indic number straight to a service that will not match it. Both doors did this, so
+      # an owner whose keyboard is Arabic was refused sign-in and told he had his own phone wrong.
+      - name: a box that says it takes a number folds one
+        run: python3 ci/check_a_box_that_says_it_takes_a_number_folds_one.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already

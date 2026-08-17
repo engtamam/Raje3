@@ -32,6 +32,7 @@ import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import { partitionOffers, remaining, type Offer } from '../offers';
 import type { Session } from '../session';
+import { western } from '../digits';
 
 interface Record {
   customer: { id: string; phone: string; name?: string; subject_ref?: string; visits?: number };
@@ -559,7 +560,10 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
               <div className="flex items-center gap-2">
                 <input
                   value={adjustBy}
-                  onChange={(e) => setAdjustBy(e.target.value.replace(/[^0-9-]/g, ''))}
+                  // FOLD FIRST. The class keeps `-` deliberately (this box takes a deduction
+                  // too), but an Arabic keyboard's digits are not in it — so the owner
+                  // adjusting a balance watched the field stay empty as he typed.
+                  onChange={(e) => setAdjustBy(western(e.target.value).replace(/[^0-9-]/g, ''))}
                   inputMode="numeric"
                   dir="ltr"
                   placeholder="50"

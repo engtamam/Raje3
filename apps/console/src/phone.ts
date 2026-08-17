@@ -1,4 +1,4 @@
-import { digitsOnly } from './digits';/**
+/**
  * The number in the form a person reads and types.
  *
  * TWO FORMS EXIST AND ONLY ONE IS FOR HUMANS. Storage, the search index and every service speak
@@ -12,6 +12,7 @@ import { digitsOnly } from './digits';/**
  * fifty times a day, and «اليوم» did the same. Neither was wrong enough to report and both were
  * wrong enough to slow a person down every time.
  */
+import { digitsOnly } from './digits';
 export function asLocal(phone: string): string {
   const d = digitsOnly(phone || '');
   if (d.startsWith('966')) return `0${d.slice(3)}`;
