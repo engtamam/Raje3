@@ -377,6 +377,19 @@ jobs:
       - name: a business day is the shop's day
         run: python3 ci/check_a_business_day_is_the_shops_day.py
 
+      # ج-4 · «UNLIMITED» IS A WORD IN THIS PRODUCT, AND THE PRICE LIST SAYS WHY IN A PARAGRAPH:
+      # billing merges its own sentinel by beating every arithmetic, so it reads -1 as a plain
+      # number — and a shop holding two plans that both spell it -1 gets -2, which is below every
+      # quantity, so every send is refused. `subscribe.granted_keys` could not accept the word at
+      # all: `int()` in a try/except `continue`d, and the paid-for key was silently absent from the
+      # grant set. Latent only because no `feature.*` spells it today — and plans.json is DATA,
+      # edited without a deploy, so the first plan to use the word would have been the incident.
+      #
+      # Tests are inside this gate's scope, unlike the others: one of the two places teaching the
+      # forbidden value was a test docstring, which is the most persuasive prose in a repository.
+      - name: the price list has one word for unlimited
+        run: python3 ci/check_the_price_list_has_one_word_for_unlimited.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the

@@ -6,8 +6,13 @@ it per delivered message, on a card in its own account. We neither buy the messa
 them, so selling "1,000 a month" was selling what we do not own.
 
 THE CODE SURVIVED THE DECISION INTACT; only its purpose moved. Every plan now carries
-`messages.monthly` at -1, and unlimited still INCREMENTS the counter in billing — so every send is
-measured and none is refused for a ceiling of ours. What it buys:
+`messages.monthly` at `unlimited` — the WORD, never -1, and `deploy/seed/plans.json` spends a
+paragraph on why: billing merges its own sentinel by beating every arithmetic, so two plans
+carrying -1 sum to -2, and -2 refuses every send. This sentence said «-1» until 2026-08-17, which
+taught every reader of this file the one value the price list forbids.
+
+And unlimited still INCREMENTS the counter in billing — so every send is measured and none is
+refused for a ceiling of ours. What it buys:
 
   * a runaway loop in our own code shows up here, in a number that climbs, before it shows up in
     an owner's bill from Meta;

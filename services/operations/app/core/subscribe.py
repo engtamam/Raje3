@@ -102,11 +102,29 @@ def granted_keys(limits: dict[str, Any] | None) -> set[str]:
         if not key.startswith("feature."):
             continue
         limit = value.get("limit") if isinstance(value, dict) else value
+        # `unlimited` IS THE SANCTIONED SPELLING, AND THIS READER COULD NOT ACCEPT IT (ج-4).
+        #
+        # `deploy/seed/plans.json` says so and explains why at length: billing merges its own
+        # sentinel by beating every arithmetic, so two plans carrying -1 sum to -2 — which refuses
+        # every send. The word is the rule; -1 is the value the price list forbids.
+        #
+        # This read `int(limit)` and swallowed the ValueError with `continue`, so a feature key
+        # carrying the sanctioned word would have been dropped from the grant set — a shop paying
+        # for an app and not holding it, with nothing raised anywhere. No `feature.*` carries the
+        # word TODAY, which is the only reason this is being fixed rather than reported: the price
+        # list is data, edited without a deploy, and the first plan to use it would be the incident.
+        #
+        # The comment below named a NUMBER as the unlimited sentinel until 2026-08-17, teaching the
+        # next author the exact value plans.json spends a paragraph forbidding. It is a word.
+        if isinstance(limit, str) and limit.strip().lower() == "unlimited":
+            out.add(key)
+            continue
         try:
             n = int(limit)
         except (TypeError, ValueError):
             continue
-        # -1 is unlimited, which for a boolean is still ON.
+        # A NEGATIVE LIMIT IS STILL A GRANT for a boolean key — it is not this reader's business to
+        # rule on a sentinel it does not own. Only 0 is the declared deny.
         if n != 0:
             out.add(key)
     return out

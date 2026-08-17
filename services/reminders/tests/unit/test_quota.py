@@ -103,7 +103,10 @@ def test_two_different_sends_spend_two():
 # ── there is no wall of ours any more ──────────────────────────────────────────────────────────
 def test_a_send_is_never_refused_for_a_ceiling_of_ours():
     """The plans stopped selling messages: Meta bills the establishment directly. Every plan
-    carries the key at -1, and unlimited still increments — so this measures and never blocks."""
+    carries the key as the WORD `unlimited`, which still increments — so this measures, never
+    blocks. The word rather than a number is `deploy/seed/plans.json`'s own rule, and it has a
+    reason: billing beats every arithmetic with its own sentinel, so two numeric sentinels sum to
+    something below every quantity and refuse every send."""
     f = FakeBilling(limit=0)          # the peer would refuse if we still asked it to enforce
     q = quota(f)
     run(q.consume(tenant=T, idempotency_key="a"))     # must not raise

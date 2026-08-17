@@ -67,3 +67,29 @@ def test_unknown_reads_as_not_connected():
 def test_the_decision_is_pure_and_readable():
     """The rule can be read and tested without a cluster. Everything around it is plumbing."""
     assert isinstance(may_subscribe(connected=True, trial_days=0), Decision)
+
+
+def test_the_word_the_price_list_mandates_is_a_grant_not_a_dropped_key() -> None:
+    """ج-4 · the writer says `unlimited`, and this reader could only read -1.
+
+    `deploy/seed/plans.json` does not merely prefer the word — it spends a paragraph forbidding the
+    number: «`unlimited` RATHER THAN -1. billing merges its own sentinel by beating every
+    arithmetic; -1 is just a number to it, and two of them summed to -2 — which refuses every
+    send.»
+
+    And `granted_keys` did `int(limit)` inside a `try`, with `continue` on failure. So a feature
+    carrying the sanctioned word was not a grant and not an error either — it was simply absent
+    from the set, and a shop that had paid for an app would not hold it.
+
+    NO `feature.*` CARRIES THE WORD TODAY, which is exactly why this is worth pinning rather than
+    reporting: the price list is DATA, edited and reseeded without a deploy, and the first plan to
+    spell it the sanctioned way would be the incident.
+    """
+    from app.core.subscribe import granted_keys
+
+    assert granted_keys({"feature.loyalty": {"limit": "unlimited"}}) == {"feature.loyalty"}
+    # The case the file already handled, kept so the fix cannot quietly replace it.
+    assert granted_keys({"feature.loyalty": {"limit": 1}}) == {"feature.loyalty"}
+    # And 0 stays a DECLARED DENY: the base carries every app at 0 so no screen has to tell
+    # «not bought» from «never heard of».
+    assert granted_keys({"feature.loyalty": {"limit": 0}}) == set()
