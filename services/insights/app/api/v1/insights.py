@@ -208,6 +208,17 @@ async def dashboard(request: Request, branch_id: str = "",
         # computed at 3am, or he stops trusting both.
         "as_of_hours_ago": age_hours,
         "stale": age_hours >= 30,
+        # AND WHETHER THE HISTORY BEHIND THESE NUMBERS WAS COMPLETE. `tick.py` records `partial`
+        # when the visit read hit its cap: the snapshot is then computed from a WINDOW of the
+        # shop's history rather than from all of it. `Snapshot.partial` says so in its own comment
+        # — «the difference is invisible on the screen unless it travels with them» — and it was
+        # written to disk on every run and dropped here. So the busiest shops in the product, the
+        # only ones that can reach a cap, were the ones shown a figure with no mark on it.
+        #
+        # `stale` beside it is the same honesty about a different axis: one says the number is old,
+        # this says it is narrow. An owner who can see neither compares ours to his till, finds a
+        # gap, and stops trusting both — and he is right to.
+        "partial": bool(snap.get("partial")),
         "branch_id": branch_id,
         "visits": snap.get("visits", 0),
         "not_enabled": not_enabled,

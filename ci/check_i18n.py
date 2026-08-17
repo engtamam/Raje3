@@ -20,7 +20,7 @@ ROOT = __file__.rsplit("ci", 1)[0]
 # EVERY SEAM, NOT JUST THE AUTH ONE. The kit has more than one i18n context — `auth/i18n.ts` and
 # blockdoc's — and each degrades to the raw key on its own. The legal gate crosses both in a single
 # screen, which is how a second, quieter leak was found right after the first was fixed.
-KIT = ROOT + "platform/ui/packages/ui/src/**/*.tsx"
+KIT = ROOT + "platform/ui/packages/ui/src/**/*.ts*"
 DICT = ROOT + "apps/console/src/i18n.ts"
 
 

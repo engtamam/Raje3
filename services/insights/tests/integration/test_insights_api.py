@@ -473,3 +473,25 @@ def test_an_unscoped_person_still_sees_the_whole_establishment(client, owner):
         assert "can_rank" in r.json()
     finally:
         c.peers.branch_scope = None
+
+
+def test_the_dashboard_says_whether_the_history_behind_it_was_complete(client, owner):
+    """THE SIBLING OF `stale`, AND IT WAS WRITTEN TO DISK AND DROPPED AT THE DOOR (و-3).
+
+    `tick.py` sets `Snapshot.partial` when the visit read hit its cap — the numbers are then true
+    of a WINDOW of the shop's history rather than of the shop. The model's own comment says it:
+    «the difference is invisible on the screen unless it travels with them». It did not travel.
+
+    So the busiest shops in the product — the only ones that can reach a cap — were the ones shown
+    a figure with no mark on it, while the service knew, on disk, that the count was cut.
+
+    The value is asserted PRESENT rather than true: this fixture's shop is small and its history is
+    whole, which is the ordinary case. What must never happen again is the key being absent, because
+    a caller cannot tell «complete» from «nobody told me».
+    """
+    _seed(client, visits(20))
+    got = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert "partial" in got, (
+        "the dashboard does not say whether its history was complete — a shop past the visit cap "
+        "is shown a windowed number with nothing to distinguish it from a whole one")
+    assert got["partial"] is False
