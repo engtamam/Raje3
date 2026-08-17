@@ -21,6 +21,7 @@ prefix, because that is all a static reader can honestly claim.
 """
 from __future__ import annotations
 
+import ast
 import pathlib
 import re
 import sys
@@ -38,7 +39,41 @@ CALLED = re.compile(r"""["']((?:/api/v1|/internal)/[A-Za-z0-9_\-/{}]+)["']""")
 #: whose entries carry a full `"path"` — and the console builds its whole navigation from it. Read
 #: only the decorators and four correct seeder calls are reported as broken, which is how a gate
 #: teaches people to ignore it.
+#:
+#: AND IT READ THEM OUT OF PROSE, WHICH IS WORSE THAN READING TOO LITTLE. Every action file opens
+#: with a docstring showing the schema shape, and that example carries `"path": "/api/v1/things/{id}"`.
+#: A regex over raw text ingested it, so `/api/v1/things/…` counted as a route this fleet serves —
+#: and a seeder calling it would have passed the gate whose entire job is to catch exactly that.
+#: A gate that accepts documentation as evidence is a gate that answers about the comments.
+#:
+#: So the catalogue is read with the PARSER: `ast.literal_eval` over the module's list assignments,
+#: which is how the CI action-schema check reads these files too, and which cannot see a docstring
+#: at all. The regex below survives only for non-Python callers of `_paths_in`.
 DECLARED = re.compile(r"""["']path["']\s*:\s*["']((?:/api/v1|/internal)/[^"']*)["']""")
+
+
+def _declared_paths(tree: ast.Module) -> set[str]:
+    """Every `path` in an action catalogue, taken from the parsed literal rather than the text."""
+    out: set[str] = set()
+    # BOTH SPELLINGS OF AN ASSIGNMENT. `ACTIONS = [...]` is an `Assign`; `ACTIONS: list[dict] =
+    # [...]` — which is how notification-service writes it — is an `AnnAssign`, a different node
+    # entirely. Reading only the first found nothing in that file and reported four correct seeder
+    # calls as broken, which is the same false alarm this gate was widened to stop making.
+    for node in ast.walk(tree):
+        value = getattr(node, "value", None)
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or not isinstance(
+                value, (ast.List, ast.Tuple)):
+            continue
+        try:
+            entries = ast.literal_eval(value)
+        except (ValueError, SyntaxError):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict):
+                path = entry.get("path")
+                if isinstance(path, str) and path.startswith(("/api/v1", "/internal")):
+                    out.add(path)
+    return out
 
 #: How a FastAPI route declares itself, and the prefix its router was mounted under.
 ROUTE = re.compile(r"""@router\.(get|post|put|patch|delete)\(\s*["']([^"']*)["']""")
@@ -57,7 +92,12 @@ def _served() -> set[str]:
             text = f.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        out.update(DECLARED.findall(text))
+        try:
+            out.update(_declared_paths(ast.parse(text)))
+        except SyntaxError:
+            # Not our Python to fix — and a file we cannot parse contributes no routes, which is
+            # the safe direction here: it can only make this gate report MORE, never less.
+            pass
         prefixes = PREFIX.findall(text) + INCLUDE.findall(text)
         for _method, path in ROUTE.findall(text):
             for pre in prefixes or [""]:
