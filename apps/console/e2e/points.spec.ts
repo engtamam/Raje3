@@ -12,7 +12,7 @@
  */
 import { expect, open, test } from './fixtures';
 
-test('the table arrives filled for his sector — he never starts from a blank page', async ({ shop }) => {
+test('the table he edits is his own — every row came from him', async ({ shop }) => {
   await open(shop, '/points');
 
   await expect(shop.getByText('جدول المكافآت فارغ')).toBeHidden();

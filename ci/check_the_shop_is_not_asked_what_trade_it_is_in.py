@@ -45,6 +45,36 @@ TREES = [
 #: republished, and it is Tamam's to make.
 LEGAL = ROOT / "deploy" / "seed" / "legal"
 
+#: A COMMENT DECIDES NOTHING, AND THIS IS THE SCOPE, NOT AN EXCEPTION. What this gate is for is a
+#: shop being ASKED — a field, a route, a seeded row, a control on a form, a sentence we SHIP. A
+#: comment is none of those: it is where the removal is explained, and every file that lost the
+#: concept carries a note saying what used to be there and why it went. Forbidding those notes
+#: would mean the only record of the decision is a commit message nobody reads while editing the
+#: file. So comments are stripped before the scan and STRING LITERALS ARE NOT — a string ships, and
+#: «تُعبَّأ من افتراضيات القطاع» sitting in a help text is the shop still being told about a trade.
+LINE_COMMENT = {".py": "#", ".sh": "#", ".yaml": "#", ".yml": "#", ".ts": "//", ".tsx": "//"}
+BLOCK = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+
+def strip_comments(text: str, suffix: str) -> str:
+    """Blank out comment bodies, keeping line numbers and every string literal intact."""
+    if suffix in {".ts", ".tsx"}:
+        text = BLOCK.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text)
+    if suffix == ".py":
+        # Module and function docstrings are documentation wearing a string's clothes.
+        text = re.sub(r'"""(?:[^"\\]|\\.|"(?!""))*"""',
+                      lambda m: re.sub(r"[^\n]", " ", m.group()), text)
+    mark = LINE_COMMENT.get(suffix)
+    if not mark:
+        return text
+    out = []
+    for line in text.split("\n"):
+        # A `#` inside a string is not a comment, and a crude cut would blind the gate to a
+        # shipped string on the same line. Only a line whose FIRST non-space is the marker is one.
+        out.append("" if line.lstrip().startswith(mark) else line)
+    return "\n".join(out)
+
+
 SKIP_DIRS = {"node_modules", "__pycache__", ".pytest_cache", "dist", "build", ".venv"}
 SUFFIXES = {".py", ".ts", ".tsx", ".json", ".yaml", ".yml", ".sh", ".md"}
 
@@ -75,7 +105,7 @@ def main() -> int:
                 print(f"cannot read {path.relative_to(ROOT).as_posix()}: {exc}")
                 return 1
             scanned += 1
-            for line_no, line in enumerate(text.splitlines(), start=1):
+            for line_no, line in enumerate(strip_comments(text, path.suffix).splitlines(), start=1):
                 if WORD.search(line):
                     hits.append(f"{path.relative_to(ROOT).as_posix()}:{line_no}: {line.strip()[:110]}")
 

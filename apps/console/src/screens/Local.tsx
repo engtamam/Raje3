@@ -334,6 +334,19 @@ function Group({ title, hint, children, folded = false }: {
 export function LocalScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [data, setData] = useState<Dashboard | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
+  /**
+   * THE BRANCHES HE SUPERVISES, WHEN HE SUPERVISES MORE THAN ONE.
+   *
+   * A dashboard is built from ONE branch's snapshot. A supervisor over four has no single one, so
+   * insights answers 409 MANY_BRANCHES with the list rather than picking one of them silently —
+   * which would show him a quarter of his work as if it were all of it. The screen caught that
+   * into `failed` and printed «تعذّر قراءة المؤشرات», so an answer that names exactly what to do
+   * next read as an outage: he retried, and it said the same thing for ever.
+   *
+   * Empty means the question was never asked of him — a set, not a flag, so «he supervises none»
+   * and «we have not asked» are not the same value.
+   */
+  const [mustChoose, setMustChoose] = useState<string[]>([]);
   /** The recompute in flight, and whatever the service said about it. */
   const [refreshing, setRefreshing] = useState(false);
   const [note, setNote] = useState('');
@@ -419,6 +432,9 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
     // visits (insights/core/tick.py) — a return rate over three branches cannot be split back
     // into three, so filtering on this side would have shown the whole shop's numbers under one
     // branch's name.
+    // A NEW ATTEMPT IS NOT THE OLD ANSWER. He picked a branch; whatever the service said before
+    // that pick no longer describes what is being asked.
+    setMustChoose([]);
     call<Dashboard>(session, a, branch ? { branch_id: branch } : {})
       .then((d) => {
         setData(d);
@@ -453,13 +469,53 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         paidRead('insights.bundles', 'bundles',
                  (r) => setBundles(r === null ? null : r.bundles ?? []));
       })
-      .catch(() => setFailed(true));
+      .catch((e) => {
+        // 409 IS AN INSTRUCTION, NOT AN OUTAGE. It arrives with the branches he may read and a
+        // sentence telling him to choose one; `setFailed` threw both away.
+        if (e instanceof ApiError && e.status === 409
+            && (e.body as { error?: string } | undefined)?.error === 'MANY_BRANCHES') {
+          const his = (e.body as { branches?: string[] } | undefined)?.branches ?? [];
+          setMustChoose(his);
+          // AND IT IS NOT ANSWERED FOR HIM. Preselecting the first would be the silent pick the
+          // service refused to make, one layer up and invisible.
+          return;
+        }
+        setFailed(true);
+      });
   }, [session, catalog, branch]);
 
   if (failed) {
     return (
       <div className="p-4">
         <EmptyState title="تعذّر قراءة المؤشرات" description="حاول بعد قليل." />
+      </div>
+    );
+  }
+  if (mustChoose.length) {
+    /* HE SUPERVISES SEVERAL, SO HE PICKS ONE (§12.4). This is the whole screen rather than a strip
+       above it: there are no numbers to draw yet, and a chooser floating over an empty page reads
+       as a filter on nothing. The names come from «مقارنة الفروع» when that read succeeded, and
+       fall back to the id — a branch he may read whose name we could not fetch is still a branch
+       he may read, and hiding it would leave him a page he cannot leave. */
+    const named = branches?.rows ?? [];
+    return (
+      <div className="flex flex-col items-center gap-3 p-4">
+        <EmptyState
+          title="لوحتك تغطي أكثر من فرع"
+          description="اختر فرعاً لتقرأ مؤشراته. لوحة واحدة تجمع فروعك غير متاحة بعد."
+        />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {mustChoose.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setBranch(id)}
+              className="rounded-full bg-surface-2 px-3 py-1 text-sm text-text-secondary"
+            >
+              {named.find((r) => r.branch_id === id)?.name || id}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }

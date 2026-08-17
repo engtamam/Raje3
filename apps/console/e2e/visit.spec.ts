@@ -148,7 +148,7 @@ test('a partial plate finds the car — the operator reads four characters, not 
   const plateField = shop.getByRole('textbox', { name: 'رقم اللوحة' });
   // A SECTOR WITHOUT PLATES IS NOT A FAILURE (§13.2): a salon has no plate page, and the fields
   // come from the catalogue rather than from a list in the app. Nothing to assert here, then.
-  if (!(await plateField.count())) test.skip(true, 'this sector has no plate field');
+  if (!(await plateField.count())) test.skip(true, 'this shop does not work on cars');
 
   await plateField.fill(plate);
   await keyIn(shop, phone);

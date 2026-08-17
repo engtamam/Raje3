@@ -314,6 +314,15 @@ jobs:
       - name: what a person may see is a set not one branch
         run: python3 ci/check_what_a_person_may_see_is_a_set_not_one_branch.py
 
+      # AND NO SHOP IS ASKED WHAT TRADE IT IS IN. One question on the first screen decided four
+      # things — the seeded catalogue, the seeded rewards, the plate page, the meter — and the
+      # owner answering it could not know that. Only the last two were ever really being asked, so
+      # they became a checkbox on his own establishment and the guesses went. A single surviving
+      # mention is how the concept returns: a type nobody fills, a seed nobody runs, a field the
+      # console still sends. Comments may say what was removed; nothing we ship may ask.
+      - name: the shop is not asked what trade it is in
+        run: python3 ci/check_the_shop_is_not_asked_what_trade_it_is_in.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values

@@ -63,7 +63,7 @@ class VisitIn(BaseModel):
     # OPTIONAL, and blank is a real value — a required name produces "عميل" and "." and "ااا",
     # which are worse than blank because an invented name becomes a greeting in a real message.
     name: str = Field(default="", max_length=128)
-    # Vehicle sectors only. A salon never sends it, and the screen never shows the field.
+    # Shops that work on cars only. A salon never sends it, and the screen never shows the field.
     plate: str = Field(default="", max_length=32)
     operator_id: str = Field(default="", max_length=64)
     # THE PROOF THAT `operator_id` IS HIS TO CLAIM (و-4). `verify-pin` establishes who is saving

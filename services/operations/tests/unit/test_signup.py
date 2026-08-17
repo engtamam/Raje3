@@ -52,9 +52,9 @@ ROLES = [{"name": "owner", "capabilities": ["operations.record"], "description":
          {"name": "manager", "capabilities": ["operations.read"], "description": ""}]
 
 
-def build(http, store=None, sectors=None, roles=ROLES):
+def build(http, store=None, roles=ROLES):
     return SignupService(
-        store=store or FakeStore(), sectors=sectors or FakeSectors(), http=http,
+        store=store or FakeStore(), http=http,
         identity_url="http://identity:8000", tenants_url="http://tenants:8000",
         authz_url="http://authz:8000", roles=roles)
 
@@ -74,7 +74,7 @@ async def test_a_failed_registration_leaves_no_orphan_tenant():
     svc = build(http)
 
     with pytest.raises(SignupRefused):
-        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
 
     # THE UNDO RAN. Without it the registry keeps a tenant no account can reach and nobody will
     # ever look for — and it is invisible, so it is permanent.
@@ -90,8 +90,8 @@ async def test_a_seeding_failure_does_not_destroy_a_working_account():
     http = FakeHttp([("/internal/tenants", (201, {"id": "t-1"})),
                      ("/seed-owner", (201, {"person_id": "p1"})),
                      ("/bootstrap", (200, {}))])
-    out = await build(http, sectors=Broken()).open_shop(
-        NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+    out = await build(http).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
 
     assert out["tenant"] == "t-1"
     assert out["services"] == 0
@@ -167,7 +167,7 @@ async def test_the_owner_is_given_a_role_or_the_signup_is_undone():
     http = FakeHttp([("/internal/tenants", (201, {"id": "t-1"})),
                      ("/seed-owner", (201, {"person_id": "p-9"})),
                      ("/bootstrap", (200, {}))])
-    await build(http).open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+    await build(http).open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
 
     assert ("POST", "http://authz:8000/internal/authz/tenants/t-1/bootstrap") in http.calls
 
@@ -181,7 +181,7 @@ async def test_a_failed_bootstrap_leaves_nothing_behind():
                      ("/bootstrap", (500, {}))])
 
     with pytest.raises(SignupRefused):
-        await build(http).open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+        await build(http).open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
 
     assert ("DELETE", "http://tenants:8000/internal/tenants/t-1") in http.calls
 
@@ -195,7 +195,7 @@ async def test_no_role_definitions_refuses_rather_than_creating_a_dead_account()
 
     with pytest.raises(SignupRefused):
         await build(http, roles=[]).open_shop(
-            NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+            NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
 
     assert ("DELETE", "http://tenants:8000/internal/tenants/t-1") in http.calls
     # AND THE MEMBERSHIP TOO — و-6. The comment on this path said «BOTH UNDONE» and the code
@@ -316,7 +316,7 @@ async def test_an_unverified_hold_is_not_called_an_account(monkeypatch):
     svc = build(FakeHttp([]), store=store)
 
     with pytest.raises(SignupRefused) as caught:
-        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert getattr(caught.value, "reason", "") == "unverified_hold"
     assert "سجّل الدخول" not in str(caught.value)
 
@@ -333,7 +333,7 @@ async def test_a_verified_number_still_says_sign_in():
     svc = build(FakeHttp([]), store=store)
 
     with pytest.raises(SignupRefused) as caught:
-        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور", "tyres"))
+        await svc.open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
     assert "سجّل الدخول" in str(caught.value)
 
 

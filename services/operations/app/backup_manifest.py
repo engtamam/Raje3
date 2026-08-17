@@ -62,11 +62,13 @@ BACKUP: dict[str, Any] = {
         # evidence, and the index that stops one phone claiming two shops.
         {"name": "signup_phone_index", "tenant_scoped": False},
         {"name": "signup_tenant_proof", "tenant_scoped": True},
-        # Which trade the shop is in, and the fields that trade shows. Platform-defined
-        # (`sectors`, `sector_fields`) and the shop's own choice (`tenant_sector`).
-        {"name": "sectors", "tenant_scoped": False},
-        {"name": "sector_fields", "tenant_scoped": False},
-        {"name": "tenant_sector", "tenant_scoped": True},
+        # WHAT WE KNOW ABOUT A SHOP THAT THE SHOP DID NOT TELL US: whether its till has ever sent
+        # an invoice, and whether it is a vendor's test shop. Losing the second bills somebody for
+        # a demo; losing the first makes an integrated shop look like it types its own catalogue.
+        {"name": "tenant_standing", "tenant_scoped": True},
+        # AND WHETHER IT WORKS ON CARS — the one question we still ask, and the one the visit sheet
+        # changes shape for. Losing it takes the plate page away from every tyre shop at once.
+        {"name": "shop_vehicles", "tenant_scoped": True},
     ],
     # Nothing is excluded. The idempotency key lives ON the visit row rather than in a side table,
     # precisely so there is no collection anyone has to argue about — an excluded collection is a

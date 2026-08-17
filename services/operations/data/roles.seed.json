@@ -11,7 +11,7 @@
     "",
     "READ ONCE PER SIGNUP AND POSTED TO authz's /internal/authz/tenants/{tenant}/bootstrap. After",
     "that authz owns them: the owner edits his roles from the console and this file has no further",
-    "say. Re-reading it later would undo his edits, which is the failure the sector seed already",
+    "say. Re-reading it later would undo his edits, which is the failure the template seed already",
     "documents."
   ],
   "roles": [

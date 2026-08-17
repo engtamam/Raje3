@@ -3,7 +3,7 @@
     "SEED ONLY — extracted from the spec's Appendix A, which stays the place a human reads WHY.",
     "Applied once, when the template table is empty. After that the datastore is the truth and",
     "our platform console edits it at runtime: no rebuild, no redeploy, no restart. Exactly the",
-    "pattern sectors already proved on the cluster.",
+    "pattern the roles seed already proved on the cluster.",
     "",
     "Re-applying on every boot would silently undo an operator's edits — a console that appears",
     "to work while its changes vanish overnight is worse than no console.",
@@ -51,7 +51,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "drop"
     },
@@ -75,7 +75,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "drop"
     },
@@ -99,7 +99,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "drop"
     },
@@ -373,7 +373,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "drop"
     },
@@ -401,7 +401,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "drop"
     },
@@ -429,7 +429,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "drop"
     },
@@ -457,7 +457,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -485,7 +485,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -513,7 +513,7 @@
         "system"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -541,7 +541,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -569,7 +569,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -597,7 +597,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1035,7 +1035,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1065,7 +1065,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1095,7 +1095,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1125,7 +1125,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1155,7 +1155,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1185,7 +1185,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1637,7 +1637,7 @@
         "owner"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1663,7 +1663,7 @@
         "owner"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1689,7 +1689,7 @@
         "owner"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1803,7 +1803,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1833,7 +1833,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     },
@@ -1863,7 +1863,7 @@
         "date"
       ],
       "model": "both",
-      "model_why": "تناسب كل القطاعات.",
+      "model_why": "تناسب كل المحلات.",
       "active": true,
       "deferral": "defer"
     }

@@ -99,7 +99,6 @@ def build_manifest(
             {"path": "/internal/operations/visits/by-ref", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/seed-tenant", "tier": "internal", "method": "POST"},
             {"path": "/internal/signup/partner-invite", "tier": "internal", "method": "POST"},
-            {"path": "/internal/operations/sectors", "tier": "internal", "method": "GET"},
             # The most sensitive surface this service has: it turns a pseudonym back into a phone
             # number for a peer that is about to send. One subject per call, never a list.
             {"path": "/internal/operations/recipient", "tier": "internal", "method": "POST"},
@@ -174,10 +173,6 @@ def build_manifest(
             # THE EVIDENCE FILE, for whoever is handling a complaint (task 283). Operator
             # surface: a capability a person holds, and an audit row that names them.
             {"path": "/api/v1/platform/evidence", "tier": "user", "method": "POST"},
-            {"path": "/api/v1/platform/sectors", "tier": "user", "method": "GET"},
-            {"path": "/api/v1/platform/sectors/{}", "tier": "user", "method": "PUT"},
-            {"path": "/api/v1/platform/sectors/{}", "tier": "user", "method": "DELETE"},
-            {"path": "/api/v1/platform/sector-fields", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/platform/templates/{}", "tier": "user", "method": "DELETE"},
@@ -218,7 +213,6 @@ def build_manifest(
             # unauthenticated paths inside a list of guarded ones.
             {"path": "/api/v1/signup", "tier": "public", "method": "POST"},
             {"path": "/api/v1/signup/signin", "tier": "public", "method": "POST"},
-            {"path": "/api/v1/signup/sectors", "tier": "public", "method": "GET"},
             # ── the shop's own till ───────────────────────────────────────────────────────
             # `user` tier, not `internal`: it carries an ordinary Bearer token — the one identity
             # mints for a service account — and it is capability-gated like every other user

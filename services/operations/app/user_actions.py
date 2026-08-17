@@ -45,7 +45,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "operations.catalogue", "label": "الخدمات", "method": "GET",
         "path": "/api/v1/field/catalogue", "capability": "operations.read", "group": "الشاشة",
-        "help": "شبكة الخدمات. تُعبَّأ من افتراضيات القطاع عند إنشاء المنشأة.",
+        "help": "شبكة الخدمات. تبدأ فارغة، ويكتبها صاحب المحل بنفسه.",
     },
     {
         "id": "operations.recent", "label": "آخر العملاء", "method": "GET",
@@ -349,7 +349,4 @@ UNDECLARED_ROUTES: list[dict[str, str]] = [
     {"method": "POST", "path": "/api/v1/signup/verify",
      "why": "it spends that code; same reason, and the refusal it gives is identical for an unknown "
             "number and a wrong code"},
-    {"method": "GET", "path": "/api/v1/signup/sectors",
-     "why": "content the signup form renders — the sectors we sell to — read before any session "
-            "exists, like a page fetch rather than a button"},
 ]

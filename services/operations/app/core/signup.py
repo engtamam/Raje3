@@ -2,24 +2,27 @@
 
 WHY THIS IS OURS AND NOT THE PLATFORM'S. identity-service registers a user INTO a tenant and logs
 a user IN to a named tenant. Both take the tenant as an argument, and neither creates one. That is
-correct for a platform: deciding that a signup means "a new establishment, seeded for its sector,
-with the person who typed the form as its owner" is a product rule, and a product rule in a shared
-service stops being shared.
+correct for a platform: deciding that a signup means "a new establishment, with the person who
+typed the form as its owner" is a product rule, and a product rule in a shared service stops being
+shared.
 
 So the platform keeps every hard part — the password hash, the E.164 folding, the lockout, the
 mint — and this file supplies exactly the one thing it cannot know: which tenant.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
-FOUR VALUES TO OPEN A SHOP, AND NOT ONE MORE
+THREE VALUES TO OPEN A SHOP, AND NOT ONE MORE
 
-    phone · password · shop name · sector
+    phone · password · shop name
 
 The commercial register, the address, the VAT number and the branch list are all things we will
 eventually want and none of them are things the owner has to hand at the moment he decides to try
 this. Every extra field on this form is a person who closes the tab, and every one of them can be
-asked later from a screen where it is obvious why. The sector is on the list only because the
-catalogue is seeded from it — without it his first screen is empty, which costs him more than the
-question does.
+asked later from a screen where it is obvious why.
+
+THERE WERE FOUR, AND THE FOURTH WAS «نوع النشاط». It bought a seeded catalogue and a seeded rewards
+table — both guessed from a trade we had never seen, so both wrong on their first day for any shop
+that does two things, and correcting a guess is longer than writing the truth once. A shop now opens
+empty and its owner writes what he actually sells.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 THE TENANT ID IS OURS TO MINT, NEVER HIS TO NAME
@@ -73,7 +76,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core import claim as CL
-from app.core.sectors import UNSPECIFIED
 
 PHONE_INDEX = "signup_phone_index"
 #: THE SAME FACT, KEYED THE OTHER WAY (و-7). The phone index answers «which shop owns this
@@ -121,7 +123,6 @@ class NewShop:
     phone: str
     password: str
     shop_name: str
-    sector: str
     # WHO BROUGHT IT, and empty means we did. Stamped at creation so attribution exists before the
     # first invoice, and written ONCE — a key arriving later is recorded and changes nothing, or a
     # till company that replaced another's software six months on would inherit its commission
@@ -134,8 +135,7 @@ class NewShop:
     # over `partner_key` in `open_shop` when both could apply, since a caller that resolved the key
     # already spent the round trip a raw key would repeat.
     partner_id: str = ""
-    # The till will send this shop's catalogue, so seeding the sector's seventeen names would
-    # leave the owner unable to tell which of them his own invoices actually mention (§4.2).
+    # The till sends this shop's catalogue, so its services arrive from its own invoices (§4.2).
     integrated: bool = False
 
 
@@ -173,7 +173,7 @@ class Http:
 
 
 class SignupService:
-    def __init__(self, *, store, sectors, http: Http, identity_url: str, tenants_url: str,
+    def __init__(self, *, store, http: Http, identity_url: str, tenants_url: str,
                  authz_url: str = "", loyalty_url: str = "", compliance_url: str = "",
                  data_map: list[str] | None = None,
                  roles: list[dict[str, Any]] | None = None,
@@ -182,7 +182,6 @@ class SignupService:
                  default_cc: str = "966", otp_deliverable: bool = False,
                  require_otp: bool = True, telemetry=None) -> None:
         self._store = store
-        self._sectors = sectors
         self._http = http
         self._identity = identity_url.rstrip("/")
         self._tenants = tenants_url.rstrip("/")
@@ -323,29 +322,16 @@ class SignupService:
 
         await self._remember(phone, tenant)
 
-        # NOT UNDONE ON FAILURE, and deliberately. The account is usable without a catalogue and
-        # the catalogue is repairable from «خدماتي»; deleting a working account over a seeding
-        # timeout would be the worse trade.
+        # NOTHING IS SEEDED INTO HIS CATALOGUE. It used to be filled from the trade he picked, and
+        # that guess was wrong from day one for every shop that did two things — so «خدماتي» opens
+        # empty and invites him to write what he sells, which is one screen of work and is TRUE.
         seeded = 0
-        try:
-            seeded = await self._sectors.seed_tenant(tenant=tenant, sector_key=shop.sector,
-                                                     integrated=shop.integrated)
-        except Exception:                                                     # noqa: BLE001
-            seeded = 0
 
         # AND HIS MAIN BRANCH, named after the shop he just typed. Same trade as the catalogue:
         # never undone, because a shop with no branch row works — every branch field is optional
         # (§12.2) — and the row is repairable. What it prevents is a first month of visits with no
         # place on them, which no later purchase can reconstruct.
         await self._seed_main_branch(tenant, shop_name=shop.shop_name)
-
-        # AND THE REWARDS TABLE, AFTER THE CATALOGUE AND NEVER BEFORE IT. Half the rewards ARE
-        # services — "a free wash" is the wash — so seeding them first would find no service to
-        # bind to and drop exactly the rows that matter.
-        #
-        # SAME TRADE AS THE CATALOGUE: not undone on failure. A shop with a catalogue and no
-        # rewards works and is repairable from «نقاطي»; deleting an account over it is not.
-        await self._seed_rewards(tenant, sector_key=shop.sector)
 
         # HIS DATA MAP, AND PDPL IS THE REASON IT IS HERE AND NOT LATER.
         #
@@ -575,27 +561,6 @@ class SignupService:
         except Exception:                                                     # noqa: BLE001
             pass
 
-    async def _seed_rewards(self, tenant: str, *, sector_key: str) -> int:
-        """Hand loyalty this shop's starting rewards. Never raises; returns how many were created.
-
-        THE RESOLUTION IS OURS AND THE STORAGE IS THEIRS, which is the whole shape of this call. A
-        sector row names a service; only we can turn that name into this shop's service id; and
-        only loyalty may write a reward. Doing either half in the other service would be one of
-        them reading the other's tables.
-        """
-        if not self._loyalty:
-            return 0
-        try:
-            rewards = await self._sectors.rewards_for(tenant=tenant, sector_key=sector_key)
-            if not rewards:
-                return 0
-            status, body = self._http.call(
-                f"{self._loyalty}/internal/loyalty/seed-rewards", method="POST", internal=True,
-                body={"tenant": tenant, "rewards": rewards})
-            return int(body.get("created") or 0) if status < 300 else 0
-        except Exception:                                                     # noqa: BLE001
-            return 0
-
     async def _bootstrap_roles(self, tenant: str, *, subject: str) -> bool:
         """Create this establishment's roles and make the registrant its owner.
 
@@ -688,7 +653,7 @@ class SignupService:
             # FROM THE INVITATION, NEVER FROM THE REQUEST. A body that could name its own partner
             # key would be a body that could redirect somebody else's commission. ALREADY
             # RESOLVED, not a raw key (ك-5) — `invite_partner_shop` did that at invite time.
-            sector=UNSPECIFIED, partner_id=inv.partner_id, integrated=True))
+            partner_id=inv.partner_id, integrated=True))
 
         # HE PROVED IT A MOMENT AGO, so the row created by the saga says so. Without this he would
         # open his shop and be refused at the very next sign-in for a number he just confirmed.

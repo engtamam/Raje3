@@ -41,7 +41,7 @@ from app.adapters.datastore.drain import drain
 
 PARTNERS = "partners"
 STAMPS = "partner_stamps"
-# One registry for the whole product, under the reserved tenant — the same pattern as sectors and
+# One registry for the whole product, under the reserved tenant — the same pattern as
 # templates. A partner is not owned by any establishment.
 PLATFORM = "_platform"
 

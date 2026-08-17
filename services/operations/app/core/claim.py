@@ -11,7 +11,7 @@ So the partner's call creates NO ACCOUNT. It records an invitation and sends the
 He proves his number, chooses his own password, and the ordinary signup saga runs from there —
 the same one a shop that found us on its own goes through, with two differences it does not choose:
 
-    sector      «غير محدَّد» — his catalogue is built from his own invoices (§4.2), and asking a
+    catalogue   built from his own invoices (§4.2) rather than typed, and asking a
                 till company to pick a trade on its customer's behalf is a guess written into
                 somebody else's data
     stamp       the partner key, which is what decides the commission — and it is written ONCE

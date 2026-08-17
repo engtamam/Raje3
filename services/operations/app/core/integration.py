@@ -7,8 +7,8 @@ expensive in both directions —
 
     said yes, integrates never   → a catalogue with one entry, «خدمة أخرى», and a field screen
                                    that cannot record what he actually does
-    said no, integrates later    → seventeen seeded names his till never mentions, sitting beside
-                                   the real ones with nothing to tell them apart
+    said no, integrates later    → a catalogue he typed by hand, sitting beside the names his
+                                   till sends, with nothing to tell the duplicates apart
 
 So nothing is asked and nothing is assumed. The shop DECLARES itself by sending an invoice, which
 is the only unambiguous evidence there is, and this module is what happens when it does.
@@ -18,7 +18,7 @@ WHAT IS RETIRED, AND WHY IT IS SAFE
 
 Only rows that are all three of:
 
-    seeded      we wrote them from the sector defaults; he never typed them
+    seeded      we wrote them; he never typed them
     unused      no visit has ever named them
     unclaimed   the till has never matched them (no external_id)
 
@@ -32,14 +32,67 @@ DEACTIVATED, NEVER DELETED. `active = False` keeps the row, its id and any histo
 a shop that integrates a till by mistake, or whose till sends one bad invoice, loses nothing that
 cannot be switched back on from «خدماتي». Deleting would be irreversible on evidence this thin.
 
-AND IT RUNS ONCE. The tenant's sector row carries `integrated`, so the second invoice — and the
+AND IT RUNS ONCE. One row per establishment carries `integrated`, so the second invoice — and the
 ten thousandth — does no work and reads no catalogue.
+
+THE ROW IS ITS OWN, and it used to be a field on the tenant's sector row. The trade a shop was in
+is gone (core/vehicles.py says why), and «is this shop's till connected» is a different fact that
+outlived it — so it keeps its own tiny collection rather than being folded into an unrelated one.
+NOTHING IS SEEDED ANY MORE, so `_retire_unused_seeds` finds candidates only in establishments that
+were created while seeding still happened; for every shop opened since, it is correctly a no-op.
 """
 from __future__ import annotations
 
 from typing import Any
 
 from app.core.stores import ServiceStore, VisitStore
+
+#: One row per establishment, carrying the two facts about it that are OURS rather than its own:
+#: whether its till has ever sent us an invoice, and whether it is a vendor's test shop.
+#:
+#: THEY USED TO LIVE ON THE TENANT'S SECTOR ROW, and the trade a shop is in is gone (see
+#: core/vehicles.py). Neither of these is about a trade — one is about a till and the other about a
+#: sales demo — so they keep a row of their own rather than being folded into something unrelated.
+STANDING = "tenant_standing"
+
+
+async def is_sandbox(store, tenant: str) -> bool:
+    """A vendor's test shop: earns nobody commission and counts as nobody's customer.
+
+    ABSENT MEANS «REAL», and unreadable means «real» too — the two mistakes are not equal. Treating
+    a test shop as real bills a vendor for a demo, which is a refund; treating a real shop as a test
+    quietly stops charging for a paying customer, which nobody notices for months.
+    """
+    if not tenant:
+        return False
+    try:
+        row = await store.get(STANDING, tenant)
+    except Exception:                                                        # noqa: BLE001
+        return False
+    return bool((row or {}).get("sandbox"))
+
+
+async def mark_sandbox(store, tenant: str, *, expires_at: int = 0) -> bool:
+    """Label a shop as a vendor's test shop, with a date it stops being one.
+
+    A SANDBOX IS A REAL TENANT WITH A LABEL, not a second code path. Every branch that says "if
+    this is the test system" is a branch nobody exercises against production, and the integration a
+    vendor proves in it is then the integration that fails on their first real shop. So it is the
+    same routes, the same validation, the same refusals — and the label exists for exactly two
+    things: it earns nobody commission, and it does not count as a customer.
+
+    AN EXPIRY, BECAUSE A TEST SHOP IS NEVER CLEANED UP BY THE PERSON WHO MADE IT. Without a date, a
+    demo tenant from a sales call two years ago is still on the cluster holding somebody's phone
+    number in a customer row.
+    """
+    if not tenant:
+        return False
+    row = dict(await store.get(STANDING, tenant) or {})
+    row.update({"tenant": tenant, "sandbox": True})
+    if expires_at:
+        row["sandbox_until"] = int(expires_at)
+    await store.put(STANDING, tenant, row)
+    return True
 
 
 class Integration:
@@ -54,20 +107,32 @@ class Integration:
     # «خدماتي» brings it back.
     _SCAN_CAP = 5000
 
-    def __init__(self, *, store, sectors) -> None:
+    def __init__(self, *, store) -> None:
         self._store = store
-        self._sectors = sectors
+
+    async def is_integrated(self, tenant: str) -> bool:
+        """Has this shop's till ever sent us an invoice? Absent means no, which is most shops."""
+        if not tenant:
+            return False
+        try:
+            row = await self._store.get(STANDING, tenant)
+        except Exception:                                                    # noqa: BLE001
+            # UNREADABLE IS «NOT YET», and it costs one wasted pass over a small catalogue rather
+            # than a wrong answer: the retire step is idempotent, so repeating it changes nothing.
+            return False
+        return bool((row or {}).get("integrated"))
 
     async def note_invoice(self, tenant: str) -> dict[str, Any]:
         """Called when a till's invoice lines arrive. Idempotent, and cheap after the first."""
-        row = await self._sectors.tenant_row(tenant)
-        if row is None or row.get("integrated"):
-            # Unknown tenant, or already known to be integrated. Either way there is nothing to do
-            # and no catalogue to read — this is the path every invoice after the first takes.
+        if not tenant or await self.is_integrated(tenant):
+            # Already known to be integrated: nothing to do and no catalogue to read — the path
+            # every invoice after the first takes.
             return {"changed": False, "retired": 0}
 
         retired = await self._retire_unused_seeds(tenant)
-        await self._sectors.mark_integrated(tenant)
+        row = dict(await self._store.get(STANDING, tenant) or {})
+        row.update({"tenant": tenant, "integrated": True})
+        await self._store.put(STANDING, tenant, row)
         return {"changed": True, "retired": retired}
 
     async def _retire_unused_seeds(self, tenant: str) -> int:

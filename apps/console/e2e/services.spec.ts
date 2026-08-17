@@ -12,7 +12,7 @@
  */
 import { expect, open, test } from './fixtures';
 
-test('the catalogue arrives seeded from his sector — he never starts from a blank page', async ({ shop }) => {
+test('the catalogue is what he wrote — nothing we guessed for him', async ({ shop }) => {
   const body = await open(shop, '/services');
 
   await expect(shop.getByText('لا توجد خدمات')).toBeHidden();

@@ -150,7 +150,6 @@ class Container:
     operations: Any = None
     seams: Any = None
     search: Any = None
-    sectors: Any = None
     templates: Any = None
 
     def describe(self) -> list[dict[str, str]]:
@@ -224,7 +223,6 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.search import build_search           # local import: optional dependency
     from app.core.operations import Operations
     from app.core.seams import Seams
-    from app.core.sectors import SectorCatalogue
     from app.core.templates import TemplateLibrary
 
     # WHO JUDGES WHICH OFFER A VISIT APPLIES is installed here, not imported inside the core: the
@@ -250,9 +248,6 @@ def build_container(settings: Settings) -> Container:
     container.seams = Seams(search=container.search, events=container.event_bus,
                             telemetry=container.telemetry,
                             index_name=settings.SEARCH_INDEX_NAME)
-    # The CATALOGUE, not a parsed file: sectors live in the datastore and are edited from the
-    # platform console at runtime. The seed file is applied once at startup if the table is empty
-    # (see main.py) — re-applying it on every boot would silently undo an operator's edits.
     # Seats and branches, reported to billing after every change. Null in a local run; the
     # production values file sets the http driver.
     from app.core.seats import build_gauges
@@ -278,9 +273,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_api_licence
 
     container.api_licence = build_api_licence(settings)
-    container.sectors = SectorCatalogue(container.datastore)
     container.templates = TemplateLibrary(container.datastore)
-    # The door. Built with the sector catalogue rather than after it, because a signup that cannot
+    # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
     from app.core.partners import PartnerRegistry
     from app.core.signup import Http, SignupService
@@ -298,7 +292,7 @@ def build_container(settings: Settings) -> Container:
             _roles = []
 
     container.signup = SignupService(
-        store=container.datastore, sectors=container.sectors,
+        store=container.datastore,
         http=Http(timeout=settings.SIGNUP_TIMEOUT_SECONDS,
                   internal_token=settings.INTERNAL_SERVICE_TOKEN),
         identity_url=settings.IDENTITY_SERVICE_URL,

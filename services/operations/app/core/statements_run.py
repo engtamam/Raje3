@@ -59,11 +59,7 @@ async def issue(*, store, settlements_source, period: tuple[int, int] | None = N
     # A VENDOR'S TEST SHOP EARNS NOBODY ANYTHING. It exists so an integration can be proved
     # against the real routes, and its invoices are fictional — paying commission on them would
     # turn a demo into a payout, and the first person to notice would be an accountant.
-    from app.core.sectors import TENANT_SECTOR
-
-    async def _is_sandbox(tenant: str) -> bool:
-        row = await store.get(TENANT_SECTOR, tenant)
-        return bool(row and row.get("sandbox"))
+    from app.core.integration import is_sandbox as _is_sandbox
 
     reg = PartnerRegistry(store, salt="")
     statements = _commission.StatementStore(store)
@@ -76,7 +72,7 @@ async def issue(*, store, settlements_source, period: tuple[int, int] | None = N
         if not pid:
             continue
         stamps = [st for st in await reg.stamps_of(pid)
-                  if not await _is_sandbox(st.get("tenant", ""))]
+                  if not await _is_sandbox(store, st.get("tenant", ""))]
         if not stamps:
             continue
         st = _commission.build(partner_id=pid, period_start=period_start, period_end=period_end,

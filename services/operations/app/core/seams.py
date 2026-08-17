@@ -75,7 +75,7 @@ class Seams:
                     # forms, which is why a customer saved as "محمّد" is found by someone typing
                     # "محمد" — proven, and the reason this is a search service and not a LIKE.
                     "name": name,
-                    # HIS PLATES, and ALL of them: «ممكن عندي سيارتين برقمي». In a vehicle sector
+                    # HIS PLATES, and ALL of them: «ممكن عندي سيارتين برقمي». In a shop that works on cars
                     # the operator reads the plate off the bumper and knows nothing else yet.
                     "plate": " ".join([p for p in plates if p]),
                 })

@@ -28,20 +28,6 @@ class FakeStore:
         return out[:limit], None
 
 
-class FakeSectors:
-    def __init__(self, row) -> None:
-        self.row = row
-
-    async def tenant_row(self, tenant):
-        return self.row
-
-    async def mark_integrated(self, tenant):
-        if self.row is None:
-            return False
-        self.row["integrated"] = True
-        return True
-
-
 async def seed(store, tenant, services, visits=()):
     svc = ServiceStore(store)
     for s in services:
@@ -67,8 +53,7 @@ async def test_only_seeded_rows_nothing_refers_to_are_retired():
         service("s9", name="خدمة أخرى", catchall=True),         # the safety net  -> kept
     ], visits=[Visit(id="v1", tenant="t1", customer_id="c1", service_ids=["s2"])])
 
-    out = await Integration(store=store,
-                            sectors=FakeSectors({"id": "t1", "sector": "tyres"})).note_invoice("t1")
+    out = await Integration(store=store).note_invoice("t1")
 
     assert out == {"changed": True, "retired": 1}
     live = {s.id for s in await ServiceStore(store).list("t1")}
@@ -83,8 +68,7 @@ async def test_the_catch_all_is_never_retired():
     store = FakeStore()
     await seed(store, "t1", [service("s9", name="خدمة أخرى", catchall=True)])
 
-    await Integration(store=store,
-                      sectors=FakeSectors({"id": "t1", "sector": "tyres"})).note_invoice("t1")
+    await Integration(store=store).note_invoice("t1")
 
     assert [s.id for s in await ServiceStore(store).list("t1")] == ["s9"]
 
@@ -95,26 +79,47 @@ async def test_it_runs_once_and_then_costs_one_read():
     retire a service the owner added AFTER integrating, which is exactly what a second pass over a
     freshly-seeded catalogue would do."""
     store = FakeStore()
-    row = {"id": "t1", "sector": "tyres"}
-    sectors = FakeSectors(row)
     await seed(store, "t1", [service("s1", name="غيار الزيت")])
 
-    first = await Integration(store=store, sectors=sectors).note_invoice("t1")
-    second = await Integration(store=store, sectors=sectors).note_invoice("t1")
+    first = await Integration(store=store).note_invoice("t1")
+    second = await Integration(store=store).note_invoice("t1")
 
     assert first["changed"] is True
     assert second == {"changed": False, "retired": 0}
-    assert row["integrated"] is True
+    assert await Integration(store=store).is_integrated("t1") is True
 
 
 @pytest.mark.anyio
-async def test_a_tenant_we_know_nothing_about_is_left_alone():
-    # Provisioned before we recorded sectors. "Nothing known" is not "nothing there", and
-    # retiring a catalogue on that basis would be touching data nobody asked us to.
+async def test_no_row_means_not_yet_rather_than_unknown():
+    """A SHOP WITH NO ROW IS ONE WHOSE TILL HAS NOT SPOKEN YET, and its first invoice does the work.
+
+    IT USED TO MEAN «WE KNOW NOTHING», and that answer was a leftover: the flag lived on the
+    tenant's sector row, so a shop provisioned before sectors were recorded had no row at all and
+    the tidy-up was skipped for ever. The trade is gone and the flag has its own row now, so
+    absence is simply «not yet» — which is the honest reading, and it is what makes the retire step
+    reach exactly the shops it was written for: the ones that were seeded before seeding stopped.
+    """
     store = FakeStore()
     await seed(store, "t1", [service("s1", name="غيار الزيت")])
 
-    out = await Integration(store=store, sectors=FakeSectors(None)).note_invoice("t1")
+    out = await Integration(store=store).note_invoice("t1")
 
-    assert out == {"changed": False, "retired": 0}
-    assert [s.id for s in await ServiceStore(store).list("t1")] == ["s1"]
+    assert out == {"changed": True, "retired": 1}
+    assert [s.id for s in await ServiceStore(store).list("t1")] == []
+
+
+@pytest.mark.anyio
+async def test_the_two_standings_do_not_overwrite_each_other():
+    """«Its till is connected» and «it is a vendor's demo» share a row and are separate facts. A
+    sandbox that then integrates must stay a sandbox — otherwise the first invoice from a demo
+    starts earning somebody commission."""
+    from app.core.integration import is_sandbox, mark_sandbox
+
+    store = FakeStore()
+    await mark_sandbox(store, "t1", expires_at=999)
+    await seed(store, "t1", [service("s1", name="غيار الزيت")])
+
+    await Integration(store=store).note_invoice("t1")
+
+    assert await is_sandbox(store, "t1") is True
+    assert await Integration(store=store).is_integrated("t1") is True

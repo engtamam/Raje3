@@ -32,7 +32,7 @@ VEHICLES = "shop_vehicles"
 
 #: The extra inputs «تسجيل زيارة» renders for a shop that works on cars. Names, not a boolean, so
 #: the screen asks «is `plate` among my fields» rather than carrying its own idea of what a vehicle
-#: shop needs — the same contract the sector fields used, minus the trade.
+#: shop needs — names the screen matches on, so a second vehicle input needs no release.
 PLATE = "plate"
 METER = "meter"
 VEHICLE_FIELDS = (PLATE, METER)

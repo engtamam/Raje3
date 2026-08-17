@@ -26,7 +26,6 @@ from app.core.partners import PartnerError, PartnerRegistry
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, PrivacyRequestStore,
                              ServiceStore, VisitStore, new_id)
 from app.core.operations import OperationError
-from app.core.sectors import SectorError
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -212,8 +211,7 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
                 # integrated shop does. Nobody could answer this at signup — the till company
                 # often connects weeks later, sometimes without the owner — so it is read from
                 # evidence instead of asked. Runs once; every invoice after this is a single read.
-                await Integration(store=c.datastore,
-                                  sectors=c.sectors).note_invoice(item.tenant)
+                await Integration(store=c.datastore).note_invoice(item.tenant)
                 # Free-text lines ride along as the custom label so the owner can read what was
                 # actually sold. Joined rather than dropped: a recurring label is the signal to
                 # offer it as a real service.
@@ -297,10 +295,8 @@ async def record_visits_batch(request: Request, body: BatchIn) -> dict:
 
 class SeedTenantIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
-    sector: str = Field(min_length=1, max_length=64)
-    # The till will send this establishment's catalogue, so we seed only the catch-all. NOT a
-    # sixth sector: an integrated tyre shop is still a tyre shop with the same services and the
-    # same cycles, and duplicating every sector would double the table to express one flag.
+    # Kept because the caller still sends it and the answer still differs: an integrated shop's
+    # services arrive from its till's invoices, a manual shop's from its owner typing them.
     integrated: bool = False
     # Who brought it. Stamped here, at creation, so attribution exists before the first invoice —
     # and stamped ONCE, so a later key cannot rewrite it (core/partners.py).
@@ -309,25 +305,19 @@ class SeedTenantIn(BaseModel):
 
 @router.post("/operations/seed-tenant", dependencies=[Depends(require_internal_token)])
 async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
-    """Give a new establishment its service catalogue.
+    """Stamp who brought a new establishment. It gets NO catalogue.
+
+    THE NAME IS HISTORY AND THE ROUTE IS NOT. It used to copy a whole service list into a new
+    tenant from the trade its owner picked; nothing is seeded now, because a catalogue guessed from
+    a trade we have never seen is wrong on its first day for any shop that does two things. The
+    shop writes its own in «خدماتي», and this route is left holding the one thing it still does:
+    recording the partner who brought it, before the first invoice can arrive.
 
     Called once, by the provisioning path, at the moment a tenant is created. Internal tier because
     it is service-to-service by nature — the establishment is not signed in yet, so there is no
     user token to carry, and minting a platform-capable one for this would put a very powerful
     credential in the signup flow.
-
-    IDEMPOTENT: seeding twice adds nothing. A retried provisioning step must not produce a
-    catalogue with every service listed twice, which is a mess the owner has to clean by hand on
-    their first day.
     """
-    sectors = request.app.state.container.sectors
-    try:
-        created = await sectors.seed_tenant(tenant=body.tenant, sector_key=body.sector,
-                                            integrated=body.integrated)
-    except SectorError as exc:
-        # 400 and the list of valid sectors: a caller that sent a typo can fix it from the
-        # response, without reading our source.
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
     # ATTRIBUTION BEFORE THE FIRST INVOICE. Failing the whole provisioning because a partner key
     # was mistyped would be worse than an unattributed shop, so a bad key is reported in the
     # response rather than raised — the shop exists, and the stamp can be applied by hand.
@@ -339,10 +329,8 @@ async def seed_tenant(request: Request, body: SeedTenantIn) -> dict:
     except PartnerError as exc:
         stamp_error = str(exc)
 
-    return {"tenant": body.tenant, "sector": body.sector, "services_created": created,
-            "integrated": body.integrated, "stamp_error": stamp_error,
-            "fields": await sectors.fields_for(body.sector),
-            "tracks_vehicle": await sectors.tracks_vehicle(body.sector)}
+    return {"tenant": body.tenant, "services_created": 0,
+            "integrated": body.integrated, "stamp_error": stamp_error}
 
 
 class PartnerInviteIn(BaseModel):
@@ -1052,26 +1040,6 @@ async def read_branches(request: Request, body: CatalogueIn) -> dict:
             "count": len(rows)}
 
 
-@router.get("/operations/sectors", dependencies=[Depends(require_internal_token)])
-async def list_sectors(request: Request) -> dict:
-    """The sectors this deployment knows, with the fields each one renders.
-
-    The signup screen reads this instead of carrying its own copy — a second list is a second thing
-    to keep in step, and it will not be kept in step.
-    """
-    sectors = request.app.state.container.sectors
-    out = []
-    for row in await sectors.list():
-        # ACTIVE ONLY on this route. It feeds the signup screen, and offering a sector we have
-        # retired would let an establishment choose something that will not seed a catalogue.
-        if not row.get("active", True):
-            continue
-        key = row.get("key", "")
-        out.append({"key": key, "name": row.get("name", key),
-                    "fields": await sectors.fields_for(key),
-                    "tracks_vehicle": row.get("asset") == "vehicle"})
-    return {"sectors": out}
-
 
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
@@ -1099,7 +1067,6 @@ def _sealer(settings: Settings):
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "BACKUP_KEK not configured — set this SHARED key (the SAME value backup-service holds) on this service, or its archives cannot be opened")
     return _backup.make_sealer(settings.BACKUP_KEK)
-
 
 @router.post("/backup/export", dependencies=[Depends(require_internal_token)])
 async def backup_export(request: Request, body: BackupExportIn,

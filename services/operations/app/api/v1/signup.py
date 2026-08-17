@@ -19,7 +19,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.api.ratelimit import rate_limit
-from app.core.sectors import UNSPECIFIED
 from app.core.signup import NewShop, SignupRefused
 
 router = APIRouter(prefix="/signup", tags=["signup"])
@@ -31,7 +30,6 @@ class OpenShopIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
     password: str = Field(min_length=1, max_length=256)
     shop_name: str = Field(min_length=1, max_length=200)
-    sector: str = Field(min_length=1, max_length=64)
 
 
 class CodeIn(BaseModel):
@@ -80,28 +78,12 @@ def _refused(exc: SignupRefused) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
-@router.get("/sectors", dependencies=[Depends(rate_limit)])
-async def sectors(request: Request) -> Any:
-    """The sectors a new shop may choose — ACTIVE ones, and their names only.
-
-    The platform-tier listing exists already and cannot be used here: it needs a token this caller
-    has not got, it includes the sectors an operator switched off last month, and it carries each
-    sector's full service catalogue and field specs. A signup form needs a key and a label, so
-    that is all this returns — an unauthenticated route should hand out the least that answers the
-    question, not the most that happens to be loaded.
-    """
-    cat = request.app.state.container.sectors
-    return {"sectors": [{"key": s.get("key", ""), "label": s.get("name", "")}
-                        for s in await cat.list()
-                        if s.get("active", True) and s.get("key") != UNSPECIFIED]}
-
-
 @router.post("", dependencies=[Depends(rate_limit)])
 async def open_shop(request: Request, body: OpenShopIn) -> Any:
     try:
         out = await _svc(request).open_shop(NewShop(
             phone=body.phone, password=body.password,
-            shop_name=body.shop_name, sector=body.sector))
+            shop_name=body.shop_name))
     except SignupRefused as exc:
         return _refused(exc)
     # NO TOKEN IN THIS RESPONSE. The account exists; the console signs in with it immediately,
@@ -142,7 +124,7 @@ async def prove(request: Request, body: ProveIn) -> Any:
 async def claim(request: Request, body: ClaimIn) -> Any:
     """Open the shop a till company invited. Public — he has no token yet, that is the point.
 
-    The same saga a shop that found us on its own runs, with the sector, the integration flag and
+    The same saga a shop that found us on its own runs, with the integration flag and
     the partner stamp taken from the INVITATION rather than from this request: a body that could
     name its own partner key would be a body that could redirect somebody else's commission.
     """

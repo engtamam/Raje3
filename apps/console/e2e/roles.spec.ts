@@ -108,14 +108,16 @@ test('hiding is a courtesy — the server refuses regardless', async ({ shop }) 
    * typed URL away from having no permissions at all.
    */
   const refused = await shop.evaluate(async () => {
-    const res = await fetch('/api/v1/platform/sectors', {
+    const res = await fetch('/api/v1/platform/partners', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: 'x', name: 'x' }),
+      body: JSON.stringify({ name: 'x', share_pct: 1 }),
     });
     return res.status;
   });
 
-  // 401/403/404 are all honest refusals; a 2xx would mean an owner just edited platform data.
+  // 401/403 are honest refusals; a 2xx would mean an owner just edited platform data. A 404
+  // would mean the route moved and this test stopped testing anything, so it is not accepted.
   expect(refused).toBeGreaterThanOrEqual(400);
+  expect(refused).not.toBe(404);
 });

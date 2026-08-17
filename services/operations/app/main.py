@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     settings.assert_pii_config_ok()
     settings.assert_cors_config_ok()
     settings.assert_search_config_ok()
-    settings.assert_sectors_config_ok()
+    settings.assert_seed_config_ok()
     settings.assert_apps_config_ok()
     settings.assert_onboarding_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
@@ -73,22 +73,19 @@ def create_app() -> FastAPI:
                 "ports": container.describe(),
             },
         )
-        # The one-time sector seed. Applied ONLY when the table is empty, so an operator's edits
-        # are never overwritten on a restart — a console that appears to work while its changes
-        # vanish overnight is worse than one that does not exist.
+        # The one-time template seed. Applied ONLY when the table is empty, so an operator's
+        # edits are never overwritten on a restart — a console that appears to work while its
+        # changes vanish overnight is worse than one that does not exist.
         #
         # A failure here is LOGGED, not fatal. The seed is a convenience for a fresh install; a
-        # running platform whose sector table is already populated must not be taken down because
-        # a mounted file went missing.
+        # running platform whose library is already populated must not be taken down because a
+        # mounted file went missing.
         try:
-            seeded = await container.sectors.seed_from_file(settings.SECTORS_SEED_FILE)
-            if seeded:
-                logger.info("sectors_seeded", extra={"count": seeded})
             n = await container.templates.seed_from_file(settings.TEMPLATES_SEED_FILE)
             if n:
                 logger.info("templates_seeded", extra={"count": n})
         except Exception as exc:                                            # noqa: BLE001
-            logger.error("sector_seed_failed", extra={"error": str(exc)[:300]})
+            logger.error("template_seed_failed", extra={"error": str(exc)[:300]})
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})

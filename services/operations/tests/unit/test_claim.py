@@ -11,7 +11,6 @@ import pytest
 
 from app.core import claim as CL
 from app.core.signup import SignupRefused, SignupService
-from app.core.sectors import UNSPECIFIED
 
 NOW = int(time.time())
 
@@ -34,8 +33,8 @@ class FakeSectors:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    async def seed_tenant(self, *, tenant, sector_key, integrated=False):
-        self.calls.append({"tenant": tenant, "sector": sector_key, "integrated": integrated})
+    async def seed_tenant(self, *, tenant, integrated=False):
+        self.calls.append({"tenant": tenant, "integrated": integrated})
         return 1
 
 
@@ -92,9 +91,9 @@ class FakeTelemetry:
         self.events.append((name, kw))
 
 
-def build(http=None, store=None, sectors=None, partners=None, telemetry=None):
+def build(http=None, store=None, partners=None, telemetry=None):
     return SignupService(
-        store=store or FakeStore(), sectors=sectors or FakeSectors(),
+        store=store or FakeStore(),
         http=http or FakeHttp(HAPPY),
         identity_url="http://identity:8000", tenants_url="http://tenants:8000",
         authz_url="http://authz:8000", roles=ROLES, partners=partners or FakePartners(),
@@ -196,8 +195,8 @@ async def test_a_stamp_failure_is_telemetried_for_an_operator_to_act_on():
 
 @pytest.mark.anyio
 async def test_the_owner_opens_it_with_a_password_of_his_own():
-    sectors, partners = FakeSectors(), FakePartners()
-    svc = build(sectors=sectors, partners=partners)
+    partners = FakePartners()
+    svc = build(partners=partners)
     await svc.invite_partner_shop(phone="0501234567", shop_name="بنشر النور", partner_key="pk_1")
 
     out = await svc.claim("0501234567", "123456", "his-own-passphrase")
@@ -205,7 +204,6 @@ async def test_the_owner_opens_it_with_a_password_of_his_own():
     assert out["tenant"] == "t-1"
     # THE SECTOR IS «غير محدَّد» AND THE CATALOGUE IS NOT SEEDED FULL: his invoices build it, and
     # seventeen names his till never mentions would leave him unable to tell which are real.
-    assert sectors.calls == [{"tenant": "t-1", "sector": UNSPECIFIED, "integrated": True}]
     # AND THE COMMISSION FOLLOWS THE INVITATION, not the request — by the RESOLVED id, since
     # `invite_partner_shop` resolved the key at invite time (ك-5) and never stores it raw.
     assert partners.stamped == []

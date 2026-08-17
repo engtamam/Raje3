@@ -275,33 +275,9 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "config",
         "why": "runtime policy changed without a deploy — the only trace it happened at all",
     },
-    # ── the platform console. Changing a sector changes what EVERY establishment created
-    # afterwards receives, which makes these the highest-leverage edits in the product — a wrong
-    # cycle propagated to a thousand new tenants is invisible until their customers start getting
-    # reminders at the wrong time.
-    {
-        "action": "platform.sector_changed",
-        "source": "admin",
-        "critical": True,
-        "resource": "sector",
-        "why": "it silently shapes every establishment created afterwards; without a record there "
-               "is no way to answer why a cohort of tenants got the catalogue they got",
-    },
-    {
-        "action": "platform.sector_deactivated",
-        "source": "admin",
-        "critical": True,
-        "resource": "sector",
-        "why": "a retired sector can no longer seed a catalogue, so a signup that used to work "
-               "stops working — and the change must be attributable",
-    },
-    {
-        "action": "platform.sector_fields_changed",
-        "source": "admin",
-        "critical": True,
-        "resource": "sector_fields",
-        "why": "it changes which inputs the field screen renders in every sector at once",
-    },
+    # ── the platform console. Editing the message library changes what EVERY establishment sends
+    # afterwards, which makes these the highest-leverage edits in the product — a wrong word
+    # propagated to a thousand shops is invisible until their customers read it.
     {
         "action": "platform.template_changed",
         "source": "admin",

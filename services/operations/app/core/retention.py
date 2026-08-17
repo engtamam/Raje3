@@ -19,7 +19,7 @@ because he is absent would delete the raw material of the most valuable thing th
 
 But "we do not delete" is not "for ever" — retention without purpose is the thing the law actually
 forbids. So the shop owns the number, we hold a generous default, and the default is deliberately
-far longer than any service cycle in our sectors.
+far longer than any service cycle we have seen.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
 2 · AN ESTABLISHMENT THAT LEFT — OURS, AND THE CLOCK IS ONE WE START OURSELVES

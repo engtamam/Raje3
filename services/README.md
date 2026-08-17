@@ -13,7 +13,7 @@ base-services images we run and configure.
 |---|---|---|
 | `operations` | end customers, assets, service records, operators + PIN, field entry | MVP |
 | `reminders`  | reminder rules, adaptive learning, next-due computation | MVP |
-| `catalog`    | sectors, services, dynamic fields, sector template mapping | MVP |
+| `catalog`    | services, dynamic fields, template mapping | MVP |
 | `loyalty`    | points earn/redeem, thresholds, cross-branch balance | later |
 | `campaigns`  | segmentation, campaign send, anti-ban pacing, opt-out gate | later |
 

@@ -69,17 +69,8 @@ export async function openShop(page: Page): Promise<string> {
   await page.getByLabel('رقم الجوال').fill(phone);
   await page.getByLabel('كلمة المرور').fill(PASSWORD);
   await page.getByLabel('اسم المحل').fill(SHOP_NAME);
-  // The sector cards render one radio per trade — chosen by position rather than by name, because
-  // the names come from a seed an operator may edit from the console this afternoon.
-  //
-  // SCOPED TO ITS OWN GROUP. The mode switch above is a radiogroup too, so an unscoped `.first()`
-  // picks «تسجيل الدخول» and silently leaves the form.
-  // CLICKED ON THE CARD, NOT ON THE INPUT. The radio itself is `sr-only` — it carries the
-  // semantics and the keyboard, and the card carries the look (see SectorCards). `check()` on a
-  // visually hidden input fails as "not visible", which reads as a missing control rather than as
-  // a test reaching for the wrong half of one. Clicking the card is also what a person does.
-  await page.getByRole('radiogroup', { name: 'نوع النشاط' })
-    .getByRole('radio').first().click({ force: true });
+  // THREE VALUES AND A BOX. The form once had a fourth control — a card per trade — and this
+  // fixture clicked whichever came first. Nothing asks a shop its trade any more.
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'ابدأ' }).click();
 

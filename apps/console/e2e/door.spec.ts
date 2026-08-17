@@ -68,12 +68,6 @@ test('nothing is created without the consent box', async ({ page }) => {
   await page.getByLabel('رقم الجوال').fill('0512345678');
   await page.getByLabel('كلمة المرور').fill(PASSWORD);
   await page.getByLabel('اسم المحل').fill('محل بلا موافقة');
-  // CLICKED ON THE CARD, NOT ON THE INPUT. The radio itself is `sr-only` — it carries the
-  // semantics and the keyboard, and the card carries the look (see SectorCards). `check()` on a
-  // visually hidden input fails as "not visible", which reads as a missing control rather than as
-  // a test reaching for the wrong half of one. Clicking the card is also what a person does.
-  await page.getByRole('radiogroup', { name: 'نوع النشاط' })
-    .getByRole('radio').first().click({ force: true });
 
   // DISABLED, AND HERE THAT IS SAFE — which it is not on the sign-in pane. The autofill trap needs
   // the browser to fill EVERY gate silently, and it cannot: no password manager ticks a consent

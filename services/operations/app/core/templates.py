@@ -1,6 +1,6 @@
 """The message-template library — platform content, edited at runtime.
 
-SAME PATTERN AS SECTORS, AND FOR THE SAME REASON. The first version of the library lived in a
+CONTENT, NOT CODE, AND FOR A REASON. The first version of the library lived in a
 document: changing a word meant editing the spec, rebuilding an image, and rolling a service. That
 is not a library, it is a constant. Templates are content our own people revise — a wording that
 reads badly, a cycle that changed, a Meta rejection that needs different phrasing — and content
@@ -94,7 +94,7 @@ class TemplateLibrary:
         """The set an establishment of this kind should have switched on at signup.
 
         `both` is always included: a confirmation and a receipt are the same message in any
-        business. The rest is the sector's own half — and the other half is NOT hidden from the
+        business. The rest is the shop's own half — and the other half is NOT hidden from the
         console, only left off with its reason attached, because a shop that is genuinely both a
         workshop and a cafe exists and must be able to say so.
         """
@@ -207,7 +207,7 @@ class TemplateLibrary:
         return row
 
     async def deactivate(self, name: str) -> bool:
-        """Deactivate, never delete — the same rule as sectors and coupons.
+        """Deactivate, never delete — the same rule as coupons.
 
         Establishments already carry this template in their registry, and Meta holds an approved
         copy under this exact name. Deleting our row would leave both pointing at nothing we can

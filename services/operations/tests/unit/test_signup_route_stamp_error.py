@@ -32,8 +32,7 @@ def _request(svc):
 def test_open_shop_never_forwards_stamp_error():
     svc = _FakeSvc({"tenant": "t-1", "phone": "+9665...", "services": 5,
                     "stamp_error": "unknown partner key", "data_map_error": ""})
-    body = signup_routes.OpenShopIn(phone="0501234567", password="x", shop_name="ورشة",
-                                    sector="tyres")
+    body = signup_routes.OpenShopIn(phone="0501234567", password="x", shop_name="ورشة")
     out = asyncio.run(signup_routes.open_shop(_request(svc), body))
     assert "stamp_error" not in out
     assert out["tenant"] == "t-1"           # the rest of the answer still arrives

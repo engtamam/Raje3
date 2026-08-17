@@ -142,16 +142,6 @@ class Settings(BaseSettings):
     # crashed, which invites a bug report instead of a retry.
     AUDIT_RETRY_AFTER_SECONDS: int = 30
 
-    # ── sectors — CONTENT, in the datastore, edited at runtime ────────────────
-    # Sectors are NOT a file read at boot. They live in the datastore and our own operators edit
-    # them from the platform console, because content that needs a deploy is content that does not
-    # get edited. This path is only the ONE-TIME SEED applied when the table is empty, so a fresh
-    # install is not a blank product.
-    #
-    # EMPTY IS ALLOWED and means "seed nothing" — correct for a test. It is NOT correct on a fresh
-    # production install: the first establishment would be created with a blank service grid.
-    SECTORS_SEED_FILE: str = ""
-
     # ── the message-template library — same pattern, same reason ──────────────
     # 69 templates across 23 types and five regulatory classes. In the datastore, edited from the
     # platform console at runtime; this file is the ONE-TIME seed applied to an empty table.
@@ -284,11 +274,12 @@ class Settings(BaseSettings):
     # carries `caps: []` and he signs in to an empty application — every response a 2xx, and
     # nothing anywhere reporting a fault. See core/signup.py.
     AUTHZ_SERVICE_URL: str = ""              # e.g. http://authz-service:8000
-    # Where the rewards table is written at signup (§10.8: it arrives filled for his sector).
+    # Where redemptions and points live. Nothing is seeded into it — a rewards table guessed
+    # from a trade we have never seen was wrong for most shops, so the owner writes his own.
     # Empty means a shop starts with no rewards — a missing table rather than a failed signup,
     # which is the right trade for a peer that may not be deployed.
     LOYALTY_SERVICE_URL: str = ""            # e.g. http://loyalty:8000
-    # SHIPPED IN THE IMAGE, like the sector and template seeds, so a signup at three in the
+    # SHIPPED IN THE IMAGE, like the template seed, so a signup at three in the
     # morning needs nobody present. Read once per signup; after that authz owns the roles and the
     # owner edits them from the console.
     SIGNUP_ROLES_FILE: str = ""              # e.g. /app/data/roles.seed.json
@@ -571,26 +562,19 @@ class Settings(BaseSettings):
                 "not read what any establishment bought, so every paid app would be drawn locked "
                 "for every shop — including the ones that pay for all of them.")
 
-    def assert_sectors_config_ok(self) -> None:
-        """Boot guard. Refuse production with no sector defaults.
+    def assert_seed_config_ok(self) -> None:
+        """Boot guard. Refuse production with no message library.
 
-        Without them every tenant is created with an empty service grid, and an owner who signs up
-        and sees a blank screen does not record a first visit — they close the tab. Nothing errors,
-        nothing is logged, and the failure looks like a product nobody wanted.
+        A SHOP'S OWN SERVICES ARE NOT SEEDED and there is nothing to guard there: it writes its own
+        catalogue in «خدماتي», and an empty one is the honest first state rather than a fault. The
+        template library is different — it is ours, it is the same for everybody, and without it a
+        shop cannot send a single message, which is the product.
         """
         if self.is_production and not self.TEMPLATES_SEED_FILE:
             raise ValueError(
                 "TEMPLATES_SEED_FILE is empty in production: the template library would be empty, "
                 "and an establishment with no templates cannot send a single message — which is "
                 "the product.")
-        if self.is_production and not self.SECTORS_SEED_FILE:
-            raise ValueError(
-                "SECTORS_SEED_FILE is empty in production: on a fresh install the sector table "
-                "would stay empty, every new establishment would get a blank service grid, and "
-                "none of them would record a first visit. Mount the seed and point this at it. "
-                "(After the first boot the table is the source of truth and this file is history "
-                "— it is applied only when the table is empty.)"
-            )
 
     def assert_audit_config_ok(self) -> None:
         """Boot guard. Refuse to start production without somewhere to witness privileged actions.

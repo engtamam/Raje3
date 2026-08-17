@@ -119,7 +119,7 @@ class Asset:
 
 @dataclass
 class Service:
-    """A catalogue entry. Seeded FULL from the sector defaults at tenant creation (spec §4.6) —
+    """A catalogue entry, written by the owner in «خدماتي» —
     an establishment that must build its own service list before recording a first visit will not
     record a first visit.
 
@@ -134,7 +134,7 @@ class Service:
     active: bool = True
     sort: int = 0                    # the field screen's grid order; the adaptive re-sort (§4.4)
                                      # overlays this rather than rewriting it
-    # THE CATCH-ALL. Exactly one per tenant, seeded with the sector, and the reason it exists is
+    # THE CATCH-ALL. Exactly one per tenant, and the reason it exists is
     # that the alternative is losing the visit. A technician does something the catalogue does not
     # list, or a POS sends a service the owner never added — without this the operator cannot save,
     # and a lost visit is a lost customer: no reminder, no points, no metric, forever.
@@ -148,7 +148,8 @@ class Service:
     # shop tidies its wording, and what lets a shop that went manual first ADOPT its till's id
     # rather than ending up with two identical rows and a visit history split across them.
     external_id: str = ""
-    # WE PUT THIS ROW HERE, HE DID NOT. Set only by the sector seeder, and it is what makes the
+    # WE PUT THIS ROW HERE, HE DID NOT. Nothing sets it any more — seeding is gone — and it is
+    # what still makes the
     # catalogue tidy-up on integration safe: a seeded name the till never mentions and nobody ever
     # sold is a GUESS of ours, and retiring a guess is not the same as touching a shop's data.
     seeded: bool = False
@@ -176,7 +177,7 @@ class Visit:
     asset_id: str = ""
     operator_id: str = ""
     branch_id: str = ""
-    meter: int = 0                   # odometer where the sector has one; 0 = not captured
+    meter: int = 0                   # odometer where the shop works on cars; 0 = not captured
     note: str = ""
     # What it actually was, when the catch-all was used. Free text, typed by the operator or sent
     # by an integration. Kept because "خدمة أخرى" alone tells the owner nothing six months later,

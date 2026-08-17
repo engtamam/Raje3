@@ -146,7 +146,7 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
     """Map invoice lines onto this tenant's own catalogue, creating what is genuinely new.
 
     THE CATALOGUE IS PER TENANT AND ALWAYS HAS BEEN. A service created here belongs to this
-    establishment alone — sectors are a seed copied once at signup, never a shared reference. That
+    establishment alone — a shop's services are its own rows, never a shared reference. That
     is why one shop renaming "بنشر" does not rename it for every other shop, and it is what makes
     auto-creation safe at all.
     """

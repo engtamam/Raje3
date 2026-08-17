@@ -1,7 +1,7 @@
 """What counts as a plate — the smallest rule that still means something.
 
 A TYRE SHOP THAT RECORDS A VISIT WITHOUT A PLATE HAS RECORDED HALF A VISIT. The vehicle is the
-asset the whole sector turns on: the cycle is the car's, not the owner's (§13.2), the next reminder
+asset a vehicle shop turns on: the cycle is the car's, not the owner's (§13.2), the next reminder
 is «سيارتك» and the screen finds the customer by plate before it finds him by phone. A row with no
 plate cannot be found again by the one thing the counter searches by, and the owner discovers this
 months later when a returning customer is invisible.
