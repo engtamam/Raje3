@@ -113,9 +113,14 @@ metrics:
 # So the exemption is DECLARED here rather than discovered, and `ci/check_the_backup_roster_is_
 # decided_not_inherited.py` fails the build if this list and the exemption in the comment at the
 # top of this file ever disagree — a service silently dropped from backups must cost a commit.
-BACKUP_EXEMPT: "search-service"
-
 env:
+
+  # AT THE ROOT UNTIL 2026-08-17, WHICH MEANT IT NEVER DEPLOYED. The chart's schema is
+  # `additionalProperties: false` everywhere — a mistyped key is a render ERROR, not a silent
+  # no-op — so a top-level `BACKUP_EXEMPT` failed the render of THIS release and stopped the
+  # installer's roll at the fourth of twenty-four services. Everything after it kept its old
+  # image. The key is an environment variable of the service; it belongs where env vars live.
+  BACKUP_EXEMPT: "search-service"
 
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"
