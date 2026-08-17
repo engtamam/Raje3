@@ -57,9 +57,21 @@ HEADING = re.compile(r"^### (" + _CODE + r")(?: ·)? *(.*)$", re.M)
 # resolution note by any honest reading. A gate that demanded the decoration would be asking for
 # a house style, not for the fact, and would have reported a finding that IS recorded.
 RESOLVED = ("✅", "🔧", "🔎",
-            "مُصلَح", "مصلح", "حُسم", "شُخِّص", "أُغلق", "مُغلق")
+            "مُصلَح", "مصلح", "حُسم", "شُخِّص", "أُغلق", "مُغلق",
+            # A FINDING PARKED ON SOMETHING ELSE IS RECORDED, NOT SILENT. «موقوف على #340» and
+            # «مُصعَّد إلى platform» are the two most useful things a register can say about work
+            # that cannot proceed, and treating them as silence would push the writer to invent
+            # a green tick or delete the note. What is refused is a finding nobody wrote
+            # anything about at all.
+            "⏸", "⚠", "موقوف", "مُصعَّد", "مصعد", "قرار منتج")
 #: `(ز-6)` in a comment: the code claiming it closed that finding.
 CITATION = re.compile(r"\((" + _CODE + r")\)")
+#: A resolution heading may settle more than one finding — «### ح-7 وح-8 — ⚠ …» — so the second
+#: code has to be read out of it. THE CODES ARE MATCHED AGAINST WHAT THE REGISTER DECLARES, not
+#: against a shape, and that distinction was earned: Arabic joins the conjunction to the next
+#: word, so «ح-7 وح-8» yields `وح-8` — two letters and a number, a perfectly legal SHAPE for a
+#: code and a code that exists nowhere. A lookbehind does not save it, because the و genuinely is
+#: a word start. Matching against the declared set is exact and needs no guessing.
 
 SEARCH = ("services", "apps/console/src", "ci", "deploy")
 SKIP = ("node_modules", ".venv", "__pycache__", "dist", "build", "platform")
@@ -102,11 +114,20 @@ def main() -> int:
         here: set[str] = set()
         done: set[str] = set()
         cuts = [(m.group(1), m.start()) for m in re.finditer(HEADING, text)]
+        declared_here = {c for c, _ in cuts}
         for i, (code, start) in enumerate(cuts):
             here.add(code)
             end = cuts[i + 1][1] if i + 1 < len(cuts) else len(text)
-            if any(mark in text[start:end] for mark in RESOLVED):
-                done.add(code)
+            section = text[start:end]
+            if not any(mark in section for mark in RESOLVED):
+                continue
+            done.add(code)
+            # AND EVERY CODE THE HEADING NAMES, not only the one it starts with. Round 3 settles
+            # two findings in one line — «### ح-7 وح-8 — ⚠ both are entirely in platform/» — and
+            # a reader takes that as settling both, because it does. Reading the leading code
+            # alone left ح-8 accused of a silence the register had broken in the same sentence.
+            first_line = section.split("\n", 1)[0]
+            done.update(c for c in declared_here if c in first_line)
         declared |= here
         # Named with its register, because two findings sharing a code are two findings and the
         # reader has to be told WHICH document to write the note in.
