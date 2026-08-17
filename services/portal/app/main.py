@@ -84,6 +84,10 @@ def create_app() -> FastAPI:
         openapi_url=None if settings.is_production else "/openapi.json",
     )
     app.state.container = container
+    # THE SETTINGS THEMSELVES, so a route can ask whether the full page is open (PUBLIC_PAGE_ENABLED)
+    # without importing a module-level singleton — which would freeze the answer at import time and
+    # make the flag untestable without reloading the app.
+    app.state.settings = settings
     # Validated at boot: a malformed declaration stops the service rather than surfacing months
     # later as a hole in the log.
     app.state.auditor = build_auditor(settings, container)

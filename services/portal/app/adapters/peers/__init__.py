@@ -174,6 +174,11 @@ class NullReminders:
                         merge: bool = False) -> bool:
         return False
 
+    async def grant_marketing(self, tenant: str, subject_ref: str) -> bool:
+        # FALSE, like every other write here. A null peer that reported a consent as recorded would
+        # be the worst lie in this file: the screen would thank him and the record would be empty.
+        return False
+
 
 class HttpReminders:
     driver = "http"
@@ -237,6 +242,45 @@ class HttpReminders:
             # FALSE, NOT AN EXCEPTION. The caller renders the page without a confirmation, which is
             # the honest outcome: a customer told their choice was saved who keeps receiving
             # messages does not try again — they block the number.
+            return False
+
+    async def grant_marketing(self, tenant: str, subject_ref: str) -> bool:
+        """Marketing on, everything else untouched. Returns whether the PEER recorded it.
+
+        WHY THIS GOES THROUGH THE PREFERENCES PUT rather than a consent route of its own: that PUT
+        is already the one implementation that writes a consent RECORD — the statement, its
+        version, the source, audited write-ahead (reminders' api/v1/prefs.py). A second door into
+        the same decision would be a second definition of what «he agreed» means, and the two would
+        drift on the day one of them was edited.
+
+        THE STOPPED SET IS READ FIRST, for the mirror of the reason `/stop` merges: a bare
+        `stopped=[]` would switch back ON every class he had deliberately switched off, so a tap
+        meaning «yes to offers» would also undo «no to reminders».
+
+        AND A READ THAT FAILS REFUSES THE GRANT rather than guessing an empty set. Under-granting
+        costs one more tap; re-enabling what somebody silenced costs the number.
+        """
+        try:
+            current = await self.prefs_for(tenant, subject_ref)
+        except Exception:                                                   # noqa: BLE001
+            return False
+        prefs = current.get("preferences")
+        # SILENCE IS NOT AGREEMENT. An empty answer is indistinguishable from «he stopped nothing»,
+        # and acting on it is the same guess the paragraph above refuses.
+        if not isinstance(prefs, list) or not prefs:
+            return False
+        stopped = sorted({str(p.get("class") or "") for p in prefs
+                          if isinstance(p, dict) and not p.get("enabled", True)}
+                         - {"marketing", ""})
+        url = f"{self._url}{self._ref_path(tenant, subject_ref)}"
+        req = urllib.request.Request(
+            url, data=json.dumps({"stopped": stopped}).encode(), method="PUT",
+            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
+                body = json.loads(resp.read() or b"{}")
+            return bool(body.get("saved"))
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return False
 
 

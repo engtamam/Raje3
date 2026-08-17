@@ -107,6 +107,11 @@ def build_manifest(
             {"path": "/p/{}/prefs", "tier": "public", "method": "POST"},
             {"path": "/p/{}/data", "tier": "public", "method": "POST"},
             {"path": "/p/{}/stop", "tier": "public", "method": "GET"},
+            # THE TWO THAT SURVIVE THE PAGE BEING CLOSED (PUBLIC_PAGE_ENABLED). Granting and
+            # withdrawing are the obligations, not the page: opt-in marketing with no way to opt in
+            # is a campaigns engine that can never send.
+            {"path": "/p/{}/allow", "tier": "public", "method": "GET"},
+            {"path": "/p/{}/allow", "tier": "public", "method": "POST"},
         ],
         "ports": ports or [],  # port -> driver, from the composition root
         # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty

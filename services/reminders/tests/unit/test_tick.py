@@ -50,6 +50,12 @@ def st():
 
 
 def tick(st, sender, **kw):
+    # A BASE URL, BECAUSE A DEPLOYMENT HAS ONE. It is what `{base}/p/{ref}/stop` is composed from,
+    # and the gate now refuses marketing without it — no base URL means the mandatory one-tap exit
+    # (§8.3) is a link that cannot be written. A test fixture that omitted it would be asserting
+    # the behaviour of a misconfigured cluster; the refusal itself is proved deliberately in
+    # test_marketing_needs_a_reachable_stop.
+    kw.setdefault("public_base_url", "https://my.example.sa")
     return Tick(store=st, sender=sender, limits=G.Limits(), eng_cfg=ECFG, **kw)
 
 
@@ -1152,3 +1158,52 @@ def test_a_later_send_of_the_same_reminder_gets_its_own_key(st):
     later = dict(row, due_at=at(9, day=20))
     assert _send_key(row) == _send_key(dict(row)), "the same occasion is the same key"
     assert _send_key(row) != _send_key(later), "a later send is a different occasion"
+
+
+# ── the mandatory exit must EXIST before any marketing goes out (§8.3) ────────────────────────
+def test_marketing_needs_a_reachable_stop(st):
+    """WITHOUT A BASE URL THERE IS NO STOP LINK, so there is no one-tap exit to put in the
+    message — and marketing with no working opt-out breaches the regulation and Meta's policy for
+    the category both.
+
+    THE GUARD USED TO BE A PARAMETER defaulting to True. Every caller in the product therefore
+    asserted «the stop link works» without anything checking, which is a guard that has never once
+    said no. It is derived from `public_base_url` now — the same value the link is composed from,
+    so the refusal and the link cannot disagree.
+    """
+    from app.core.consent import Consent
+
+    run(EngagementStore(st).put("t1", "sub_a", {"score": 100.0, "scored_at": at(9)}))
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page",
+                           shop="ورشة النخبة"))
+    row = {"tenant": "t1", "subject_ref": "sub_a", "cls": "marketing",
+           "template_type": "mkt_offer", "service_id": "_campaign", "kind": "campaign",
+           "owner_text": "خصم 20%", "idempotency_key": "idem_z", "id": "idem_z",
+           "offer_text": "خصم 20%", "offer_expires_at": at(10, day=20),
+           "offer_services": ["oil"]}
+
+    blind = run(tick(st, FakeSender(), public_base_url="").send_one(
+        "t1", dict(row), now=at(10), library=LIB, service_names=NAMES,
+        establishment="ورشة النخبة"))
+    assert blind["sent"] is False, "marketing left with no way for the customer to stop it"
+    assert "رابط الإيقاف" in str(blind.get("reason") or blind)
+
+    # AND THE GUARD MUST NOT EAT THE ORDINARY CASE — a refusal that fires on a correctly
+    # configured deployment is a guard nobody keeps.
+    ok = run(tick(st, FakeSender()).send_one(
+        "t1", dict(row), now=at(10), library=LIB, service_names=NAMES,
+        establishment="ورشة النخبة"))
+    assert ok["sent"] is True, ok
+
+
+def test_a_service_message_still_goes_out_with_no_base_url(st):
+    """ONLY MARKETING NEEDS THE EXIT. A confirmation that his car is ready is not direct
+    marketing, and refusing it because a link is unroutable would take the product down to
+    protect a rule that does not apply to it."""
+    sched(st)
+
+    out = run(tick(st, FakeSender(), public_base_url="").run(
+        "t1", now=at(10), library=LIB, service_names=NAMES, establishment="ورشة النخبة",
+        customer_names={"sub_a": "أحمد"}))
+
+    assert out.sent == 1, out

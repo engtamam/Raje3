@@ -503,6 +503,13 @@ jobs:
       - name: a link a customer taps is absolute
         run: python3 ci/check_a_link_a_customer_taps_is_absolute.py
 
+      # The consent statement is written twice — reminders stores it with the grant, portal shows it
+      # on the screen where the customer agrees. Two services, no shared package. The day they drift
+      # nothing breaks and nothing is logged: the record attests to words the customer never read,
+      # and that is the document a regulator reads first.
+      - name: the consent sentence shown is the sentence recorded
+        run: python3 ci/check_the_consent_sentence_shown_is_the_sentence_recorded.py
+
       # The installer asked for an administration account, enforced a password floor, printed it
       # under «تُعرض مرة واحدة» — and nothing created the account. A prompt is a promise that the
       # answer changes something; an unread answer is found by an operator after the terminal closed.

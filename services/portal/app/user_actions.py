@@ -69,4 +69,18 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # unsubscribing from offers still wants to know their car is ready.
         "help": "يوقف العروض فوراً. رسائل الخدمة تستمر.",
     },
+    {
+        "id": "portal.allow", "label": "تفعيل العروض", "method": "GET",
+        "path": "/p/{ref}/allow", "capability": "", "group": "صفحتي",
+        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
+        # ASKING IS A SCREEN, GRANTING IS THE POST. A GET that granted would make WhatsApp's own
+        # link preview a consent record — see api/page.py.
+        "help": "يعرض شاشة واحدة: ما الذي سيصلك، وكم مرة، وكيف توقفه. الموافقة بضغطة الزر.",
+    },
+    {
+        "id": "portal.grant", "label": "أرسلوا لي العروض", "method": "POST",
+        "path": "/p/{ref}/allow", "capability": "", "group": "صفحتي",
+        "params": [{"name": "ref", "in": "path", "type": "string", "required": True}],
+        "help": "يسجّل موافقتك على استقبال العروض، بالنصّ الذي عُرض عليك ونسخته.",
+    },
 ]

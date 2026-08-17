@@ -96,6 +96,7 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
              prefs_stopped: dict[str, bool], engagement_score: float, engagement_at: int,
              recent_sends: list[dict[str, Any]], eng_cfg: E.EngagementConfig,
              class_enabled: bool = True, marketing_consent: str = "never_asked",
+             withdrawal_reachable: bool = True,
              tenant: str = "", subject_ref: str = "",
              holdout_share: int = H.DEFAULT_SHARE, holdout_enabled: bool = False) -> Decision:
     """The one decision. Pure — every input is passed in, nothing is fetched.
@@ -127,6 +128,23 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
         if marketing_consent == "withdrawn":
             return Decision(False, "العميل سحب موافقته على العروض — لا تُرسَل ولا يُعاد سؤاله.")
         return Decision(False, "لا توجد موافقة صريحة على العروض — «لم يرفض» ليست موافقة.")
+
+    # ── 1b-2. AND THERE MUST BE A WAY OUT, OR THERE IS NO WAY IN ────────────────────────────
+    # Withdrawal must be as easy as granting — that is the rule consent.py states in its own words,
+    # and it is a legal obligation rather than a courtesy. Today the whole of it is one tap at
+    # `/p/{ref}/stop`, served by the portal.
+    #
+    # SO THE PORTAL BEING OFF IS NOT A UI DECISION. The customer page was switched off for the
+    # first launch (a product call, and a reasonable one — nothing links to it yet). But switching
+    # it off takes the opt-out with it, and marketing without an opt-out is a breach of both the
+    # regulation and Meta's own policy for the marketing category.
+    #
+    # THE REFUSAL IS HERE RATHER THAN IN A RUNBOOK because a rule kept in somebody's memory is a
+    # rule that survives exactly as long as that person is in the room. Service, personal,
+    # awareness and warning are unaffected: none of them is direct marketing, and none of them
+    # requires a one-tap stop. Turn the route back on and this clears itself.
+    if cls == "marketing" and not withdrawal_reachable:
+        return Decision(False, "رابط الإيقاف غير متاح — لا يخرج تسويقٌ بلا وسيلة إيقاف بنقرة.")
 
     # ── 1c. the measurement group (proof 2) ──────────────────────────────────────────────────
     # AFTER THE CUSTOMER'S OWN CHOICES, BEFORE EVERYTHING ELSE. Someone who switched the messages

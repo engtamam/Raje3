@@ -194,6 +194,18 @@ class Tick:
         # down: the renderer must not know what a Settings object is, and a link composed
         # from a value this class never saw is a link nobody can trace to a configuration.
         self._public_base_url = public_base_url
+        # WHETHER THE ONE-TAP STOP CAN BE REACHED AT ALL. Marketing carries a mandatory exit
+        # («إيقاف الرسائل الترويجية», §8.3) and that exit is a link — `{base}/p/{ref}/stop`. With
+        # no base URL there is no link to put in the message, so the exit does not exist, and
+        # marketing without a working opt-out breaches both the regulation and Meta's policy for
+        # the category. The gate refuses rather than sending; see core/gate.py.
+        #
+        # DERIVED, NEVER PASSED IN. It was a parameter defaulting to True, which meant every
+        # caller in the product silently asserted «the stop link works» without anyone checking —
+        # a guard whose value nothing computes is a guard that has never once said no. The one
+        # fact it depends on is already right here, and it is the same value the renderer composes
+        # the link from, so the two cannot disagree.
+        self._withdrawal_reachable = bool(public_base_url.strip())
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
         self._prefs = PrefsStore(store)
@@ -393,6 +405,7 @@ class Tick:
             engagement_at=int(eng.get("scored_at") or 0),
             recent_sends=recent, eng_cfg=self._eng_cfg,
             marketing_consent=consent,
+            withdrawal_reachable=self._withdrawal_reachable,
             tenant=tenant, subject_ref=subject,
             holdout_enabled=self._holdout_enabled, holdout_share=self._holdout_share,
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))
@@ -570,6 +583,7 @@ class Tick:
             engagement_at=int(eng.get("scored_at") or 0),
             recent_sends=recent, eng_cfg=self._eng_cfg,
             marketing_consent=consent,
+            withdrawal_reachable=self._withdrawal_reachable,
             tenant=tenant, subject_ref=subject,
             holdout_enabled=self._holdout_enabled, holdout_share=self._holdout_share,
             class_enabled=any(t.get("type") == row.get("template_type") for t in library))

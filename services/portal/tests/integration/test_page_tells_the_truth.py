@@ -28,8 +28,13 @@ def client():
     from app.config import get_settings
 
     saved = dict(os.environ)
+    # THE PAGE IS CLOSED BY DEFAULT for the first release (PUBLIC_PAGE_ENABLED), so a suite about
+    # what the PAGE says has to open it — otherwise every assertion below would be checking the
+    # closed screen and passing for the wrong reason. The closure itself is proved in
+    # test_the_page_is_closed_and_consent_is_not.py, with the flag left where it ships.
     os.environ.update({"ENV": "test", "INTERNAL_SERVICE_TOKEN": "t" * 40,
-                       "PAGE_REF_SECRET": "s" * 40, "RATELIMIT_MAX": "1000"})
+                       "PAGE_REF_SECRET": "s" * 40, "RATELIMIT_MAX": "1000",
+                       "PUBLIC_PAGE_ENABLED": "true"})
     get_settings.cache_clear()
     from app.main import create_app
 
