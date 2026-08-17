@@ -76,7 +76,27 @@ A_TIMEOUT = re.compile(r"^\s+([A-Z0-9_]*TIMEOUT[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
 #:
 #: A service with no inner bound declared has a slice of one unit, which is the honest reading:
 #: `operations` walks tenants and does one sync each.
-A_INNER = re.compile(r"^\s+([A-Z0-9_]*BATCH[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
+#:
+#: `_LIMIT` IS IN HERE BECAUSE THE FLEET SPELLS THE SAME IDEA THREE WAYS, AND I ONLY KNEW TWO.
+#: `BACKUP_TARGET_LIMIT`, `EXPIRY_SWEEP_LIMIT`, `NOTIFY_DRAIN_LIMIT`, `SNAPSHOT_VISIT_LIMIT` — all
+#: of them cap how many units one run touches, exactly as `BATCH` does, and this gate was blind to
+#: every one. It reported `insights` as fitting comfortably while a 5000-visit bound sat in the
+#: same file, under a comment about being killed at 300s. A pattern that encodes one vocabulary
+#: for a concept the codebase spells several ways is a gate that answers about the half it knows.
+A_INNER = re.compile(r"^\s+([A-Z0-9_]*(?:BATCH|_LIMIT)[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
+
+#: THE DECLARATION THAT MAKES A BOUND MULTIPLIABLE. A values file writes this beside its bound
+#: when one unit of the run is a REMOTE CALL that can take the whole per-item timeout — which is
+#: what makes `bound x timeout` mean anything. Absent, the bound is reported and not multiplied.
+PAIRED = re.compile(r"each-unit-is-a-remote-call")
+
+#: A BOUND THAT IS A RUNAWAY CEILING RATHER THAN A WORKING VALUE. `BACKUP_TARGET_LIMIT: 500` is the
+#: upstream default over a fleet of about eighteen services — lowering it until the arithmetic fits
+#: would mean backing up two collections and calling it a backup. A service that says this is
+#: reported WITH the escalation rather than as a knob somebody should turn, because turning it is
+#: the wrong repair. The file already said exactly this in prose; this is that sentence made
+#: machine-readable, so the gate stops demanding an edit nobody should make.
+CEILING = re.compile(r"a-ceiling-not-a-tuning-knob")
 
 #: THE OUTER BOUND — how many tenants the run walks. Not ours to fit inside 300s at any value, so
 #: it is not judged; it is multiplied into the escalation line so the true number is on screen.
@@ -110,6 +130,7 @@ def main() -> int:
 
     over: list[str] = []
     escalate: list[str] = []
+    unpaired: list[str] = []
     judged = 0
     for path in files:
         text = path.read_text(encoding="utf-8")
@@ -118,7 +139,13 @@ def main() -> int:
         timeouts = {k: int(v) for k, v in A_TIMEOUT.findall(text)}
         if not timeouts:
             continue                      # nothing declared to multiply; not this gate's business
-        inner = {k: int(v) for k, v in A_INNER.findall(text)}
+        inner_found = {k: int(v) for k, v in A_INNER.findall(text)}
+        # WHAT ONE UNIT COSTS, SAID BY THE FILE THAT DECLARES THE BOUND.
+        paired = PAIRED.search(text) is not None
+        inner = inner_found if paired else {}
+        if inner_found and not paired:
+            shape = ", ".join(f"{k}={v}" for k, v in sorted(inner_found.items()))
+            unpaired.append(f"{path.stem.replace('.values', '')}: {shape}")
         outer = {k: int(v) for k, v in A_OUTER.findall(text)}
         if not inner and not outer:
             continue
@@ -126,15 +153,27 @@ def main() -> int:
         pk = min(timeouts, key=lambda k: timeouts[k])
         svc = path.stem.replace(".values", "")
 
-        units = 1
-        for v in inner.values():
-            units *= v
+        # A BOUND ALONE IS NOT AN ARGUMENT. Multiplying it by the smallest declared timeout only
+        # says anything if ONE UNIT REALLY COSTS THAT — true of the reminders tick, where each row
+        # is a live send, and false of `loyalty`'s expiry sweep, which reads five hundred rows from
+        # its own store and calls nobody. Widening the vocabulary without checking this produced
+        # three findings in one run, one of them provably wrong.
+        #
+        # So the pairing is DECLARED in the values file beside the bound, and an undeclared bound
+        # is reported below rather than multiplied. Reported, not ignored: it was invisible before,
+        # which is how `insights` carried a 5000-row bound this gate called comfortable.
+        units = sum(inner.values()) if inner else 1
         slice_worst = timeouts[pk] * units
         judged += 1
         if slice_worst > caller:
             shape = " x ".join(f"{k}={v}" for k, v in sorted(inner.items()))
-            over.append(f"{svc}: one tenant is {units} units x {timeouts[pk]}s = {slice_worst}s, "
-                        f"caller waits {caller}s\n      ({shape}, {pk}={timeouts[pk]})")
+            if CEILING.search(text):
+                escalate.append(f"{svc}: {units} units x {timeouts[pk]}s = {slice_worst}s "
+                                f"({shape}, {pk}={timeouts[pk]})")
+            else:
+                over.append(f"{svc}: one tenant is {units} units x {timeouts[pk]}s = "
+                            f"{slice_worst}s, caller waits {caller}s\n      ({shape}, "
+                            f"{pk}={timeouts[pk]})")
 
         tenants = 1
         for v in outer.values():
@@ -164,6 +203,16 @@ def main() -> int:
         print("entire window, and every shop behind it waits for the next tick — every tick.")
         return 1
 
+    if unpaired:
+        print()
+        print(f"{len(unpaired)} run(s) declare a bound whose per-unit cost is NOT declared:")
+        for line in unpaired:
+            print("  " + line)
+        print("  Read the run and say what one unit costs. If it is a remote call, write")
+        print("  `each-unit-is-a-remote-call` beside the bound and this gate will judge it; if it")
+        print("  is a local read, say so there. Neither is assumed here.")
+
+    print()
     print(f"{judged} scheduled run(s): no tenant's slice exceeds the caller's {caller}s")
     return 0
 

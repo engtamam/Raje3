@@ -246,6 +246,8 @@ env:
   # falls». At 100 rows one busy establishment can consume the entire window and every shop after
   # it in the list waits for the next tick. At 30 the window is shared. That is fairness under a
   # constraint we do not control, not a throughput cut.
+  # each-unit-is-a-remote-call: verified in core/tick.py — `for row in due: await self._one(...)`
+  # and `_one` is a live Meta send, so one row really can cost PEER_TIMEOUT_SECONDS.
   TICK_BATCH_SIZE: "30"
   TICK_MAX_TENANTS: "200"
 
