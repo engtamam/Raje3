@@ -87,6 +87,19 @@ env:
   # nothing in any log said so, because a 404 at the gateway never reaches a service.
   #
   # Everything else is auth=required, because deny-by-default applies to routing too.
+  # /api/v1/prefs CARRIES NO TOKEN, BY DESIGN, AND THE GATEWAY DISAGREED (ط-6).
+  # `reminders/api/v1/prefs.py` opens by saying this surface is reached from a link at the end of a
+  # message and that the link carries nothing — the reference is an opaque HMAC, the route returns
+  # no name, no phone, no history, and it is rate limited hard for exactly that reason. The gateway
+  # asked for a token anyway. The direction is safe, which is why nobody noticed: the customer taps
+  # «إيقاف الرسائل» in WhatsApp, lands on a login screen for an account he does not have, and
+  # PDPL's right to object becomes a dead button. Refusing to hear «stop» is not the safe side.
+  #
+  # AND THIS NOTE LIVED INSIDE THE JSON UNTIL 2026-08-17. `GATEWAY_ROUTES` is a block scalar: YAML
+  # does not read `#` inside one, it passes the line through as TEXT. So the note became part of
+  # the value, the routing table stopped being valid JSON, and the gateway — the front door of the
+  # whole product — crash-looped on boot with `Expecting value: line 27`. A comment took the
+  # product down.
   GATEWAY_ROUTES: |
     [
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
@@ -114,13 +127,6 @@ env:
       {"prefix":"/api/v1/whatsapp","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/operator","upstream":"http://operations:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/reminders","upstream":"http://reminders:8000","auth":"required","strip_prefix":false},
-      # NO TOKEN, BY DESIGN, AND THE GATEWAY DISAGREED (ط-6). `reminders/api/v1/prefs.py` opens by
-      # saying this surface is reached from a link at the end of a message and that the link carries
-      # nothing — the reference is an opaque HMAC, the route returns no name, no phone, no history,
-      # and it is rate limited hard for exactly that reason. The gateway asked for a token anyway.
-      # The direction is safe, which is why nobody noticed: the customer taps «إيقاف الرسائل» in
-      # WhatsApp, lands on a login screen for an account he does not have, and PDPL's right to
-      # object becomes a dead button. Refusing to hear «stop» is not the safe side of this.
       {"prefix":"/api/v1/prefs","upstream":"http://reminders:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/loyalty","upstream":"http://loyalty:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/insights","upstream":"http://insights:8000","auth":"required","strip_prefix":false},

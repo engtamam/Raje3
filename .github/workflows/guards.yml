@@ -314,6 +314,15 @@ jobs:
       - name: what a person may see is a set not one branch
         run: python3 ci/check_what_a_person_may_see_is_a_set_not_one_branch.py
 
+      # AND A VALUE THAT OPENS LIKE JSON IS JSON. `GATEWAY_ROUTES` is a block scalar, and a `#`
+      # line inside one is TEXT — YAML does not read it as a comment. Seven lines explaining a
+      # route became part of the routing table, and the gateway crash-looped on boot with
+      # «Expecting value: line 27». Every layer above stayed green: valid YAML, renders against
+      # the chart, right image, right digest. Only the process knew, in a log nobody reads until
+      # the front door has been shut for a while.
+      - name: a value that opens like JSON parses as JSON
+        run: python3 ci/check_a_json_value_in_a_values_file_is_json.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
