@@ -177,7 +177,7 @@ class AnswerIn(BaseModel):
     answer: str = Field(min_length=2, max_length=1200)
 
 
-@router.get("/template-help", dependencies=[Depends(_PLATFORM)])
+@router.get("/template-help", dependencies=[Depends(_PLATFORM), Depends(rate_limit)])
 async def template_help_queue(request: Request, status: str = "open") -> dict:
     """Every «ساعدوني» waiting on us — the other end of the button.
 
@@ -194,8 +194,10 @@ async def template_help_queue(request: Request, status: str = "open") -> dict:
     return {"requests": rows, "count": len(rows)}
 
 
-@router.post("/template-help/{name}/answer", dependencies=[Depends(_PLATFORM)])
-async def answer_template_help(request: Request, name: str, body: AnswerIn) -> dict:
+@router.post("/template-help/{name}/answer",
+             dependencies=[Depends(_PLATFORM), Depends(rate_limit)])
+async def answer_template_help(request: Request, name: str, body: AnswerIn,
+                               principal: Principal = Depends(_PLATFORM)) -> dict:
     """Answer one, and close it. The answer goes back to the screen he asked from.
 
     NOT A SUPPORT CHANNEL. A reply that lives only in WhatsApp is one he reads once and cannot find
@@ -208,7 +210,11 @@ async def answer_template_help(request: Request, name: str, body: AnswerIn) -> d
             body.tenant, name, answer=body.answer)
     except HelpRequestError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    # WHO ANSWERED, BY NAME (ب-5). This wrote `actor="platform"` — the only route in the file
+    # that named a SERVICE where every sibling names the person, and the route did not even take
+    # a `Principal` to name one from. An owner reads our answer and edits the sentence a thousand
+    # of his customers receive; «من قال هذا؟» has to have an answer, and «المنصة» is not one.
     await request.app.state.auditor.record(
-        "reminders.rule_changed", actor="platform", tenant=body.tenant,
+        "reminders.rule_changed", actor=principal.subject, tenant=body.tenant,
         resource=f"template_help:{name}", ip=request.client.host if request.client else "")
     return {"ok": True, "request": row}

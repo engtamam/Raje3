@@ -551,12 +551,24 @@ def test_a_batch_of_nothing_but_unkeyable_sales_is_still_refused_whole(client):
     assert out["results"][0]["status"] == "rejected"
 
 
-def test_a_shop_without_the_link_cannot_spend_points_or_offers_from_a_till(client):
-    """THE DEFECT. `feature.api` gates the machine link, and only the VISITS route checked it. A
-    shop whose subscription excludes «ربط برمجي» had its visits refused and its REDEMPTIONS
-    accepted: the loyalty ledger was debited and a customer receipt went out on a channel nobody
-    was billed for. The licence file's own justification for exempting a machine — that it «only
-    READS» — does not reach a ledger write."""
+def test_billing_never_stands_between_a_customer_and_what_he_earned(client):
+    """ب-2 — AND THIS TEST USED TO ASSERT THE OPPOSITE, which is why it is worth naming.
+
+    It was written to close a real hole: `feature.api` gates the machine link, only the VISITS
+    route checked it, and a redemption IS a ledger write. Consistent reasoning, and wrong here —
+    because the question that check asks billing is «is this establishment entitled today», and a
+    shop whose subscription has lapsed is entitled to nothing. So the guard refused not only the
+    shop that never bought the link but the shop that stopped paying, at the counter, holding
+    points its customer earned by coming back.
+
+    §9.9, verbatim: «أما قراءة الرصيد واستبداله فلا تُسأل عنها فوترةٌ أبداً — عميلٌ واقفٌ عند
+    الصندوق يحمل نقاطاً وعده بها المحل ليس طرفاً في فاتورة المحل، واشتراكٌ منقطع لا يُصادِر ما
+    استحقّه العميل.» `loyalty` applies it exactly: it guards only what GROWS the debt.
+
+    So the assertions are inverted, deliberately: with billing saying a flat NO, the till must get
+    as far as looking for the customer — «لا يوجد عميل بهذا الرقم» is the shop's own answer about
+    its own data, and it is proof the licence never spoke.
+    """
     from app.core.licence import NOT_INCLUDED, NullApiLicence
 
     client.app.state.container.api_licence = NullApiLicence(False)
@@ -565,25 +577,27 @@ def test_a_shop_without_the_link_cannot_spend_points_or_offers_from_a_till(clien
                         json={"phone": "0500000041", "reward_id": "rw_1",
                               "idempotency_key": "k-1"},
                         headers=_auth("operations.record", tenant="t_nolink"))
-        assert r.status_code == 200 and r.json()["message"] == NOT_INCLUDED
+        assert r.status_code == 200 and r.json().get("message") != NOT_INCLUDED
 
         r = client.post("/api/v1/till/offer/apply",
                         json={"phone": "0500000041", "visit_id": "vis_1"},
                         headers=_auth("operations.record", tenant="t_nolink"))
-        assert r.status_code == 200 and r.json()["reason"] == NOT_INCLUDED
+        assert r.status_code == 200 and r.json().get("reason") != NOT_INCLUDED
 
-        # AND THE READ STAYS OPEN — it is the one the exemption was written for.
+        # AND THE READ STAYS OPEN — it always was, and for the same reason as the two above.
         r = client.get("/api/v1/till/customer?phone=0500000041",
                        headers=_auth("operations.record", tenant="t_nolink"))
         assert r.status_code == 200 and r.json().get("message") != NOT_INCLUDED
+
+        # WHAT THE LICENCE STILL REFUSES: the link itself. A shop that never bought «ربط برمجي»
+        # must not stream its sales in through a machine, and nobody's earned balance is in that.
+        r = client.post("/api/v1/till/visits",
+                        json={"visits": [{"phone": "0500000041", "external_id": "x-1",
+                                          "lines": [{"service_id": "svc_1", "qty": 1}]}]},
+                        headers=_auth("operations.record", tenant="t_nolink"))
+        assert r.status_code == 200 and r.json().get("message") == NOT_INCLUDED
     finally:
         client.app.state.container.api_licence = NullApiLicence(True)
-
-
-# ── one base per shop, and an app bought once ─────────────────────────────────────────────────
-_BASE_LIMITS = {"messages.monthly": {"kind": "counter", "limit": -1},
-                "feature.campaigns": {"kind": "boolean", "limit": 0}}
-_APP_LIMITS = {"feature.campaigns": {"kind": "boolean", "limit": 1}}
 
 
 def _holding(client, plans, rows):
@@ -641,6 +655,12 @@ def test_an_app_on_a_base_goes_through(client):
                     headers=_auth("billing.self", tenant="t1"))
     assert r.status_code == 201
     assert plans.subscribed == [("t1", "plan_campaigns", "month")]
+
+
+# ── one base per shop, and an app bought once ─────────────────────────────────────────────────
+_BASE_LIMITS = {"messages.monthly": {"kind": "counter", "limit": -1},
+                "feature.campaigns": {"kind": "boolean", "limit": 0}}
+_APP_LIMITS = {"feature.campaigns": {"kind": "boolean", "limit": 1}}
 
 
 def test_a_billing_outage_refuses_the_purchase_and_takes_no_money(client):
