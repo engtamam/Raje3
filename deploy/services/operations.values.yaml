@@ -225,7 +225,7 @@ env:
   # boot would silently undo an operator's edits, which is the worst kind of bug: the console
   # appears to work and the change is gone by morning.
   SECTORS_SEED_FILE: "/app/data/sectors.seed.json"
-  # The 69-template library. Same contract as the sectors seed: applied ONCE, only when the table is
+  # The 66-template library. Same contract as the sectors seed: applied ONCE, only when the table is
   # empty. After that the platform console owns the text, and re-applying this file on every boot
   # would quietly undo whatever an operator edited.
   TEMPLATES_SEED_FILE: "/app/data/templates.seed.json"
