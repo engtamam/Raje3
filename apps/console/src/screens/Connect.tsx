@@ -23,6 +23,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { action, call, type Catalog } from '../catalog';
 import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type SdkState } from '../meta';
 import type { Session } from '../session';
+import { digitsOnly } from '../digits';
 
 interface ConnectState {
   state: string;
@@ -210,7 +211,7 @@ export function Connect({
               value={pin}
               // WESTERN DIGITS AND NOTHING ELSE: Meta's field is numeric, and a keyboard that
               // produces Arabic-Indic digits would send six characters it rejects.
-              onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+              onChange={(e) => setPin(digitsOnly(e.target.value).slice(0, 6))}
             />
           </label>
           <p className="text-xs text-text-secondary">

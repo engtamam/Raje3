@@ -29,6 +29,7 @@ import { Lock } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import { branchGate } from '../branches';
 import type { Session } from '../session';
+import { digitsOnly } from '../digits';
 
 interface Operator {
   id: string; name: string; role?: string; active?: boolean;
@@ -448,7 +449,7 @@ function People({ session, operators, branches, add, edit, hire, pinKind, onChan
           <Field label="رمز الدخول (4 أرقام)" required htmlFor="op-pin">
             <Input
               id="op-pin" value={pin} inputMode="numeric" dir="ltr" maxLength={4}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              onChange={(e) => setPin(digitsOnly(e.target.value).slice(0, 4))}
             />
           </Field>
           ) : null}

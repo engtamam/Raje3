@@ -1,4 +1,4 @@
-/**
+import { digitsOnly } from './digits';/**
  * The number in the form a person reads and types.
  *
  * TWO FORMS EXIST AND ONLY ONE IS FOR HUMANS. Storage, the search index and every service speak
@@ -13,7 +13,7 @@
  * wrong enough to slow a person down every time.
  */
 export function asLocal(phone: string): string {
-  const d = (phone || '').replace(/\D/g, '');
+  const d = digitsOnly(phone || '');
   if (d.startsWith('966')) return `0${d.slice(3)}`;
   if (d.startsWith('05')) return d;
   // ANYTHING ELSE IS RETURNED AS IT CAME. A number we cannot recognise is not ours to rewrite —

@@ -40,6 +40,7 @@ import { MessagePreview } from './MessagePreview';
 import { owns, type Owned } from '../apps';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { digitsOnly } from '../digits';
 
 /**
  * A campaign as the service answers with it. `state` is one of `draft|active|paused|done` — and
@@ -145,7 +146,7 @@ function dueIn(at: number): string {
 
 /** 966xxxxxxxxx → 05xxxxxxxx. The form he reads on his own phone. */
 function asLocal(phone: string): string {
-  const d = (phone || '').replace(/\D/g, '');
+  const d = digitsOnly(phone || '');
   return d.startsWith('966') ? `0${d.slice(3)}` : d;
 }
 

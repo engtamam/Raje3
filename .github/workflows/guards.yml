@@ -460,6 +460,12 @@ jobs:
       - name: a digit from an arabic keyboard is still a digit
         run: python3 ci/check_a_digit_from_an_arabic_keyboard_is_still_a_digit.py
 
+      # The keyboard half of the same defect. `/\D/` and `/[^0-9]/` are both exactly 0-9 in
+      # JavaScript, so seven inputs DELETED what an Arabic keyboard produced — the operator typed
+      # his PIN and the box stayed empty, with no error and nothing to correct.
+      - name: a screen does not delete what he typed
+        run: python3 ci/check_a_screen_does_not_delete_what_he_typed.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already

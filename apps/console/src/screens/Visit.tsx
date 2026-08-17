@@ -26,6 +26,7 @@ import { newIdempotencyKey, queue, type Queued } from '../queue';
 import { proof } from '../operator';
 import { WhoIsSaving } from '../WhoIsSaving';
 import { isSignedIn, useSession } from '../session';
+import { digitsOnly, western } from '../digits';
 
 /**
  * One box, and the separator appears inside it.
@@ -47,8 +48,11 @@ import { isSignedIn, useSession } from '../session';
  */
 
 export function formatPlate(raw: string): string {
-  const clean = raw.replace(/[^0-9a-zA-Z]/g, '');
-  const digits = clean.replace(/[^0-9]/g, '').slice(0, 4);
+  // FOLD BEFORE STRIPPING. This line used to delete Arabic-Indic digits along with the
+  // punctuation, so `formatPlate('ا ب ج ٤٥٦')` returned '' and the
+  // `plateOk` guard below — written expressly to accept those digits — could never see one.
+  const clean = western(raw).replace(/[^0-9a-zA-Z]/g, '');
+  const digits = digitsOnly(clean).slice(0, 4);
   const letters = clean.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3);
   return letters ? `${digits} ${letters}`.trim() : digits;
 }
@@ -403,7 +407,7 @@ export function Visit() {
                   nothing was broken in code, the control simply was not there. */}
               <input
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onChange={(e) => setPhone(digitsOnly(e.target.value).slice(0, 10))}
                 dir="ltr"
                 inputMode="tel"
                 autoComplete="off"
@@ -897,7 +901,7 @@ export function Visit() {
               {showMeter ? (
                 <input
                   value={meter}
-                  onChange={(e) => setMeter(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => setMeter(digitsOnly(e.target.value))}
                   inputMode="numeric"
                   placeholder="قراءة العدّاد"
                   dir="ltr"

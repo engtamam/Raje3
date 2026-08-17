@@ -21,6 +21,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { listOperators, verifyPin, type FieldOperator } from './api';
 import { lastSeen, remember } from './operator';
 import type { Session } from './session';
+import { digitsOnly } from './digits';
 
 export function WhoIsSaving({
   session, open, onProved, onSkip,
@@ -105,7 +106,10 @@ export function WhoIsSaving({
 
         <input
           value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          // HIS OWN PIN, ON THE FIELD SCREEN, WITH A CUSTOMER WAITING. `/\D/` is `[^0-9]` in
+          // JavaScript, so an Arabic keyboard's digits were deleted as he typed them and the box
+          // stayed empty with nothing to read and nothing to fix.
+          onChange={(e) => setPin(digitsOnly(e.target.value).slice(0, 4))}
           inputMode="numeric"
           autoComplete="off"
           type="password"
