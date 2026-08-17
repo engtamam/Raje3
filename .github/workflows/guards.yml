@@ -503,6 +503,12 @@ jobs:
       - name: a link a customer taps is absolute
         run: python3 ci/check_a_link_a_customer_taps_is_absolute.py
 
+      # The installer asked for an administration account, enforced a password floor, printed it
+      # under «تُعرض مرة واحدة» — and nothing created the account. A prompt is a promise that the
+      # answer changes something; an unread answer is found by an operator after the terminal closed.
+      - name: what the installer asks for is used
+        run: python3 ci/check_what_the_installer_asks_for_is_used.py
+
       # A browser calling a peer service carries no scope anybody can enforce. The keypad did
       # exactly that, and a supervisor scoped to Jeddah read Riyadh's customers by name and number.
       - name: the browser does not search the fleet directly

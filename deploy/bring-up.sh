@@ -520,6 +520,15 @@ PRODUCT_NAME=raje3 CHART="$ROOT/platform/deploy/chart" VALUES_DIR="$ROOT/deploy/
 # account. seed-templates.sh takes --tenant for that reason.
 step "seed"
 soft "roles" bash "$HERE/seed/seed-roles.sh"
+# THE ADMINISTRATION ACCOUNT THE INSTALLER ASKED FOR (ل-2). install.sh collects an email and a
+# password, enforces a floor on the password, generates one when it is left blank, and prints it
+# under «تُعرض مرة واحدة فقط» — and nothing here read either value, so no account was ever created.
+# The operator saved a credential for somebody who did not exist and discovered it at the sign-in
+# screen, after the terminal that showed it once had been closed.
+#
+# AFTER THE ROLES, and the order is the requirement: the account is granted `platform-owner`, and a
+# role granted before it is defined is a membership pointing at nothing.
+soft "admin account" bash "$HERE/seed/seed-admin.sh"
 soft "plans" bash "$HERE/seed/seed-plans.sh"
 soft "legal" bash "$HERE/seed/seed-legal.sh"
 # THE BACKUP TARGETS — runtime data, and nothing was creating it.
