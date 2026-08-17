@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from app.adapters.datastore.drain import drain
 from app.config import Settings, get_settings
 from app.core.erasure import TemplateErasure
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
@@ -517,9 +518,11 @@ async def internal_report(request: Request, body: ReportIn) -> dict:
     c = request.app.state.container
     rep = await build_report(c.datastore, body.tenant)
     if body.since:
-        rows, _ = await c.datastore.find(
-            "loyalty_redemptions", {"tenant": body.tenant}, limit=10000,
-            sort=("created_at", "desc"))
+        # DRAINED. Ten thousand newest redemptions, cursor discarded, then filtered by `since` —
+        # so a shop with more than that many redemptions newer than the window reported a number
+        # smaller than the truth, and the report gave no sign of it.
+        rows = await drain(c.datastore, "loyalty_redemptions", {"tenant": body.tenant},
+                           sort=("created_at", "desc"))
         recent = [r for r in (rows or []) if int(r.get("created_at") or 0) >= body.since]
         rep["redeemed_since"] = sum(int(r.get("cost") or 0) for r in recent)
         rep["redemptions_since"] = len(recent)

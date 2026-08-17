@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core.spread import plan as plan_spread
 from app.core.models import Run, as_row
 
@@ -186,9 +187,16 @@ class Dispatcher:
     # the customer. A flag would have to be cleared by something, and whatever clears it is the
     # bug — this needs no cleanup and is correct after a restore.
     async def _already_reached(self, tenant: str, campaign_id: str) -> set[str]:
-        rows, _ = await self._s.find("campaign_reached",
-                                     {"tenant": tenant, "campaign_id": campaign_id},
-                                     limit=10000, sort=("at", "asc"))
+        # DRAINED, AND IT USED TO BE `limit=10000, sort=("at","asc")`. Ten thousand rows, OLDEST
+        # first, cursor discarded — so the moment a campaign passed ten thousand recipients, the
+        # people it had reached MOST RECENTLY fell out of this set. They were sent to again on the
+        # next pass, and again on the one after, for the life of the campaign. The run counted
+        # them as `sent` like anyone else; nothing in the report could tell them apart.
+        #
+        # This set decides whether a real person is messaged twice. It is exactly the kind of set
+        # that must never be a page.
+        rows = await drain(self._s, "campaign_reached",
+                           {"tenant": tenant, "campaign_id": campaign_id}, sort=("at", "asc"))
         return {r.get("subject_ref", "") for r in rows if r.get("subject_ref")}
 
     async def _remember(self, tenant: str, campaign_id: str, subject: str, now: int) -> None:

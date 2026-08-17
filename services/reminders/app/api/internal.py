@@ -400,8 +400,10 @@ async def _active_tenants(c) -> list[str]:
     Derived from our own rows rather than asked of tenant-service: this must keep working when a
     peer is down, and a tenant with no pending schedule has nothing for the tick to do anyway.
     """
-    rows, _ = await c.datastore.find("schedules", {"state": "pending"}, limit=2000,
-                                     sort=("due_at", "asc"))
+    # DRAINED. The two thousand soonest-due pending schedules, cursor discarded — so a platform
+    # with more than that pending simply did not list the tenants whose reminders fell later, and
+    # the tick walks this list. The reminders did not fail; they were never looked at.
+    rows = await drain(c.datastore, "schedules", {"state": "pending"}, sort=("due_at", "asc"))
     seen: list[str] = []
     for r in rows:
         t = r.get("tenant") or ""

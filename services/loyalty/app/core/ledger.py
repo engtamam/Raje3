@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core.models import (BALANCES, ENTRIES, Balance, LedgerEntry, Overdraft, REASONS,
                              LoyaltyError)
 
@@ -126,8 +127,14 @@ class Ledger:
         `post`, a restore that replayed one collection and not the other. Drift with no detector
         is the worst version of this bug, because the number stays plausible.
         """
-        rows, _ = await self.store.find(ENTRIES, {"tenant": tenant, "subject_ref": subject_ref},
-                                        limit=100000, sort=("created_at", "asc"))
+        # DRAINED, AND THIS IS THE ONE THAT MATTERED MOST. It read at most a hundred thousand
+        # entries, discarded the cursor, summed them — and then WROTE that sum over the balance as
+        # the truth. The repair was the corruption: a subject past the limit would have its
+        # balance silently replaced with the sum of part of its ledger, and the new number is
+        # perfectly plausible. Refusing to read is now an error the caller sees; the balance is
+        # never overwritten from a partial ledger.
+        rows = await drain(self.store, ENTRIES, {"tenant": tenant, "subject_ref": subject_ref},
+                           sort=("created_at", "asc"))
         truth = sum(int(r.get("delta") or 0) for r in (rows or []))
         bal = await self.balance(tenant, subject_ref)
         drift = bal.points - truth

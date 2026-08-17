@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
+from app.adapters.datastore.drain import drain
 from app.config import Settings, get_settings
 from app.core.erasure import CampaignsErasure
 from app.core import backup as _backup
@@ -130,8 +131,11 @@ async def _active_tenants(c) -> list:
     Derived from our own rows rather than asked of tenant-service: this must keep working when a
     peer is down, and a tenant with no active campaign has nothing for the tick to do.
     """
-    rows, _ = await c.datastore.find("campaigns", {"state": "active"}, limit=2000,
-                                     sort=("created", "asc"))
+    # DRAINED. This used to read the two thousand OLDEST active campaigns and discard the cursor,
+    # so once the platform held more than that, the tenants whose campaigns were created most
+    # recently were simply not in the list — and the tick, which walks exactly this list, never
+    # touched them. A new shop's first campaign would be the one that never sends.
+    rows = await drain(c.datastore, "campaigns", {"state": "active"}, sort=("created", "asc"))
     seen = []
     for r in rows:
         t = r.get("tenant") or ""

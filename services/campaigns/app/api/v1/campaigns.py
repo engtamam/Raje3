@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.adapters.datastore.drain import drain
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
@@ -353,9 +354,14 @@ async def runs(request: Request, campaign_id: str,
     # WHO THIS CAMPAIGN REACHED, so `redeemed` can ask operations who among them came back and
     # spent an offer (ط-3). `campaign_reached` already names every recipient and when — the piece
     # that was always missing was asking the other half of the question, not recording the first.
-    reached_rows, _ = await request.app.state.container.datastore.find(
-        "campaign_reached", {"tenant": principal.tenant, "campaign_id": campaign_id},
-        limit=2000, sort=("at", "asc"))
+    #
+    # DRAINED. Two thousand oldest, cursor discarded — so for any campaign larger than that, the
+    # `redeemed` figure was computed against part of its own recipients. The number shown to the
+    # owner as «this campaign brought back N people» was not wrong by a little; it was the answer
+    # to a smaller question, and it looked identical to the right one.
+    reached_rows = await drain(
+        request.app.state.container.datastore, "campaign_reached",
+        {"tenant": principal.tenant, "campaign_id": campaign_id}, sort=("at", "asc"))
     reached = [{"subject_ref": r.get("subject_ref", ""), "since": int(r.get("at") or 0)}
               for r in reached_rows if r.get("subject_ref")]
     redeemed = (await request.app.state.container.audience.redeemed(_tenant(principal), reached)

@@ -37,6 +37,8 @@ import secrets
 import time
 from typing import Any
 
+from app.adapters.datastore.drain import drain
+
 PARTNERS = "partners"
 STAMPS = "partner_stamps"
 # One registry for the whole product, under the reserved tenant — the same pattern as sectors and
@@ -260,8 +262,8 @@ class PartnerRegistry:
         partner record would mean renegotiating a rate next year silently rewrites every statement
         we ever issued. `tenants_of` drops exactly that field, so the sweep reads this instead.
         """
-        rows, _ = await self._s.find(STAMPS, {"partner_id": partner_id}, limit=5000,
-                                     sort=("stamped_at", "asc"))
+        rows = await drain(self._s, STAMPS, {"partner_id": partner_id},
+                           sort=("stamped_at", "asc"))
         return [r for r in rows if r.get("tenant")]
 
     async def tenants_of(self, partner_id: str) -> list[str]:
@@ -271,6 +273,6 @@ class PartnerRegistry:
         the truth lives, and the day it disagrees with the stamps is the day somebody is paid for a
         shop they did not bring.
         """
-        rows, _ = await self._s.find(STAMPS, {"partner_id": partner_id}, limit=5000,
-                                     sort=("stamped_at", "asc"))
+        rows = await drain(self._s, STAMPS, {"partner_id": partner_id},
+                           sort=("stamped_at", "asc"))
         return [r.get("tenant", "") for r in rows if r.get("tenant")]
