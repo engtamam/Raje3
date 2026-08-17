@@ -355,6 +355,15 @@ jobs:
       - name: a scheduled goal can actually be scheduled
         run: python3 ci/check_a_scheduled_goal_can_be_scheduled.py
 
+      # AND EVERY DEPLOY SCRIPT PARSES — all forty-seven, found rather than listed.
+      # `ci/test_deploy_scripts.sh` exercises four of them, deeply and well, chosen because they
+      # were the ones being changed. The other forty-three include every seeder and the EIGHTEEN
+      # `prove-*.sh` by which we satisfy ourselves the product works. CRLF is checked separately
+      # because it is not a syntax error: `bash -n` accepts it and the kernel does not, and the
+      # failure names bash rather than the file. That happened here this week.
+      - name: every deploy script parses
+        run: python3 ci/check_every_deploy_script_parses.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
