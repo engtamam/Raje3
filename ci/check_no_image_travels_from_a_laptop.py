@@ -65,6 +65,17 @@ AN_IMAGE_LINE = re.compile(
 # through. So do `*.local` (mDNS), a bare hostname with a port, and `::1`. The question this gate
 # asks is «can the server resolve this without your laptop being awake», and the honest answer for
 # every one of these is no.
+#
+# AND THE SENTENCE ABOVE NAMED «a bare hostname with a port» WHILE THE PATTERN DID NOT MATCH ONE.
+# `buildbox:5000/raje3/console` — the shape you get the moment the registry moves off the loopback
+# and onto the LAN machine beside it — passed. A comment that claims more than its pattern delivers
+# is worse than no comment: the next reader checks the prose, sees the case covered, and stops.
+#
+# WHAT MAKES THE BARE HOSTNAME SAFE TO BAN IS THE DOT, AND THE PORT. A registry the world resolves
+# has a dot in it (`ghcr.io`, `docker.io`, `registry.k8s.io`); a single label resolves only inside
+# one network's own search domain. The port is REQUIRED rather than optional, and that is the whole
+# of the false-positive defence: without it this would match `raje3/console:dev` in every
+# `docker build -t` line in the repository and be wrong about more lines than it was right about.
 A_PRIVATE_REGISTRY = re.compile(
     r"(?<![\w.-])(?:"
     r"\d{1,3}(?:\.\d{1,3}){3}"            # an IPv4 literal
@@ -72,7 +83,9 @@ A_PRIVATE_REGISTRY = re.compile(
     r"|localhost"
     r"|host\.docker\.internal"            # Docker Desktop's name for the machine running Docker
     r"|[a-z0-9][\w-]*\.local"             # mDNS: only resolvable on one LAN
-    r")(?::\d+)?/[a-z0-9][\w./-]*", re.IGNORECASE)
+    r")(?::\d+)?/[a-z0-9][\w./-]*"
+    r"|(?<![\w.-])[a-z][a-z0-9-]*:\d+/[a-z0-9][\w./-]*",  # a single-label host, and a port
+    re.IGNORECASE)
 
 #: `REG="127.0.0.1:5055/raje3"` — a shell, YAML or env assignment whose value IS a private
 #: registry. Naming one is the act; the line that later spends the name carries no evidence at all.
@@ -85,7 +98,10 @@ A_PRIVATE_REGISTRY = re.compile(
 ASSIGNS_A_REGISTRY = re.compile(
     r"""(?:^|\s)[A-Za-z_][\w.-]*\s*[:=]\s*["']?"""
     r"""(?P<reg>(?:\d{1,3}(?:\.\d{1,3}){3}|\[?::1\]?|localhost|host\.docker\.internal"""
-    r"""|[a-z0-9][\w-]*\.local)(?::\d+)?/[a-z0-9][\w./-]*)""", re.IGNORECASE)
+    r"""|[a-z0-9][\w-]*\.local)(?::\d+)?/[a-z0-9][\w./-]*"""
+    # The same single-label host, for the same reason: `REG="buildbox:5000/raje3"` is the assignment
+    # form of the case the pattern above had been claiming to cover and did not.
+    r"""|[a-z][a-z0-9-]*:\d+/[a-z0-9][\w./-]*)""", re.IGNORECASE)
 
 # MOVING AN IMAGE BY HAND. Each of these is a way to put a layer on the node without the node
 # having pulled it, which is the thing being banned.
