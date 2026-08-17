@@ -428,6 +428,17 @@ jobs:
       - name: a pseudonym is never hashed twice
         run: python3 ci/check_a_pseudonym_is_never_hashed_twice.py
 
+      # ح-9 و ح-10 · THREE SCREENS, EACH WRITTEN BY SOMEONE WHO KNEW THE RULE. A plan at 9950 was
+      # advertised as «100 ريال»; an issued invoice of 26950 read «270 ريال» while 269.50 left the
+      # card; and a reward priced at 2.30 was stored as 229 halalas, because `2.3 * 100` is
+      # 229.99999999999997 — on the line directly below a comment reading «no float ever touches
+      # money». The rule cannot live in a reviewer's memory: it has to be the only import.
+      #
+      # Scoped by what the NUMBER is, not by the operator. `return_rate * 100` is a percentage and
+      # is correct; the gate reads the line for a money name before it objects to anything.
+      - name: money crosses the boundary in one place
+        run: python3 ci/check_money_crosses_the_boundary_in_one_place.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the

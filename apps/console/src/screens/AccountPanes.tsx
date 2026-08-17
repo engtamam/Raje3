@@ -11,6 +11,7 @@
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
+import { riyalsLabel } from '../money';
 import { Button } from '@base-ui/design-system/Button';
 import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
@@ -542,7 +543,7 @@ export function InvoicesPane({ session, catalog }: { session: Session; catalog: 
               </span>
               <span className="flex items-center gap-3">
                 <span className="tabular-nums">
-                  {v.total_minor ? `${Math.round(v.total_minor / 100)} ريال` : '—'}
+                  {v.total_minor ? riyalsLabel(v.total_minor) : '—'}
                 </span>
                 <Badge tone={v.status === 'paid' ? 'success' : 'warning'}>
                   {v.status === 'paid' ? 'مدفوعة' : 'غير مدفوعة'}

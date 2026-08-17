@@ -23,6 +23,7 @@
  */
 import { useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
+import { halalas } from '../money';
 import { KpiCard } from '@base-ui/design-system/KpiCard';
 import { Coins, Gift, Power, Users } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
@@ -159,6 +160,17 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
     if (!canAdd) return;
     const form = new FormData(e.currentTarget);
     const type = String(form.get('type') || 'item');
+    // RIYALS ON THE SCREEN, HALALAS ON THE WIRE — and this line used to say exactly that while
+    // doing `Number(riyals) * 100`. `2.3 * 100` is `229.99999999999997`, so a reward priced at
+    // 2.30 was stored as 229 halalas and stayed one halala short on every redemption after it.
+    // `halalas()` converts the TEXT by integer arithmetic, so no float exists to be wrong.
+    const minor = type === 'discount' ? halalas(String(form.get('riyals') || '0')) : 0;
+    if (minor === null) {
+      // REFUSED WITH A REASON, not rounded for him. «2.305 ريال» is not a price this product can
+      // charge, and quietly making it 2.30 spends his money to save him a keystroke.
+      setError('اكتب مبلغ الخصم بالريال — رقمٌ بمنزلتين عشريتين على الأكثر، مثل 2.30');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -167,8 +179,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
         cost: Number(form.get('cost') || 0),
         type,
         service_id: type === 'service' ? String(form.get('service_id') || '') : '',
-        // Riyals on the screen, halalas on the wire — no float ever touches money.
-        discount_halalas: type === 'discount' ? Number(form.get('riyals') || 0) * 100 : 0,
+        discount_halalas: minor,
       });
       setAdding(false);
       load();
@@ -278,7 +289,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                   asks the owner to do the branching we already know the answer to. */}
               {type === 'discount' ? (
                 <Field label="مبلغ الخصم بالريال" htmlFor="rw-riyals">
-                  <Input id="rw-riyals" name="riyals" type="number" min={0} dir="ltr" required />
+                  {/* STEP IS PART OF THE FIX, NOT DECORATION. A number input with the default
+                      step of 1 rejects «2.30» in the browser's own validation, so the halalas
+                      the conversion now preserves could never have been typed in the first
+                      place. Two decimal places is exactly what a riyal has. */}
+                  <Input id="rw-riyals" name="riyals" type="number" min={0} step="0.01"
+                         inputMode="decimal" dir="ltr" required />
                 </Field>
               ) : type === 'service' ? (
                 <Field label="ما يحصل عليه" htmlFor="rw-service" hint="مما تقدّمه — خدمةً كان أو منتجاً">

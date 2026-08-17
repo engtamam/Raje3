@@ -39,6 +39,7 @@ import { action, call, type Catalog } from '../catalog';
 import { isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type Owned } from '../apps';
 import type { Session } from '../session';
+import { riyals } from '../money';
 
 /**
  * Where each app's surface lives, in the words on the rail.
@@ -89,11 +90,9 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
 };
 
-/** Halalas on the wire, riyals on the screen. Western digits, always. */
-function riyals(minor: number): string {
-  const whole = Math.round(minor / 100);
-  return String(whole);
-}
+// Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so a
+// plan at 9950 was advertised as «100 ريال»: fifty halalas above what we charge, on the screen
+// whose only job is to state the price before he agrees to it.
 
 function monthly(p: Plan): Price | undefined {
   return p.prices?.find((x) => x.interval === 'month') ?? p.prices?.[0];
