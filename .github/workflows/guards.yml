@@ -16,9 +16,15 @@ jobs:
       # The submodule is required: check_deploy_wiring.py reads base-services' SOURCE to answer
       # "does this service actually serve the route this values file schedules a job against".
       # Without it the guard degrades to a note and stops guarding.
+      #
+      # AND ITS TAGS COME WITH IT. `fetch-depth: 0` is what makes `git describe` inside `platform/`
+      # able to name a release at all; a shallow submodule has the commit and none of the tags, and
+      # check_the_platform_we_pin_is_the_platform_we_vendored.py would then refuse every run for
+      # the wrong reason — «cannot be read» instead of «is stale».
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
@@ -240,6 +246,15 @@ jobs:
       # request in this product passes through; the change would have arrived at the next restart.
       - name: a raw manifest that does not pin its image
         run: python3 ci/check_a_raw_manifest_pins_its_image.py
+
+      # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
+      # cluster runs what the repository asked for; it says nothing about whether the repository
+      # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values
+      # files pinned v0.16.4, and everything above stayed green for ten releases — until a seeder
+      # written against the vendored source called a route the running image had never heard of,
+      # and the fleet turned out to have zero backup targets.
+      - name: the platform we pin is not the platform we vendored
+        run: python3 ci/check_the_platform_we_pin_is_the_platform_we_vendored.py
 
       # AND NO IMAGE REACHES THE SERVER FROM A LAPTOP. The console ran
       # `127.0.0.1:5055/raje3/console@…` in production — a registry one machine resolves, and only
