@@ -70,6 +70,17 @@ STATE_CONNECTED = "connected"
 STATE_STOPPED = "stopped"
 STATE_FINISHED_UNCONFIRMED = "finished_unconfirmed"
 STATE_FAILED = "failed"
+# WE ASKED THE PLATFORM TO SEAL CREDENTIALS AND HAVE NOT YET HEARD BACK (ز-12).
+#
+# The exchange used to run with no row written first, so a crash between the seal and our write
+# left credentials in the vault that nothing in this service knew about: the screen said «غير
+# مربوط», and Meta's code — thirty seconds of life — was already spent, so no retry could ever
+# finish it. The owner's only route was a support conversation about a connection that had, in
+# fact, succeeded.
+#
+# Written BEFORE the call, so the crash leaves a row that names the question rather than nothing at
+# all. `whatsapp_health` answers it against the platform, which is the only party that knows.
+STATE_EXCHANGING = "exchanging"
 
 
 def _now() -> int:
@@ -182,6 +193,12 @@ def sentence_for(attempt: Attempt, *, can_send: bool = True) -> str:
             return ("تم الربط، وحسابك محفوظ. والإرسال لم يُفتح بعد من طرفنا — "
                     "لا ينقصك شيء، وسنبلغك فور تشغيله.")
         return "تم الربط. حسابك جاهز للإرسال."
+    if attempt.state == STATE_EXCHANGING:
+        # THE ONLY MOMENT WE GENUINELY DO NOT KNOW (ز-12). We handed Meta's code to the platform to
+        # seal and did not hear the result. Claiming «تم الربط» could be a lie he plans a week
+        # around; claiming failure could throw away a connection that succeeded. So it says what is
+        # true — we are finishing it — and it resolves itself within the hour without him.
+        return "جارٍ إتمام الربط. لا حاجة لإعادة العملية — سنُحدّث الحالة خلال ساعة."
     if attempt.state == STATE_FINISHED_UNCONFIRMED:
         # HE FINISHED. Meta created the account and the popup closed before we heard the code — so
         # the honest sentence is neither "connected" nor "cancelled", and it says what we will do
@@ -271,7 +288,10 @@ class ConnectionStore:
         """
         cap = max(1, min(2000, limit))
         out: list[Attempt] = []
-        for state in (STATE_CONNECTED, STATE_FINISHED_UNCONFIRMED):
+        # EXCHANGING IS IN THE WORK LIST, and it is the one this pass exists for twice over (ز-12).
+        # A row left in it means we asked the platform to seal credentials and never learned the
+        # answer; the platform holds the fact, and this is what goes and reads it.
+        for state in (STATE_CONNECTED, STATE_FINISHED_UNCONFIRMED, STATE_EXCHANGING):
             rows, _ = await self._s.find(CONNECTIONS, {"state": state}, limit=cap,
                                          sort=("at", "desc"))
             out.extend(Attempt(
@@ -521,7 +541,7 @@ async def health_sweep(store: ConnectionStore, registration: Registration, *,
     if not registration.configured:
         return {"checked": 0, "stopped": 0, "unreadable": 0, "stopped_keys": [],
                 "reason": "NOT_CONFIGURED"}
-    checked = stopped = unreadable = 0
+    checked = stopped = unreadable = settled = 0
     stopped_keys: list[str] = []
     for attempt in await store.live_connections(limit=limit):
         checked += 1
@@ -530,6 +550,17 @@ async def health_sweep(store: ConnectionStore, registration: Registration, *,
         who = f"{attempt.tenant}{SI_SEPARATOR}{attempt.branch_id}" if attempt.branch_id             else attempt.tenant
         live = await registration.status(who, attempt.phone_number_id)
         if live.get("ok"):
+            # THE ANSWER TO THE UNFINISHED QUESTION (ز-12). Credentials exist for this number, and
+            # the row still says we were mid-exchange — so the seal DID happen and only our write
+            # was lost. Settling it here is the whole repair: the shop is connected, it stops
+            # reading «غير مربوط», and nobody has to re-run a journey whose one-use code is gone.
+            if attempt.state == STATE_EXCHANGING:
+                attempt.state = STATE_CONNECTED
+                attempt.step = ""
+                attempt.detail = ""
+                attempt.at = _now()
+                await store.record(attempt)
+                settled += 1
             continue
         if str(live.get("reason") or "") != "NOT_CONNECTED":
             unreadable += 1
@@ -542,6 +573,20 @@ async def health_sweep(store: ConnectionStore, registration: Registration, *,
         # On a FINISHED_UNCONFIRMED row it means the exchange never happened: the popup closed
         # before we heard the code. Calling that «انقطع ربط واتساب» tells an owner something
         # ended that never began, and sends him looking for a permission he never granted.
+        # AND ON AN EXCHANGING ROW IT IS A THIRD FACT (ز-12): the seal never landed. Meta's code is
+        # spent either way, so the only honest answer is the one `finished_unconfirmed` already
+        # gives — the account exists on WhatsApp's side, press the button again, no second account
+        # is created. Calling this «انقطع ربط واتساب» would announce the end of something that
+        # never began.
+        if attempt.state == STATE_EXCHANGING:
+            attempt.state = STATE_FINISHED_UNCONFIRMED
+            attempt.step = ""
+            attempt.detail = "exchange did not complete"
+            attempt.at = _now()
+            await store.record(attempt)
+            settled += 1
+            continue
+
         was_connected = attempt.state == STATE_CONNECTED
         attempt.state = STATE_STOPPED
         # NO STEP: this row did not stop partway through the journey, and a leftover step would
@@ -553,4 +598,8 @@ async def health_sweep(store: ConnectionStore, registration: Registration, *,
         stopped += 1
         stopped_keys.append(attempt.key)
     return {"checked": checked, "stopped": stopped, "unreadable": unreadable,
+            # COUNTED APART FROM «stopped» (ز-12). A settled row is a connection we had lost track
+            # of, not one that ended — reporting them together would make a healthy fleet look like
+            # a fleet losing access.
+            "settled": settled,
             "stopped_keys": stopped_keys, "reason": ""}

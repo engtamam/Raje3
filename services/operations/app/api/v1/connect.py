@@ -158,6 +158,19 @@ async def whatsapp_connect(request: Request, body: SignupResultIn,
     # SEALED AGAINST THE SENDING IDENTITY, NOT THE TENANT. The platform treats this as an opaque
     # key — it never learns what a branch is — so a second number under the same establishment gets
     # its own credentials instead of overwriting the first shop-wide seal.
+    # WRITE-AHEAD, BECAUSE THE SEAL IS THE POINT OF NO RETURN (ز-12). The exchange spends Meta's
+    # code — thirty seconds of life, single use — and hands the platform credentials to store. A
+    # crash between that call and the write below used to leave nothing here at all: the vault held
+    # a working connection, every screen said «غير مربوط», and the code was gone, so no retry could
+    # finish what had already succeeded. His only route was a support conversation.
+    #
+    # This row is the question, not the answer. `whatsapp_health` asks the platform — the only
+    # party that knows — and settles it.
+    await store.record(connect.Attempt(
+        tenant=tenant, state=connect.STATE_EXCHANGING,
+        waba_id=body.waba_id, phone_number_id=body.phone_number_id,
+        business_id=body.business_id, branch_id=branch_id))
+
     ok, detail = await connect.build_exchange(s).exchange(
         tenant=identity, code=body.code, waba_id=body.waba_id,
         phone_number_id=body.phone_number_id)
