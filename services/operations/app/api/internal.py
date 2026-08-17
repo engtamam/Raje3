@@ -408,7 +408,11 @@ async def reindex_customers(request: Request, body: ReindexIn) -> dict:
             phone = str(r.get("phone") or "")
             await c.seams.index_customer_row(
                 tenant=body.tenant, customer_id=cid, phone=phone,
-                name=str(r.get("name") or ""), plates=plates)
+                name=str(r.get("name") or ""), plates=plates,
+                # THE BACKFILL CARRIES IT TOO, and that is the whole point of the backfill: a
+                # branch field written only by new visits would leave every customer from before
+                # today invisible to a scoped reader — which is the same leak inverted.
+                branch_id=str(r.get("last_branch_id") or ""))
             done += 1
         except Exception:                                                   # noqa: BLE001
             # ONE BAD DOCUMENT MUST NOT COST THE OTHER TWO THOUSAND. The count reported is what

@@ -75,10 +75,11 @@ class Seams:
         c = result.customer
         await self.index_customer_row(
             tenant=c.tenant, customer_id=c.id, phone=c.phone, name=c.name,
-            plates=list(getattr(result, "plates", []) or []))
+            plates=list(getattr(result, "plates", []) or []),
+            branch_id=getattr(c, "last_branch_id", "") or "")
 
     async def index_customer_row(self, *, tenant: str, customer_id: str, phone: str,
-                                 name: str, plates: list[str]) -> None:
+                                 name: str, plates: list[str], branch_id: str = "") -> None:
         """The ONE place a customer's search document is composed.
 
         TWO CALLERS, ONE SHAPE. The visit path writes it as it happens, and the backfill rewrites
@@ -105,6 +106,22 @@ class Seams:
                     # HIS PLATES, and ALL of them: «ممكن عندي سيارتين برقمي». In a shop that works on cars
                     # the operator reads the plate off the bumper and knows nothing else yet.
                     "plate": " ".join([p for p in plates if p]),
+                    # WHERE THIS CUSTOMER WAS LAST SERVED (ط-3), and the document had no such
+                    # field at all — so nothing downstream could narrow a prefix suggestion to the
+                    # branch asking. A manager in Jeddah typing four digits was answered with
+                    # Riyadh's customers by name, number and plate, and the entire branch scope
+                    # `field.py` builds for `recent` and `resolve` was walked around by the keypad,
+                    # which calls search rather than either of them.
+                    #
+                    # A FIELD THAT IS ONLY SOMETIMES THERE IS WORSE THAN ABSENT: a filter would
+                    # then hide every customer indexed before this line existed. So it is written
+                    # on EVERY index — the visit path and the backfill both — and the backfill is
+                    # what makes the older half of a shop answerable to the same question.
+                    #
+                    # Empty is a real and common value: a till records no branch, and a shop that
+                    # never opened a second one has none. Empty means «visible to everyone», the
+                    # same rule `SCOPE.visible` already applies everywhere else.
+                    "branch_id": branch_id or "",
                 })
         except Exception as exc:                                            # noqa: BLE001
             self._note("search_index_failed", error=str(exc)[:200], customer=customer_id)
