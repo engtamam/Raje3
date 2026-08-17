@@ -1,10 +1,13 @@
 /**
  * ONE SCREEN. The whole visit, in three stacked parts, with no navigation anywhere (spec 4.3).
  *
- * The order is services → customer → save, and it is the order of the work rather than the order
- * of the data (spec 4.5). The technician finishes the job with the services in front of him and
- * taps them; only then does he turn to the customer. A screen that asked for the phone number
- * first would be asking him to stop working in order to feed the system.
+ * THE ORDER IS THE CUSTOMER FIRST: plate → who → what he carries → services → save (spec 4.3).
+ *
+ * This comment used to say the opposite, and cited a section that has since been corrected: the
+ * order was services-first, because that is the order of the WORK rather than of the data. The
+ * argument is true and it is not enough. An offer and a points balance cannot be shown before we
+ * know who the customer is — so services-first surfaces the offer AFTER the technician has already
+ * chosen what he is doing, which is after the moment the offer was sent for.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
