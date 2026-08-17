@@ -192,6 +192,44 @@ else
 ' "$C_G" "backup targets" "$targets" "$C_N"
 fi
 
+# ── AND WHETHER THE RUN CAN FINISH BEFORE ITS CALLER GIVES UP (ي-7) ──────────────────────────
+#
+# THE CRONJOB IS A `urlopen(..., timeout=300)`. The run it starts walks every registered target in
+# turn, each with its own `BACKUP_TARGET_TIMEOUT_SECONDS`. Nobody has ever multiplied those two
+# numbers together — and they are both written down, one in this repository and one on the cluster.
+#
+# What happens when the product of them exceeds 300 is the worst available outcome: the backup
+# SUCCEEDS and is reported FAILED. The caller gives up, the Job exits non-zero, the alert fires,
+# and somebody spends a morning on a backup that worked. Worse, the reverse reading is available
+# too — «the backup is failing, it always fails, ignore it» is how a real failure gets missed.
+#
+# This is arithmetic, not a probe: it cannot start a run and it does not try. It multiplies what
+# the repository declares by what the cluster registered and says whether the sum fits.
+per_target="$(sed -n 's/^  BACKUP_TARGET_TIMEOUT_SECONDS: *"\([0-9]*\)".*/\1/p' \
+  "$ROOT/deploy/services/backup-service.values.yaml" | head -1)"
+caller_wait=300     # `platform/deploy/chart/templates/cronjob.yaml` — read-only, hence the escalation
+if [ -n "$per_target" ] && [ -n "$targets" ] && [ "$targets" -gt 0 ] 2>/dev/null; then
+  worst=$((targets * per_target))
+  if [ "$worst" -gt "$caller_wait" ]; then
+    printf '  %s✗ %-24s %d targets x %ds = %ds worst case, and the cron waits %ds%s\n' \
+      "$C_R" "backup window" "$targets" "$per_target" "$worst" "$caller_wait" "$C_N"
+    printf '%s       a run that SUCCEEDS is reported failed — and «it always fails» is how a real%s\n' \
+      "$C_D" "$C_N"
+    printf '%s       failure gets ignored. The 300s lives in the platform chart: escalate it.%s\n' \
+      "$C_D" "$C_N"
+    bad=$((bad+1))
+  else
+    printf '  %s✔ %-24s %d x %ds fits inside the cron'"'"'s %ds%s\n' \
+      "$C_G" "backup window" "$targets" "$per_target" "$caller_wait" "$C_N"
+  fi
+else
+  # NOT A PASS: without both numbers this said nothing, and saying nothing about whether the
+  # backup can finish is the state this whole section exists to end.
+  printf '  %s✗ %-24s could not be computed — the run window was NOT checked%s\n' \
+    "$C_R" "backup window" "$C_N"
+  bad=$((bad+1))
+fi
+
 # ── AND THE CONFIG THAT DRIVES THE CODE (أ-2) ────────────────────────────────────────────────
 #
 # EVERYTHING ABOVE COMPARES IMAGES. أ-2 was not an image: the corrected code was deployed and the
