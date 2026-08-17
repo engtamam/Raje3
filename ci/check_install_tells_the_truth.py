@@ -64,7 +64,24 @@ def swallowed_steps() -> list[str]:
                 continue
             if not STEP.match(line):
                 continue
-            if any(m in line for m in MARKS):
+            # THE MARK MUST BE AN ACT, NOT A WORD INSIDE THE MESSAGE — د-4.
+            #
+            # This read `any(m in line ...)` — the WHOLE line, `echo` text included. So
+            # `|| echo "(plans FAILED: see above)"` excused itself: the word «FAILED» appears in
+            # the string it prints, and the check that exists precisely to catch a swallowed step
+            # was talked out of it by the swallowed step's own footnote.
+            #
+            # A mark is something the script's ending can READ — a flag it sets, a `die`, an
+            # `exit 1`. Printing the word is the opposite: it is what a line does INSTEAD of
+            # recording the failure. So the message is cut away and only what follows it counts.
+            tail = line.split("||", 1)[1] if "||" in line else line
+            after_echo = tail.split("echo", 1)[1] if "echo" in tail else tail
+            # Everything after the closing quote of the echoed message: `; FAILED=1`, `&& die`.
+            for q in ('"', "'"):
+                if after_echo.count(q) >= 2:
+                    after_echo = after_echo.split(q)[2] if len(after_echo.split(q)) > 2 else ""
+                    break
+            if any(m in after_echo for m in MARKS):
                 continue
             out.append(f"{rel}:{i}  {line.strip()[:110]}")
     return out
@@ -80,6 +97,10 @@ def local_images() -> list[str]:
             if LOCAL_REGISTRY.search(line):
                 out.append(f"{rel}:{i}  {line.strip()[:110]}")
     return out
+
+
+def _scripts_seen() -> int:
+    return sum(1 for _ in DEPLOY.rglob("*.sh"))
 
 
 def main() -> int:
@@ -102,8 +123,17 @@ def main() -> int:
               f"host can reach.{C_N}")
         return 1
 
-    print(f"{C_G}  ✔ every swallowed step marks the run, and every committed image names a "
-          f"reachable registry{C_N}")
+    # AND SILENCE IS NOT AGREEMENT — the other half of د-4. With no scripts found this printed the
+    # same green line it prints after reading forty of them. A rename, a moved directory, a glob
+    # that stops matching: all of them read as «nothing wrong» rather than «nothing checked».
+    seen = _scripts_seen()
+    if seen == 0:
+        print(f"{C_R}  ✘ no shell scripts found under deploy/ — this check read nothing, which is "
+              f"not the same as finding nothing wrong{C_N}")
+        return 1
+
+    print(f"{C_G}  ✔ every swallowed step in {seen} scripts marks the run, and every committed "
+          f"image names a reachable registry{C_N}")
     return 0
 
 

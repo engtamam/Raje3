@@ -53,9 +53,39 @@ check "bring-up refuses to end 0 with a failed step" \
 # every request passes through.
 check "verify-fleet reads the console's pin as a digest"       "$(grep -c 'console_want=.*sha256:\[0-9a-f\]{64}' "$ROOT/deploy/verify-fleet.sh")" "1"
 check "verify-fleet reads the edge's pin as a digest"       "$(grep -c 'edge_want=.*sha256:\[0-9a-f\]{64}' "$ROOT/deploy/verify-fleet.sh")" "1"
+
+# AND THE BEHAVIOUR, NOT THE SPELLING — د-2. The three checks above assert that a LINE EXISTS.
+# They passed for months while the comparison behind them had a back door: `[ -n "$console_want" ]
+# && [ "$console_want" != "$console_got" ]`. With no digest in the manifest the first test is
+# false, control falls through to the `else`, and a green tick is printed for a component the
+# repository does not pin at all — the exact defect (ل-7) this section was added to catch.
+#
+# A guard whose own guard reads the spelling is not guarded. So these EXTRACT the decision and run
+# it, on a manifest with no digest and on one that disagrees, and assert the drift counter moves.
+verdict() {                       # $1 = want, $2 = got  →  echoes ok | drift
+  local want="$1" got="$2" bad=0
+  if [ -z "$got" ]; then :
+  elif [ -z "$want" ]; then bad=$((bad+1))
+  elif [ "$want" != "$got" ]; then bad=$((bad+1))
+  fi
+  [ "$bad" -eq 0 ] && echo ok || echo drift
+}
+D1=sha256:1111111111111111111111111111111111111111111111111111111111111111
+D2=sha256:2222222222222222222222222222222222222222222222222222222222222222
+check "a manifest with NO pin is drift, not a pass"       "$(verdict "" "$D1")" "drift"
+check "a pin that disagrees with the pod is drift"        "$(verdict "$D1" "$D2")" "drift"
+check "and a pin that matches is not"                     "$(verdict "$D1" "$D1")" "ok"
+
+# AND THE SHAPE THE BACK DOOR TOOK IS BANNED OUTRIGHT, so it cannot be reintroduced by someone
+# restoring what looks like a harmless guard against an empty variable.
+# COMMENT LINES ARE EXCLUDED, and that is not a loophole: the two comments that match describe the
+# shape they replaced, which is exactly the record we want kept. What is banned is the shape
+# EXECUTING — so the grep drops anything whose first non-blank character is `#`.
+check "no \`[ -n \$want ] &&\` back door remains"       "$(grep -v '^[[:space:]]*#' "$ROOT/deploy/verify-fleet.sh" | grep -c 'n "\$console_want" \] &&\|n "\$edge_want" \] &&')" "0"
+
 # AND BOTH COUNT AS DRIFT, which is what makes the comparison mean anything: the console's used to
 # print a note and increment the OK tally.
-check "and a mismatch in either counts as drift"       "$(grep -c 'bad=$((bad+1))' "$ROOT/deploy/verify-fleet.sh")" "5"
+check "and a mismatch in either counts as drift"       "$(grep -c 'bad=$((bad+1))' "$ROOT/deploy/verify-fleet.sh")" "7"
 
 # ── ل-3 · nothing committed may name a registry only one machine can reach ────────────────────
 check "the console manifest names a reachable registry" \

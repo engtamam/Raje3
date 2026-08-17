@@ -57,9 +57,34 @@ def capabilities() -> dict[str, str]:
 
 
 def sections() -> list[tuple[str, list[str]]]:
+    """Every nav section and the capabilities it needs.
+
+    ANCHORED ON `requires:`, NOT ON THE SHAPE OF THE LINE. The pattern here used to be
+    `{ id: '...', ... requires: [...] }` — it assumed `id` came first in the object literal.
+    It does not: every row starts with `service:`. So the regex matched NOTHING, `sections()`
+    returned an empty list, every loop below iterated zero times, and the gate printed
+    «every section is reachable, and the owner reaches all 0 of them» in green.
+
+    A gate that matches nothing and reports success is worse than no gate: it occupies the slot
+    where a real check would go, and the count it prints — «all 0 of them» — is the only evidence
+    it was ever broken. Which is why `main()` now refuses an empty result outright.
+
+    So this walks BACKWARD from `requires:` to the `id:` in the same object, in either order, and
+    is indifferent to fields being added or reordered.
+    """
     text = io.open(NAV, encoding="utf-8").read()
-    found = re.findall(r"\{ id: '([a-z]+)',[^}]*?requires: \[([^\]]*)\] \}", text)
-    return [(sid, re.findall(r"'([^']+)'", req)) for sid, req in found]
+    out: list[tuple[str, list[str]]] = []
+    for m in re.finditer(r"requires:\s*\[([^\]]*)\]", text):
+        # The object literal this `requires:` belongs to: back to the nearest unmatched `{`.
+        start = text.rfind("{", 0, m.start())
+        if start < 0:
+            continue
+        body = text[start:m.end()]
+        sid = re.search(r"id:\s*'([^']+)'", body)
+        if not sid:
+            continue
+        out.append((sid.group(1), re.findall(r"'([^']+)'", m.group(1))))
+    return out
 
 
 def main() -> int:
@@ -81,7 +106,21 @@ def main() -> int:
         if name not in roles:
             faults.append(f"role {name!r} is shipped in the image but absent from the deploy seed")
 
-    for sid, ids in sections():
+    # AN EMPTY READ IS A FAILURE, NOT A PASS — and this line is the whole lesson of the defect
+    # above. The regex matched nothing for months; every loop below iterated zero times; no fault
+    # could possibly be raised; and the gate printed «the owner reaches all 0 of them» in green.
+    # The count was the only evidence, and nobody reads a count on a line that says ✔.
+    #
+    # So silence is refused outright. A nav with no gated sections is not a state this product can
+    # be in — it would mean nothing is reachable by anybody — and if it ever becomes one, the
+    # person who made it so should be told rather than congratulated.
+    found = sections()
+    if not found:
+        print("  [31m✘ no nav section carries a `requires:` — either the file moved or this "
+              "check no longer matches it. Refusing to report a pass over an empty set.[0m")
+        return 1
+
+    for sid, ids in found:
         unknown = [i for i in ids if i not in caps]
         if unknown:
             faults.append(f"«{sid}» is gated on an action nothing declares: {unknown}")

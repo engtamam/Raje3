@@ -167,8 +167,13 @@ try:
         problems.append(
             f"the two processing agreements are at different versions ({a} vs {b}) — they describe "
             f"ONE engagement, so a shop would be bound to two different sets of instructions")
-except OSError:
-    pass
+except OSError as exc:
+    # A MISSING FILE IS THE FAILURE, NOT A REASON TO SKIP. This was `except OSError: pass`, so
+    # deleting `processor-dpa.yaml` made the check vanish and the gate print «the two agreements
+    # are in step» — a positive claim about a document that did not exist. The one thing worse
+    # than an unchecked file is a green line asserting it was checked.
+    problems.append(f"a processing agreement could not be read ({exc}) — this check makes a claim "
+                    f"about both documents and cannot make it about a file that is not there")
 
 # 5 — the annexes have one source.
 try:
@@ -177,8 +182,9 @@ try:
         problems.append("processing-agreement.yaml no longer sources its annexes from the DPA — "
                         "two copies of Annex A will drift, and the difference is what a dispute "
                         "turns on")
-except OSError:
-    pass
+except OSError as exc:
+    problems.append(f"processing-agreement.yaml could not be read ({exc}) — the annex-sourcing "
+                    f"rule cannot be confirmed, and unconfirmed is not satisfied")
 
 for w in waiting:
     print(f"  {C_Y}…{C_N} {w}")

@@ -78,7 +78,15 @@ console_got="${console_got##*@}"
 if [ -z "$console_got" ]; then
   printf '  %s✗ %-24s no ready pod — every screen in the product is a blank page%s
 '          "$C_R" "console" "$C_N"; missing=$((missing+1))
-elif [ -n "$console_want" ] && [ "$console_want" != "$console_got" ]; then
+elif [ -z "$console_want" ]; then
+  # NO PIN IS A FAILURE, NOT A PASS. This used to read `[ -n "$console_want" ] && ...`, so a
+  # manifest whose digest the grep could not find fell through to the `else` and printed
+  # a green tick. Put the console back on a moving TAG — which is the exact defect this
+  # script was extended to catch — and the check congratulated it.
+  printf '  %s✗ %-24s the repository pins NO digest — nothing here can be verified%s
+' "$C_R" "console" "$C_N"
+  bad=$((bad+1))
+elif [ "$console_want" != "$console_got" ]; then
   # A HARD FAILURE NOW, AND IT USED TO BE A NOTE. `ship.sh console` once pinned a node-local
   # registry on the server while the repository kept the published reference, so the two names
   # differed BY DESIGN and this line could not tell that apart from real drift. That road is gone:
@@ -105,7 +113,15 @@ if [ -z "$edge_got" ]; then
   printf '  %s✗ %-24s no ready pod — the domain answers nothing%s
 ' "$C_R" "edge" "$C_N"
   missing=$((missing+1))
-elif [ -n "$edge_want" ] && [ "$edge_want" != "$edge_got" ]; then
+elif [ -z "$edge_want" ]; then
+  # NO PIN IS A FAILURE, NOT A PASS. This used to read `[ -n "$edge_want" ] && ...`, so a
+  # manifest whose digest the grep could not find fell through to the `else` and printed
+  # a green tick. Put the edge back on a moving TAG — which is the exact defect this
+  # script was extended to catch — and the check congratulated it.
+  printf '  %s✗ %-24s the repository pins NO digest — nothing here can be verified%s
+' "$C_R" "edge" "$C_N"
+  bad=$((bad+1))
+elif [ "$edge_want" != "$edge_got" ]; then
   printf '  %s✗ %-24s running %s… repository pins %s…%s
 '          "$C_R" "edge" "${edge_got:0:19}" "${edge_want:0:19}" "$C_N"
   bad=$((bad+1))
