@@ -11,6 +11,8 @@ import os
 
 import jwt
 import pytest
+
+from app.core import branches
 from fastapi.testclient import TestClient
 
 TOKEN_SECRET = "h" * 40
@@ -478,7 +480,12 @@ def test_it_answers_about_the_caller_s_own_establishment_only(client):
 
 # ── the till, and `feature.api` ────────────────────────────────────────────────────────────────
 def _till_body():
+    # EVERY SALE NAMES ITS BRANCH. The field became mandatory once a register could no longer be
+    # allowed to pile every branch's work into one heap (§12.2), so a payload without one is not a
+    # payload any till can send — and a fixture that omitted it would be exercising a shape the
+    # door refuses before any of this file's subjects run.
     return {"visits": [{"idempotency_key": "inv-1", "phone": "0500000001",
+                        "branch_id": branches.MAIN,
                         "lines": [{"service_id": "svc_1", "qty": 1}]}]}
 
 
@@ -522,10 +529,11 @@ def test_one_unkeyable_sale_does_not_refuse_the_rest_of_the_batch(client):
     The refusal is per item, the rest lands, and `total` still counts what the till SENT so the
     partner can reconcile."""
     body = {"visits": [
-        {"idempotency_key": "keyed-1", "phone": "0500000021",
+        {"idempotency_key": "keyed-1", "phone": "0500000021", "branch_id": branches.MAIN,
          "lines": [{"service_id": "svc_1", "qty": 1}]},
-        {"phone": "0500000022", "lines": [{"service_id": "svc_1", "qty": 1}]},
-        {"invoice_id": "inv-77", "phone": "0500000023",
+        {"phone": "0500000022", "branch_id": branches.MAIN,
+         "lines": [{"service_id": "svc_1", "qty": 1}]},
+        {"invoice_id": "inv-77", "phone": "0500000023", "branch_id": branches.MAIN,
          "lines": [{"service_id": "svc_1", "qty": 1}]}]}
     r = client.post("/api/v1/till/visits", json=body,
                     headers=_auth("operations.record", tenant="t_batch_partial"))
@@ -543,7 +551,8 @@ def test_one_unkeyable_sale_does_not_refuse_the_rest_of_the_batch(client):
 def test_a_batch_of_nothing_but_unkeyable_sales_is_still_refused_whole(client):
     """The narrowing must not become a hole: when NOTHING in the post can be keyed there is
     nothing to accept, and the answer stays a refusal rather than an empty success."""
-    body = {"visits": [{"phone": "0500000031", "lines": [{"service_id": "svc_1", "qty": 1}]}]}
+    body = {"visits": [{"phone": "0500000031", "branch_id": branches.MAIN,
+                        "lines": [{"service_id": "svc_1", "qty": 1}]}]}
     r = client.post("/api/v1/till/visits", json=body,
                     headers=_auth("operations.record", tenant="t_batch_none"))
     out = r.json()
@@ -575,6 +584,7 @@ def test_billing_never_stands_between_a_customer_and_what_he_earned(client):
     try:
         r = client.post("/api/v1/till/redeem",
                         json={"phone": "0500000041", "reward_id": "rw_1",
+                                  "branch_id": branches.MAIN,
                               "idempotency_key": "k-1"},
                         headers=_auth("operations.record", tenant="t_nolink"))
         assert r.status_code == 200 and r.json().get("message") != NOT_INCLUDED
@@ -593,6 +603,7 @@ def test_billing_never_stands_between_a_customer_and_what_he_earned(client):
         # must not stream its sales in through a machine, and nobody's earned balance is in that.
         r = client.post("/api/v1/till/visits",
                         json={"visits": [{"phone": "0500000041", "external_id": "x-1",
+                                          "branch_id": branches.MAIN,
                                           "lines": [{"service_id": "svc_1", "qty": 1}]}]},
                         headers=_auth("operations.record", tenant="t_nolink"))
         assert r.status_code == 200 and r.json().get("message") == NOT_INCLUDED
@@ -1184,7 +1195,7 @@ def test_the_till_door_carries_the_approval_in_both_directions(client):
         # A REAL CUSTOMER FIRST — the read answers `found: False` for a stranger, and a test that
         # asserts on that answer proves nothing about the projection below it.
         client.post("/api/v1/till/visits", headers=h, json={"visits": [
-            {"phone": "0500000051", "invoice_id": "INV-APPR",
+            {"phone": "0500000051", "invoice_id": "INV-APPR", "branch_id": branches.MAIN,
              "lines": [{"product_id": "P-1", "name": "غسيل", "qty": 1, "amount_minor": 5000}]}]})
         got = client.get("/api/v1/till/customer?phone=0500000051", headers=h).json()
         assert got.get("found") is True, got
@@ -1194,6 +1205,7 @@ def test_the_till_door_carries_the_approval_in_both_directions(client):
 
         r = client.post("/api/v1/till/redeem",
                         json={"phone": "0500000051", "reward_id": "rw_big",
+                              "branch_id": branches.MAIN,
                               "idempotency_key": "k-appr", "approved_by": "خالد المدير"},
                         headers=h)
         assert r.status_code == 200, r.text

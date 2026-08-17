@@ -75,7 +75,14 @@ class TillVisitIn(BaseModel):
     phone: str = Field(default="", max_length=32)
     name: str = Field(default="", max_length=128)
     plate: str = Field(default="", max_length=32)
-    branch_id: str = Field(default="", max_length=64)
+    # WHERE THE WORK HAPPENED — required, and the only field here a register cannot infer for us.
+    # It was optional until now, and most registers accordingly never sent it: every branch's
+    # visits landed in one heap, «قارن فروعك» was switched off for exactly the chains that bought
+    # the product for it, and no later report could take the heap apart — nothing in the record
+    # says where any of it happened. Made mandatory while there is no integrated register to break
+    # (Tamam, 18 Aug 2026), because after launch this same line costs an outage instead of a
+    # paragraph in the integration guide.
+    branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(default="", max_length=64)
     meter: int = Field(default=0, ge=0, le=10_000_000)
     note: str = Field(default="", max_length=1000)
@@ -229,6 +236,26 @@ async def record_from_till(request: Request, body: TillBatchIn,
     # forward is a SHORTER list than what the till sent, so the batch handler's index counts the
     # forwarded list — and handing that number back would name a different sale on every batch
     # that had a refusal in it. `keep_at[j]` is where forwarded item `j` sat in the till's payload.
+    # AND A BRANCH THIS SHOP DOES NOT HAVE IS REFUSED THE SAME WAY. Requiring the field only makes
+    # the register SEND something; `core/branches.resolve` then drops an id it does not recognise
+    # and the visit lands with no branch anyway — a mandatory field that is silently ignorable is
+    # the same heap as before, reached one step later. One typo in a driver's config would put
+    # every sale from that till into «غير محدد» for as long as nobody read a log line.
+    #
+    # ASKED ONCE FOR THE WHOLE BATCH, not once per sale: it is the same short list every time. And
+    # ASKED ONLY WHEN THERE IS SOMETHING TO ASK ABOUT — a batch whose every item was already
+    # refused for having no stable key must not pay for a branch-list read to refuse it twice.
+    still_standing = [i for i in range(len(body.visits)) if i not in set(unstable)]
+    known: set[str] = set()
+    if still_standing:
+        known = await request.app.state.container.operations.known_branches(tenant)
+    unknown_branch = [i for i in still_standing if body.visits[i].branch_id.strip() not in known]
+    refusals += [{"idempotency_key": body.visits[i].idempotency_key or body.visits[i].invoice_id
+                  or "", "status": "rejected",
+                  "reason": f"unknown branch_id «{body.visits[i].branch_id.strip()[:64]}» — send "
+                            "one of this shop's own branches",
+                  "index": i} for i in unknown_branch]
+    unstable = list(unstable) + unknown_branch
     keep_at = [i for i in range(len(body.visits)) if i not in set(unstable)]
     keep = [body.visits[i] for i in keep_at]
     if not keep:
@@ -424,7 +451,11 @@ class TillRedeemIn(BaseModel):
     # refuses those without a name, and this door had no field to carry one — so the refusal was
     # unsatisfiable from an integrated till no matter what their system sent.
     approved_by: str = Field(default="", max_length=128)
-    branch_id: str = Field(default="", max_length=64)
+    # REQUIRED HERE FOR THE SAME REASON AS THE VISIT, and it must be the same answer: a redemption
+    # is where the reward was actually handed over, and «استُبدلت في أيّ فرع» is half of what the
+    # branch column is for. Optional on one door and required on the other would leave the two
+    # halves of one shop's ledger disagreeing about whether a place is knowable.
+    branch_id: str = Field(min_length=1, max_length=64)
 
 
 @router.post("/redeem", dependencies=[Depends(rate_limit)])

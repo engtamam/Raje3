@@ -109,8 +109,9 @@ class Operations:
         this pair that an owner sets and an employee cannot.
 
         AND AN OPERATOR WITH NO BRANCH DOES NOT ERASE ONE. Most shops never assign anybody — the
-        field is optional by design (§12.2) — and treating "unassigned" as "nowhere" would empty
-        the branch column of every shop that fills it from its till instead.
+        branch on a PERSON stays optional by design (§12.2), unlike the one on a till's sale — and
+        treating "unassigned" as "nowhere" would empty the branch column of every shop that fills
+        it from its register instead.
 
         A VISIT WITH NO OPERATOR IS UNCHANGED: a till sends no person, and the machine credential
         is minted for a shop rather than a place (api/v1/till.py).
@@ -122,6 +123,20 @@ class Operations:
             if op is not None and op.branch_id:
                 return op.branch_id
         return await self.resolve_branch(tenant, claimed)
+
+    async def known_branches(self, tenant: str) -> set[str]:
+        """Every branch id this shop really has — asked ONCE, for a door checking many items.
+
+        `resolve_branch` answers about one id and reads the branch list to do it. A batch of fifty
+        sales calling it fifty times is fifty reads of the same short list, so the door that checks
+        a batch asks for the set instead. Same source, same answer, one read.
+
+        SAME ANSWER AS `resolve_branch`, BY CONSTRUCTION — it is the set `branches.resolve` checks
+        against, not a second opinion assembled here. A door that decided validity for itself would
+        be free to accept an id the recorder then drops, which is how a field becomes mandatory and
+        ignorable at the same time.
+        """
+        return await B.known(self._branches, tenant)
 
     async def resolve_branch(self, tenant: str, branch_id: str) -> str:
         """The branch check, offered to the routes that take one outside the visit path.

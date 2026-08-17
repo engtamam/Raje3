@@ -92,7 +92,7 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   // fetching a receipt are different acts — which is true, and still leaves both under the one
   // word an owner thinks of when he is here for either.
   { id: 'billing', label: 'اشتراكي', hint: 'باقتك وفواتيرك ووسيلة الدفع' },
-  { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك' },
+  { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك وتقريرك الأسبوعي' },
   { id: 'data', label: 'بياناتي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
 ];
 
@@ -239,7 +239,7 @@ export function AccountScreen(
         </div>
       ) : null}
 
-      {active === 'login' ? <LoginPane /> : null}
+      {active === 'login' ? <LoginPane session={session} catalog={catalog} /> : null}
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
     </div>
   );

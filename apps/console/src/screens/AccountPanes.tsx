@@ -17,6 +17,9 @@ import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '.
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+// ONE DEFINITION, RENDERED WHERE IT BELONGS. The card was written for «فريقي» and stayed there
+// when it moved; importing it keeps a single implementation rather than a second copy that drifts.
+import { VehiclesCard } from './Team';
 
 interface Tenant {
   id?: string;
@@ -87,6 +90,10 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
 
   return (
     <div className="flex flex-col gap-4">
+      {/* WHAT THIS SHOP DOES, BESIDE WHO IT IS. It stood among the branch settings, which made it
+          read as a per-branch switch — and it is not one: `operations.shop_vehicles` is a fact
+          about the whole establishment, and no shop works on cars in one branch and not another. */}
+      <VehiclesCard session={session} catalog={catalog} />
       {/* WHAT HE IS, IN FOUR FACTS — a grid of cells rather than four label/value lines. Four rows
           of «label ………… value» read as a form he has to fill; four cells read as a card about his
           shop, which is what they are: not one of them is editable here. */}
@@ -332,9 +339,58 @@ function Fact({ label, value, wide }: { label: string; value: string; wide?: boo
  * verification code arrives on — so changing it is not an edit, it is moving the account. There is
  * no action for it in the catalogue and there should not be a box for it here.
  */
-export function LoginPane() {
+export function LoginPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  // ── THE WEEKLY REPORT LIVES HERE, AND NOT ON «محلّي» ──────────────────────────────────────
+  //
+  // It was the first thing on the shop's dashboard: a checkbox about ONE PERSON'S WhatsApp, above
+  // every number the screen exists to show. A preference is not a metric, and putting it first
+  // pushed his retention rate below the fold — he had to scroll past a setting to reach his own
+  // figures.
+  //
+  // It belongs beside his phone number, because that is what it is: a message to this person, on
+  // this person's phone. PER PERSON and not per shop (the route says so): a manager may want the
+  // report and the owner may not, and one flag on the establishment makes unsubscribing an act
+  // that silently switches a colleague off.
+  const [digest, setDigest] = useState(true);
+  const digestAction = action(catalog, 'insights.digest');
+
+  useEffect(() => {
+    // `decided: false` means he has never chosen, and the default (subscribed) is then the honest
+    // thing to show. A FAILED READ CHANGES NOTHING: flipping the switch to «off» because a request
+    // timed out would tell him he had unsubscribed when he had not.
+    const dg = action(catalog, 'insights.digest_state');
+    if (!dg) return;
+    call<{ on?: boolean; decided?: boolean }>(session, dg)
+      .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
+      .catch(() => undefined);
+  }, [session, catalog]);
+
   return (
     <div className="flex flex-col gap-4">
+      {digestAction ? (
+        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
+          <span className="flex flex-col">
+            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
+            <span className="text-xs text-text-secondary">
+              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={digest}
+            aria-label="تقريري الأسبوعي على واتساب"
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setDigest(on);
+              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
+              // the box ticked teaches him he is subscribed when he is not — and he finds out by
+              // a report that never comes.
+              await call(session, digestAction, { on }).catch(() => setDigest(!on));
+            }}
+            className="size-6 shrink-0 accent-[var(--accent)]"
+          />
+        </label>
+      ) : null}
       <Card>
         <Row label="تدخل برقم جوالك" value="هو نفسه رقم محلّك المسجّل" />
         <Row label="مدة الجلسة" value="31 يوماً — لا تُطالَب بكلمة المرور كل مرة" />

@@ -185,6 +185,7 @@ def test_two_coffees_on_one_bill_reach_the_group_basket_test(client, till_header
         "visits": [{
             "phone": "0501234567",
             "invoice_id": "INV-9001",
+            "branch_id": "brn-main",
             "lines": [{"product_id": "P-COFFEE", "name": "قهوة", "qty": 2, "amount_minor": 1800}],
         }],
     })
@@ -237,6 +238,7 @@ def test_the_invoice_amount_reaches_the_feed_that_earns_points(client, till_head
         "visits": [{
             "phone": "0501234570",
             "invoice_id": "INV-9500",
+            "branch_id": "brn-main",
             "lines": [{"product_id": "P-OIL", "name": "تغيير زيت", "qty": 1,
                        "amount_minor": 45000},
                       {"product_id": "P-FILTER", "name": "فلتر", "qty": 1,
@@ -287,11 +289,11 @@ def test_every_verdict_names_the_position_the_till_sent_it_at(client, till_heade
     """
     r = client.post("/api/v1/till/visits", headers=till_headers["headers"], json={
         "visits": [
-            {"phone": "0501111111", "invoice_id": "INV-7001",
+            {"phone": "0501111111", "invoice_id": "INV-7001", "branch_id": "brn-main",
              "lines": [{"product_id": "P-A", "name": "غسيل", "qty": 1, "amount_minor": 2000}]},
-            {"phone": "0502222222",
+            {"phone": "0502222222", "branch_id": "brn-main",
              "lines": [{"product_id": "P-B", "name": "تلميع", "qty": 1, "amount_minor": 3000}]},
-            {"phone": "0503333333", "invoice_id": "INV-7003",
+            {"phone": "0503333333", "invoice_id": "INV-7003", "branch_id": "brn-main",
              "lines": [{"product_id": "P-C", "name": "تنظيف", "qty": 1, "amount_minor": 4000}]},
         ],
     })
@@ -304,3 +306,77 @@ def test_every_verdict_names_the_position_the_till_sent_it_at(client, till_heade
     assert results[1]["status"] == "rejected", "the middle item is the one with no stable key"
     assert results[0]["status"] in ("accepted", "duplicate"), results[0]
     assert results[2]["status"] in ("accepted", "duplicate"), results[2]
+
+
+# ── the branch, from the register to the number the owner compares ────────────────────────────
+def test_the_branch_a_register_names_survives_all_the_way_to_what_insights_reads(
+        client, till_headers):
+    """A sale's branch travels the whole chain, and a branch nobody has is refused at the door.
+
+    WHAT THE OWNER SAW BEFORE THIS. «لا تقدر تقارن فروعك» — the one indicator a chain buys the
+    product for, switched off, permanently. `branch_id` was optional on the till door, so most
+    registers never sent it: every branch's work landed in one heap, and no report written
+    afterwards could take it apart, because nothing in the record said where any of it happened.
+
+    THE CHAIN THIS CROSSES, and every link had to hold for the number to exist:
+      1. the door REQUIRES the field, so «سنرسله لاحقاً» is not a state the product can be in;
+      2. the door VALIDATES it, because a required field that is silently dropped when unknown is
+         the same heap reached one step later — a typo in one driver's config would put that
+         register's every sale into «غير محدد» until somebody read a log line;
+      3. the value survives the till door's own re-packing into the internal batch;
+      4. and it is on the visit `/internal/operations/visits/since` hands to insights, which is
+         where the branch comparison is actually computed.
+
+    The assertion is at the END, on the shape insights receives, for the reason the group-basket
+    test above gives: any of the four can break without a single failure being logged.
+    """
+    r = client.post("/api/v1/till/visits", headers=till_headers["headers"], json={
+        "visits": [
+            {"phone": "0509990001", "invoice_id": "INV-BR-1", "branch_id": "brn-main",
+             "lines": [{"product_id": "P-W", "name": "غسيل", "qty": 1, "amount_minor": 7700}]},
+            # A BRANCH THIS SHOP DOES NOT HAVE. Refused on its own, and the sale beside it still
+            # lands — the same per-item shape every other till refusal uses (ك-6), because a batch
+            # is a set of independent sales and one misconfigured line must not cost the other
+            # forty-nine.
+            {"phone": "0509990002", "invoice_id": "INV-BR-2", "branch_id": "brn-does-not-exist",
+             "lines": [{"product_id": "P-W", "name": "غسيل", "qty": 1, "amount_minor": 8800}]},
+        ],
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    results = body.get("results") or []
+    assert body["total"] == 2, body
+    # PAIRED BY POSITION, still (ك-7): the till reconciles by index, and a refusal that renumbered
+    # the rest would name a different sale than the one that failed.
+    assert [x.get("index") for x in results] == [0, 1], results
+    assert results[1]["status"] == "rejected", results[1]
+    assert "brn-does-not-exist" in results[1]["reason"], (
+        "the refusal must name the id their driver actually sent — «unknown branch» with no id is "
+        "a sentence their engineer cannot act on")
+    assert results[0]["status"] in ("accepted", "duplicate"), results[0]
+
+    feed = client.post("/internal/operations/visits/since",
+                       headers={"X-Internal-Token": "t" * 40},
+                       json={"tenant": till_headers["tenant"], "since": 0})
+    assert feed.status_code == 200, feed.text
+    visits = feed.json()["visits"]
+    # NOT `visits[-1]`, for the reason the group-basket test above spells out: other tests seed
+    # sales into this same shop and rows written in the same second have no order between them.
+    # `external_id` is the till's own invoice number, which is what makes this sale identifiable
+    # at the far end of the chain — and if the chain drops it, the list is empty and this fails.
+    # SELECTED ON THE AMOUNT, which only this sale carries in this fixture — never `visits[-1]`,
+    # for the reason the group-basket test above spells out: rows written in the same second have
+    # no order between them, and a flaky test on a chain this quiet is worse than none.
+    mine = [v for v in visits if v.get("amount_halalas") == 7700]
+    assert len(mine) == 1, f"the accepted sale never reached the feed insights reads — got {visits}"
+    assert all(v.get("branch_id") == "brn-main" for v in mine), (
+        "the branch died somewhere between the register and the number the owner compares — "
+        f"got {[v.get('branch_id') for v in mine]}")
+    # AND THE REFUSED ONE IS NOT IN THERE UNDER SOME OTHER BRANCH, which is exactly what a «drop
+    # the unknown id and keep the visit» policy produces: the sale lands, silently, in the wrong
+    # place, and the comparison it corrupts is the one this whole change exists to make true.
+    # ITS OWN AMOUNT AGAIN, not a count of the feed: other tests in this module seed sales into
+    # the same shop, so «the feed holds exactly one visit» would be a claim about them rather than
+    # about this one.
+    assert not [v for v in visits if v.get("amount_halalas") == 8800], (
+        "a sale refused for naming a branch this shop does not have was recorded anyway")

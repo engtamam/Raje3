@@ -42,15 +42,34 @@ import type { Session } from '../session';
  */
 interface Blocked {
   indicator: string;
-  /** The cause in his words: «نظام الكاشير لا يرسل الفرع مع العملية». */
+  /** WHAT HE CANNOT SEE — the consequence, and the headline of the row. «لا تقدر تقارن فروعك».
+   *  This field did not exist: the panel printed the cause under a heading about data coverage,
+   *  so the row explained a problem he had not been told he had. */
+  lost?: string;
+  /** The cause, in the words of somebody who has never seen our API. */
   why?: string;
-  /** Who can act — pos_vendor | establishment | time. Not rendered; it decides nothing here. */
+  /** THE ONE NEXT STEP, as an instruction. A description leaves him deciding whether it was
+   *  addressed to him at all. */
+  do?: string;
+  /** Who can act — pos_vendor | establishment | time | unknown. Rendered as a chip, because
+   *  «هل هذه عليّ؟» is the question he asks first and the one the screen never answered. */
   owner?: string;
-  /** The message he forwards to his vendor. Empty when there is nobody to forward it to. */
+  /** The message his POS vendor's engineer needs. It carries our field name, so it lives behind a
+   *  copy button and never in the body — printed inline it reads as an instruction to HIM, and
+   *  «حقل branch_id» is not something a workshop owner can act on in any way. */
   request?: string;
   /** How far along the learning is, when waiting is the whole answer. */
   progress?: { have?: number; need?: number };
 }
+
+/** Who can act, in his words. Mirrors insights' `BLOCKED_OWNER_LABEL`; the server sends the key
+ *  and the screen prints the Arabic, so a renamed owner cannot silently keep an old caption. */
+const BLOCKED_OWNER: Record<string, string> = {
+  pos_vendor: 'على مزوّد الكاشير',
+  establishment: 'عليك أنت',
+  time: 'على الوقت',
+  unknown: 'غير محدّد',
+};
 /** Visits credited to a message, and stops per thousand — what the engine moved, and what it cost. */
 interface Effect { ready?: boolean; reason?: string; visits?: number; window_days?: number; partial?: boolean }
 interface OptOut {
@@ -364,6 +383,9 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
    * read tells us within a moment whether he has since decided otherwise.
    */
   const [digest, setDigest] = useState(true);
+  // WHICH ROW'S MESSAGE WAS COPIED. Empty after a failure, so a clipboard the browser refused
+  // never says «نُسخت» — he would paste nothing into a message to his vendor and never learn why.
+  const [copied, setCopied] = useState('');
   /**
    * THE THREE PANELS THE ENGINE COMPUTES AND NOTHING RENDERED.
    *
@@ -620,36 +642,9 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
         </div>
       ) : null}
 
-      {/* THE WEEKLY REPORT, SWITCHED HERE — and it was a severed wire until now. `insights.digest`
-          was declared, served, and called by no screen: §10.6.6 promises that an optional notice
-          can be switched off, and the switch existed everywhere except where a person could reach
-          it. PER PERSON, deliberately (the route says so): a manager may want the report and the
-          owner may not, and one flag on the establishment makes unsubscribing an act that silently
-          switches a colleague off. */}
-      {digestAction ? (
-        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
-          <span className="flex flex-col">
-            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
-            <span className="text-xs text-text-secondary">
-              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={digest}
-            aria-label="تقريري الأسبوعي على واتساب"
-            onChange={async (e) => {
-              const on = e.target.checked;
-              setDigest(on);
-              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
-              // the box ticked teaches him he is subscribed when he is not — and he finds out by
-              // a report that never comes.
-              await call(session, digestAction, { on }).catch(() => setDigest(!on));
-            }}
-            className="size-6 shrink-0 accent-[var(--accent)]"
-          />
-        </label>
-      ) : null}
+      {/* THE WEEKLY REPORT MOVED TO «حسابي ← دخولي». It is one person's WhatsApp preference,
+          and it stood above every number this screen exists to show — so the retention rate was
+          below the fold behind a checkbox. A preference is not a metric. */}
 
       {/* ── 1 · what needs him now ───────────────────────────────────────────────────────
           FIRST, BECAUSE IT IS THE ONLY GROUP WITH A VERB IN IT. A suggested bundle naming 340
@@ -664,16 +659,17 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
             his shop, never the tier: "بعض خدماتك تُطلب معاً" is a fact about him, "هذه في باقة
             أعلى" is a fact about our price list. */}
         {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
-          <section className="flex items-start gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-            <Lock size={18} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-medium">باقات مقترحة</h2>
-              <p className="text-sm text-text-secondary">
-                نكتشف الخدمات التي تُطلب معاً في محلّك، ونقول لك أين الفرصة — والسعر سعرك.
-              </p>
-              <p className="text-xs text-text-secondary">هذه في باقة أعلى.</p>
-            </div>
-          </section>
+          /* ── A LOCKED SURFACE IS ONE LINE, NEVER A CARD ────────────────────────────────
+             It was a four-line card at the top of the screen: a heading, a paragraph selling the
+             engine, and «هذه في باقة أعلى». So the first thing an owner saw on «محلّي» was an
+             advertisement, and every number he actually opened the screen for was below the fold
+             — he had to scroll past our price list to reach his own retention rate.
+             The fact still shows (a surface he cannot see is worse hidden than named), in the
+             space a fact deserves: one line. */
+          <p className="flex items-center gap-2 px-1 text-xs text-text-secondary">
+            <Lock size={14} className="shrink-0" aria-hidden />
+            باقات مقترحة — في باقة أعلى.
+          </p>
         ) : locked.bundles ? (
           <section className="flex items-start gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
             <Lock size={16} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
@@ -863,25 +859,87 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
       <Group title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
       {data.not_enabled && data.not_enabled.length > 0 ? (
         <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-          <h2 className="mb-2 text-sm text-text-secondary">مؤشرات تحتاج بيانات أكثر</h2>
-          {/* SHOW THE GAP, SILENCE ONLY THE CLAIM. These are indicators whose inputs are too thin
-              to be honest yet — and every one of them names something he can do to close it. */}
-          <ul className="flex flex-col gap-2">
+          {/* ── WHAT HE CANNOT SEE, AND WHO CAN CHANGE THAT ──────────────────────────────
+              THE DEFECT, IN HIS OWN WORDS: «ماهي مناسبة لمستخدم بسيط ما راح يفهم شي… وليه ما
+              تظهر أساساً؟» — and both halves were fair.
+
+              The panel printed a CAUSE under a heading about data coverage: «نظام الكاشير لا
+              يرسل الفرع مع العملية», with our API's field name in a grey box beneath it. So a
+              workshop owner read an explanation of a problem nobody had told him he had, followed
+              by an instruction he could not carry out, addressed to somebody who was not him.
+
+              Every row now answers three questions in the order he asks them: what am I missing,
+              why, and what do I do. The technical line is behind a copy button — it is for a
+              stranger's engineer, and printed inline it reads as homework for the owner. */}
+          <h2 className="mb-1 text-sm font-medium">أرقامٌ لا نستطيع عرضها بعد</h2>
+          <p className="mb-3 text-xs text-text-secondary">
+            كلٌّ منها ينقصه شيء واحد — وهذا ما هو، ومن يستطيع إتمامه.
+          </p>
+          <ul className="flex flex-col gap-3">
             {data.not_enabled.map((b) => {
-              const sentence = blockedSentence(b);
-              if (!sentence) return null;
+              const headline = (b.lost ?? '').trim() || blockedSentence(b);
+              if (!headline) return null;
+              const owner = BLOCKED_OWNER[b.owner ?? 'unknown'];
+              const have = b.progress?.have;
+              const need = b.progress?.need;
+              const showBar = typeof have === 'number' && typeof need === 'number' && need > 0;
               return (
-                <li key={b.indicator} className="flex flex-col gap-1 text-sm">
-                  <span>{sentence}</span>
-                  {/* THE TEXT HE FORWARDS, VERBATIM AND SELECTABLE. He sends it to his POS vendor
-                      as it stands; he does not have to explain our API to somebody else's
-                      engineer, which is the step that would otherwise never happen. Absent where
-                      there is nobody to forward it to — «الموظفون لا يسجّلون دخولهم» is his own
-                      shop's to fix. */}
+                <li key={b.indicator}
+                    className="flex flex-col gap-1 border-t border-border-subtle pt-3 first:border-0 first:pt-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{headline}</span>
+                    {/* «هل هذه عليّ أنا؟» — answered before he finishes the sentence. «على الوقت»
+                        is on this list too, because «nobody has to do anything» is an answer, and
+                        the most reassuring one. */}
+                    {owner ? <Badge tone="neutral">{owner}</Badge> : null}
+                  </div>
+                  {b.why ? <span className="text-sm text-text-secondary">{b.why}</span> : null}
+                  {/* A BAR, NOT A SENTENCE, WHERE WAITING IS THE ANSWER. «يحتاج زياراتٍ أكثر»
+                      with no sense of how close he is reads as indefinite, and indefinite reads
+                      as never. */}
+                  {showBar ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                        <div className="h-full rounded-full bg-[var(--accent)]"
+                             style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%` }} />
+                      </div>
+                      <span className="text-xs text-text-secondary">{have} من {need}</span>
+                    </div>
+                  ) : null}
+                  {b.do ? <span className="text-sm">{b.do}</span> : null}
+                  {/* THE MESSAGE FOR SOMEBODY ELSE'S ENGINEER. Copied, never read aloud to the
+                      owner: it names one of our fields, and he cannot act on that in any way. */}
                   {b.request ? (
-                    <span className="select-all rounded-card bg-surface-2 p-2 text-xs text-text-secondary">
-                      {b.request}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // A COPY THAT FAILS SAYS SO. Told «تم النسخ» over an empty clipboard, he
+                        // pastes nothing into a message to his vendor and never learns why.
+                        // AND A BROWSER WITH NO CLIPBOARD IS THE SAME FAILURE, reached one step
+                        // earlier — `navigator.clipboard` is undefined over plain http and in
+                        // older phone browsers, and the optional chain would have made that a
+                        // silent no-op: he taps, nothing happens, nothing explains why.
+                        const write = navigator.clipboard?.writeText(b.request ?? '');
+                        if (!write) { setCopied(`!${b.indicator}`); return; }
+                        write.then(() => setCopied(b.indicator))
+                          .catch(() => setCopied(`!${b.indicator}`));
+                      }}
+                      className="self-start rounded-card bg-surface-2 px-3 py-1.5 text-xs">
+                      {copied === b.indicator
+                        ? 'نُسخت — أرسلها له'
+                        : copied === `!${b.indicator}`
+                          ? 'تعذّر النسخ — ظلّلها بإصبعك وانسخها'
+                          : 'انسخ الرسالة لمزوّد الكاشير'}
+                    </button>
+                  ) : null}
+                  {/* «ظلّلها بإصبعك» IS AN INSTRUCTION ABOUT SOMETHING HE CAN SEE. Told to select
+                      text by hand while the text is still behind the button that just failed, he
+                      is told to do the impossible — so the failure is the one state that puts the
+                      sentence on the screen. It stays hidden otherwise: it is written for his
+                      vendor's engineer, and printing it in the body is the defect this whole
+                      panel was rebuilt to remove. */}
+                  {b.request && copied === `!${b.indicator}` ? (
+                    <p className="select-all rounded-card bg-surface-2 p-2 text-xs">{b.request}</p>
                   ) : null}
                 </li>
               );

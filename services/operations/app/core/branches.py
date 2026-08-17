@@ -70,9 +70,14 @@ async def resolve(store: Any, tenant: str, branch_id: str) -> str:
     NOT SILENT. It is logged with the id, because a till sending a wrong branch on every visit is
     an integration fault worth seeing rather than a shrug repeated ten thousand times.
 
-    AND AN EMPTY BRANCH STAYS EMPTY — never rewritten to the main one. The spec makes branch
-    optional on every operation, and inventing a place for a shop that did not name one would put
-    a number under «الفرع الرئيسي» that nobody claimed.
+    AND AN EMPTY BRANCH STAYS EMPTY — never rewritten to the main one. Inventing a place for a
+    caller that named none would put a number under «الفرع الرئيسي» that nobody claimed, which is
+    a quieter lie than «غير محدد» and a harder one to notice.
+
+    THE TILL NO LONGER REACHES THIS WITH AN EMPTY VALUE, because its door now requires the field
+    and refuses an id this shop does not have (api/v1/till.py, §12.2). What still arrives empty is
+    our own field screen, where the branch comes from the operator's row rather than the request —
+    so «empty» there means «nobody is assigned», which is a true thing to record.
     """
     wanted = (branch_id or "").strip()
     if not wanted:
@@ -89,5 +94,17 @@ async def known(store: Any, tenant: str) -> set[str]:
     RETIRED ONES INCLUDED, and deliberately. This set answers "is the id on this visit real", and
     a branch closed last week is still where yesterday's visit happened. What a deactivated branch
     must not do is appear in a picker, and that is a question about listing, not about validity.
+
+    AND THE MAIN BRANCH IS IN IT WHETHER OR NOT ITS ROW WAS EVER WRITTEN. The id is fixed and ours,
+    this module already treats it as the one place that cannot be deactivated because everything
+    falls back to it — and yet the ROW is written by `ensure_main` at signup, so a shop provisioned
+    by any path that skipped that call owns zero branches. Reading the store alone, `resolve` then
+    answers «not a real branch» about the shop's own main branch, and every visit it records lands
+    with no place at all: «قارن فروعك» silently empty for a missing row rather than a missing shop.
+    That was not a hypothetical — it is what the crossing test found, on a visit that named
+    `brn-main` and was stored with «».
+
+    THIS IS A QUESTION ABOUT VALIDITY, which is why the answer belongs here and not at each caller.
+    Listing is a different question and reads the store directly.
     """
-    return {b.id for b in await store.list(tenant)}
+    return {b.id for b in await store.list(tenant)} | {MAIN}

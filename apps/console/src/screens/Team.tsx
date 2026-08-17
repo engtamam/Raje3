@@ -582,7 +582,10 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
   return (
     <div className="flex flex-col gap-4">
       <ModeCard session={session} catalog={catalog} />
-      <VehiclesCard session={session} catalog={catalog} />
+      {/* «العمل على السيارات» MOVED TO «حسابي ← منشأتي». It stood among the branch settings, which
+          made it read as a per-branch switch — and it is not one: `operations.shop_vehicles` is a
+          fact about the WHOLE establishment, and a shop cannot work on cars in one branch and not
+          another. It belongs with the shop's identity, which is where it now is. */}
       <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       {isLoading(branches) ? (
         <Skeleton height={120} />
@@ -656,7 +659,7 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
  * from a trade we have never seen is wrong on its first day, and correcting a guess is more work
  * than writing the truth once.
  */
-function VehiclesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function VehiclesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
   const read = action(catalog, 'operations.shop_vehicles');
   const write = action(catalog, 'operations.set_shop_vehicles');
   const [tracks, setTracks] = useState<boolean | null | undefined>(undefined);

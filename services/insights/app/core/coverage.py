@@ -73,26 +73,59 @@ def can_rank(ordered: list[tuple[str, int]], unknown: int) -> bool:
 
 
 # ── the list of what cannot run yet, and who owns the fix ─────────────────────────────────────
-# Each entry names the cause in the owner's words and WHO can act — because "branch comparison
-# unavailable" tells him nothing, while "your POS does not send the branch" tells him whom to ask.
+# FOUR FIELDS, AND THE FIRST ONE WAS MISSING FOR A YEAR.
+#
+# The panel used to print `why` alone — «نظام الكاشير لا يرسل الفرع مع العملية» — under a heading
+# that said «مؤشرات تحتاج بيانات أكثر». A cause with no consequence and no next step, to somebody
+# who never asked the question. The owner's own reading of it was «ماني فاهم».
+#
+#   lost   WHAT HE CANNOT SEE. The consequence, first, because it is the only part he has a reason
+#          to care about. «لا تقدر تقارن فروعك» is a loss; «التغطية دون 40%» is a statistic.
+#   why    the cause, in the words of somebody who has never seen our API.
+#   do     THE ONE NEXT STEP. Not a list — one sentence, and it is an instruction rather than a
+#          description, because a description leaves him deciding whether it was addressed to him.
+#   owner  who can actually act. It decides the sentence above, and the screen shows it as a chip
+#          so the answer to «is this mine?» arrives before he finishes reading.
+#
+# `request` IS FOR A STRANGER'S ENGINEER, NOT FOR HIM. It carries our field name, so the screen
+# keeps it behind a copy button and never in the body: printed inline it reads as an instruction
+# to the owner, and he cannot act on «حقل branch_id» in any way at all.
 BLOCKED_REASONS = {
     "branch_comparison": {
-        "why": "نظام الكاشير لا يرسل الفرع مع العملية",
-        "owner": "pos_vendor",
-        # The text he forwards. He presses copy and sends; he does not have to explain our API to
-        # somebody else's engineer, which is the step that would otherwise never happen.
-        "request": "نرجو إرسال حقل branch_id مع كل عملية في طلب تسجيل الزيارة.",
+        "lost": "لا تقدر تقارن فروعك",
+        "why": "زياراتٌ قديمة سُجّلت قبل أن نعرف من أيّ فرع جاءت، فتُحسب كلها معاً.",
+        "do": "الجديد يُسجَّل بفرعه تلقائياً — والمؤشر يفتح مع تراكم الزيارات الجديدة.",
+        "owner": "time",
+        # The text he forwards, KEPT for the one case that still needs somebody else's engineer: a
+        # register that refuses to send a branch and therefore has all its sales rejected at the
+        # door. He presses copy and sends; he does not have to explain our own field names to a
+        # vendor, which is the step that would otherwise never happen.
+        "request": "نرجو إرسال branch_id مع كل عملية — صار حقلاً إلزامياً وترفض راجِع العملية بدونه.",
     },
     "staff_performance": {
-        "why": "الموظفون لا يسجّلون دخولهم، فالعمليات غير منسوبة",
+        "lost": "لا تقدر تعرف إنتاجية كل موظف",
+        "why": "الزيارات تُسجَّل بلا اسم من سجّلها، فلا تُنسب إلى أحد.",
+        "do": "اطلب من فريقك تسجيل الدخول بحساباتهم قبل تسجيل أي زيارة.",
         "owner": "establishment",
         "request": "",
     },
     "associations": {
-        "why": "لم تكتمل بيانات التعلّم بعد",
+        "lost": "لا نعرف بعد ما الذي يُطلب مع ماذا",
+        "why": "التعرّف على الاقترانات يحتاج زياراتٍ أكثر ليصير الاستنتاج صحيحاً لا صدفة.",
+        "do": "لا شيء عليك — يكتمل وحده مع زيارات محلّك.",
         "owner": "time",
         "request": "",
     },
+}
+
+#: Who can act, in his words. Shown as a chip so «هل هذه عليّ أنا؟» is answered before the sentence
+#: is finished — and «الوقت» is on the list because «nobody has to do anything» is an answer too,
+#: and the most reassuring one.
+BLOCKED_OWNER_LABEL = {
+    "pos_vendor": "على مزوّد الكاشير",
+    "establishment": "عليك أنت",
+    "time": "على الوقت",
+    "unknown": "غير محدّد",
 }
 
 
@@ -110,5 +143,12 @@ def blocked(indicator: str, *, coverage: Coverage | None = None,
         return d
     if coverage is not None and coverage.total and coverage.ratio < 0.4:
         return dict(BLOCKED_REASONS.get(indicator) or
-                    {"why": "لا تكفي البيانات", "owner": "unknown", "request": ""})
+                    # AN INDICATOR WE HAVE NO SENTENCE FOR STILL SAYS WHAT IS LOST. The fallback
+                    # used to carry `why` alone, so a new indicator would draw a bullet reading
+                    # «لا تكفي البيانات» — the exact shape of unhelpfulness this table exists to
+                    # end. Whoever adds the indicator adds its three sentences; until then this is
+                    # honest about being unspecific rather than pretending to be a cause.
+                    {"lost": "مؤشّر لا يعمل بعد",
+                     "why": "لا تكفي البيانات المسجّلة حتى الآن.",
+                     "do": "", "owner": "unknown", "request": ""})
     return None

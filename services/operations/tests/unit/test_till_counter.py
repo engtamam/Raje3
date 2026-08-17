@@ -219,7 +219,7 @@ def test_redemption_passes_the_tills_own_idempotency_key_through_untouched():
 def test_a_refusal_travels_back_in_the_words_the_ledger_used():
     """«رصيده لا يكفي» is a sentence the cashier reads to the customer; «409» is one he cannot."""
     desk = _Desk(redeem={"_status": 409, "_reason": "رصيده لا يكفي"})
-    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1", idempotency_key="k")
+    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k")
     out = asyncio.run(till_routes.redeem_at_the_counter(
         _request(_Ops(customer=_Customer()), desk), body, principal=_Principal()))
     assert out["ok"] is False and out["reason"] == "REFUSED"
@@ -230,7 +230,7 @@ def test_a_dead_peer_is_told_apart_from_a_refusal():
     """They are not the same event: one is retryable and one is final, and a till that cannot tell
     them apart either retries a legitimate refusal for ever or drops a recoverable failure."""
     desk = _Desk(redeem=None)
-    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1", idempotency_key="k")
+    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k")
     out = asyncio.run(till_routes.redeem_at_the_counter(
         _request(_Ops(customer=_Customer()), desk), body, principal=_Principal()))
     assert out["ok"] is False and out["reason"] == "UNAVAILABLE"
@@ -240,7 +240,7 @@ def test_redemption_is_audited_before_it_happens():
     """A customer's balance is being spent by a machine. A write-ahead the log could not take must
     not occur — the same rule the visit path already follows."""
     req = _request(_Ops(customer=_Customer()), _Desk(redeem={"transaction_ref": "x"}))
-    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1", idempotency_key="k")
+    body = till_routes.TillRedeemIn(phone="0500000000", reward_id="r1", branch_id="brn-main", idempotency_key="k")
     asyncio.run(till_routes.redeem_at_the_counter(req, body, principal=_Principal()))
     actions = [a for a, _ in req.app.state.auditor.calls]
     assert "loyalty.redeemed" in actions
@@ -252,7 +252,7 @@ def test_a_credential_bound_to_no_establishment_is_refused_on_both_routes():
     nobody = _Principal(tenant="")
     read = asyncio.run(till_routes.customer_at_the_counter(
         _request(_Ops(), _Desk()), phone="05", principal=nobody))
-    body = till_routes.TillRedeemIn(phone="05", reward_id="r", idempotency_key="k")
+    body = till_routes.TillRedeemIn(phone="05", reward_id="r", idempotency_key="k", branch_id="brn-main")
     write = asyncio.run(till_routes.redeem_at_the_counter(
         _request(_Ops(), _Desk()), body, principal=nobody))
     assert read["found"] is False
@@ -273,7 +273,10 @@ def test_the_two_fields_a_redemption_cannot_be_without(field):
 
 
 def _visit(**kw):
-    base = {"phone": "0500000000", "occurred_at": 1_750_000_000}
+    # THE BRANCH IS PART OF EVERY SALE NOW, so the shared builder carries one: a register that
+    # does not name a place is refused at the door (§12.2, Tamam 18 Aug 2026), and a fixture
+    # without it would be testing a request no till can send.
+    base = {"phone": "0500000000", "occurred_at": 1_750_000_000, "branch_id": "brn-main"}
     base.update(kw)
     return till_routes.TillVisitIn(**base)
 
@@ -341,7 +344,8 @@ def test_a_sale_with_nothing_stable_on_it_is_refused_with_a_sentence():
     """A till that sends no key, no invoice number and no time of sale has given us no way to tell
     a retry from a second sale — and inventing one from OUR clock is what doubled a shop's
     history. The refusal names all three so their engineer reads instead of guessing."""
-    body = till_routes.TillBatchIn(visits=[till_routes.TillVisitIn(phone="0500000000")])
+    body = till_routes.TillBatchIn(visits=[till_routes.TillVisitIn(phone="0500000000",
+                                                              branch_id="brn-main")])
     request = _request(_Ops(), _Desk())
     out = asyncio.run(till_routes.record_from_till(request, body, principal=_Principal()))
     assert out["accepted"] == 0
@@ -367,8 +371,8 @@ def test_a_shop_without_the_licence_is_refused_per_item_and_leaves_a_health_row(
             return False
 
     body = till_routes.TillBatchIn(visits=[
-        till_routes.TillVisitIn(phone="0500000000", invoice_id="1"),
-        till_routes.TillVisitIn(phone="0500000001", invoice_id="2")])
+        till_routes.TillVisitIn(phone="0500000000", invoice_id="1", branch_id="brn-main"),
+        till_routes.TillVisitIn(phone="0500000001", invoice_id="2", branch_id="brn-main")])
     request = _request(_Ops(), _Desk(), api_licence=_RefusingLicence())
     out = asyncio.run(till_routes.record_from_till(request, body, principal=_Principal()))
 

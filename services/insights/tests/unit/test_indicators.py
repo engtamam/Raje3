@@ -195,8 +195,22 @@ def test_a_single_branch_is_never_ranked():
 
 
 def test_the_blocked_reason_names_who_owns_the_fix():
+    """Who the owner has to wait on — and for the branch gap that answer CHANGED.
+
+    IT USED TO BE `pos_vendor`, and that was right while `branch_id` was optional on the till door:
+    the register genuinely could withhold it, for ever, and only its vendor could decide otherwise.
+    The field became mandatory (§12.2, operations/api/v1/till.py), so a sale with no branch is no
+    longer something anybody can send — what remains under «غير محدد» is visits recorded BEFORE the
+    rule, which nobody can go back and place. The owner of that fix is time.
+
+    THE REVERSAL IS RECORDED RATHER THAN QUIETLY EDITED: a test that flips its expected value with
+    no explanation reads, a year later, as a test that was wrong once and may be wrong now.
+    """
     b = blocked("branch_comparison", coverage=Coverage(total=1000, known=100))
-    assert b["owner"] == "pos_vendor" and "branch_id" in b["request"]
+    assert b["owner"] == "time"
+    # AND HE IS NOT TOLD TO WAIT WITHOUT BEING TOLD WHY IT WILL RESOLVE. «الجديد يُسجَّل بفرعه» is
+    # the half that makes waiting reasonable rather than indefinite.
+    assert "الجديد" in b["do"], b["do"]
 
 
 def test_the_learning_state_carries_progress_not_just_a_sentence():

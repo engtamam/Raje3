@@ -510,6 +510,22 @@ jobs:
       - name: the consent sentence shown is the sentence recorded
         run: python3 ci/check_the_consent_sentence_shown_is_the_sentence_recorded.py
 
+      # `branch_id` was optional on the till door, so most registers never sent it and every
+      # branch's visits landed in one heap — «قارن فروعك» switched off for exactly the chains that
+      # bought the product for it, and unrecoverable afterwards: nothing in the record says where
+      # any of it happened. Made mandatory while no register is integrated yet, because after
+      # launch the same line costs an outage instead of a paragraph in the integration guide.
+      - name: the till cannot file work in a place it did not name
+        run: python3 ci/check_the_till_cannot_file_work_in_a_place_it_did_not_name.py
+
+      # A shop owner read «نرجو إرسال حقل branch_id مع كل عملية» on his own dashboard. The sentence
+      # was written for his POS vendor's engineer and is right for that reader — it was printed in
+      # the body, where it reads as an instruction to a man who cannot act on it. Nobody writes this
+      # deliberately: it happens whenever the author is thinking about the system instead of the
+      # reader, which is the ordinary state of mind while writing that code.
+      - name: no engineer's words reach a shop owner
+        run: python3 ci/check_no_engineer_words_reach_a_shop_owner.py
+
       # portal mints `{tenant}.{subject}` and reminders composes the URL a customer taps. Their
       # patterns disagreed on the separator, so every address — the page, the grant screen and the
       # mandatory one-tap stop — would have been refused at render. Invisible until the first

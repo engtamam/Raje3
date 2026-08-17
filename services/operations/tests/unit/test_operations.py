@@ -396,15 +396,44 @@ def test_a_branch_the_shop_really_has_is_kept(ops):
 
 
 def test_another_shops_branch_is_not_a_branch_here(ops):
-    """Tenant isolation on the check itself — B's real branch must not validate for A."""
+    """Tenant isolation on the check itself — B's real branch must not validate for A.
+
+    THE ID HAS TO BE ONE B ACTUALLY CHOSE. This test used to prove the point with `BR.MAIN`, which
+    stopped proving anything the moment the main branch became valid for every shop by definition
+    (core/branches.py): `brn-main` is not «B's branch» that A borrowed — it is the fixed name of
+    each shop's OWN main branch, and A recording against it reads none of B's rows. The leak worth
+    guarding is a branch B created and named, which is what this now uses.
+    """
     svc, store = ops
     from app.core import branches as BR
+    from app.core.models import Branch
     from app.core.stores import BranchStore
 
-    run(BR.ensure_main(BranchStore(store), tenant=B))
+    run(BranchStore(store).save(Branch(id="brn-jeddah", tenant=B, name="جدة", created=1)))
     out = run(svc.record_visit(tenant=A, phone="0501234567", service_ids=["srv_1"],
+                               branch_id="brn-jeddah"))
+    assert out.visit.branch_id == "", "A filed work in a place only B has"
+
+
+def test_the_main_branch_is_this_shops_own_even_before_its_row_is_written(ops):
+    """A shop whose main-branch row was never written still records against its main branch.
+
+    THE FAILURE THIS PREVENTS, WHICH WAS REAL. `ensure_main` writes the row at signup, and any
+    provisioning path that skipped that call left a shop owning zero branches — so `resolve` called
+    its own main branch «not a real branch» and every visit landed with no place at all. On a
+    register, where the field is now mandatory, that surfaces as every sale refused at the door;
+    on our own screen it silently empties the branch column. Both for a missing row rather than a
+    missing shop.
+
+    IT IS NOT A CROSS-TENANT READ. The id is a constant of ours, resolved against this tenant's own
+    set — see the test above for the isolation this does not weaken.
+    """
+    svc, _ = ops
+    from app.core import branches as BR
+
+    out = run(svc.record_visit(tenant=A, phone="0501234599", service_ids=["srv_1"],
                                branch_id=BR.MAIN))
-    assert out.visit.branch_id == ""
+    assert out.visit.branch_id == BR.MAIN
 
 
 # ── the operator's branch is the authority ────────────────────────────────────────────────────

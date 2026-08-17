@@ -257,11 +257,23 @@ def test_a_shop_with_nothing_found_gets_no_teaser(client, owner):
 
 
 # ── coverage, through the door ─────────────────────────────────────────────────────────────────
-def test_a_missing_branch_field_names_the_pos_vendor_as_the_owner_of_the_fix(client, owner):
+def test_a_missing_branch_field_names_who_the_owner_is_actually_waiting_on(client, owner):
+    """The panel names an owner for the gap, and for the branch it is no longer the POS vendor.
+
+    THE REVERSAL, RECORDED. While `branch_id` was optional on the till door, a register could
+    withhold it for ever and only its vendor could decide otherwise — `pos_vendor` was the honest
+    answer. The field is mandatory now (§12.2), so no register can send a branchless sale at all:
+    what is left under «غير محدد» is visits recorded before the rule, and nobody can go back and
+    place those. Time owns it.
+
+    THE `request` TEXT SURVIVES ANYWAY, for the one case that still needs somebody else's engineer:
+    a register whose driver never learned the field and now has every sale refused at the door.
+    """
     _seed(client, visits(30))               # not one carries a branch
     got = client.get("/api/v1/insights/dashboard", headers=owner).json()
     entry = next(e for e in got["not_enabled"] if e["indicator"] == "branch_comparison")
-    assert entry["owner"] == "pos_vendor" and entry["request"]
+    assert entry["owner"] == "time"
+    assert entry["request"], "the message he forwards to a vendor must still exist"
 
 
 def test_good_coverage_reports_nothing_blocked(client, owner):
