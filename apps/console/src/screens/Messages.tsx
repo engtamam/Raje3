@@ -422,6 +422,34 @@ export function MessagesScreen(
               engine the first time a reason changed, and he would be reading a promise nothing
               keeps. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
+          {/* ── what this list is, in one line, before he reads thirteen rows ────────────────
+              «عدد الرسائل قليل» was the first reading of a flat list — and it was a reading, not
+              a fact: the four promotional reasons were always here, indistinguishable from the
+              rest. The count says what he has; the badges say which is which; and the sentence
+              below answers the question the count raises next, which is where the campaigns went. */}
+          {Array.isArray(reasons) && reasons.length > 0 ? (
+            <div className="flex flex-col gap-1 px-1">
+              <p className="text-sm text-text-secondary">
+                {`${reasons.length} سبباً يرسل باسم محلّك — `}
+                {Object.entries(
+                  reasons.reduce<Record<string, number>>((acc, r) => {
+                    const k = r.cls_label ?? 'أخرى';
+                    acc[k] = (acc[k] ?? 0) + 1;
+                    return acc;
+                  }, {}),
+                )
+                  .map(([label, n]) => `${n} ${label}`)
+                  .join(' · ')}
+              </p>
+              {/* THE PROMOTIONAL ROWS HERE FIRE THEMSELVES; a campaign is one he presses send on.
+                  Both are marketing and both need his customer's consent — the difference is who
+                  decides the moment, and a screen that shows one without naming the other reads
+                  as a product missing half its features. */}
+              <p className="text-xs text-text-secondary">
+                التسويقية هنا تنطلق وحدها عند حدوث سببها. أما ما تُطلقه أنت بنفسك فهو في «حملاتي».
+              </p>
+            </div>
+          ) : null}
           {isLoading(reasons) ? (
             <Skeleton height={200} />
           ) : isDenied(reasons) ? (
