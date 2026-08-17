@@ -314,6 +314,14 @@ jobs:
       - name: what a person may see is a set not one branch
         run: python3 ci/check_what_a_person_may_see_is_a_set_not_one_branch.py
 
+      # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
+      # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
+      # gate sweep is what runs before a bundle is packed and an installer is called, and the
+      # installer stops at the first unrenderable release leaving the fleet half-deployed. A guard
+      # that runs in one place and not the other has a hole the shape of that other place.
+      - name: every values file renders against the chart
+        run: python3 ci/check_every_values_file_renders_against_the_chart.py
+
       # AND AN IDEMPOTENCY KEY IS DERIVED, NEVER DRAWN. The key is the crossing guard: the quota,
       # the notifier and the send log all recognise a repeat by it. `tick.py` minted one with
       # `uuid4()` for a row that had never been sent — so two replicas winning the same claim
