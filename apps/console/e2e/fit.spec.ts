@@ -3,8 +3,10 @@
  *
  * THE EARLIER VERSION OF THIS TEST PASSED WHILE THE SCREEN WAS BROKEN. It measured the page's
  * scroll height and the arrows' position, both of which were fine: the journey sized itself to the
- * window correctly, and the overflow was one level down, inside the pane, where the keypad was
- * taller than the room the pane had. The owner saw a scrollbar next to the digits and I saw green.
+ * window correctly, and the overflow was one level down, inside the pane, where the on-screen pad
+ * was taller than the room the pane had. The owner saw a scrollbar next to the digits and I saw
+ * green. (The pad is gone now — every device that runs this brings its own keyboard — but the
+ * assertion it forced is the right one and stays.)
  *
  * So this asserts on the PANE's own overflow, which is the thing that was actually wrong.
  */
@@ -30,7 +32,7 @@ for (const [w, h] of SIZES) {
 
       // THE SERVICE LIST IS ALLOWED TO SCROLL INSIDE ITS PANE, and only it. A shop sells more
       // than a screenful and always will; what must never scroll is a step that asks for ONE
-      // value — the plate, the number — where a keypad pushed below the fold is the whole
+      // value — the plate, the number — where a field pushed below the fold is the whole
       // complaint this file exists for. The arrows stay fixed either way.
       if (!title.includes('الخدمات')) {
         expect(overflow, `«${title}» تحتاج تمريراً عند ${w}×${h}`).toBeLessThanOrEqual(2);

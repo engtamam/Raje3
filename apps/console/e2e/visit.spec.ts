@@ -94,7 +94,7 @@ test('the services come from his own catalogue, not from a list in the app', asy
    *
    * `aria-pressed` IS THE ASSERTION, and it is not a technicality: a service tile is a toggle, and
    * an element that carries the state is one a screen reader — and this test — can read. Counting
-   * "buttons" would have counted the keypad.
+   * "buttons" would have counted every digit control on screen.
    */
   await open(shop, '/visit');
 
@@ -134,7 +134,7 @@ test('a partial plate finds the car — the operator reads four characters, not 
    *
    * WHAT IT COSTS: he types what he read off the bumper, sees nothing, concludes the customer is
    * new, and registers him a second time — the visit history splits and the reminders go to a
-   * record with one visit on it. The same failure the phone keypad has a suggest call to prevent.
+   * record with one visit on it. The same failure the phone field has a suggest call to prevent.
    */
   const phone = customerPhone();
   // RANDOM, NOT CLOCK-DERIVED. `Date.now()`'s last four digits repeat every ten seconds, so two

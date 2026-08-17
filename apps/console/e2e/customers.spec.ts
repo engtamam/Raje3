@@ -11,7 +11,7 @@ test('the list renders, and an empty one says so rather than showing nothing', a
   expect(body).toMatch(/[؀-ۿ]/);
 });
 
-test('the keypad finds a customer by part of his number', async ({ shop }) => {
+test('the number field finds a customer by part of his number', async ({ shop }) => {
   /**
    * THE ROUTE THIS NEEDS WAS MISSING FROM THE GATEWAY, and a browser found it: every keystroke
    * 404'd on /api/v1/search, so searching simply did not work — and nothing in any service log

@@ -19,7 +19,6 @@ import {
   sentenceFor,
 } from '../api';
 import { asLocal } from '../phone';
-import { Keypad } from '../Keypad';
 import { Button } from '@base-ui/design-system/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
@@ -473,13 +472,11 @@ export function Visit() {
               </button>
             ) : null}
 
-            {/* CENTRED IN WHAT IS LEFT, AND NEVER TALLER THAN A HAND. `flex-1` alone made the pad
-                eat every spare pixel on a tall window — four rows stretched into slabs, sitting
-                high with a void beneath them. It takes the space it needs and gives the rest
-                back. */}
-            <div className="touch-only my-auto min-h-0 w-full flex-1 self-center" style={{ maxHeight: '22rem' }}>
-                <Keypad value={phone} onChange={setPhone} />
-              </div>
+            {/* THE ON-SCREEN PAD IS GONE, BY DECISION. It was built for a wall-mounted tablet with
+                no keyboard of its own; every device this actually runs on — a phone, a laptop —
+                brings one, and `inputMode="tel"` above raises the numeric one on touch. So the pad
+                was a second keyboard competing with the device's own, taking the bottom half of the
+                screen away from the matches, which are the part he is waiting for. */}
             </div>
 
   );
