@@ -40,13 +40,14 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.core.operations import OperationError
+from app.core.till_budget import LookupRefused, count_lookup, note_visit
 
 router = APIRouter(prefix="/till", tags=["till"])
 
@@ -275,6 +276,13 @@ async def record_from_till(request: Request, body: TillBatchIn,
                     key=lambda r: r.get("index") if isinstance(r.get("index"), int) else 10**9)
     out = {**out, "results": merged, "total": len(body.visits)}
 
+    # THE WORK THAT BUYS THE LOOKUPS (till_budget.py). Every accepted visit raises this
+    # credential's lookup allowance for the day. A busy counter therefore never meets the ceiling,
+    # and a credential that reads far more customers than it serves does — which is the only shape
+    # extraction can take.
+    for _ in range(int(out.get("accepted") or 0)):
+        await note_visit(request.app.state.container.datastore, tenant, principal.subject)
+
     # AND THE LINK'S PULSE IS WRITTEN HERE, where a till is known to be a till.
     #
     # A shop whose point-of-sale stops posting believes its visits are being recorded and we
@@ -321,6 +329,24 @@ async def customer_at_the_counter(request: Request, phone: str = "", plate: str 
         return {"found": False, "message": "هذا الاعتماد غير مرتبط بمنشأة."}
     tenant = principal.tenant
     svc = request.app.state.container.operations
+
+    # CHARGED BEFORE THE READ, AND IT IS A RATIO NOT A WINDOW (till_budget.py).
+    #
+    # This route answers with a name, a visit count, a points balance and the rewards the customer
+    # can take — which is exactly what a counter needs, and is also an extraction interface if you
+    # iterate the phone number space. The per-window rate limit above bounds a BURST; it does not
+    # stop a patient extractor, and a till credential lives for years in a vendor's hands.
+    #
+    # So the allowance is tied to work actually done: a till that recorded forty visits today has
+    # no business making five thousand lookups today. Generous enough that no real counter ever
+    # meets it; small enough that «read the whole book» is not reachable.
+    try:
+        await count_lookup(request.app.state.container.datastore, tenant, principal.subject)
+    except LookupRefused as exc:
+        # 429, NOT 403. The credential is legitimate and the vendor's client should back off and
+        # tell somebody, rather than conclude it has been revoked and stop serving the counter.
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                            detail=str(exc)) from exc
 
     c = None
     if phone.strip():
