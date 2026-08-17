@@ -439,6 +439,42 @@ jobs:
       - name: money crosses the boundary in one place
         run: python3 ci/check_money_crosses_the_boundary_in_one_place.py
 
+      # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
+      #
+      # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already
+      # paid for once, and each was inert the whole time — which is the same failure as د-2's
+      # unused guard and the console's unwired i18n provider, one level up: the artefact LOOKS
+      # like protection to anybody who greps for one.
+      #
+      # `check_every_gate_is_wired_into_ci` below is what makes an eighth impossible. It found
+      # these, and it found ITSELF on its first run.
+      - name: a machine credential cannot enumerate customers
+        run: python3 ci/check_a_machine_credential_cannot_enumerate_customers.py
+
+      - name: a money movement names a cause that survives a retry
+        run: python3 ci/check_a_money_movement_names_a_cause_that_survives_a_retry.py
+
+      - name: a read that meant everything admits it stopped
+        run: python3 ci/check_a_read_that_meant_everything_admits_it_stopped.py
+
+      - name: a time bound sent to the platform is a string
+        run: python3 ci/check_a_time_bound_sent_to_the_platform_is_a_string.py
+
+      - name: a workflow lives where github reads it
+        run: python3 ci/check_a_workflow_lives_where_github_reads_it.py
+
+      - name: every state a row enters has a way out
+        run: python3 ci/check_every_state_a_row_enters_has_a_way_out.py
+
+      - name: the backup roster is decided not inherited
+        run: python3 ci/check_the_backup_roster_is_decided_not_inherited.py
+
+      # THE ONE THAT KEEPS THE REST HONEST. No exceptions table: a gate too unfinished to run is
+      # too unfinished to commit, and one deliberately kept out would need a reason that survives
+      # being written next to the rule it breaks.
+      - name: every gate is wired into ci
+        run: python3 ci/check_every_gate_is_wired_into_ci.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
