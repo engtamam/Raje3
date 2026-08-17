@@ -1049,3 +1049,59 @@ def test_the_rungs_index_reaches_the_template_choice(st):
     second = _send_template(MemoryDataStore(), tone_index=2)
 
     assert first != second, "the second rung must not repeat the first word for word"
+
+
+# ── the claim that was abandoned mid-send ──────────────────────────────────────────────────────
+#
+# WHAT THESE LOCK DOWN, AND IT WAS COMPLETELY SILENT. `_claim` moves a row to `sending` before it
+# calls anything external. If the process dies between that write and the one that follows — a
+# deploy, an eviction, an OOM — the row stayed `sending` for ever: never selected by `due()`, which
+# reads `pending`; never reported, because it is not `sent` or `failed`. The reminder simply never
+# happened and nobody found out.
+#
+# `_fail()` already returns a row to `pending` rather than closing it, with a comment saying a
+# closed schedule is a reminder that silently never happens. That covers an exception being RAISED.
+# Process death raises nothing, and it is the commonest event during a deploy.
+def test_a_claim_abandoned_mid_send_is_swept_back_and_delivered(st):
+    from app.core.stores import CLAIM_LEASE_SECONDS
+
+    s = sched(st)
+    store = ScheduleStore(st)
+
+    # A worker claimed it and never came back — this is exactly what the row looks like afterwards.
+    row = run(store.get(s.key))
+    row["state"] = "sending"
+    row["claimed_at"] = at(10) - CLAIM_LEASE_SECONDS - 60
+    run(store.upsert("t1", s.key, row))
+
+    sender = FakeSender()
+    go(st, sender, now=at(10))
+
+    assert sender.calls, "the abandoned reminder was never re-sent — the customer lost it"
+    assert run(store.get(s.key)).get("state") != "sending"
+
+
+def test_a_claim_still_inside_its_lease_is_left_alone(st):
+    """Reclaiming a slow send would deliver the message twice. The lease is the whole guard."""
+    s = sched(st)
+    store = ScheduleStore(st)
+
+    row = run(store.get(s.key))
+    row["state"] = "sending"
+    row["claimed_at"] = at(10) - 30          # claimed half a minute ago; its owner is alive
+    run(store.upsert("t1", s.key, row))
+
+    sender = FakeSender()
+    go(st, sender, now=at(10))
+
+    assert not sender.calls, "a live claim was stolen — the customer would get two messages"
+
+
+def test_the_claim_is_stamped_so_it_can_ever_be_reclaimed(st):
+    """Without `claimed_at`, a stranded row is indistinguishable from one claimed a second ago."""
+    sched(st)
+    sender = FakeSender()
+    go(st, sender, now=at(10))
+
+    row = run(ScheduleStore(st).get("t1|sub_a|oil|reminder"))
+    assert int(row.get("claimed_at") or 0) > 0, "nothing stamped the claim"

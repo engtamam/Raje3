@@ -27,6 +27,12 @@ ENGAGEMENT = "engagement"
 
 _PAGE = 100
 
+# HOW LONG A CLAIM IS BELIEVED. A row sits in `sending` from the moment the tick claims it until
+# the send resolves; past this it is treated as abandoned and swept back into `due()`. Far longer
+# than any real send, because reclaiming a slow one would deliver the message twice — and shorter
+# than a day, because the whole point is that the customer's reminder still happens.
+CLAIM_LEASE_SECONDS = 900
+
 
 class _Base:
     collection = ""
@@ -68,15 +74,37 @@ class ScheduleStore(_Base):
         return rows
 
     async def due(self, tenant: str, *, now: int, limit: int = _PAGE) -> list[dict[str, Any]]:
-        """Pending rows whose time has come, oldest first.
+        """Pending rows whose time has come — plus any claim that was abandoned mid-send.
 
         SCOPED TO ONE TENANT, deliberately, even though the tick sweeps all of them. A query that
         crosses tenants here would be the one place in the service where a bug leaks rather than
         merely misbehaves — so the tick iterates tenants and this stays boring.
+
+        AND THE SECOND QUERY EXISTS BECAUSE A ROW USED TO BE LOST FOR EVER. `_claim` moves a row to
+        `sending` before it calls anything external. If the process dies between that write and
+        the one that follows — a deploy, an eviction, an OOM — the row stays `sending`: not
+        `pending`, so it was never selected here; not `sent` or `failed`, so it appeared in no
+        report. The reminder never happened and NOBODY LEARNED THAT IT DIDN'T.
+
+        `_fail()` next door returns a row to `pending` rather than closing it, with a comment
+        saying a closed schedule is a reminder that silently never happens. That is the same
+        insight — but it only covers an exception being RAISED. Process death raises nothing, and
+        it is the most common event during a deploy.
+
+        THE LEASE IS LONG ON PURPOSE. Reclaiming a claim that is merely slow would send the message
+        twice; `CLAIM_LEASE_SECONDS` is far past any real send, so the only rows it picks up are
+        the ones whose owner is definitely gone. And the sender's idempotency key is the second
+        belt underneath.
         """
         rows, _ = await self._find(tenant, {"state": "pending"}, limit=limit,
                                    sort=("due_at", "asc"))
-        return [r for r in rows if int(r.get("due_at", 0)) <= now]
+        out = [r for r in rows if int(r.get("due_at", 0)) <= now]
+
+        stale, _ = await self._find(tenant, {"state": "sending"}, limit=limit,
+                                    sort=("due_at", "asc"))
+        out.extend(r for r in stale
+                   if now - int(r.get("claimed_at") or 0) >= CLAIM_LEASE_SECONDS)
+        return out[:limit]
 
     async def cancel_kind(self, tenant: str, subject_ref: str, service_id: str, kind: str,
                           *, reason: str, now: int) -> int:

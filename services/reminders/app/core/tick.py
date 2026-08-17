@@ -50,8 +50,8 @@ from app.core import rendering as R
 from app.core.models import SendLog, as_row
 from app.adapters.message_sender import CeilingReached, Unsendable
 from app.core.consent import Consent
-from app.core.stores import (EngagementStore, PrefsStore, RuleStore, ScheduleStore,
-                             SendLogStore)
+from app.core.stores import (CLAIM_LEASE_SECONDS, EngagementStore, PrefsStore, RuleStore,
+                             ScheduleStore, SendLogStore)
 
 
 def _sending_identity(tenant: str, row: dict) -> str:
@@ -800,9 +800,25 @@ class Tick:
         the race is bounded by the idempotency key at the sender — which is the belt this braces.
         """
         fresh = await self._sched.get(_key(row))
-        if fresh is None or fresh.get("state") != "pending":
+        if fresh is None:
             return False
+
+        state = fresh.get("state")
+        if state == "sending":
+            # AN ABANDONED CLAIM IS RECLAIMABLE, AND ONLY AFTER THE LEASE. `due()` is what put this
+            # row in front of us, and it only does that once the previous claim is old enough to be
+            # certainly dead. Re-checking here rather than trusting the caller keeps the rule in one
+            # place — and stops a second worker in the same tick from taking a claim seconds old.
+            if now - int(fresh.get("claimed_at") or 0) < CLAIM_LEASE_SECONDS:
+                return False
+        elif state != "pending":
+            return False
+
         fresh["state"] = "sending"
+        # STAMPED, AND THIS IS THE FIELD THE WHOLE RECOVERY HANGS ON. Without it a row in `sending`
+        # is indistinguishable from one claimed a second ago, so nothing can ever safely reclaim
+        # it — which is exactly how the reminder used to be lost for good.
+        fresh["claimed_at"] = now
         fresh["updated"] = now
         await self._sched.upsert(tenant, _key(fresh), fresh)
         row.update(fresh)
