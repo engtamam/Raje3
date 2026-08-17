@@ -93,6 +93,28 @@ networkPolicy:
 metrics:
   serviceMonitor: false
 
+# ── Services that must NOT be registered as backup targets ────────────────────────────────────
+# NOT UNDER `env:`, AND A GATE SAID SO. backup-service declares no such setting, and pydantic
+# drops unknown keys silently — it would have read as configured and applied to nothing. This is
+# read by `deploy/seed/seed-backup-targets.sh`, which greps the file, so it belongs at the top
+# level where nobody mistakes it for something the running service reads.
+# THE SEEDER DERIVES ITS ROSTER FROM `PRIVACY_TARGETS`, and that inheritance is right for one
+# reason and wrong for another. Right: «every service that holds personal data» is the same
+# question, and two hand-kept lists of it drift. Wrong: «holds data a deletion must reach» and
+# «holds data worth archiving» are NOT the same question, and search-service is where they part.
+# It is a permanent backup exemption — a derived index holds nothing durable, and restoring it
+# would restore a stale copy of records the owning service already has — while still being a
+# privacy target, because a deletion absolutely must reach the index.
+#
+# Registered anyway, it answers every export with the exemption and the run fails. Nightly.
+# Which is exactly the failure the fleet was in when this was found: three consecutive failed
+# runs, and one of the reasons was a target that could never succeed by design.
+#
+# So the exemption is DECLARED here rather than discovered, and `ci/check_the_backup_roster_is_
+# decided_not_inherited.py` fails the build if this list and the exemption in the comment at the
+# top of this file ever disagree — a service silently dropped from backups must cost a commit.
+BACKUP_EXEMPT: "search-service"
+
 env:
 
   TOKEN_VERIFIER_DRIVER: "rs256"
@@ -133,6 +155,7 @@ env:
   # stopped being backed up does not keep 30 stale runs forever.
   BACKUP_RETENTION_RUNS: "30"
   BACKUP_RETENTION_MAX_AGE_SECONDS: "7776000"
+
 
   # Alerts are recorded and readable on the health endpoint regardless. A push destination needs
   # an egress allowance, so it stays empty until we have somewhere real to send it — our own

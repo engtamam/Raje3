@@ -134,7 +134,12 @@ req = urllib.request.Request(\"http://localhost:8000/internal/backup/targets\",
                              headers={\"X-Internal-Token\": os.environ[\"INTERNAL_SERVICE_TOKEN\"]})
 print(len(json.loads(urllib.request.urlopen(req, timeout=10).read() or b\"{}\").get(\"targets\", [])))
 EOF
-'" 2>/dev/null | tr -dc '0-9')"
+'" 2>/dev/null)"
+# A WHOLE LINE THAT IS A NUMBER, NOT «the digits found anywhere in the output». This used to be
+# `tr -dc '0-9'`, which strips everything except digits — so `HTTP 503` became `503`, and an error
+# message became a healthy-looking target count. The one check standing between us and «nothing is
+# being backed up» could be talked out of failing by any error that happened to contain a digit.
+targets="$(printf '%s\n' "$targets" | grep -xE '[0-9]+' | tail -1)"
 
 if [ -z "$targets" ]; then
   printf '  %s✗ backup targets: could not be read — a fleet whose backups are unverifiable is not verified%s

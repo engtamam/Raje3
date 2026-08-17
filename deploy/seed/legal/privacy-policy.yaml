@@ -134,6 +134,29 @@ values:
       financial and tax regulations require, which is longer and is not covered by deletion because
       retaining them is a statutory duty and not a choice. Verification codes: minutes. The audit
       log: it carries a pseudonym rather than your identity, and is kept for the audit purpose.
+
+  # ── THE BACKUP ANSWER TO «you said you deleted it» ────────────────────────────────────────────
+  # Deletion is immediate in the live system and CANNOT be immediate in an encrypted archive that
+  # was sealed before the request arrived. Every processor is in this position; the ones that get it
+  # wrong are the ones that stay silent about it and then restore a customer back into existence.
+  # So the clause says three things and each is a commitment we can be held to: the archive ages out
+  # on its own schedule, it is sealed and never read to serve the product, and a restore RE-APPLIES
+  # every erasure dated after the archive. Without that third sentence the first two are a loophole.
+  DELETION_AND_BACKUPS:
+    ar: >-
+      الحذف يقع فوراً في النظام الذي يخدمك. أما النسخ الاحتياطية المأخوذة قبل طلبك فتبقى تحمل
+      بياناتك حتى تنتهي مدّة الاحتفاظ بها — تسعون يوماً على الأكثر — ثم تُمسح تلقائياً. وهذه النسخ
+      مختومة بمفتاح، ولا تُقرأ ولا تُستعمل في تشغيل الخدمة ولا في أي قرار يخصّك؛ لا تُفتح إلا عند
+      عطلٍ جسيم. **وإن استعدنا نسخةً سابقة لتاريخ طلبك، أعدنا تنفيذ الحذف عليها فور الاستعادة
+      وقبل عودة الخدمة** — فلا تعود بياناتك إلى الوجود بسبب استرجاع.
+    en: >-
+      Deletion takes effect immediately in the system that serves you. Backups taken before your
+      request keep your data until their own retention period ends — ninety days at most — and are
+      then erased automatically. Those backups are sealed with a key, are never read to operate the
+      service or to make any decision about you, and are opened only after a serious failure. **And
+      if we restore an archive predating your request, we re-apply your erasure to it immediately on
+      restore and before the service returns** — so a restore never brings your data back into
+      existence.
   RESPONSE_TIME:
     ar: "ثلاثين يوماً، قابلة للتمديد ثلاثين يوماً أخرى عند الجهد غير المتناسب مع إشعارك بالسبب مسبقاً"
     en: "thirty days, extendable by a further thirty for disproportionate effort, with prior notice of the reason"

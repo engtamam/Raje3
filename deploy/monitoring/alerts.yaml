@@ -109,9 +109,22 @@ spec:
 
         # The backup that nobody notices stopped. backup-service exposes its own staleness, but a
         # service cannot report that IT is not running.
+        # THE FAILED RUN SETS NO COMPLETION TIME, AND THAT IS WHY THIS ALERT WAS SILENT FOR THREE
+        # NIGHTS. `kube_job_status_completion_time` is written only when a job SUCCEEDS. A run that
+        # fails leaves the previous success's timestamp standing, so the expression below used to
+        # compare against a stale-but-recent value and stay quiet — through `BackoffLimitExceeded`
+        # on three consecutive nights. The alert that exists to catch «backups stopped» could not
+        # fire for the one shape of stopping that actually happened.
+        #
+        # So it is two rules now, and they are not redundant: the first catches «nothing succeeded
+        # recently» — which covers a run that failed, a run that never started, and a CronJob
+        # somebody suspended. The second fires the moment a run fails, without waiting a day. The
+        # first uses `absent_over_time` so that NO series at all — the metric missing entirely
+        # because the job was deleted — is an alert rather than an empty query that looks healthy.
         - alert: NoBackupJobCompleted
           expr: |
-            time() - kube_job_status_completion_time{namespace="base-services", job_name=~"backup-service-run.*"} > 93600
+            (time() - max(kube_job_status_completion_time{namespace="base-services", job_name=~"backup-service-run.*"}) > 93600)
+            or absent_over_time(kube_job_status_completion_time{namespace="base-services", job_name=~"backup-service-run.*"}[26h])
           for: 30m
           labels: { severity: critical }
           annotations:
@@ -120,6 +133,21 @@ spec:
               One missed nightly run is an incident here, not a blip. Coverage is already the
               thinnest part of our disaster recovery, and an archive nobody has restored is a
               belief, not a backup.
+
+        # AND THE FAILURE ITSELF, WITHOUT WAITING A DAY. The rule above is a deadline; this one is
+        # the event. A failed run is knowable the minute it happens, and waiting 26 hours to say so
+        # wastes the night that could still have been used to fix it and re-run.
+        - alert: BackupJobFailed
+          expr: |
+            max(kube_job_status_failed{namespace="base-services", job_name=~"backup-service-run.*"}) > 0
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "a nightly backup run failed"
+            description: >-
+              Not a retry that eventually succeeded — the job gave up. Read the pod's logs before
+              the next run replaces it, because a failure that repeats has one cause and a failure
+              that does not is the interesting kind.
 
     - name: raje3.product
       rules:

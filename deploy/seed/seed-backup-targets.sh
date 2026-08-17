@@ -22,6 +22,13 @@
 # when a service serves the erasure endpoint and is missing from that list, so deriving from it
 # means the backup roster inherits a gate it would otherwise need its own copy of.
 #
+# MINUS THE DECLARED EXEMPTIONS, because the inheritance is right in general and wrong in one
+# place. «Holds data a deletion must reach» and «holds data worth archiving» diverge for a derived
+# index: search-service must receive erasures and must never be archived. Registered as a target it
+# answers every export with its exemption and the run FAILS — nightly, which is part of what the
+# fleet was doing when this was found. The exemptions live in backup-service.values.yaml next to
+# the reason, and a build gate keeps them from drifting.
+#
 # IT CORRECTS RATHER THAN SKIPS, like seed-plans.sh: a target row that disagrees with the roster is
 # drift, not somebody's customisation. Nothing here is a customisation — a base_url is either right
 # or the service is silently unprotected.
@@ -38,6 +45,11 @@ DRY=0
 
 red(){ printf '  \e[31m✗ %s\e[0m\n' "$*" >&2; }
 grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
+
+BACKUP_VALUES="$ROOT/deploy/services/backup-service.values.yaml"
+[ -f "$BACKUP_VALUES" ] || { red "no $BACKUP_VALUES — the exemptions live there"; exit 2; }
+# `service,service` — a service that must never be archived, declared with its reason in that file.
+EXEMPT=$(grep -E '^\s*BACKUP_EXEMPT:' "$BACKUP_VALUES" | sed 's/^[^"]*"//; s/"[[:space:]]*$//')
 
 VALUES="$ROOT/deploy/services/compliance-service.values.yaml"
 [ -f "$VALUES" ] || { red "no $VALUES — the roster lives there"; exit 2; }
@@ -77,13 +89,16 @@ esac
 echo "registering backup targets in backup-service"
 # NO COMMAND SUBSTITUTION BELOW THIS LINE, INCLUDING IN COMMENTS — the heredoc is unquoted so the
 # shell would evaluate one before python ever saw it. This has happened mid-seed, from a comment.
-kubectl -n "$NS" exec -i "$POD" -- python - "$ADMIN" "$DRY" "$TOKEN_VALUE" "$ROSTER" <<'PY'
+kubectl -n "$NS" exec -i "$POD" -- python - "$ADMIN" "$DRY" "$TOKEN_VALUE" "$ROSTER" "$EXEMPT" <<'PY'
 import json
 import sys
 import urllib.error
 import urllib.request
 
 admin, dry, token_value, roster = sys.argv[1], sys.argv[2] == "1", sys.argv[3], sys.argv[4]
+# Declared in backup-service.values.yaml with the reason. A service here must never be
+# registered: it answers every export with its exemption and the nightly run fails.
+exempt = {s.strip() for s in sys.argv[5].split(",") if s.strip()}
 H = "http://localhost:8000"
 SECRET_NAME = "platform-internal"
 
@@ -125,6 +140,8 @@ for pair in roster.split(","):
     # NOT ITSELF. backup-service collecting its own archive into its own bucket protects nothing:
     # the failure that loses the data loses the copy with it.
     if not name or not url or name == "backup-service":
+        continue
+    if name in exempt:
         continue
     wanted[name] = url
 
