@@ -51,9 +51,19 @@ export function formatPlate(raw: string): string {
   // FOLD BEFORE STRIPPING. This line used to delete Arabic-Indic digits along with the
   // punctuation, so `formatPlate('ا ب ج ٤٥٦')` returned '' and the
   // `plateOk` guard below — written expressly to accept those digits — could never see one.
-  const clean = western(raw).replace(/[^0-9a-zA-Z]/g, '');
-  const digits = digitsOnly(clean).slice(0, 4);
-  const letters = clean.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3);
+  const folded = western(raw);
+  const digits = digitsOnly(folded).slice(0, 4);
+  // A LETTER IN ANY SCRIPT, BECAUSE BOTH ARE STAMPED ON THE PLATE. This used to keep `a-zA-Z` and
+  // nothing else, so an Arabic-lettered plate came back with no letters at all — and `plateOk`
+  // below, which requires one, then held the save button DISABLED. The operator typed what was on
+  // the car and the screen simply would not let him continue, with no message, because a disabled
+  // button has nothing to say. Meanwhile `operations/core/plate.py` accepted that same plate
+  // happily: the screen was stricter than the service it feeds, which is the one direction that
+  // costs a visit. `fixtures/plates.json` now holds the cases and both sides assert against it.
+  //
+  // `toUpperCase` stays for the Latin half and is a no-op on Arabic.
+  const letters = Array.from(folded).filter((ch) => /\p{L}/u.test(ch)).join('')
+    .toUpperCase().slice(0, 3);
   return letters ? `${digits} ${letters}`.trim() : digits;
 }
 

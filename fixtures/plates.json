@@ -1,0 +1,33 @@
+{
+  "why": [
+    "ONE LIST, TWO READERS. The screen decides whether the save button lights up; operations decides",
+    "whether the visit is accepted. They were written separately and they disagreed: the server took",
+    "an Arabic-lettered plate and the screen refused it, so the operator typed the plate that is",
+    "physically on the car and the button never enabled — with no message, because a disabled button",
+    "has nothing to say. Both sides now assert against this file, so the disagreement cannot return",
+    "quietly: whichever side changes, the other side's suite goes red naming the same plate.",
+    "",
+    "`accepted` IS ABOUT ADMISSION, NOT FORMATTING. The screen canonicalises to «DIGITS LETTERS» and",
+    "the server collapses whitespace; those are each side's business. What must not differ is WHO IS",
+    "TURNED AWAY.",
+    "",
+    "THE RULE BOTH SIDES IMPLEMENT: at least one digit and at least one letter, in any script. Not the",
+    "Saudi format — temporary, transit, Gulf and diplomatic plates are all real and none of them",
+    "matches it, and a refusal the operator cannot satisfy with a customer waiting becomes «1» typed",
+    "into the box.",
+    "",
+    "arabic-indic-digits: intentional — the plates below are INPUTS, quoted exactly as an",
+    "operator's keyboard produces them. Rewriting them to 0-9 would delete the test."
+  ],
+  "cases": [
+    { "plate": "ABC 456",   "accepted": true,  "note": "Latin, the shape the screen was built for" },
+    { "plate": "ا ب ج 456", "accepted": true,  "note": "THE DEFECT: on the metal, accepted by the server, refused by the screen" },
+    { "plate": "أ ب ج ١٢٣٤", "accepted": true, "note": "Arabic letters AND Arabic-Indic digits, one keyboard away from ordinary" },
+    { "plate": "ABC ٤٥٦",   "accepted": true,  "note": "the mix a bilingual keyboard produces" },
+    { "plate": "ا456",      "accepted": true,  "note": "no space: the separator is ours to insert, not his to type" },
+    { "plate": "456",       "accepted": false, "note": "digits only — half a plate is not a plate" },
+    { "plate": "ABC",       "accepted": false, "note": "letters only, same reason" },
+    { "plate": "",          "accepted": false, "note": "empty" },
+    { "plate": "!!",        "accepted": false, "note": "neither letter nor digit" }
+  ]
+}
