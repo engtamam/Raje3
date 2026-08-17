@@ -161,3 +161,14 @@ def test_a_goal_with_nowhere_to_put_a_discount_does_not_demand_one():
     assert sanitise_offer_value("", required=False) == ""
     with pytest.raises(PreviewError):
         sanitise_offer_value("", required=True)
+
+
+def test_the_line_he_approves_is_the_line_that_can_be_sent():
+    """SIXTY, AND THE SEND USES THE SAME NUMBER UNDER A DIFFERENT NAME. `MAX_OWNER_TEXT` here and
+    `MAX_OWNER_FIELD` in reminders are one cap on one sentence, and because the names differ no
+    search for either ever found the pair — it went uncompared until a gate matched them by prefix
+    (`ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py`). This test and its twin in
+    reminders pin the behaviour on both sides of the same boundary."""
+    assert sanitise_owner_text("ا" * 60, required=True) == "ا" * 60
+    with pytest.raises(PreviewError):
+        sanitise_owner_text("ا" * 61, required=True)

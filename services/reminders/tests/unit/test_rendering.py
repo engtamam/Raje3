@@ -394,3 +394,12 @@ def test_a_shop_with_one_template_still_sends_the_second_rung():
     got = choose(template_type="svc_service_reminder", tone="brief", library=one, tone_index=2)
 
     assert got["name"] == "svc_service_reminder_brief"
+
+
+def test_the_line_the_screen_approved_is_the_line_this_will_carry():
+    """The twin of `test_the_line_he_approves_is_the_line_that_can_be_sent` in campaigns. If this
+    cap were ever the tighter of the two, the owner's sentence would pass the screen he wrote it on
+    and die at the send — and he would hear about it from a customer, not from us."""
+    assert sanitise_owner_text("ا" * 60) == "ا" * 60
+    with pytest.raises(RenderError):
+        sanitise_owner_text("ا" * 61)
