@@ -141,23 +141,12 @@ interface Branches {
 }
 
 /**
- * How many visits this view is NOT showing — the honest line under the branch switch (§10.6.4).
- *
- * A branch scope renders exactly like the whole shop: same cards, same ring, same words. Without
- * this number an owner who forgets which scope he is in reads one branch's return rate as his
- * business's — and the unspecified visits belong here too, because they are outside EVERY branch
- * view rather than merely outside this one.
- *
- * Zero on «كل الفروع», where nothing is outside the view and the sentence would be noise.
+ * MOVED, AND RE-EXPORTED SO IT IS STILL ONE FUNCTION. `outsideVisits` now lives in
+ * `branch-scope.ts`, beside the control it explains — the switcher left this screen for the rail,
+ * and a sentence about a global choice cannot live inside one of the screens that choice governs.
+ * The name stays reachable from here because that is where its test and its readers found it.
  */
-export function outsideVisits(
-  rows: { branch_id?: string; visits?: number }[], unknown: number, branch: string,
-): number {
-  if (!branch) return 0;
-  const total = rows.reduce((n, r) => n + (r.visits ?? 0), 0) + unknown;
-  const here = rows.find((r) => r.branch_id === branch)?.visits ?? 0;
-  return Math.max(0, total - here);
-}
+export { outsideVisits } from '../branch-scope';
 
 /**
  * The sentence under «مؤشرات تحتاج بيانات أكثر» — or nothing, when we have no cause to name (ي-5).
@@ -350,7 +339,14 @@ function Group({ title, hint, children, folded = false }: {
   );
 }
 
-export function LocalScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function LocalScreen(
+  { session, catalog, branch, onBranch }: {
+    session: Session; catalog: Catalog; branch: string; onBranch: (id: string) => void;
+  },
+) {
+  // THE SCOPE ARRIVES, IT IS NOT CHOSEN HERE. One control in the rail governs this screen and the
+  // three beside it; a second copy of the state in this file would be a second answer to the same
+  // question, and the two would disagree the first time one of them was refreshed.
   const [data, setData] = useState<Dashboard | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   /**
@@ -409,9 +405,6 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
    */
   const [locked, setLocked] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<Branches | null | undefined>(undefined);
-  // WHICH SCOPE HE IS READING. Empty is «كل الفروع» and is the default for everybody — a shop with
-  // one branch never sees this control at all (§10.6.4).
-  const [branch, setBranch] = useState('');
 
   // THE BRANCH TABLE IS READ ONCE, NOT ONCE PER SCOPE. It always describes the WHOLE shop, so
   // re-reading it when he switches would spend a request to receive the same answer — and, worse,
@@ -531,7 +524,11 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
             <button
               key={id}
               type="button"
-              onClick={() => setBranch(id)}
+              // THE SAME CHOICE THE RAIL HOLDS, not a private one. A supervisor told «اختر فرعاً»
+              // and picking one here must narrow every screen, exactly as the switcher does —
+              // two independent notions of «the branch I am looking at» is the split this whole
+              // change closed.
+              onClick={() => onBranch(id)}
               className="rounded-full bg-surface-2 px-3 py-1 text-sm text-text-secondary"
             >
               {named.find((r) => r.branch_id === id)?.name || id}
@@ -600,48 +597,17 @@ export function LocalScreen({ session, catalog }: { session: Session; catalog: C
 
   const digestAction = action(catalog, 'insights.digest');
 
-  /* ── the branch switch (§10.6.4) ────────────────────────────────────────────────────────────
-     HIDDEN FOR A SHOP WITH ONE BRANCH, and that is the rule rather than a nicety: "filter by your
-     only branch" is a control that does nothing and a question he has to stop and think about.
+  /* ── the branch switch MOVED TO THE RAIL (§10.6.4) ────────────────────────────────────────
+     It stood here, in this screen's header, and nowhere else. So «عملائي» beside it was always
+     the whole chain while these numbers might be one branch, and nothing on either screen said
+     which — an owner who narrowed this one and then read another was comparing two shops.
 
-     AND THE VISITS OUTSIDE THIS VIEW ARE NAMED. A branch's numbers read exactly like the whole
-     shop's — same cards, same ring — so an owner who forgets which scope he is in compares his
-     Riyadh return rate against his whole business. The line under the switch is what stops that,
-     and it counts the unspecified visits too: they are outside every branch view. */
-  const rows = branches?.rows ?? [];
-  const canSwitch = rows.length > 1;
-  const outside = outsideVisits(rows, branches?.unknown ?? 0, branch);
+     It is now `BranchSwitch` at the top of the sidebar, and the scope arrives here as a prop. The
+     «كذا زيارة خارج هذا العرض» line went with it: a sentence explaining a choice that governs four
+     screens cannot live inside one of them. */
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {canSwitch ? (
-        <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-3 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            {[{ id: '', label: 'كل الفروع' },
-              ...rows.map((r) => ({ id: r.branch_id ?? '', label: r.name || 'فرع بلا اسم' }))]
-              .map((t) => (
-                <button
-                  key={t.id || '_all'}
-                  type="button"
-                  aria-pressed={branch === t.id}
-                  onClick={() => setBranch(t.id)}
-                  className={`rounded-full px-3 py-1 text-sm ${
-                    branch === t.id
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-surface-2 text-text-secondary'}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-          </div>
-          {branch && outside ? (
-            <p className="text-xs text-text-secondary">
-              {outside} زيارة خارج هذا العرض — في فروعٍ أخرى أو بلا فرع محدَّد.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       {/* THE WEEKLY REPORT MOVED TO «حسابي ← دخولي». It is one person's WhatsApp preference,
           and it stood above every number this screen exists to show — so the retention rate was
           below the fold behind a checkbox. A preference is not a metric. */}

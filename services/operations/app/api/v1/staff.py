@@ -732,6 +732,26 @@ async def list_branches(request: Request, principal: Principal = Depends(_READ))
     await B.ensure_main(store, tenant=tenant)
     rows = await store.list(tenant)
 
+    # ── AND ONLY THE ONES HE MAY SEE (§12.4) ──────────────────────────────────────────────────
+    # This read returned the whole chain to anybody holding `operations.list_branches`, while every
+    # other read in this service — visits, customers, the dashboards — was already narrowed by
+    # `branch_scope`. So a manager granted one branch could not read Jeddah's numbers and could
+    # read Jeddah's NAME, its id, and how many places the chain has. «لا يرى موظف فرع أ بيانات
+    # فرع ب» covers the names too: they are that shop's data.
+    #
+    # AND THE SWITCHER IS BUILT FROM THIS LIST. It moves to the sidebar, where the choice scopes
+    # every screen, and its one non-negotiable rule is «يُضيِّق ولا يوسّع أبداً» — which can only
+    # hold if the list it offers was narrowed first. Otherwise it offers him a branch the server
+    # then refuses, and the product looks broken to a person who did nothing wrong.
+    # `field="id"` AND NOT THE DEFAULT, which is the whole difference between a filter and a
+    # no-op. `visible` keeps a row whose branch field is empty — right for a visit, because a
+    # till records plenty with no branch and «غير محدَّد» belongs to everybody. A BRANCH row has
+    # no `branch_id` at all: it IS the branch, and its key is `id`. Called with the default this
+    # line would find the field missing on every row, keep every row, and read in review as
+    # protection that was never applied.
+    scope = await branch_scope(request.app.state.container.datastore, principal)
+    kept = SCOPE.visible([b.public() for b in rows], scope, field="id")
+
     # ── HOW MANY HE MAY HAVE, BECAUSE THE SCREEN CANNOT GUESS IT (هـ-3) ────────────────────────
     # «فريقي» locked its branches tab on whether the caller holds `operations.list_branches` —
     # a ROLE fact — and wrote a PLAN sentence on the lock. Both halves were wrong at once: an
@@ -754,8 +774,10 @@ async def list_branches(request: Request, principal: Principal = Depends(_READ))
     # that answers the button.
     may_add, limit = await request.app.state.container.gauges.allows_one_more(
         tenant, S.BRANCHES, _live(rows))
-    return {"branches": [b.public() for b in rows], "branch_limit": int(limit),
-            "may_add_branch": bool(may_add)}
+    # THE GAUGE COUNTS THE SHOP'S REAL BRANCHES, not the ones this caller may see. The limit and
+    # «may he open one more» are facts about the establishment's PLAN — computing them from a
+    # narrowed list would tell a one-branch manager his chain of five has room for four more.
+    return {"branches": kept, "branch_limit": int(limit), "may_add_branch": bool(may_add)}
 
 
 # ── the service catalogue ─────────────────────────────────────────────────────────────────────

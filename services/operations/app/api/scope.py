@@ -73,6 +73,42 @@ async def branch_scope(store: Any, principal: Principal) -> "str | frozenset[str
     return ""
 
 
+def narrow(scope: "str | frozenset[str] | None",
+           requested: str) -> "str | frozenset[str] | None":
+    """Tighten a scope by what the caller ASKED to see — and never, under any input, loosen it.
+
+    THE CONTROL THIS SERVES. The console's branch switcher moved out of one screen and into the
+    sidebar, where the choice governs every read. So a request now carries two facts: what this
+    person MAY see (the token, resolved by `branch_scope`) and what he WANTS to see (a query
+    parameter). The answer is the intersection, and the whole rule of that control — «يُضيِّق ولا
+    يوسّع أبداً» — is this function refusing to return anything wider than what it was given.
+
+    THE FOUR CASES, AND EACH IS A DECISION RATHER THAN A FALLTHROUGH:
+
+      · REVOKED stays REVOKED. A dismissed person asking for a specific branch is still dismissed,
+        and the order matters: `None` is falsy, so a bare truthiness test would have handed him a
+        branch — the exact widening §12.4 exists to stop.
+      · NOTHING REQUESTED changes nothing. «كل الفروع» is the default and means «whatever I may
+        see», not «everything that exists».
+      · AN UNNARROWED PERSON — the owner, and every shop that assigns nobody — gets exactly what
+        he asked for. He could already read all of it; asking for less is a filter, not a grant.
+      · A NARROWED PERSON gets his request only if it is already inside his scope. Asking for a
+        branch he was never given answers as if he had asked for nothing at all — his own scope,
+        unchanged. Not an error: the console can hold a stale choice for perfectly innocent
+        reasons (a branch closed, a scope changed since Tuesday), and a 403 in the middle of an
+        ordinary screen would read as an accusation for something he did not do.
+    """
+    wanted = (requested or "").strip()
+    if scope is REVOKED:
+        return REVOKED
+    if not wanted:
+        return scope
+    if not scope:
+        return wanted
+    allowed = scope if isinstance(scope, (set, frozenset)) else {scope}
+    return wanted if wanted in allowed else scope
+
+
 def visible(rows: list[dict], scope: "str | frozenset[str] | None", *,
             field: str = "branch_id") -> list[dict]:
     """Keep what this scope may see. An empty scope keeps everything, REVOKED keeps nothing.

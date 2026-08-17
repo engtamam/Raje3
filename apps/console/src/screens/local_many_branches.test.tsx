@@ -12,7 +12,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { createElement } from 'react';
+import { createElement, useState } from 'react';
 import { ApiError } from '../api';
 
 const asked: { id: string; body: unknown }[] = [];
@@ -45,8 +45,22 @@ afterEach(() => { asked.length = 0; cleanup(); });
 
 const { LocalScreen } = await import('./Local');
 
-const open = () =>
-  render(createElement(LocalScreen, { session: {} as never, catalog: {} as never }));
+/**
+ * A HOST THAT HOLDS THE CHOICE, because the screen no longer does.
+ *
+ * The switcher moved to the sidebar and the branch became a shell-level fact, so «he picks a
+ * branch and the screen re-reads» is now a round trip through the parent — which is exactly the
+ * seam worth testing. Rendering the screen with a frozen prop would test a component that cannot
+ * exist in the product.
+ */
+function Host() {
+  const [branch, setBranch] = useState('');
+  return createElement(LocalScreen, {
+    session: {} as never, catalog: {} as never, branch, onBranch: setBranch,
+  });
+}
+
+const open = () => render(createElement(Host));
 
 describe('«محلّي» for a supervisor over several branches', () => {
   it('offers his branches by name instead of reporting a failure', async () => {

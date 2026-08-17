@@ -1,3 +1,4 @@
+import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
 import { PointsScreen } from './Points';
 import { AppGate } from './Locked';
@@ -18,7 +19,7 @@ import type { Session } from '../session';
  */
 export function Points() {
   const { session, catalog, owned } =
-    useOutletContext<{ session: Session; catalog: Catalog; owned: Loading<Owned> }>();
+    useOutletContext<ShellContext>();
   return (
     <AppGate appId="loyalty" owned={owned}>
       <PointsScreen session={session} catalog={catalog} />

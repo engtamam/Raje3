@@ -211,7 +211,7 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
 
 
 @router.get("/customers/recent", dependencies=[Depends(rate_limit)])
-async def recent_customers(request: Request, limit: int = 10,
+async def recent_customers(request: Request, limit: int = 10, branch_id: str = "",
                            principal: Principal = Depends(_READ)) -> dict:
     """The strip along the top of the field screen — today's customers, one tap away."""
     limit = max(1, min(limit, 50))
@@ -225,7 +225,11 @@ async def recent_customers(request: Request, limit: int = 10,
     # Unbranched customers stay visible, as everywhere else: a till records no branch, and hiding
     # those would leave a manager looking at a shop that appears to have no customers at all.
     scope = await branch_scope(request.app.state.container.datastore, principal)
-    kept = SCOPE.visible([c.public() for c in rows], scope, field="last_branch_id")
+    # AND THE BRANCH HE IS CURRENTLY LOOKING AT, from the switcher in the rail. `narrow` can
+    # only tighten: an owner filtering to Jeddah sees Jeddah, and a manager asking for a branch
+    # he was never granted is answered with his own scope rather than an accusation.
+    kept = SCOPE.visible([c.public() for c in rows], SCOPE.narrow(scope, branch_id),
+                         field="last_branch_id")
     return {"customers": kept}
 
 
@@ -260,7 +264,7 @@ class ResolveIn(BaseModel):
 
 
 @router.post("/customers/resolve", dependencies=[Depends(rate_limit)])
-async def resolve_customers(request: Request, body: ResolveIn,
+async def resolve_customers(request: Request, body: ResolveIn, branch_id: str = "",
                             principal: Principal = Depends(_READ)) -> dict:
     """Turn a list of `subject_ref` pseudonyms into this establishment's customers.
 
@@ -304,12 +308,12 @@ async def resolve_customers(request: Request, body: ResolveIn,
     # one pseudonym per row (the privacy-request panel holds one per request) could not say which
     # customer belonged to which. `public()` still omits it: this is the route whose job is the join.
     kept = SCOPE.visible([{**c.public(), "subject_ref": c.subject_ref} for c in rows],
-                         scope, field="last_branch_id")
+                         SCOPE.narrow(scope, branch_id), field="last_branch_id")
     return {"customers": kept}
 
 
 @router.get("/customers/suggest", dependencies=[Depends(rate_limit)])
-async def suggest_customers(request: Request, prefix: str = "",
+async def suggest_customers(request: Request, prefix: str = "", branch_id: str = "",
                             principal: Principal = Depends(_READ)) -> dict:
     """The keypad's suggestion list, narrowed to the reader's branch (ط-3).
 
@@ -362,7 +366,10 @@ async def suggest_customers(request: Request, prefix: str = "",
                      # use for it and it is what a scoped reader must not be able to enumerate.
                      "branch_id": str(f.get("branch_id") or "")})
     scope = await branch_scope(c.datastore, principal)
-    kept = SCOPE.visible(rows, scope, field="branch_id")
+    # THE SAME ONE CHOICE, on the visit list too — the switcher governs every screen or it
+    # governs none of them, and «one screen narrowed, the one beside it not» is the split it
+    # was moved to the rail to close.
+    kept = SCOPE.visible(rows, SCOPE.narrow(scope, branch_id), field="branch_id")
     return {"customers": [{k: v for k, v in r.items() if k != "branch_id"} for r in kept],
             "ok": True}
 

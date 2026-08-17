@@ -16,12 +16,14 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { DENIED, type Loading } from './loading';
+import { DENIED, isReady, type Loading } from './loading';
 import { Mark, NAME_AR } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
 import { action, call, fetchCatalog, SessionExpired, type Catalog } from './catalog';
 import { ACCOUNT_PATH, isOutage, visibleSections } from './nav';
+import { BranchSwitch } from './BranchSwitch';
+import { currentBranch, loadBranch, saveBranch, type ScopeBranch } from './branch-scope';
 import type { Owned } from './apps';
 import { isSignedIn, useSession } from './session';
 
@@ -40,6 +42,19 @@ export function App() {
   // It stays null when the action is absent — an operator's catalogue does not carry it, and his
   // screens do not draw locks anyway.
   const [owned, setOwned] = useState<Loading<Owned>>(undefined);
+  /**
+   * THE BRANCHES THIS PERSON MAY READ, and the one he is currently looking at.
+   *
+   * READ HERE FOR THE SAME REASON `owned` IS: the choice scopes every screen, so every screen
+   * would otherwise ask for the list — five round trips on every navigation, and five chances to
+   * disagree about what the scope is.
+   *
+   * NEVER ASSEMBLED IN THE BROWSER. This is the server's answer, already narrowed to what he may
+   * see (§12.4). A switcher built from anything else could offer him a branch the reads then
+   * refuse, and «يُضيِّق ولا يوسّع أبداً» is the one rule this control cannot bend.
+   */
+  const [scopeBranches, setScopeBranches] = useState<Loading<ScopeBranch[]>>(undefined);
+  const [branch, setBranchState] = useState<string>(() => loadBranch());
 
   useEffect(() => {
     if (!isSignedIn(session)) return;
@@ -70,6 +85,32 @@ export function App() {
       .catch(() => setOwned({ checked: false, message: 'تعذّر التحقق من اشتراكك الآن — حاول بعد قليل.',
                               keys: [], apps: [] }));
   }, [catalog, session]);
+
+  useEffect(() => {
+    if (!catalog) return;
+    const a = action(catalog, 'operations.list_branches');
+    // NOT HIS TO SEE IS ITS OWN ANSWER (م · النمط 2). An operator's catalogue carries no such
+    // action, and writing `[]` here would say «this shop has no branches» about a chain of five.
+    // Both states happen to render the same nothing today — but they are different facts, and the
+    // day one of them wants a sentence, the code already knows which one it is holding.
+    if (!a) { setScopeBranches(DENIED); return; }
+    call<{ branches?: ScopeBranch[] }>(session, a)
+      .then((x) => setScopeBranches(x.branches ?? []))
+      // AND A FAILED READ IS NOT AN EMPTY ONE EITHER. `null`, so «we could not ask» is never
+      // stored as «he has one branch» — the screens stay unnarrowed, which is exactly where they
+      // were before this control existed, and no stale option is offered.
+      .catch(() => setScopeBranches(null));
+  }, [catalog, session]);
+
+  // THE STORED CHOICE IS ONLY HONOURED WHILE IT IS STILL HIS. A branch closed since Tuesday, or a
+  // scope the owner has since changed, would otherwise leave him staring at empty screens with no
+  // hint that a filter he set last week is the cause.
+  // ONE SHAPE FOR THE SWITCHER, whatever the reason there is nothing to offer. `isReady` keeps
+  // the three not-a-value states apart in the state itself and collapses them here, at the one
+  // place that only cares «is there a list».
+  const allowed = isReady(scopeBranches) ? scopeBranches : [];
+  const scoped = currentBranch(allowed, branch || null);
+  const setBranch = (id: string) => { saveBranch(id); setBranchState(id); };
 
   // THE DOOR IS NOT A ROUTE, and that is deliberate. A `/login` path is a page the app can be
   // navigated to WHILE signed in and, worse, a page a signed-out person can navigate AWAY from
@@ -144,6 +185,12 @@ export function App() {
       // «حسابي» AS AN ICON BESIDE SIGN-OUT, not as a ninth row in the rail. Both controls are
       // about the PERSON rather than about the shop, and the shell already groups them in one
       // block — so this costs no rail height and reads where a person already looks for himself.
+      // THE SCOPE ABOVE THE NAV, which is where a scope belongs: everything below this line is
+      // about what it says. The shell keeps this slot for exactly that and hides it on the
+      // collapsed rail, where there is no room for a control with a label.
+      projectSwitcher={
+        <BranchSwitch branches={allowed} branch={scoped} onChange={setBranch} />
+      }
       onAccount={() => navigate(ACCOUNT_PATH)}
       onSignOut={() => { signOut(); navigate('/'); }}
     >
@@ -155,7 +202,7 @@ export function App() {
           the content until he answers, with his own nav still around him. Nothing outstanding
           renders nothing at all. */}
       <LegalGate session={session} catalog={catalog}>
-        <Outlet context={{ session, catalog, owned }} />
+        <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
       </LegalGate>
     </AppShell>
   );

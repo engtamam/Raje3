@@ -563,3 +563,123 @@ def test_a_failed_connection_is_not_reported_as_unable_to_send(client):
 
     failed = connect.Attempt(tenant="t", state=connect.STATE_FAILED)
     assert failed.public(can_send=False)["can_send"] is True
+
+
+# ── the list itself is narrowed, not only what the list is about ──────────────────────────────
+def _headers_for(tenant: str, subject: str) -> dict:
+    """The same token as `_headers`, for a NAMED person — the scope is resolved from `sub`."""
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": subject, "iss": ISS, "aud": AUD,
+                      "caps": ["operations.manage", "operations.read"], "tenant": tenant,
+                      "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     SECRET, algorithm="HS256")
+    return {"Authorization": f"Bearer {tok}"}
+
+
+def test_a_supervisor_is_offered_only_the_branches_he_may_read(client):
+    """The branch LIST obeys §12.4 too — and until now it was the one read that did not.
+
+    THE HOLE, AND WHY IT WAS INVISIBLE. Every other read in this service — visits, customers,
+    the dashboards, the team table — passes through `branch_scope`. `GET /staff/branches` did
+    not: it returned every row of the establishment to anybody holding `operations.list_branches`.
+    So a manager granted Jeddah could not read Riyadh's numbers and could read Riyadh's NAME, its
+    id, and how many places the chain has. «لا يرى موظف فرع أ بيانات فرع ب» covers the names.
+
+    AND IT IS THE LIST THE SIDEBAR SWITCHER IS BUILT FROM. That control's one non-negotiable rule
+    is «يُضيِّق ولا يوسّع أبداً»: it must offer him his own branches and nothing else. Built from
+    an unnarrowed list it offers a branch the server then refuses — and the product looks broken
+    to somebody who did nothing wrong. This is the assertion that makes that rule true at the
+    source rather than repeated hopefully in a component.
+    """
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    tenant = "tnt_switch"
+    owner = _headers(tenant)
+    for name in ("جدة", "الرياض", "الدمام"):
+        assert client.post(BRANCHES, json={"name": name}, headers=owner).status_code in (200, 201)
+
+    everything = client.get(BRANCHES, headers=owner).json()["branches"]
+    ids = {b["id"] for b in everything}
+    assert len(ids) >= 4, everything            # the three above plus the main one
+
+    # A SUPERVISOR OVER TWO OF THEM — the case that made a set necessary in the first place
+    # (#344): «مشرف على أربعة» had to be handed the whole chain to be handed his four.
+    mine = sorted(ids - {"brn-main"})[:2]
+    store = client.app.state.container.datastore
+    asyncio.run(OperatorStore(store).save(Operator(
+        id="opr_two", tenant=tenant, name="مشرف على فرعين", role="manager",
+        branch_id=mine[0], visible_branch_ids=list(mine), person_id="u_two", active=True)))
+
+    got = client.get(BRANCHES, headers=_headers_for(tenant, "u_two")).json()["branches"]
+    assert sorted(b["id"] for b in got) == sorted(mine), got
+    # NAMED EXPLICITLY: not «fewer», but none of the others at all — a leak of one branch name
+    # is the same leak as a leak of three.
+    assert not (ids - set(mine)) & {b["id"] for b in got}
+
+    # AND THE OWNER IS UNCHANGED. Narrowing is opt-in per person (api/scope.py): the man with no
+    # operator row is the common case, and he must still see his whole chain.
+    assert {b["id"] for b in client.get(BRANCHES, headers=owner).json()["branches"]} == ids
+
+
+def test_the_plan_limit_is_the_shops_own_even_for_a_narrowed_person(client):
+    """The ceiling is a fact about the ESTABLISHMENT's plan, never about this caller's view.
+
+    Computing it from the narrowed list would tell a one-branch manager that his chain of five has
+    room for four more — a number about money, wrong, on a screen he cannot act on anyway.
+    """
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    tenant = "tnt_limit_scope"
+    owner = _headers(tenant)
+    for name in ("أ", "ب"):
+        client.post(BRANCHES, json={"name": name}, headers=owner)
+    whole = client.get(BRANCHES, headers=owner).json()
+
+    store = client.app.state.container.datastore
+    asyncio.run(OperatorStore(store).save(Operator(
+        id="opr_one", tenant=tenant, name="مدير فرع", role="manager",
+        branch_id="brn-main", person_id="u_one", active=True)))
+    narrowed = client.get(BRANCHES, headers=_headers_for(tenant, "u_one")).json()
+
+    assert len(narrowed["branches"]) == 1, narrowed["branches"]
+    assert narrowed["branch_limit"] == whole["branch_limit"]
+    assert narrowed["may_add_branch"] == whole["may_add_branch"]
+
+
+def test_the_switcher_can_only_ever_narrow(client):
+    """«يُضيِّق ولا يوسّع أبداً» — asserted on the function every scoped read now passes through.
+
+    THE TWO FACTS A REQUEST NOW CARRIES. What this person MAY see, resolved from his token; and
+    what he is currently LOOKING at, chosen in the sidebar. `narrow` returns the intersection, and
+    every case below is a way that intersection could have been got wrong — each one silently, and
+    each one a §12.4 breach rather than a bug an owner would ever notice.
+    """
+    from app.api.scope import REVOKED, narrow
+
+    # A DISMISSED PERSON STAYS DISMISSED. `None` is falsy, so a bare truthiness test here would
+    # hand him whatever he asked for — the exact widening the whole of و-1 exists to stop.
+    assert narrow(REVOKED, "brn-jeddah") is REVOKED
+
+    # NOTHING ASKED CHANGES NOTHING. «كل الفروع» means «whatever I may see», never «everything».
+    assert narrow("brn-jeddah", "") == "brn-jeddah"
+    assert narrow(frozenset({"a", "b"}), "") == frozenset({"a", "b"})
+    assert narrow("", "") == ""
+
+    # THE OWNER FILTERS. He could already read all of it; asking for less is a filter, not a grant.
+    assert narrow("", "brn-jeddah") == "brn-jeddah"
+
+    # A SUPERVISOR PICKS ONE OF HIS OWN — and gets exactly that one, not all four.
+    assert narrow(frozenset({"a", "b"}), "a") == "a"
+
+    # AND ASKING FOR SOMEBODY ELSE'S CHANGES NOTHING AT ALL. Not an error: a console can hold a
+    # stale choice for innocent reasons — a branch closed, a scope changed since Tuesday — and a
+    # refusal in the middle of an ordinary screen reads as an accusation for something he did not
+    # do. He is answered with his own scope, which is the honest «I showed you what is yours».
+    assert narrow("brn-jeddah", "brn-riyadh") == "brn-jeddah"
+    assert narrow(frozenset({"a", "b"}), "z") == frozenset({"a", "b"})

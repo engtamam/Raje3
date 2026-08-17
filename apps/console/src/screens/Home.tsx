@@ -9,6 +9,7 @@
  * back button: the operator presses back, lands on `/`, and is bounced forward again with no way
  * out of the loop.
  */
+import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { TodayScreen } from './Today';
@@ -18,7 +19,7 @@ import type { Catalog } from '../catalog';
 import type { Session } from '../session';
 
 export function Home() {
-  const { session, catalog } = useOutletContext<{ session: Session; catalog: Catalog }>();
+  const { session, catalog } = useOutletContext<ShellContext>();
   const sections = visibleSections(catalog);
   // NEVER LAND HIM ON A SECTION THAT CANNOT ANSWER. The rail still shows it — he must know it
   // exists and why it is quiet — but the default screen has to be one that works.

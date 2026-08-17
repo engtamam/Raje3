@@ -27,6 +27,7 @@ import { Badge } from '@base-ui/design-system/Badge';
 import { action, call, type Catalog } from '../catalog';
 import { suggestByPrefix, type CustomerHit } from '../api';
 import type { Session } from '../session';
+import { scopeQuery } from '../branch-scope';
 import { asLocal } from '../phone';
 
 const MIN_PREFIX = 3;
@@ -46,7 +47,12 @@ function ago(at: number): string {
   return `قبل ${days} أيام`;
 }
 
-export function CustomersScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
+export function CustomersScreen(
+  { session, catalog, branch }: { session: Session; catalog: Catalog; branch: string },
+) {
+  // THE SCOPE THE RAIL CHOSE, sent with every read on this screen. Before the switcher moved out
+  // of «محلّي», this list was ALWAYS the whole chain while the numbers next door might be one
+  // branch — and an owner reading both was reading two different shops with nothing saying so.
   const navigate = useNavigate();
   const [tab, setTab] = useState<'all' | 'overdue'>('all');
   const [query, setQuery] = useState('');
@@ -66,7 +72,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
   useEffect(() => {
     const a = action(catalog, 'operations.recent');
     if (!a) { setRecent(DENIED); return; }
-    call<{ customers: CustomerHit[] }>(session, a, { limit: 50 })
+    call<{ customers: CustomerHit[] }>(session, a, { limit: 50, ...scopeQuery(branch) })
       .then((x) => setRecent(x.customers))
       .catch(() => setRecent(null));
   }, [session, catalog]);
@@ -107,7 +113,7 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
           .map((r) => r.subject_ref)
           .filter((r): r is string => Boolean(r));
         if (refs.length === 0) return { customers: [] as CustomerHit[] };
-        return call<{ customers: CustomerHit[] }>(session, resolve, { refs });
+        return call<{ customers: CustomerHit[] }>(session, resolve, { refs, ...scopeQuery(branch) });
       })
       .then((x) => { if (!stale) setOverdue(x.customers ?? []); })
       .catch(() => { if (!stale) setOverdue(null); });
@@ -164,7 +170,8 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
     const refs = asks.map((a) => a.subject_ref).filter((r): r is string => Boolean(r));
     if (refs.length === 0) { setAskWho({}); return; }
     let stale = false;
-    call<{ customers: (CustomerHit & { subject_ref?: string })[] }>(session, resolve, { refs })
+    call<{ customers: (CustomerHit & { subject_ref?: string })[] }>(
+      session, resolve, { refs, ...scopeQuery(branch) })
       .then((x) => {
         if (stale) return;
         const by: Record<string, CustomerHit> = {};

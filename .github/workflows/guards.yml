@@ -510,6 +510,13 @@ jobs:
       - name: the consent sentence shown is the sentence recorded
         run: python3 ci/check_the_consent_sentence_shown_is_the_sentence_recorded.py
 
+      # `GET /api/v1/branches` returned every branch of the establishment to anybody holding the
+      # capability, while every other read in that service was narrowed by `branch_scope`. A
+      # manager granted Jeddah could not read Riyadh's numbers and could read Riyadh's NAME — and
+      # it is the list the sidebar switcher is built from, whose one rule is «يُضيِّق ولا يوسّع».
+      - name: a branch list is narrowed to who is asking
+        run: python3 ci/check_a_branch_list_is_narrowed_to_who_is_asking.py
+
       # Which address a message must end with — a stop link for marketing (§8.3), the consent
       # invitation for everything else — is enforced by three readers built months apart: the
       # library generator, the owner's own draft path, and the constant both ask. This is the

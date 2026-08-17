@@ -37,7 +37,9 @@ const { CustomersScreen } = await import('./Customers');
 function open() {
   return render(
     createElement(MemoryRouter, null,
-      createElement(CustomersScreen, { session: {} as never, catalog: {} as never })),
+      // «كل الفروع» — the default scope, and the one this test is about: the list is not
+      // narrowed here, so what it asserts is the overdue join and nothing else.
+      createElement(CustomersScreen, { session: {} as never, catalog: {} as never, branch: '' })),
   );
 }
 
