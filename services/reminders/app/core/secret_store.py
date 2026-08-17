@@ -23,6 +23,11 @@ ROTATION KEEPS THE PREVIOUS VALUE FOR A WINDOW. A request in flight when a key c
 fail, and an operator who pastes the wrong thing needs a way back. The old value is retained with
 an expiry and dropped after it.
 """
+#: SHARED COPY — this module is pasted into every service, and its CODE must stay identical in
+#: all of them. These are separate deployables with no package to share, so the copies are held
+#: equal by `ci/check_a_module_copied_into_every_service_stays_one_module.py` rather than by
+#: anybody remembering. Prose may differ; logic may not. Removing this line is itself a failure.
+
 from __future__ import annotations
 
 import base64
