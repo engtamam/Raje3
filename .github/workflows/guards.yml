@@ -475,6 +475,17 @@ jobs:
       - name: every gate is wired into ci
         run: python3 ci/check_every_gate_is_wired_into_ci.py
 
+      # THE REGISTERS ARE THE MOST-READ PROSE HERE AND THE ONLY LARGE ARTEFACT NOTHING CHECKED.
+      # Four sessions this campaign opened a finding marked OPEN, spent a turn reading the code,
+      # and found it closed; one marked CLOSED was wrong the other way, about a file that was
+      # still writing the offset. A citation that lands on nothing teaches the reader that the
+      # register is approximately right — which is the most expensive thing it could teach them.
+      #
+      # It checks the weak, checkable claim: the reader lands somewhere real. Whether the line
+      # still says what the finding says is what the sessions do by hand.
+      - name: the audit register cites files that exist
+        run: python3 ci/check_the_audit_register_cites_files_that_exist.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
