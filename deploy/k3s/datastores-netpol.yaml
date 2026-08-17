@@ -1,0 +1,126 @@
+# ==================================================================================================
+#  THE DATABASES THEMSELVES (أ-3)
+#
+#  WHAT WAS MISSING, AND IT WAS MISSING IN THE DIRECTION THAT MATTERS. The fleet carries 48
+#  NetworkPolicies covering the 24 services — a default-deny plus an allow for each — and every one
+#  of them selects a SERVICE. Not one selects `postgres`, `redis` or `objectstore`. The model
+#  restricted where services may GO; it said nothing about who may ARRIVE at the data.
+#
+#  So `postgres:5432` and `redis:6379` accepted a connection from anything that could get a packet
+#  into the namespace. The two pods most able to give an attacker that packet are `edge` and
+#  `console` — both Caddy, both facing the internet, and both (see below) unselected by any policy
+#  at all. A flaw in either put the attacker one TCP connection from every shop's customer list.
+#
+#  A DEFAULT-DENY ON THE STORE IS THE ONLY VERSION THAT HOLDS. Tightening each service's egress
+#  would be a rule about 24 well-behaved callers; this is a rule about the data. A new workload
+#  added next month — a debug pod, a job, a sidecar somebody adds in a hurry — is denied by
+#  construction rather than by remembering to extend a list.
+#
+#  WHO IS ALLOWED, AND WHY IT IS AN «Exists» RATHER THAN A LIST OF NAMES. Every Helm-managed
+#  service in this namespace carries `app.kubernetes.io/name`; `console` and `edge` carry a bare
+#  `app` label and nothing else. So «a pod that is one of our services» is expressible exactly, and
+#  a 25th service is covered the day it is installed — with no list here to fall behind.
+#
+#  ⚠ NOT APPLIED BY THIS FILE. Applying it changes a running cluster, which is Tamam's call. It is
+#  written here so `install.sh` carries it on the next deploy and so the repository stops being
+#  silent about a hole it knows the shape of.
+# ==================================================================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: datastore-default-deny
+  namespace: base-services
+spec:
+  # `base-services/role: datastore` is already on postgres and redis — read off the live pods
+  # rather than invented here, so this selects what actually runs.
+  podSelector:
+    matchLabels:
+      base-services/role: datastore
+  policyTypes: [Ingress]
+  # No `ingress:` key at all — an empty rule set is a total deny, and the allow below is additive.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: datastore-allow-services
+  namespace: base-services
+spec:
+  podSelector:
+    matchLabels:
+      base-services/role: datastore
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              # OUR SERVICES, AND NOTHING ELSE. Helm stamps this label on every service in the
+              # fleet; the two internet-facing Caddy pods do not carry it, which is the whole point.
+              - key: app.kubernetes.io/name
+                operator: Exists
+      ports:
+        - { protocol: TCP, port: 5432 }
+        - { protocol: TCP, port: 6379 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: objectstore-default-deny
+  namespace: base-services
+spec:
+  podSelector:
+    matchLabels:
+      base-services/role: objectstore
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: objectstore-allow-services
+  namespace: base-services
+spec:
+  podSelector:
+    matchLabels:
+      base-services/role: objectstore
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: Exists
+      ports:
+        # SeaweedFS: 9333 master, 8333 S3 gateway, 8080 volume. Named because a store that accepts
+        # every port from an allowed pod is a default-deny with the door left open behind it.
+        - { protocol: TCP, port: 9333 }
+        - { protocol: TCP, port: 8333 }
+        - { protocol: TCP, port: 8080 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: console-default-deny
+  namespace: base-services
+spec:
+  # THE CONSOLE SERVES FILES AND NEEDS NOTHING. It is a static bundle behind Caddy: every API call
+  # a screen makes is made by the BROWSER, to the gateway, from outside the cluster. So it has no
+  # legitimate reason to open a connection to anything in here — and it was the one pod with both
+  # internet exposure and unrestricted namespace access.
+  podSelector:
+    matchLabels:
+      app: console
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # From outside the cluster via the edge; that traffic has no pod identity to match on, so the
+    # rule is by port. Same deliberate exception the edge policy documents.
+    - ports:
+        - { protocol: TCP, port: 8080 }
+  egress:
+    # DNS ONLY. Caddy resolves nothing else; if this ever needs more, the need is the bug.
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }

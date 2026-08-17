@@ -486,6 +486,19 @@ jobs:
       - name: the audit register cites files that exist
         run: python3 ci/check_the_audit_register_cites_files_that_exist.py
 
+      # أ-3 · THE WALL WAS BUILT IN ONE DIRECTION. 48 policies cover the 24 services — a
+      # default-deny and an allow each — and read live from the cluster, not one selects
+      # `postgres`, `redis` or `objectstore`. The model restricted where services may GO; it said
+      # nothing about who may ARRIVE at the data. So 5432 and 6379 accepted a connection from
+      # anything that could put a packet in the namespace, and the two pods most able to hand an
+      # attacker that packet — `edge` and `console`, both Caddy, both facing the internet — were
+      # selected by nothing at all.
+      #
+      # The stores belong to the read-only platform submodule; a NetworkPolicy is namespace-scoped
+      # and needs no change to the workload. So they run the database and we decide who reaches it.
+      - name: the data stores are behind a policy
+        run: python3 ci/check_the_data_stores_are_behind_a_policy.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
