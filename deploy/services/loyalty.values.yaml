@@ -113,6 +113,8 @@ env:
   EXPIRY_WARN_DAYS: "14"
   # Balances per tick. Bounded so a large tenant cannot turn one cron run into a request that
   # times out and retries from the beginning forever.
+  # each-unit-is-a-local-read: `expiry.sweep` reads this many balance rows from its own store
+  # and calls no peer — verified in core/expiry.py.
   EXPIRY_SWEEP_LIMIT: "500"
 
   AUDIT_SINK_DRIVER: "http"

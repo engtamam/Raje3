@@ -83,12 +83,24 @@ A_TIMEOUT = re.compile(r"^\s+([A-Z0-9_]*TIMEOUT[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
 #: every one. It reported `insights` as fitting comfortably while a 5000-visit bound sat in the
 #: same file, under a comment about being killed at 300s. A pattern that encodes one vocabulary
 #: for a concept the codebase spells several ways is a gate that answers about the half it knows.
-A_INNER = re.compile(r"^\s+([A-Z0-9_]*(?:BATCH|_LIMIT)[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
+A_INNER = re.compile(r"^\s+([A-Z0-9_]*(?:BATCH|_LIMIT)[A-Z0-9_]*): *\"?(\d+)\"?")
 
-#: THE DECLARATION THAT MAKES A BOUND MULTIPLIABLE. A values file writes this beside its bound
-#: when one unit of the run is a REMOTE CALL that can take the whole per-item timeout — which is
-#: what makes `bound x timeout` mean anything. Absent, the bound is reported and not multiplied.
-PAIRED = re.compile(r"each-unit-is-a-remote-call")
+#: THE DECLARATION THAT MAKES A BOUND MULTIPLIABLE, WRITTEN ABOVE THE BOUND ITSELF.
+#:
+#: PER BOUND, NOT PER FILE, BECAUSE ONE FILE CAN HOLD BOTH KINDS. `insights` declares
+#: `SNAPSHOT_BATCH` — thirty tenants, one peer call each — AND `SNAPSHOT_VISIT_LIMIT`, five
+#: thousand rows INSIDE one of those calls. A file-level marker would have multiplied both and
+#: reported 40240s, or neither and ignored a real peer loop. Both readings would have been wrong.
+#:
+#: AND IT MAY NAME ITS OWN COST. `each-unit-is-a-remote-call: HTTP_TIMEOUT_SECONDS` pins which
+#: timeout applies; without a name the gate falls back to the smallest declared, which is the
+#: conservative guess and NOT always the true one — notification-service declares a 3s consent
+#: timeout beside a 15s HTTP one, and it is the HTTP one a delivery actually costs.
+PAIRED = re.compile(r"each-unit-is-a-remote-call(?::\s*([A-Z0-9_]+))?")
+
+#: The counter-declaration: this bound counts rows inside one call, so multiplying it by a per-call
+#: timeout says nothing. Reported nowhere, because the question has been answered.
+LOCAL = re.compile(r"each-unit-is-a-local-read")
 
 #: A BOUND THAT IS A RUNAWAY CEILING RATHER THAN A WORKING VALUE. `BACKUP_TARGET_LIMIT: 500` is the
 #: upstream default over a fleet of about eighteen services — lowering it until the arithmetic fits
@@ -139,19 +151,35 @@ def main() -> int:
         timeouts = {k: int(v) for k, v in A_TIMEOUT.findall(text)}
         if not timeouts:
             continue                      # nothing declared to multiply; not this gate's business
-        inner_found = {k: int(v) for k, v in A_INNER.findall(text)}
-        # WHAT ONE UNIT COSTS, SAID BY THE FILE THAT DECLARES THE BOUND.
-        paired = PAIRED.search(text) is not None
-        inner = inner_found if paired else {}
-        if inner_found and not paired:
-            shape = ", ".join(f"{k}={v}" for k, v in sorted(inner_found.items()))
-            unpaired.append(f"{path.stem.replace('.values', '')}: {shape}")
+        svc = path.stem.replace(".values", "")
+        # EACH BOUND IS READ WITH THE COMMENT BLOCK ABOVE IT, because the declaration belongs to
+        # the bound and not to the file: see the note on PAIRED for the insights pair that proves
+        # a file-level answer is wrong in both directions.
+        inner: dict[str, int] = {}
+        named_cost: str | None = None
+        block: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                block.append(stripped)
+                continue
+            hit = A_INNER.match(line)
+            if hit:
+                nearby = "\n".join(block)
+                if LOCAL.search(nearby):
+                    pass                       # answered: rows inside one call, nothing to multiply
+                elif (m2 := PAIRED.search(nearby)):
+                    inner[hit.group(1)] = int(hit.group(2))
+                    named_cost = m2.group(1) or named_cost
+                else:
+                    unpaired.append(f"{svc}: {hit.group(1)}={hit.group(2)}")
+            block = []
         outer = {k: int(v) for k, v in A_OUTER.findall(text)}
         if not inner and not outer:
             continue
-        # THE SMALLEST TIMEOUT, because taking the largest would flatter the number.
-        pk = min(timeouts, key=lambda k: timeouts[k])
-        svc = path.stem.replace(".values", "")
+        # THE COST THE DECLARATION NAMED, or the smallest declared — the conservative guess, which
+        # is not the same as the right one, so a bound that knows its own cost says so.
+        pk = named_cost if named_cost in timeouts else min(timeouts, key=lambda k: timeouts[k])
 
         # A BOUND ALONE IS NOT AN ARGUMENT. Multiplying it by the smallest declared timeout only
         # says anything if ONE UNIT REALLY COSTS THAT — true of the reminders tick, where each row

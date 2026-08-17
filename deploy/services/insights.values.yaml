@@ -117,7 +117,11 @@ env:
   # that finishes and reports success lets the next schedule pick up the remainder, while a run
   # that is killed at 300s repeats the same work and is never believed. The other knob — raising
   # the caller — lives in platform/deploy/chart/templates/cronjob.yaml, which we do not edit.
+  # each-unit-is-a-remote-call: `for tenant in tenants[:batch]` in core/tick.py, and each pass
+  # makes one `peers.visits(tenant)` call.
   SNAPSHOT_BATCH: "30"
+  # each-unit-is-a-local-read: rows INSIDE one `peers.visits` response, not one call each. This
+  # is the pair that proved a per-file answer cannot be right: its neighbour above is remote.
   SNAPSHOT_VISIT_LIMIT: "5000"
 
   # ── the association engine's four judgements ─────────────────────────────────────────────

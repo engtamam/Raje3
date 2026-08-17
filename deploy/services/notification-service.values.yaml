@@ -175,6 +175,15 @@ env:
   NOTIFY_MAX_ATTEMPTS: "5"
   NOTIFY_BACKOFF_BASE_MS: "1000"
   NOTIFY_BACKOFF_MAX_MS: "300000"
+  # a-ceiling-not-a-tuning-knob: this bounds a BACKLOG, not steady state. The queue is empty
+  # in normal running, so 100 is what one run may clear after a provider outage — and the
+  # arithmetic only fits at 20, which would quintuple the time to recover from exactly the
+  # failure this queue exists for. The window is the platform's 300s to raise, not this
+  # number to shrink. Fifth member of the ي-7 family; see #340.
+  # each-unit-is-a-remote-call: HTTP_TIMEOUT_SECONDS
+  # `notifier.drain` loops `for d in due:` and re-sends each delivery through the provider, so
+  # one unit costs an HTTP send — NOT the 3s consent timeout, which is the smallest declared
+  # here and would have understated this by five.
   NOTIFY_DRAIN_LIMIT: "100"
   # Idempotency window. A duplicate reminder is not a cosmetic bug here: §14.2 says a duplicate
   # is among the fastest ways to get an establishment's number blocked.
