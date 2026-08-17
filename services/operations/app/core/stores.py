@@ -17,6 +17,7 @@ import time
 import uuid
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core import privacy_requests as PR
 from app.core.models import (ASSETS, BRANCHES, CUSTOMERS, OPERATORS, SERVICES, VISITS,
                              Asset, Branch, Customer, Operator, Service, Visit)
@@ -138,11 +139,18 @@ class CustomerStore(_Base):
         """
         if not refs:
             return []
-        rows, _ = await self._find(tenant, limit=10_000)
+        # DRAINED, AND THE OLD `limit=10_000` WAS WORSE THAN IT LOOKS. Without a `sort` the store
+        # defaults to `("created", "desc")` — NEWEST FIRST — so a shop past ten thousand customers
+        # resolved this set against its most recently created ones. And the people this list is
+        # about are the OVERDUE, who are by definition the oldest: two hundred pseudonyms came back
+        # as forty names, and «رجع وصرف: 61» was shown where the truth was three hundred. That is
+        # the number an owner reads when he decides whether to stop a campaign.
+        rows = await drain(self._s, self.collection, {"tenant": tenant}, sort=("created", "asc"))
         return [Customer(**r) for r in rows if r.get("subject_ref") in refs]
 
-    async def all_for_tenant(self, tenant: str, limit: int = 10_000) -> list[Customer]:
-        rows, _ = await self._find(tenant, limit=limit)
+    async def all_for_tenant(self, tenant: str) -> list[Customer]:
+        """Every customer of one establishment — all of them, or an error saying why not."""
+        rows = await drain(self._s, self.collection, {"tenant": tenant}, sort=("created", "asc"))
         return [Customer(**r) for r in rows]
 
 

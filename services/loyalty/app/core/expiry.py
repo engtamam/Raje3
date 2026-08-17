@@ -29,6 +29,24 @@ from typing import Any
 from app.core.ledger import Ledger
 from app.core.models import BALANCES
 
+# The sweep's own position. Same collection the catch-up cursor uses (core/recovery),
+# under a different key: both are «where did this walker get to».
+CURSORS = "loyalty_watermarks"
+
+
+def _last_key(rows: list[dict]) -> str | None:
+    """The cursor a scan_all page ends on — its last row's STORE KEY.
+
+    Built the way `Balance.key` builds it rather than read off an `id` field, because a balance
+    row has no `id`: it is keyed by `tenant|subject_ref` and nothing else. Reading `id` returned
+    None on every page, the cursor never moved, and the fix would have been the defect again in
+    a new costume — which is exactly what the test that caught it is named after.
+    """
+    if not rows:
+        return None
+    last = rows[-1]
+    return f"{last.get('tenant', '')}|{last.get('subject_ref', '')}"
+
 DAY = 86400
 
 
@@ -54,20 +72,38 @@ class Expiry:
         function stays pure and testable, and so a failure to send can never leave a balance
         half-expired: the expiry is committed, the message is attempted after.
 
-        BOUNDED AND RESUMABLE. It processes at most `limit` balances and reports whether more
-        remain, so a tenant with a hundred thousand customers does not turn one cron tick into a
-        request that times out and retries from the beginning forever.
+        BOUNDED AND RESUMABLE — AND IT SAID SO WHILE BEING NEITHER. The docstring promised a
+        cursor and there was none: every run read the SAME five hundred rows, `created_at asc`,
+        for ever. `more` was computed, returned, and read by nobody.
+
+        A shop with fifty thousand balances: within weeks all five hundred of those oldest rows
+        have `points <= 0` and are skipped — while still filling the window. The other 49,500
+        customers never expire and never get the fourteen-day warning. And the tick reports
+        `expired: 0, seen: 500`, which is exactly what a healthy sweep looks like.
+
+        SO THE CURSOR IS PERSISTED, and it wraps. Reaching the end and starting again is the
+        correct behaviour for a sweep that must eventually see everybody; stopping at the end
+        would leave the newest balances unswept for ever, which is the same defect facing the
+        other way.
         """
         where = {"tenant": tenant} if tenant else None
+        after = await self._cursor(tenant)
         if where:
-            found, _ = await self.store.find(BALANCES, where, limit=limit,
-                                             sort=("created_at", "asc"))
+            found, nxt = await self.store.find(BALANCES, where, limit=limit, after=after,
+                                               sort=("created_at", "asc"))
         else:
             # sweeper: every tenant. find() refuses an empty `where` by design, so the whole-fleet
             # pass is explicitly a scan rather than a query with no filter — which is the honest
             # description of what it is.
-            found = await self.store.scan_all(BALANCES, limit=limit)
+            found = await self.store.scan_all(BALANCES, limit=limit, after=after)
+            # scan_all returns rows only; a short page means the end of the collection.
+            nxt = None if len(found or []) < limit else _last_key(found)
         rows = list(found or [])
+
+        # WRITTEN BEFORE THE WORK, so a crash mid-sweep costs one window rather than pinning the
+        # cursor where it was. A balance skipped this pass is picked up on the next lap; a cursor
+        # that never moves is the defect this replaces.
+        await self._remember(tenant, nxt)
 
         expired = warned = 0
         to_warn: list[dict] = []
@@ -106,8 +142,22 @@ class Expiry:
                                 "points": points, "due_at": due})
                 warned += 1
 
+        # `more` NOW MEANS WHAT IT SAYS: the store handed back a cursor, so there is another page.
+        # It used to be `len(rows) >= limit`, which is true on a full page even when that page is
+        # the last one — and nobody read it either way.
         return {"seen": len(rows), "expired": expired, "to_warn": to_warn,
-                "warned": warned, "more": len(rows) >= limit}
+                "warned": warned, "more": bool(nxt)}
+
+    # ── the cursor ───────────────────────────────────────────────────────────────────────────
+    # Per tenant, plus one for the whole-fleet pass under a reserved key, because the two walk
+    # different sequences and sharing a position between them would skip rows in both.
+    async def _cursor(self, tenant: str) -> str | None:
+        row = await self.store.get(CURSORS, f"{tenant or '_fleet'}|expiry")
+        return (row or {}).get("after") or None
+
+    async def _remember(self, tenant: str, after: str | None) -> None:
+        key = f"{tenant or '_fleet'}|expiry"
+        await self.store.put(CURSORS, key, {"id": key, "tenant": tenant, "after": after or ""})
 
     async def mark_warned(self, tenant: str, subject_ref: str, now: int) -> None:
         """Stamp the warning so it goes once per expiry cycle rather than every day.

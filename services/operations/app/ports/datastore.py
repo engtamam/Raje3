@@ -41,7 +41,8 @@ class DataStore(Protocol):
         """
         ...
 
-    async def scan_all(self, collection: str, limit: int) -> list[dict[str, Any]]:
+    async def scan_all(self, collection: str, limit: int,
+                       after: str | None = None) -> list[dict[str, Any]]:
         """EVERY row in a collection. A sweeper or a migration — never a request path."""
         ...
 

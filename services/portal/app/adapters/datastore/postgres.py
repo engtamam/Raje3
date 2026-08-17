@@ -195,19 +195,32 @@ class PostgresDataStore:
             next_cursor = _cursor.encode(last.get(field), str(last.get("id", "")))
         return page, next_cursor
 
-    async def scan_all(self, collection: str, limit: int) -> list[dict[str, Any]]:
+    async def scan_all(self, collection: str, limit: int,
+                       after: str | None = None) -> list[dict[str, Any]]:
         """Every row. Sweepers and migrations only — see the port.
 
         Ordered by key, so a truncated read is at least DETERMINISTIC. The old `list()` had no
         ORDER BY: past the limit it returned whatever the heap yielded, and a tenant could see
         an arbitrary subset of its own rows.
+
+        AND RESUMABLE FROM `after`, which the ORDER BY above was always half of. Deterministic
+        order without a cursor means every sweep reads the same page — see the memory adapter for
+        what that cost the expiry pass. `key > $2` is a range scan on the primary key, so paging
+        the whole collection costs no more than reading it once.
         """
         pool = await self._ensure()
         async with pool.acquire() as con:
-            rows = await con.fetch(
-                f"SELECT value FROM {_TABLE} WHERE collection=$1 ORDER BY key LIMIT $2",  # nosec B608 - _TABLE is a trusted constant; values parameterized
-                collection, max(0, int(limit)),
-            )
+            if after:
+                rows = await con.fetch(
+                    f"SELECT value FROM {_TABLE} WHERE collection=$1 AND key > $2 "  # nosec B608 - _TABLE is a trusted constant; values parameterized
+                    f"ORDER BY key LIMIT $3",
+                    collection, str(after), max(0, int(limit)),
+                )
+            else:
+                rows = await con.fetch(
+                    f"SELECT value FROM {_TABLE} WHERE collection=$1 ORDER BY key LIMIT $2",  # nosec B608 - _TABLE is a trusted constant; values parameterized
+                    collection, max(0, int(limit)),
+                )
         return [json.loads(r["value"]) for r in rows]
 
     async def list(self, collection: str, limit: int = 100) -> list[dict[str, Any]]:

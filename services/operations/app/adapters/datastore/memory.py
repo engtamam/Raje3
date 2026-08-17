@@ -70,10 +70,25 @@ class MemoryDataStore:
             next_cursor = _cursor.encode(last.get(field), str(last.get("id", "")))
         return copy.deepcopy(page), next_cursor
 
-    async def scan_all(self, collection: str, limit: int) -> list[dict[str, Any]]:
-        """Every row. Sweepers and migrations only - see the port."""
-        rows = list(self._data.get(collection, {}).values())
-        return copy.deepcopy(rows[: max(0, int(limit))])
+    async def scan_all(self, collection: str, limit: int,
+                       after: str | None = None) -> list[dict[str, Any]]:
+        """Every row, in KEY ORDER, resumable from `after`.
+
+        `after` EXISTS BECAUSE A SWEEP WITHOUT IT IS NOT A SWEEP. The points-expiry pass called
+        this every night with `limit=500` and read the same five hundred rows for ever: a shop
+        with fifty thousand balances had 49,500 customers whose points never expired and who never
+        received the fourteen-day warning — while the tick reported `expired: 0, seen: 500`, which
+        is what a healthy sweep looks like. A walker that cannot say where it stopped can only ever
+        walk the beginning.
+
+        Key order, not insertion order, so the sequence is stable across processes and a cursor
+        taken by one pod means the same thing to the next.
+        """
+        keys = sorted(self._data.get(collection, {}))
+        if after:
+            keys = [k for k in keys if k > after]
+        rows = [self._data[collection][k] for k in keys[: max(0, int(limit))]]
+        return copy.deepcopy(rows)
 
     async def list(self, collection: str, limit: int = 100) -> list[dict[str, Any]]:
         return await self.scan_all(collection, limit)

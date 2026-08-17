@@ -67,8 +67,12 @@ class Visitor(ast.NodeVisitor):
         value = node.value
         if isinstance(value, ast.Await):
             value = value.value
+        # `find` AND `_find`. A store wrapper named `_find` hid four of these from the first
+        # version of this gate — including `CustomerStore.by_refs`, which reads ten thousand
+        # customers NEWEST-FIRST to resolve a set of pseudonyms, and the overdue are by definition
+        # the oldest. One underscore was the whole difference between caught and invisible.
         if not (isinstance(value, ast.Call) and isinstance(value.func, ast.Attribute)
-                and value.func.attr == "find"):
+                and value.func.attr in ("find", "_find")):
             return self.generic_visit(node)
 
         limit = next((kw.value.value for kw in value.keywords
