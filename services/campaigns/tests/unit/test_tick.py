@@ -139,10 +139,28 @@ def test_a_scheduled_campaign_with_no_time_never_fires(st):
 
 
 # ── manual and paused ──────────────────────────────────────────────────────────────────────────
-def test_the_tick_never_fires_a_manual_campaign(st):
-    """The owner presses the button. Reaching that branch means one was left active — harmless,
-    and skipped rather than fired."""
-    save(st, Campaign(tenant="t1", goal="announce", state="active"))
+def test_a_manual_campaign_that_was_created_and_never_sent_is_rescued(st):
+    """This test used to assert the opposite, and its docstring said «harmless».
+
+    It is not harmless. The create route writes the campaign row and THEN fires inside the same
+    request; a pod evicted between those two steps leaves a manual campaign at `active` having
+    reached nobody. The owner's screen shows it as فعّالة so he does not press again, and this
+    branch — the only thing that ever looks at it — used to count it as skipped for ever.
+    """
+    c = save(st, Campaign(tenant="t1", goal="announce", state="active"))
+    d = Dispatcher()
+    tick(st, d, at(10))
+    assert len(d.fired) == 1, "a campaign he launched and that never went out must be picked up"
+    assert run(st.get("campaigns", c.key))["last_evaluated"] == at(10)
+
+
+def test_a_manual_campaign_that_already_ran_is_never_fired_again(st):
+    """The mirror image, and the reason the rescue is keyed on `last_evaluated` rather than state.
+
+    Re-firing a finished manual campaign would send a second copy to everyone who already got
+    one — the exact damage the rescue exists to prevent, caused by the rescue itself.
+    """
+    save(st, Campaign(tenant="t1", goal="announce", state="active", last_evaluated=at(9)))
     d = Dispatcher()
     tick(st, d, at(10))
     assert d.fired == []

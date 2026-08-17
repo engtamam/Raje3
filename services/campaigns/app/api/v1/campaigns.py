@@ -27,6 +27,7 @@ from app.api.ratelimit import rate_limit
 from app.core.goals import CARDS, cards, lock_after_send, resolve_goal
 from app.core.models import GOAL_TEMPLATE, Campaign, as_row, offers_something
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
+from app.core import press
 from app.core.preview import PreviewError, build as build_preview, describe_when
 from app.core.share import compute as compute_share
 from app.core.spread import plan as plan_spread
@@ -164,6 +165,25 @@ async def preview(request: Request, body: CampaignIn,
     # we plan it or not, and an owner who expected an afternoon and got a week will say the
     # product is broken. He will be right to: nothing told him.
     out = vars(p)
+
+    # WHAT THE NUMBER DOES NOT INCLUDE, IN HIS WORDS. Two different truncations reach this screen
+    # and until now neither was ever spoken: `truncated` means our own audience cap stopped the
+    # count, `source_truncated` means operations could not hand over the whole customer book, so
+    # the rule never saw the rest of his shop. Both were computed and both were dropped on the
+    # floor here — `grep truncated` across every screen in the product returned nothing.
+    #
+    # An owner reading «تصل 4,300 عميلاً» has no way to know it might have been «5,000 من أصل
+    # 9,000». Saying so costs one sentence and is the whole difference between a count and a
+    # guess wearing a count's clothes.
+    if getattr(audience, "source_truncated", False):
+        out["audience_note"] = ("هذا العدد محسوبٌ من جزءٍ من عملائك — قاعدتك أكبر مما استطعنا "
+                                "قراءته دفعةً واحدة. راجعنا قبل الإطلاق.")
+    elif audience.truncated:
+        out["audience_note"] = ("بلغت الحملة سقف الجمهور، فتوقّف العدّ عنده — هناك من ينطبق "
+                                "عليه الشرط ولم يدخل هذه الحملة.")
+    else:
+        out["audience_note"] = ""
+
     share = await _todays_share(c, _tenant(principal))
     if share.known:
         # FOUR ARGUMENTS, WHICH IS ALL `plan` TAKES. It was being called with `offer_value=` and
@@ -274,6 +294,31 @@ async def create(request: Request, body: CampaignIn,
                                 content={"error": "BAD_REQUEST",
                                          "reason": "تاريخ الانتهاء مضى — اختر وقتاً قادماً."})
 
+    # ── one press, one campaign ──────────────────────────────────────────────────────────────
+    # See core/press.py for why. In short: everything that stops a customer receiving the same
+    # thing twice is keyed on `campaign_id`, and this route minted a new one on every request —
+    # so two presses of a button that gives no feedback for several seconds were two campaigns
+    # that could not see each other, and the shop paid for both.
+    press_key = press.key_for(
+        _tenant(principal), goal=body.goal, owner_text=clean, service_id=body.service_id or "",
+        branch_id=body.branch_id or "", offer_value=body.offer_value or "",
+        expires_at=body.expires_at or 0, fire_at=body.fire_at or 0)
+    taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
+    if not taken.first:
+        if taken.in_flight:
+            # THE FIRST PRESS IS STILL SENDING. Refused rather than duplicated, and refused in his
+            # words: 409 is «this is already happening», not «you did something wrong».
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={"error": "IN_PROGRESS",
+                         "reason": "حملتك قيد الإطلاق الآن — انتظر قليلاً ثم حدّث الصفحة."})
+        existing = await c.datastore.get("campaigns", f"{_tenant(principal)}|{taken.campaign_id}")
+        if existing:
+            # THE SAME CAMPAIGN, NOT A SECOND ONE, and no send. He gets the answer he would have
+            # got the first time, which is what he was pressing for.
+            return {"campaign": existing, "run": None, "behaviour": spec["behaviour"],
+                    "duplicate": True}
+
     campaign = Campaign(tenant=_tenant(principal), goal=body.goal, owner_text=clean,
                         template_type=spec["template_type"], cls=spec["cls"],
                         trigger=spec["trigger"], state="active", fire_at=body.fire_at,
@@ -302,6 +347,10 @@ async def create(request: Request, body: CampaignIn,
         "campaign.created", actor=principal.subject, tenant=_tenant(principal),
         resource=f"campaign:{campaign.id}", ip=request.client.host if request.client else "")
     await c.datastore.put("campaigns", campaign.key, as_row(campaign))
+    # THE CLAIM NOW NAMES A CAMPAIGN THAT EXISTS. Settled here rather than at the end, because
+    # what a second press must be given back is the CAMPAIGN — a crash during the send must not
+    # leave the claim pointing at nothing while the row is on disk.
+    await press.settle(c.datastore, _tenant(principal), press_key, campaign.id, now=now)
 
     fired = None
     if campaign.trigger == "manual":
@@ -317,12 +366,18 @@ async def create(request: Request, body: CampaignIn,
                                       # must not be overridden. Two facts, two values (ج-3).
                                       daily_share=share.per_day if share.known else None)
         fired = vars(build_report(as_row(out.run)))
+        # STAMPED, AND THE TICK READS IT. `tick._one` now rescues a manual campaign that was
+        # written and never fired — a pod evicted between the `put` above and this send used to
+        # strand it at `active` for ever. That rescue is keyed on `last_evaluated == 0`, so a
+        # campaign that DID fire has to say so here, or the next tick would send it all over
+        # again: the same defect pointed the other way.
+        row = as_row(campaign)
+        row["last_evaluated"] = now
         until = lock_after_send(body.goal, now=now, sent=out.run.sent)
         if until:
-            row = as_row(campaign)
             row["locked_until"] = until
             row["state"] = "done"
-            await c.datastore.put("campaigns", campaign.key, row)
+        await c.datastore.put("campaigns", campaign.key, row)
 
     return {"campaign": as_row(campaign), "run": fired,
             "behaviour": spec["behaviour"]}

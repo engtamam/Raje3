@@ -159,8 +159,30 @@ class Tick:
             await self._fire(campaign, now=now, res=res)
             return
 
-        # `manual` fires from the API, never here. Reaching this branch means a manual campaign was
-        # left active — harmless, and skipped rather than fired: the owner presses the button.
+        # ── the manual campaign that was created and never sent ──────────────────────────────
+        # This used to be one line — `res.skipped += 1`, with a comment calling it harmless
+        # because «the owner presses the button». He did press it. The route writes the campaign
+        # row and THEN fires inside the same request, so a pod evicted between those two steps
+        # leaves a manual campaign sitting at `active` having reached nobody, and this branch was
+        # the only thing that ever looked at it again. It said «skipped» for ever.
+        #
+        # The owner's screen shows it as فعّالة, so he does not press again; the tick refuses to
+        # touch it; nothing anywhere reports it. It is the exact shape of «a row in a state it can
+        # never leave», in a campaign he has already been charged the intent of.
+        #
+        # NEVER RUN IS THE ONLY CASE PICKED UP, and `last_evaluated` is what says so. A manual
+        # campaign that HAS run is finished business — re-firing it here would be this defect's
+        # mirror image, sending a second copy to everyone who already got one.
+        if int(campaign.get("last_evaluated") or 0) == 0:
+            res.evaluated += 1
+            campaign["last_evaluated"] = now      # stamped first, for the reason above
+            await self._save(campaign, now)
+            finished = await self._fire(campaign, now=now, res=res)
+            if finished:
+                campaign["state"] = "done"
+                await self._save(campaign, now)
+            return
+
         res.skipped += 1
 
     async def _fire(self, campaign: dict[str, Any], *, now: int, res: TickResult) -> bool:

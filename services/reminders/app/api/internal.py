@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
+from app.adapters.datastore.drain import drain
 from app.config import Settings, get_settings
 from app.core.erasure import RemindersErasure
 from app.api.v1.prefs import PrefsIn

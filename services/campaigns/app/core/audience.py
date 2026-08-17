@@ -67,6 +67,12 @@ class Audience:
     # cause looks like a system that understands his shop.
     too_recent: int = 0
     truncated: bool = False
+    # AND WHETHER THE SOURCE ITSELF STOPPED EARLY. `truncated` above means OUR candidate list hit
+    # `max_audience` — a limit we chose and can explain. This one means operations could not hand
+    # over the shop's whole customer book, so the rule never even saw the rest. The two are
+    # different apologies and the owner deserves the right one: «we capped it» is a decision,
+    # «we did not see everyone» is a warning.
+    source_truncated: bool = False
 
     @property
     def count(self) -> int:
@@ -125,6 +131,9 @@ async def resolve(*, goal: str, tenant: str, now: int, customers, gate_check=Non
     rows = await customers(tenant)
     reached = already_reached or set()
     out = Audience()
+    # Carried through from the peer, which is the only party that can know it. Absent — a plain
+    # list, as every test fixture supplies — the answer is False and that is the truth.
+    out.source_truncated = bool(getattr(rows, "truncated", False))
 
     for row in rows:
         subject = row.get("subject_ref") or ""

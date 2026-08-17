@@ -107,6 +107,18 @@ class HttpTemplates:
 
 
 # ── the audience: built from operations' customers and reminders' learned intervals ────────────
+class SourceRows(list):
+    """The customer rows, plus whether operations had to stop before the end of its own book.
+
+    A plain list carries the rows and loses the one fact the owner needs: that there were more.
+    `audience.resolve` reads this attribute when present and defaults to False when it is not, so
+    every existing caller and every fake in the suite keeps working — and for those the honest
+    answer IS False, because a list built in a test is never a truncated read.
+    """
+
+    truncated = False
+
+
 class NullAudience:
     driver = "null"
 
@@ -218,7 +230,13 @@ class HttpAudience:
         data = _post(self._customers,
                      {"tenant": tenant, "limit": 5000, "branch_id": branch_id},
                      self._token, self._timeout)
-        rows = list(data.get("customers") or [])
+        # A LIST THAT CARRIES WHETHER IT IS THE WHOLE LIST. operations now says whether its own
+        # read stopped early, and that fact has to survive the trip to `audience.resolve` or the
+        # preview goes on reporting «reaches 4,300» for a shop whose book it only half saw. A
+        # plain list cannot carry it and changing the callable's signature would touch ten call
+        # sites and every fake in the suite — where the honest answer is always False anyway.
+        rows = SourceRows(data.get("customers") or [])
+        rows.truncated = bool(data.get("truncated"))
         if not rows or not self._rhythms:
             return rows
         try:

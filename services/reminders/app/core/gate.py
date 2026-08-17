@@ -202,8 +202,22 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
                      and int(s.get("at", 0)) >= month_ago])
             if n >= cap:
                 extra = " (نصف الحد لأن تفاعله منخفض)" if cap != base else ""
-                return Decision(False, f"بلغ الحد الشهري لرسائل «{_ar(cls)}» ({cap}){extra}.",
-                                tier=tier)
+                # THE WINDOW IS THIRTY ROLLING DAYS, AND THE SENTENCE USED TO SAY «الشهري».
+                # An owner reads «الشهري» as the calendar month: four messages on 2 August, and he
+                # expects his 1 September campaign to go out. It does not — the window still holds
+                # those four until 1 September plus two days — and what he sees is a product that
+                # refuses for no reason he can check against a calendar.
+                #
+                # AND IT NOW SAYS WHEN, which is the part that turns a refusal into an answer.
+                # The oldest send inside the window is the one whose leaving makes room.
+                counted = sorted(int(s.get("at", 0)) for s in recent_sends
+                                 if s.get("outcome") == "sent" and s.get("cls") == cls
+                                 and int(s.get("at", 0)) >= month_ago)
+                frees_at = counted[0] + 30 * DAY if counted else 0
+                return Decision(
+                    False,
+                    f"بلغ الحد لرسائل «{_ar(cls)}» ({cap} خلال آخر 30 يوماً){extra}.",
+                    retry_at=frees_at or None, tier=tier)
 
         if cls == "marketing":
             last = max((int(s.get("at", 0)) for s in recent_sends

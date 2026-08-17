@@ -70,17 +70,31 @@ TOKEN_VALUE=$(kubectl -n "$NS" get secret backup-service-secrets \
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
-printf '%s\n' "$KEY" > /tmp/.seed-backup-key.pem
-chmod 600 /tmp/.seed-backup-key.pem
-ADMIN=$(python3 -c '
-import jwt, time
+# THE KEY NEVER TOUCHES THE DISK, AND THAT FIXES TWO THINGS AT ONCE.
+#
+# This used to write the signing key to a temp file, chmod it, have python read it back, and delete
+# it. Two defects in four lines:
+#
+#   1. IT DID NOT WORK. `/tmp` in Git Bash is the user's temp directory; `/tmp` to a Windows
+#      python3 is `C:\tmp`. Two different places, so the read raised FileNotFoundError and the
+#      script died at «minting failed» — which is why this fleet has had ZERO backup targets
+#      registered. The one script standing between us and «nothing is backed up» could not run on
+#      the machine anyone would actually run it from.
+#
+#   2. AND IT SHOULD NOT HAVE WORKED EITHER. The SIGNING KEY — the thing that mints every session
+#      token in the product — was written to a temp directory for the duration of a python startup,
+#      and left there if the process died in between. The `rm -f` on the next line is not a
+#      guarantee; a Ctrl-C is.
+#
+# The environment carries it instead: no file, no path to disagree about, nothing to clean up.
+ADMIN=$(SEED_KEY="$KEY" python3 -c '
+import os, jwt, time
 now = int(time.time())
 print(jwt.encode({"sub": "seed-backup-targets", "tenant": "_platform",
                   "caps": ["platform.backup", "platform.secrets"],
                   "iss": "raje3", "aud": "raje3", "iat": now,
                   "exp": now + 300},
-                 open("/tmp/.seed-backup-key.pem").read(), algorithm="RS256"), end="")')
-rm -f /tmp/.seed-backup-key.pem
+                 os.environ["SEED_KEY"], algorithm="RS256"), end="")')
 case "$ADMIN" in
   ey*) : ;;
   *) red "minting failed; got a ${#ADMIN}-character value that is not a JWT"; exit 1 ;;

@@ -676,8 +676,13 @@ async def internal_customers(request: Request, body: CustomersIn) -> dict:
     where: dict[str, Any] = {"tenant": body.tenant}
     if body.branch_id:
         where["last_branch_id"] = body.branch_id
-    rows, _ = await c.datastore.find(CUSTOMERS, where,
-                                     limit=body.limit, sort=("last_visit", "desc"))
+    # LEAST RECENTLY SEEN FIRST, AND IT USED TO BE THE OPPOSITE. `sort=("last_visit","desc")`
+    # returned the customers who came in MOST recently — so for a shop with more customers than
+    # `limit`, a «win them back» campaign drew its audience from precisely the people who have not
+    # gone anywhere, and the long-absent were never even considered. Every goal this route feeds
+    # reasons about absence; ascending is the order that puts the subject of the question first.
+    rows, cursor = await c.datastore.find(CUSTOMERS, where,
+                                          limit=body.limit, sort=("last_visit", "asc"))
     return {"customers": [{"subject_ref": r.get("subject_ref", ""),
                            "last_visit": int(r.get("last_visit") or 0),
                            "visit_count": int(r.get("visit_count") or 0),
@@ -686,7 +691,13 @@ async def internal_customers(request: Request, body: CustomersIn) -> dict:
                            # report the owner has to take on trust.
                            "last_branch_id": r.get("last_branch_id", "")}
                           for r in rows if r.get("subject_ref")],
-            "count": len(rows)}
+            "count": len(rows),
+            # SAID OUT LOUD. The caller counts a truncation of its OWN candidate list and reports
+            # it on the preview screen, but it had no way to know this SOURCE had been cut — so a
+            # chain whose customer book is larger than `limit` was shown an audience drawn from
+            # part of its shop, labelled as the whole of it. Whether the source stopped early is
+            # something only this side can know, so only this side can say it.
+            "truncated": cursor is not None}
 
 
 class VisitsSinceIn(BaseModel):

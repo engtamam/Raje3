@@ -152,10 +152,18 @@ def test_personal_messages_are_neither_counted_nor_capped():
     assert d.allowed
 
 
-def test_the_monthly_marketing_cap_holds():
+def test_the_thirty_day_marketing_cap_holds_and_says_thirty_days():
+    """The window has always been thirty ROLLING days; the sentence used to say «الشهري».
+
+    An owner reads «الشهري» as the calendar month — four messages on 2 August, so surely the
+    1 September campaign goes out. It does not, and nothing he can check explains why. The refusal
+    now names the window it actually applies, and carries when it frees up.
+    """
     sends = [sent("marketing", at(10, day=d)) for d in (1, 3, 6, 9)]
     d = ev(cls="marketing", template_type="mkt_offer", recent_sends=sends)
-    assert not d.allowed and "الحد الشهري" in d.reason
+    assert not d.allowed
+    assert "30 يوماً" in d.reason and "الشهري" not in d.reason
+    assert d.retry_at, "a refusal that will lift on a known day must say which day"
 
 
 def test_a_quiet_customer_gets_half_the_marketing_and_is_told_so():

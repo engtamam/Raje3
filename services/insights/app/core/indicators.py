@@ -221,8 +221,23 @@ def expected_flow(visits: list[dict], *, now: int, weeks: int = 4) -> int:
         weeks_ago = (now - ts) // (7 * DAY)
         if 0 <= weeks_ago < weeks:
             counts[weeks_ago] += 1
-    seen = [c for c in counts if c]
-    return round(sum(seen) / len(seen)) if seen else 0
+    # ── the denominator is the shop's age, not the number of weeks it was busy ───────────────
+    # This used to be `seen = [c for c in counts if c]` — every zero week dropped before the mean.
+    # A car wash that closed for two weeks reported [40, 0, 0, 44] as 42 when the truth is 21, and
+    # the number is used to STAFF A SHIFT: it says «expect what a normal week brings» to a shop
+    # that has not had a normal month. A closure is not missing data. It is data, and it says zero.
+    #
+    # But a week BEFORE THE SHOP EXISTED is genuinely not data, and averaging over it would tell a
+    # one-week-old shop doing forty visits to expect ten. So the denominator is how many of these
+    # weeks the shop was actually open for — which is the one thing the visits themselves can say.
+    lived = 0
+    for v in visits:
+        ts = int(v.get("occurred_at") or v.get("created_at") or 0)
+        if ts:
+            lived = max(lived, min(weeks, (now - ts) // (7 * DAY) + 1))
+    if not lived:
+        return 0
+    return round(sum(counts[:lived]) / lived)
 
 
 def visits_in_window(visits: list[dict], *, now: int, window_days: int = 7) -> dict[str, Any]:
@@ -349,7 +364,21 @@ def engine_reserve(visits: list[dict], *, now: int, weeks: int = 8,
             continue
         per_week[(now - ts) // (7 * DAY)] += 1
 
-    counts = sorted(per_week.values())
+    # ── A WEEK THE SHOP WAS OPEN AND SAW NOBODY IS A SAMPLE OF ZERO ─────────────────────────
+    # `per_week` only has keys for weeks that had a visit, so a workshop that closes every Friday
+    # was measured on the Fridays it opened and nothing else: `counts` held two samples of 12 and
+    # the reserve held back twelve messages every Friday for a day that reliably brings none.
+    # Missing is not absent — it is zero, and the percentile has to see it to be a percentile of
+    # anything real.
+    #
+    # BOUNDED BY THE SHOP'S AGE for the same reason as `expected_flow`: weeks before it opened are
+    # not zeros, they are nothing, and padding with them would drive every young shop to the floor.
+    lived = 0
+    for v in visits:
+        ts = int(v.get("occurred_at") or v.get("created_at") or 0)
+        if ts and horizon <= ts <= now:
+            lived = max(lived, min(weeks, (now - ts) // (7 * DAY) + 1))
+    counts = sorted(per_week.get(w, 0) for w in range(lived))
     if not counts:
         # NO HISTORY IS NOT ZERO DEMAND. A new shop reserves the floor, and the campaign waits.
         return {"reserve": floor, "basis": "floor", "weekday": weekday, "samples": 0}
