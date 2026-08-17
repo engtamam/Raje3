@@ -297,6 +297,23 @@ export function Visit() {
   // a nine-digit typo saved happily and the reminder went nowhere for ever — nothing failed, and
   // the shop learned about it the day a customer said he never hears from them.
   const phoneOk = /^05\d{8}$/.test(phone);
+  // WHAT THE SAVE REQUIRES, WHICH IS NOT THE SAME QUESTION. `phoneOk` asks «can a reminder reach
+  // this number», and that is worth saying loudly — the check exists because a nine-digit typo
+  // used to save happily and the reminder went nowhere for ever, silently.
+  //
+  // BUT IT WAS ALSO THE GATE ON THE BUTTON, AND THAT REFUSED REAL CUSTOMERS. A visitor with a
+  // Gulf number, a company landline, a number typed with its country code — all of them left the
+  // save button dark, with no message, on the screen used a hundred times a day. And it is this
+  // screen alone: `operations/api/v1/field.py` accepts three characters, `till.py` accepts a visit
+  // with NO phone at all, and `_normalise_phone` says in writing that anything which is not a
+  // Saudi mobile «is stored as typed rather than refused… refusing it would stop a real visit
+  // being recorded to enforce a format nobody promised». Three lines below, the plate rule says
+  // exactly the same thing about plates. One screen, two doctrines.
+  //
+  // So the button now asks what the SERVICE asks, and the unusual number is reported rather than
+  // rejected: he can serve the customer, and he can see that this one will not get reminders.
+  // `fixtures/phones.json` holds the cases and both sides read it.
+  const phoneUsable = phone.trim().length >= 3;
   // THE PLATE IS REQUIRED WHERE THE SHOP SERVES CARS — one letter and one digit, in either script.
   // The shop says so itself now, with the «خدماتي على السيارات» switch; it used to be inferred
   // from a trade we no longer ask for and no longer store.
@@ -310,7 +327,7 @@ export function Visit() {
   // Latin one, and operations normalises both to 0-9. Refusing them here would refuse a
   // correct plate at the one screen used a hundred times a day.
   const plateOk = !showPlate || (/[0-9٠-٩]/.test(plate) && /\p{L}/u.test(plate));
-  const ready = chosen.length > 0 && phoneOk && plateOk;
+  const ready = chosen.length > 0 && phoneUsable && plateOk;
 
   /**
    * EVERYTHING THE SAVE DOES ONCE THE «WHO» IS SETTLED — proved or deliberately skipped.
@@ -369,7 +386,7 @@ export function Visit() {
       window.setTimeout(() => setNote(null), 4000);
       return;
     }
-    if (chosen.length > 0 && !phoneOk) {
+    if (chosen.length > 0 && !phoneUsable) {
       setNote('الرقم غير مكتمل — عشرة أرقام تبدأ بـ 05');
       window.setTimeout(() => setNote(null), 4000);
       return;
@@ -380,7 +397,7 @@ export function Visit() {
     // his name so re-proving is four digits.
     if (!proof()) { setAsking(true); return; }
     commit();
-  }, [chosen, commit, phoneOk, plateOk, ready, showPlate]);
+  }, [chosen, commit, phoneUsable, plateOk, ready, showPlate]);
 
   if (!isSignedIn(session)) {
     // SAYS SO PLAINLY RATHER THAN INVENTING A TENANT. A placeholder establishment would let every
@@ -436,7 +453,9 @@ export function Visit() {
                   ? 'رقم جواله — عشرة أرقام تبدأ بـ 05.'
                   : phoneOk
                     ? '✓ الرقم صحيح'
-                    : `${phone.length} من 10`}
+                    : phone.length < 10
+                      ? `${phone.length} من 10`
+                      : 'ليس رقم جوال سعودي — تُحفظ الزيارة ولا تصله التذكيرات.'}
               </p>
               {/* THE KEYPAD IS FOR A THUMB, NOT FOR A DESK. On a machine with a real keyboard it
                   was a second, larger way to type ten digits — and it pushed everything that

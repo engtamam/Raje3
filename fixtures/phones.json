@@ -1,0 +1,27 @@
+{
+  "why": [
+    "ONE LIST, TWO READERS — the twin of fixtures/plates.json, for the same reason.",
+    "",
+    "`accepted` IS WHETHER A VISIT CAN BE RECORDED AT ALL. The service answers yes to anything with",
+    "three characters (operations/api/v1/field.py), and the till answers yes to a visit with no phone",
+    "at all (till.py). The field screen used to answer yes only to a Saudi mobile, so a Gulf visitor,",
+    "a company landline, or a number typed with its country code left the save button dark with no",
+    "message — while the same customer could be recorded through the till without one.",
+    "",
+    "`saudiMobile` IS A DIFFERENT QUESTION: can a reminder REACH this number. It is worth saying out",
+    "loud, because that is what the shop is paying for — but it is a warning on the screen, not a",
+    "refusal, and it is not the service's business at all.",
+    "",
+    "arabic-indic-digits: intentional — quoted exactly as a keyboard produces them."
+  ],
+  "cases": [
+    { "phone": "0501234567",     "accepted": true,  "saudiMobile": true,  "note": "the ordinary case" },
+    { "phone": "٠٥٠١٢٣٤٥٦٧",     "accepted": true,  "saudiMobile": true,  "note": "same number, Arabic keyboard — folded before either question is asked" },
+    { "phone": "+966501234567",  "accepted": true,  "saudiMobile": false, "note": "his own number with the country code: refused by the screen, accepted everywhere else" },
+    { "phone": "0112345678",     "accepted": true,  "saudiMobile": false, "note": "a company landline — a real customer who will not get reminders" },
+    { "phone": "+971501234567",  "accepted": true,  "saudiMobile": false, "note": "a Gulf visitor, which is an ordinary thing in a workshop" },
+    { "phone": "05012345",       "accepted": true,  "saudiMobile": false, "note": "too short for a mobile: recorded, and reported as unreachable rather than lost silently" },
+    { "phone": "",               "accepted": false, "saudiMobile": false, "note": "nothing typed" },
+    { "phone": "05",             "accepted": false, "saudiMobile": false, "note": "below what the service itself accepts" }
+  ]
+}
