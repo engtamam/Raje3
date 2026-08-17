@@ -254,6 +254,27 @@ def test_an_offer_with_no_value_refuses_rather_than_sending_a_hole():
         render(template=OFFER, system=slots, catalogue=slots, owner=slots)
 
 
+@pytest.mark.parametrize("good", ["20%", "5%", "90%", "50 ريال", "12.50 ريال"])
+def test_the_send_accepts_exactly_what_the_screen_accepted(good):
+    """THE SAME CASES AS `campaigns/tests/unit/test_preview.py`, DELIBERATELY. These two validators
+    are read at different moments — campaigns while the owner types, this one at the send — and
+    nothing but a gate keeps them equal. If this list and that one ever disagree, one of the two
+    services is refusing an offer the other already told him was fine, and by then the campaign has
+    launched. `ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py` compares the
+    patterns; these two tests compare the behaviour."""
+    slots = campaign_slots(OFFER, establishment="مغسلة النخيل", owner_text="عرض",
+                           service_text="غسيل", offer_value=good, expires_at=1_755_000_000)
+    render(template=OFFER, system=slots, catalogue=slots, owner=slots)
+
+
+@pytest.mark.parametrize("bad", ["خصم كبير", "٢٠٪", "20 %", "120%", "0%", "50 ريال فقط", "50"])
+def test_the_send_refuses_exactly_what_the_screen_refused(bad):
+    slots = campaign_slots(OFFER, establishment="مغسلة النخيل", owner_text="عرض",
+                           service_text="غسيل", offer_value=bad, expires_at=1_755_000_000)
+    with pytest.raises(RenderError):
+        render(template=OFFER, system=slots, catalogue=slots, owner=slots)
+
+
 def test_an_offer_with_no_end_refuses_too():
     slots = campaign_slots(OFFER, establishment="مغسلة النخيل", owner_text="عرض",
                            service_text="غسيل", offer_value="20%", expires_at=0)

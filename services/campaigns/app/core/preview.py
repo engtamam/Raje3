@@ -44,7 +44,13 @@ MAX_OWNER_TEXT = 60
 # meant «خصم كبير» (a promise nobody can be held to), «٢٠٪» in digits half the phones our
 # customers hold render badly, or an offer that never named a number at all. The same shape the
 # send validates (reminders/core/rendering.py) — checked here so he learns while looking at it.
-_OFFER = re.compile(r"^(?:(?:[1-9][0-9]?|90)%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
+#
+# THAT LAST SENTENCE USED TO BE THE ONLY THING KEEPING THE TWO EQUAL, which is to say nothing was.
+# The two are read at different moments — this one while he types, that one at the send — so if
+# this copy is ever the looser of the two he is told the campaign launched and not one message
+# renders. `ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py` now compares them on
+# every push: edit one and CI names the other.
+_OFFER = re.compile(r"^(?:[1-9][0-9]?%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
 
 
 def sanitise_offer_value(value: str, *, required: bool) -> str:

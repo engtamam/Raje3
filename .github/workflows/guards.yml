@@ -439,6 +439,13 @@ jobs:
       - name: money crosses the boundary in one place
         run: python3 ci/check_money_crosses_the_boundary_in_one_place.py
 
+      # The offer «20%» is judged twice — by campaigns while the owner types it, and by reminders
+      # at the send — from two identical regexes in two services with no shared package between
+      # them. What kept them equal was a COMMENT in one saying it matched the other. If the typing
+      # side ever loosens, he is told the campaign launched and not one message renders.
+      - name: the offer a shop types is judged the same everywhere
+        run: python3 ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already

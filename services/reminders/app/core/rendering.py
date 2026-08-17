@@ -51,7 +51,10 @@ MAX_OWNER_FIELD = 60
 # ── the shapes the typed slots accept ────────────────────────────────────────────────────────
 # WESTERN DIGITS ONLY, here as everywhere: Arabic-Indic digits render inconsistently across the
 # phones our customers actually hold, and a discount nobody can read is worse than no discount.
-_AMOUNT = re.compile(r"^(?:(?:[1-9][0-9]?|90)%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
+# Kept character-for-character equal to campaigns' `_OFFER` by a gate, not by a promise: see
+# `ci/check_the_offer_a_shop_types_is_judged_the_same_everywhere.py`. 1-99% and no 100, because an
+# offer that gives the whole thing away is a mistake far more often than it is an intention.
+_AMOUNT = re.compile(r"^(?:[1-9][0-9]?%|[0-9]{1,6}(?:\.[0-9]{1,2})? ريال)$")
 # Uppercase Latin and digits, hyphen-separated. Not a free string: the code is read aloud at a
 # till and typed back by somebody who is not looking at the message.
 _CODE = re.compile(r"^[A-Z0-9]{2,8}(?:-[A-Z0-9]{2,8})?$")
