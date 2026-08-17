@@ -45,6 +45,18 @@ def subject_ref(salt: str, tenant: str, subject: str) -> str:
                          "every email address, which is not a pseudonym at all")
     if not subject:
         raise ValueError("subject must not be empty")
+    # A REF IS NOT A SUBJECT (د-2). Hashing a pseudonym a second time yields the ref of a ref,
+    # which matches no row anywhere — and the caller that does it is invariably an ERASURE, so the
+    # scan finds nothing, answers `already_absent` with 200, the dispatcher reads ACKED, and the
+    # request closes COMPLETED. The person is told their data is gone while every field of it sits
+    # untouched, on a legal deadline, with nothing in any log to contradict the claim.
+    #
+    # `operations` lost exactly this and the guard existed in this file, unused, the whole time.
+    # It belongs HERE rather than at a call site: that is the difference between fixing a defect
+    # and removing its shape, and it needs no list of exceptions to stay true.
+    if is_subject_ref(subject):
+        raise ValueError("subject is already a pseudonym — hashing it again produces a ref that "
+                         "matches no row, and an erasure that finds nothing reports success")
     mac = hmac.new(salt.encode("utf-8"),
                    f"{tenant}|{subject}".encode("utf-8"),
                    hashlib.sha256)

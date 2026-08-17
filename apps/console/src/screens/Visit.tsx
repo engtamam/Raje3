@@ -283,7 +283,9 @@ export function Visit() {
   // a nine-digit typo saved happily and the reminder went nowhere for ever — nothing failed, and
   // the shop learned about it the day a customer said he never hears from them.
   const phoneOk = /^05\d{8}$/.test(phone);
-  // THE PLATE IS REQUIRED WHERE THE SECTOR SHOWS IT — one letter and one digit, in either script.
+  // THE PLATE IS REQUIRED WHERE THE SHOP SERVES CARS — one letter and one digit, in either script.
+  // The shop says so itself now, with the «خدماتي على السيارات» switch; it used to be inferred
+  // from a trade we no longer ask for and no longer store.
   // A tyre shop that saves a visit with the box empty has recorded a row its own counter cannot
   // find again: that screen looks a car up by plate before it looks a person up by phone.
   //

@@ -415,6 +415,19 @@ jobs:
       - name: an idempotency key is derived not drawn
         run: python3 ci/check_an_idempotency_key_is_derived_not_drawn.py
 
+      # د-2 · THE GUARD EXISTED IN ALL SIX COPIES OF pii.py AND NOTHING CALLED IT. compliance fans
+      # an erasure out by the PSEUDONYM — the only identifier every service holds — and operations
+      # hashed what it was handed. The ref of a ref matches no row, so the scan found nothing,
+      # answered `already_absent` with 200, the dispatcher read ACKED, and the request closed
+      # COMPLETED: the person was told their data was erased while every field of it remained, on
+      # a legal deadline, with nothing in any log that disagreed.
+      #
+      # This gate IMPORTS each service's subject_ref and hands it a real pseudonym. A comment, a
+      # helper named for the rule, or a test asserting it all satisfy a grep — only calling the
+      # function proves the guard is wired, which is precisely what d-2 got wrong.
+      - name: a pseudonym is never hashed twice
+        run: python3 ci/check_a_pseudonym_is_never_hashed_twice.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the

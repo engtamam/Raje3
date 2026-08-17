@@ -1,7 +1,7 @@
 /**
  * «نقاطي» — the rewards table, and what a visit is worth.
  *
- * IT ARRIVES PRE-FILLED FOR HIS SECTOR ("100 points = an exterior wash, 300 = polish"). He edits a
+ * IT ARRIVES PRE-FILLED ("100 points = an exterior wash, 300 = polish"). He edits a
  * number, switches one off, or adds one — and never starts from a blank page (§10.8). So the empty
  * state here is not an invitation to build a programme; it is a fault, the same as an empty
  * service catalogue, and it says so.
