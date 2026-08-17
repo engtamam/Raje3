@@ -25,7 +25,7 @@ from app.core.integration import Integration
 from app.core.partners import PartnerError, PartnerRegistry
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, PrivacyRequestStore,
                              ServiceStore, VisitStore, new_id)
-from app.core.operations import OperationError
+from app.core.operations import OperationError, RecordedVisit
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -1218,6 +1218,61 @@ async def gauges_reconcile(request: Request) -> dict:
             if row.get("tenant"):
                 tenants.add(str(row["tenant"]))
     return await S.reconcile(datastore=c.datastore, gauges=c.gauges, tenants=sorted(tenants))
+
+
+@router.post("/operations/visits/reseam", dependencies=[Depends(require_internal_token)])
+async def visits_reseam(request: Request) -> dict:
+    """Finish the after-work for visits whose process went away before it ran (ز-7).
+
+    THE SEAMS RUN AFTER THE RESPONSE, which is right — the operator has a customer in front of him
+    and must not wait on our fan-out. But it also means they run in a window where the pod can be
+    evicted, and when that happened the visit was saved and NONE of it was done: no search index,
+    so the keypad cannot find that customer; and no event, so reminders scheduled nothing and
+    insights counted nothing. The reminder is the entire product, and it was simply absent.
+
+    NOTHING LOOKED. `seams.py` said in its own docstring that a failure «lets the sweep or the next
+    visit repair it» — there was no sweep, and the next visit repairs nothing: it indexes its own
+    customer and emits its own event, neither of which schedules the reminder the lost visit owed.
+    A reason given for a decision has to be a mechanism, and this is the mechanism.
+
+    ONLY THE SETTLED ONES. A visit seconds old has its seams running right now; picking it up would
+    duplicate work that is about to succeed. `_RESEAM_AFTER` is the margin.
+
+    NO BODY AND NO TENANT: the clock decides the work list, not the caller.
+    """
+    from app.core.models import VISITS
+
+    c = request.app.state.container
+    now = int(time.time())
+    cap = 5000
+    tenants: set[str] = set()
+    for row in (await c.datastore.scan_all(VISITS, cap) or []):
+        if row.get("tenant"):
+            tenants.add(str(row["tenant"]))
+
+    store = VisitStore(c.datastore)
+    customers = CustomerStore(c.datastore)
+    repaired = 0
+    for tenant in sorted(tenants):
+        for visit in await store.unseamed(tenant, before=now - _RESEAM_AFTER):
+            customer = await customers.get(tenant, visit.customer_id)
+            if customer is None:
+                # A visit whose customer is gone — erased under PDPL, most likely. There is
+                # nothing to index and nobody to remind, and leaving it unmarked would make the
+                # sweep pick it up for ever.
+                visit.seamed_at = now
+                await store.save(visit)
+                continue
+            await c.seams.after_visit(RecordedVisit(
+                visit=visit, customer=customer, created_customer=False, duplicate=False))
+            repaired += 1
+    return {"repaired": repaired, "tenants": len(tenants)}
+
+
+#: How long a visit must have been settled before the sweep treats its missing seams as lost
+#: rather than as still in flight. Generous on purpose: a repeat pass costs one index write and
+#: one event, and racing a request that is about to succeed costs a duplicate of both.
+_RESEAM_AFTER = 300
 
 
 @router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])

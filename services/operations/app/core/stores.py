@@ -253,6 +253,21 @@ class VisitStore(_Base):
         rows, _ = await self._find(tenant, {"customer_id": customer_id}, limit=limit)
         return [str(r.get("offer_ref") or "") for r in rows if r.get("offer_ref")]
 
+    async def unseamed(self, tenant: str, *, before: int, limit: int = 200) -> list[Visit]:
+        """Visits whose after-work never finished — the sweep's work list (ز-7).
+
+        `before` excludes the ones still in flight: a visit recorded three seconds ago has its
+        seams running right now, and picking it up would race the request that is still finishing.
+        The caller passes «now minus a few minutes».
+
+        BOUNDED, like every read on a clock in this service. A shop with a backlog gets the oldest
+        first and the rest on the next tick; an unbounded read here is a five-minute cron that
+        becomes a ten-minute one on the busiest shop we have.
+        """
+        rows, _ = await self._find(tenant, limit=limit, sort=("created", "asc"))
+        return [Visit(**r) for r in rows
+                if not int(r.get("seamed_at") or 0) and int(r.get("created") or 0) < before]
+
     async def save(self, v: Visit) -> Visit:
         await self._put(v.tenant, v.id, v.__dict__.copy())
         return v

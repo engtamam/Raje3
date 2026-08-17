@@ -194,7 +194,15 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     # A repeat of the same key is a SUCCESS, not a conflict: the operator's intent was satisfied,
     # and a 409 on a double tap teaches them the screen is unreliable. `duplicate` is reported so
     # a client can tell the difference without being punished for it.
-    if not result.duplicate:
+    # THE QUESTION IS «HAVE THE SEAMS RUN?», NOT «IS THIS THE FIRST ATTEMPT?» (ز-7).
+    #
+    # This read `if not result.duplicate`, which is the wrong question by exactly the case that
+    # matters. The seams run after the response: indexing the customer, and emitting the visit that
+    # reminders schedules from and insights counts. A pod evicted in that window left the visit
+    # saved and none of it done — and then the retry, seeing a duplicate, skipped the seams
+    # ALTOGETHER. So the one attempt that could have repaired it was the one guaranteed not to.
+    # The customer was never reminded, never indexed, and nothing anywhere said so.
+    if not result.visit.seamed_at:
         seams = request.app.state.container.seams
         background.add_task(seams.after_visit, result)
 

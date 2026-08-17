@@ -26,17 +26,44 @@ class Seams:
     """Post-response work. Constructed once and handed the peers it talks to."""
 
     def __init__(self, *, search=None, events=None, telemetry=None,
-                 index_name: str = "customers") -> None:
+                 index_name: str = "customers", visits=None, clock=None) -> None:
         self._search = search
         self._events = events
         self._telemetry = telemetry
         self._index = index_name
+        # THE STORE THIS MARKS WHEN IT IS DONE (ز-7). Optional so a caller that only wants the
+        # index write — the backfill — needs no store; when it is absent nothing is stamped, and
+        # the sweep will simply come back, which is the harmless direction.
+        self._visits = visits
+        self._clock = clock or (lambda: int(__import__("time").time()))
 
     async def after_visit(self, result) -> None:
         # One try/except per seam, not one around all three. A failure in the first must not
         # silently skip the other two — that would make one broken peer look like three.
         await self._index_customer(result)
         await self._emit_visit(result)
+        await self._mark_seamed(result)
+
+    async def _mark_seamed(self, result) -> None:
+        """Write down that this visit's after-work finished (ز-7).
+
+        THE DOCSTRING ABOVE PROMISED THIS BEFORE ANYTHING DID IT: «lets the sweep or the next visit
+        repair it». There was no sweep, and the next visit repaired nothing — it indexed the
+        customer again and emitted its own event, which does nothing for the reminder the lost
+        visit never scheduled. A reason given for a decision has to be a mechanism.
+        """
+        visit = getattr(result, "visit", None)
+        if self._visits is None or visit is None:
+            return
+        try:
+            visit.seamed_at = self._clock()
+            await self._visits.save(visit)
+        except Exception as exc:                                            # noqa: BLE001
+            # UNMARKED IS THE SAFE SIDE. The seams themselves already ran; failing to record that
+            # costs one repeated pass later, and a repeated pass is harmless — the index write is
+            # idempotent by document id and the event carries the visit id.
+            self._note("seam_mark_failed", error=str(exc)[:200],
+                       visit=getattr(visit, "id", ""))
 
     async def _index_customer(self, result) -> None:
         """Make the customer findable by the keypad.

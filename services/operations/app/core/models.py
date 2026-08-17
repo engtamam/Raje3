@@ -223,6 +223,19 @@ class Visit:
     # keeping ours means a device set to next month cannot schedule a reminder into next month.
     created: int = 0
     occurred_at: int = 0
+    # WHEN THE WORK BEHIND THE VISIT FINISHED — indexing, and the event every other service
+    # schedules and counts from (ز-7). 0 means «not yet», and it is the only way to tell that
+    # apart from «done», which is what this whole field exists for.
+    #
+    # THE SEAMS RUN AFTER THE RESPONSE, deliberately: the operator has a customer in front of him
+    # and must not wait on our fan-out. But «after the response» also means «after the process may
+    # have gone away», and nothing recorded whether they had run. A pod evicted between the two
+    # left a visit saved and a customer with no points, no reminder, and unfindable by the keypad —
+    # and the retry made it permanent, because it saw a duplicate and skipped the seams entirely.
+    #
+    # Written by `Seams.after_visit` when it completes. Read by the retry, and by the sweep for
+    # the visits no retry ever comes for.
+    seamed_at: int = 0
     # THE OFFER THIS VISIT SPENT, and it lives HERE rather than on the send-log row (§5.6.2).
     #
     # «ويُسجَّل على الزيارة، لا على العرض» — because the send log is append-only and every cap in

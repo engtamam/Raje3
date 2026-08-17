@@ -245,8 +245,13 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.settlements import build_settlements
     container.settlements = build_settlements(settings)
     container.search = build_search(settings)
+    # THE VISIT STORE IS HANDED IN so the seams can write down that they finished (ز-7). Without
+    # it nothing could tell «the after-work ran» from «the pod died before it did», and the retry
+    # that could have repaired the second was the one that skipped it.
+    from app.core.stores import VisitStore
     container.seams = Seams(search=container.search, events=container.event_bus,
                             telemetry=container.telemetry,
+                            visits=VisitStore(container.datastore),
                             index_name=settings.SEARCH_INDEX_NAME)
     # Seats and branches, reported to billing after every change. Null in a local run; the
     # production values file sets the http driver.

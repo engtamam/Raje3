@@ -351,6 +351,18 @@ cronJobs:
   # in this service waking together turn one pod's hour into a spike for no reason. An hour of latency on a disconnection costs the
   # shop the reminders of that hour; asking Meta about every live number more often costs the
   # whole fleet a Graph call for a fact that changes perhaps once a year per shop.
+  # THE AFTER-WORK OF A VISIT WHOSE POD WENT AWAY (ز-7). Indexing and the visit event run after
+  # the response so the operator never waits on our fan-out — which also means they run in a
+  # window an eviction can land in, leaving a visit saved with no reminder scheduled, nothing
+  # counted, and the customer unfindable by the keypad. `seams.py` said a sweep would repair it;
+  # this is that sweep.
+  #
+  # EVERY TEN MINUTES, AT :06 — a lost reminder is worth repairing today, not tomorrow, and the
+  # work list is normally empty: the read is a scan of visits filtered to `seamed_at == 0`, which
+  # on a healthy fleet returns nothing at all. Off every other minute in this file.
+  - name: visit-reseam
+    schedule: "6/10 * * * *"
+    path: /internal/operations/visits/reseam
   - name: whatsapp-health
     schedule: "53 * * * *"
     path: /internal/operations/whatsapp/health
