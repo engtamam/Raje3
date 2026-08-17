@@ -178,8 +178,8 @@ class OutsideHisBranch(Exception):
         self.unavailable = unavailable
 
 
-async def _branch_scope(container, principal) -> str:
-    """The one branch this caller may read, or "" for the whole shop.
+async def _branch_scope(container, principal) -> frozenset[str]:
+    """The branches this caller may read — EMPTY MEANS ALL OF THEM, never «none».
 
     THREE ROUTES READ THE SEND LOG AND ONE OF THEM CHECKED (ط-4). `/log` resolved the scope; the
     two routes that answer «what has this customer been sent» — `/offer` and `/offers` — took a
@@ -193,17 +193,22 @@ async def _branch_scope(container, principal) -> str:
     """
     resolver = getattr(container, "branch_scope", None)
     if resolver is None:
-        return ""
+        return frozenset()
     scope = await resolver.scope(_tenant(principal), getattr(principal, "subject", "") or "")
     if scope in DENIED:
         # «WE COULD NOT CHECK» IS NOT «NO LIMIT», and a stopped employee refuses here too.
         raise OutsideHisBranch("تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل.")
-    return scope
+    # A SET, EVEN WHEN THE ANSWER IS ONE BRANCH. Where a man WORKS is one place; what he may SEE is
+    # a list, and the two were the same field for as long as an owner had no way to say otherwise —
+    # so «مشرف يعمل في الملز ويتابع أربعة» could not be expressed at all. Normalising here means the
+    # readers below ask MEMBERSHIP, and the day the wire carries four branches not one of them
+    # changes: an equality test would have kept working, silently showing him one.
+    return frozenset({scope}) if scope else frozenset()
 
 
-def _in_scope(row: dict, scope: str) -> bool:
-    """Whether one send-log row belongs to the branch this caller may read."""
-    return not scope or str(row.get("branch_id") or "") == scope
+def _in_scope(row: dict, scope: frozenset[str]) -> bool:
+    """Whether one send-log row belongs to a branch this caller may read."""
+    return not scope or str(row.get("branch_id") or "") in scope
 
 
 @router.get("/log", dependencies=[Depends(rate_limit)])
@@ -257,14 +262,22 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     # both sides at once.
     if subject_ref:
         where = {**(where or {}), "subject_ref": subject_ref}
-    if scope:
+    if len(scope) == 1:
         # HIS OWN BRANCH, AND THE PARAMETER IS IGNORED. Not refused — a bookmark carrying another
         # branch is a stale link, not an attack, and answering it with his own rows is both the
         # safe reading and the useful one.
-        where = {**(where or {}), "branch_id": scope}
-    elif branch_id:
+        #
+        # PUSHED INTO THE QUERY ONLY WHEN IT IS ONE. A `where` clause is an equality and cannot say
+        # «any of these four», so a man who watches several is filtered below instead — the same
+        # answer, read at the cost of a wider page.
+        where = {**(where or {}), "branch_id": next(iter(scope))}
+    elif not scope and branch_id:
         where = {**(where or {}), "branch_id": "" if branch_id == "_none" else branch_id}
     rows, _ = await store._find(_tenant(principal), where, limit=limit, sort=("at", "desc"))
+    # THE SECOND HALF OF THE SAME GUARD, for the caller who may see more than one branch. It is a
+    # no-op for everybody else, and it is what stops the widened scope from becoming an unfiltered
+    # one the day a supervisor is given his second branch.
+    rows = [r for r in rows if _in_scope(r, scope)]
     # The visit-idempotency markers live in this collection (see core/scheduling.py) and are not
     # messages. Showing them would put rows in an owner's log that mean nothing to them.
     rows = [r for r in rows if r.get("subject_ref") != "_visit_marker"]

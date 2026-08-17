@@ -256,6 +256,19 @@ class Operator:
     # this row; nothing else in the product joins the two. Without it, "show this manager only his
     # branch" has no way to know which manager is asking.
     person_id: str = ""
+    # WHAT HE MAY SEE, which is not where he WORKS. `branch_id` above is his station: it decides
+    # where his visits are counted, and it is one place. This decides which branches' numbers,
+    # messages and customers he may read, and an owner asks for more than one of those often — a
+    # supervisor over the east side, an area manager over four. While both facts lived in
+    # `branch_id` the only two settings were «this one branch» and «everything», and «everything»
+    # was also what an unassigned new hire got.
+    #
+    # EMPTY MEANS «HIS OWN», which is the safe default and the common case: he sees where he works.
+    # A non-empty list is exactly what the owner granted. The whole establishment is `visible_all`,
+    # said out loud rather than inferred from a blank field — an emptiness that means «no limit» is
+    # how و-1 happened.
+    visible_branch_ids: list[str] = field(default_factory=list)
+    visible_all: bool = False
     active: bool = True
     created: int = 0
 
@@ -264,6 +277,11 @@ class Operator:
         cannot be attacked offline by someone who reached a read endpoint."""
         return {"id": self.id, "tenant": self.tenant, "name": self.name, "role": self.role,
                 "branch_id": self.branch_id, "active": self.active, "created": self.created,
+                # WHAT HE MAY SEE, BESIDE WHERE HE WORKS. «فريقي» has to show both or the owner
+                # cannot tell a branch employee from a supervisor over four, and cannot correct
+                # either — a grant that is stored and never shown is a permission nobody can audit.
+                "visible_branch_ids": list(self.visible_branch_ids),
+                "visible_all": bool(self.visible_all),
                 # A BOOLEAN, NEVER THE ID. The screen needs to know he can sign in; the identifier
                 # itself is identity's and belongs in no response of ours.
                 "has_login": bool(self.person_id),

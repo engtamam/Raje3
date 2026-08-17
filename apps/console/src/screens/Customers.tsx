@@ -84,7 +84,13 @@ export function CustomersScreen({ session, catalog }: { session: Session; catalo
    * are somebody looking up one customer at the counter.
    */
   useEffect(() => {
-    if (tab !== 'overdue' || overdue !== null) return;
+    // NOT YET IS `undefined`, AND THIS LINE ONCE SAID `null`. It was written when a fetched value
+    // had two states and `null` meant «not asked for yet»; `loading.ts` gave every screen four, and
+    // this lazy guard kept the old vocabulary. So the tab opened at `undefined`, the guard read it
+    // as «already handled», nothing was ever requested, and «من تأخّر» was a grey rectangle for
+    // ever — the exact defect the four states were introduced to end. It would also have RETRIED A
+    // FAILURE ENDLESSLY, since `null` now means «it failed» and would re-enter on every render.
+    if (tab !== 'overdue' || overdue !== undefined) return;
     const schedule = action(catalog, 'reminders.list_schedule');
     const resolve = action(catalog, 'operations.customers_by_refs');
     if (!schedule || !resolve) { setOverdue(DENIED); return; }

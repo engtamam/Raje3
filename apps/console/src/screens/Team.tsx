@@ -30,7 +30,14 @@ import { action, call, type Catalog } from '../catalog';
 import { branchGate } from '../branches';
 import type { Session } from '../session';
 
-interface Operator { id: string; name: string; role?: string; active?: boolean; branch_id?: string }
+interface Operator {
+  id: string; name: string; role?: string; active?: boolean;
+  /** Where he WORKS — one place, and it decides where his visits are counted. */
+  branch_id?: string;
+  /** What he may SEE, which is a different question and often a wider answer. */
+  visible_branch_ids?: string[];
+  visible_all?: boolean;
+}
 
 /**
  * The roles an owner may give somebody he is adding.
@@ -78,6 +85,18 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   // the «إضافة فرع» button can answer honestly. `undefined` is an answer that did not arrive,
   // and it never hides the button: an outage must not read as a plan he has outgrown.
   const [mayAddBranch, setMayAddBranch] = useState<boolean | undefined>(undefined);
+  /**
+   * WHETHER «رمز على الجهاز» EXISTS ON THIS DEPLOYMENT.
+   *
+   * The whole path is built and switched off (`PIN_OPERATORS_ENABLED`), and the door refuses it
+   * while it is — so the form offers ONE way of adding somebody rather than two, one of which
+   * answers with an error by design.
+   *
+   * FALSE UNTIL THE SERVER SAYS OTHERWISE, including on a failed read: hiding a path we could not
+   * ask about costs an owner one form; showing one the door refuses costs him a failure he cannot
+   * explain.
+   */
+  const [pinKind, setPinKind] = useState(false);
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
@@ -89,8 +108,16 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   const load = () => {
     const o = action(catalog, 'operations.list_operators');
     if (o) {
-      call<{ operators: Operator[] }>(session, o)
-        .then((x) => setOperators(x.operators ?? []))
+      call<{ operators: Operator[]; pin_operators_enabled?: boolean }>(session, o)
+        .then((x) => {
+          setOperators(x.operators ?? []);
+          // THE DEPLOYMENT'S ANSWER, NOT OURS. «رمز على الجهاز» is built end to end and switched
+          // off (`PIN_OPERATORS_ENABLED`), and the door refuses it while it is — so offering the
+          // choice here would be a control that returns an error by design. `undefined` on a
+          // failed read stays false: hiding a path we could not ask about costs one owner one
+          // form; showing one the server refuses costs him a confusing failure.
+          setPinKind(x.pin_operators_enabled === true);
+        })
         .catch(() => setOperators(null));
     } else {
       setOperators([]);
@@ -142,6 +169,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
             add={addOperator}
             edit={action(catalog, 'operations.update_operator')}
             hire={action(catalog, 'operations.hire_member')}
+            pinKind={pinKind}
             onChanged={load}
           />
         : <Branches
@@ -160,13 +188,15 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   );
 }
 
-function People({ session, operators, branches, add, edit, hire, onChanged }: {
+function People({ session, operators, branches, add, edit, hire, pinKind, onChanged }: {
   session: Session;
   operators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
   add: ReturnType<typeof action>;
   edit: ReturnType<typeof action>;
   hire: ReturnType<typeof action>;
+  /** Whether this deployment offers «رمز على الجهاز» at all — the server's answer, not a guess. */
+  pinKind: boolean;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -182,7 +212,9 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
    *
    * Both were impossible to tell apart on this screen until now, because only one existed.
    */
-  const [kind, setKind] = useState<'pin' | 'login'>('pin');
+  // THE DEFAULT FOLLOWS WHAT EXISTS. «رمز على الجهاز» is switched off on this deployment, and
+  // opening the form on a kind the door refuses would make the commonest act fail by design.
+  const [kind, setKind] = useState<'pin' | 'login'>(pinKind ? 'pin' : 'login');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -282,6 +314,57 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
                   </label>
                 ) : null
               )}
+              {/* AND WHAT HE MAY SEE, which is NOT where he works — the two were one field until
+                  now, so an owner could say «this branch» or «everything» and nothing between, and
+                  a supervisor over three had to be handed the whole chain to be given his three.
+                  Beside the station rather than instead of it: a man works in one place and may
+                  watch several, and both facts have to be readable at a glance or nobody can audit
+                  a grant. */}
+              {o.active !== false && (branches ?? []).length > 1 && edit ? (
+                <fieldset className="flex flex-wrap items-center gap-2 text-sm">
+                  <legend className="sr-only">{`ما يراه ${o.name}`}</legend>
+                  <span className="text-text-secondary">يرى</span>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      className="size-5"
+                      checked={o.visible_all === true}
+                      onChange={async (e) => {
+                        await call(session, edit, { id: o.id, visible_all: e.target.checked })
+                          .catch(() => undefined);
+                        onChanged();
+                      }}
+                    />
+                    <span>كل الفروع</span>
+                  </label>
+                  {o.visible_all === true ? null : (branches ?? [])
+                    .filter((b) => b.active !== false)
+                    .map((b) => {
+                      // HIS OWN BRANCH IS ALWAYS AMONG THEM, granted or not: a man sees where he
+                      // works, and a screen that let an owner take that away would produce an
+                      // employee who cannot read his own counter.
+                      const granted = (o.visible_branch_ids ?? []).includes(b.id) || o.branch_id === b.id;
+                      return (
+                        <label key={b.id} className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            className="size-5"
+                            checked={granted}
+                            disabled={o.branch_id === b.id}
+                            onChange={async (e) => {
+                              const now = new Set(o.visible_branch_ids ?? []);
+                              if (e.target.checked) now.add(b.id); else now.delete(b.id);
+                              await call(session, edit,
+                                { id: o.id, visible_branch_ids: [...now] }).catch(() => undefined);
+                              onChanged();
+                            }}
+                          />
+                          <span>{b.name}</span>
+                        </label>
+                      );
+                    })}
+                </fieldset>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -301,7 +384,10 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
 
           {/* THE CHOICE IS NAMED BY WHAT IT GIVES HIM, not by our words for it. «رمز على الجهاز»
               and «حساب يدخل به» are the two things a shop owner actually decides between. */}
-          {hire ? (
+          {/* THE CHOICE ONLY EXISTS WHERE BOTH KINDS DO. With the shared-tablet employee switched
+              off there is one way of adding somebody, and a two-option control whose second option
+              is refused at the door is worse than no control at all. */}
+          {hire && pinKind ? (
             <Segmented
               className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
               ariaLabel="نوع الإضافة"

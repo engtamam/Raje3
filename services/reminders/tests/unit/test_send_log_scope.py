@@ -57,9 +57,12 @@ def test_the_route_applies_the_scope_and_ignores_the_parameter():
 
     src = inspect.getsource(O.send_log)
     assert "branch_scope" in src, "the scope must be READ"
-    assert 'where = {**(where or {}), "branch_id": scope}' in src, (
+    assert 'where = {**(where or {}), "branch_id": next(iter(scope))}' in src, (
         "and applied as read — his own branch, not the one the request carried")
-    assert src.index("scope") < src.index("elif branch_id"), (
+    assert "_in_scope(r, scope)" in src, (
+        "and the rows filtered by membership too, or a caller who watches two branches — whose "
+        "scope cannot be pushed into an equality — comes back UNFILTERED")
+    assert src.index("scope") < src.index("elif not scope and branch_id"), (
         "the caller's parameter may only be honoured for somebody who is unscoped")
 
 

@@ -98,6 +98,16 @@ async def dashboard(request: Request, branch_id: str = "",
         # guessing costs the owner a confidentiality he never agreed to give up.
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={
             "message": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."})
+    if isinstance(scope, (set, frozenset)):
+        # A DASHBOARD IS BUILT FROM ONE BRANCH'S SNAPSHOT, and a man who watches four has no single
+        # one. Picking one of them silently would show him a quarter of his work as if it were all
+        # of it — the failure this whole change exists to prevent — and widening to the
+        # establishment would show him branches he was never granted. So he is told, and «مقارنة
+        # الفروع» beside it answers the question he actually has.
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={
+            "error": "MANY_BRANCHES",
+            "branches": sorted(scope),
+            "message": "لوحتك تغطي أكثر من فرع. اختر فرعاً، أو افتح «مقارنة الفروع»."})
     if scope:
         branch_id = scope
 
@@ -287,7 +297,14 @@ async def branches(request: Request, principal: Principal = Depends(_READ)):
         # HIS OWN ROW, AND NO RANKING. A table of one cannot be ranked, and «الأول من ثلاثة» said
         # to somebody who may not see the other two is a number he cannot check and we should not
         # have shown.
-        rows = [r for r in rows if str(r.get("branch_id") or "") == scope]
+        # MEMBERSHIP, NOT EQUALITY. What a man may SEE is a set — one branch is a set of one, and a
+        # supervisor over four is a set of four. An `==` here keeps passing every test written for
+        # the single-branch case and then shows him ONE of his four, silently, which is the whole
+        # reason this reads as a set.
+        visible = scope if isinstance(scope, (set, frozenset)) else {scope}
+        rows = [r for r in rows if str(r.get("branch_id") or "") in visible]
+        # RANKING NEEDS THE WHOLE FIELD. «الأول من ثلاثة» said to somebody who may not see the other
+        # two is a number he cannot check, and that stays true whether he sees one branch or four.
         return {"coverage": cov, "rows": rows, "unknown": 0, "can_rank": False}
     return {"coverage": cov, "rows": rows,
             "unknown": cov.get("unknown", 0),

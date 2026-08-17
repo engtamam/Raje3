@@ -295,6 +295,25 @@ jobs:
       - name: a new employee is offered his branch
         run: python3 ci/check_a_new_employee_is_offered_his_branch.py
 
+      # AND A CAPABILITY WE SWITCH OFF IS REFUSED AT THE DOOR. Hiding the control is not switching
+      # anything off: a stale tab, a queued request or anyone reading our own API still reaches the
+      # route. The screen half matters too — if it hard-codes «off», turning the flag on would need
+      # a console release, which is not a switch either.
+      - name: a switched-off capability is refused at the door
+        run: python3 ci/check_a_switched_off_capability_is_refused_at_the_door.py
+
+      # AND A LAZY READ ASKS «NOT YET», NOT «DID IT FAIL». `undefined` and `null` are different
+      # answers, and a guard that confuses them either never fetches — «من تأخّر» was a grey
+      # rectangle for ever — or fetches on every render after the first failure.
+      - name: a lazy read is not guarded by the word for failure
+        run: python3 ci/check_a_lazy_read_is_not_guarded_by_the_word_for_failure.py
+
+      # AND WHAT A PERSON MAY SEE IS A SET, NOT ONE BRANCH. Where he works is one place; what he
+      # may read is a list, and an `==` against the visibility answer keeps passing every
+      # single-branch test and then shows a supervisor over four just one of them, silently.
+      - name: what a person may see is a set not one branch
+        run: python3 ci/check_what_a_person_may_see_is_a_set_not_one_branch.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values

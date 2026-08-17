@@ -61,6 +61,13 @@ class BranchScope:
                 out: dict[str, Any] = json.loads(resp.read() or b"{}")
             if out.get("revoked"):
                 return REVOKED
+            # THE LIST FIRST, THE OLD FIELD AS THE FALLBACK. What a person may see is a set —
+            # `branches` carries it — and `branch_id` is the same answer flattened for the
+            # single-branch case that every shop had until now. Reading only `branch_id` would take
+            # a supervisor over four and hand him "" — «no narrowing» — which is the whole chain.
+            branches = [str(b) for b in (out.get("branches") or []) if b]
+            if branches:
+                return frozenset(branches) if len(branches) > 1 else branches[0]
             return str(out.get("branch_id") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return UNREADABLE

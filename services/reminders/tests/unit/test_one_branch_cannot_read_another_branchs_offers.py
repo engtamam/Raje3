@@ -113,12 +113,30 @@ def test_a_scope_we_could_not_read_shows_nothing_and_says_so():
 def test_the_resolver_is_the_one_the_guarded_route_uses():
     """Two ways of asking the same question drift, and the one nobody looks at drifts first."""
     c = _Container([], "br_jeddah")
-    assert run(_branch_scope(c, _Principal())) == "br_jeddah"
-    assert run(_branch_scope(type("C", (), {})(), _Principal())) == "", "no resolver wired = no branches"
+    assert run(_branch_scope(c, _Principal())) == frozenset({"br_jeddah"})
+    assert run(_branch_scope(type("C", (), {})(), _Principal())) == frozenset(), (
+        "no resolver wired = no narrowing")
 
 
 def test_a_row_with_no_branch_belongs_to_nobody_in_particular():
     """Rows written before branches existed carry "". A scoped caller must not inherit them."""
-    assert _in_scope({"branch_id": ""}, "br_jeddah") is False
-    assert _in_scope({"branch_id": ""}, "") is True
-    assert _in_scope({"branch_id": "br_jeddah"}, "br_jeddah") is True
+    assert _in_scope({"branch_id": ""}, frozenset({"br_jeddah"})) is False
+    assert _in_scope({"branch_id": ""}, frozenset()) is True
+    assert _in_scope({"branch_id": "br_jeddah"}, frozenset({"br_jeddah"})) is True
+
+
+def test_a_man_who_watches_two_branches_reads_both_and_not_the_third():
+    """The case the old shape could not express, and the reason for this cycle.
+
+    Where a man WORKS is one place; what he may SEE is a list. While they were one field, an owner
+    could say «Malaz» or «everything» and nothing in between — so a supervisor over two branches was
+    either given one of them or handed the whole chain. An equality test would still pass every
+    test above and silently show him ONE branch, which is why the answer is a set and this asks
+    membership.
+    """
+    both = frozenset({"br_jeddah", "br_malaz"})
+
+    assert _in_scope({"branch_id": "br_jeddah"}, both) is True
+    assert _in_scope({"branch_id": "br_malaz"}, both) is True
+    assert _in_scope({"branch_id": "br_riyadh"}, both) is False
+    assert _in_scope({"branch_id": ""}, both) is False

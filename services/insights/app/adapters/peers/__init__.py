@@ -207,6 +207,13 @@ class HttpPeers:
                         self._token, self._timeout)
             if out.get("revoked"):
                 return REVOKED
+            # THE LIST FIRST, THE OLD FIELD AS THE FALLBACK. What a person may see is a set;
+            # `branch_id` is that set flattened for the single-branch case every shop had until
+            # now, and it is empty for a man who watches several — reading it alone would turn his
+            # four branches into "" , which this service reads as «the whole chain».
+            branches = [str(b) for b in (out.get("branches") or []) if b]
+            if branches:
+                return frozenset(branches) if len(branches) > 1 else branches[0]
             return str(out.get("branch_id") or "")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
             return UNREADABLE

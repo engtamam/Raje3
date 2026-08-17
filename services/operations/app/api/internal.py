@@ -1474,7 +1474,16 @@ async def branch_scope_of(request: Request, body: BranchScopeIn) -> dict:
     # reads that field as `str(... or "")`, so a null — or any empty answer — becomes "", and ""
     # means the WHOLE establishment. A dismissed employee would have been widened to the entire
     # chain by three services at once. The flag is unmissable and the empty string stays honest.
-    return {"branch_id": scope or "", "revoked": scope is None}
+    # TWO FIELDS, BECAUSE THE ANSWER IS A SET AND THE OLD ONE COULD ONLY HOLD A NAME. `branches` is
+    # what he may see — empty meaning «no narrowing» — and `branch_id` stays beside it carrying the
+    # single-branch case, so a consumer deployed before this release keeps reading the answer it
+    # understands rather than silently reading "" and showing him the whole chain. A man who watches
+    # several has no honest `branch_id`, and it is left empty ONLY together with a `branches` list
+    # that says so.
+    branches = sorted(scope) if isinstance(scope, (set, frozenset)) else ([scope] if scope else [])
+    return {"branch_id": branches[0] if len(branches) == 1 else "",
+            "branches": branches,
+            "revoked": scope is None}
 
 
 class EvidenceIn(BaseModel):

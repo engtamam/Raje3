@@ -33,7 +33,7 @@ from app.core.stores import OperatorStore
 REVOKED = None
 
 
-async def branch_scope(store: Any, principal: Principal) -> str | None:
+async def branch_scope(store: Any, principal: Principal) -> "str | frozenset[str] | None":
     """The branch this caller may see: "" for the whole establishment, or REVOKED for none.
 
     ONE READ, AND ONLY WHEN THERE IS A SUBJECT. A token without `sub` is a machine credential —
@@ -55,12 +55,26 @@ async def branch_scope(store: Any, principal: Principal) -> str | None:
     rows = await OperatorStore(store).list(tenant)
     for op in rows:
         if op.person_id == subject:
-            return op.branch_id if op.active else REVOKED
+            if not op.active:
+                return REVOKED
+            # WHAT HE MAY SEE, NOT WHERE HE WORKS — and for a long time this line returned the
+            # station. So the product could say «this one branch» or «everything» and nothing
+            # between, and «مشرف على أربعة» had to be given the whole chain to be given his four.
+            #
+            # THE THREE ANSWERS, IN THE ORDER AN OWNER GRANTS THEM: everything he was explicitly
+            # given; the whole establishment when it was explicitly said; otherwise where he works,
+            # which is the safe default and what almost every employee has.
+            if op.visible_all:
+                return ""
+            if op.visible_branch_ids:
+                return frozenset(str(b) for b in op.visible_branch_ids if b)
+            return op.branch_id
     # NO ROW AT ALL: the owner, and every shop that assigns nobody. Unnarrowed by design.
     return ""
 
 
-def visible(rows: list[dict], scope: str | None, *, field: str = "branch_id") -> list[dict]:
+def visible(rows: list[dict], scope: "str | frozenset[str] | None", *,
+            field: str = "branch_id") -> list[dict]:
     """Keep what this scope may see. An empty scope keeps everything, REVOKED keeps nothing.
 
     ROWS WITH NO BRANCH ARE KEPT FOR EVERYONE, and that is a deliberate reading of a real
@@ -75,4 +89,8 @@ def visible(rows: list[dict], scope: str | None, *, field: str = "branch_id") ->
         return []
     if not scope:
         return rows
-    return [r for r in rows if not r.get(field) or r.get(field) == scope]
+    # MEMBERSHIP, AND ONE BRANCH IS A SET OF ONE. An `==` here is correct only while a person can
+    # see exactly one place, and it does not fail when that stops being true — it quietly drops
+    # three of a supervisor's four branches with every screen still looking healthy.
+    visible_to_him = scope if isinstance(scope, (set, frozenset)) else {scope}
+    return [r for r in rows if not r.get(field) or r.get(field) in visible_to_him]

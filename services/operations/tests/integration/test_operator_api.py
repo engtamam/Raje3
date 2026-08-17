@@ -221,6 +221,10 @@ def test_the_employee_past_the_limit_is_refused_with_his_limit_named(client, mon
         async def allows_one_more(self, tenant, key, current):
             return False, 15
 
+    # THE CAPABILITY IS SWITCHED OFF IN PRODUCTION, and this test is about what happens
+    # BEHIND the switch. Turning it on here rather than weakening the door keeps both facts
+    # testable: the refusal has its own test below.
+    monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", True)
     monkeypatch.setattr(client.app.state.container, "gauges", Full())
     r = client.post("/api/v1/staff/operators",
                     json={"name": "موظف", "pin": "1234"},
@@ -244,6 +248,10 @@ def test_a_created_employee_reports_the_new_total(client, monkeypatch):
         async def allows_one_more(self, tenant, key, current):
             return True, 15
 
+    # THE CAPABILITY IS SWITCHED OFF IN PRODUCTION, and this test is about what happens
+    # BEHIND the switch. Turning it on here rather than weakening the door keeps both facts
+    # testable: the refusal has its own test below.
+    monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", True)
     monkeypatch.setattr(client.app.state.container, "gauges", Counting())
     r = client.post("/api/v1/staff/operators",
                     json={"name": "موظف جديد", "pin": "4321"},
@@ -252,6 +260,22 @@ def test_a_created_employee_reports_the_new_total(client, monkeypatch):
     assert seen and seen[-1][0] == "staff.seats"
     assert seen[-1][1] >= 1
 
+
+def test_a_switched_off_pin_employee_is_refused_by_the_route_not_only_the_screen(client, monkeypatch):
+    """«رمز على الجهاز» is built, wired and OFF. Hiding the button is not switching it off: a stale
+    tab, a queued request or anybody reading our own API still reaches this route. The screen is
+    told the same answer so that turning it back on is a flag, never a console release."""
+    monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", False)
+    r = client.post("/api/v1/staff/operators",
+                    json={"name": "موظف", "pin": "1234"},
+                    headers=_auth("operations.manage", tenant="t1"))
+    assert r.status_code == 409, r.text
+    assert r.json()["error"] == "PIN_OPERATORS_OFF"
+
+    listing = client.get("/api/v1/staff/operators",
+                         headers=_auth("operations.read", tenant="t1"))
+    assert listing.status_code == 200, listing.text
+    assert listing.json()["pin_operators_enabled"] is False
 
 # ── our own subscribe path ─────────────────────────────────────────────────────────────────────
 class FakePlans:

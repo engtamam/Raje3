@@ -91,6 +91,18 @@ async def create_operator(request: Request, body: OperatorIn,
     store = OperatorStore(request.app.state.container.datastore)
     gauges = request.app.state.container.gauges
 
+    # THE SHARED-TABLET EMPLOYEE IS SWITCHED OFF ON THIS DEPLOYMENT (config `PIN_OPERATORS_ENABLED`).
+    #
+    # The whole path is built and kept — the form, this route, `verify-pin`, the five-minute proof —
+    # and it is simply not what the product is sold on today: every employee gets an account on his
+    # own phone. Hiding the control in the console alone would leave the capability live to anybody
+    # who kept a tab open or replayed a request, and a switch that only changes a screen is the
+    # exact defect this codebase keeps finding. So the door answers too.
+    if not getattr(request.app.state.container_settings, "PIN_OPERATORS_ENABLED", False):
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content={
+            "error": "PIN_OPERATORS_OFF",
+            "message": "إضافة موظف برمز على الجهاز غير مفعّلة. أضِفه بحسابٍ يدخل به من جوّاله."})
+
     # AT THE DOOR, NOT IN A SWEEP. The sixteenth employee on a plan of fifteen is refused here, in
     # the screen where he is being added, with the limit named. A nightly job that finds sixteen
     # and does nothing is a limit that does not exist; one that deactivates somebody fires days
@@ -236,6 +248,15 @@ class OperatorPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     role: str | None = Field(default=None, max_length=32)
     branch_id: str | None = Field(default=None, max_length=64)
+    # WHAT HE MAY SEE, WHICH IS NOT WHERE HE WORKS. `branch_id` above is his station and decides
+    # where his visits are counted; these two decide whose numbers, messages and customers he may
+    # read. Separate fields because an owner grants them separately — a supervisor keeps working
+    # out of one branch while watching four.
+    #
+    # `None` MEANS «LEAVE IT», as everywhere else in this model: an owner renaming somebody has not
+    # asked to change what he can see.
+    visible_branch_ids: list[str] | None = Field(default=None, max_length=64)
+    visible_all: bool | None = None
     active: bool | None = None
 
 
@@ -270,6 +291,20 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
         # than pinning him to a place that does not exist.
         branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
                                     tenant, body.branch_id)
+
+    # EVERY BRANCH HE IS GRANTED IS CHECKED, one at a time, against his own shop's list. An id we
+    # do not recognise is DROPPED rather than stored: a scope carrying a branch that does not exist
+    # is a filter that matches nothing, and a screen that goes empty for a reason nobody can see.
+    if body.visible_branch_ids is not None:
+        branches = BranchStore(request.app.state.container.datastore)
+        granted = []
+        for wanted in body.visible_branch_ids:
+            resolved = await B.resolve(branches, tenant, str(wanted))
+            if resolved and resolved not in granted:
+                granted.append(resolved)
+        op.visible_branch_ids = granted
+    if body.visible_all is not None:
+        op.visible_all = bool(body.visible_all)
 
     await request.app.state.auditor.record(
         "operator.updated", actor=principal.subject, tenant=tenant,
@@ -335,7 +370,17 @@ async def list_operators(request: Request, principal: Principal = Depends(_READ)
     tenant = _tenant(principal)
     rows = await OperatorStore(request.app.state.container.datastore).list(tenant)
     scope = await branch_scope(request.app.state.container.datastore, principal)
-    return {"operators": SCOPE.visible([o.public() for o in rows], scope)}
+    return {
+        "operators": SCOPE.visible([o.public() for o in rows], scope),
+        # WHETHER THE SHARED-TABLET EMPLOYEE EXISTS ON THIS DEPLOYMENT (config
+        # `PIN_OPERATORS_ENABLED`). Carried on the read the screen already makes, so the form
+        # offers one way of adding somebody rather than two, one of which the door refuses.
+        #
+        # ANSWERED HERE RATHER THAN ASSUMED THERE: a console that hard-coded «off» would have to be
+        # rebuilt to turn it on, which is the opposite of a switch.
+        "pin_operators_enabled": bool(
+            getattr(request.app.state.container_settings, "PIN_OPERATORS_ENABLED", False)),
+    }
 
 
 class PinVerifyIn(BaseModel):
