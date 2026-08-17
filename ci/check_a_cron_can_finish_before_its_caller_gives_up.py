@@ -1,4 +1,9 @@
-"""A scheduled run's worst case must fit inside the timeout of the thing that calls it.
+"""One tenant's slice of a scheduled run must fit inside the timeout of the thing that calls it.
+
+READ THE SECOND SECTION BEFORE THE FIRST. This gate's first version asked a bigger question — «does
+the WHOLE run fit» — got the arithmetic wrong by a factor of two hundred, and a batch size was
+lowered on the strength of the wrong number. What follows records both the original finding and the
+correction, because the correction is the more useful of the two.
 
 WHAT IT COST, AND IT IS THE PUREST FORM OF A DEFECT NO SINGLE-FILE REVIEW FINDS (ي-7). The
 CronJob's body is `urlopen(..., timeout=300)`. The run it starts walks a batch, each item with its
@@ -18,16 +23,28 @@ timeout are both declared here, so the arithmetic is available on every push, lo
 is standing in front of a cluster. `deploy/verify-fleet.sh` does the live half, using the count of
 targets actually registered rather than the declared maximum.
 
-NOT EVERY MEMBER IS EQUALLY URGENT, AND THE OUTPUT SAYS SO. A tick reaches its worst case only if
-EVERY peer call times out — and a run where every call times out is failing on its own merits
-rather than being misreported. `concurrencyPolicy: Forbid` already stops a slow tick overlapping
-the next, and a killed tick retries on the following schedule with its work intact. The backup is
-different: 120 seconds per target is a plausible NORMAL duration for copying a collection, so it
-is the one where a healthy run is misreported today.
+THE CORRECTION, AND WHY IT CHANGED THE QUESTION THIS GATE ASKS. The first version multiplied ONE
+batch by ONE per-item timeout and reported `reminders: 100 x 8s = 800s`. But the tick is NESTED:
+`services/reminders/app/api/internal.py` walks `for tenant in tenants[:TICK_MAX_TENANTS]` — 200 —
+and inside each tenant runs a SEQUENTIAL pass over `TICK_BATCH_SIZE` rows, each row a live send
+(`services/reminders/app/core/tick.py`). The real bound is 200 x 30 x 8s = 48000s. Thirteen hours
+against a caller that waits five minutes.
 
-All of them are reported because the invariant does not hold for any of them, and the remedy for
-all of them is the same single escalation — the 300 in `platform/deploy/chart/templates/
-cronjob.yaml`, which this repository may not edit.
+WHICH MEANS NO VALUE IN THIS REPOSITORY MAKES THE WHOLE RUN FIT. Even one row per tenant is
+200 x 8s = 1600s. The run's SHAPE exceeds the caller, not its batch size, and both remedies are
+outside this tree: raise the 300 in `platform/deploy/chart/templates/cronjob.yaml`, or make the
+route answer immediately and report through its own runs endpoint. That is a standing escalation,
+and it is printed on every run of this gate below — including on the green ones.
+
+SO THE GATE JUDGES THE HALF THAT IS OURS: one tenant's slice. `inner batch x per-item timeout` is
+made entirely of numbers we own, it is the thing that decides WHO GETS SERVED before the caller's
+guillotine falls, and it holds today at 30 x 8s = 240s. Raise a batch to 100 and it goes red — which
+is exactly the edit that would otherwise quietly starve every tenant after the first.
+
+A GATE THAT CAN ONLY EVER BE RED IS A GATE PEOPLE LEARN TO SCROLL PAST, and this repository already
+carries two of those waiting on a platform release. Failing forever on a number we may not edit
+would have taught the same habit against a real invariant. The escalation is louder as text that
+prints every time than as a red mark that becomes furniture.
 """
 from __future__ import annotations
 
@@ -46,8 +63,24 @@ CALLER = re.compile(r"urlopen\([^)]*timeout=(\d+)")
 #: A per-item budget: how long one unit of the run may take.
 A_TIMEOUT = re.compile(r"^\s+([A-Z0-9_]*TIMEOUT[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
 
-#: How many units one run may process.
-A_BATCH = re.compile(r"^\s+([A-Z0-9_]*BATCH[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
+#: THE INNER BOUND — how many units one tenant's slice touches. This half is ours to judge.
+#:
+#: THE FIRST VERSION OF THIS GATE MULTIPLIED ONE BATCH BY ONE TIMEOUT AND CALLED IT THE RUN, AND
+#: WAS WRONG BY A FACTOR OF TWO HUNDRED.
+#:
+#: THE FIRST VERSION OF THIS GATE MULTIPLIED ONE BATCH BY ONE TIMEOUT AND WAS WRONG BY A FACTOR OF
+#: TWO HUNDRED. reminders' tick is `for tenant in tenants[:TICK_MAX_TENANTS]` with, inside it, a
+#: sequential pass over `TICK_BATCH_SIZE` rows — so the run's worst case is the PRODUCT of both
+#: bounds and the per-item timeout, not of the inner pair. The gate reported 800s for a loop whose
+#: bound is 160,000, and I lowered a batch size on the strength of that number.
+#:
+#: A service with no inner bound declared has a slice of one unit, which is the honest reading:
+#: `operations` walks tenants and does one sync each.
+A_INNER = re.compile(r"^\s+([A-Z0-9_]*BATCH[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
+
+#: THE OUTER BOUND — how many tenants the run walks. Not ours to fit inside 300s at any value, so
+#: it is not judged; it is multiplied into the escalation line so the true number is on screen.
+A_OUTER = re.compile(r"^\s+([A-Z0-9_]*MAX_TENANTS[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
 
 
 def main() -> int:
@@ -76,39 +109,62 @@ def main() -> int:
         return 1
 
     over: list[str] = []
+    escalate: list[str] = []
     judged = 0
     for path in files:
         text = path.read_text(encoding="utf-8")
         if "cronJobs:" not in text:
             continue
         timeouts = {k: int(v) for k, v in A_TIMEOUT.findall(text)}
-        batches = {k: int(v) for k, v in A_BATCH.findall(text)}
-        if not timeouts or not batches:
+        if not timeouts:
             continue                      # nothing declared to multiply; not this gate's business
-        # THE SMALLEST TIMEOUT AND THE LARGEST BATCH — the pair a run is most likely to hit, and
-        # the pair a reader would reach for. Taking the largest timeout would flatter the number.
+        inner = {k: int(v) for k, v in A_INNER.findall(text)}
+        outer = {k: int(v) for k, v in A_OUTER.findall(text)}
+        if not inner and not outer:
+            continue
+        # THE SMALLEST TIMEOUT, because taking the largest would flatter the number.
         pk = min(timeouts, key=lambda k: timeouts[k])
-        bk = max(batches, key=lambda k: batches[k])
-        worst = timeouts[pk] * batches[bk]
+        svc = path.stem.replace(".values", "")
+
+        units = 1
+        for v in inner.values():
+            units *= v
+        slice_worst = timeouts[pk] * units
         judged += 1
-        if worst > caller:
-            svc = path.stem.replace(".values", "")
-            over.append(f"{svc}: {batches[bk]} x {timeouts[pk]}s = {worst}s, caller waits "
-                        f"{caller}s  ({bk} x {pk})")
+        if slice_worst > caller:
+            shape = " x ".join(f"{k}={v}" for k, v in sorted(inner.items()))
+            over.append(f"{svc}: one tenant is {units} units x {timeouts[pk]}s = {slice_worst}s, "
+                        f"caller waits {caller}s\n      ({shape}, {pk}={timeouts[pk]})")
+
+        tenants = 1
+        for v in outer.values():
+            tenants *= v
+        if tenants > 1 and slice_worst * tenants > caller:
+            shape = " x ".join(f"{k}={v}" for k, v in sorted({**outer, **inner}.items()))
+            escalate.append(f"{svc}: {tenants} tenants x {units} x {timeouts[pk]}s = "
+                            f"{slice_worst * tenants}s ({shape}, {pk}={timeouts[pk]})")
+
+    # PRINTED WHETHER OR NOT THIS GATE FAILS. It is the bigger number and it is not ours to fix;
+    # attaching it to a red mark we could never clear would have taught people to skip both.
+    if escalate:
+        print("STANDING ESCALATION — these runs cannot fit in any case, at any batch size:")
+        for line in escalate:
+            print("  " + line)
+        print(f"  the caller waits {caller}s: platform/deploy/chart/templates/cronjob.yaml, which")
+        print("  this repository does not edit. Raise it there, or make the route answer")
+        print("  immediately and report through its own runs endpoint. Tracked in #340.\n")
 
     if over:
-        print(f"{len(over)} of {judged} scheduled run(s) can outlast the caller that started them:")
+        print(f"{len(over)} of {judged} scheduled run(s) give ONE tenant more than the whole "
+              f"window:")
         for line in over:
             print("  " + line)
-        print(f"\nA run that finishes after {caller}s is reported FAILED whether or not it worked.")
-        print("The alert fires, somebody investigates a success, and the next real failure is read")
-        print("as more of the same.")
-        print("\nThe caller's timeout lives in platform/deploy/chart/templates/cronjob.yaml, which")
-        print("this repository does not edit: raise it there, or make the route answer immediately")
-        print("and report through its own runs endpoint.")
+        print(f"\nWith a {caller}s guillotine the question is no longer «does it finish» but «who is")
+        print("served before it falls». A slice this size lets the first establishment consume the")
+        print("entire window, and every shop behind it waits for the next tick — every tick.")
         return 1
 
-    print(f"{judged} scheduled run(s): every worst case fits inside the caller's {caller}s")
+    print(f"{judged} scheduled run(s): no tenant's slice exceeds the caller's {caller}s")
     return 0
 
 
