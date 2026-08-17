@@ -226,7 +226,9 @@ def build_container(settings: Settings) -> Container:
     from app.core.associations import Thresholds
 
     container.tick = Tick(container.datastore, container.peers,
-                          batch=settings.SNAPSHOT_BATCH, telemetry=container.telemetry,
+                          batch=settings.SNAPSHOT_BATCH,
+                          visit_limit=settings.SNAPSHOT_VISIT_LIMIT,
+                          telemetry=container.telemetry,
                           thresholds=Thresholds(
                               strong=settings.ASSOC_STRONG_LIFT,
                               weak=settings.ASSOC_WEAK_LIFT,

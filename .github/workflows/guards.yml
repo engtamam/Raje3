@@ -472,6 +472,12 @@ jobs:
       - name: a box that says it takes a number folds one
         run: python3 ci/check_a_box_that_says_it_takes_a_number_folds_one.py
 
+      # A setting declared in config.py AND published in a values file, read by nobody, answers
+      # «can I tune this?» with a confident yes for ever. `SNAPSHOT_VISIT_LIMIT` was overridden by
+      # a default argument and `SNAPSHOT_STALE_HOURS` by a literal 30 in the route.
+      - name: a setting an operator can change changes something
+        run: python3 ci/check_a_setting_an_operator_can_change_changes_something.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already

@@ -29,6 +29,7 @@ from app.core.models import (PAIRS, SEQUENCES, SNAPSHOTS, CustomerSequence, Snap
 
 class Tick:
     def __init__(self, store: Any, peers: Any, *, batch: int = 50,
+                 visit_limit: int = 5000,
                  telemetry: Any = None,
                  thresholds: associations.Thresholds | None = None,
                  reserve_weeks: int = 8, reserve_percentile: float = 0.95,
@@ -37,6 +38,11 @@ class Tick:
         self.store = store
         self.peers = peers
         self.batch = batch
+        # THE CAP THE OPERATOR CAN ACTUALLY MOVE. `SNAPSHOT_VISIT_LIMIT` sat in the values file
+        # looking like a knob while the real bound was a DEFAULT ARGUMENT on `peers.visits()` —
+        # so raising it in a deploy changed nothing at all, and the number an operator read was
+        # not the number the run obeyed. One authority, passed from the settings, or none.
+        self.visit_limit = visit_limit
         self.telemetry = telemetry
         # WHETHER ANYONE IS ACTUALLY WITHHELD FROM — `reminders` decides it; we only measure. False
         # means the control-group card must refuse rather than compare two groups that both
@@ -78,7 +84,7 @@ class Tick:
         three — so each scope is its own computation over its own visits. The alternative was a
         panel that quietly showed the whole shop's numbers under a branch's name.
         """
-        visits = await self.peers.visits(tenant, since=since)
+        visits = await self.peers.visits(tenant, since=since, limit=self.visit_limit)
         catalogue = await self.peers.catalogue(tenant)
         # THE SEND LOG, ONCE PER TENANT. Read here rather than inside _compute_scope: a branch
         # snapshot would otherwise re-fetch the whole shop's messages for every branch.

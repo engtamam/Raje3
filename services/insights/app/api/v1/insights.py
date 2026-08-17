@@ -207,7 +207,11 @@ async def dashboard(request: Request, branch_id: str = "",
         # SHOWN, ALWAYS. An owner comparing our number to his till at 2pm must see that ours was
         # computed at 3am, or he stops trusting both.
         "as_of_hours_ago": age_hours,
-        "stale": age_hours >= 30,
+        # THE SETTING, NOT A LITERAL. `SNAPSHOT_STALE_HOURS` is declared in config.py and in
+        # the values file, and this line ignored it: an operator lowering the threshold to
+        # see staleness sooner changed nothing, and the number he read was not the number
+        # the badge obeyed.
+        "stale": age_hours >= get_settings().SNAPSHOT_STALE_HOURS,
         # AND WHETHER THE HISTORY BEHIND THESE NUMBERS WAS COMPLETE. `tick.py` records `partial`
         # when the visit read hit its cap: the snapshot is then computed from a WINDOW of the
         # shop's history rather than from all of it. `Snapshot.partial` says so in its own comment
