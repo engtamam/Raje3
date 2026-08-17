@@ -106,6 +106,35 @@ def test_a_refusal_from_the_registry_is_not_rendered_as_success(client, monkeypa
     assert r.json()["error"] == "RENAME_REFUSED"
 
 
+def test_a_registry_that_is_not_answering_does_not_blame_his_name(client, monkeypatch):
+    """THE ONE TAMAM HIT: `PUT /staff/shop-name → 400` on a perfectly good name.
+
+    This route read `if code >= 400` and gave every failure the same sentence — «تعذّر حفظ الاسم.
+    جرّب اسماً آخر.» The registry answers 400 only for a name it will not take. It answers 404
+    when the tenant is unknown OR WHEN THE ROUTE ITSELF IS ABSENT, which is what an older
+    tenant-service returns — and the cluster was running a digest that predated the rename route
+    (#338). It answers 401/403 on a bad internal token and 5xx when it is down.
+
+    So an owner whose name was fine retyped it, shortened it, dropped the «مؤسسة», tried English,
+    and failed every time: the broken thing was not his name, and no name he could think of would
+    have fixed it. A refusal that looks actionable and cannot be acted on is worse than an outage
+    said plainly, because he blames himself and keeps going.
+    """
+    for code in (404, 401, 403, 500, 503):
+        _patch(monkeypatch, _Registry(code=code))
+
+        r = client.put(PATH, json={"name": "مغسلة النخيل"}, headers=_headers())
+
+        assert r.status_code == 503, f"{code} was rendered as {r.status_code}"
+        assert r.json()["error"] == "RENAME_UNAVAILABLE"
+        # HIS NAME IS EXONERATED IN SO MANY WORDS. «حاول بعد قليل» alone still leaves him
+        # wondering whether to change it first.
+        assert "لا في الاسم" in r.json()["message"]
+        # AND THE CODE TRAVELS, so a stale image is told apart from a bad token in the report
+        # rather than by asking him to reproduce it.
+        assert r.json()["detail"]["status"] == code
+
+
 def test_with_no_registry_configured_it_says_so_rather_than_pretending():
     """He would retype his name, read «تم», and find the old one still there on the next screen.
 

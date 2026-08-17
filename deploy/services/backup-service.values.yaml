@@ -182,7 +182,7 @@ env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: ""   # operator surface only — not the tenant app
+  CORS_ALLOWED_ORIGINS: "https://admin.raje3.sa"   # operator surface only — not the tenant app
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

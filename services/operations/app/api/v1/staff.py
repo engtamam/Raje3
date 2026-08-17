@@ -581,13 +581,35 @@ async def set_shop_name(request: Request, body: ShopNameIn,
     code, out = await run_in_threadpool(
         http.call, f"{base}/internal/tenants/{tenant}",
         method="PATCH", body={"name": body.name.strip()}, internal=True)
-    if code >= 400:
+    # ── ONLY A REFUSAL OF THE NAME MAY SAY «جرّب اسماً آخر» ────────────────────────────────────
+    #
+    # THIS LINE READ `if code >= 400` AND SAID THE SAME SENTENCE TO EVERY FAILURE. The registry
+    # answers 400 INVALID_NAME for a name it will not take — and 404 when the tenant is unknown OR
+    # when the route itself is absent, which is exactly what an older tenant-service returns
+    # (#338: the cluster ran a digest predating this route). It answers 401/403 on a bad internal
+    # token, and 5xx when it is simply down.
+    #
+    # Every one of those was rendered as «تعذّر حفظ الاسم. جرّب اسماً آخر.» — so an owner whose
+    # shop name is perfectly fine retypes it, shortens it, drops the «مؤسسة», tries English, and
+    # fails every time, because the thing that is broken is not his name and no name he can think
+    # of will fix it. That is the worst shape a refusal can have: actionable-looking, and
+    # impossible to act on.
+    if code == status.HTTP_400_BAD_REQUEST:
         # THE REGISTRY'S REFUSAL IS THE REGISTRY'S. A name it rejects is one it can explain;
         # inventing a sentence of our own here would answer for a rule that is not ours.
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "RENAME_REFUSED",
                                      "message": "تعذّر حفظ الاسم. جرّب اسماً آخر.",
                                      "detail": out})
+    if code >= 400:
+        # ANYTHING ELSE IS OURS, NOT HIS. He is told to wait rather than to invent, and the code
+        # travels in `detail` so whoever reads the report can tell a stale image from a bad token
+        # without asking him to reproduce it.
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            content={"error": "RENAME_UNAVAILABLE",
+                                     "message": "تعذّر حفظ الاسم الآن — الخلل عندنا لا في الاسم. "
+                                                "حاول بعد قليل.",
+                                     "detail": {"status": code, "body": out}})
     await request.app.state.auditor.record(
         "shop.renamed", actor=principal.subject, tenant=tenant, resource="tenant",
         ip=request.client.host if request.client else "")

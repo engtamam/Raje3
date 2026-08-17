@@ -510,6 +510,14 @@ jobs:
       - name: the consent sentence shown is the sentence recorded
         run: python3 ci/check_the_consent_sentence_shown_is_the_sentence_recorded.py
 
+      # verify-fleet.sh, run against the cluster, found the SAME disagreement on seventeen
+      # services: the real browser origins on the box, and the empty string in this repo. `ship.sh`
+      # uploads the values file verbatim — so the next install of any of them would have set CORS
+      # back to empty and taken the console dark for every shop at once, with nothing here looking
+      # wrong, because a blank field looks like one nobody has needed yet.
+      - name: the front doors are named once
+        run: python3 ci/check_the_front_doors_are_named_once.py
+
       # `GET /api/v1/branches` returned every branch of the establishment to anybody holding the
       # capability, while every other read in that service was narrowed by `branch_scope`. A
       # manager granted Jeddah could not read Riyadh's numbers and could read Riyadh's NAME — and
