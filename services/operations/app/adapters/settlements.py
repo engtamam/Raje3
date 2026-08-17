@@ -18,11 +18,33 @@ reads, believes, and plans around, and correcting it next month costs more than 
 """
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import time
 import urllib.parse
 import urllib.request
 from typing import Any
+
+
+def platform_instant(epoch: int) -> str:
+    """The one place that knows how billing-service reads a time bound.
+
+    IT COMPARES STRINGS, AND WE WERE SENDING NUMBERS. `billing_service.browse_platform` filters
+    with `created > until` / `created < since` where `created` is an ISO-8601 timestamp. Handed an
+    epoch as text, that is a LEXICOGRAPHIC comparison between "2026-06-15T..." and "1780272000" —
+    and it decides on the first character: '2' > '1', so every real invoice reads as newer than the
+    window and is skipped. Not some rows. Every row, every month.
+
+    The result had no error and no log: `for_period` returned an empty map, every partner settled
+    at zero, and a statement of 0.00 SAR went out looking exactly like a correct statement for a
+    partner who earned nothing. A partner who brought forty shops was owed 2,990 SAR and was shown
+    zero — and the only way anyone would ever learn is by disputing it.
+
+    So the conversion lives HERE, named, with the reason attached, rather than as an inline
+    `strftime` at each call site — because there will be a second call site, and the person who
+    writes it will pass the epoch they already have.
+    """
+    return _dt.datetime.fromtimestamp(int(epoch), tz=_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class SettlementsSource:
@@ -74,7 +96,9 @@ class SettlementsSource:
         # pages of 200 is forty thousand invoices, far past any month we will have before this is
         # replaced by the internal route it should have been.
         for _ in range(200):
-            q = urllib.parse.urlencode({"status": status, "since": since, "until": until,
+            q = urllib.parse.urlencode({"status": status,
+                                        "since": platform_instant(since),
+                                        "until": platform_instant(until),
                                         "limit": 200, **({"cursor": cursor} if cursor else {})})
             req = urllib.request.Request(f"{self._billing}/api/v1/billing/admin/invoices?{q}",
                                          headers={"Authorization": f"Bearer {token}"})
