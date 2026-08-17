@@ -206,25 +206,27 @@ fi
 # This is arithmetic, not a probe: it cannot start a run and it does not try. It multiplies what
 # the repository declares by what the cluster registered and says whether the sum fits.
 #
-# AND IT IS A FAMILY, NOT ONE SERVICE. Sweeping every values file for a cron that declares both a
-# batch size and a per-item timeout finds four, all measured against the same 300s caller:
+# AND IT IS A FAMILY, NOT ONE SERVICE. Sweeping every values file for a cron that declares a
+# per-item timeout and a bound finds four, all measured against the same 300s caller:
 #
-#   campaigns tick   DISPATCH_BATCH_SIZE 200 x PEER_TIMEOUT_SECONDS 8   = 1600s
-#   reminders tick   TICK_BATCH_SIZE     100 x PEER_TIMEOUT_SECONDS 8   =  800s
-#   insights  tick   SNAPSHOT_BATCH       50 x PEER_TIMEOUT_SECONDS 8   =  400s
-#   backup    run    <targets>            20 x BACKUP_TARGET_TIMEOUT  120 = 2400s
+#   reminders tick   TICK_MAX_TENANTS 200 x TICK_BATCH_SIZE      30 x PEER_TIMEOUT 8 = 48000s
+#   campaigns tick   TICK_MAX_TENANTS 200 x DISPATCH_BATCH_SIZE  30 x PEER_TIMEOUT 8 = 48000s
+#   operations sync  TEMPLATE_SYNC_MAX_TENANTS 200               x SEARCH_TIMEOUT  5 =  1000s
+#   backup    run    <targets> 20 x BACKUP_TARGET_TIMEOUT_SECONDS 120                =  2400s
 #
-# THE THREE TICKS ARE NOT THE SAME AS THE BACKUP, and saying so is the difference between a report
-# somebody reads and one they learn to scroll past. A tick reaches its worst case only if EVERY
-# peer call times out — and a run where every call times out is failing on its own merits, not
-# being misreported. `concurrencyPolicy: Forbid` in the platform chart already stops a slow tick
-# overlapping the next, and a killed tick retries on the following schedule with the work intact.
+# THE FIRST VERSION OF THIS TABLE WAS WRONG BY A FACTOR OF TWO HUNDRED, and the error is worth
+# keeping written down because it is the one this whole family is made of. It multiplied ONE batch
+# by ONE timeout — `reminders 100 x 8 = 800s` — and never noticed the loop is NESTED: the tick walks
+# `for tenant in tenants[:TICK_MAX_TENANTS]` and runs the batch inside EACH tenant. Two numbers in
+# two files, and nobody had multiplied them; then two more, and I multiplied only two of them.
 #
-# The backup is the one where a HEALTHY run is misreported: 120s per target is a plausible normal
-# duration for copying a collection, not a degenerate one. That is the urgent member.
+# WHICH MEANS NO REPOSITORY VALUE MAKES THEM FIT. Even one row per tenant is 200 x 8s = 1600s. The
+# ticks are not «less urgent than the backup» as this comment used to claim — they are the members
+# no local edit can rescue. `ci/check_a_cron_can_finish_before_its_caller_gives_up.py` judges the
+# half that is ours (one tenant's slice) and prints the rest as a standing escalation; this script
+# does the live half, where the backup's target COUNT is a cluster fact rather than a declaration.
 #
-# All four are reported because the invariant — the caller must be able to outwait the work — does
-# not hold for any of them, and the fix for all four is the same single escalation.
+# The fix for all four is the same single escalation: the 300 in the platform chart. See #340.
 per_target="$(sed -n 's/^  BACKUP_TARGET_TIMEOUT_SECONDS: *"\([0-9]*\)".*/\1/p' \
   "$ROOT/deploy/services/backup-service.values.yaml" | head -1)"
 caller_wait=300     # `platform/deploy/chart/templates/cronjob.yaml` — read-only, hence the escalation
