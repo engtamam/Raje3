@@ -7,7 +7,7 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.ledger import Ledger
-from app.core.models import LoyaltyError, Overdraft
+from app.core.models import REDEMPTIONS, LoyaltyError, Overdraft
 from app.core.notify import Notifier, receipt_text, to_next_reward
 from app.core.redeem import Redeemer
 from app.core.rewards import Rewards, validate_name
@@ -389,3 +389,70 @@ def test_a_cache_that_cannot_be_asked_refuses_rather_than_assumes_nobody_is_spen
         assert (await ledger.balance(T, S)).points == 100
 
     run(scenario())
+
+
+# ── the crash between the deduction and the receipt ────────────────────────────────────────────
+#
+# THE DOUBLE DEDUCTION, ASSERTED AS A BALANCE. The ledger movement is posted first — deliberately,
+# so a crash leaves points deducted with no receipt rather than a receipt for points still in the
+# account. That ordering is right. What was wrong is that the retry had no way to recognise the
+# earlier attempt: it looked for the receipt (absent), and the ledger compared a NEW uuid against
+# the old one and waved it through.
+#
+# These read the BALANCE, not the return value. A test that asserted `is_new is False` would have
+# passed against a version that deducted twice and reported honestly about the second one.
+def test_a_crash_before_the_receipt_does_not_deduct_twice():
+    store, ledger, rewards, red = build()
+    give(ledger, 1000)
+    r = run(rewards.create(T, name="قهوة", cost=168, type="item"))
+
+    # Attempt one: the ledger moves, then the process dies before REDEMPTIONS is written.
+    boom = RuntimeError("pod evicted between the deduction and the receipt")
+    original = store.put
+
+    async def die(collection, key, row):
+        if collection == REDEMPTIONS:
+            raise boom
+        return await original(collection, key, row)
+
+    store.put = die
+    with pytest.raises(RuntimeError):
+        run(red.redeem(T, S, r.id, idem_key="idem-1", actor="op"))
+    store.put = original
+
+    assert run(ledger.balance(T, S)).points == 832, "the first deduction should have landed"
+
+    # Attempt two: the phone retries with the SAME key, as a field app on a bad line does.
+    rec, is_new = run(red.redeem(T, S, r.id, idem_key="idem-1", actor="op"))
+
+    assert run(ledger.balance(T, S)).points == 832, "the retry deducted a second time"
+    assert is_new is False, "a second confirmation must not be sent for one redemption"
+    assert rec.cost == 168
+
+    # AND THE RECEIPT EXISTS NOW. The recovery is not «refuse and walk away» — the points went out,
+    # so the customer must have a record of the reward he was handed.
+    rows, _ = run(store.find(REDEMPTIONS, {"tenant": T}, limit=10))
+    assert len(rows) == 1, "exactly one receipt for one deduction"
+
+
+def test_the_cause_is_stable_across_attempts_and_scoped_to_the_tenant():
+    """The property the whole fix rests on, stated on its own."""
+    from app.core.redeem import _cause
+
+    assert _cause(T, "idem-1") == _cause(T, "idem-1")
+    assert _cause(T, "idem-1") != _cause(T, "idem-2")
+    # A key that collides across tenants would let one shop's retry suppress another's redemption.
+    assert _cause("shop-a", "k") != _cause("shop-b", "k")
+    # No key, no derived cause — the caller is refused rather than given an undedupable movement.
+    assert _cause(T, "") == ""
+
+
+def test_a_redemption_with_no_idempotency_key_is_refused_not_deducted():
+    store, ledger, rewards, red = build()
+    give(ledger, 1000)
+    r = run(rewards.create(T, name="قهوة", cost=168, type="item"))
+
+    with pytest.raises(LoyaltyError):
+        run(red.redeem(T, S, r.id, idem_key="", actor="op"))
+
+    assert run(ledger.balance(T, S)).points == 1000, "refused, and nothing moved"

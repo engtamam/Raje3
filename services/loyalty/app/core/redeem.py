@@ -22,6 +22,7 @@ has a receipt for points he still has, and the next thing he does is ask why his
 """
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from app.core.ledger import Ledger
@@ -140,16 +141,51 @@ class Redeemer:
         # movement is posted FIRST so a crash between the two leaves points deducted with no
         # receipt — recoverable by reading the ledger — rather than a receipt for points still in
         # the account, which reads to the customer as us taking his reward back.
+        #
+        # THE CAUSE IS DERIVED FROM THE IDEMPOTENCY KEY, NOT FROM A FRESH UUID.
+        #
+        # THE DOUBLE DEDUCTION THIS CLOSES. Retries were guarded by `_existing()`, which reads
+        # REDEMPTIONS — the receipt, written LAST. A crash between the ledger post and that write
+        # left points deducted with no receipt, so the retry found nothing, walked straight past
+        # every check, and posted again. And the ledger could not catch it either: `source` was
+        # `rec.id`, a NEW uuid on every attempt, so `already_posted` compared two different causes
+        # and said no. The guard below was therefore DEAD CODE on the field path — it could only
+        # fire for a caller that passed an explicit `source`, and the till is the only one that
+        # does.
+        #
+        # `SpendLock` did not save it: fifteen seconds, and the retry that matters is the one after
+        # a timeout, which arrives later than that by definition.
+        #
+        # Deriving the cause from `(tenant, idem_key)` makes the LEDGER the thing that deduplicates
+        # — the store that holds the money, rather than the receipt written after it. Same key,
+        # same cause, second post refused, whatever crashed in between.
+        #
+        # AND THE RECONCILER WAS CEMENTING IT. `/platform/reconcile` resets a balance to the sum of
+        # the ledger, and the ledger held both deductions — so the one tool that exists to correct
+        # drift was ratifying it as truth. That is worse than the defect: a wrong number somebody
+        # audited.
+        #
+        # AND NO FALLBACK, BECAUSE A FALLBACK IS THE HOLE ITSELF. `or rec.id` would restore exactly
+        # what this fixes for the one caller that sends neither — a deduction nothing can ever
+        # deduplicate. Both callers (the field route and the till) send an idempotency key today,
+        # so this refuses a case that does not occur; and the day somebody adds a third caller, the
+        # refusal is a 400 at the door rather than a customer charged twice on a bad connection.
+        cause = source or _cause(tenant, idem_key)
+        if not cause:
+            raise LoyaltyError(
+                "لا يمكن تنفيذ الاستبدال بلا مفتاح تكرار — أعد المحاولة من الشاشة.")
+
         entry = await self.ledger.post(
             tenant=tenant, subject_ref=subject_ref, delta=-reward.cost, reason="redeem",
-            source=source or rec.id, actor=actor, branch_id=branch_id)
-        if entry is None:
-            # The same source already produced a redeem movement. Not an error — a retry that
-            # arrived without its idempotency key, which is exactly what a NAT'd mobile does.
-            raise LoyaltyError("تم استبدال هذه العملية مسبقاً")
-
+            source=cause, actor=actor, branch_id=branch_id)
+        # THE RECEIPT IS WRITTEN EITHER WAY, and that is the whole recovery. `entry is None` now
+        # means «the points already went out on an earlier attempt» — the case this fix creates —
+        # and the customer is owed a record of a reward he was handed. Refusing here would leave
+        # him permanently short with nothing to point at.
+        #
+        # `is_new` is what tells the caller not to send a second confirmation for one redemption.
         await self.store.put(REDEMPTIONS, rec.id, rec.to_dict())
-        return rec, True
+        return rec, entry is not None
 
     async def history(self, tenant: str, subject_ref: str = "", limit: int = 50) -> list[dict]:
         where: dict[str, Any] = {"tenant": tenant}
@@ -158,6 +194,19 @@ class Redeemer:
         rows, _ = await self.store.find(REDEMPTIONS, where, limit=limit,
                                         sort=("created_at", "desc"))
         return list(rows or [])
+
+
+def _cause(tenant: str, idem_key: str) -> str:
+    """The ledger's idempotency key for a redemption, stable across retries.
+
+    Hashed rather than concatenated so the value is a fixed length whatever the caller sends, and
+    so a key that happens to contain the separator cannot be made to collide with another tenant's.
+    Empty when there is no idempotency key — a caller that sends none is asking for a new movement
+    every time, and pretending otherwise would silently merge two genuine redemptions.
+    """
+    if not idem_key:
+        return ""
+    return "rdm_" + hashlib.sha256(f"{tenant}|{idem_key}".encode("utf-8")).hexdigest()[:32]
 
 
 def _row_to_redemption(row: dict) -> Redemption:
