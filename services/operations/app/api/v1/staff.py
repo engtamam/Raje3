@@ -111,37 +111,45 @@ async def create_operator(request: Request, body: OperatorIn,
     # LIVE ONES ONLY, and the same rule the update route reports by. Counting people who were
     # stopped months ago would make a shop buy seats for employees who no longer work there — and
     # the two counts disagreeing is worse still: whichever the owner is looking at is the wrong one.
-    current = len([o for o in await store.list(tenant) if o.active])
+    # THE COUNT AND THE INSERT ARE ONE ACT OR THE CAP IS DECORATION. Everything from the count to
+    # the write happens inside the establishment's lane; two managers hiring in the same
+    # millisecond are serialised rather than both told there is room (core/seats.py).
     try:
-        await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
+        async with S.claiming(request.app.state.container.datastore,
+                              tenant=tenant, key=S.SEATS, now=time.time()):
+            current = len([o for o in await store.list(tenant) if o.active])
+            await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
+
+            await request.app.state.auditor.record(
+                "operator.created", actor=principal.subject, tenant=tenant, resource="operator",
+                ip=request.client.host if request.client else "")
+
+            settings = request.app.state.container_settings
+            # HIS BRANCH, IF THE SHOP HAS ONE BY THAT ID. Unlike a visit this is a field on a form
+            # we serve, so a bad value here is our bug rather than a till's — but the same rule
+            # applies: an employee is not refused over a label, he is recorded without one.
+            branch_id = ""
+            if body.branch_id.strip():
+                branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
+                                            tenant, body.branch_id)
+            op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
+                          branch_id=branch_id, created=int(time.time()))
+            op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
+            await store.save(op)
+            # REPORTED AFTER THE WRITE, and as the whole count rather than a delta. Before the
+            # write it would be a lie for as long as the write takes, and a failed write would
+            # leave billing believing in an employee who does not exist. Reporting the total means
+            # a failed report heals itself on the next change.
+            await gauges.report(tenant, S.SEATS, current + 1)
+    except S.SeatClaimBusy as exc:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "SEAT_BUSY", "message": str(exc)})
     except S.SeatLimitReached as exc:
         # RETURNED, NOT RAISED. The platform's error handler strips an HTTPException's detail, so
         # a raised refusal reaches the owner as a bare 403 and the sentence naming his limit —
         # the only part that tells him what to do — is thrown away.
         return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
                             content={"error": "SEAT_LIMIT", "message": str(exc)})
-
-    await request.app.state.auditor.record(
-        "operator.created", actor=principal.subject, tenant=tenant, resource="operator",
-        ip=request.client.host if request.client else "")
-
-    settings = request.app.state.container_settings
-    # HIS BRANCH, IF THE SHOP HAS ONE BY THAT ID. Unlike a visit this is a field on a form we
-    # serve, so a bad value here is our bug rather than a till's — but the same rule applies: an
-    # employee is not refused over a label, he is recorded without one.
-    branch_id = ""
-    if body.branch_id.strip():
-        branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
-                                    tenant, body.branch_id)
-    op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
-                  branch_id=branch_id, created=int(time.time()))
-    op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
-    await store.save(op)
-    # REPORTED AFTER THE WRITE, and as the whole count rather than a delta. Before the write it
-    # would be a lie for as long as the write takes, and a failed write would leave billing
-    # believing in an employee who does not exist. Reporting the total means a failed report
-    # heals itself on the next change.
-    await gauges.report(tenant, S.SEATS, current + 1)
     # public() omits pin_hash — a hash that is never returned cannot be attacked offline by
     # somebody who reached a read endpoint.
     return op.public()
@@ -183,33 +191,55 @@ async def hire_member(request: Request, body: MemberIn,
     store = OperatorStore(request.app.state.container.datastore)
     gauges = request.app.state.container.gauges
 
-    current = len([o for o in await store.list(tenant) if o.active])
+    # ONE LANE, AND IT COVERS THE MEMBERSHIP TOO. The seat is spent by the pair (identity account,
+    # operator row), so the lane must not be released between them: two hires racing would both
+    # count four, both create an account, and the second would find the first's row only after
+    # paying for it (core/seats.py).
     try:
-        await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
+        async with S.claiming(request.app.state.container.datastore,
+                              tenant=tenant, key=S.SEATS, now=time.time()):
+            current = len([o for o in await store.list(tenant) if o.active])
+            await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
+
+            branch_id = ""
+            if body.branch_id.strip():
+                branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
+                                            tenant, body.branch_id)
+
+            # CRITICAL AND WRITE-AHEAD: this is a person being given access to an establishment's
+            # data, which is the one family of acts that must be refused rather than performed
+            # unrecorded.
+            await request.app.state.auditor.record(
+                "member.hired", actor=principal.subject, tenant=tenant, resource="member",
+                ip=request.client.host if request.client else "")
+
+            try:
+                out = await request.app.state.container.signup.hire(
+                    tenant, phone=body.phone, password=body.password, role=body.role)
+            except SignupRefused as exc:
+                # RETURNED, NEVER RAISED — the platform strips a raised detail, and «هذا الرقم
+                # مسجّل في منشأة أخرى» is the only part of this answer the owner can act on.
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+                                    content={"error": "NOT_HIRED", "message": str(exc)})
+
+            return await _finish_hire(request, body=body, tenant=tenant, store=store,
+                                      gauges=gauges, out=out, branch_id=branch_id,
+                                      current=current)
+    except S.SeatClaimBusy as exc:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "SEAT_BUSY", "message": str(exc)})
     except S.SeatLimitReached as exc:
         return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
                             content={"error": "SEAT_LIMIT", "message": str(exc)})
 
-    branch_id = ""
-    if body.branch_id.strip():
-        branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
-                                    tenant, body.branch_id)
 
-    # CRITICAL AND WRITE-AHEAD: this is a person being given access to an establishment's data,
-    # which is the one family of acts that must be refused rather than performed unrecorded.
-    await request.app.state.auditor.record(
-        "member.hired", actor=principal.subject, tenant=tenant, resource="member",
-        ip=request.client.host if request.client else "")
+async def _finish_hire(request: Request, *, body: MemberIn, tenant: str, store: Any,
+                       gauges: Any, out: dict, branch_id: str, current: int) -> dict:
+    """The half of `hire_member` that runs after identity answered. Split out for depth only.
 
-    try:
-        out = await request.app.state.container.signup.hire(
-            tenant, phone=body.phone, password=body.password, role=body.role)
-    except SignupRefused as exc:
-        # RETURNED, NEVER RAISED — the platform strips a raised detail, and «هذا الرقم مسجّل في
-        # منشأة أخرى» is the only part of this answer the owner can act on.
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
-                            content={"error": "NOT_HIRED", "message": str(exc)})
-
+    IT RUNS INSIDE THE SEAT LANE and must stay there — the caller holds the claim across this
+    call. Nothing here may be reused from outside it.
+    """
     person_id = out.get("person_id", "")
 
     # ONE PERSON IS ONE ROW, AND THE PRESS IS NOT THE ACT (ز-10). The id used to be `new_id("opr")`
@@ -594,19 +624,25 @@ async def create_branch(request: Request, body: BranchIn,
     await B.ensure_main(store, tenant=tenant)
     # LIVE ONES ONLY. A branch he closed is history on old visits, not capacity he keeps paying
     # for — counting it would make «فرع إضافي» a purchase that buys back a place he shut down.
-    current = _live(await store.list(tenant))
     try:
-        await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=current)
+        async with S.claiming(request.app.state.container.datastore,
+                              tenant=tenant, key=S.BRANCHES, now=time.time()):
+            current = _live(await store.list(tenant))
+            await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=current)
+
+            await request.app.state.auditor.record(
+                "branch.created", actor=principal.subject, tenant=tenant, resource="branch",
+                ip=request.client.host if request.client else "")
+            b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(),
+                       created=int(time.time()))
+            await store.save(b)
+            await gauges.report(tenant, S.BRANCHES, current + 1)
+    except S.SeatClaimBusy as exc:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "BRANCH_BUSY", "message": str(exc)})
     except S.SeatLimitReached as exc:
         return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
                             content={"error": "BRANCH_LIMIT", "message": str(exc)})
-
-    await request.app.state.auditor.record(
-        "branch.created", actor=principal.subject, tenant=tenant, resource="branch",
-        ip=request.client.host if request.client else "")
-    b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(), created=int(time.time()))
-    await store.save(b)
-    await gauges.report(tenant, S.BRANCHES, current + 1)
     return b.public()
 
 
@@ -642,28 +678,42 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                             content={"error": "MAIN_BRANCH",
                                      "message": "الفرع الرئيسي لا يُغلق. غيّر اسمه إن أردت."})
 
-    rows = await store.list(tenant)
-    if body.active is True and not b.active:
-        try:
-            await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES, current=_live(rows))
-        except S.SeatLimitReached as exc:
-            return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                                content={"error": "BRANCH_LIMIT", "message": str(exc)})
+    # THE LANE IS TAKEN FOR EVERY EDIT, not only a reopen. Whether this request needs the guard
+    # depends on `b.active`, which is read inside — deciding that outside the lane would mean
+    # reading the state that decides, before holding the thing that keeps it still. A rename pays
+    # a few microseconds of queueing for a rule with no exception in it (core/seats.py).
+    try:
+        async with S.claiming(request.app.state.container.datastore,
+                              tenant=tenant, key=S.BRANCHES, now=time.time()):
+            b = await store.get(tenant, branch_id)
+            if b is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+            rows = await store.list(tenant)
+            if body.active is True and not b.active:
+                await S.guard_and_report(gauges, tenant=tenant, key=S.BRANCHES,
+                                         current=_live(rows))
 
-    await request.app.state.auditor.record(
-        "branch.updated", actor=principal.subject, tenant=tenant,
-        resource=f"branch:{branch_id}", ip=request.client.host if request.client else "")
+            await request.app.state.auditor.record(
+                "branch.updated", actor=principal.subject, tenant=tenant,
+                resource=f"branch:{branch_id}", ip=request.client.host if request.client else "")
 
-    if body.name is not None:
-        b.name = body.name.strip()
-    if body.active is not None:
-        b.active = body.active
-    await store.save(b)
-    # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented (core/seats.py). The
-    # saved row is the one in `rows` by identity only if the store returned the same object, so
-    # the live count is taken from the list with this row's new state substituted in.
-    await gauges.report(tenant, S.BRANCHES,
-                        _live([b if r.id == b.id else r for r in rows]))
+            if body.name is not None:
+                b.name = body.name.strip()
+            if body.active is not None:
+                b.active = body.active
+            await store.save(b)
+            # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented
+            # (core/seats.py). The saved row is the one in `rows` by identity only if the store
+            # returned the same object, so the live count is taken from the list with this row's
+            # new state substituted in.
+            await gauges.report(tenant, S.BRANCHES,
+                                _live([b if r.id == b.id else r for r in rows]))
+    except S.SeatClaimBusy as exc:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={"error": "BRANCH_BUSY", "message": str(exc)})
+    except S.SeatLimitReached as exc:
+        return JSONResponse(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            content={"error": "BRANCH_LIMIT", "message": str(exc)})
     return b.public()
 
 

@@ -491,6 +491,12 @@ jobs:
       - name: the register says what the code says
         run: python3 ci/check_the_register_says_what_the_code_says.py
 
+      # A cap that counts, awaits billing, and then writes is not a cap. Two managers hiring in the
+      # same second both counted four of five and both inserted — six seats sold as five, and no
+      # screen anywhere red. The count and the write must sit in one serialised lane.
+      - name: a seat is claimed before it is counted
+        run: python3 ci/check_a_seat_is_claimed_before_it_is_counted.py
+
       # A browser calling a peer service carries no scope anybody can enforce. The keypad did
       # exactly that, and a supervisor scoped to Jeddah read Riyadh's customers by name and number.
       - name: the browser does not search the fleet directly

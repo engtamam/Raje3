@@ -45,6 +45,7 @@ not our call.
 """
 from __future__ import annotations
 
+import contextlib as _contextlib
 from typing import Any
 
 # The keys the plans carry (spec §16.4.1), named once so a typo cannot create a second gauge with
@@ -55,6 +56,56 @@ BRANCHES = "branches"
 
 class SeatLimitReached(Exception):
     """Refused at the door. Carries the Arabic sentence the owner is shown, with his limit in it."""
+
+
+class SeatClaimBusy(Exception):
+    """Somebody else is adding to this establishment right now. Try again — it is a moment long."""
+
+
+# Long enough to cover a count, an entitlement read and an insert; short enough that a pod killed
+# mid-hire costs the shop a retry rather than an afternoon. It is a floor guard on a race, not a
+# session lock, and nothing human waits on it.
+CLAIM_TTL_SECONDS = 15.0
+CLAIMS = "seat_claims"
+
+
+@_contextlib.asynccontextmanager
+async def claiming(datastore: Any, *, tenant: str, key: str, now: float) -> Any:
+    """Hold the establishment's add-a-seat lane while it is counted and written.
+
+    THE COUNT AND THE WRITE WERE NEVER ONE ACT, and the limit was decoration in the exact case it
+    was sold to cover. Two managers on a plan of five, each opening «إضافة موظف» at the same
+    moment: both routes read four live employees, both ask billing «may I add one more?», both are
+    told yes — because at the instant each asked, both were telling the truth — and both insert.
+    The shop now has six seats on a cap of five, we bill for five, and nothing anywhere is red.
+
+    Serialising the lane is the whole fix, and it is deliberately NOT a counter. A counter of seats
+    held next to the employees themselves is a second source of truth about how many people work
+    here, and the two drift the first time a row is deleted by any path that does not know about
+    it — which is the drift `reconcile()` exists to clean up, reintroduced one layer down. This
+    holds nothing and counts nothing: it makes the existing count-then-write indivisible, so the
+    employee rows stay the only answer to «how many».
+
+    ONE LANE PER ESTABLISHMENT AND PER GAUGE. A global lock would make every shop in the fleet
+    queue behind every other, and a lock shared between seats and branches would refuse a manager
+    adding a branch because somebody in another city is hiring.
+
+    A CLAIM THAT CANNOT BE TAKEN IS REFUSED, NOT WAVED THROUGH. This is the opposite of
+    `allows_one_more`, which fails open on purpose — an unreachable billing must not stop a shop
+    hiring. Here the contended path IS the defect: falling through on contention would skip the
+    guard in precisely the millisecond it was built for. The caller gets «حاول بعد لحظة», which is
+    true and actionable, and the retry succeeds.
+    """
+    lane = f"{tenant}:{key}"
+    if not await datastore.claim(CLAIMS, lane, {"tenant": tenant, "key": key},
+                                 ttl_seconds=CLAIM_TTL_SECONDS, now=now):
+        raise SeatClaimBusy("يجري تعديل الفريق الآن من جهازٍ آخر. حاول بعد لحظة.")
+    try:
+        yield
+    finally:
+        # RELEASED, AND THE TTL IS THE BACKSTOP. A delete that fails leaves the lane held for
+        # CLAIM_TTL_SECONDS and no longer, which is why the expiry is not optional decoration.
+        await datastore.delete(CLAIMS, lane)
 
 
 class NullGauges:

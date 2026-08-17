@@ -21,6 +21,7 @@ import types
 
 import pytest
 
+from app.adapters.datastore.memory import MemoryDataStore
 from app.api.v1 import staff as ST
 
 TENANT = "shop"
@@ -85,7 +86,12 @@ def wired(monkeypatch):
         app=types.SimpleNamespace(state=types.SimpleNamespace(
             auditor=_Auditor(),
             container_settings=types.SimpleNamespace(PII_SALT="salt"),
-            container=types.SimpleNamespace(datastore=None, gauges=gauges, signup=signup))))
+            # A REAL STORE, BECAUSE THE ROUTE NOW TAKES THE SEAT LANE FROM IT. `None` was honest
+            # while `OperatorStore` was the only thing built from it and this test replaces that;
+            # the hire path now also claims the establishment's add-a-seat lane, which is a store
+            # operation and not one worth faking (core/seats.py).
+            container=types.SimpleNamespace(datastore=MemoryDataStore(), gauges=gauges,
+                                            signup=signup))))
     return request, store, gauges, signup
 
 
