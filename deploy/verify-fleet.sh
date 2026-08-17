@@ -192,6 +192,71 @@ else
 ' "$C_G" "backup targets" "$targets" "$C_N"
 fi
 
+# ── AND THE CONFIG THAT DRIVES THE CODE (أ-2) ────────────────────────────────────────────────
+#
+# EVERYTHING ABOVE COMPARES IMAGES. أ-2 was not an image: the corrected code was deployed and the
+# configuration that drives it was not. `WHATSAPP_ONBOARDING_GRAPH_BASE` read v21.0 on the cluster
+# while the repository said v26.0, and `WHATSAPP_GRAPH_BASE` was absent from the ConfigMap
+# entirely. Every digest matched. Every pod was ready. This script printed green.
+#
+# What that costs is not an outage. A retired Graph version does not fail loudly — it stops
+# returning a field. So a shop walks through Embedded Signup, Meta answers SUCCESSFULLY, the
+# screen says «مربوط», and not one message is ever delivered. The failure is invisible from every
+# angle except a customer who never hears from the shop again.
+#
+# So the env a values file DECLARES is compared with the ConfigMap the cluster HOLDS. Declared and
+# missing is a failure; declared and different is a failure. A key the cluster holds and the
+# repository does not is NOT reported here — the platform's own chart adds its defaults, and a
+# gate that cried about every one of them is a gate nobody reads.
+cfg_bad=0
+cfg_seen=0
+for f in "$ROOT"/deploy/services/*.values.yaml; do
+  svc="$(basename "$f" .values.yaml)"
+  # The `env:` block, to the next top-level key. Only fully-literal `KEY: "value"` lines are
+  # compared: a templated value is not a claim about what the cluster should hold.
+  want_env="$(awk '/^env:/{f=1;next} /^[a-zA-Z]/{f=0} f' "$f" \
+    | sed -n 's/^  \([A-Z][A-Z0-9_]*\): *"\([^"]*\)".*/\1=\2/p')"
+  [ -n "$want_env" ] || continue
+  live_cm="$("${SSH[@]}" "kubectl -n $NS get cm $svc -o jsonpath='{.data}' 2>/dev/null")" || live_cm=""
+  if [ -z "$live_cm" ]; then
+    printf '  %s✗ %-24s no ConfigMap on the cluster — its settings were NOT checked%s\n' \
+      "$C_R" "$svc" "$C_N"; cfg_bad=$((cfg_bad+1)); continue
+  fi
+  # SPLIT ON THE FIRST `=` BY HAND. `while IFS='=' read -r k v` looks equivalent and is not: `read`
+  # strips trailing delimiters, so `EMAIL_VERIFICATION_URL=https://app.raje3.sa/verify?token=`
+  # arrived with its final `=` removed — and the check then reported a difference between a value
+  # and itself. A URL that ends in `=` is the normal shape for a token parameter, so this was not
+  # an exotic case; it was the first one.
+  while read -r line; do
+    [ -n "$line" ] || continue
+    k="${line%%=*}"; v="${line#*=}"
+    [ -n "$k" ] || continue
+    cfg_seen=$((cfg_seen+1))
+    # ABSENT AND EMPTY ARE NOT THE SAME ANSWER, and reading them as one is how this check first
+    # reported 37 differences of which nearly all were `EGRESS_ALLOWED_HOSTS: ""` declared here and
+    # held as `""` on the cluster — agreeing perfectly. An extraction that returns the empty string
+    # for «no such key» cannot tell a missing setting from a deliberately blank one, and a blank one
+    # is a real value here: it means «no host is allowed», which is the safe end of that switch.
+    #
+    # So presence is tested first, on its own. This is the same defect this repository has fixed in
+    # four screens and two gates — an empty read rendered as a fact — and it appeared here in the
+    # check written to catch drift.
+    if ! printf '%s' "$live_cm" | grep -q "\"$k\":"; then
+      printf '  %s✗ %-24s %s is declared here and ABSENT from the cluster%s\n' \
+        "$C_R" "$svc" "$k" "$C_N"; cfg_bad=$((cfg_bad+1)); continue
+    fi
+    got="$(printf '%s' "$live_cm" | sed -n "s/.*\"$k\":\"\([^\"]*\)\".*/\1/p")"
+    if [ "$got" != "$v" ]; then
+      printf '  %s✗ %-24s %s is %s on the cluster, %s here%s\n' \
+        "$C_R" "$svc" "$k" "$got" "$v" "$C_N"; cfg_bad=$((cfg_bad+1))
+    fi
+  done <<< "$want_env"
+done
+if [ "$cfg_bad" -eq 0 ]; then
+  printf '  %s✔ %-24s %d declared setting(s) match the cluster%s\n' \
+    "$C_G" "config" "$cfg_seen" "$C_N"
+fi
+
 # ── EVERY WORKLOAD SPEC NAMES A DIGEST (أ-1) ─────────────────────────────────────────────────
 #
 # Judged on the spec alone, and deliberately separate from the digest comparison above: this one
@@ -222,9 +287,15 @@ if [ "$naked" -eq 0 ]; then
 fi
 
 echo
-if [ $((bad+missing+naked)) -eq 0 ]; then
+if [ $((bad+missing+naked+cfg_bad)) -eq 0 ]; then
   printf '%s  ✔ all %d services run the digest this repo pins, and every spec names one%s\n' \
     "$C_G" "$ok" "$C_N"; exit 0
+fi
+if [ "$cfg_bad" -gt 0 ]; then
+  printf '%s  ✗ %d setting(s) differ from the repository — the code shipped, the config did not%s
+'     "$C_R" "$cfg_bad" "$C_N"
+  printf '%s     every image can match while the thing that drives them does not%s
+' "$C_D" "$C_N"
 fi
 if [ "$naked" -gt 0 ]; then
   printf '%s  ✗ %d workload(s) ask for a moving tag — correct today, whatever the tag points at%s\n' \
