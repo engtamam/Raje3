@@ -135,6 +135,35 @@ export function Launch({ session, catalog, onDone }:
   const [error, setError] = useState('');
   const [sent, setSent] = useState('');
 
+  /**
+   * THE DAY «هنّئ في مناسبة» IS ABOUT, AND THE GOAL HAD NO WAY TO NAME IT.
+   *
+   * `occasion` is one of the six goals this screen offers; its card reads «رسالة في يوم يخصّه»
+   * and the behaviour line the server sends back for it reads «تُرسَل في موعد تحدّده» — a moment
+   * HE defines. The screen gave him nothing to define it with.
+   *
+   * AND THE CAMPAIGN THEN NEVER SENT AT ALL. `occasion` is the one goal whose trigger is
+   * `scheduled` (`GOAL_TRIGGER`), and the dispatcher's guard is
+   *
+   *     if not fire_at or fire_at > now: skipped
+   *
+   * so `fire_at = 0` is not «send now» — it is «skip, every tick, for ever». The campaign was
+   * created, listed as active, previewed correctly, and the banner said تم. Nothing failed, no
+   * log said anything, and not one greeting was ever delivered by this product.
+   */
+  const [occasionOn, setOccasionOn] = useState('');
+
+  /**
+   * THE MORNING OF HIS DAY, not its last minute. `expiresAt` below takes 23:59 because an offer
+   * «حتى الخميس» is good all Thursday; a greeting works the other way — it belongs at the start of
+   * the day, not as it ends.
+   */
+  const fireAt = (() => {
+    if (!occasionOn) return 0;
+    const at = Date.parse(`${occasionOn}T08:00:00+03:00`);
+    return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
+  })();
+
   /** The chosen day, at its last minute in Riyadh — an offer «حتى الخميس» is good all Thursday. */
   const expiresAt = (() => {
     if (!endsOn) return 0;
@@ -187,6 +216,9 @@ export function Launch({ session, catalog, onDone }:
         // would still be sending after the offer has ended, and that refusal is only useful
         // BEFORE he presses.
         expires_at: expiresAt,
+        // AND THE DAY, for the same reason: a greeting scheduled for next month spreads over a
+        // different window than one going out now, and he should see that count before pressing.
+        fire_at: fireAt,
       }));
     } catch (e) {
       // THE SERVER'S SENTENCE, RENDERED AS IT CAME. «لا يوجد قالب مفعّل لهذا الهدف» is actionable;
@@ -317,6 +349,32 @@ export function Launch({ session, catalog, onDone }:
           </label>
         ) : null}
 
+        {/* ── the day it is about ──────────────────────────────────────────────────────────
+            ON THE GOAL, NOT ON A BLANK. Every other control here is drawn from `blanks` — what
+            the approved message has room for him to fill. This one is not about the words at all:
+            `fire_at` decides WHEN the campaign leaves, and `occasion` is the one goal whose whole
+            premise is a day («رسالة في يوم يخصّه»). Reading it off a blank would tie the schedule
+            to whichever template Meta happened to approve.
+
+            AND IT MAY BE LEFT EMPTY, which means today. A shop congratulating a customer this
+            afternoon is doing something ordinary; the defect was never having the choice. */}
+        {picked.goal === 'occasion' ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">يوم المناسبة</span>
+            <input
+              type="date"
+              value={occasionOn}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => { setOccasionOn(e.target.value); setPreview(null); }}
+              dir="ltr"
+              className="h-11 rounded-lg bg-surface-2 px-3 text-sm"
+            />
+            <span className="text-xs text-text-secondary">
+              تخرج صباح ذلك اليوم. اتركه فارغاً لترسل الآن.
+            </span>
+          </label>
+        ) : null}
+
         {/* WHICH SERVICE, when the goal is about one. The cycle lock (§10.9.1) holds back whoever
             took it too recently — and it can only do that if the campaign names the service. */}
         {hasBlank(picked, 'catalogue') ? (
@@ -412,6 +470,7 @@ export function Launch({ session, catalog, onDone }:
                     offer_value: offerValue,
                     service_name: (services ?? []).find((x) => x.id === serviceId)?.name ?? '',
                     expires_at: expiresAt,
+                    fire_at: fireAt,
                   });
                   // WHAT HAPPENED, NOT WHAT WAS PLANNED. This used to print `spread_says` as the
                   // confirmation — so a campaign the server refused announced its own refusal in
