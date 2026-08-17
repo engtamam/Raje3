@@ -74,18 +74,34 @@ def main() -> int:
         print(f"no register matched {REGISTERS} — this gate cannot answer, so it refuses to")
         return 1
 
+    # PER REGISTER, AND THAT IS THE WHOLE OF THE FIX THAT MATTERS HERE. The first version pooled
+    # every register into one declared/resolved pair, and the codes COLLIDE: round 2's ي-1 is «the
+    # snapshot is computed from the OLDEST 5000 visits» and round 3's ي-1 is «not one restorable
+    # backup exists in this fleet». Seventy-three codes are spelled the same across the two, and
+    # pooling meant a note written beside one silenced the gate about the other — 45 findings, more
+    # than the 34 it was reporting, hidden by the gate's own arithmetic. A gate whose blind spot is
+    # bigger than its output is worse than no gate: it is a green tick over the unexamined.
+    silent: set[str] = set()
     declared: set[str] = set()
-    resolved: set[str] = set()
     for path in registers:
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             print(f"cannot read {path.name}: {exc} — so it was NOT checked")
             return 1
+        # WITHIN one register a finding gets two headings: the one that states it and the one that
+        # resolves it. So resolution is asked of the register as a whole, and only the pooling
+        # ACROSS registers is what changes.
+        here: set[str] = set()
+        done: set[str] = set()
         for code, rest in HEADING.findall(text):
-            declared.add(code)
+            here.add(code)
             if any(mark in rest for mark in RESOLVED):
-                resolved.add(code)
+                done.add(code)
+        declared |= here
+        # Named with its register, because two findings sharing a code are two findings and the
+        # reader has to be told WHICH document to write the note in.
+        silent |= {f"{path.name}#{code}" for code in here - done}
     if not declared:
         print("no finding headings found in the registers — either their shape changed or this "
               "gate is reading for one that no longer exists. It will not assume all is well.")
@@ -112,7 +128,9 @@ def main() -> int:
             for code in CITATION.findall(text):
                 cited.setdefault(code, set()).add(path.relative_to(ROOT).as_posix())
 
-    drift = {c: v for c, v in cited.items() if c in declared and c not in resolved}
+    # Keyed by «register#code», valued by where the code claims the fix.
+    drift = {entry: cited[entry.split("#", 1)[1]]
+             for entry in silent if entry.split("#", 1)[1] in cited}
 
     try:
         known = set(json.loads(BASELINE.read_text(encoding="utf-8"))["silent"])
