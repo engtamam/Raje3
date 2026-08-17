@@ -323,6 +323,17 @@ jobs:
       - name: a value that opens like JSON parses as JSON
         run: python3 ci/check_a_json_value_in_a_values_file_is_json.py
 
+      # AND A SEED SCRIPT CALLS A ROUTE ITS SERVICE ACTUALLY SERVES. `seed-backup-targets.sh` PUT
+      # every service to `/api/v1/backup/targets` after that route had moved under `operator/`.
+      # Twenty registrations, twenty 404s, one amber line among a hundred green ones — and the
+      # fleet finished every install with zero backup targets, nightly archives running against
+      # nothing at all. A script that names somebody else's path is making a claim about somebody
+      # else's code, and until this gate the only place that claim was tested was a real install
+      # against a real cluster: the most expensive place to find it, and the one where half a
+      # fleet is already changed.
+      - name: a seeder calls a route its service serves
+        run: python3 ci/check_a_seeder_calls_a_route_its_service_serves.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the

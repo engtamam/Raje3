@@ -49,7 +49,9 @@ grn(){ printf '  \e[32m✔ %s\e[0m\n' "$*"; }
 BACKUP_VALUES="$ROOT/deploy/services/backup-service.values.yaml"
 [ -f "$BACKUP_VALUES" ] || { red "no $BACKUP_VALUES — the exemptions live there"; exit 2; }
 # `service,service` — a service that must never be archived, declared with its reason in that file.
-EXEMPT=$(grep -E '^\s*BACKUP_EXEMPT:' "$BACKUP_VALUES" | sed 's/^[^"]*"//; s/"[[:space:]]*$//')
+# A podAnnotation, NOT an env var: this script is the only reader, and backup-service declares no
+# such setting — pydantic would have dropped it, leaving a key that looked configured forever.
+EXEMPT=$(grep -E "^\s*raje3.io/backup-exempt:" "$BACKUP_VALUES" | sed 's/^[^"]*"//; s/"[[:space:]]*$//')
 
 VALUES="$ROOT/deploy/services/compliance-service.values.yaml"
 [ -f "$VALUES" ] || { red "no $VALUES — the roster lives there"; exit 2; }
@@ -65,8 +67,14 @@ TOKEN_VALUE=$(kubectl -n "$NS" get secret backup-service-secrets \
               -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null | base64 -d)
 [ -n "$TOKEN_VALUE" ] || { red "no INTERNAL_SERVICE_TOKEN in backup-service-secrets"; exit 1; }
 
-# A SIGNED TOKEN, NOT THE INTERNAL ONE — `/api/v1/backup/targets` is a user-tier route holding
-# `platform.backup`, and registering what gets archived is administration.
+# A SIGNED TOKEN, NOT THE INTERNAL ONE — `/api/v1/operator/backup/targets` is a user-tier route
+# holding `platform.backup`, and registering what gets archived is administration.
+#
+# THE `operator/` IN THAT PATH IS THE WHOLE POINT. Without it every registration answered 404, the
+# installer printed one amber line among a hundred green ones, and the fleet finished every install
+# with zero backup targets — nightly archives running against nothing.
+# `ci/check_a_seeder_calls_a_route_its_service_serves.py` now reads the routes the vendored
+# services declare and refuses any seed call that names one they do not serve.
 KEY=$(kubectl -n "$NS" get secret identity-service-secrets \
       -o jsonpath='{.data.TOKEN_PRIVATE_KEY}' 2>/dev/null | base64 -d)
 [ -n "$KEY" ] || { red "no signing key in identity-service-secrets"; exit 1; }
@@ -159,7 +167,7 @@ for pair in roster.split(","):
         continue
     wanted[name] = url
 
-code, out = call("GET", "/api/v1/backup/targets")
+code, out = call("GET", "/api/v1/operator/backup/targets")
 have = {t.get("service"): t for t in (out.get("targets") or [])} if code < 400 else {}
 
 added = fixed = same = 0
@@ -172,7 +180,7 @@ for name, url in sorted(wanted.items()):
     if dry:
         print(("  would register " if current is None else "  would correct ") + name)
         continue
-    code, out = call("PUT", "/api/v1/backup/targets",
+    code, out = call("PUT", "/api/v1/operator/backup/targets",
                      {"service": name, "base_url": url, "token_ref": SECRET_NAME,
                       "enabled": True, "note": "seeded from PRIVACY_TARGETS"})
     if code >= 400:

@@ -62,9 +62,10 @@ def main() -> int:
     privacy_text = PRIVACY_VALUES.read_text(encoding="utf-8")
     seeder_text = SEEDER.read_text(encoding="utf-8")
 
-    exempt_raw = value_of(backup_text, "BACKUP_EXEMPT")
+    exempt_raw = value_of(backup_text, "raje3.io/backup-exempt")
     if exempt_raw is None:
-        bad.append("backup-service.values.yaml declares no BACKUP_EXEMPT — without it the roster "
+        bad.append("backup-service.values.yaml declares no raje3.io/backup-exempt annotation — without "
+                   "it the roster "
                    "is inherited from PRIVACY_TARGETS wholesale, and a service that cannot be "
                    "archived gets registered and fails the run every night")
         exempt_raw = ""
@@ -80,12 +81,13 @@ def main() -> int:
 
     for name in exempt:
         if known and name not in known:
-            bad.append(f"BACKUP_EXEMPT names `{name}`, which is not in PRIVACY_TARGETS. An "
+            bad.append(f"the backup-exempt annotation names `{name}`, which is not in PRIVACY_TARGETS. An "
                        f"exemption for a service that is never on the roster excludes nothing — "
                        f"and if this is a typo, the service it meant is still being registered")
 
-    if "BACKUP_EXEMPT" not in seeder_text:
-        bad.append("seed-backup-targets.sh never reads BACKUP_EXEMPT — the exemption is a comment "
+    if "raje3.io/backup-exempt" not in seeder_text:
+        bad.append("seed-backup-targets.sh never reads the backup-exempt annotation — the exemption is "
+                   "a comment "
                    "with a colon in it, and the seeder still registers everything on the roster")
 
     if bad:

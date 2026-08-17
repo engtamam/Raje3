@@ -113,15 +113,21 @@ metrics:
 # So the exemption is DECLARED here rather than discovered, and `ci/check_the_backup_roster_is_
 # decided_not_inherited.py` fails the build if this list and the exemption in the comment at the
 # top of this file ever disagree — a service silently dropped from backups must cost a commit.
+# WHERE THIS KEY LIVES TOOK TWO WRONG ANSWERS. At the ROOT it failed the render outright — the
+# chart's schema is `additionalProperties: false` everywhere, so a key it does not know is an
+# ERROR, and the installer stopped its roll at the fourth of twenty-four services with everything
+# after it left on its old image. Moved into `env:` it rendered, and was wrong more quietly:
+# backup-service declares no such setting, and pydantic DROPS unknown keys — so it would have sat
+# there looking configured, forever.
+#
+# THE READER IS NOT THE SERVICE. `seed-backup-targets.sh` greps this FILE for the exemption before
+# it registers anything; the running container never reads it and never should. An annotation is
+# what the chart offers for exactly this — a fact about the deployment rather than configuration
+# of the process — and it is the only spelling that is both renderable and true.
+podAnnotations:
+  raje3.io/backup-exempt: "search-service"
+
 env:
-
-  # AT THE ROOT UNTIL 2026-08-17, WHICH MEANT IT NEVER DEPLOYED. The chart's schema is
-  # `additionalProperties: false` everywhere — a mistyped key is a render ERROR, not a silent
-  # no-op — so a top-level `BACKUP_EXEMPT` failed the render of THIS release and stopped the
-  # installer's roll at the fourth of twenty-four services. Everything after it kept its old
-  # image. The key is an environment variable of the service; it belongs where env vars live.
-  BACKUP_EXEMPT: "search-service"
-
   TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
