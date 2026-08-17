@@ -158,6 +158,22 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
     by_name = {s.name: s for s in existing}
 
     for line in lines:
+        # ── THE TOTAL IS THE INVOICE'S TOTAL, WHATEVER WE COULD MAP (ح-6) ────────────────────
+        # This used to be added inside the two branches that FOUND or CREATED a catalogue row, so
+        # a line the till sent without a product id — a free-text charge, which is most of what a
+        # workshop writes — was dropped from the money as well as from the catalogue.
+        #
+        # An invoice of «غسيل 100.00» plus «خدمة إضافية 380.00» counted as 100.00, and the
+        # customer earned 100 points instead of 480. He paid four hundred and eighty riyals and
+        # was rewarded for a hundred, and nothing anywhere said a line had been skipped: the
+        # catalogue mapping and the money are different questions, and only the first one had a
+        # reason to care whether the line was recognised.
+        #
+        # `max(0, …)` keeps a negative line — a discount row, a correction — from being counted
+        # as a positive charge; whether a negative line should REDUCE the total is a question
+        # about the till contract, not something to decide silently here.
+        res.total_minor += max(0, line.amount_minor)
+
         if not line.is_defined:
             if line.name:
                 res.free_text.append(line.name)
@@ -185,7 +201,6 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
                 by_name[line.name] = found
             res.service_ids.append(found.id)
             res.quantities[found.id] = res.quantities.get(found.id, 0) + max(1, line.quantity)
-            res.total_minor += max(0, line.amount_minor)
             continue
 
         if not auto_create:
@@ -205,6 +220,5 @@ async def resolve(lines: list[Line], *, tenant: str, service_store,
         res.service_ids.append(svc.id)
         res.created_services.append(svc.id)
         res.quantities[svc.id] = res.quantities.get(svc.id, 0) + max(1, line.quantity)
-        res.total_minor += max(0, line.amount_minor)
 
     return res

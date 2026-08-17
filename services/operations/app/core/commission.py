@@ -28,6 +28,7 @@ deliberately changes it and leaves a record of having done so.
 """
 from __future__ import annotations
 
+from decimal import ROUND_DOWN, Decimal
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -58,15 +59,32 @@ class Line:
 
     @property
     def commission_minor(self) -> int:
-        """Rounded DOWN, in minor units, and never on a float.
+        """Rounded DOWN, in minor units, on Decimal — and the docstring here used to be wrong.
 
-        Rounding down means we never over-pay by a halala per shop per month, which across a
-        thousand shops and a year is money that has to come from somewhere. And `int()` on a
-        product of an integer and a float is deterministic here because the result is truncated —
-        the same inputs give the same output on every machine, which is what makes the statement
-        reproducible.
+        IT SAID «never on a float» WHILE DOING EXACTLY THAT: `int(self.net_minor * self.rate)`,
+        defended by a sentence saying truncation made it deterministic. Truncation IS
+        deterministic; it truncates a number binary floating point had already got wrong.
+
+            100000 * 0.29  ->  28999.999999999996  ->  int()  ->  28999
+
+        Twenty-nine thousand halalas paid as twenty-eight thousand nine hundred and ninety-nine.
+        And it is not a rounding policy anybody chose: 0.30 gives the exact answer because it
+        lands close enough, 0.29 does not because it has no exact binary form. A partner on 30%
+        was paid correctly and a partner on 29% was short, and nothing in the file said which.
+
+        THE HALALA IS NOT THE POINT. The statement stopped being reproducible by the person it is
+        paid to: a partner computing 29% of the net gets a different number than we do, and the
+        difference has no explanation anywhere he can read.
+
+        `Decimal(str(self.rate))` and not `Decimal(self.rate)` — the second inherits the float's
+        error verbatim, which would move the bug rather than remove it.
+
+        ROUNDING DOWN IS STILL THE POLICY, and it is deliberate: we never over-pay by a halala per
+        shop per month, which across a thousand shops and a year is money that comes from
+        somewhere. `ROUND_DOWN` says so where `int()` only implied it.
         """
-        return int(self.net_minor * self.rate)
+        exact = Decimal(self.net_minor) * Decimal(str(self.rate))
+        return int(exact.to_integral_value(rounding=ROUND_DOWN))
 
 
 @dataclass

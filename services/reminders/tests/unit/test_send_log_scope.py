@@ -68,7 +68,11 @@ def test_an_unreadable_scope_refuses_rather_than_showing_everything():
 
     from app.api.v1 import owner as O
 
-    src = inspect.getsource(O.send_log)
+    # THE REFUSAL MOVED, ON PURPOSE (ط-4). It used to live inline in this one route, which is
+    # exactly why `/offer` and `/offers` — reading the same collection — had no check at all. It
+    # now sits in `_branch_scope`, which all three call, so this follows it there rather than
+    # asserting on the shape the defect happened to have.
+    src = inspect.getsource(O._branch_scope) + inspect.getsource(O.send_log)
     # AGAINST THE SET, NOT ONE LITERAL. There are two answers that are not a branch — we could not
     # ask, and his shop stopped him — and the route must refuse on BOTH. Naming one sentinel here
     # would let a second be added that falls through to «no restriction», which is the whole

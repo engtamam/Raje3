@@ -66,7 +66,7 @@ def test_the_amount_travels_on_the_row_to_both_readers():
 
 
 # ── ب-4 · «طبّق العرض» wired to a field the route never sent ───────────────────────────────────
-def test_the_offer_says_which_services_it_covers():
+def test_the_offer_says_which_services_it_covers(monkeypatch):
     """The field screen reads `offer.service_ids` twice: to decide whether the visit in front of
     the operator is one this offer applies to, and to badge those services in the grid. The route
     answered `{text, expires_at, sent_at, code}` — so the set was empty on every visit, the apply
@@ -89,10 +89,15 @@ def test_the_offer_says_which_services_it_covers():
         async def active_offer(self, tenant, subject_ref, *, used_refs, now):
             return row
 
-    O.SendLogStore = _Store
-    O.spent_refs = lambda **kw: set()
-    O._ops_url = lambda r: "http://ops.invalid"
-    O._ops_token = lambda r: "t" * 40
+    # PUT BACK AFTERWARDS. These were plain assignments, so the fake store stayed on the module
+    # for every test that ran later in the same process — and the next route test to read the send
+    # log got an object that answers one method and knows nothing else. It passed alone and failed
+    # in the suite, which is the hardest kind of failure to read: a test that lies about a file it
+    # never mentions.
+    monkeypatch.setattr(O, "SendLogStore", _Store)
+    monkeypatch.setattr(O, "spent_refs", lambda **kw: set())
+    monkeypatch.setattr(O, "_ops_url", lambda r: "http://ops.invalid")
+    monkeypatch.setattr(O, "_ops_token", lambda r: "t" * 40)
 
     request = types.SimpleNamespace(
         app=types.SimpleNamespace(state=types.SimpleNamespace(

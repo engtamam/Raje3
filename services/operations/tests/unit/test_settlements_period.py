@@ -76,7 +76,12 @@ def test_the_query_carries_strings(monkeypatch) -> None:
 
     assert seen, "nothing was requested — the test proved nothing"
     for url in seen:
-        assert "since=2026-06-01T00%3A00%3A00Z" in url, url
+        # THE PAID READ REACHES BACK A YEAR (ح-4), because `since`/`until` bound the ISSUE date and
+        # the commission is on the month the money ARRIVED — an invoice issued in June and paid in
+        # July belongs to July, and would never be returned by a June-to-June read. The narrowing
+        # is done here by `paid_at`. The void read keeps the period, because billing projects no
+        # `voided_at` to narrow by; that half is escalated rather than guessed.
+        assert ("since=2025-06-01T00%3A00%3A00Z" in url) or ("since=2026-06-01T00%3A00%3A00Z" in url), url
         assert "until=2026-06-30T23%3A59%3A59Z" in url, url
         # The old shape, named so the failure message says what went wrong rather than «not in».
         assert f"since={JUNE_START}" not in url, "an epoch bound reached billing again"

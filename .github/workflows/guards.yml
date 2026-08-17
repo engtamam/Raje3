@@ -254,6 +254,26 @@ jobs:
       - name: one digest carries one tag
         run: python3 ci/check_one_digest_carries_one_tag.py
 
+      # AND MONEY NEVER GOES THROUGH A FLOAT (ح-5). The commission line read
+      # `int(self.net_minor * self.rate)` under a docstring saying «never on a float». 29% of
+      # 1,000.00 came out as 289.99 because 0.29 has no exact binary form; 30% was exact because
+      # it lands close enough. Two partners, the same code, and nothing said which was which.
+      - name: money never touches a float
+        run: python3 ci/check_money_never_touches_a_float.py
+
+      # AND WHATEVER READS THE SEND LOG KNOWS THE BRANCH (ط-4). `/log` resolved the caller's scope;
+      # `/offer` and `/offers` read the same collection with a pseudonym and nothing else, so one
+      # `subject_ref` returned another branch's message text, offer code and value.
+      - name: every reader of the send log knows the branch
+        run: python3 ci/check_every_reader_of_the_send_log_knows_the_branch.py
+
+      # AND A ROUTE BUILT TO NEED NO TOKEN IS OPEN AT THE DOOR (ط-6). `prefs.py` is reached from a
+      # link at the end of a WhatsApp message and says so at length; the gateway had it as
+      # `auth: required`. The customer taps «إيقاف الرسائل» and meets a login screen for an account
+      # he has never had — the direction is safe, which is why it survived unnoticed.
+      - name: a route with no token is open at the door
+        run: python3 ci/check_a_route_with_no_token_is_open_at_the_door.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values

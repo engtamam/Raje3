@@ -20,6 +20,13 @@ concludes we ignored them.
 RATE LIMITED HARD. It is the one route on this service reachable without a token, and an
 unthrottled unauthenticated write is an invitation regardless of what it writes.
 """
+# gateway: auth none
+#
+# THE MARKER THE GATEWAY IS CHECKED AGAINST (ط-6). Everything above is prose, and prose and a YAML
+# route table drifted: this module was written token-free on purpose and the gateway had it as
+# `"auth":"required"` — so the customer tapping «إيقاف الرسائل» in WhatsApp met a login screen for
+# an account he does not have, and PDPL's right to object was a dead button. The direction is the
+# safe one, which is exactly why nobody noticed for months.
 from __future__ import annotations
 
 import time

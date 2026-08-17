@@ -35,6 +35,11 @@ SKIP_PARTS = {".venv", "node_modules", "__pycache__", "dist", ".git", ".claude",
 
 def main() -> int:
     bad = []
+    # THE LIST THE UNREADABLE FILE GOES INTO. It was named in the branch below and never created,
+    # so the one case that branch exists for — a file we cannot open — raised NameError instead of
+    # reporting it. The gate would have died on the day it had something to say, and the traceback
+    # reads as a broken gate rather than as an unchecked file, which is the way it gets deleted.
+    unreadable = []
     for root in LOOK_IN:
         for path in sorted(root.rglob("*")):
             if path.is_dir() or path.suffix not in (".py", ".ts", ".tsx", ".json"):
@@ -47,7 +52,7 @@ def main() -> int:
                 # NOT SKIPPED (د-8). A file this gate cannot open is a file it did not check, and
                 # the one place the shop's name is written wrongly could be exactly there. Saying
                 # «could not read it» costs one line; skipping it silently costs the whole claim.
-                problems.append(f"{path.relative_to(ROOT).as_posix()}: cannot read it — {exc}")
+                unreadable.append(f"{path.relative_to(ROOT).as_posix()}: cannot read it — {exc}")
                 continue
             for number, line in enumerate(text.splitlines(), start=1):
                 if FIELD not in line:
@@ -60,12 +65,19 @@ def main() -> int:
                     continue
                 bad.append(f"{path.relative_to(ROOT).as_posix()}:{number} · {stripped[:90]}")
 
+    if unreadable:
+        print("This gate could not read every file, so it is not making a claim about them:")
+        for line in unreadable:
+            print("  " + line)
+
     if bad:
         print(f"A second shop name is being written or read (`{FIELD}`):")
         for line in bad:
             print("  " + line)
         print("\nA shop has one name: the tenant's `name`. The owner changes it through")
         print("`operations.set_shop_name`, which proxies the registry's rename.")
+        return 1
+    if unreadable:
         return 1
     print("a shop has one name")
     return 0

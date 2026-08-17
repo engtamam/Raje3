@@ -47,6 +47,36 @@ def platform_instant(epoch: int) -> str:
     return _dt.datetime.fromtimestamp(int(epoch), tz=_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# HOW FAR BACK AN INVOICE PAID THIS MONTH MAY HAVE BEEN ISSUED (ح-4). billing's `since`/`until`
+# bound the ISSUE date, and a commission is owed for the month the money ARRIVED — so the read has
+# to reach back past the window and then be narrowed by `paid_at` here. A year is longer than any
+# invoice we have ever collected on, and an invoice older than that is not silently dropped: the
+# page ceiling below raises rather than returning a short statement.
+LOOKBACK_SECONDS = 365 * 24 * 60 * 60
+
+
+class UnreadableSettlements(RuntimeError):
+    """We could not establish the period's money. Never a zero — a zero is a number partners plan on."""
+
+
+def paid_instant(row: dict[str, Any]) -> int | None:
+    """When the money actually arrived, as an epoch, or None if the row does not say.
+
+    A paid invoice with no readable `paid_at` is NOT dated by its issue date as a fallback: that
+    fallback is the defect, wearing the costume of a default.
+    """
+    raw = str(row.get("paid_at") or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = _dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return int(parsed.timestamp())
+
+
 class SettlementsSource:
     """Reads billing's cross-tenant invoice list, and caches the token it needs to do so."""
 
@@ -95,7 +125,8 @@ class SettlementsSource:
         # BOUNDED. A cursor loop with no ceiling is an outage waiting for the month we grow: 200
         # pages of 200 is forty thousand invoices, far past any month we will have before this is
         # replaced by the internal route it should have been.
-        for _ in range(200):
+        pages = 200
+        for _ in range(pages):
             q = urllib.parse.urlencode({"status": status,
                                         "since": platform_instant(since),
                                         "until": platform_instant(until),
@@ -108,8 +139,14 @@ class SettlementsSource:
             out.extend(r for r in rows if isinstance(r, dict))
             cursor = payload.get("next_cursor") or payload.get("cursor") or ""
             if not cursor:
-                break
-        return out
+                return out
+        # AND THE CEILING SAYS SO OUT LOUD. Walking off the end of the pages and returning whatever
+        # we happened to read is a statement short by however many invoices came after it — and it
+        # looks exactly like a correct one, which is the same shape of failure as the empty map that
+        # once paid every partner zero. Still bounded; just no longer quiet about it.
+        raise UnreadableSettlements(
+            f"billing has more than {pages} pages of {status} invoices in this window — "
+            "the statement would be short by whatever came after them")
 
     async def for_period(self, *, period_start: int,
                          period_end: int) -> dict[str, dict[str, int]] | None:
@@ -123,7 +160,17 @@ class SettlementsSource:
         if not self.configured:
             return None
         try:
-            paid = self._invoices(status="paid", since=period_start, until=period_end)
+            # THE WINDOW WE ASK FOR IS NOT THE WINDOW WE WANT (ح-4). `since`/`until` bound the ISSUE
+            # date; the commission is on the month the money ARRIVED. An invoice issued 29 June and
+            # paid 4 July used to land in NEITHER month a partner could recognise: June's statement,
+            # run on 1 July, saw it unpaid and showed zero; re-running June in September saw it paid
+            # and counted it in JUNE. Same month, two different numbers, and the one the partner
+            # keeps depends on the day somebody pressed the button — `save()` will not overwrite a
+            # statement already issued.
+            #
+            # So we read wider by issue date and narrow by `paid_at` below.
+            paid = self._invoices(status="paid",
+                                  since=period_start - LOOKBACK_SECONDS, until=period_end)
             void = self._invoices(status="void", since=period_start, until=period_end)
         except Exception:                                                       # noqa: BLE001
             return None
@@ -133,8 +180,23 @@ class SettlementsSource:
             t = str(row.get("tenant") or "")
             if not t:
                 continue
+            when = paid_instant(row)
+            if when is None:
+                # A PAID INVOICE THAT WILL NOT SAY WHEN. Counting it puts money in a month we
+                # guessed; dropping it pays the partner short. Both are wrong and both are silent,
+                # so the sweep issues nothing and somebody looks — the same failing-closed this
+                # adapter already does when billing cannot be read at all.
+                return None
+            if not (period_start <= when < period_end):
+                continue
             acc.setdefault(t, {"settled_minor": 0, "refunded_minor": 0})
             acc[t]["settled_minor"] += int(row.get("total_minor") or row.get("amount_minor") or 0)
+        # AND THE REFUND SIDE STILL CANNOT BE DATED — ESCALATED. billing's list projects `created`
+        # and `paid_at` and nothing else: there is no `voided_at`. So a void is placed by the month
+        # its invoice was ISSUED, which is exactly the defect fixed above for payments, and it
+        # cannot be fixed here because the timestamp never leaves the service. Narrowing this window
+        # by hand would move refunds into months we invented. What is needed upstream is
+        # `voided_at` in the same projection; until then this is stated rather than papered over.
         for row in void:
             t = str(row.get("tenant") or "")
             if not t:

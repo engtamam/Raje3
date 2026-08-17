@@ -171,6 +171,41 @@ async def set_rule(request: Request, rule_key: str, body: RuleIn,
             "note": "الفترة مثبّتة الآن ولن يعدّلها النظام تلقائياً."}
 
 
+class OutsideHisBranch(Exception):
+    """The caller may not read this customer's messages. Carries the sentence the screen shows."""
+
+    def __init__(self, unavailable: str = "") -> None:
+        self.unavailable = unavailable
+
+
+async def _branch_scope(container, principal) -> str:
+    """The one branch this caller may read, or "" for the whole shop.
+
+    THREE ROUTES READ THE SEND LOG AND ONE OF THEM CHECKED (ط-4). `/log` resolved the scope; the
+    two routes that answer «what has this customer been sent» — `/offer` and `/offers` — took a
+    `subject_ref` and nothing else. A marketing supervisor scoped to Jeddah needed one pseudonym to
+    read the text of every message Riyadh sent that customer, its offer code and its value: the
+    same data the guarded route refuses him, through a door beside it.
+
+    A guard that protects the route somebody remembered is not a guard on the data. So the
+    resolution lives here, once, and each reader calls it — the next route that reads this
+    collection finds the check already written and named.
+    """
+    resolver = getattr(container, "branch_scope", None)
+    if resolver is None:
+        return ""
+    scope = await resolver.scope(_tenant(principal), getattr(principal, "subject", "") or "")
+    if scope in DENIED:
+        # «WE COULD NOT CHECK» IS NOT «NO LIMIT», and a stopped employee refuses here too.
+        raise OutsideHisBranch("تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل.")
+    return scope
+
+
+def _in_scope(row: dict, scope: str) -> bool:
+    """Whether one send-log row belongs to the branch this caller may read."""
+    return not scope or str(row.get("branch_id") or "") == scope
+
+
 @router.get("/log", dependencies=[Depends(rate_limit)])
 async def send_log(request: Request, outcome: str = Query(default=""),
                    branch_id: str = Query(default="", max_length=64),
@@ -196,11 +231,9 @@ async def send_log(request: Request, outcome: str = Query(default=""),
     # to Jeddah read every message that went out in Riyadh's name by changing one query parameter.
     # On the one screen this service exists to provide, about the one thing a shop is most
     # sensitive about — what was said to its customers, in its name.
-    scope = ""
-    resolver = getattr(c, "branch_scope", None)
-    if resolver is not None:
-        scope = await resolver.scope(_tenant(principal), getattr(principal, "subject", "") or "")
-    if scope in DENIED:
+    try:
+        scope = await _branch_scope(c, principal)
+    except OutsideHisBranch as refused:
         # «WE COULD NOT CHECK» IS NOT «NO LIMIT». Refusing costs him the log for a minute;
         # guessing shows him somebody else's.
         #
@@ -208,8 +241,7 @@ async def send_log(request: Request, outcome: str = Query(default=""),
         # stops him, so no token of his should reach this line at all — but if one is still in
         # flight, an inactive row used to answer «no branch», which read as «every branch». The
         # sentence is deliberately the same: neither state entitles him to somebody's messages.
-        return {"log": [], "count": 0,
-                "unavailable": "تعذّر التحقق من صلاحيتك على الفروع الآن. أعد المحاولة بعد قليل."}
+        return {"log": [], "count": 0, "unavailable": refused.unavailable}
 
     store = SendLogStore(c.datastore)
     where: dict[str, str] | None = {"outcome": outcome} if outcome else None
@@ -611,9 +643,16 @@ async def active_offer(request: Request, subject_ref: str = Query(min_length=8, 
     except SpentUnknown:
         return {"offer": None}
 
+    # HIS BRANCH, HERE TOO (ط-4). This route answers «what is this customer holding» from the same
+    # collection `/log` guards, and took only a pseudonym.
+    try:
+        scope = await _branch_scope(request.app.state.container, principal)
+    except OutsideHisBranch:
+        return {"offer": None}
+
     row = await SendLogStore(request.app.state.container.datastore).active_offer(
         _tenant(principal), subject_ref, used_refs=used, now=int(time.time()))
-    if not row:
+    if not row or not _in_scope(row, scope):
         return {"offer": None}
     return {"offer": {"text": row.get("offer_text", ""),
                       "expires_at": int(row.get("offer_expires_at") or 0),
@@ -675,11 +714,20 @@ async def customer_offers(request: Request, subject_ref: str = Query(min_length=
     whoever did not, never did.
     """
     now = int(time.time())
+    # AND HIS BRANCH HERE (ط-4). This is the widest of the three — every offer ever sent to one
+    # customer, with its code and its value — and it was the one with no check at all.
+    try:
+        scope = await _branch_scope(request.app.state.container, principal)
+    except OutsideHisBranch as refused:
+        return {"offers": [], "unavailable": refused.unavailable}
+
     store = SendLogStore(request.app.state.container.datastore)
     rows = await store.since(_tenant(principal), subject_ref, since=0)
     out = []
     for r in rows:
         if not r.get("offer_text") or r.get("outcome") != "sent":
+            continue
+        if not _in_scope(r, scope):
             continue
         expires = int(r.get("offer_expires_at") or 0)
         if not include_expired and expires <= now:
