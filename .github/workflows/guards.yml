@@ -364,6 +364,19 @@ jobs:
       - name: every deploy script parses
         run: python3 ci/check_every_deploy_script_parses.py
 
+      # AND A DAY A PERSON LIVES IN IS COMPUTED IN RIYADH, NEVER IN UTC. The commission month was
+      # cut with `time.gmtime`, so it began at 03:00 local: every partner settlement landing
+      # between midnight and 03:00 on the first was billed to the month that had already closed.
+      # Nothing ever disagreed — both statements were built from the same wrong boundary, so they
+      # reconciled perfectly with each other and only the partner's own ledger dissented, with no
+      # line either side could point at. The till's daily lookup allowance had it too.
+      #
+      # Scoped by USE: a UTC log timestamp is correct and is not touched. What is forbidden is
+      # deriving a CALENDAR answer — which day, which month — from a clock three hours behind the
+      # person reading it.
+      - name: a business day is the shop's day
+        run: python3 ci/check_a_business_day_is_the_shops_day.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the

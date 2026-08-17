@@ -101,3 +101,26 @@ def test_an_unreadable_counter_refuses_rather_than_allows():
 
     with pytest.raises(LookupRefused):
         run(count_lookup(Broken(), T, CRED, now=DAY))
+
+
+def test_the_lookup_allowance_turns_over_at_the_shops_midnight_not_utcs() -> None:
+    """و-10, the same defect on a daily key.
+
+    `_day` used `time.gmtime`, so the allowance reset at 03:00 Riyadh. A shop still serving after
+    midnight lost its budget mid-shift, and the FLOOR of forty lookups — the morning's grace —
+    arrived three hours into the next day's work.
+    """
+    import calendar
+    import datetime as dt
+
+    from app.core.till_budget import _day
+
+    before = calendar.timegm(
+        dt.datetime(2026, 8, 31, 20, 0, tzinfo=dt.timezone.utc).utctimetuple())   # 23:00 Riyadh
+    after = calendar.timegm(
+        dt.datetime(2026, 8, 31, 21, 30, tzinfo=dt.timezone.utc).utctimetuple())  # 00:30 Riyadh
+
+    assert _day(before) == "2026-08-31"
+    assert _day(after) == "2026-09-01", (
+        "23:00 and 00:30 Riyadh fall in the same allowance day — the counter is keyed on UTC, so "
+        "it turns over at 03:00 local instead of at the shop's midnight")

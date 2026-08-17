@@ -58,13 +58,29 @@ def _seed(store, *, partner="prt_1", rate=0.25, tenants=("t_a", "t_b")):
             "tenant": t, "partner_id": partner, "commission_rate": rate, "stamped_at": 1}
 
 
+import datetime as _dt
+
+RIYADH = _dt.timezone(_dt.timedelta(hours=3))
+
+
+def _riyadh_midnight(year: int, month: int) -> int:
+    """The first instant of a month AS THE PARTNER KEEPS IT.
+
+    THE THREE TESTS BELOW USED TO ASSERT `calendar.timegm((y, m, 1, 0, 0, 0, ...))` — a UTC
+    midnight, which is 03:00 in Riyadh. They passed, they were precise, and they pinned the defect
+    و-10 in place: any settlement taken between midnight and 03:00 on the first was billed to the
+    month that had already closed, and a test asserting the wrong boundary is what kept it there.
+    """
+    return calendar.timegm(_dt.datetime(year, month, 1, tzinfo=RIYADH).utctimetuple())
+
+
 def test_the_period_is_the_last_closed_month_never_the_running_one():
     """A statement for a month still running changes every time it is read, and a number that
     changes is one a partner cannot invoice against."""
     now = calendar.timegm((2026, 8, 12, 6, 0, 0, 0, 0, 0))
     start, end = statements_run.last_closed_month(now)
-    assert start == calendar.timegm((2026, 7, 1, 0, 0, 0, 0, 0, 0))
-    assert end == calendar.timegm((2026, 8, 1, 0, 0, 0, 0, 0, 0))
+    assert start == _riyadh_midnight(2026, 7)
+    assert end == _riyadh_midnight(2026, 8)
 
 
 def test_january_reaches_back_across_the_year():
@@ -72,15 +88,15 @@ def test_january_reaches_back_across_the_year():
     nobody is watching."""
     now = calendar.timegm((2027, 1, 3, 6, 0, 0, 0, 0, 0))
     start, end = statements_run.last_closed_month(now)
-    assert start == calendar.timegm((2026, 12, 1, 0, 0, 0, 0, 0, 0))
-    assert end == calendar.timegm((2027, 1, 1, 0, 0, 0, 0, 0, 0))
+    assert start == _riyadh_midnight(2026, 12)
+    assert end == _riyadh_midnight(2027, 1)
 
 
 def test_the_period_is_half_open():
     """Inclusive ends put a payment landing at the last second into both months or neither,
     depending on a peer's rounding — and the two statements disagree by an invoice nobody finds."""
     start, end = statements_run.last_closed_month(calendar.timegm((2026, 8, 12, 0, 0, 0, 0, 0, 0)))
-    assert end == calendar.timegm((2026, 8, 1, 0, 0, 0, 0, 0, 0))
+    assert end == _riyadh_midnight(2026, 8)
     assert start < end
 
 
@@ -243,3 +259,31 @@ def test_marking_a_statement_that_does_not_exist_answers_none():
 
     out = asyncio.run(StatementStore(_Store()).set_state("prt_x", 1, state="paid", actor="u"))
     assert out is None
+
+
+def test_a_payment_at_one_in_the_morning_on_the_first_belongs_to_the_new_month(
+) -> None:
+    """و-10 — THE BOUNDARY WAS UTC AND THE PARTNER LIVES IN RIYADH.
+
+    UTC is three hours behind, so the month used to begin at 03:00 local. Every settlement landing
+    between midnight and 03:00 on the first was counted into the month BEFORE.
+
+    AND NOTHING EVER DISAGREED, which is why it survived a full audit. Both statements were built
+    from the same wrong boundary, so they reconciled with each other perfectly — the only ledger
+    that disagreed was the partner's own, and neither side had a line to point at.
+    """
+    import calendar
+    import datetime as dt
+
+    from app.core.statements_run import last_closed_month
+
+    riyadh = dt.timezone(dt.timedelta(hours=3))
+    # 01:30 Riyadh on 1 September 2026, which is 22:30 UTC on 31 August.
+    now = calendar.timegm(
+        dt.datetime(2026, 8, 31, 22, 30, tzinfo=dt.timezone.utc).utctimetuple())
+    start, end = last_closed_month(now)
+
+    assert dt.datetime.fromtimestamp(start, riyadh) == dt.datetime(2026, 8, 1, tzinfo=riyadh), (
+        "the closed month does not start at Riyadh midnight — a UTC boundary opens it at 03:00")
+    assert dt.datetime.fromtimestamp(end, riyadh) == dt.datetime(2026, 9, 1, tzinfo=riyadh), (
+        "a payment taken at 01:00 on the first is being billed to the month that already closed")

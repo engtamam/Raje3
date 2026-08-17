@@ -35,6 +35,8 @@ owner would ever know it happened.
 from __future__ import annotations
 
 import time
+
+from app.core import riyadh as _riyadh
 from typing import Any
 
 # Lookups allowed before any visit is recorded — the morning, and the quiet day.
@@ -51,7 +53,10 @@ class LookupRefused(Exception):
 
 
 def _day(now: int) -> str:
-    return time.strftime("%Y-%m-%d", time.gmtime(now))
+    """THE SHOP'S DAY, NOT UTC'S. This was `time.gmtime`, so the allowance reset at 03:00 Riyadh:
+    a shop still open past midnight lost its budget mid-shift, and the FLOOR of forty lookups — the
+    morning's grace — arrived three hours into the next day's work."""
+    return _riyadh.day_key(now)
 
 
 def allowance(visits_today: int) -> int:

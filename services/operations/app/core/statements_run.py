@@ -23,22 +23,23 @@ import time
 from typing import Any
 
 from app.core import commission as _commission
+from app.core import riyadh as _riyadh
 from app.core.partners import PartnerRegistry
 
 
-def last_closed_month(now: int | None = None) -> tuple[int, int]:
-    """[start, end) of the month before the one `now` falls in, in epoch seconds, UTC.
-
-    HALF-OPEN ON PURPOSE. An inclusive end would count a payment landing at 23:59:59.5 on the last
-    day in both months or in neither, depending on the peer's rounding — and the two statements
-    would disagree by one invoice that nobody could find.
-    """
-    t = time.gmtime(now if now is not None else int(time.time()))
-    year, month = (t.tm_year, t.tm_mon - 1) if t.tm_mon > 1 else (t.tm_year - 1, 12)
-    start = calendar.timegm((year, month, 1, 0, 0, 0, 0, 0, 0))
-    nyear, nmonth = (year, month + 1) if month < 12 else (year + 1, 1)
-    end = calendar.timegm((nyear, nmonth, 1, 0, 0, 0, 0, 0, 0))
-    return start, end
+# RIYADH MONTHS, NOT UTC ONES — and the difference was three hours of money every month.
+#
+# This computed the boundary with `time.gmtime`, so a month began at 03:00 Riyadh. Any partner
+# settlement landing between midnight and 03:00 on the first was counted into the month BEFORE.
+#
+# AND NOTHING DISAGREED, WHICH IS WHY IT SURVIVED. Both statements were built from the same wrong
+# boundary, so they reconciled with each other perfectly; the only ledger that disagreed was the
+# partner's own, and neither side had a line to point at. Every other boundary a person feels in
+# this product — quiet hours, an offer's last day, the busiest-hour chart — is already Riyadh.
+#
+# The function keeps its name and signature: `issue()` below and the cron call it unchanged, and
+# a re-run of a closed month is still byte-identical because the engine still holds no clock.
+last_closed_month = _riyadh.last_closed_month
 
 
 async def issue(*, store, settlements_source, period: tuple[int, int] | None = None,
