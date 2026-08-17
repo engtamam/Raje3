@@ -273,6 +273,15 @@ async def create(request: Request, body: CampaignIn,
     #
     # REFUSED, NOT DEFAULTED. A silent "thirty days" would be a discount the shop never chose,
     # discovered a month later in the margin.
+    # THE SANITISER'S ANSWER IS WHAT GETS STORED, not the raw field re-stripped at the call site.
+    # It was validated here and then discarded, and three consumers each stripped `body.offer_value`
+    # again — so the authority on this field had no say in what was written. Equal today, because
+    # stripping is all it does beyond refusing; unequal the day it normalises anything else.
+    #
+    # AND IT STARTS EMPTY, WHICH IS THE PART THAT WAS A HOLE. A goal that offers nothing never
+    # reaches the sanitiser, yet an `offer_value` sent with it was stored unvalidated — invisible
+    # only because no such template has an `amount` slot to render it into.
+    offer_value = ""
     if offers_something(body.goal):
         try:
             from app.core.preview import sanitise_offer_value
@@ -333,7 +342,7 @@ async def create(request: Request, body: CampaignIn,
                         # whole shop. One field, and it made the feature a demo.
                         service_id=(body.service_id or "").strip(),
                         branch_id=(body.branch_id or "").strip(),
-                        offer_value=(body.offer_value or "").strip(),
+                        offer_value=offer_value,
                         scope_service_names=([body.service_name] if body.service_name else []),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches
                         # people who are 70% through their cycle for one service; an offer that

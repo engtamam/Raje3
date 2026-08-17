@@ -168,6 +168,16 @@ def calls(service: pathlib.Path) -> tuple[list[tuple[str, int, str, set[str]]], 
             # Attribute the body to the nearest internal path in the same file. Imprecise when a
             # module posts to several, so that case is reported rather than guessed at.
             near = [f for f in line_of if abs(line_of[f] - node.lineno) <= 25]
+            # ONE PATH IN THE WHOLE FILE ADMITS NO AMBIGUITY, and that is the condition the window
+            # is a proxy for — so when the file names exactly one, distance stops mattering. Both
+            # branch-scope adapters compose the URL in `build()` at the bottom and post from a
+            # method above it: 26 lines apart, one line outside the window, and the two calls that
+            # carry BRANCH ISOLATION were the ones this gate could not vouch for.
+            #
+            # This is narrower than widening the window, not looser: a file posting to two paths is
+            # still reported rather than guessed at, at any distance.
+            if len(near) != 1 and len(line_of) == 1:
+                near = list(line_of)
             if len(near) != 1:
                 unverifiable.append(
                     f"{rel}:{node.lineno} body could belong to {len(near)} internal paths")
