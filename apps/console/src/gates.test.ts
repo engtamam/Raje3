@@ -116,7 +116,13 @@ describe('م · النمط 3: declared for a purpose, and nobody read it', () =>
   it('the editor opens on what he wrote', () => {
     // His saved text sat one component away in `Mine.body`, unpassed, while `draft` was declared
     // for it and never set — so «عدّل نصّي» meant typing the whole message again.
-    expect(editorSrc).toContain('toHtml(body ?? \'\', slots)');
+    //
+    // ASSERTED AS A PROPERTY, NOT AS A SPELLING. This used to pin the exact expression
+    // `toHtml(body ?? '', slots)`, and it broke the day the saved body started being stripped of
+    // its mandatory tail before loading — a change that leaves the property completely intact. A
+    // guard that fails on a rewrite of the line it watches teaches whoever hits it to edit the
+    // guard, which is how a real defect eventually walks past one.
+    expect(editorSrc).toMatch(/toHtml\(.*\bbody\b.*\bslots\b/);
     expect(previewSrc).toContain('body={(isReady(mine) ? mine : [])');
   });
 });

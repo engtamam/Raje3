@@ -98,7 +98,7 @@ def slugify(tenant: str) -> str:
     return out[:24] or "shop"
 
 
-def check(body: str, reason_id: str, fills: list[str]) -> list[int]:
+def check(body: str, reason_id: str, fills: list[str], cls: str = "service") -> list[int]:
     """Refuse now what Meta would refuse tomorrow, and what our own renderer would refuse today.
 
     `fills` IS WHAT EACH BLANK MEANS, in position order — «اسم العميل» then «الخدمة», say. It is
@@ -143,7 +143,66 @@ def check(body: str, reason_id: str, fills: list[str]) -> list[int]:
     if unknown:
         raise CustomTemplateError(
             f"«{reason.label}» لا يعرف «{unknown[0]}» — اختر من الفراغات المتاحة له.")
+    # THE ADDRESS HE CANNOT FORGET, BECAUSE FORGETTING IT IS NOT AN OPTION HE HAS. It is checked
+    # here and appended by `with_mandatory_tail` above the caller, so this refusal only fires when
+    # something reordered a body by hand — but it fires rather than trusting that nothing did.
+    tail = T.mandatory_tail(cls)
+    if tail not in fills:
+        raise CustomTemplateError(_TAIL_MISSING[tail])
+    if fills[-1] != tail:
+        raise CustomTemplateError(_TAIL_MISPLACED[tail])
+    stray = [f for f in fills[:-1] if f in (T.INVITE, T.STOP_LINK)]
+    if stray:
+        raise CustomTemplateError(
+            "الرابط في وسط الرسالة — مكانه آخر سطر، ورابطان في رسالة واحدة يتنافسان على نقرة واحدة.")
     return numbers
+
+
+#: WHY THE SENTENCE DIFFERS PER ADDRESS. «إلزامي» with no reason reads as our bureaucracy, and an
+#: owner who thinks a rule is ours argues with it; one who knows it is the regulator's or Meta's
+#: works around it. So each says whose rule it is and what it costs him.
+_TAIL_MISSING = {
+    T.STOP_LINK: "الرسالة التسويقية لا تخرج بلا رابط إيقاف — نظام حماية البيانات يوجبه، "
+                 "والمخالفة على المنشأة.",
+    T.INVITE: "الرسالة تحتاج سطر دعوة التفعيل في آخرها — هو الباب الوحيد لموافقة العميل، "
+              "وبدونه لا تستطيع إرسال أي عرضٍ له لاحقاً.",
+}
+_TAIL_MISPLACED = {
+    T.STOP_LINK: "رابط الإيقاف يجب أن يكون آخر شيء في الرسالة.",
+    T.INVITE: "سطر دعوة التفعيل يجب أن يكون آخر شيء في الرسالة.",
+}
+
+
+def with_mandatory_tail(body: str, fills: list[str], cls: str) -> tuple[str, list[str]]:
+    """Append the address this class owes its reader, if he did not put it there himself.
+
+    THE DECISION THIS IMPLEMENTS, in Tamam's words: the owner writes his own text, Meta approves it
+    under HIS shop's name, and the fine lands on HIM — so the stop link may not be an option he can
+    forget. The server adds it rather than the screen, because a rule that holds only while every
+    caller remembers is not a rule: the next caller is a seeder, a migration or a support script.
+
+    APPENDED, NEVER INSERTED. It goes at the end of the body and the end of `fills`, which is the
+    one position the renderer, Meta's example list and the phone screen all agree on — an address
+    mid-sentence reads as a broken line and competes with whatever follows it for the same tap.
+
+    IDEMPOTENT: a body that already ends with it is returned untouched, so re-saving a draft does
+    not accumulate a second link on every visit to the editor.
+    """
+    tail = T.mandatory_tail(cls)
+    out_fills = list(fills)
+    if out_fills and out_fills[-1] == tail:
+        return body, out_fills
+    # NOT SILENTLY MOVED. If he put it somewhere else, `check` refuses and tells him where it
+    # belongs — quietly relocating text a shop wrote is an edit we did not ask permission for.
+    if tail in out_fills:
+        return body, out_fills
+    out_fills.append(tail)
+    number = len(_VAR.findall(body or "")) + 1
+    # A SPACE, NOT A LINE BREAK, and not by preference: `_CONTROL` above refuses every character
+    # below 0x20 — a newline included — so owner text in this product is one paragraph by policy.
+    # An append that used «\n\n» was refused by our own check the moment it was added, which is how
+    # this line came to be written twice.
+    return f"{(body or '').rstrip()} {{{{{number}}}}}", out_fills
 
 
 class CustomTemplateStore:
@@ -173,7 +232,10 @@ class CustomTemplateStore:
         editing it sends it back for review. Reusing it would take the shop's messages off the air
         for a day over one word. So the old text keeps sending until the new one is approved.
         """
-        numbers = check(body, reason_id, list(fills))
+        # THE ADDRESS IS ADDED BEFORE IT IS CHECKED, so an owner who never thought about it still
+        # ends up with a lawful text, and one who put it in the wrong place is told where it goes.
+        body, fills = with_mandatory_tail(body, list(fills), cls)
+        numbers = check(body, reason_id, list(fills), cls)
         now = int(time.time())
         version = 1
         if replaces:

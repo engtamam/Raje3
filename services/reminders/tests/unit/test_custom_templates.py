@@ -7,7 +7,7 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.custom_templates import (APPROVED, CustomTemplateError, CustomTemplateStore,
-                                       RETIRED, check, slugify)
+                                       RETIRED, check, slugify, with_mandatory_tail)
 
 
 def run(c):
@@ -30,11 +30,15 @@ def test_a_blank_the_reason_cannot_fill_is_refused_at_writing_time():
 
 
 def test_the_blanks_the_reason_does_fill_are_accepted():
-    assert check("أهلاً {{1}}، حان وقت {{2}} لدى {{3}}.", "service_due",
-                 ["customer", "service", "shop"]) == [1, 2, 3]
+    # EVERY TEXT ENDS WITH THE ADDRESS IT OWES ITS READER, so every body here carries it. The
+    # editor never asks him for it — `with_mandatory_tail` puts it there — but `check` is the layer
+    # that refuses a body which lost it, so a fixture without it is a shape no draft can have.
+    assert check("أهلاً {{1}}، حان وقت {{2}} لدى {{3}}. {{4}}", "service_due",
+                 ["customer", "service", "shop", "invite"]) == [1, 2, 3, 4]
     # AND HE MAY LEAVE ONE OUT. WhatsApp already shows the sender, so a shop that does not want to
     # name itself writes two blanks — and the meanings travel with the positions, not the numbers.
-    assert check("{{1}}، حان وقت {{2}}.", "service_due", ["customer", "service"]) == [1, 2]
+    assert check("{{1}}، حان وقت {{2}}. {{3}}", "service_due",
+                 ["customer", "service", "invite"]) == [1, 2, 3]
 
 
 def test_a_numbering_gap_is_refused_because_meta_refuses_it_hours_later():
@@ -136,3 +140,66 @@ def test_a_second_write_without_naming_the_old_one_destroys_the_approved_text(st
         "a second write reused the approved name and overwrote the approved row: "
         "the shop's approved text is gone and an unapproved draft now carries its Meta name")
     assert run(store.get("t1", first.name))["status"] == APPROVED
+
+
+# ── the address he cannot forget, because forgetting is not an option he has ───────────────────
+def test_a_marketing_text_that_never_mentioned_a_stop_link_gets_one(store):
+    """Tamam's decision: he writes it, Meta approves it under HIS name, the fine lands on HIM.
+
+    So the stop link is not a field he can leave empty. He is never asked for it — the server puts
+    it at the end — and PDPL §8.3 is satisfied by a text whose author never thought about PDPL.
+    """
+    row = run(store.draft("t1", reason_id="gone_missing", cls="marketing",
+                          body="اشتقنا لك يا {{1}}! عرض خاص في {{2}}",
+                          fills=["customer", "shop"]))
+    assert row.fills == ["customer", "shop", "stop_link"]
+    assert row.body.rstrip().endswith("{{3}}"), row.body
+    assert row.variables == [1, 2, 3]
+
+
+def test_a_service_text_gets_the_invitation_rather_than_the_stop_link(store):
+    """The two are not interchangeable, and the difference is what the message is FOR.
+
+    A utility text that carried a stop link would be offering to stop something the customer never
+    started — and it would leave the shop with no door to consent at all, so no campaign it ever
+    runs can be lawful. Which one is owed follows from the class alone (`reasons.mandatory_tail`).
+    """
+    row = run(store.draft("t1", reason_id="service_due",
+                          body="{{1}}، حان وقت {{2}}", fills=["customer", "service"]))
+    assert row.fills == ["customer", "service", "invite"]
+
+
+def test_a_text_that_already_ends_with_it_is_not_given_a_second_one(store):
+    """Re-saving a draft must not accumulate a link per visit to the editor — the owner would end
+    up submitting a text with four identical addresses and Meta would refuse the lot."""
+    once = run(store.draft("t1", reason_id="service_due",
+                           body="{{1}} {{2}}", fills=["customer", "invite"]))
+    assert once.fills == ["customer", "invite"]
+    assert once.body == "{{1}} {{2}}", "an untouched body must come back untouched"
+
+
+def test_a_body_that_lost_its_address_is_refused_rather_than_sent():
+    """`with_mandatory_tail` puts it there; this is the layer that notices when something took it
+    away again — a migration, a support script, or a hand-edited row."""
+    with pytest.raises(CustomTemplateError) as exc:
+        check("{{1}}، حان وقت {{2}}", "service_due", ["customer", "service"])
+    # AND THE REFUSAL SAYS WHOSE RULE IT IS. «إلزامي» with no reason reads as our bureaucracy, and
+    # an owner who thinks a rule is ours argues with it instead of working with it.
+    assert "الباب الوحيد لموافقة العميل" in str(exc.value)
+
+    with pytest.raises(CustomTemplateError) as marketing:
+        check("عرض {{1}}", "gone_missing", ["customer"], "marketing")
+    assert "حماية البيانات" in str(marketing.value)
+
+
+def test_an_address_in_the_middle_of_the_message_is_refused():
+    """Two calls to action competing for one tap, and a link mid-sentence reads as a broken line on
+    a phone. `with_mandatory_tail` deliberately does NOT move it — quietly relocating text a shop
+    wrote is an edit we never asked permission for, so he is told where it belongs instead."""
+    with pytest.raises(CustomTemplateError) as exc:
+        check("{{1}} تفضل {{2}} ثم زر {{3}}", "service_due", ["customer", "invite", "service"])
+    assert "آخر" in str(exc.value)
+
+    body, fills = with_mandatory_tail("{{1}} تفضل {{2}} ثم زر {{3}}",
+                                      ["customer", "invite", "service"], "service")
+    assert fills == ["customer", "invite", "service"], "it must not be silently moved or doubled"

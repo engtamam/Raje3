@@ -23,11 +23,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal } from '@base-ui/design-system/Modal';
 import { Button } from '@base-ui/design-system/Button';
-import { Plus } from 'lucide-react';
+import { Lock, Plus } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
 export interface Slot { id: string; label: string; sample?: string }
+
+/**
+ * The one blank he does not choose and cannot delete — the stop link on a promotional message,
+ * the consent invitation on everything else.
+ *
+ * IT COMES FROM THE SERVER, NAMED. The screen never works out WHICH address this message owes:
+ * that rule has one owner (`reasons.mandatory_tail`), read by the library generator and the draft
+ * path too, and a fourth reader here is the drift this product has already paid for once.
+ */
+export interface Mandatory { id: string; label: string; sample?: string; note?: string }
 
 /** What the editor holds while he writes: the text, and what each chip in it means. */
 interface Draft { html: string }
@@ -62,6 +72,20 @@ function toHtml(body: string, slots: Slot[]): string {
     .replace(/\n/g, '<br>');
 }
 
+/**
+ * His saved body WITHOUT the address the server appended to it.
+ *
+ * WHY IT IS TAKEN OFF BEFORE HE SEES IT. The tail is the last blank of every saved text, and it is
+ * no longer in the palette — so `toHtml` would find no slot for that number and leave it in the
+ * box as a literal «{{4}}»: the one thing this editor exists to make sure he never sees. He does
+ * not edit it, cannot move it, and the server puts it back on the next save, so the honest thing
+ * to show him is his own sentence, with the locked strip below saying what follows it.
+ */
+function withoutTail(body: string, mandatory?: Mandatory): string {
+  if (!mandatory) return body;
+  return body.replace(/\s*\{\{\d+\}\}\s*$/, '');
+}
+
 /** Walk the editable and read back the text and the meanings, in the order they appear. */
 function readBack(root: HTMLElement): { body: string; fills: string[] } {
   const fills: string[] = [];
@@ -90,13 +114,15 @@ function readBack(root: HTMLElement): { body: string; fills: string[] } {
 }
 
 export function TextEditor({
-  session, catalog, reasonId, label, slots, body, replaces, onClose, onSaved,
+  session, catalog, reasonId, label, slots, mandatory, body, replaces, onClose, onSaved,
 }: {
   session: Session;
   catalog: Catalog;
   reasonId: string;
   label: string;
   slots: Slot[];
+  /** The address this message owes its reader — shown LOCKED, never offered as a chip. */
+  mandatory?: Mandatory;
   /** WHAT HE WROTE LAST TIME. The editor opened blank while his saved text sat one component away
    *  in `Mine.body`, unpassed — so «عدّل نصّي» meant «اكتبه again from nothing», and the second
    *  edit of any template was a rewrite. `draft` was declared for this and never set. */
@@ -109,7 +135,7 @@ export function TextEditor({
   onSaved: () => void;
 }) {
   const box = useRef<HTMLDivElement | null>(null);
-  const [draft, setDraft] = useState<Draft>({ html: toHtml(body ?? '', slots) });
+  const [draft, setDraft] = useState<Draft>({ html: toHtml(withoutTail(body ?? '', mandatory), slots) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   /** What the customer would read — the same substitution the preview does, done live. */
@@ -134,7 +160,11 @@ export function TextEditor({
       const slot = slots.find((s) => s.id === kind);
       shown = shown.replace(`{{${i + 1}}}`, slot?.sample || slot?.label || '');
     });
-    setSample(shown);
+    // WHAT ACTUALLY ARRIVES, not what he typed. The server appends the address at save, so a
+    // preview that stopped at his last word would show him a shorter message than the one his
+    // customer reads — and «كما تصل عميلك» is the one line on this screen that may not be
+    // approximately true.
+    setSample(mandatory ? `${shown} ${mandatory.sample || mandatory.label}` : shown);
   };
 
   const insert = (slot: Slot) => {
@@ -204,6 +234,21 @@ export function TextEditor({
           onBlur={refresh}
           className="min-h-[7rem] rounded-card border border-border-subtle bg-surface-1 p-3 text-sm leading-relaxed outline-none focus:border-accent"
         />
+
+        {/* ── the one blank he does not choose, shown rather than hidden ────────────────
+            LOCKED, NOT ABSENT. An owner who does not see it in his text believes it is not in
+            his text — and the first he learns otherwise is a customer's reply, or a letter from
+            a regulator about a promotional message with no way to stop it. It is deliberately
+            NOT in the palette above: offering it as a chip would let him drop a second one
+            mid-sentence, which the save then refuses. */}
+        {mandatory ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-card border border-dashed border-border-subtle bg-surface-2 px-3 py-2">
+            <span className="text-xs text-text-secondary">وفي آخر الرسالة دائماً:</span>
+            <span className={CHIP} aria-label={`${mandatory.label} — مقفل`}>{mandatory.label}</span>
+            <Lock size={12} aria-hidden className="text-text-secondary" />
+            <span className="text-xs text-text-secondary">{mandatory.note}</span>
+          </div>
+        ) : null}
 
         {/* ── what the customer reads ──────────────────────────────────────────────────── */}
         <section className="flex flex-col gap-2">

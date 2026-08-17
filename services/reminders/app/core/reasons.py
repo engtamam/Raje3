@@ -68,6 +68,36 @@ INVITE = "invite"            # the last line of every utility text: the only way
 # IS open — and it is the only door marketing consent can ever come through.
 ALWAYS = (CUSTOMER, SHOP, INVITE, STOP_LINK)
 
+# THE ADDRESS A MESSAGE OWES ITS READER, AND WHICH ONE DEPENDS ONLY ON THE CLASS.
+MARKETING = "marketing"
+
+
+def mandatory_tail(cls: str) -> str:
+    """The blank that must be LAST in any message of this class, ours or the owner's own.
+
+    MARKETING OWES A ONE-TAP STOP (§8.3) — it is a requirement rather than a courtesy, and a
+    promotional message without it is one we cannot lawfully send. EVERYTHING ELSE OWES THE
+    INVITATION, because it is the only door marketing consent can ever come through: a utility
+    message that does not carry it is a dead end, and a shop whose every message is a dead end can
+    never run a campaign at all.
+
+    WHY THIS IS A FUNCTION AND NOT A TABLE IN EACH READER. `ci/gen_templates.py` enforces it over
+    OUR library, the owner's own drafts are checked against it here, and the submission path fills
+    it. Three readers, one sentence — and the day a fourth class of message exists, it is one edit
+    rather than three that agree by luck.
+    """
+    return STOP_LINK if cls == MARKETING else INVITE
+
+
+#: WHY IT IS THERE, in one line on his screen beside the locked chip. «إلزامي» with no reason reads
+#: as our bureaucracy, and an owner who believes a rule is ours argues with it; one who knows whose
+#: rule it is works with it. Kept here rather than in the console for the same reason the labels
+#: are: a sentence living in the screen drifts from the thing it explains.
+MANDATORY_NOTE = {
+    STOP_LINK: "إلزامي نظاماً — نظام حماية البيانات يوجب أن يستطيع العميل الإيقاف بضغطة.",
+    INVITE: "إلزامي — هو الباب الوحيد لموافقة العميل على عروضك.",
+}
+
 # WHAT A BLANK IS CALLED ON HIS SCREEN. Here rather than in the console for the same reason the
 # labels are: a name kept in the screen drifts from the thing it names, and a chip reading «الخدمة»
 # over a blank we fill with a reward is a message he did not write.
@@ -386,8 +416,20 @@ def public(t: Reason) -> dict:
             "cls": t.cls, "cls_label": CLASS_LABEL.get(t.cls, t.cls),
             # ID AND LABEL TOGETHER. The editor stores the id and shows the label; sending only
             # ids would make the screen invent names, and only labels would make it guess ids.
+            # THE PALETTE HE MAY ADD FROM — and the mandatory address is NOT in it. The server puts
+            # that one at the end of every text (custom_templates.with_mandatory_tail); offering it
+            # as a chip would let him place a second one mid-sentence, which the draft path then
+            # refuses. A palette whose choices can be refused is a palette that teaches by error.
             "slots": [{"id": k, "label": SLOT_LABEL.get(k, k), "sample": SAMPLE.get(k, "")}
-                      for k in ALWAYS + t.slots],
+                      for k in ALWAYS + t.slots if k != mandatory_tail(t.cls)],
+            # AND THE ONE HE CANNOT REMOVE, sent so the editor can show it LOCKED rather than
+            # absent. An owner who does not see it in his text believes it is not in his text —
+            # and the first he learns otherwise is a customer's reply, or a regulator's letter.
+            # The screen never derives WHICH address it is: that rule has one owner, above.
+            "mandatory": {"id": mandatory_tail(t.cls),
+                          "label": SLOT_LABEL.get(mandatory_tail(t.cls), ""),
+                          "sample": SAMPLE.get(mandatory_tail(t.cls), ""),
+                          "note": MANDATORY_NOTE[mandatory_tail(t.cls)]},
             "can_switch": t.owner_can_switch, "can_retext": t.owner_can_retext,
             "default_on": t.default_on}
 

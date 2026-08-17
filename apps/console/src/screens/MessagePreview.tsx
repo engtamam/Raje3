@@ -21,7 +21,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check, Lock } from 'lucide-react';
-import { TextEditor, type Slot } from './TextEditor';
+import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
@@ -72,6 +72,10 @@ export function MessagePreview({
   const [error, setError] = useState('');
   /** The blanks THIS message can fill — the editor's whole guard rail, and the server's answer. */
   const [slots, setSlots] = useState<Slot[]>([]);
+  /** The address this message owes its reader, named by the server so the editor can show
+   *  it locked. WHICH one it is follows from the class alone, and that rule has one owner
+   *  in `reasons.mandatory_tail` — the screen only renders what it is handed. */
+  const [mandatory, setMandatory] = useState<Mandatory | undefined>(undefined);
   const [writing, setWriting] = useState(false);
   /**
    * HIS TEXTS THAT ARE NOT SENDING, and this is the half the bubbles cannot show. A draft he
@@ -85,7 +89,7 @@ export function MessagePreview({
     const a = action(catalog, 'reminders.preview_reason');
     if (!a) { setOptions(DENIED); return; }
     call<{ options: Option[]; chosen?: string; tone?: string; error?: string;
-           reason?: { slots?: Slot[] } }>(
+           reason?: { slots?: Slot[]; mandatory?: Mandatory } }>(
       session, a, { reason_id: reasonId })
       .then((x) => {
         if (x.error) { setError(x.error); setOptions([]); return; }
@@ -93,6 +97,7 @@ export function MessagePreview({
         setChosen(x.chosen ?? '');
         setTone(x.tone ?? 'brief');
         setSlots(x.reason?.slots ?? []);
+        setMandatory(x.reason?.mandatory);
       })
       .catch(() => { setOptionsFailed(true); setOptions([]); });
   }, [session, catalog, reasonId, reload]);
@@ -358,6 +363,7 @@ export function MessagePreview({
                 reasonId={reasonId}
                 label={label}
                 slots={slots}
+                mandatory={mandatory}
                 // WHAT HE WROTE LAST TIME, if he wrote one. Without this the editor opened blank
                 // and his saved text sat in `mine` one component away, so a second edit meant
                 // typing the whole message again.

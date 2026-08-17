@@ -510,6 +510,14 @@ jobs:
       - name: the consent sentence shown is the sentence recorded
         run: python3 ci/check_the_consent_sentence_shown_is_the_sentence_recorded.py
 
+      # Which address a message must end with — a stop link for marketing (§8.3), the consent
+      # invitation for everything else — is enforced by three readers built months apart: the
+      # library generator, the owner's own draft path, and the constant both ask. This is the
+      # shape that already cost a day here: the fills vocabulary lived in four files, one was
+      # updated, and the other three rejected all 66 templates. Drift announces itself as silence.
+      - name: the address a message owes is one rule
+        run: python3 ci/check_the_address_a_message_owes_is_one_rule.py
+
       # `branch_id` was optional on the till door, so most registers never sent it and every
       # branch's visits landed in one heap — «قارن فروعك» switched off for exactly the chains that
       # bought the product for it, and unrecoverable afterwards: nothing in the record says where
