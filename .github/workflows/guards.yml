@@ -499,6 +499,20 @@ jobs:
       - name: the data stores are behind a policy
         run: python3 ci/check_the_data_stores_are_behind_a_policy.py
 
+      # ي-7 · TWO NUMBERS IN TWO PLACES THAT NOBODY MULTIPLIED. The CronJob body is a
+      # `urlopen(..., timeout=300)`; the run it starts loops SEQUENTIALLY, awaiting each item, and
+      # every item may take up to the service's own peer timeout. Both numbers were written down —
+      # one here, one in the platform's chart — and every side was correct on its own.
+      #
+      # A run that finishes after 300s is reported FAILED whether or not it worked: the alert
+      # fires, somebody investigates a success, and «it always fails» sets in — which is how the
+      # next real failure gets read as more of the same.
+      #
+      # And it is not degenerate. Each item in the reminders tick is a live send, so at a plausible
+      # three seconds apiece a 100-row batch reached 300s with nothing wrong at all.
+      - name: a cron can finish before its caller gives up
+        run: python3 ci/check_a_cron_can_finish_before_its_caller_gives_up.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the

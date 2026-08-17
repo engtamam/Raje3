@@ -205,6 +205,26 @@ fi
 #
 # This is arithmetic, not a probe: it cannot start a run and it does not try. It multiplies what
 # the repository declares by what the cluster registered and says whether the sum fits.
+#
+# AND IT IS A FAMILY, NOT ONE SERVICE. Sweeping every values file for a cron that declares both a
+# batch size and a per-item timeout finds four, all measured against the same 300s caller:
+#
+#   campaigns tick   DISPATCH_BATCH_SIZE 200 x PEER_TIMEOUT_SECONDS 8   = 1600s
+#   reminders tick   TICK_BATCH_SIZE     100 x PEER_TIMEOUT_SECONDS 8   =  800s
+#   insights  tick   SNAPSHOT_BATCH       50 x PEER_TIMEOUT_SECONDS 8   =  400s
+#   backup    run    <targets>            20 x BACKUP_TARGET_TIMEOUT  120 = 2400s
+#
+# THE THREE TICKS ARE NOT THE SAME AS THE BACKUP, and saying so is the difference between a report
+# somebody reads and one they learn to scroll past. A tick reaches its worst case only if EVERY
+# peer call times out — and a run where every call times out is failing on its own merits, not
+# being misreported. `concurrencyPolicy: Forbid` in the platform chart already stops a slow tick
+# overlapping the next, and a killed tick retries on the following schedule with the work intact.
+#
+# The backup is the one where a HEALTHY run is misreported: 120s per target is a plausible normal
+# duration for copying a collection, not a degenerate one. That is the urgent member.
+#
+# All four are reported because the invariant — the caller must be able to outwait the work — does
+# not hold for any of them, and the fix for all four is the same single escalation.
 per_target="$(sed -n 's/^  BACKUP_TARGET_TIMEOUT_SECONDS: *"\([0-9]*\)".*/\1/p' \
   "$ROOT/deploy/services/backup-service.values.yaml" | head -1)"
 caller_wait=300     # `platform/deploy/chart/templates/cronjob.yaml` — read-only, hence the escalation

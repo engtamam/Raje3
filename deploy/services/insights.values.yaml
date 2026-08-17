@@ -103,7 +103,21 @@ env:
   # ── the sweep ─────────────────────────────────────────────────────────────────────────────
   # Tenants per pass, so the run does not grow with the product until it times out and retries
   # from the beginning for ever.
-  SNAPSHOT_BATCH: "50"
+  # 30, NOT 50 — AND THE REASON IS ARITHMETIC SOMEBODY FINALLY DID (ي-7). The CronJob that starts
+  # this run is a `urlopen(..., timeout=300)`; the loop below is SEQUENTIAL and awaits each item,
+  # every one of which can take up to `PEER_TIMEOUT_SECONDS`. 50 x 8s is 400s against a caller that
+  # waits 300 — so a run that WORKS gets killed and reported failed, the alert fires, and somebody
+  # investigates a success. Then «it always fails» sets in, and the next real failure is read as
+  # more of the same.
+  #
+  # And it is not a degenerate case needing every call to time out: each item here is a live send,
+  # so at a plausible three seconds apiece 50 items reach 300 with nothing wrong at all.
+  #
+  # SMALLER IS THE SAFE DIRECTION, not a throughput cut: `concurrencyPolicy: Forbid` means a run
+  # that finishes and reports success lets the next schedule pick up the remainder, while a run
+  # that is killed at 300s repeats the same work and is never believed. The other knob — raising
+  # the caller — lives in platform/deploy/chart/templates/cronjob.yaml, which we do not edit.
+  SNAPSHOT_BATCH: "30"
   SNAPSHOT_VISIT_LIMIT: "5000"
 
   # ── the association engine's four judgements ─────────────────────────────────────────────
