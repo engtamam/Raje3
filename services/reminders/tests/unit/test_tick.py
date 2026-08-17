@@ -1105,3 +1105,50 @@ def test_the_claim_is_stamped_so_it_can_ever_be_reclaimed(st):
 
     row = run(ScheduleStore(st).get("t1|sub_a|oil|reminder"))
     assert int(row.get("claimed_at") or 0) > 0, "nothing stamped the claim"
+
+
+def test_two_replicas_racing_over_one_send_agree_on_the_idempotency_key(st):
+    """ز-2 — the key is the crossing guard, and it used to be absent on the first crossing.
+
+    A row that has never been sent carries no key. The line that minted one called `uuid4()`, so
+    two replicas of the tick that both won the claim in the same second sent two messages carrying
+    two unrelated keys — and the quota, the notifier and the send log all recognise a repeat BY
+    the key. Every layer saw two different sends because that is what it was handed. The customer
+    read the same reminder twice in the same minute and the shop paid for both.
+
+    TWO STORES, NOT ONE, and that is the whole point: replicas that can see each other's writes
+    would agree by accident. These cannot, so agreeing is a property of the key itself.
+    """
+    other = MemoryDataStore()
+    for store in (st, other):
+        s = Schedule(tenant="t1", subject_ref="sub_a", service_id="oil", kind="reminder",
+                     due_at=at(9), cls="service", template_type="svc_service_reminder")
+        run(ScheduleStore(store).upsert(s.tenant, s.key, as_row(s)))
+
+    first, second = FakeSender(), FakeSender()
+    go(st, first)
+    run(tick(other, second).run(
+        "t1", now=at(10), library=LIB, service_names=NAMES,
+        establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}, choices=None))
+
+    assert first.calls and second.calls, "both replicas must have attempted the send"
+    assert first.calls[0]["idempotency_key"] == second.calls[0]["idempotency_key"], (
+        "two replicas sending the same reminder must present the same key — otherwise the "
+        "duplicate barrier sees two unrelated messages and the customer gets both")
+
+
+def test_a_later_send_of_the_same_reminder_gets_its_own_key(st):
+    """The other half, and without it the fix above is satisfiable by a constant.
+
+    A key that never changes would make every send of this reminder look like a repeat of the
+    first — the customer would be reminded once and never again, and the failure would be silent.
+    What separates one occasion from the next is `due_at`: a deferral moves it, and a recurring
+    cycle earns a new one.
+    """
+    from app.core.tick import _send_key
+
+    row = {"tenant": "t1", "subject_ref": "sub_a", "service_id": "oil", "kind": "reminder",
+           "due_at": at(9)}
+    later = dict(row, due_at=at(9, day=20))
+    assert _send_key(row) == _send_key(dict(row)), "the same occasion is the same key"
+    assert _send_key(row) != _send_key(later), "a later send is a different occasion"

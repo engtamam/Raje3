@@ -26,7 +26,7 @@ a missed batch becomes a day of reminders that never went out.
 """
 from __future__ import annotations
 
-import uuid
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -693,7 +693,7 @@ class Tick:
         # ── 4. send ───────────────────────────────────────────────────────────────────────────
         # The key is generated and stored BEFORE the call and reused on every retry: a timeout is
         # not evidence that nothing was sent, and the customer must not pay for our uncertainty.
-        key = row.get("idempotency_key") or f"rem_{uuid.uuid4().hex}"
+        key = row.get("idempotency_key") or _send_key(row)
         if key != row.get("idempotency_key"):
             row["idempotency_key"] = key
             await self._sched.upsert(tenant, _key(row), row)
@@ -933,6 +933,29 @@ class Tick:
         row["reason"] = f"تعذّر الإرسال، سيُعاد: {error}"
         row["updated"] = now
         await self._sched.upsert(tenant, _key(row), row)
+
+
+def _send_key(row: dict[str, Any]) -> str:
+    """The idempotency key for ONE send occasion, derived rather than drawn (ز-2).
+
+    THE KEY IS THE CROSSING GUARD, AND IT WAS ABSENT ON THE FIRST CROSSING. This line used to be
+    `f"rem_{uuid.uuid4().hex}"`. A row that has never been sent carries no key, so two replicas
+    winning the claim in the same second minted two different UUIDs — and the quota, the notifier
+    and the send log all use the key to recognise a repeat. They saw two unrelated sends, because
+    that is what they were handed. The customer read «حان موعد صيانتك» twice in the same minute
+    and the shop was billed twice. A retry after a timeout was protected; the race never was.
+
+    WHAT MAKES AN OCCASION. `_key(row)` names the reminder — tenant, customer, service, kind — and
+    is stable for the row's whole life. `due_at` is what separates one send of it from the next:
+    a deferral moves it, a follow-up rung sets a new one, and a recurring cycle earns its own.
+    Two replicas racing over the SAME send agree on both, which is exactly the property the guard
+    needs; a genuinely later send differs in `due_at` and correctly gets its own key.
+
+    Hashed rather than concatenated only for length: a phone number and a service id inside a key
+    that travels to Meta is more of the customer than the header needs to carry.
+    """
+    occasion = f"{_key(row)}|{int(row.get('due_at', 0))}"
+    return "rem_" + hashlib.sha256(occasion.encode("utf-8")).hexdigest()[:32]
 
 
 def _key(row: dict[str, Any]) -> str:

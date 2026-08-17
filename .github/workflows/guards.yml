@@ -314,6 +314,15 @@ jobs:
       - name: what a person may see is a set not one branch
         run: python3 ci/check_what_a_person_may_see_is_a_set_not_one_branch.py
 
+      # AND AN IDEMPOTENCY KEY IS DERIVED, NEVER DRAWN. The key is the crossing guard: the quota,
+      # the notifier and the send log all recognise a repeat by it. `tick.py` minted one with
+      # `uuid4()` for a row that had never been sent — so two replicas winning the same claim
+      # presented two unrelated keys, and the guard was absent on exactly the send it was written
+      # for, the first. A fresh random passes every assertion downstream and is the one thing a
+      # key must not be, so it is refused here rather than reviewed.
+      - name: an idempotency key is not a fresh random
+        run: python3 ci/check_an_idempotency_key_is_not_a_fresh_random.py
+
       # AND NO SHOP IS ASKED WHAT TRADE IT IS IN. One question on the first screen decided four
       # things — the seeded catalogue, the seeded rewards, the plate page, the meter — and the
       # owner answering it could not know that. Only the last two were ever really being asked, so
