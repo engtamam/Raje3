@@ -257,6 +257,69 @@ if [ "$cfg_bad" -eq 0 ]; then
     "$C_G" "config" "$cfg_seen" "$C_N"
 fi
 
+# ── AND WHAT THE CLUSTER HOLDS THAT NOBODY DEPLOYS (أ-4، أ-5) ────────────────────────────────
+#
+# EVERY CHECK ABOVE ASKS «is what the repository names actually running». None of them asks the
+# other direction: what is running that the repository does NOT name. Drift has two directions and
+# this script only ever looked one way.
+#
+# SECRETS FOR SERVICES THIS DEPLOYMENT NEVER INSTALLS. `mint-our-secrets.sh` rotates the six that
+# are ours; anything else keeps its original material for as long as the namespace lives. Material
+# nobody rotates and nobody can name is material nobody will revoke when it leaks.
+#
+# AND PODS THAT DIED AND WERE NEVER REAPED. A `Failed` pod is not inert: it keeps its record in the
+# scheduler, and the edge demands `hostPort: 80/443` with `strategy: Recreate` — which terminates
+# the live pod FIRST. If the scheduler still counts those ports against a corpse, the replacement
+# sticks on «didn't have free ports» with nothing serving the domain until somebody logs in.
+#
+# The reason is printed because it is usually the finding: fifteen of the sixteen here say
+# `OutOfcpu`, which is not litter — it is the node saying it admitted pods it could not run.
+orphan_sec=0
+dead_pods=0
+cluster_sec="$("${SSH[@]}" "kubectl -n $NS get secrets --no-headers -o custom-columns=N:.metadata.name 2>/dev/null | grep -v '^sh.helm'")" || cluster_sec=""
+cluster_wl="$("${SSH[@]}" "kubectl -n $NS get deploy,statefulset,daemonset --no-headers -o custom-columns=N:.metadata.name 2>/dev/null")" || cluster_wl=""
+if [ -z "$cluster_sec" ] || [ -z "$cluster_wl" ]; then
+  # NOT A PASS. Reading nothing is not the same as finding nothing, and this section exists
+  # precisely to notice what nobody is looking for.
+  printf '  %s✗ %-24s could not be read — orphans were NOT checked%s\n' "$C_R" "cluster extras" "$C_N"
+  orphan_sec=$((orphan_sec+1))
+else
+  while read -r s; do
+    [ -n "$s" ] || continue
+    case "$s" in
+      *-secrets) ;;
+      *) continue ;;                     # ghcr, postgres-tls: not the per-service shape
+    esac
+    svc="${s%-secrets}"
+    printf '%s\n' "$cluster_wl" | grep -qx ".*/\?$svc" && continue   # something runs it
+    # AND NOTHING IN *OUR* deploy/ NAMES IT. `platform-secrets` runs no workload of its own and is
+    # not an orphan: `bring-up.sh` puts the postgres password in it, so the repository knows
+    # exactly what it is for. What is left after both tests are secrets minted for services the
+    # PLATFORM catalogue ships and this deployment never installs — referenced only under
+    # `platform/`, running nowhere, and skipped by `mint-our-secrets.sh`.
+    #
+    # Two tests rather than a skip list: a secret that becomes used, or a service that gets
+    # installed, stops being reported without anybody editing this script.
+    grep -rq "$s" "$ROOT/deploy" 2>/dev/null && continue
+    printf '  %s✗ %-24s minted for a service this deployment never installs — and not rotated%s\n' \
+      "$C_R" "$s" "$C_N"; orphan_sec=$((orphan_sec+1))
+  done <<< "$cluster_sec"
+fi
+ghosts="$("${SSH[@]}" "kubectl -n $NS get pods --no-headers -o custom-columns=N:.metadata.name,P:.status.phase,R:.status.reason 2>/dev/null | grep -vE ' (Running|Succeeded|Pending) '")" || ghosts=""
+if [ -n "$ghosts" ]; then
+  dead_pods="$(printf '%s\n' "$ghosts" | grep -c .)"
+  printf '  %s✗ %-24s %d pod(s) in a terminal state, still counted by the scheduler%s\n' \
+    "$C_R" "dead pods" "$dead_pods" "$C_N"
+  printf '%s\n' "$ghosts" | head -5 | while read -r n p r; do
+    printf '%s       %s  %s %s%s\n' "$C_D" "$n" "$p" "$r" "$C_N"
+  done
+  [ "$dead_pods" -gt 5 ] && printf '%s       … and %d more%s\n' "$C_D" "$((dead_pods-5))" "$C_N"
+fi
+if [ "$orphan_sec" -eq 0 ] && [ "$dead_pods" -eq 0 ]; then
+  printf '  %s✔ %-24s nothing on the cluster that the repository cannot name%s\n' \
+    "$C_G" "cluster extras" "$C_N"
+fi
+
 # ── EVERY WORKLOAD SPEC NAMES A DIGEST (أ-1) ─────────────────────────────────────────────────
 #
 # Judged on the spec alone, and deliberately separate from the digest comparison above: this one
@@ -287,7 +350,7 @@ if [ "$naked" -eq 0 ]; then
 fi
 
 echo
-if [ $((bad+missing+naked+cfg_bad)) -eq 0 ]; then
+if [ $((bad+missing+naked+cfg_bad+orphan_sec+dead_pods)) -eq 0 ]; then
   printf '%s  ✔ all %d services run the digest this repo pins, and every spec names one%s\n' \
     "$C_G" "$ok" "$C_N"; exit 0
 fi
@@ -296,6 +359,12 @@ if [ "$cfg_bad" -gt 0 ]; then
 '     "$C_R" "$cfg_bad" "$C_N"
   printf '%s     every image can match while the thing that drives them does not%s
 ' "$C_D" "$C_N"
+fi
+if [ $((orphan_sec+dead_pods)) -gt 0 ]; then
+  printf '%s  ✗ the cluster holds %d secret(s) and %d dead pod(s) nobody deploys%s
+'     "$C_R" "$orphan_sec" "$dead_pods" "$C_N"
+  printf '%s     removing them changes a running cluster — that is a decision, not a cleanup%s
+'     "$C_D" "$C_N"
 fi
 if [ "$naked" -gt 0 ]; then
   printf '%s  ✗ %d workload(s) ask for a moving tag — correct today, whatever the tag points at%s\n' \
