@@ -700,6 +700,52 @@ async def internal_customers(request: Request, body: CustomersIn) -> dict:
             "truncated": cursor is not None}
 
 
+@router.post("/operations/tenants-with-visits", dependencies=[Depends(require_internal_token)])
+async def tenants_with_visits(request: Request) -> dict:
+    """Every establishment that has ever recorded a visit — NAMES ONLY, no visit rows.
+
+    WHY THIS EXISTS AS ITS OWN ROUTE. `insights` used to derive its tenant list from one page of
+    `/operations/visits-since`: five hundred visit rows, and `scan_all` orders by KEY, which for a
+    visit is `tenant|visit_id`. So a single establishment whose id sorts first alphabetically and
+    which has five hundred visits consumed the entire page — and the answer was a list of ONE
+    tenant. Forty shops on the cluster, thirty-nine of them never visited by the snapshot cron
+    again: their dashboard is computed once, the first time somebody opens it, and served
+    unchanged for ever after.
+
+    The question was never «give me some visits and I will work out who exists». It is «who
+    exists», and that answer is a set of at most a few hundred strings however many millions of
+    visits sit behind it. Reading it as a side effect of a page of visits is what made the size of
+    one shop able to hide every other shop.
+
+    PAGED TO EXHAUSTION, AND HONEST WHEN IT IS NOT. `scan_all` now takes a cursor, so this walks
+    the whole collection in key order accumulating distinct tenants. The budget is high because
+    what is kept is a set of tenant ids rather than rows; crossing it sets `exhaustive: false`
+    rather than returning a shorter list that looks complete.
+    """
+    c = request.app.state.container
+    PAGE, MAX_PAGES = 1000, 500          # up to 500,000 visit rows walked, holding only the names
+    tenants: set[str] = set()
+    after: str | None = None
+    pages = 0
+    exhaustive = True
+    while pages < MAX_PAGES:
+        rows = await c.datastore.scan_all(VISITS, limit=PAGE, after=after)
+        pages += 1
+        if not rows:
+            break
+        for r in rows:
+            name = r.get("tenant") or ""
+            if name:
+                tenants.add(name)
+        if len(rows) < PAGE:
+            break
+        after = f"{rows[-1].get('tenant', '')}|{rows[-1].get('id', '')}"
+    else:
+        exhaustive = False
+
+    return {"tenants": sorted(tenants), "count": len(tenants), "exhaustive": exhaustive}
+
+
 class VisitsSinceIn(BaseModel):
     # EMPTY MEANS EVERY TENANT, and that is not a convenience — it is what makes the catch-up able
     # to BOOTSTRAP. A consumer that can only ask about tenants it already knows can never learn
@@ -710,6 +756,19 @@ class VisitsSinceIn(BaseModel):
     # what came after — a cursor it owns, not a subscription we owe it.
     since: int = Field(ge=0)
     limit: int = Field(default=200, ge=1, le=1000)
+    # NEWEST FIRST, FOR THE READER THAT WANTS A WINDOW RATHER THAN A CATCH-UP.
+    #
+    # The catch-up needs ascending: a watermark that skips a row is a visit no consumer will ever
+    # hear about again. The SNAPSHOT needs the opposite — its indicators are all «the last ninety
+    # days» — and it was walking ascending from zero with a sixty-page budget, so a shop with
+    # 120,000 visits had its dashboard computed from 2021–2022 and `active_customers(90)` answered
+    # zero. Two readers, two orders, and forcing the second to walk the first's order is what made
+    # the busiest shops the ones with the worst numbers.
+    #
+    # `since` is ignored when this is set, deliberately: «the newest N» and «everything after a
+    # watermark» are different questions, and answering both at once would be a third question
+    # nobody asked.
+    newest_first: bool = False
 
 
 @router.post("/operations/visits/since", dependencies=[Depends(require_internal_token)])
@@ -734,7 +793,14 @@ async def visits_since(request: Request, body: VisitsSinceIn) -> dict:
     """
     c = request.app.state.container
     exhaustive = True
-    if body.tenant:
+    if body.tenant and body.newest_first:
+        # ONE READ, DESCENDING. No paging and no watermark: the caller asked for the newest
+        # `limit` visits and that is exactly one page. `exhaustive` says whether there were more
+        # behind them, so a snapshot can report itself partial rather than wrong.
+        rows, cursor = await c.datastore.find(
+            VISITS, {"tenant": body.tenant}, limit=body.limit, sort=("created", "desc"))
+        exhaustive = cursor is None
+    elif body.tenant:
         # PAGE FORWARD PAST WHAT THE READER ALREADY HAS — and the reason this is not one read.
         #
         # The datastore's `where` is equality only (ports/datastore.py), so `created > since`

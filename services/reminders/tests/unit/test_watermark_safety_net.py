@@ -61,7 +61,7 @@ def test_it_advances_only_after_the_batch_is_processed():
 def test_a_dropped_visit_is_still_recoverable_after_a_later_one_arrives():
     """The behaviour, end to end: B is delivered by the bus, A was dropped, and the catch-up must
     still see A. This is the customer who would otherwise never be reminded."""
-    from app.core.ingest import WATERMARKS, Ingest
+    from app.core.ingest import VISIT_WATERMARKS, Ingest
 
     class Store:
         def __init__(self):
@@ -92,6 +92,6 @@ def test_a_dropped_visit_is_still_recoverable_after_a_later_one_arrives():
     # B arrives on the bus. A — older, and dropped — is still sitting in operations.
     run(ing.on_event({"tenant": "t1", "visit_id": "B", "created": 200}, now=300))
 
-    assert run(store.get(WATERMARKS, "t1|visits")) in (None, {}) or \
-        int((run(store.get(WATERMARKS, "t1|visits")) or {}).get("mark") or 0) == 0, (
+    assert run(store.get(VISIT_WATERMARKS, "t1|visits")) in (None, {}) or \
+        int((run(store.get(VISIT_WATERMARKS, "t1|visits")) or {}).get("mark") or 0) == 0, (
         "a delivered event must not move the cursor past the one that was dropped")

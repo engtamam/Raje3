@@ -28,7 +28,9 @@ from __future__ import annotations
 
 from typing import Any
 
-WATERMARKS = "reminders_watermarks"
+# See `core/ingest.VISIT_WATERMARKS`: this one tracks RECEIPTS and that one tracks visits,
+# and until now both were called `WATERMARKS`.
+RECEIPT_WATERMARKS = "reminders_watermarks"
 CURSOR_KEY = "receipts"
 
 # What the peer calls each state, mapped to the field it lands in. A status we do not recognise is
@@ -51,11 +53,11 @@ class Receipts:
         self._max_pages = max(1, int(max_pages))
 
     async def _cursor(self) -> str:
-        row = await self._store.get(WATERMARKS, CURSOR_KEY)
+        row = await self._store.get(RECEIPT_WATERMARKS, CURSOR_KEY)
         return str((row or {}).get("cursor") or "")
 
     async def _advance(self, cursor: str) -> None:
-        await self._store.put(WATERMARKS, CURSOR_KEY,
+        await self._store.put(RECEIPT_WATERMARKS, CURSOR_KEY,
                               {"id": CURSOR_KEY, "cursor": str(cursor)})
 
     async def run(self) -> dict[str, Any]:

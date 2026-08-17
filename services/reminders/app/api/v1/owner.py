@@ -443,7 +443,9 @@ async def submit_custom_template(request: Request, name: str,
 
     # ── THE PLAN LIMIT, SPENT BEFORE THE SUBMISSION AND NOT AFTER ────────────────────────────
     #
-    # `templates.custom` is sold: 0 on الأساسية, then 1, 10, unlimited. `Quota.take` was written
+    # `templates.custom` is sold: 0, then 1, 9, unlimited — the figures in deploy/seed/plans.json,
+    # which is the only place they live. This comment said «10» and named a tier we retired, so
+    # support promised a tenth template and the door refused it. `Quota.take` was written
     # for it — refusing when exhausted, and refusing when it cannot reach billing, both on purpose
     # — and NOTHING EVER CALLED IT. A shop on the entry plan could submit unlimited texts to Meta.
     #

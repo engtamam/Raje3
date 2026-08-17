@@ -278,6 +278,14 @@ jobs:
       - name: every collection we write is in a backup manifest
         run: SERVICES_ROOT="$GITHUB_WORKSPACE/services" python3 platform/tools/ci/check_backup_coverage.py
 
+      # AND NOBODY TYPES THE PRODUCT'S CLOCK OUT AGAIN. `config/product.json` declares
+      # `Asia/Riyadh` and no service reads it; `timezone(timedelta(hours=3))` is written by hand in
+      # six files instead. Every one of them is right — Saudi Arabia has no daylight saving — and
+      # the cost arrives the day the number must change, as five of them changing and one not.
+      # This does not unpick the six; it stops the seventh.
+      - name: the product's clock is not written by hand in a new place
+        run: python3 ci/check_the_products_clock_is_not_written_by_hand.py
+
       # AND NO IMAGE REACHES THE SERVER FROM A LAPTOP. The console ran
       # `127.0.0.1:5055/raje3/console@…` in production — a registry one machine resolves, and only
       # while a developer holds a tunnel open — because ship.sh rewrote the reference ON THE NODE,

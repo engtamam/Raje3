@@ -32,18 +32,36 @@ def _visit(ref: str, when: int) -> dict:
 
 
 class AscendingFeed:
-    """operations' feed, in the order operations really serves it: oldest first, in pages."""
+    """operations' feed, in the two orders operations really serves it.
+
+    ASCENDING IS THE CATCH-UP'S ORDER and it is not negotiable: a watermark that skips a row is a
+    visit no consumer will ever hear about again. But the SNAPSHOT is a window — «the last ninety
+    days» — and walking a decade forward to reach last week is what this whole file is about. The
+    fix that stopped the reader keeping the OLDEST rows still walked from the oldest end, sixty
+    pages deep; a shop with a hundred and twenty thousand visits ran out of budget in 2022 and its
+    «recent tail» was two years stale.
+
+    So the route grew `newest_first`, and this fake serves it — because a fake that only knows the
+    old shape would fail a correct reader and pass a broken one.
+    """
 
     def __init__(self, rows: list[dict], page: int = 500):
         self.rows = sorted(rows, key=lambda r: r["created"])
         self.page = page
         self.calls = 0
 
-    def read(self, since: int, limit: int) -> dict:
+    def read(self, since: int, limit: int, newest_first: bool = False) -> dict:
         self.calls += 1
+        if newest_first:
+            newest = list(reversed(self.rows))[:limit]
+            return {"visits": sorted(newest, key=lambda r: r["created"]),
+                    "watermark": newest[0]["created"] if newest else since,
+                    "exhaustive": len(self.rows) <= limit,
+                    "more": False}
         fresh = [r for r in self.rows if r["created"] > since][:self.page]
         watermark = fresh[-1]["created"] if fresh else since
         return {"visits": fresh, "watermark": watermark,
+                "exhaustive": True,
                 "more": bool([r for r in self.rows if r["created"] > watermark])}
 
 
@@ -59,7 +77,8 @@ def _drive(feed: AscendingFeed, limit: int) -> VisitPage:
     real_post = peers._post                                                   # noqa: SLF001
 
     def fake_post(url, body, token, timeout):
-        return feed.read(int(body["since"]), int(body["limit"]))
+        return feed.read(int(body["since"]), int(body["limit"]),
+                         bool(body.get("newest_first")))
 
     peers._post = fake_post                                                   # noqa: SLF001
     try:
@@ -107,15 +126,20 @@ def test_a_shop_that_fits_is_not_marked_partial():
     assert len(page) == 120
 
 
-def test_the_reader_pages_to_the_end_rather_than_stopping_at_the_cap():
-    """THE MECHANISM, named. Stopping on the size cap is what made the result the oldest rows; the
-    page budget still bounds the work, and that is a bound on effort rather than on truth."""
+def test_the_reader_asks_for_the_newest_window_rather_than_walking_to_it():
+    """THE MECHANISM, and it changed once already.
+
+    The first repair paged forward to the end of the feed keeping a rolling tail — correct, and
+    still walking the wrong way: sixty pages of five hundred is thirty thousand visits read from
+    the shop's first year, and a busier shop simply ran out of budget before reaching last week.
+    Asking for the newest window is ONE read whatever the history behind it.
+    """
     feed = AscendingFeed([_visit(f"c{i}", NOW - 400 * DAY + i) for i in range(6000)])
 
     _drive(feed, limit=5000)
 
-    # 6000 rows at 500 a page is twelve reads. The old loop stopped after ten.
-    assert feed.calls == 12, feed.calls
+    assert feed.calls == 1, (
+        f"{feed.calls} reads to answer «the newest five thousand» — the walk is back")
 
 
 def test_the_snapshot_carries_the_truncation_to_the_screen():

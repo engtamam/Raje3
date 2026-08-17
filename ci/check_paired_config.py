@@ -38,6 +38,18 @@ PAIRS: list[tuple[str, str, str, str]] = [
     ("HOLDOUT_SHARE_PERCENT", "reminders", "insights",
      "both sides must select the SAME tenth by the same share, or the group insights calls «held» "
      "is not the group reminders withheld from"),
+    # ── THE QUIET HOURS, AND THEY ARE THE SAME PROMISE MADE BY TWO SERVICES ──────────────────
+    # «لا نراسل عملاءك قبل السابعة ولا بعد العاشرة» is one sentence to a shop owner, and it is
+    # enforced twice: `reminders` defers a reminder to the morning, `campaigns` holds a launch.
+    # They agree today by coincidence — nothing has ever compared them — and the day one moves,
+    # the product keeps its promise for reminders and breaks it for campaigns. What the customer
+    # sees is an offer at 06:40 from a shop that is shut, which is the message that earns a block.
+    ("SEND_WINDOW_START_HOUR", "reminders", "campaigns",
+     "one shop-facing promise about quiet hours, enforced separately by both services: a campaign "
+     "that launches before reminders would send is the promise broken on the louder half"),
+    ("SEND_WINDOW_END_HOUR", "reminders", "campaigns",
+     "the same window's other edge — a campaign still going out after reminders have stopped for "
+     "the night is the same defect an hour later"),
 ]
 
 

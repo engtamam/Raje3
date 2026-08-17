@@ -24,7 +24,12 @@ from __future__ import annotations
 
 from typing import Any
 
-WATERMARKS = "watermarks"
+# NAMED FOR WHAT IT TRACKS, and it used to be `WATERMARKS` — the identical name
+# `core/receipts.py` gives a DIFFERENT collection (`reminders_watermarks`). Two constants, one
+# name, one service: a reader following either one to its definition lands wherever their import
+# happened to point, and the backup manifest covered one of the two collections for months
+# because whoever wrote it followed the wrong import.
+VISIT_WATERMARKS = "watermarks"
 
 
 async def _resolve(flag: Any, tenant: str) -> bool:
@@ -168,7 +173,7 @@ class Ingest:
         return {"read": read, "scheduled": scheduled, "batches": batches, "watermark": mark}
 
     async def _watermark(self, tenant: str) -> int:
-        row = await self._store.get(WATERMARKS, f"{tenant}|visits")
+        row = await self._store.get(VISIT_WATERMARKS, f"{tenant}|visits")
         return int((row or {}).get("mark") or 0)
 
     async def _advance(self, tenant: str, mark: int) -> None:
@@ -177,7 +182,7 @@ class Ingest:
         current = await self._watermark(tenant)
         if mark <= current:
             return
-        await self._store.put(WATERMARKS, f"{tenant}|visits",
+        await self._store.put(VISIT_WATERMARKS, f"{tenant}|visits",
                               {"id": f"{tenant}|visits", "tenant": tenant, "mark": mark})
 
 

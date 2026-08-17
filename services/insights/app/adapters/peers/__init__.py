@@ -113,6 +113,7 @@ class HttpPeers:
     def __init__(self, *, operations_url: str, visits_path: str, catalogue_path: str,
                  branches_path: str = "/internal/operations/branches",
                  scope_path: str = "/internal/operations/branch-scope",
+                 tenants_path: str = "/internal/operations/tenants-with-visits",
                  reminders_url: str, send_path: str, consent_count_path: str,
                  ceiling_pressure_path: str = "/internal/reminders/ceiling-pressure",
                  effect_path: str = "/internal/reminders/effect",
@@ -124,6 +125,7 @@ class HttpPeers:
         self._catalogue_url = operations_url.rstrip("/") + catalogue_path
         self._branches_url = operations_url.rstrip("/") + branches_path
         self._scope_url = operations_url.rstrip("/") + scope_path
+        self._tenants_url = operations_url.rstrip("/") + tenants_path
         self._send_url = reminders_url.rstrip("/") + send_path
         self._entitlement_url = billing_url.rstrip("/") + entitlement_path
         self._consent_url = reminders_url.rstrip("/") + consent_count_path
@@ -155,27 +157,25 @@ class HttpPeers:
         # So the loop pages to the END of the feed and keeps a rolling tail. The page budget still
         # bounds the work — that is a bound on effort, which is honest — but the rows kept are the
         # ones the windows are about.
+        # ONE READ, NEWEST FIRST, AND THE PAGING IS GONE. Walking forward and keeping a rolling
+        # tail was the previous repair, and it was still walking the wrong way: `PAGE_BUDGET` × 500
+        # is thirty thousand visits, read FROM 2021, and a shop with a hundred and twenty thousand
+        # ended its budget in 2022 — so the «tail» it kept was two years stale.
+        # `active_customers(90)` answered 0, `visits_week` answered 0, and `at_risk` named people
+        # who stopped coming two years ago. The symptoms of ي-1, moved from five thousand rows to
+        # thirty thousand and no further.
+        #
+        # `newest_first` asks operations the question this reader actually has. The route reads
+        # descending and says whether more stood behind them; the budget above is no longer spent
+        # walking a decade to reach last week.
         out = VisitPage()
-        cursor = since
-        pages = 0
-        for _ in range(PAGE_BUDGET):
-            data = _post(self._visits_url, {"tenant": tenant, "since": cursor, "limit": 500},
-                         self._token, self._timeout)
-            rows = data.get("visits") or []
-            out.extend(rows)
-            pages += 1
-            cursor = int(data.get("watermark") or cursor)
-            # DROP FROM THE FRONT AS WE GO, so a shop with a hundred thousand visits does not have
-            # them all in memory at once to throw most away at the end.
-            if len(out) > limit:
-                out.truncated = True
-                del out[:len(out) - limit]
-            if not data.get("more"):
-                break
-        else:
-            # THE BUDGET RAN OUT WITH MORE TO READ. The tail we hold is still the newest we saw,
-            # but it is not the newest that exists — and a snapshot must be able to say so.
-            out.truncated = True
+        data = _post(self._visits_url,
+                     {"tenant": tenant, "since": 0, "limit": limit, "newest_first": True},
+                     self._token, self._timeout)
+        out.extend(data.get("visits") or [])
+        # NOT `more`: that field belongs to the watermark reader. `exhaustive` is the route saying
+        # whether anything stood behind the window it returned.
+        out.truncated = not data.get("exhaustive", True)
         return out
 
     async def catalogue(self, tenant: str) -> list[dict]:
@@ -232,9 +232,18 @@ class HttpPeers:
         data rather than remembered, with no tenant filter — which is what the peer's own comment
         calls the point of that path rather than a forgotten one.
         """
-        data = _post(self._visits_url, {"tenant": "", "since": since, "limit": 500},
-                     self._token, self._timeout)
-        return sorted({v.get("tenant", "") for v in (data.get("visits") or []) if v.get("tenant")})
+        # ITS OWN ROUTE NOW, AND IT USED TO BE A SIDE EFFECT OF READING VISITS. Five hundred visit
+        # rows came back in KEY order — a visit's key is `tenant|visit_id` — so one establishment
+        # sorting first alphabetically with five hundred visits filled the whole page, and this
+        # returned a list of ONE tenant. Forty shops on the cluster, thirty-nine of them never
+        # visited by the snapshot cron again: each one's dashboard computed once, on the first
+        # open, and served unchanged for ever after.
+        #
+        # The question is «who exists», and its answer is a few hundred strings no matter how many
+        # millions of visits stand behind them. Asking it through a page of visits is what let the
+        # size of one shop hide every other shop.
+        data = _post(self._tenants_url, {}, self._token, self._timeout)
+        return sorted(str(x) for x in (data.get("tenants") or []) if x)
 
     async def send(self, *, tenant: str, subject_ref: str, template_type: str, cls: str,
                    owner_text: str, idempotency_key: str) -> dict[str, Any]:

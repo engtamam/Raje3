@@ -187,7 +187,7 @@ class HttpQuota:
         """Spend one unit of a counter that IS a limit — and refuse when it is exhausted.
 
         THE OPPOSITE OF `consume` ABOVE, deliberately. Messages are measured and never refused,
-        because we do not own the ceiling. `templates.custom` we DO sell: 0 on الأساسية, 1, 10,
+        because we do not own the ceiling. `templates.custom` we DO sell: 0, 1, 9 (plans.json),
         unlimited — and a plan limit that fails open is not a plan limit, it is a label.
 
         UNREACHABLE REFUSES HERE. Failing open on a message loses a measurement; failing open on

@@ -10,7 +10,7 @@ import asyncio
 
 import pytest
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core.receipts import CURSOR_KEY, WATERMARKS, Receipts
+from app.core.receipts import CURSOR_KEY, RECEIPT_WATERMARKS, Receipts
 from app.core.stores import SendLogStore
 
 T = "t_receipts"
@@ -90,7 +90,7 @@ def test_the_cursor_moves_only_after_the_writes_and_never_on_an_unreadable_peer(
     feed = Feed([{"receipts": [{"delivery_id": "dlv_4", "receipt_status": "read",
                                 "receipt_ts": 1700}], "cursor": "c9"}])
     run(Receipts(store=st, log=log, feed=feed).run())
-    assert run(st.get(WATERMARKS, CURSOR_KEY))["cursor"] == "c9"
+    assert run(st.get(RECEIPT_WATERMARKS, CURSOR_KEY))["cursor"] == "c9"
 
     class Unreadable(Feed):
         async def receipts(self, *, after: str = ""):
@@ -101,7 +101,7 @@ def test_the_cursor_moves_only_after_the_writes_and_never_on_an_unreadable_peer(
     out = run(Receipts(store=st, log=log, feed=dead).run())
     assert out.get("unreadable") is True
     # Held exactly where it was, and asked from there — not from the beginning, and not past it.
-    assert run(st.get(WATERMARKS, CURSOR_KEY))["cursor"] == "c9"
+    assert run(st.get(RECEIPT_WATERMARKS, CURSOR_KEY))["cursor"] == "c9"
     assert dead.asked == ["c9"]
 
 
