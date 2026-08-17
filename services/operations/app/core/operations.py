@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core import branches as B
+from app.core.digits import WESTERN, western
 from app.core.models import Asset, Customer, Visit
 from app.core.pii import subject_ref
 from app.core.stores import (AssetStore, BranchStore, CustomerStore, OperatorStore,
@@ -523,7 +524,12 @@ def _normalise_phone(phone: str) -> str:
     Kept deliberately small and country-shaped rather than a general library: this is a Saudi
     product, and a general phone parser would accept forms that are certainly typos here.
     """
-    digits = "".join(c for c in phone if c.isdigit())
+    # FOLD BEFORE FILTERING, AND FILTER ON 0-9 RATHER THAN `isdigit()`. This line used to read
+    # `if c.isdigit()`, which is true of ARABIC-INDIC DIGIT FIVE — so an Arabic keyboard's digits
+    # their own script, `startswith("966")` matched nothing, `lstrip("0")` stripped nothing, and the
+    # number was stored exactly as typed. The same man on two keyboards became two customers, which
+    # is the outcome the paragraph above exists to prevent.
+    digits = "".join(c for c in western(phone) if c in WESTERN)
     if not digits:
         return ""
     if digits.startswith("00966"):

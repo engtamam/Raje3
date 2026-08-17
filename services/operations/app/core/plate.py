@@ -27,14 +27,15 @@ scripts is a car nobody can find.
 # arabic-indic-digits: intentional — this module converts them to 0-9, so it must name them.
 from __future__ import annotations
 
-# ٠١٢٣٤٥٦٧٨٩ → 0123456789. Done at the edge so everything downstream — search, comparison, the
-# message that prints the plate back to the customer — sees one form and only one.
-_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩٠", "01234567890")
+# Done at the edge so everything downstream — search, comparison, the message that prints the
+# plate back to the customer — sees one form and only one. THE TABLE MOVED to `app/core/digits.py`
+# once two other modules were found needing it and not having it; this file had it right first.
+from app.core.digits import WESTERN, western
 
 
 def normalise(plate: str) -> str:
     """Trim, collapse inner runs of space, and put every digit into Western form."""
-    return " ".join((plate or "").translate(_ARABIC_DIGITS).split())
+    return " ".join(western(plate).split())
 
 
 def is_plausible(plate: str) -> bool:
@@ -42,7 +43,9 @@ def is_plausible(plate: str) -> bool:
     text = normalise(plate)
     if not text:
         return False
-    has_digit = any(ch.isdigit() for ch in text)
+    # `isdigit()` here was harmless — `text` is already folded — but it is the idiom that cost us
+    # a customer's phone number in `operations.py`, so it does not survive anywhere.
+    has_digit = any(ch in WESTERN for ch in text)
     # `isalpha` is unicode-aware, so Arabic letters answer True without a range of our own — and a
     # hand-written range is how the Persian ی or a stray tatweel becomes a rejected plate.
     has_letter = any(ch.isalpha() for ch in text)

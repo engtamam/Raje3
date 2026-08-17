@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import hashlib
 
+from app.core.digits import western
+
 # Crockford-ish, minus the pairs a person confuses when reading aloud: 0/O, 1/I/L, and the
 # vowels that turn a random code into an accidental word.
 ALPHABET = "23456789BCDFGHJKMNPQRSTVWXYZ"
@@ -63,7 +65,11 @@ def normalise(value: str) -> str:
     missing dash. All of those are the same code, and refusing them would be refusing a customer
     holding a valid offer over our own formatting.
     """
-    v = (value or "").strip().upper().replace(" ", "")
+    # AND THE KEYBOARD'S OWN SCRIPT, which is the one thing on this list the person cannot see
+    # they did. `code_for` draws from an alphabet containing 2-9, so most codes we issue carry at
+    # least one digit: an operator on an Arabic keyboard typed a valid coupon and was refused,
+    # holding a phone that showed the code we sent.
+    v = western(value).strip().upper().replace(" ", "")
     if v.startswith(PREFIX) and not v.startswith(PREFIX + "-"):
         v = f"{PREFIX}-{v[len(PREFIX):]}"
     return v

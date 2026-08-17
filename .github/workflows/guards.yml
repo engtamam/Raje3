@@ -453,6 +453,13 @@ jobs:
       - name: a module copied into every service stays one module
         run: python3 ci/check_a_module_copied_into_every_service_stays_one_module.py
 
+      # `str.isdigit()` reads as «is this 0-9» and means «is this a decimal digit in any script».
+      # In an Arabic-market product that gap is invisible at the call site: it survived review at
+      # three sites here, one of them the phone normaliser whose whole purpose is that one person
+      # is one customer. An Arabic keyboard made him two.
+      - name: a digit from an arabic keyboard is still a digit
+        run: python3 ci/check_a_digit_from_an_arabic_keyboard_is_still_a_digit.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already

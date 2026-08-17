@@ -498,3 +498,16 @@ def test_a_visit_we_cannot_name_still_reads_as_something(ops):
 
     got = run(svc.customer_record(A, rec.customer.id))
     assert got["visits"][0]["services"] == "تلميع كامل"
+
+
+# arabic-indic-digits: intentional — this is the keyboard the defect came from.
+def test_one_man_on_two_keyboards_is_one_customer():
+    """THE FAILURE THIS FUNCTION EXISTS TO PREVENT, ARRIVING THROUGH THE FILTER ITSELF. The line
+    read `if c.isdigit()`, which is true of ٥ — so an Arabic keyboard's digits passed through in
+    their own script, `startswith("966")` matched nothing, and the number was stored as typed. He
+    registered on the tablet at the counter and again on the till, and became two customers with
+    one visit each. Held by `ci/check_a_digit_from_an_arabic_keyboard_is_still_a_digit.py`."""
+    assert _normalise_phone("٠٥٠١٢٣٤٥٦٧") == _normalise_phone("0501234567")
+    assert _normalise_phone("+966٥٠١٢٣٤٥٦٧") == _normalise_phone("+966501234567")
+    # The Persian/Urdu forms ship on phones sold here too.
+    assert _normalise_phone("۰۵۰۱۲۳۴۵۶۷") == _normalise_phone("0501234567")

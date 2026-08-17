@@ -35,6 +35,8 @@ import hashlib
 import hmac
 import time
 
+from app.core.digits import WESTERN
+
 #: Long enough for a slow save on a bad connection, short enough that a tablet left unattended
 #: stops being somebody else's signature.
 TTL_SECONDS = 300
@@ -54,6 +56,11 @@ def issue(salt: str, tenant: str, operator_id: str, *, now: int | None = None,
     return f"{opened}.{expires}.{_sign(salt, tenant, operator_id, opened, expires)}"
 
 
+def _plain(part: str) -> bool:
+    """Every character is 0-9 — the shape this module's own signer emits, and no other."""
+    return bool(part) and all(c in WESTERN for c in part)
+
+
 def verifies(salt: str, tenant: str, operator_id: str, ticket: str,
              *, at: int | None = None, now: int | None = None) -> bool:
     """Does this ticket prove this operator, in this establishment, for the work done at `at`?
@@ -64,7 +71,11 @@ def verifies(salt: str, tenant: str, operator_id: str, ticket: str,
     if not salt or not tenant or not operator_id or not ticket:
         return False
     parts = ticket.split(".")
-    if len(parts) != 3 or not parts[0].isdigit() or not parts[1].isdigit():
+    # 0-9 ONLY, EXPLICITLY. `str.isdigit()` is true for ARABIC-INDIC DIGIT FIVE, and `int()` of
+    # carrying another script's digits parsed here. The MAC still refused it, which is why this is
+    # a hardening and not a hole — but a parser that accepts what the signer never emits is one
+    # surprise away from being one.
+    if len(parts) != 3 or not _plain(parts[0]) or not _plain(parts[1]):
         return False
     opened, expires, mac = int(parts[0]), int(parts[1]), parts[2]
     clock = int(now if now is not None else time.time())
