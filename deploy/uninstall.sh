@@ -54,14 +54,33 @@ esac; done
 # «22 pods» does not.
 pods=$(kubectl -n "$NS" get pods --no-headers 2>/dev/null | wc -l | tr -d ' ')
 pvcs=$(kubectl -n "$NS" get pvc --no-headers 2>/dev/null | wc -l | tr -d ' ')
-rows=$(kubectl -n "$NS" exec postgres-0 -- psql -U postgres -d base_services -tAc \
-        "select count(*) from kv where collection='tenant_sector'" 2>/dev/null | tr -d ' \r')
+# THIS QUERY WAS WRONG IN THREE PLACES AT ONCE, AND SAID NOTHING ABOUT ANY OF THEM. It asked for
+# role `postgres` (the role is `base_services`), from table `kv` (the table is `kv_store`), for
+# collection `tenant_sector` (that collection was removed with the trade a shop is in). Each alone
+# is fatal; all three together produced an empty string, `2>/dev/null` ate all three errors, and
+# the `-n` test below then quietly skipped the line. So the one number in this prompt that was
+# supposed to make a person stop — «you are about to delete N shops and everything they own» —
+# has never once been printed. Everybody who ran this saw pods and volumes and typed the namespace.
+#
+# AND SILENCE IS NOT ZERO. If the count cannot be read the script says so and REFUSES, because
+# «the query failed» and «there is nothing here» are the same empty string to a shell and opposite
+# facts to the person deciding. An uninstall that cannot see what it is deleting must not proceed.
+PGU=$(pg_role) || exit 1
+rows=$(kubectl -n "$NS" exec postgres-0 -- psql -U "$PGU" -d base_services -tAc \
+        "select count(*) from kv_store where collection='tenants'" 2>&1 | tr -d ' \r')
 
 echo -e "${C_B}Raje3 — uninstall${C_N}"
 echo "  namespace : $NS"
 echo "  pods      : ${pods:-0}"
 echo "  volumes   : ${pvcs:-0}$([[ $KEEP_DATA -eq 1 ]] && echo '  (kept)')"
-[[ -n "${rows:-}" ]] && echo "  shops     : $rows  ${C_R}(their customers, visits and points go with them)${C_N}"
+if [[ "$rows" =~ ^[0-9]+$ ]]; then
+  echo "  shops     : $rows  ${C_R}(their customers, visits and points go with them)${C_N}"
+elif [[ $KEEP_DATA -ne 1 ]]; then
+  echo -e "  ${C_R}✗ cannot count the shops about to be deleted: ${rows:-<no answer>}${C_N}"
+  echo    "    Refusing: an uninstall that cannot see what it destroys is not a decision."
+  echo    "    Re-run with --keep-data, or fix the read first."
+  exit 1
+fi
 
 if [[ $ASSUME_YES -ne 1 ]]; then
   # THE WORD, NOT A LETTER. `y` is a reflex; typing the namespace is a decision — the same rule

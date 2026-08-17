@@ -76,3 +76,31 @@ else
   exit 2
 fi
 export CLUSTER_VIA
+
+# WHO ASKS POSTGRES? ONE ANSWER, HERE, FOR THE SAME REASON THE CLUSTER HAS ONE.
+#
+# Three scripts spelled the role out and all three were wrong, in two different ways. pre-deploy
+# said `-U platform` and provisioned nothing while announcing «databases present». check-posture
+# said `-U platform` and has reported «postgres does not serve TLS» on every run since it was
+# written, including on clusters that serve it. uninstall said `-U postgres` and so the count of
+# shops it was about to destroy — the one number in that prompt meant to stop a person — has never
+# printed. None of them errored: a psql that cannot connect writes to stderr and returns nothing,
+# and nothing reads as «no TLS», «no shops», «no databases».
+#
+# The role is minted by gen-secrets and written into every DATASTORE_DSN. It is a fact about the
+# cluster, so it is read from the cluster, once.
+pg_role() {
+  if [ -z "${_PG_ROLE:-}" ]; then
+    _PG_ROLE="$(kubectl -n "${NS:-base-services}" get secret tenant-service-secrets \
+                -o jsonpath='{.data.DATASTORE_DSN}' 2>/dev/null \
+                | base64 -d 2>/dev/null | cut -d/ -f3 | cut -d: -f1)"
+    # A READER THAT CANNOT READ SAYS SO. Returning an empty role would put every caller back in the
+    # silence this function exists to end.
+    [ -n "$_PG_ROLE" ] || {
+      printf '\033[31m  ✗ cannot read the postgres role from tenant-service-secrets.\033[0m\n' >&2
+      printf '\033[2m    Has gen-secrets run? Without it no database question can be asked.\033[0m\n' >&2
+      return 1
+    }
+  fi
+  printf '%s' "$_PG_ROLE"
+}

@@ -48,10 +48,15 @@ fi
 ok(){   pass=$((pass+1)); [[ $QUIET -eq 1 ]] || echo -e "  ${C_G}ok${C_N}   $1"; }
 bad(){  fail=$((fail+1)); echo -e "  ${C_R}FAIL${C_N} $1"; echo -e "       ${C_Y}fix:${C_N} $2"; }
 note(){ [[ $QUIET -eq 1 ]] || echo -e "  ${C_D}·    $1${C_N}"; }
-head(){ [[ $QUIET -eq 1 ]] || echo -e "\n${C_D}── $1 ─────────────────────────────────────────${C_N}"; }
+# NAMED `head` UNTIL 2026-08-17, WHICH BLINDED EVERY PIPELINE IN THIS FILE. A shell function beats
+# the binary of the same name, so `... | head -1` stopped filtering and started calling THIS —
+# which ignores its stdin entirely and prints a section rule. Two reads died of it: the etcd probe
+# that CONFIRMS secrets are really encrypted at rest, and the postgres pod lookup that all three
+# database claims depend on. Neither then said «I could not read»; each produced a verdict.
+section(){ [[ $QUIET -eq 1 ]] || echo -e "\n${C_D}── $1 ─────────────────────────────────────────${C_N}"; }
 
 # ── 1. secrets at rest ────────────────────────────────────────────────────────────────────────
-head "encryption at rest"
+section "encryption at rest"
 enc=$(sudo k3s secrets-encrypt status 2>/dev/null | grep -i "Encryption Status" | awk '{print $NF}')
 if [[ "$enc" == "Enabled" ]]; then
   # ENABLED IS NOT ENOUGH, AND THE STATUS LINE CANNOT TELL YOU. `enable` covers what is written
@@ -83,7 +88,7 @@ else
 fi
 
 # ── 2. the disk ───────────────────────────────────────────────────────────────────────────────
-head "the volume under the database"
+section "the volume under the database"
 if lsblk -o FSTYPE 2>/dev/null | grep -qi "crypto_LUKS"; then
   ok "the data volume is encrypted"
 else
@@ -95,7 +100,7 @@ else
 fi
 
 # ── 3. in transit ─────────────────────────────────────────────────────────────────────────────
-head "service to database"
+section "service to database"
 
 # THREE MEASUREMENTS, NOT ONE, because the DSN alone answers the wrong question.
 #
@@ -113,21 +118,55 @@ head "service to database"
 # So: does the server offer it, how many live sessions actually use it, and does the client demand
 # it. The middle one is the only measurement of reality; the other two are of intent.
 
-pg=$(kubectl -n "$NS" get pod -l app=postgres -o name 2>/dev/null | head -1)
-[[ -n "$pg" ]] || pg="pod/postgres-0"
-serving=$(kubectl -n "$NS" exec "${pg#pod/}" -- psql -U platform -d operations -tAc "SHOW ssl" 2>/dev/null | tr -d '[:space:]')
+# AND THE POD IS CONFIRMED, NOT ASSUMED. The label lookup returned nothing here while returning
+# `pod/postgres-0` from an interactive shell one second earlier, so the fallback ran, `${pg#pod/}`
+# was still empty, and every read below became `pods ""` — «Error from server (NotFound)». Which
+# name it lands on matters less than this: a script about to make three security claims must know
+# it is talking to something. `kubectl get` is the cheapest possible way to be sure.
+pg=$(kubectl -n "$NS" get pod -l app=postgres -o name 2>/dev/null | head -1 | tr -d '\r')
+pg="${pg#pod/}"
+[[ -n "$pg" ]] || pg="postgres-0"
+if ! kubectl -n "$NS" get pod "$pg" >/dev/null 2>&1; then
+  bad "no postgres pod named '$pg' in namespace '$NS' — the three database claims below cannot be
+       made at all" \
+      "check the namespace, or name the pod: PGPOD=… bash deploy/check-posture.sh"
+  pg=""
+fi
+# THE ROLE IS READ, NEVER SPELLED. This said `-U platform`, postgres has no such role, and so both
+# reads below returned nothing from the day they were written — which is not «no TLS», it is «I
+# could not ask». So this check has reported a TLS failure on every run since, including on
+# clusters that serve TLS perfectly; and a permanent red alarm is a thing people learn to scroll
+# past, which costs more than the check was ever worth. `pg_role` lives in cluster.sh for the same
+# reason the cluster's address does: one answer, in one file, for every script here.
+PGU=$(pg_role) || exit 1
+serving=$(kubectl -n "$NS" exec "$pg" -- psql -U "$PGU" -d operations -tAc "SHOW ssl" 2>&1 | tr -d '[:space:]')
+# THREE ANSWERS, NOT TWO. `on` and `off` are what postgres says; anything else is what the plumbing
+# says, and folding it into «does not serve TLS» is how this check spent its whole life accusing a
+# cluster that answers `on` when asked directly. An operator who is told the wrong thing about
+# encryption either panics or stops reading — and it has been the second one.
 if [[ "$serving" == "on" ]]; then
   ok "postgres serves TLS"
-else
+elif [[ "$serving" == "off" ]]; then
   bad "postgres does not serve TLS — no client can encrypt to it however its DSN is written" \
       "mint the postgres-tls Secret and apply platform/deploy/k3s/platform/datastores.yaml"
+else
+  bad "cannot ask postgres whether it serves TLS: ${serving:-<no answer>}" \
+      "this is not a verdict about encryption — fix the read, then run this again"
 fi
 
 # THE ONE THAT CANNOT BE ARGUED WITH. Configuration says what should happen; pg_stat_ssl says what
 # is happening on every connection open right now.
-enc=$(kubectl -n "$NS" exec "${pg#pod/}" -- psql -U platform -d operations -tAc \
-      "SELECT count(*) FILTER (WHERE ssl) || '/' || count(*) FROM pg_stat_ssl" 2>/dev/null | tr -d '[:space:]')
-if [[ -n "$enc" ]]; then
+enc=$(kubectl -n "$NS" exec "$pg" -- psql -U "$PGU" -d operations -tAc \
+      "SELECT count(*) FILTER (WHERE ssl) || '/' || count(*) FROM pg_stat_ssl" 2>&1 | tr -d '[:space:]')
+# `-n` IS NOT A MEASUREMENT, AND BELIEVING IT PRINTED A GREEN VERDICT OUT OF AN ERROR MESSAGE.
+# When the read failed, `2>&1` put `Error from server (NotFound): pods...` into this variable.
+# `-n` was true, `${enc#*/}` and `${enc%/*}` both returned the whole unsplit string, the two were
+# therefore equal, and the check announced «every live database session is encrypted» — quoting
+# the error as its evidence. Silence read as failure was the old defect; noise read as success is
+# the worse one, because it is the answer nobody goes back to check.
+#
+# So the shape is verified before the value is believed: `N/M` and nothing else.
+if [[ "$enc" =~ ^[0-9]+/[0-9]+$ ]]; then
   plain=${enc#*/}; cipher=${enc%/*}
   if [[ "$cipher" == "$plain" ]]; then
     ok "every live database session is encrypted ($enc)"
@@ -139,6 +178,12 @@ if [[ -n "$enc" ]]; then
        network is in the clear" \
         "check that the services reconnected after postgres began serving TLS"
   fi
+else
+  # AND NO `else` AT ALL WAS THE ORIGINAL SHAPE: an unreadable answer printed nothing, so the
+  # measurement this section calls «the one that cannot be argued with» simply vanished from the
+  # report — and a report with a line missing reads as a report with nothing wrong.
+  bad "cannot measure live session encryption: ${enc:-<no answer>}" \
+      "this is not a verdict about encryption — fix the read, then run this again"
 fi
 
 dsn=$(kubectl -n "$NS" get secret operations-secrets -o jsonpath='{.data.DATASTORE_DSN}' 2>/dev/null | base64 -d 2>/dev/null)
@@ -152,7 +197,7 @@ else
 fi
 
 # ── 4. the shared secrets, in the cluster rather than in the repository ───────────────────────
-head "shared secrets identical across services"
+section "shared secrets identical across services"
 for key in PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK; do
   # THE VALUES, NOT THE DECLARATIONS. check_deploy_wiring.py already proves every service NAMES
   # them; this proves the running pods HOLD the same ones. Two different PII_SALTs fold one person
@@ -174,7 +219,7 @@ for key in PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK; do
 done
 
 # ── 5. egress ─────────────────────────────────────────────────────────────────────────────────
-head "who may reach the internet"
+section "who may reach the internet"
 out=$(kubectl -n "$NS" get networkpolicies -o json 2>/dev/null | grep -c '"0.0.0.0/0"' || true)
 allowed=$(kubectl -n "$NS" get deploy -o json 2>/dev/null \
           | grep -o '"name":"EGRESS_ALLOWED_HOSTS","value":"[^"]*"' | sed 's/.*value":"//;s/"//' | sort -u)
@@ -201,7 +246,7 @@ fi
 #
 # deploy/verify-fleet.sh answers it: it runs from the repo — the only place that holds the whole
 # fleet's intended pins — and reads the cluster over ssh.
-head "running images"
+section "running images"
 note "compared against the values files beside this script; the repo's pins are authoritative — deploy/verify-fleet.sh"
 drift=0
 for f in deploy/services/*.values.yaml; do

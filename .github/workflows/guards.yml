@@ -334,6 +334,17 @@ jobs:
       - name: a seeder calls a route its service serves
         run: python3 ci/check_a_seeder_calls_a_route_its_service_serves.py
 
+      # AND NO DEPLOY SCRIPT SPELLS THE POSTGRES ROLE. `pre-deploy.sh` used `-U platform`, a role
+      # that does not exist, so every createdb failed and the next line announced «databases
+      # present» — twenty-four databases that were not there. That was found and fixed in the one
+      # file where it had been noticed; the same spelling sat untouched in check-posture.sh, which
+      # therefore reported «postgres does not serve TLS» on every run of its life against a cluster
+      # that answers `on`, and in uninstall.sh, whose count of the shops it is about to destroy has
+      # never printed. A guessed role does not error visibly — it returns nothing, and nothing
+      # reads as a verdict.
+      - name: a deploy script reads the postgres role rather than spelling it
+        run: python3 ci/check_a_deploy_script_does_not_invent_a_postgres_role.py
+
       # AND EVERY VALUES FILE RENDERS — RUN HERE TOO, NOT ONLY IN THE HELM JOB BELOW. That job is
       # correct and stays; it protects the branch. This one protects the SHIPMENT, because the
       # gate sweep is what runs before a bundle is packed and an installer is called, and the
