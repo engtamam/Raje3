@@ -47,4 +47,11 @@ describe('a digit typed on an arabic keyboard reaches the box', () => {
     expect(western('+٩٦٦٥٠١٢٣٤٥٦٧')).toBe('+966501234567');
     expect(western('05 01 234567')).toBe('05 01 234567');
   });
+  it('keeps the discount he typed on the launch screen', () => {
+    // `Launch.tsx` filters with `[^0-9.]` — 0-9 plus a decimal point. The dot inside the brackets
+    // is why my own gate stood green over this box for two rounds while I fixed six others: it
+    // matched `[^0-9]` exactly and nothing else. The deletion was identical.
+    expect(western('٢٥').replace(/[^0-9.]/g, '')).toBe('25');
+    expect(western('١٢.٥٠').replace(/[^0-9.]/g, '')).toBe('12.50');
+  });
 });

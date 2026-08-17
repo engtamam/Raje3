@@ -37,9 +37,19 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CONSOLE = ROOT / "apps" / "console" / "src"
 
-#: `.replace(/\D/g, …)` and `.replace(/[^0-9]/…)` — the two spellings of «delete anything that is
-#: not a Western digit», applied to a string a person typed.
-BANNED = re.compile(r"\.replace\(\s*/(?:\\D|\[\^0-9\])")
+#: ANY NEGATED CLASS BUILT ON `0-9`, NOT JUST THE BARE ONE.
+#:
+#: THE FIRST VERSION MATCHED `\D` AND `[^0-9]` EXACTLY, AND MISSED THE REST OF ITS OWN FAMILY.
+#: `[^0-9.]` in `Launch.tsx` — the campaign's discount amount — and `[^0-9-]` in `Customer.tsx`
+#: delete an Arabic-Indic digit exactly as thoroughly; the extra character inside the brackets
+#: changes nothing about that. So this gate stood green over the discount box while I fixed six
+#: other inputs, because a `.` sat between the `9` and the `]`.
+BANNED = re.compile(r"\.replace\(\s*/(?:\\D|\[\^[^\]]*0-9)")
+
+#: The fold that makes it harmless, required ON THE SAME LINE because that is where a reader
+#: checks: `western(x).replace(/[^0-9.]/g, '')` keeps the digit and then drops the punctuation,
+#: which is the intent the bare form only appears to have.
+FOLDED = re.compile(r"\b(?:western|digitsOnly)\s*\(")
 
 #: A line that is entirely comment. Not a parser — the check below only needs to skip prose, and
 #: the patterns above are distinctive enough that a false skip is safer than a false accusation.
@@ -67,7 +77,7 @@ def main() -> int:
         for n, line in enumerate(text.splitlines(), start=1):
             if COMMENT.match(line):
                 continue
-            if BANNED.search(line):
+            if BANNED.search(line) and not FOLDED.search(line):
                 hits.append(f"{path.relative_to(ROOT).as_posix()}:{n}  {line.strip()}")
 
     if hits:

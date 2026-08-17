@@ -32,6 +32,7 @@ import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '.
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
+import { western } from '../digits';
 
 interface Goal {
   goal: string;
@@ -301,11 +302,17 @@ export function Launch({ session, catalog, onDone }:
               <input
                 type="number"
                 min={1}
-                max={90}
+                // 99, WHICH IS WHAT THE SEND ACCEPTS. It said 90 while `_OFFER` in campaigns and
+                // `_AMOUNT` in reminders both accept 1-99 — a third number for one rule, and the
+                // only one a person ever reads.
+                max={99}
                 dir="ltr"
-                value={offerValue.replace(/[^0-9.]/g, '')}
+                value={western(offerValue).replace(/[^0-9.]/g, '')}
                 onChange={(e) => {
-                  const n = e.target.value.replace(/[^0-9.]/g, '');
+                  // FOLD, THEN DROP THE PUNCTUATION. `[^0-9.]` is exactly 0-9 plus a dot, so an
+                  // Arabic keyboard's digits were deleted here as he typed the discount — the
+                  // box stayed empty on the screen that launches a campaign.
+                  const n = western(e.target.value).replace(/[^0-9.]/g, '');
                   setOfferValue(n ? (offerValue.includes('ريال') ? `${n} ريال` : `${n}%`) : '');
                   setPreview(null);
                 }}
@@ -315,7 +322,7 @@ export function Launch({ session, catalog, onDone }:
                 ariaLabel="نوع الخصم"
                 value={offerValue.includes('ريال') ? 'sar' : 'pct'}
                 onChange={(kind) => {
-                  const n = offerValue.replace(/[^0-9.]/g, '');
+                  const n = western(offerValue).replace(/[^0-9.]/g, '');
                   setOfferValue(n ? (kind === 'sar' ? `${n} ريال` : `${n}%`) : '');
                   setPreview(null);
                 }}
