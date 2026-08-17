@@ -278,11 +278,6 @@ def build_container(settings: Settings) -> Container:
     # a second version of somebody else's number drifts from it silently.
     container.ceiling = peers.get("ceiling") or _NoCeiling()
     container.engine_load = lambda tenant: _engine_load(peers.get("engine"), tenant)
-    # WHO IS ALLOWED TO AIM WHERE. Asked of `operations`, which holds the staff rows, because a
-    # campaign's reach is the one number in this service that costs the owner money — and until
-    # this line existed nothing here could tell a branch manager's press apart from an owner's.
-    from app.adapters.branch_scope import build as build_branch_scope
-    container.branch_scope = build_branch_scope(settings)
     container.settings = settings
 
     async def _resolver(campaign, *, already_reached, now):
