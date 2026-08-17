@@ -81,6 +81,18 @@ class Customer:
     # Denormalised here for the same reason `last_visit` is: the alternative is scanning a year of
     # visits per customer while building an audience of 5000.
     last_branch_id: str = ""
+    # THE LAST VISIT THESE COUNTERS HAVE ALREADY COUNTED (ز-6).
+    #
+    # `visit_count` and `last_visit` are derived numbers kept beside the customer so the recent-
+    # customers strip is one read. Deriving them is a scan; incrementing them is a second write.
+    # Two writes are two chances to be interrupted, and this field is what makes the second one
+    # repeatable: the increment asks «have I already counted this visit?» rather than «is this my
+    # first attempt?», which is a question no process can answer about itself after a crash.
+    #
+    # Empty on every customer written before this existed, and that is correct: it means «not
+    # counted by id», and the very next visit stamps it. Nothing is recomputed retroactively —
+    # the counters those customers carry are the ones they already had.
+    counted_visit_id: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "phone": self.phone, "name": self.name,

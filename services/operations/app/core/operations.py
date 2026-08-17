@@ -233,6 +233,18 @@ class Operations:
             existing = await self._visits.by_idempotency_key(tenant, idempotency_key)
             if existing is not None:
                 customer = await self._customers.get(tenant, existing.customer_id)
+                # THE RETRY FINISHES WHAT THE CRASH INTERRUPTED (ز-6). Reaching here means the
+                # visit is written. If the counters have not counted it, the first attempt died
+                # between the two writes — and this is the only moment anything looks again. The
+                # old code returned the visit and left the customer permanently one behind.
+                #
+                # Guarded by the visit's own id, so the ordinary case — a double tap, a retried
+                # request that already succeeded — reads the stamp and changes nothing.
+                if customer is not None and customer.counted_visit_id != existing.id:
+                    customer.last_visit = max(customer.last_visit, existing.occurred_at)
+                    customer.visit_count += 1
+                    customer.counted_visit_id = existing.id
+                    await self._customers.save(customer)
                 return RecordedVisit(visit=existing, customer=customer, created_customer=False,
                                      duplicate=True)
 
@@ -313,9 +325,28 @@ class Operations:
         # passed and mark a returning customer as absent.
         # The counters live on the customer so the recent-customers strip is one read. Updated
         # here rather than derived, because deriving them would put a scan on every keystroke.
+        # ── THE VISIT IS WRITTEN FIRST, AND THE COUNTERS SAY WHAT THEY HAVE COUNTED (ز-6) ──────
+        # THE OLD ORDER RAISED THE COUNTER FOR A VISIT THAT MIGHT NEVER BE WRITTEN. `save(customer)`
+        # came before `save(visit)`, so a failure on the second write left a customer with a visit
+        # count of nine and eight visits, and a `last_visit` that scheduled a reminder from a visit
+        # nobody could find. No reconciliation existed to notice — the points ledger has one, this
+        # does not.
+        #
+        # AND THE RETRY MADE IT WORSE, NOT BETTER. The duplicate guard reads the idempotency key
+        # off the VISIT rows. The visit was never written, so there was no key, so the second
+        # attempt was not a retry at all: it raised the counter a SECOND time.
+        #
+        # So the visit goes first — it is the fact, and everything else is derived from it — and
+        # the increment then asks a question it can answer after a crash: «have I already counted
+        # this visit?» rather than «is this my first attempt?». A crash between the two leaves the
+        # visit recorded and the counter behind, which the retry below completes; a retry after a
+        # success finds its own id already stamped and changes nothing.
+        await self._visits.save(visit)
+
         moved_forward = visit.occurred_at >= customer.last_visit
         customer.last_visit = max(customer.last_visit, visit.occurred_at)
         customer.visit_count += 1
+        customer.counted_visit_id = visit.id
         # THE BRANCH FOLLOWS THE SAME CLOCK AS `last_visit`, and only when the visit is the newest
         # one. A batch replayed from last month must not tell a campaign that this customer's
         # branch is the one they left — the field means «آخر فرع», so a stale visit may not set it.
@@ -326,7 +357,6 @@ class Operations:
             customer.last_branch_id = visit.branch_id
 
         await self._customers.save(customer)
-        await self._visits.save(visit)
         return RecordedVisit(visit=visit, customer=customer,
                              created_customer=created_customer, duplicate=False,
                              unknown_services=unknown,
