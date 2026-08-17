@@ -281,6 +281,13 @@ jobs:
       - name: a person from a peer is not given a fresh id
         run: python3 ci/check_a_person_from_a_peer_is_not_given_a_fresh_id.py
 
+      # AND EVERY RAIL ROW HAS A FACE WHEN COLLAPSED. The shell's nav item has taken `icon` for
+      # several releases and we passed labels alone — and the shell REMEMBERS the collapsed choice
+      # per browser. So an owner who folded the rail once was left with seven blank rows: sized,
+      # clickable, and mute, with nothing on screen to say what had happened.
+      - name: every nav row has a face when collapsed
+        run: python3 ci/check_every_nav_row_has_a_face_when_collapsed.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values

@@ -19,6 +19,10 @@
  * courtesy so a person is not offered what they cannot do (spec 10.8: "every element he does not
  * use is a tax he pays a hundred times a day").
  */
+import type { LucideIcon } from 'lucide-react';
+import {
+  CalendarCheck, ClipboardPlus, Gift, MessageSquare, TrendingUp, Users, Wrench,
+} from 'lucide-react';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
 
@@ -26,6 +30,17 @@ export interface Section {
   id: string;
   path: string;
   label: string;
+  /**
+   * THE ROW'S ONLY FACE WHEN THE RAIL IS COLLAPSED.
+   *
+   * The shell has taken `icon` since v0.16.x and we passed labels alone, so a collapsed rail — a
+   * choice the shell PERSISTS per browser — drew seven blank rows with nothing but a hover target
+   * on each. The owner who once collapsed it lost his whole navigation and had no way to know why:
+   * the rows were there, sized and clickable, and utterly mute.
+   *
+   * Not decoration, then. In the collapsed state it IS the label.
+   */
+  icon: LucideIcon;
   /** Every id must be present for the section to appear. Empty = always available. */
   requires: string[];
   /** WHICH SERVICE PROVIDES ITS ACTIONS. Named so a section can survive its service being down:
@@ -58,10 +73,10 @@ export const SECTIONS: Section[] = [
   // `operations.record` and nothing else, so every read this screen makes 403s and the product
   // opens on a broken page for the person who uses it most. The section needs the read it is
   // built out of, exactly like every other one.
-  { service: 'reminders', id: 'today', path: '/', label: 'اليوم', requires: ['reminders.today'] },
+  { service: 'reminders', id: 'today', path: '/', label: 'اليوم', icon: CalendarCheck, requires: ['reminders.today'] },
   // The field screen: one action, and it is the one every operator has.
-  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', requires: ['operations.record_visit'] },
-  { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', requires: ['operations.recent'] },
+  { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'] },
+  { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'] },
   // OPEN TO ALL FOUR PLANS, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
   // a feature to withhold. What `feature.insights.engine` locks is three of the twenty — the
@@ -75,7 +90,7 @@ export const SECTIONS: Section[] = [
   //
   // The gate here is the CAPABILITY — a role that may read indicators — which is a different
   // question from which plan he bought.
-  { service: 'insights', id: 'shop', path: '/shop', label: 'محلّي', requires: ['insights.dashboard'] },
+  { service: 'insights', id: 'shop', path: '/shop', label: 'محلّي', icon: TrendingUp, requires: ['insights.dashboard'] },
   // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
   // MARKETER both hold — and neither may change a price. A section whose every control is inert
   // is worse than an absent one: the person tries, is refused, and learns to distrust the screen.
@@ -86,13 +101,13 @@ export const SECTIONS: Section[] = [
   // the market — a coffee shop or a spare-parts counter opening «خدماتي» reads a section that
   // apparently is not for them and does not open it again. The rail pays two extra words for a
   // sector that would otherwise think the product was not built for it.
-  { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', requires: ['operations.update_service'] },
-  { service: 'reminders', id: 'messages', path: '/messages', label: 'رسائلي', requires: ['reminders.get_settings'] },
+  { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', icon: Wrench, requires: ['operations.update_service'] },
+  { service: 'reminders', id: 'messages', path: '/messages', label: 'رسائلي', icon: MessageSquare, requires: ['reminders.get_settings'] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR
   // holds — he has to see a customer's balance to say it out loud at the counter. Gating on it
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
-  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', requires: ['loyalty.rewards.update'] },
+  { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', icon: Gift, requires: ['loyalty.rewards.update'] },
   // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
   // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
   // once rather than a place to stand. The rail keeps the eight rows that are about the work.

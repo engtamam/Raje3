@@ -129,9 +129,14 @@ export function App() {
       // A SECTION WHOSE SERVICE IS DOWN IS NAMED, NOT DELETED (م · النمط 3). The row stays where
       // his hand expects it and the label says why it will not answer — «رسائلي · متعذّر الآن»
       // rather than a rail that quietly grew shorter and left him counting his own permissions.
+      // AND THE ICON, WHICH IS THE ROW'S ONLY FACE WHEN THE RAIL IS COLLAPSED. We passed labels
+      // alone, and the shell PERSISTS the collapsed choice per browser — so an owner who once
+      // folded the rail was left with seven blank rows: sized, clickable, and mute. He had lost
+      // his navigation with nothing on screen to say what had happened or how to undo it.
       navItems={sections.map((s) => ({
         to: s.path,
         label: s.unavailable ? `${s.label} · متعذّر الآن` : s.label,
+        icon: s.icon,
       }))}
       user={{ name: session.operatorName || session.operator }}
       labels={{ collapse: 'طيّ القائمة', expand: 'فتح القائمة', signOut: 'تسجيل الخروج',
