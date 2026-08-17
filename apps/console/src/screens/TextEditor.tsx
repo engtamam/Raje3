@@ -90,7 +90,7 @@ function readBack(root: HTMLElement): { body: string; fills: string[] } {
 }
 
 export function TextEditor({
-  session, catalog, reasonId, label, slots, body, onClose, onSaved,
+  session, catalog, reasonId, label, slots, body, replaces, onClose, onSaved,
 }: {
   session: Session;
   catalog: Catalog;
@@ -101,6 +101,10 @@ export function TextEditor({
    *  in `Mine.body`, unpassed — so «عدّل نصّي» meant «اكتبه again from nothing», and the second
    *  edit of any template was a rewrite. `draft` was declared for this and never set. */
   body?: string;
+  /** The name of the text this one supersedes, when he is editing rather than writing his first.
+   *  Meta freezes a name at approval, so a revision is a NEW name at the next version — and the
+   *  old text keeps sending until Meta approves the new one. */
+  replaces?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -154,7 +158,7 @@ export function TextEditor({
     setSaving(true); setError('');
     try {
       const out = await call<{ ok?: boolean; error?: string }>(
-        session, a, { reason_id: reasonId, body, fills });
+        session, a, { reason_id: reasonId, body, fills, replaces: replaces ?? '' });
       // THE SERVER'S OWN SENTENCE, never re-worded here. It knows why it refused — a link, a blank
       // this message cannot fill, a plan limit — and two vocabularies for one refusal is how an
       // owner comes to believe there are two problems.

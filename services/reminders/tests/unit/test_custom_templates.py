@@ -110,3 +110,29 @@ def test_a_meaning_the_reason_does_not_know_is_refused():
 def test_a_meaning_per_blank_is_required():
     with pytest.raises(CustomTemplateError):
         check("{{1}} و{{2}}", "service_due", ["customer"])
+
+
+def test_a_second_write_without_naming_the_old_one_destroys_the_approved_text(store):
+    """THE PATH THE SCREEN ACTUALLY TAKES, and the two tests above do not take it.
+
+    Both of them pass `replaces=`, so both prove the versioning works — for a caller that names the
+    text it is replacing. `TextEditor.tsx` sends `{reason_id, body, fills}` and nothing else. On
+    that path `version` stays 1, the name is rebuilt as `{tenant}_{reason_id}_1`, and `put` writes
+    over the row already sitting under it.
+
+    So an owner who edits his own approved message DESTROYS it: the text Meta approved is gone from
+    the store, replaced by an unapproved draft carrying the name Meta approved. Nothing refuses,
+    nothing warns, and the screen says saved.
+    """
+    first = run(store.draft("t1", reason_id="service_due",
+                            body="حان وقت {{2}} يا {{1}}", fills=["customer", "service"]))
+    run(store.mark("t1", first.name, status=APPROVED))
+
+    # No `replaces` — exactly what the editor sends.
+    second = run(store.draft("t1", reason_id="service_due",
+                             body="{{1}}، صارت {{2}} تحتاج مراجعة", fills=["customer", "service"]))
+
+    assert second.name != first.name, (
+        "a second write reused the approved name and overwrote the approved row: "
+        "the shop's approved text is gone and an unapproved draft now carries its Meta name")
+    assert run(store.get("t1", first.name))["status"] == APPROVED

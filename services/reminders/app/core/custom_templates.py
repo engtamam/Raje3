@@ -182,6 +182,22 @@ class CustomTemplateStore:
                 raise CustomTemplateError("لا يوجد نصّ سابق بهذا الاسم.")
             version = int(previous.get("version") or 1) + 1
 
+        # THE VERSION IS FOUND, NOT TRUSTED TO THE CALLER — because a caller that forgot to name
+        # the text it was replacing was ABLE TO DESTROY IT. `TextEditor.tsx` sent `{reason_id,
+        # body, fills}` and nothing else: version stayed 1, the name rebuilt to the same
+        # `{tenant}_{reason_id}_1`, and the `put` below wrote over the row already sitting there.
+        # The text Meta approved vanished from the store and an unapproved draft inherited the name
+        # Meta had approved. Nothing refused, nothing warned, and the screen said saved.
+        #
+        # And the two tests covering versioning both passed `replaces=` — so both proved the chain
+        # works on the one path the product does not take.
+        #
+        # WHY HERE AND NOT ONLY IN THE SCREEN. The screen is fixed too. But this is where the loss
+        # happens, and a rule that holds only while every caller remembers an argument is not a
+        # rule: the next caller is a seeder, a migration, or a support script.
+        while await self._s.get(CUSTOM, f"{slugify(tenant)}_{reason_id}_{version}") is not None:
+            version += 1
+
         name = f"{slugify(tenant)}_{reason_id}_{version}"
         row = CustomTemplate(
             tenant=tenant, reason_id=reason_id, body=body.strip(), cls=cls,

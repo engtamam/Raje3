@@ -362,6 +362,12 @@ export function MessagePreview({
                 // and his saved text sat in `mine` one component away, so a second edit meant
                 // typing the whole message again.
                 body={(isReady(mine) ? mine : []).find((t) => t.body)?.body ?? ''}
+                // AND WHICH TEXT HE IS EDITING. Without it the store rebuilt the same name and
+                // wrote over the row underneath: the text Meta approved was gone, and an
+                // unapproved draft inherited its approved name. The store now refuses to collide
+                // whatever a caller sends — but a version that says what it replaces is the one
+                // that retires the old text when the new one is approved, instead of orphaning it.
+                replaces={(isReady(mine) ? mine : []).find((t) => t.body)?.name ?? ''}
                 onClose={() => setWriting(false)}
                 onSaved={() => { setReload((n) => n + 1); onChosen(); }}
               />
