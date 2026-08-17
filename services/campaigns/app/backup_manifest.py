@@ -34,5 +34,11 @@ BACKUP: dict[str, Any] = {
         # restore must not be able to raise its own ceiling.
         {"name": "audience_caps", "tenant_scoped": False},
     ],
-    "excluded": [],
+    "excluded": [
+        # THE PRESS CLAIMS (ز-4). Ten-minute keys that say «this launch is already happening».
+        # Every archived row is long expired, and restoring one would refuse a launch the owner is
+        # making now with «حملتك قيد الإطلاق» — for a campaign that finished weeks ago.
+        {"name": "campaign_presses", "reason": "ten-minute launch claims; every archived row has "
+                                               "expired and a restored one refuses a live launch"},
+    ],
 }

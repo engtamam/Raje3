@@ -498,6 +498,15 @@ async def report(request: Request, principal: Principal = Depends(_READ)) -> dic
 class ReconcileIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)
+    # REQUIRED, AND IT HAD NO FIELD AT ALL. §8.3 promises three things about a repair: «باسم من
+    # أصلحه، ومعه ما كان قبله، وبسببٍ مكتوب. ومن غير سببٍ لا يُنفَّذ». One of the three was kept.
+    #
+    # And the omission was exactly backwards. The owner's own `adjust` — which moves one balance
+    # in his own shop — has required a `note` from the day it was written, with a comment saying
+    # an adjustment without a reason is unexplainable the moment anybody asks. THIS route lets
+    # support rewrite the total of any ledger in any establishment, and asked for nothing. The
+    # lower-risk action carried the higher bar.
+    reason: str = Field(min_length=3, max_length=280)
 
 
 @router.post("/platform/reconcile", dependencies=[Depends(rate_limit)])
@@ -511,7 +520,25 @@ async def platform_reconcile(request: Request, body: ReconcileIn,
     by the dependency above rather than assumed from the caller being internal.
     """
     c = request.app.state.container
+    ip = request.client.host if request.client else ""
+    actor = getattr(principal, "subject", "")
+
+    # WRITE-AHEAD, WITH THE REASON AND THE SUBJECT. `resource="balance"` named a KIND, not a
+    # thing: «somebody reconciled a balance» is not a trail anyone can follow back to a customer.
     await request.app.state.auditor.record(
-        "loyalty.reconciled", actor=getattr(principal, "subject", ""), tenant=body.tenant,
-        resource="balance", ip=request.client.host if request.client else "")
-    return await c.ledger.reconcile(body.tenant, body.subject_ref)
+        "loyalty.reconciled", actor=actor, tenant=body.tenant,
+        resource=f"balance:{body.subject_ref}", ip=ip,
+        metadata={"reason": body.reason})
+
+    out = await c.ledger.reconcile(body.tenant, body.subject_ref)
+
+    # AND WHAT IT WAS BEFORE — the second of the three promises, and the one that makes the first
+    # two worth anything. A repair that does not record the number it replaced cannot be argued
+    # with: neither the shop nor the customer can say it was wrong, because nothing remembers.
+    # Recorded after, deliberately: this is the OUTCOME, and an outcome cannot be written ahead.
+    await request.app.state.auditor.record(
+        "loyalty.reconcile_result", actor=actor, tenant=body.tenant,
+        resource=f"balance:{body.subject_ref}", ip=ip,
+        metadata={"was": out.get("was"), "now": out.get("ledger"),
+                  "drift": out.get("drift"), "repaired": out.get("repaired")})
+    return out

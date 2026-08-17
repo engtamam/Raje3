@@ -56,8 +56,29 @@ BACKUP: dict[str, Any] = {
         # truth. EXCLUDED would be defensible; included because it is small and a cold cache after
         # a restore means the first tick renders every message with an empty establishment name.
         {"name": "tenant_cache", "tenant_scoped": True},
+        # ── DECLARED AFTER ج-2 ──────────────────────────────────────────────────────────────
+        # THE CRUELLEST ONE TO LOSE. A shop's own texts, some of them approved by Meta under a
+        # name. Restore without these rows and the same name goes back to Meta carrying different
+        # content — which Meta refuses for good, and the name is gone for that establishment.
+        {"name": "custom_templates", "tenant_scoped": True},
+        # The «ساعدوني» queue: a shop asked us to write it a text and is waiting.
+        {"name": "template_help", "tenant_scoped": True},
+        # The catch-up cursor for this service's own consumers, and the reasons an owner chose
+        # from — both cheap and both confusing to lose.
+        {"name": "reminders_watermarks", "tenant_scoped": True},
+        {"name": "reason_choices", "tenant_scoped": True},
     ],
     # Nothing excluded. An exclusion is a judgement call, and the fewer of those a backup manifest
     # carries the better.
-    "excluded": [],
+    "excluded": [
+        # ALREADY-TOLD MARKERS, and both are about a moment that has passed.
+        # `ceiling_notice` remembers that we told an owner his ceiling was reached; restoring it
+        # would suppress the notice for a ceiling he is hitting NOW.
+        {"name": "ceiling_notice", "reason": "a marker that we already told this owner; restoring "
+                                             "it suppresses a notice about a live ceiling"},
+        # `reached_24h` is the WhatsApp service-window clock — a 24-hour fact. Anything old enough
+        # to be in an archive has expired, and a restored row would claim a window that is closed.
+        {"name": "reached_24h", "reason": "a 24-hour service window; every archived row has "
+                                          "already expired and would claim a window that is shut"},
+    ],
 }

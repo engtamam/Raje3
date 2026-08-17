@@ -34,6 +34,9 @@ BACKUP: dict[str, Any] = {
         # The earning tree and the mode switch. Restoring points without them means every future
         # visit earns the platform default, silently, in a shop that had configured otherwise.
         {"name": "loyalty_settings", "tenant_scoped": True},
+        # The catch-up cursor (ج-2). Not data loss, but a restore without it re-reads every
+        # visit an establishment ever had — bounded, and slow enough to miss its window.
+        {"name": "loyalty_watermarks", "tenant_scoped": True},
     ],
     "excluded": [],
 }

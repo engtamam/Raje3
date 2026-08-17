@@ -37,9 +37,33 @@ import hashlib
 # visits a month, small enough that he is not withholding his product from a quarter of his people.
 DEFAULT_SHARE = 10
 
-# THE CLASSES THE ENGINE OWNS. Everything else — service confirmations, personal replies, warnings —
-# goes out to everybody, because none of them is what the subscription is being judged on.
-WITHHELD_CLASSES = frozenset({"marketing", "reminder"})
+# WHAT THE ENGINE INITIATES — which is what the subscription is being judged on.
+#
+# THIS USED TO READ `{"marketing", "reminder"}` AND «reminder» IS NOT A CLASS. The vocabulary is
+# `service · personal · awareness · warning · marketing`; every reminder in the product is
+# scheduled as `service`, and so is every rung of the follow-up ladder. So the moment the holdout
+# was switched on, MARKETING ALONE would be withheld — while `insights` published «أثر الرسائل،
+# مقيساً» as the difference between two groups that both received every reminder and every
+# follow-up. Noise, published with confidence, in the one figure that claims not to be us talking
+# about ourselves — and wrong in the direction that flatters us. `reminder` is what we CALL the
+# thing in every conversation; that is exactly why it was written and why nobody caught it.
+#
+# AND THE CLASS ALONE STILL CANNOT SAY IT. `service` holds both the reminder we send on our own
+# schedule AND the confirmation of a visit the customer made ten seconds ago. Withholding the
+# second would be a customer walking out of a shop having been told nothing — a real harm, done to
+# a real person, to tidy up a measurement.
+#
+# So the line is drawn where it actually falls: WE INITIATED IT versus WE ACKNOWLEDGED SOMETHING
+# HE DID. The same distinction, in the same words, that `WINDOW_EXEMPT_TYPES` in gate.py already
+# had to make — «reminders and follow-ups are service-class too, and neither is a reply to
+# anything».
+WITHHELD_CLASSES = frozenset({"marketing", "awareness"})
+
+# The two proactive templates that live under a class we otherwise deliver in full. Named rather
+# than prefixed because there are exactly two and each one is a decision: `svc_service_reminder`
+# is the reminder itself, `svc_follow_up` is the ladder. `svc_visit_confirmation`, `svc_receipt`
+# and `svc_visit_redeemed` acknowledge something that just happened and are never withheld.
+WITHHELD_TYPES = frozenset({"svc_service_reminder", "svc_follow_up"})
 
 
 def bucket(tenant: str, subject_ref: str) -> int:
@@ -62,8 +86,9 @@ def is_holdout(tenant: str, subject_ref: str, *, share: int = DEFAULT_SHARE,
     return bucket(tenant, subject_ref) < share
 
 
-def withholds(cls: str) -> bool:
-    return cls in WITHHELD_CLASSES
+def withholds(cls: str, template_type: str = "") -> bool:
+    """Is this a message WE started, rather than an answer to something he did?"""
+    return cls in WITHHELD_CLASSES or template_type in WITHHELD_TYPES
 
 
 def refusal(share: int = DEFAULT_SHARE) -> str:

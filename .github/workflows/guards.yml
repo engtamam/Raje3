@@ -256,6 +256,28 @@ jobs:
       - name: the platform we pin is not the platform we vendored
         run: python3 ci/check_the_platform_we_pin_is_the_platform_we_vendored.py
 
+      # AND A RULE NAMES A CLASS THAT EXISTS. The control group — the tenth of customers held back
+      # so the difference is evidence rather than our opinion — was configured to withhold
+      # `{"marketing", "reminder"}`, and there is no class called `reminder`. Every reminder is
+      # service-class, so switching the holdout on would have withheld marketing alone while we
+      # published the difference as «أثر الرسائل، مقيساً».
+      - name: a rule names a message class that exists
+        run: python3 ci/check_a_message_class_named_anywhere_is_a_class_that_exists.py
+
+      # AND EVERY COLLECTION WE WRITE IS IN A BACKUP MANIFEST. This gate is the platform's own,
+      # it has always worked, and nothing in this repository had ever pointed it at THIS
+      # repository — it defaults to the submodule's own `services/`. Aimed here it found twenty
+      # collections that a backup run would have silently skipped, among them
+      # `whatsapp_connections` (a restore leaves the shop reading «غير مربوط», unable to send a
+      # single message, while the backup reports success) and `custom_templates` (texts Meta
+      # approved: lose the rows and the same NAME is resubmitted with new content, which Meta
+      # refuses permanently — the name is burned).
+      #
+      # SERVICES_ROOT IS THE WHOLE POINT. Without it this passes in seconds having checked the
+      # submodule, which is somebody else's CI job.
+      - name: every collection we write is in a backup manifest
+        run: SERVICES_ROOT="$GITHUB_WORKSPACE/services" python3 platform/tools/ci/check_backup_coverage.py
+
       # AND NO IMAGE REACHES THE SERVER FROM A LAPTOP. The console ran
       # `127.0.0.1:5055/raje3/console@…` in production — a registry one machine resolves, and only
       # while a developer holds a tunnel open — because ship.sh rewrote the reference ON THE NODE,

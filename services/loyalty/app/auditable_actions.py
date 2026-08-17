@@ -183,6 +183,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "makes the second indistinguishable from the first",
     },
     {
+        "action": "loyalty.reconcile_result",
+        "source": "internal",
+        "critical": True,
+        "resource": "balance",
+        "why": "the number the repair replaced, and the number it wrote. Without it the entry "
+               "above says only that somebody repaired something: neither the shop nor the "
+               "customer can argue with a correction whose before-value nothing remembers, and "
+               "that is the second of the three things §8.3 promises about a repair",
+    },
+    {
         "action": "loyalty.adjusted",
         "source": "admin",
         "critical": True,

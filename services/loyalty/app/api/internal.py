@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hmac
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -582,6 +582,10 @@ async def seed_rewards(request: Request, body: SeedRewardsIn) -> dict:
 class ReconcileIn(BaseModel):
     tenant: str
     subject_ref: str
+    # THE SAME REQUIREMENT AS THE USER-TIER ROUTE, AND FOR THE SAME REASON. «Internal» here means
+    # the caller holds a service token — but the thing that reaches for this route is a person
+    # running a playbook, and a repair he cannot explain later is one nobody can argue with.
+    reason: str = Field(min_length=3, max_length=280)
 
 
 @router.post("/loyalty/reconcile", dependencies=[Depends(require_internal_token)])
@@ -591,6 +595,19 @@ async def reconcile(request: Request, body: ReconcileIn) -> dict:
     Exists because the materialised total CAN drift — a crash between the two writes in
     `Ledger.post`, a restore that replayed one collection and not the other. Drift with no detector
     is the worst version of this bug, because the wrong number stays entirely plausible.
+
+    AUDITED, AND IT WAS NOT. This route rewrote the total of any customer's ledger in any
+    establishment and left no record at all — not who, not why, not what the number had been.
+    §8.3 asks for all three; this asked for none.
     """
     c = request.app.state.container
-    return await c.ledger.reconcile(body.tenant, body.subject_ref)
+    await request.app.state.auditor.record(
+        "loyalty.reconciled", actor="playbook", tenant=body.tenant,
+        resource=f"balance:{body.subject_ref}", ip="", metadata={"reason": body.reason})
+    out = await c.ledger.reconcile(body.tenant, body.subject_ref)
+    await request.app.state.auditor.record(
+        "loyalty.reconcile_result", actor="playbook", tenant=body.tenant,
+        resource=f"balance:{body.subject_ref}", ip="",
+        metadata={"was": out.get("was"), "now": out.get("ledger"),
+                  "drift": out.get("drift"), "repaired": out.get("repaired")})
+    return out

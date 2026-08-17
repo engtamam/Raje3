@@ -140,7 +140,7 @@ def evaluate(*, cls: str, template_type: str, now: int, limits: Limits,
     # DEFAULT OFF IN THE SIGNATURE, ON IN THE PRODUCT. A caller that has not been taught about the
     # holdout must not silently withhold a tenth of a shop's messages; the composition root passes
     # the establishment's real setting.
-    if holdout_enabled and H.withholds(cls) and H.is_holdout(
+    if holdout_enabled and H.withholds(cls, template_type) and H.is_holdout(
             tenant, subject_ref, share=holdout_share, enabled=True):
         return Decision(False, H.refusal(holdout_share),
                         details={"holdout": True, "share": holdout_share})

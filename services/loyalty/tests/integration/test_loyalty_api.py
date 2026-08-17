@@ -297,7 +297,9 @@ def test_the_tick_runs_and_reports_what_it_did(client):
 def test_reconcile_repairs_through_the_route(client, owner, operator):
     _earn(client, points=60, visit="v-recon", subject="ref_driftcust001")
     r = client.post("/internal/loyalty/reconcile",
-                    json={"tenant": TENANT, "subject_ref": "ref_driftcust001"},
+                    json={"tenant": TENANT, "subject_ref": "ref_driftcust001",
+                          # REQUIRED NOW (§8.3): a repair with no written reason is not performed.
+                          "reason": "تحقّق من بلاغ «نقاطي اختفت»"},
                     headers=INTERNAL)
     assert r.status_code == 200
     assert r.json()["ledger"] == 60 and r.json()["repaired"] is False
