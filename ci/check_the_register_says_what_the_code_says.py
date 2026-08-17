@@ -92,11 +92,20 @@ def main() -> int:
         # WITHIN one register a finding gets two headings: the one that states it and the one that
         # resolves it. So resolution is asked of the register as a whole, and only the pooling
         # ACROSS registers is what changes.
+        #
+        # AND THE SECTION, NOT THE HEADING LINE. Round 3 records د-1 through د-3 as «✅ مُصلَح» in
+        # the FIRST LINE OF THE BODY, directly under the heading that states the defect — which is
+        # a resolution note by any reading a person would give it. A gate that looked only at the
+        # heading called all three silent, and its own message said «the register says nothing»
+        # about three findings the register discusses at length. Reading the section is what makes
+        # the sentence the gate prints true.
         here: set[str] = set()
         done: set[str] = set()
-        for code, rest in HEADING.findall(text):
+        cuts = [(m.group(1), m.start()) for m in re.finditer(HEADING, text)]
+        for i, (code, start) in enumerate(cuts):
             here.add(code)
-            if any(mark in rest for mark in RESOLVED):
+            end = cuts[i + 1][1] if i + 1 < len(cuts) else len(text)
+            if any(mark in text[start:end] for mark in RESOLVED):
                 done.add(code)
         declared |= here
         # Named with its register, because two findings sharing a code are two findings and the

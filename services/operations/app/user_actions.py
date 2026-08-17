@@ -134,10 +134,21 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "الشاشة",
         "params": [{"name": "phone", "in": "query", "type": "string", "required": True}],
         # The distinction that decides how the keypad is built, and it is measured rather than
-        # assumed: this route is EXACT. Partial digits go to search-service's /suggest, because
-        # its /search matches whole tokens and `96650` finds nothing against `966501234567`.
+        # assumed: this route is EXACT. Partial digits go to the suggest route below, because
+        # search's whole-token match finds nothing for `96650` against `966501234567`.
         "help": "مطابقة تامة للرقم الكامل. البحث بأول الأرقام من لوحة المفاتيح يذهب إلى "
-                "search-service عبر suggest لا عبر هذا المسار.",
+                "مسار الاقتراحات أدناه لا عبر هذا المسار.",
+    },
+    {
+        "id": "operations.customer_suggest", "label": "اقتراحات بأول الأرقام", "method": "GET",
+        "path": "/api/v1/field/customers/suggest", "capability": "operations.read",
+        "group": "الشاشة",
+        "params": [{"name": "prefix", "in": "query", "type": "string", "required": True}],
+        # THE BRANCH IS RESOLVED HERE, WHICH IS THE WHOLE POINT OF THE ROUTE EXISTING (ط-3). The
+        # console used to call search-service itself, and no route there knows what a branch is —
+        # four typed digits handed a supervisor in Jeddah the Riyadh customers by name and number.
+        "help": "قائمة اقتراحاتٍ من أول الأرقام أو اللوحة، مضيَّقةً على فرع القارئ من رمزه. "
+                "«تعذّر البحث» غير «لا يوجد عميل»، والردّ يفرّق بينهما.",
     },
     {
         "id": "operations.verify_pin", "label": "تأكيد رمز العامل", "method": "POST",
