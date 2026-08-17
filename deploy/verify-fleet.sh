@@ -40,6 +40,26 @@ live="$("${SSH[@]}" "kubectl -n $NS get pods --no-headers -o custom-columns=\
 NAME:.metadata.name,IMG:.status.containerStatuses[0].imageID,READY:.status.containerStatuses[0].ready 2>/dev/null")" || {
   printf '%s  ✗ could not reach the cluster%s\n' "$C_R" "$C_N" >&2; exit 2; }
 
+# ── AND WHAT EACH WORKLOAD *ASKS FOR*, WHICH IS A DIFFERENT QUESTION (أ-1) ───────────────────
+#
+# Everything above reads `imageID` — what the kubelet RESOLVED — and that is right for «is the
+# rollout that I shipped the thing that is running». It is blind to the failure that started this:
+# the repository pinned `caddy:2.8-alpine@sha256:af32e973…` and the live Deployment carried
+# `caddy:2.8-alpine` with NO digest. The running pod had resolved to the correct digest anyway,
+# out of the node's image cache, so `imageID` matched and this script printed green.
+#
+# Nothing was wrong that day and everything was wrong the next: a naked tag is a promise its owner
+# can move, and the next eviction, node or `imagePullPolicy` pull takes whatever the tag points at
+# then. The check built to catch exactly this could not see it, because it was reading the answer
+# instead of the question.
+#
+# So the SPEC is read too, and it is judged on its own terms: a spec with no digest is a failure
+# even when today's pod happens to be correct. That is not pedantry — it is the difference between
+# «right now» and «tomorrow morning», and this script exists for tomorrow morning.
+spec="$("${SSH[@]}" "kubectl -n $NS get deploy,statefulset,daemonset --no-headers -o custom-columns=\
+NAME:.metadata.name,IMG:.spec.template.spec.containers[0].image 2>/dev/null")" || {
+  printf '%s  ✗ could not read the workload specs%s\n' "$C_R" "$C_N" >&2; exit 2; }
+
 ok=0; bad=0; missing=0
 for f in "$ROOT"/deploy/services/*.values.yaml; do
   svc="$(basename "$f" .values.yaml)"
@@ -172,12 +192,50 @@ else
 ' "$C_G" "backup targets" "$targets" "$C_N"
 fi
 
-echo
-if [ $((bad+missing)) -eq 0 ]; then
-  printf '%s  ✔ all %d services run the digest this repo pins%s\n' "$C_G" "$ok" "$C_N"; exit 0
+# ── EVERY WORKLOAD SPEC NAMES A DIGEST (أ-1) ─────────────────────────────────────────────────
+#
+# Judged on the spec alone, and deliberately separate from the digest comparison above: this one
+# does not care whether the running pod is correct. A naked tag whose pod happens to be right today
+# is the exact state that printed green while the edge — the container every request in this
+# product passes through — was one eviction from running whatever the tag pointed at.
+#
+# The whole namespace, not a list of names: a workload that appears without anybody adding it here
+# is precisely the one nobody is checking.
+naked=0
+while read -r wl img; do
+  [ -n "$wl" ] || continue
+  case "$img" in
+    *@sha256:*) : ;;
+    ""|"<none>")
+      # A workload whose image this read could not see is NOT a pass — it is a workload nobody
+      # verified, and saying so is the whole doctrine of this script.
+      printf '  %s✗ %-24s spec image unreadable — NOT checked%s\n' "$C_R" "${wl#*/}" "$C_N"
+      naked=$((naked+1)) ;;
+    *)
+      printf '  %s✗ %-24s spec asks for %s — a TAG, not a digest%s\n' \
+        "$C_R" "${wl#*/}" "$img" "$C_N"
+      naked=$((naked+1)) ;;
+  esac
+done <<< "$spec"
+if [ "$naked" -eq 0 ]; then
+  printf '  %s✔ %-24s every workload spec names a digest%s\n' "$C_G" "spec pins" "$C_N"
 fi
-printf '%s  ✗ %d drifted, %d not running — the repo says one thing and the cluster does another%s\n' \
-  "$C_R" "$bad" "$missing" "$C_N"
-printf '%s     ours: ./deploy/ship.sh <service>   ·   platform: the same command, same name%s\n' \
-  "$C_D" "$C_N"
+
+echo
+if [ $((bad+missing+naked)) -eq 0 ]; then
+  printf '%s  ✔ all %d services run the digest this repo pins, and every spec names one%s\n' \
+    "$C_G" "$ok" "$C_N"; exit 0
+fi
+if [ "$naked" -gt 0 ]; then
+  printf '%s  ✗ %d workload(s) ask for a moving tag — correct today, whatever the tag points at%s\n' \
+    "$C_R" "$naked" "$C_N"
+  printf '%s     the pod may still be right: this is about the next pull, not this one%s\n' \
+    "$C_D" "$C_N"
+fi
+if [ $((bad+missing)) -gt 0 ]; then
+  printf '%s  ✗ %d drifted, %d not running — the repo says one thing and the cluster does another%s\n' \
+    "$C_R" "$bad" "$missing" "$C_N"
+  printf '%s     ours: ./deploy/ship.sh <service>   ·   platform: the same command, same name%s\n' \
+    "$C_D" "$C_N"
+fi
 exit 1
