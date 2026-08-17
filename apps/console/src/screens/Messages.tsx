@@ -110,7 +110,26 @@ interface ReasonRow {
   can_switch: boolean;
   can_retext: boolean;
   template?: string;
+  /** Which of the five classes this is. Not decoration: the class decides whether the message
+   *  needs the customer's explicit consent, whether it may go out inside the quiet window
+   *  (10pm–7am), what it counts against, and what Meta charges for it. Both fields come from the
+   *  server — the key to colour by, the label to print — so the Arabic cannot drift from ours. */
+  cls?: string;
+  cls_label?: string;
 }
+
+/** THE FIVE, EACH WITH ITS OWN COLOUR, AND THE ONE THAT MATTERS MOST WEARS THE LOUDEST.
+ *
+ *  Marketing is the only class that needs consent, is barred from the quiet window and is billed
+ *  at the higher rate — so it is the one an owner must be able to find in a list without reading.
+ *  The other four behave alike and are toned to sit quietly. */
+const CLASS_TONE: Record<string, 'neutral' | 'accent' | 'info' | 'warning' | 'danger'> = {
+  service: 'info',
+  personal: 'neutral',
+  awareness: 'neutral',
+  warning: 'warning',
+  marketing: 'accent',
+};
 
 interface Schedule {
   schedule: { id?: string; kind?: string; due_at?: number; subject_ref?: string }[];
@@ -439,7 +458,16 @@ export function MessagesScreen(
                   <button type="button"
                           onClick={() => setReading(t)}
                           className="flex min-w-0 flex-1 flex-col gap-1 text-start">
-                    <span className="truncate font-medium">{t.label}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="truncate font-medium">{t.label}</span>
+                      {/* THE CLASS, ON EVERY ROW. Without it «متى نرسل» is thirteen sentences that
+                          look alike and behave nothing alike — and the owner, who carries the fine
+                          if a promotional message goes out without consent, could not tell which
+                          was which. */}
+                      {t.cls_label ? (
+                        <Badge tone={CLASS_TONE[t.cls ?? ''] ?? 'neutral'}>{t.cls_label}</Badge>
+                      ) : null}
+                    </span>
                     <span className="text-sm text-text-secondary">{t.when}</span>
                     {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a line
                         saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}

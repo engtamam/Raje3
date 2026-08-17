@@ -43,8 +43,35 @@ TONES = ("brief", "warm", "formal")
 # generated JSON, which this generator then overwrote on its next run — the field vanished, every
 # reader fell back to «system», and the owner's discount reached no slot. A value that only one
 # writer can write cannot be lost that way.
-FILLS = ("system", "catalogue", "owner", "amount", "code", "date")
+FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link")
 FREE = "owner"
+
+# THE LAST BLANK OF EVERY TEMPLATE, AND IT IS NOT A STYLE RULE.
+#
+# Marketing is opt-IN: without a grant no promotional message may lawfully leave. And a grant needs
+# somewhere to be given — a screen the customer can reach from a message he already trusts. There
+# was no such place. The library declared a `button` on sixty of sixty-six templates; nothing
+# submits buttons to Meta (submission.py sends name, language, category, body, variables, examples
+# and nothing else) and notification-service has no notion of one anywhere in its source. So the
+# link existed in our data, reached no template, and no customer was ever able to say yes.
+#
+# The whole marketing engine — built, complete, sold as an app — could therefore never send, and
+# nothing anywhere reported it.
+#
+# So the address moves into the BODY, where we control it end to end:
+#
+#   invite      utility classes. Resolves to the grant screen for somebody who has not agreed,
+#               and to a plain line with no link for somebody who has. Never both.
+#   stop_link   marketing only, and mandatory (§8.3): one tap to stop, in every promotional
+#               message, with no exception any establishment can switch off.
+#
+# AND THE INVITE STAYS QUIET ON PURPOSE. A utility template whose text sells is re-categorised by
+# Meta as MARKETING — a higher price per message and a service message that suddenly needs consent
+# to send. That is what SELLING_WORDS below already guards for the awareness class; the invitation
+# obeys the same rule by carrying no price, no discount and no offer. All of the persuasion lives
+# on the screen the link opens, which is ours and which Meta does not review.
+LAST_FILL = {"marketing": "stop_link"}
+LAST_FILL_DEFAULT = "invite"
 
 # An awareness or warning template carrying any of these is not awareness — it is marketing by its
 # text, whatever it is labelled (spec §8.4.1). Meta re-categorises it and bills accordingly, and
@@ -167,6 +194,23 @@ def parse() -> tuple[list[dict], list[str]]:
         if unknown:
             problems.append(f"{name}: unknown filler {unknown} — the readers branch on these by "
                             f"name and treat anything else as «system». Use one of {FILLS}")
+            continue
+        # ── the address every message has to carry, and exactly one of them ────────────────────
+        wanted = LAST_FILL.get(cls, LAST_FILL_DEFAULT)
+        if fills[-1] != wanted:
+            problems.append(
+                f"{name}: last blank is «{fills[-1]}», must be «{wanted}» — a {cls} template ends "
+                f"with the one address it owes its reader. Marketing owes a one-tap stop (§8.3); "
+                f"everything else owes the invitation that is the only way consent can ever be "
+                f"given. Without it the message is a dead end and the campaigns engine can never "
+                f"lawfully send.")
+            continue
+        stray = [f for f in fills[:-1] if f in ("invite", "stop_link")]
+        if stray:
+            problems.append(
+                f"{name}: {stray} appears before the last blank — an address mid-sentence reads as "
+                f"a broken line on a phone, and two of them in one message is two calls to action "
+                f"competing for the same tap")
             continue
         if fills.count(FREE) > 1:
             problems.append(f"{name}: asks the owner to write {fills.count(FREE)} free blanks. One "

@@ -46,7 +46,10 @@ CATEGORIES = ("UTILITY", "MARKETING", "AUTHENTICATION")
 # customer can hold us to, «٢٠٪» arrives in digits half our own screens refuse, and a discount
 # with no end is a discount for ever. A typed slot is validated at send (reminders/rendering.py)
 # and phrased by us, so the sentence reads the same in every shop.
-FILLS = ("system", "catalogue", "owner", "amount", "code", "date")
+# `invite` and `stop_link` carry an ADDRESS rather than a word, and each is the last blank of
+# its class: `stop_link` on marketing (the one-tap stop §8.3 makes mandatory), `invite` on
+# everything else (the only door marketing consent can come through). See ci/gen_templates.py.
+FILLS = ("system", "catalogue", "owner", "amount", "code", "date", "invite", "stop_link")
 # WHICH REMINDER MODEL A TEMPLATE SERVES (spec 16.6.5). Not a second taxonomy competing with the
 # five classes: the class says what a message IS to the regulator, the model says which kind of
 # business it is FOR. A cafe customer returns in days and there is no such thing as "time for your

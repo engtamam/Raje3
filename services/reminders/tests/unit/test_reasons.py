@@ -69,8 +69,29 @@ def test_the_privacy_code_is_not_the_owners_to_switch_off_or_reword():
     assert t.owner_can_switch is False and t.owner_can_retext is False
 
 
-def test_what_the_screen_reads_carries_no_vocabulary_of_ours():
-    """He does not have the words «قالب» and «فئة» and does not need them (§10.8.1.2)."""
+def test_the_template_name_is_ours_and_stays_ours():
+    """`template_type` is an identifier at Meta. It names nothing an owner has a word for, and a
+    screen showing it would be asking him to reason about our filing system (§10.8.1.2)."""
     shown = T.public(T.get("visit_recorded"))
-    assert "cls" not in shown and "template_type" not in shown
+    assert "template_type" not in shown
+
+
+def test_the_class_reaches_him_because_it_decides_what_he_is_liable_for():
+    """THE REVERSAL, AND WHY IT IS NOT THE SAME RULE.
+
+    This used to assert `cls` was withheld too, on the reasoning that an owner does not have our
+    vocabulary. That holds for a template name and does not hold for the class: it is the single
+    fact that decides whether a message needs his customer's explicit consent, whether it may go
+    out inside the quiet window (10pm–7am, §8.6), what it counts against and what Meta charges him
+    for it. Withheld, «متى نرسل» was thirteen sentences that look alike and behave nothing alike —
+    and the owner, who carries the fine, could not tell which was which.
+
+    BOTH FIELDS OR NEITHER. The key is what the screen colours by; the label is what it prints.
+    Sending the key alone would make the screen invent the Arabic, and a name kept in a screen
+    drifts from the thing it names.
+    """
+    shown = T.public(T.get("visit_recorded"))
+    assert shown["cls"] == "service"
+    assert shown["cls_label"] == "خدمية"
+    assert T.public(T.get("gone_missing"))["cls_label"] == "تسويقية"
     assert shown["label"] and shown["when"]

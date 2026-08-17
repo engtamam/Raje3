@@ -26,11 +26,46 @@ import re
 # slash or a query character would silently point somewhere else entirely — `abc/../admin` reaching
 # a different path, or `abc?x=` swallowing what follows it. Refused rather than escaped, because a
 # reference that needs escaping is not one we issued.
-SAFE_REFERENCE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+#
+# AND IT IS `{tenant}.{subject}`, WHICH THIS PATTERN USED TO REFUSE.
+#
+# portal mints the reference as `f"{tenant}.{subject_ref}"` (core/reference.py `build`) and splits
+# it back on the FIRST dot. This side excluded the dot entirely — so every link this module could
+# ever have composed would have been refused at render, including the one-tap stop that §8.3 makes
+# mandatory. Nothing caught it because nothing had composed a link yet: no template in the library
+# declared a link slot, so the two halves of the seam had never met.
+#
+# WHAT THIS MODULE VALIDATES, AND WHAT IT DELIBERATELY DOES NOT.
+#
+# It owns one question: can this value go into a URL without meaning something else? A slash, a
+# question mark or a space would point somewhere entirely different — `abc/../admin` at another
+# path, `abc?x=` swallowing what follows. Those are refused rather than escaped, because a
+# reference that needs escaping is not one we issued.
+#
+# It does NOT re-derive portal's identity rules — the exact length of a tenant slug, the alphabet
+# of a pseudonym. portal's `parse()` is the authority on whether a reference names anybody, and a
+# producer stricter than its consumer refuses work that would have been served perfectly. Copying
+# those rules here would also be a third place they live, and the copy would be the one that drifts.
+SAFE_PART = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+SAFE_REFERENCE = re.compile(r"^[A-Za-z0-9_-]{1,128}\.[A-Za-z0-9_-]{1,128}$")
 
 
 class LinkError(Exception):
     """Raised instead of returning a link nobody can tap. Carries what to fix, in Arabic."""
+
+
+def reference_for(tenant: str, subject_ref: str) -> str:
+    """The reference to put in a message, built the way portal reads it.
+
+    THE SEPARATOR IS THE WHOLE CONTRACT and it is chosen in exactly two places, which is one too
+    many — so this mirrors portal's `build()` and a gate holds them together. A dot chosen
+    independently on two sides is the defect that ships approved templates carrying a link that
+    404s for every customer of every shop, and cannot be corrected without a new Meta review.
+    """
+    tenant, subject_ref = (tenant or "").strip(), (subject_ref or "").strip()
+    if not SAFE_PART.fullmatch(tenant) or not SAFE_PART.fullmatch(subject_ref):
+        raise LinkError("مُعرِّف صفحة العميل غير صالح — لا يُبنى رابطٌ من قيمةٍ لا نعرفها.")
+    return f"{tenant}.{subject_ref}"
 
 
 def _base(public_base_url: str) -> str:
@@ -55,6 +90,20 @@ def _reference(reference: str) -> str:
 def customer_page(public_base_url: str, reference: str) -> str:
     """Where the customer reads their points, offers and history."""
     return f"{_base(public_base_url)}/p/{_reference(reference)}"
+
+
+def grant_link(public_base_url: str, reference: str) -> str:
+    """Where a customer says yes to offers — the only door consent can come through.
+
+    Marketing is opt-IN, so with no reachable grant screen no promotional message may lawfully
+    leave, ever. That was the state of the product: the customer page declared a button in the
+    template library, nothing submitted buttons to Meta, and notification-service has no notion of
+    one. The address had to move into the body, and this composes it.
+
+    IT IS THE SCREEN, NOT THE GRANT. `/allow` asks; the POST behind its button records. A link that
+    granted on open would turn WhatsApp's own preview fetcher into a consent record.
+    """
+    return f"{customer_page(public_base_url, reference)}/allow"
 
 
 def stop_link(public_base_url: str, reference: str) -> str:

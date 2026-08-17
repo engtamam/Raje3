@@ -68,9 +68,11 @@ def sched(st, **over):
     return s
 
 
-def go(st, sender, *, now=None, choices=None, **kw):
+def go(st, sender, *, now=None, choices=None, library=None, **kw):
+    # `library` belongs to `run()`, not to the constructor — a test that wants a different set of
+    # templates is choosing what is sendable, not how the engine is built.
     return run(tick(st, sender, **kw).run(
-        "t1", now=now or at(10), library=LIB, service_names=NAMES,
+        "t1", now=now or at(10), library=library or LIB, service_names=NAMES,
         establishment="ورشة النخبة", customer_names={"sub_a": "أحمد"}, choices=choices))
 
 
@@ -1207,3 +1209,81 @@ def test_a_service_message_still_goes_out_with_no_base_url(st):
         customer_names={"sub_a": "أحمد"}))
 
     assert out.sent == 1, out
+
+
+# ── the invitation, which is the only way consent can ever be given ───────────────────────────
+LIB_INVITE = [{"name": "svc_service_reminder_brief", "type": "svc_service_reminder",
+               "tone": "brief", "class": "service", "variables": [1, 2, 3, 4],
+               "fills": ["system", "system", "catalogue", "invite"], "active": True}]
+
+
+def test_a_service_message_carries_the_invitation_for_somebody_who_has_not_agreed(st):
+    """THE DEFECT THIS CLOSES, AND IT DISABLED A WHOLE PRODUCT LINE.
+
+    Marketing is opt-IN, so with no way to grant, no promotional message may ever lawfully leave.
+    There was no way: the library declared a `button` on sixty of sixty-six templates, nothing
+    submits buttons to Meta, and notification-service has no notion of one. The campaigns engine —
+    complete, and sold as an app — could not send for the life of the product, and nothing said so.
+    """
+    sched(st)
+    s = FakeSender()
+
+    go(st, s, library=LIB_INVITE)
+
+    assert s.calls, "nothing was sent"
+    last = s.calls[0]["variables"][-1]
+    assert "/allow" in last, f"no grant link in the invitation: {last}"
+    assert "tnt" not in last or "." in last, "the reference must be the one portal reads"
+
+
+def test_somebody_who_already_agreed_is_not_invited_again(st):
+    """AND HE IS NOT SENT TO A CLOSED PAGE EITHER. The line he gets carries no link at all: the
+    customer page is shut for this release, so an invitation to open it would break a promise in
+    the first sentence of the message."""
+    from app.core.consent import Consent
+
+    sched(st)
+    run(Consent(st).record("t1", "sub_a", state="granted", source="customer_page", shop="ورشة"))
+    s = FakeSender()
+
+    go(st, s, library=LIB_INVITE)
+
+    assert s.calls
+    last = s.calls[0]["variables"][-1]
+    assert "http" not in last, f"a granted customer was sent a link to a closed page: {last}"
+    assert last.strip(), "Meta refuses an empty variable"
+
+
+def test_the_invitation_never_ships_a_dead_address(st):
+    """No public base means no link can be composed — and a message that invites somebody to tap
+    nothing is worse than one never sent, because nobody looks at it twice."""
+    sched(st)
+    s = FakeSender()
+
+    res = go(st, s, library=LIB_INVITE, public_base_url="")
+
+    assert not s.calls, "a message went out carrying an invitation to nowhere"
+    assert res.failed + res.suppressed == 1, res
+
+
+def test_somebody_who_stopped_the_offers_is_never_invited_back(st):
+    """§8.5 IN ITS OWN WORDS: «إعادة دعوة من رفض ملاحقة، لا تسويق».
+
+    The first version of this carried a boolean, which made a withdrawal indistinguishable from
+    silence — so every service message a shop sent would have re-asked a customer who had already
+    said no, forever. He gets a neutral line: no invitation, no link, and not empty either, because
+    Meta refuses a blank variable.
+    """
+    from app.core.consent import Consent
+
+    sched(st)
+    run(Consent(st).record("t1", "sub_a", state="withdrawn", source="customer_page"))
+    s_ = FakeSender()
+
+    go(st, s_, library=LIB_INVITE)
+
+    assert s_.calls
+    last = s_.calls[0]["variables"][-1]
+    assert "/allow" not in last, f"a customer who refused was invited again: {last}"
+    assert "http" not in last
+    assert last.strip(), "Meta refuses an empty variable"

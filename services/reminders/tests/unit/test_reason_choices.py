@@ -96,7 +96,7 @@ def test_the_screen_gets_the_catalogue_and_the_answers_together(store):
     off = next(r for r in rows if r["id"] == "after_visit")
     assert off["on"] is False and off["label"] and off["when"]
     # And never our vocabulary — he has no use for a class or a template type (§10.8.1.2).
-    assert "cls" not in off and "template_type" not in off
+    assert "template_type" not in off  # the class now travels (see test_reasons); the name does not and "template_type" not in off
 
 
 # ── the row → reason mapping the engine enforces the switch through ───────────────────────────

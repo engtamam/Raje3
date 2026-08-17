@@ -37,6 +37,9 @@ from app.core import quota as Q
 from app.core import ceiling as C
 from app.core import coupons as COUPONS
 from app.core import ladder as L
+# `LINKS`, not `L`: the ladder already owns that name here, and an address composed by the
+# wrong module is the kind of mistake a one-letter alias makes easy.
+from app.core import links as LINKS
 from app.core import reasons as TR
 from app.core import merge as M
 from app.core import ceiling_notice as CN
@@ -395,9 +398,18 @@ class Tick:
         prefs = await self._prefs.get(tenant, subject) or {}
         eng = await self._eng.get(tenant, subject) or {}
         recent = await self._log.since(tenant, subject, since=now - 31 * 86400)
-        # READ ONLY FOR MARKETING. Every other class is allowed without a grant, so asking the
-        # store on every service reminder would be a read per message for an answer nobody uses.
-        consent = (await self._consent.state(tenant, subject)) if cls == "marketing"             else "never_asked"
+        # READ FOR EVERY CLASS, AND THE OLD SHORTCUT WAS THE WHOLE DEFECT.
+        #
+        # It read consent only when `cls == "marketing"`, reasoning that no other class needs a
+        # grant to be sent. True — and it made the invitation impossible. Every utility text now
+        # ends with the one line that asks for consent (core/invite.py), and that line has two
+        # forms: an invitation for somebody who has not agreed, and an acknowledgement for
+        # somebody who has. A send path that cannot tell them apart either invites a customer who
+        # agreed months ago — in every message, forever — or invites nobody at all.
+        #
+        # So the read is unconditional. It is one keyed lookup per message, against a store this
+        # path already opens for the preferences, the engagement score and the send log.
+        consent = await self._consent.state(tenant, subject)
         decision = G.evaluate(
             cls=cls, template_type=row.get("template_type", ""), now=now, limits=self._limits,
             prefs_stopped=prefs.get("stopped") or {},
@@ -455,7 +467,11 @@ class Tick:
             rendered = R.render(template=template, system=values, catalogue=values,
                                 owner=values,
                                 public_base_url=self._public_base_url,
-                                reference=row.get("subject_ref", ""))
+                                # THE REFERENCE PORTAL READS, NOT THE BARE SUBJECT. It mints
+                                # `{tenant}.{subject}` and splits on the dot; a link built from
+                                # the subject alone opens a page that knows nobody.
+                                reference=LINKS.reference_for(tenant, row.get("subject_ref", "")),
+                                marketing_consent=consent)
         except R.RenderError as exc:
             return {"sent": False, "reason": str(exc)}
 
@@ -573,9 +589,18 @@ class Tick:
         prefs = await self._prefs.get(tenant, subject) or {}
         eng = await self._eng.get(tenant, subject) or {}
         recent = await self._log.since(tenant, subject, since=now - 31 * 86400)
-        # READ ONLY FOR MARKETING. Every other class is allowed without a grant, so asking the
-        # store on every service reminder would be a read per message for an answer nobody uses.
-        consent = (await self._consent.state(tenant, subject)) if cls == "marketing"             else "never_asked"
+        # READ FOR EVERY CLASS, AND THE OLD SHORTCUT WAS THE WHOLE DEFECT.
+        #
+        # It read consent only when `cls == "marketing"`, reasoning that no other class needs a
+        # grant to be sent. True — and it made the invitation impossible. Every utility text now
+        # ends with the one line that asks for consent (core/invite.py), and that line has two
+        # forms: an invitation for somebody who has not agreed, and an acknowledgement for
+        # somebody who has. A send path that cannot tell them apart either invites a customer who
+        # agreed months ago — in every message, forever — or invites nobody at all.
+        #
+        # So the read is unconditional. It is one keyed lookup per message, against a store this
+        # path already opens for the preferences, the engagement score and the send log.
+        consent = await self._consent.state(tenant, subject)
         decision = G.evaluate(
             cls=cls, template_type=row.get("template_type", ""), now=now, limits=self._limits,
             prefs_stopped=prefs.get("stopped") or {},
@@ -712,7 +737,13 @@ class Tick:
                 "free_text": row.get("owner_text", ""),
             },
             public_base_url=self._public_base_url,
-            reference=subject)
+            # Same reason as the campaign path above: portal reads `{tenant}.{subject}`.
+            reference=LINKS.reference_for(tenant, subject),
+            # WHAT THE INVITE LINE NEEDS, AND IT COMES FROM THE READ THE GATE ALREADY DID.
+            # A second read here would be a second answer, and the two could disagree across
+            # the milliseconds between them — the message would then invite somebody the gate
+            # had just recorded as having agreed.
+            marketing_consent=consent)
 
         # ── 4. send ───────────────────────────────────────────────────────────────────────────
         # The key is generated and stored BEFORE the call and reused on every retry: a timeout is

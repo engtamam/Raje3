@@ -89,6 +89,15 @@ token, submit = sys.argv[1], sys.argv[2] == "1"
 H = "http://localhost:8000"
 LIB = json.loads('''$(cat "$FILE")''')
 
+# THE TWO BLANKS THAT CARRY AN ADDRESS. Named and exampled by what they ARE rather than by where
+# they sit, because they sit somewhere different in every text. See the substitution below.
+ADDRESS_SLOTS = {
+    "invite": {"name": "invite_line",
+               "example": "ولك عندنا مزايا خاصة — فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"},
+    "stop_link": {"name": "stop_link",
+                  "example": "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"},
+}
+
 def call(path, body=None):
     d = json.dumps(body).encode() if body is not None else None
     r = urllib.request.Request(H + path, data=d, method="POST" if d is not None else "GET",
@@ -130,8 +139,26 @@ for ty in LIB["types"]:
         #
         # We sent the values in the names field for a day. It was correct against the older port,
         # which had one list, and wrong the moment it became two.
-        variables = [LIB["variables"][str(i)]["name"] for i in used]
-        examples = [LIB["variables"][str(i)]["example"] for i in used]
+        # AND THE ADDRESS SLOT IS NAMED BY ITS FILL, NOT BY ITS POSITION.
+        #
+        # Every other blank means the same thing wherever it lands, so a table keyed by number is
+        # honest for them. The last blank is not: it is the invitation on a utility text and the
+        # one-tap stop on a marketing one, and it lands on slot 3 in a visit confirmation and on
+        # slot 6 in an offer. Keyed by number alone it would be submitted to Meta's reviewer under
+        # the name «service» with «غيار الزيت» as its example — a human reads that, sees a service
+        # name where a link belongs, and the whole library is refused against names that then
+        # cannot be reused.
+        fills = list(ty.get("fills") or [])
+        by_pos = {n: (fills[i] if i < len(fills) else "") for i, n in enumerate(used)}
+        variables, examples = [], []
+        for i in used:
+            fill = by_pos.get(i, "")
+            if fill in ADDRESS_SLOTS:
+                variables.append(ADDRESS_SLOTS[fill]["name"])
+                examples.append(ADDRESS_SLOTS[fill]["example"])
+            else:
+                variables.append(LIB["variables"][str(i)]["name"])
+                examples.append(LIB["variables"][str(i)]["example"])
 
         if name in have:
             existing += 1

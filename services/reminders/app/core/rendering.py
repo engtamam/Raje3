@@ -247,7 +247,8 @@ LINK_SLOTS = {"link": L.customer_page, "stop_link": L.stop_link}
 def render(*, template: dict[str, Any], system: dict[str, str],
            catalogue: dict[str, str], owner: dict[str, str],
            by_meaning: dict[str, str] | None = None,
-           public_base_url: str = "", reference: str = "") -> Rendered:
+           public_base_url: str = "", reference: str = "",
+           marketing_consent: str = "") -> Rendered:
     """Fill every variable the template declares, in order.
 
     `system`, `catalogue` and `owner` are keyed by variable NUMBER as a string ("1", "2", ...).
@@ -281,6 +282,23 @@ def render(*, template: dict[str, Any], system: dict[str, str],
             # reported as sent, and carries a link that opens nothing.
             try:
                 out.append(LINK_SLOTS[source](public_base_url, reference))
+            except L.LinkError as exc:
+                raise RenderError(str(exc)) from exc
+        elif source == "invite":
+            # THE LAST LINE OF EVERY UTILITY TEXT, AND THE ONLY DOOR CONSENT COMES THROUGH.
+            #
+            # A whole sentence rather than a bare address, because the two states say different
+            # things: somebody who has never been asked is invited, somebody who agreed is told
+            # his benefits are live and given NO link — the page one would point at is closed for
+            # this release — and somebody who REFUSED is not asked again, which §8.5 calls pursuit
+            # rather than marketing.
+            #
+            # `core/invite.py` holds both, and refuses rather than composing a dead address.
+            from app.core import invite as I
+
+            try:
+                out.append(I.line(consent=marketing_consent,
+                                  public_base_url=public_base_url, reference=reference))
             except L.LinkError as exc:
                 raise RenderError(str(exc)) from exc
         elif source == "amount":

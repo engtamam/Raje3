@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core import links as L
+
 # ── the blanks a reason can fill ──────────────────────────────────────────────────────────────
 # Named for the OWNER, because these strings are what his editor shows on a chip. `customer` and
 # `shop` are on every reason and are not listed per reason: slot 1 and slot 2 of every template
@@ -53,8 +55,18 @@ MINUTES = "minutes"          # how long that code lives
 # customer may open his page from any of them, and marketing may not go out without a way to stop.
 LINK = "link"                # his page: <base>/p/<ref>
 STOP_LINK = "stop_link"      # one tap to stop marketing — a requirement, not a courtesy
+INVITE = "invite"            # the last line of every utility text: the only way consent is given
 
-ALWAYS = (CUSTOMER, SHOP, LINK, STOP_LINK)
+# WHAT EVERY MESSAGE CARRIES, WHATEVER ITS REASON.
+#
+# `LINK` IS NOT ON THIS LIST, and that is a decision rather than an omission. It addresses the
+# customer page, which is closed for this release (portal's PUBLIC_PAGE_ENABLED) — so a template
+# offering it would invite somebody to open «صفحتك» and land on «قيد التجهيز». The constant and its
+# composer stay for the day the page opens (#349); nothing may fill a template with it until then.
+#
+# `INVITE` replaces it as the address a utility message carries, because it resolves to a door that
+# IS open — and it is the only door marketing consent can ever come through.
+ALWAYS = (CUSTOMER, SHOP, INVITE, STOP_LINK)
 
 # WHAT A BLANK IS CALLED ON HIS SCREEN. Here rather than in the console for the same reason the
 # labels are: a name kept in the screen drifts from the thing it names, and a chip reading «الخدمة»
@@ -76,6 +88,20 @@ SLOT_LABEL = {
     MINUTES: "المدة",
     LINK: "رابط صفحته",
     STOP_LINK: "رابط الإيقاف",
+    INVITE: "دعوة تفعيل المزايا",
+}
+
+
+# WHAT A CLASS IS CALLED ON HIS SCREEN. The five are the regulator's own division (§8.4, §8.6),
+# and they are not a technical detail he can be spared: the class decides whether a message needs
+# his customer's consent, whether it may go out between 10pm and 7am, what it counts against, and
+# what Meta charges for it. A list of thirteen identical-looking rows hides all four.
+CLASS_LABEL = {
+    "service": "خدمية",
+    "personal": "شخصية",
+    "awareness": "توعوية",
+    "warning": "تحذيرية",
+    "marketing": "تسويقية",
 }
 
 
@@ -287,7 +313,28 @@ SAMPLE = {
     FREE_TEXT: "افتتحنا فرعاً جديداً",
     CODE: "4821",
     MINUTES: "15",
+    # THE TWO ADDRESSES, AND THEY NEEDED SAMPLES AS MUCH AS ANY WORD.
+    #
+    # `public()` builds the owner's chips from `SAMPLE.get(k, "")`, and neither of these was
+    # in the table — so both chips rendered with an EMPTY example on the one screen where he
+    # decides what his customers read. And `_examples()` in submission.py feeds the same table
+    # to Meta's reviewer, who refuses a template whose placeholder has no example value.
 }
+
+# ── the two samples that are ADDRESSES, composed rather than typed ────────────────────────────
+#
+# WRITTEN AS LITERALS FIRST, AND A GATE REFUSED THEM: `check_a_link_a_customer_taps_is_absolute`
+# bans a bare `/p/` path anywhere but `core/links.py`, and it was right to. A hand-typed example is
+# a second definition of the URL shape — it drifts the day a path changes, and the drifted copy is
+# the one Meta's reviewer reads and the one the owner sees on his own screen.
+#
+# Composed from the same functions the send path uses, so the example cannot be wrong about a shape
+# the product actually produces.
+_SAMPLE_BASE = "https://my.raje3.sa"
+_SAMPLE_REF = L.reference_for("nakheel", "sub_rj7k2m")
+
+SAMPLE[STOP_LINK] = L.stop_link(_SAMPLE_BASE, _SAMPLE_REF)
+SAMPLE[INVITE] = f"ولك عندنا مزايا خاصة — فعّلها من هنا: {L.grant_link(_SAMPLE_BASE, _SAMPLE_REF)}"
 
 
 def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
@@ -300,7 +347,11 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
     fills = list(template.get("fills") or [])
     variables = list(template.get("variables") or [])
     by_source = {"system": "", "catalogue": SAMPLE[SERVICE], "owner": SAMPLE[FREE_TEXT],
-                 "amount": SAMPLE[OFFER_VALUE], "code": SAMPLE[COUPON], "date": SAMPLE[ENDS_AT]}
+                 "amount": SAMPLE[OFFER_VALUE], "code": SAMPLE[COUPON], "date": SAMPLE[ENDS_AT],
+                 # BY SOURCE, NEVER BY POSITION. The address lands on slot 3 in a visit
+                 # confirmation and on slot 6 in an offer, so the numbered fallback below
+                 # would have drawn «غيار الزيت» where the owner expects to see a link.
+                 "invite": SAMPLE[INVITE], "stop_link": SAMPLE[STOP_LINK]}
     # Slot 3 of the library's own numbering is «الخدمة أو المحتوى», 4 «تفصيل», 5 «الرصيد» — the
     # positional meanings the texts were written against (deploy/seed/templates.json).
     by_number = {1: SAMPLE[CUSTOMER], 2: establishment, 3: SAMPLE[SERVICE],
@@ -316,8 +367,23 @@ def sample_slots(template: dict, *, establishment: str) -> dict[str, str]:
 
 
 def public(t: Reason) -> dict:
-    """What a screen may read. The class and the template name are ours, not his (§10.8.1.2)."""
+    """What a screen may read. The TEMPLATE NAME is ours, not his (§10.8.1.2) — the class is not.
+
+    THAT IS A REVERSAL, AND IT IS DELIBERATE. This used to withhold both on the same reasoning:
+    an owner does not have our words and does not need them. True of a template name, which is an
+    identifier at Meta and means nothing to him. Not true of the class.
+
+    The class is the one fact that decides whether a message needs his customer's explicit consent,
+    whether it may go out inside the quiet window (10pm–7am, §8.6), what it counts against, and
+    what Meta charges him for it. Withholding it left «متى نرسل» a flat list of thirteen sentences
+    that look alike and behave nothing alike — and the owner, who carries the fine, could not tell
+    which was which.
+    """
     return {"id": t.id, "label": t.label, "when": t.when,
+            # HIS WORD FOR IT, NOT OURS. `cls` is the key the screen colours by; `cls_label` is what
+            # it prints. Sending only the key would make the screen invent the Arabic, which is how
+            # a name drifts from the thing it names.
+            "cls": t.cls, "cls_label": CLASS_LABEL.get(t.cls, t.cls),
             # ID AND LABEL TOGETHER. The editor stores the id and shows the label; sending only
             # ids would make the screen invent names, and only labels would make it guess ids.
             "slots": [{"id": k, "label": SLOT_LABEL.get(k, k), "sample": SAMPLE.get(k, "")}

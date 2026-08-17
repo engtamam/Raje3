@@ -105,6 +105,17 @@ def check(t: dict) -> list[str]:
     return problems
 
 
+#: The two blanks that carry an ADDRESS. Named and exampled by what they ARE rather than by where
+#: they sit, because they sit somewhere different in every text. Kept equal to the seeder's own
+#: table by `ci/check_who_fills_a_blank_is_one_vocabulary.py` naming the same sources.
+ADDRESS_SLOTS = {
+    "invite": {"name": "invite_line",
+               "example": "ولك عندنا مزايا خاصة — فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"},
+    "stop_link": {"name": "stop_link",
+                  "example": "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"},
+}
+
+
 def expand(lib: dict) -> list[dict]:
     """The 72 submissions, built the way deploy/seed/seed-templates.sh builds them.
 
@@ -116,16 +127,29 @@ def expand(lib: dict) -> list[dict]:
     out: list[dict] = []
     variables = lib["variables"]
     for ty in lib.get("types") or []:
+        fills = list(ty.get("fills") or [])
         for tone, text in (ty.get("tones") or {}).items():
             used = sorted({int(n) for n in VAR.findall(text)})
+            # THE ADDRESS SLOT IS NAMED BY ITS FILL, NOT BY ITS POSITION — the same rule
+            # deploy/seed/seed-templates.sh follows, and for the same reason: the last blank is the
+            # invitation on a utility text and the one-tap stop on a marketing one, and it lands on
+            # slot 3 in a visit confirmation and slot 6 in an offer. Keyed by number alone this
+            # raised a KeyError on '6' — which is the honest failure; the quiet one would have been
+            # submitting «الخدمة / غيار الزيت» to Meta's reviewer where a link belongs.
+            by_pos = {n: (fills[i] if i < len(fills) else "") for i, n in enumerate(used)}
+            names, examples = [], []
+            for i in used:
+                slot = ADDRESS_SLOTS.get(by_pos.get(i, ""))
+                names.append(slot["name"] if slot else variables[str(i)]["name"])
+                examples.append(slot["example"] if slot else variables[str(i)]["example"])
             out.append({
                 "name": ty["name"] + "_" + tone,
                 "language": "ar",            # Arabic only today; English is a second row, later
                 "category": ty["category"],
                 "body": text,
                 "header": ty.get("header", ""),
-                "variables": [variables[str(i)]["name"] for i in used],
-                "examples": [variables[str(i)]["example"] for i in used],
+                "variables": names,
+                "examples": examples,
             })
     return out
 

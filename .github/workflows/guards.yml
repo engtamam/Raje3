@@ -510,6 +510,20 @@ jobs:
       - name: the consent sentence shown is the sentence recorded
         run: python3 ci/check_the_consent_sentence_shown_is_the_sentence_recorded.py
 
+      # portal mints `{tenant}.{subject}` and reminders composes the URL a customer taps. Their
+      # patterns disagreed on the separator, so every address — the page, the grant screen and the
+      # mandatory one-tap stop — would have been refused at render. Invisible until the first
+      # template carried a link, and by then the link is inside text Meta has approved.
+      - name: the reference two services pass is one shape
+        run: python3 ci/check_the_reference_two_services_pass_is_one_shape.py
+
+      # Four files list who may fill a template blank — the generator, two checks and the service
+      # that validates at write time. Adding a source took four edits; three were missed. In the
+      # dangerous direction the drift passes review and the blank falls through to «system», so the
+      # customer reads the library's positional meaning where the shop's value belongs (ح-1).
+      - name: who fills a blank is one vocabulary
+        run: python3 ci/check_who_fills_a_blank_is_one_vocabulary.py
+
       # The installer asked for an administration account, enforced a password floor, printed it
       # under «تُعرض مرة واحدة» — and nothing created the account. A prompt is a promise that the
       # answer changes something; an unread answer is found by an operator after the terminal closed.
