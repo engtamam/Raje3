@@ -31,6 +31,7 @@ ROLES = ROOT + "deploy/seed/roles.json"
 # deploy seed and not to the image would mean a shop provisioned today differs from one
 # provisioned last week, silently and permanently.
 SHIPPED = ROOT + "services/operations/data/roles.seed.json"
+ROUTER = ROOT + "apps/console/src/main.tsx"
 
 # Roles that exist for someone OUTSIDE the shop. They are not measured against the console's
 # sections because the console is not their surface — the till company never signs in here.
@@ -56,6 +57,17 @@ def capabilities() -> dict[str, str]:
     return out
 
 
+def _code(text: str) -> str:
+    """The source with its prose removed — a comment decides nothing and must be read as nothing.
+
+    Only a line whose FIRST non-space characters are `//` is cut: a `//` inside a string is not a
+    comment, and a cruder rule would blind this gate to a real row sharing its line with a note.
+    """
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    lines = ["" if line.lstrip().startswith("//") else line for line in text.splitlines()]
+    return chr(10).join(lines)
+
+
 def sections() -> list[tuple[str, list[str]]]:
     """Every nav section and the capabilities it needs.
 
@@ -72,9 +84,23 @@ def sections() -> list[tuple[str, list[str]]]:
     So this walks BACKWARD from `requires:` to the `id:` in the same object, in either order, and
     is indifferent to fields being added or reordered.
     """
-    text = io.open(NAV, encoding="utf-8").read()
+    # COMMENTS ARE STRIPPED FIRST, AND THEY WERE NOT. `nav.ts` explains two decisions with the
+    # words `requires: []` inside a comment — «NOT `requires: []`. It was, and an OPERATOR
+    # would have landed here first» and «`requires: []` — everybody has it whatever their
+    # role». Both were read as SECTIONS: an empty requirement list is a section every role
+    # can reach, attached by the backward scan to whichever `id:` happened to precede it.
+    # So the gate counted eight sections in a file declaring seven, one of them twice, and
+    # every phantom could only ever make the report more cheerful. The interface line
+    # `requires: string[];` was a third.
+    text = _code(io.open(NAV, encoding="utf-8").read())
     out: list[tuple[str, list[str]]] = []
+    # `requires: string[];` IN THE INTERFACE IS NOT A SECTION, and it was being read as one. The
+    # pattern matched it with an EMPTY capture, the backward scan then attached that empty list to
+    # whichever `id:` happened to precede it, and the gate counted eight sections where the file
+    # declares seven — one of them twice. A phantom section requiring nothing is a section every
+    # role can reach, so it could only ever make this gate more cheerful.
     for m in re.finditer(r"requires:\s*\[([^\]]*)\]", text):
+
         # The object literal this `requires:` belongs to: back to the nearest unmatched `{`.
         start = text.rfind("{", 0, m.start())
         if start < 0:
@@ -85,6 +111,22 @@ def sections() -> list[tuple[str, list[str]]]:
             continue
         out.append((sid.group(1), re.findall(r"'([^']+)'", m.group(1))))
     return out
+
+
+def screens_the_router_serves() -> list[str]:
+    """Every path a person can open, taken from the ROUTER rather than from the sidebar.
+
+    THE SIDEBAR IS NOT THE LIST OF SCREENS, AND READING IT AS ONE LEFT `/account` UNASKED. `nav.ts`
+    exports `ACCOUNT_PATH` OUTSIDE the section rows — «حسابي» is reached from the header, not by
+    choosing it — so it carries no `requires:` at all, and a gate that harvests `requires:` never
+    knew the screen existed. The router served eight sections and ten paths; this gate knew eight.
+
+    What the ROUTER serves is what a person can type, bookmark or be linked to. So that is the set,
+    and every one of them has to be accounted for below.
+    """
+    text = io.open(ROUTER, encoding="utf-8").read()
+    # `{ path: 'visit', ...}` and the root `path: '/'`. The index route has no path of its own.
+    return [m.group(1) for m in re.finditer(r"path:\s*'([^']*)'", text)]
 
 
 def main() -> int:
@@ -132,6 +174,31 @@ def main() -> int:
             faults.append(f"«{sid}» is reachable by NO role — needs {sorted(needed)}")
         if "owner" not in reachable:
             faults.append(f"«{sid}» is out of the OWNER's reach — needs {sorted(needed)}")
+
+    # EVERY SCREEN THE ROUTER SERVES MUST BE ACCOUNTED FOR IN nav.ts, AS CODE.
+    #
+    # The sidebar is not the list of screens. `/team` — the hiring screen — left the rail and
+    # stayed a route, and nav.ts recorded that in a COMMENT: «THE ROUTE STAYS. /team is still
+    # reachable and still rendered». A comment decides nothing, so this gate did not know the
+    # screen existed; if no role held the hiring capability, `/team` would answer 403 to everybody
+    # while the check written for exactly that stayed green.
+    #
+    # A path is accounted for when nav.ts names it IN CODE — a section's `path:`, or an exported
+    # constant like ACCOUNT_PATH — or when its parent does: `customers/:id` is a detail of
+    # `customers`, reached by opening a row rather than by choosing it.
+    nav_code = _code(io.open(NAV, encoding="utf-8").read())
+    served = screens_the_router_serves()
+    if not served:
+        faults.append("read no routes from main.tsx — this gate cannot answer about screens")
+    for path in served:
+        head = path.lstrip("/").split("/")[0]
+        if not head:
+            continue                      # the root route, which is the `today` section
+        if re.search(r"'/" + re.escape(head) + r"'", nav_code):
+            continue
+        faults.append(
+            f"the router serves /{head} and nav.ts names it nowhere in code — so no role was "
+            f"ever asked whether it can reach that screen")
 
     if faults:
         for f in faults:

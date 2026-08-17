@@ -128,6 +128,19 @@ export const SECTIONS: Section[] = [
 /** Where the account icon in the shell's user block leads. Not a Section: it is never filtered. */
 export const ACCOUNT_PATH = '/account';
 
+/**
+ * «فريقي», which left the rail and stayed a screen — and was named in a COMMENT alone.
+ *
+ * That is the whole of this constant's job. `check_roles.py` asks whether every screen a person
+ * can open is reachable by some role, and it learns what the screens are from this file. A route
+ * the router serves and this file mentions only in prose is a screen the gate does not know
+ * exists: if no role held the hiring capability, `/team` would answer 403 to everybody and the
+ * check written to catch exactly that would stay green.
+ *
+ * `ACCOUNT_PATH` above was already right for the same reason. This is its pair.
+ */
+export const TEAM_PATH = '/team';
+
 export function visibleSections(catalog: Catalog): SectionState[] {
   const down = new Set(catalog.unreachable);
   return SECTIONS
