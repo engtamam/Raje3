@@ -24,15 +24,6 @@ class FakeStore:
         self.rows[(collection, key)] = row
 
 
-class FakeSectors:
-    def __init__(self) -> None:
-        self.seeded: list[str] = []
-
-    async def seed_tenant(self, *, tenant, sector_key, integrated=False):
-        self.seeded.append(tenant)
-        return 7
-
-
 class FakeHttp:
     """Answers by (method, path-suffix), and records every call in order."""
 

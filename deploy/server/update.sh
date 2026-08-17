@@ -277,4 +277,52 @@ elif command -v k3s >/dev/null 2>&1; then
   k3s crictl rmi --prune >/dev/null 2>&1 && echo -e "  ${C_G}✔ pruned superseded node images${C_N}" || true
 fi
 
-echo -e "\n${C_G}✔ ${PRODUCT_NAME} rolled — every service on its pinned digest${C_N}"
+# ── THE CLOSING LINE SAYS WHAT WAS DONE, AND CHECKS IT ────────────────────────────────────────
+#
+# IT USED TO CLAIM «every service on its pinned digest», unconditionally, at the end of every run.
+# Two things were wrong with that sentence and both mattered.
+#
+# IT COVERED SERVICES THIS RUN NEVER TOUCHED. `--only api-gateway` rolls one and LEAVES the other
+# twenty-three exactly as they were — which is the whole point of the flag — and then announced
+# that all twenty-four were on their pinned digests. A claim about services the run deliberately
+# skipped cannot be anything but a guess.
+#
+# AND IT ASSERTED THE ONE THING NOBODY HAD READ BACK. `helm upgrade` reports that IT succeeded;
+# whether the Deployment now carries the digest in the values file is a different fact, and every
+# expensive deploy failure in this file's history has lived in that gap. A run reported «rolled»
+# six times in a row while all six Deployments kept their old digests, and only the caller's own
+# verify step ever disagreed.
+#
+# So the check is here now, where the roll is: for each service this run actually upgraded, compare
+# the Deployment's image against the digest its values file pins. A mismatch is a FAILURE — the
+# operator asked for a roll and did not get one — and it names the two digests rather than a mood.
+verified=0; unmoved=()
+for svc in "${targets[@]}"; do
+  _in_only "$svc" || continue
+  values="$VALUES_DIR/$svc.values.yaml"
+  want="$(grep -m1 -o 'sha256:[a-f0-9]*' "$values" 2>/dev/null || true)"
+  [[ -n "$want" ]] || continue          # no digest pinned: nothing to compare, and nothing claimed
+  live="$(kubectl -n "$NS" get deploy "$svc" \
+            -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+  if [[ -z "$live" ]]; then
+    unmoved+=("$svc: no deployment to read")
+  elif [[ "$live" == *"$want"* ]]; then
+    verified=$((verified+1))
+  else
+    unmoved+=("$svc: declares ${want:0:19}… and the deployment carries ${live##*@}")
+  fi
+done
+
+if [[ ${#unmoved[@]} -gt 0 ]]; then
+  echo -e "\n${C_R}✗ the roll did not land${C_N}"
+  for line in "${unmoved[@]}"; do echo -e "    ${C_R}$line${C_N}"; done
+  echo -e "  ${C_D}helm reported success; the deployment did not change. Nothing here is on the"\
+          "digest you asked for.${C_N}"
+  exit 1
+fi
+if [[ -n "$ONLY" ]]; then
+  echo -e "\n${C_G}✔ ${PRODUCT_NAME}: ${verified} service(s) on the pinned digest — ${ONLY}${C_N}"
+  echo -e "  ${C_D}the rest were not part of this run and are not claimed for${C_N}"
+else
+  echo -e "\n${C_G}✔ ${PRODUCT_NAME}: all ${verified} service(s) verified on their pinned digest${C_N}"
+fi

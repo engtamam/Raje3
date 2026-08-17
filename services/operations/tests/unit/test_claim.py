@@ -29,15 +29,6 @@ class FakeStore:
         return self.rows.pop((collection, key), None) is not None
 
 
-class FakeSectors:
-    def __init__(self) -> None:
-        self.calls: list[dict] = []
-
-    async def seed_tenant(self, *, tenant, integrated=False):
-        self.calls.append({"tenant": tenant, "integrated": integrated})
-        return 1
-
-
 class FakePartners:
     def __init__(self, known: dict[str, dict] | None = None) -> None:
         self.stamped: list[tuple[str, str]] = []
@@ -202,8 +193,8 @@ async def test_the_owner_opens_it_with_a_password_of_his_own():
     out = await svc.claim("0501234567", "123456", "his-own-passphrase")
 
     assert out["tenant"] == "t-1"
-    # THE SECTOR IS «غير محدَّد» AND THE CATALOGUE IS NOT SEEDED FULL: his invoices build it, and
-    # seventeen names his till never mentions would leave him unable to tell which are real.
+    # AND NO CATALOGUE IS SEEDED: his invoices build it, and seventeen names his till never
+    # mentions would leave him unable to tell which are real.
     # AND THE COMMISSION FOLLOWS THE INVITATION, not the request — by the RESOLVED id, since
     # `invite_partner_shop` resolved the key at invite time (ك-5) and never stores it raw.
     assert partners.stamped == []

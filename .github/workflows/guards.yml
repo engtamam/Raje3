@@ -518,6 +518,14 @@ jobs:
       - name: the front doors are named once
         run: python3 ci/check_the_front_doors_are_named_once.py
 
+      # THE ROLL HAD NEVER RUN. `ship.sh` uploads a bundle and executes `deploy/server/update.sh`
+      # inside it — and that script, plus both hooks, source `deploy/cluster.sh`, which the bundle
+      # did not carry. Every roll died on its first executable line, one line of stderr after a
+      # true «✔ declaration synced». The verify step caught the consequence each time and nothing
+      # named the cause. Two lists, and no honest reason for them to disagree.
+      - name: a script we upload sources nothing we left behind
+        run: python3 ci/check_a_script_we_upload_sources_nothing_we_left_behind.py
+
       # `GET /api/v1/branches` returned every branch of the establishment to anybody holding the
       # capability, while every other read in that service was narrowed by `branch_scope`. A
       # manager granted Jeddah could not read Riyadh's numbers and could read Riyadh's NAME — and

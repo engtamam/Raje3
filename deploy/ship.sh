@@ -108,8 +108,14 @@ pinned_digest() {
 # server from an older release renders yesterday's templates against today's values.
 sync_and_roll() {
   local svc="$1" digest="$2"
-  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/hooks deploy/server \
-         platform/deploy/chart 2>/dev/null \
+  # `deploy/cluster.sh` IS IN THIS LIST BECAUSE THE ROLL CANNOT START WITHOUT IT. update.sh and
+  # both hooks source it on their first executable line, and it was not being uploaded — so every
+  # roll died with «No such file or directory» before it rolled anything, on a step whose previous
+  # line had just printed a true «✔ declaration synced». The verify step caught the consequence
+  # every time; nothing named the cause. ci/check_a_script_we_upload_sources_nothing_we_left_behind.py
+  # now compares this list against what these scripts actually read.
+  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/cluster.sh deploy/hooks \
+         deploy/server platform/deploy/chart 2>/dev/null \
        | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null \
          && chmod +x deploy/hooks/*.sh && grep -q '$digest' deploy/services/$svc.values.yaml"; then
     red "$svc: the values file on the server does not carry the pinned digest"; return 1
@@ -120,7 +126,10 @@ sync_and_roll() {
   # thing it adds is fetching the images in parallel before the sequential loop needs them — a
   # single image took 3m50s on this link, and nineteen in single file took over an hour.
   "${SSH[@]}" "cd ~/raje3 && sudo -n PRODUCT_NAME=raje3 CHART=platform/deploy/chart PRUNE_IMAGES=1 \
-     VALUES_DIR=deploy/services bash deploy/server/update.sh --only $svc 2>&1 | tail -2"
+     VALUES_DIR=deploy/services bash deploy/server/update.sh --only $svc 2>&1 | tail -14"
+  # `tail -14`, NOT `tail -2`. Two lines showed the banner and threw away everything that could
+  # contradict it — the update summary, the render failures, and now the digest comparison the roll
+  # makes for itself. A step whose evidence is trimmed off reports only its own opinion.
 }
 
 # ── VERIFY THE ARTIFACT, NOT THE REPORT ───────────────────────────────────────────────────────

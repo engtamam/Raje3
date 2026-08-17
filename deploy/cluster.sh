@@ -54,6 +54,21 @@ if [ -n "${KUBECONFIG:-}" ]; then
   CLUSTER_VIA="kubeconfig"
 elif command -v kubectl >/dev/null 2>&1 && kubectl cluster-info >/dev/null 2>&1; then
   CLUSTER_VIA="local"
+  # A WORKING `kubectl` IS NOT EVIDENCE THAT `helm` WORKS, and this line is what that cost.
+  #
+  # On a k3s node the shipped `kubectl` finds the cluster with no KUBECONFIG at all — the wrapper
+  # carries the path itself — so this branch matched and the variable stayed unset. `helm` has no
+  # such wrapper: it fell back to localhost:8080, failed with «Kubernetes cluster unreachable»,
+  # and every `helm upgrade` in update.sh failed for a reason that had nothing to do with the
+  # release. The rollout fallback beneath it then read `kubectl rollout status` — which passes
+  # trivially for a deployment nobody changed — and reported ok. Six services were «rolled» and
+  # the release revision on the node had not moved since the previous day.
+  #
+  # So the seam serves every tool, not only the one it happened to test with.
+  # An `if`, not `[ … ] && …`: this file is sourced by scripts running under `set -e`, where a
+  # trailing test that is simply FALSE ends the caller. The guard must not be able to kill a run
+  # whose only news is «there is no node kubeconfig here», which is the normal case off the node.
+  if [ -r "$_NODE_KUBECONFIG" ]; then export KUBECONFIG="$_NODE_KUBECONFIG"; fi
 elif [ -r "$_NODE_KUBECONFIG" ]; then
   CLUSTER_VIA="node"
   export KUBECONFIG="$_NODE_KUBECONFIG"

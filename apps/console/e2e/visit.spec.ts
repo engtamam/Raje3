@@ -22,7 +22,8 @@ function customerPhone(): string {
  * Walk the journey until the thing we came for is on screen.
  *
  * «تسجيل زيارة» IS A SEQUENCE OF SCREENS NOW, not one page: plate, then his entitlements, then the
- * services. Which step a control lives on depends on the SECTOR — a salon has no plate page — and
+ * services. Which step a control lives on depends on WHETHER THE SHOP WORKS ON CARS — a salon has
+ * no plate page — and
  * on the customer, since the entitlements page is absent when he holds nothing. So no test names a
  * step number; each one moves forward until what it needs is visible, which is also what a person
  * does.
@@ -146,7 +147,7 @@ test('a partial plate finds the car — the operator reads four characters, not 
   // THE TEXTBOX, NOT THE «؟» BESIDE IT — both carry the same accessible name, deliberately: the
   // hint button is named for the field it explains. Ask for the role.
   const plateField = shop.getByRole('textbox', { name: 'رقم اللوحة' });
-  // A SECTOR WITHOUT PLATES IS NOT A FAILURE (§13.2): a salon has no plate page, and the fields
+  // A SHOP THAT DOES NOT WORK ON CARS IS NOT A FAILURE (§13.2): it has no plate page, and the fields
   // come from the catalogue rather than from a list in the app. Nothing to assert here, then.
   if (!(await plateField.count())) test.skip(true, 'this shop does not work on cars');
 

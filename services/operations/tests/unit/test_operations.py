@@ -331,7 +331,7 @@ async def _answer(value):
 
 
 def test_a_customer_is_findable_by_plate_by_name_and_by_the_number_he_types():
-    """THREE SECTORS, THREE WAYS IN, AND ALL OF THEM MUST WORK.
+    """THREE TRADES, THREE WAYS IN, AND ALL OF THEM MUST WORK.
 
     A tyre shop finds the car — the operator reads the plate off the bumper and the man behind the
     wheel may not be the one whose number we hold. A salon finds the person, by name or by number.
