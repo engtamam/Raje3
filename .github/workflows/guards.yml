@@ -485,6 +485,12 @@ jobs:
       - name: every service we own gets the shared secrets
         run: python3 ci/check_every_service_we_own_gets_the_shared_secrets.py
 
+      # The registers are the list work is picked from. When a fix lands and no resolution note is
+      # written beside the finding, the register keeps advertising a defect that no longer exists —
+      # and the next reader spends a session rediscovering it. This one cost three.
+      - name: the register says what the code says
+        run: python3 ci/check_the_register_says_what_the_code_says.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already
