@@ -267,7 +267,16 @@ env:
   # setting does not have.
   AUDIT_FAIL_CLOSED: "true"
 
-  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  # WHERE A CUSTOMER READS THEIR PAGE. The only address in this file a person outside the cluster
+  # ever sees, and it must equal the DOMAIN this fleet was installed with — the customer page lives
+  # at `<PUBLIC_BASE_URL>/p/{ref}` and the withdrawal tap at `.../stop`.
+  #
+  # LEFT EMPTY UNTIL AN INSTALL FILLS IT, and empty is a refusal rather than a guess: `core/links.py`
+  # raises instead of composing, so a fleet whose address nobody set stops the message and says so.
+  # A default of `https://raje3.sa` would work here and send every pilot's customers to a domain
+  # that is not theirs — the failure nobody sees, because delivery still reports success.
+  PUBLIC_BASE_URL: ""
+  CORS_ALLOWED_ORIGINS: ""
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
 

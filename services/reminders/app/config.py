@@ -128,6 +128,14 @@ class Settings(BaseSettings):
     # `null` records NOTHING and says so; the boot guard below refuses it in production, because a
     # service that cannot witness its own privileged actions has no audit trail at all — and an
     # empty hash chain looks like a working control while answering nothing.
+    # WHERE A CUSTOMER READS THEIR PAGE, as a customer can reach it. Every other URL in this file
+    # is a service address inside the cluster; this is the only one a person outside it ever sees.
+    #
+    # EMPTY BY DEFAULT AND NEVER GUESSED. `core/links.py` refuses to build a link without it, and
+    # that refusal is the point: a default of `https://raje3.sa` would work in production and
+    # silently misdirect every pilot, test box and customer install to a domain that is not theirs.
+    # Set from DOMAIN at install time.
+    PUBLIC_BASE_URL: str = ""                # e.g. https://raje3.sa
     AUDIT_SINK_DRIVER: str = "null"          # null | http | eventbus
     AUDIT_SERVICE_URL: str = ""              # e.g. http://audit-service:8000
     # OUR ingest path is a default, not an assumption about anyone else's platform — the same

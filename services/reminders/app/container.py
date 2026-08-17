@@ -319,5 +319,6 @@ def build_container(settings: Settings) -> Container:
                           holdout_share=settings.HOLDOUT_SHARE_PERCENT,
                           reach_window=settings.REACH_WINDOW_SECONDS,
                           ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS,
-                          ceiling=container.ceiling)
+                          ceiling=container.ceiling,
+                          public_base_url=settings.PUBLIC_BASE_URL)
     return container

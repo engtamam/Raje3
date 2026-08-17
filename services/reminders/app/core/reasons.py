@@ -47,8 +47,14 @@ ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
 CODE = "code"                # a one-time code the customer is waiting for
 MINUTES = "minutes"          # how long that code lives
+# THE TWO THAT ARE ADDRESSES, NOT WORDS. Every slot above is text we hold or a number we computed;
+# these two are places a thumb has to reach, so core/links.py composes them from the fleet's public
+# base and refuses when it is unset. They are on ALWAYS because both are true of every message: a
+# customer may open his page from any of them, and marketing may not go out without a way to stop.
+LINK = "link"                # his page: <base>/p/<ref>
+STOP_LINK = "stop_link"      # one tap to stop marketing — a requirement, not a courtesy
 
-ALWAYS = (CUSTOMER, SHOP)
+ALWAYS = (CUSTOMER, SHOP, LINK, STOP_LINK)
 
 # WHAT A BLANK IS CALLED ON HIS SCREEN. Here rather than in the console for the same reason the
 # labels are: a name kept in the screen drifts from the thing it names, and a chip reading «الخدمة»
@@ -68,6 +74,8 @@ SLOT_LABEL = {
     FREE_TEXT: "نصّك",
     CODE: "الرمز",
     MINUTES: "المدة",
+    LINK: "رابط صفحته",
+    STOP_LINK: "رابط الإيقاف",
 }
 
 

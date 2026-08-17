@@ -26,7 +26,7 @@ rollout that cannot finish while the ceiling is full.
 | `repin.sh` | moves every values file to a release, **by digest** — a tag can be moved |
 | `verify-pinned.sh` | reads what the cluster is *running* and compares it to what is pinned |
 | `k3s/edge.yaml` | the Caddy edge for a host with no DNS (no ACME) |
-| `k3s/edge.production.yaml` | the same edge with TLS, for a host whose name resolves |
+| `edge/edge.json` | the ONE place the domain and the routes are written; `bring-up.sh` renders it |
 | `monitoring/` | Prometheus, alert rules, a postgres exporter — written, not yet installed |
 
 ## What is theirs, and called rather than copied

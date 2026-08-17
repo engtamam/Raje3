@@ -187,8 +187,13 @@ class Tick:
     def __init__(self, *, store, sender, limits: G.Limits, eng_cfg: E.EngagementConfig,
                  batch: int = 100, telemetry=None, quota=None, approved=None,
                  reach_window: int = 0, ceiling_defer_seconds: int = 0, ceiling=None,
-                 holdout_enabled: bool = False, holdout_share: int = 10) -> None:
+                 holdout_enabled: bool = False, holdout_share: int = 10,
+                 public_base_url: str = "") -> None:
         self._store = store
+        # WHERE A CUSTOMER READS HIS PAGE. Held here rather than read from settings deeper
+        # down: the renderer must not know what a Settings object is, and a link composed
+        # from a value this class never saw is a link nobody can trace to a configuration.
+        self._public_base_url = public_base_url
         self._sched = ScheduleStore(store)
         self._log = SendLogStore(store)
         self._prefs = PrefsStore(store)
@@ -434,7 +439,10 @@ class Tick:
             # ONE DICT, PASSED AS ALL THREE. `campaign_slots` has already answered per source, so
             # handing the renderer three different maps would be deciding the same thing twice and
             # inviting them to disagree.
-            rendered = R.render(template=template, system=values, catalogue=values, owner=values)
+            rendered = R.render(template=template, system=values, catalogue=values,
+                                owner=values,
+                                public_base_url=self._public_base_url,
+                                reference=row.get("subject_ref", ""))
         except R.RenderError as exc:
             return {"sent": False, "reason": str(exc)}
 
@@ -688,7 +696,9 @@ class Tick:
                 "points": str(row.get("redeemed_cost", "")) if redeemed else "",
                 "balance": str(row.get("redeemed_remaining", "")),
                 "free_text": row.get("owner_text", ""),
-            })
+            },
+            public_base_url=self._public_base_url,
+            reference=subject)
 
         # ── 4. send ───────────────────────────────────────────────────────────────────────────
         # The key is generated and stored BEFORE the call and reused on every retry: a timeout is

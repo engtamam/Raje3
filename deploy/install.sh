@@ -214,4 +214,8 @@ if [ -n "${GENERATED:-}" ]; then
   echo -e "${C_B}  كلمة مرور الإدارة (تُعرض مرة واحدة فقط):${C_N}  ${ADMIN_PASSWORD}"
   echo -e "${C_D}  احفظها الآن — لا تُخزَّن في أي ملف، وتغييرها من «حسابي».${C_N}"
 fi
-[ -n "${DOMAIN:-}" ] && echo -e "${C_D}  اللوحة: https://${DOMAIN}   ·   العميل: https://my.${DOMAIN}   ·   البوابة: https://api.${DOMAIN}${C_N}"
+# ONE NAME, AND THESE ARE PATHS ON IT. This line used to print `my.$DOMAIN` and `api.$DOMAIN` —
+# two subdomains nothing has ever served. The edge is rendered from deploy/edge/edge.json, which
+# carries ONE domain and routes by path, so an operator who followed this line reached a redirect
+# to https and then a certificate error: a browser refusal, not a warning.
+[ -n "${DOMAIN:-}" ] && echo -e "${C_D}  اللوحة: https://${DOMAIN}   ·   صفحة العميل: https://${DOMAIN}/p/…   ·   الواجهة: https://${DOMAIN}/api${C_N}"

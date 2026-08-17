@@ -41,6 +41,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
+from app.core import links as L
 from app.core.riyadh import local
 
 # A blank {{1}} is a Meta rejection at send time. This is what goes in instead.
@@ -237,9 +238,16 @@ OWNER_SLOTS = frozenset({
 })
 
 
+#: The two slots that carry an ADDRESS rather than a word, and the only ones this module cannot
+#: fill from what it was handed. A page path is meaningless on a phone, so both are composed by
+#: core/links.py from the fleet's public base — and both refuse when that base is not configured.
+LINK_SLOTS = {"link": L.customer_page, "stop_link": L.stop_link}
+
+
 def render(*, template: dict[str, Any], system: dict[str, str],
            catalogue: dict[str, str], owner: dict[str, str],
-           by_meaning: dict[str, str] | None = None) -> Rendered:
+           by_meaning: dict[str, str] | None = None,
+           public_base_url: str = "", reference: str = "") -> Rendered:
     """Fill every variable the template declares, in order.
 
     `system`, `catalogue` and `owner` are keyed by variable NUMBER as a string ("1", "2", ...).
@@ -265,7 +273,17 @@ def render(*, template: dict[str, Any], system: dict[str, str],
     for i, number in enumerate(variables):
         key = str(number)
         source = fills[i] if i < len(fills) else "system"
-        if source == "amount":
+        if source in LINK_SLOTS:
+            # AN ADDRESS, NOT A WORD. Every other source here is text somebody typed or a number we
+            # computed; this one has to be somewhere a thumb can reach. `links.py` composes it from
+            # the fleet's public base and RAISES when that base is unset or the reference is not
+            # one we issued — deliberately, because the alternative is a message that is delivered,
+            # reported as sent, and carries a link that opens nothing.
+            try:
+                out.append(LINK_SLOTS[source](public_base_url, reference))
+            except L.LinkError as exc:
+                raise RenderError(str(exc)) from exc
+        elif source == "amount":
             value = (system.get(key) or "").strip()
             if not _AMOUNT.fullmatch(value):
                 raise RenderError(

@@ -497,6 +497,12 @@ jobs:
       - name: a seat is claimed before it is counted
         run: python3 ci/check_a_seat_is_claimed_before_it_is_counted.py
 
+      # The customer page was built, served and documented, and nothing ever composed its URL. A
+      # phone cannot tap `/p/abc123` — including the withdrawal tap PDPL requires be as easy as
+      # granting.
+      - name: a link a customer taps is absolute
+        run: python3 ci/check_a_link_a_customer_taps_is_absolute.py
+
       # A browser calling a peer service carries no scope anybody can enforce. The keypad did
       # exactly that, and a supervisor scoped to Jeddah read Riyadh's customers by name and number.
       - name: the browser does not search the fleet directly

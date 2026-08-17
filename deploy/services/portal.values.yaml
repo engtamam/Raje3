@@ -133,8 +133,15 @@ env:
 # No CronJobs. Nothing here is time-driven: the page renders when somebody opens it.
 
 # THE ONE SERVICE THAT MUST BE PUBLIC. Every other one is reached service-to-service behind the
-# gateway; this one is opened from a link in a WhatsApp message on a stranger's phone. Left
-# disabled until the TLS edge has a hostname (deploy/k3s/edge.production.yaml) — a page served over
-# plain http would put the reference in the clear on every network it crosses.
+# gateway; this one is opened from a link in a WhatsApp message on a stranger's phone.
+#
+# AND IT IS ALREADY PUBLIC — through the edge, not through an ingress of its own. `/p/*` is a route
+# in deploy/edge/edge.json, so the Caddy edge terminates TLS and proxies to this service: the page
+# is served over https and the reference never crosses a network in the clear. A second ingress
+# would be a second door to the same service, on a name with no certificate of its own.
+#
+# (This comment used to defer the whole question to deploy/k3s/edge.production.yaml — a manually
+# applied edge that nothing ever applied, and that lost to bring-up.sh anyway because both write
+# the same ConfigMap. It is deleted; edge.json is the one place.)
 ingress:
   enabled: false
