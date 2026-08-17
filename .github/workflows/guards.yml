@@ -288,6 +288,13 @@ jobs:
       - name: every nav row has a face when collapsed
         run: python3 ci/check_every_nav_row_has_a_face_when_collapsed.py
 
+      # AND A NEW EMPLOYEE CARRIES HIS BRANCH, WHICHEVER WAY HE IS ADDED. The picker lived inside
+      # the «حساب يدخل به» block, so the man on the shared tablet — most of a workshop's staff —
+      # could not be given one from any screen. A visit takes its branch from whoever recorded it,
+      # so all his work landed in «غير محدَّد» and the owner's branch table quietly stopped adding up.
+      - name: a new employee is offered his branch
+        run: python3 ci/check_a_new_employee_is_offered_his_branch.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values

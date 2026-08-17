@@ -204,7 +204,10 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
           name: name.trim(), phone: phone.trim(), password, role, branch_id: branchId,
         });
       } else {
-        await call(session, add, { name: name.trim(), pin, role });
+        // AND THE BRANCH, WHICH THIS CALL USED TO OMIT. The server has always accepted it
+        // (`staff.py` create_operator) — the screen simply never offered it, so the field that
+        // decides where a visit happened was left empty for the majority of a workshop's staff.
+        await call(session, add, { name: name.trim(), pin, role, branch_id: branchId });
       }
       setName('');
       setPin('');
@@ -323,25 +326,35 @@ function People({ session, operators, branches, add, edit, hire, onChanged }: {
                 <Input id="op-pw" value={password} type="password"
                        onChange={(e) => setPassword(e.target.value)} />
               </Field>
-              {/* SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE — for everyone else the answer is
-                  «كل الفروع» and the question is noise. */}
-              {(branches ?? []).length > 1 ? (
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="text-text-secondary">فرعه</span>
-                  <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
-                          value={branchId} aria-label="فرع الموظف"
-                          onChange={(e) => setBranchId(e.target.value)}>
-                    <option value="">كل الفروع</option>
-                    {(branches ?? []).filter((b) => b.active !== false).map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                  <span className="text-xs text-text-secondary">
-                    من له فرع يرى بيانات فرعه وحده.
-                  </span>
-                </label>
-              ) : null}
             </>
+          ) : null}
+
+          {/* THE BRANCH BELONGS TO BOTH KINDS OF EMPLOYEE, AND IT USED TO BE INSIDE THE LOGIN BLOCK.
+              So a PIN operator — the man on the shared tablet, which is most of a workshop's staff
+              — could never be given one from any screen. And a visit takes its branch from the
+              person recording it, so every visit he took landed in «غير محدَّد». An owner with three
+              branches opened his comparison table and read three empty rows and one huge unnamed
+              one, with nothing on any screen to tell him why.
+
+              SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE — for everyone else the answer is «كل
+              الفروع» and the question is noise. */}
+          {(branches ?? []).length > 1 ? (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-text-secondary">فرعه</span>
+              <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+                      value={branchId} aria-label="فرع الموظف"
+                      onChange={(e) => setBranchId(e.target.value)}>
+                <option value="">كل الفروع</option>
+                {(branches ?? []).filter((b) => b.active !== false).map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+              <span className="text-xs text-text-secondary">
+                {kind === 'pin'
+                  ? 'الزيارات التي يسجّلها تُنسب لهذا الفرع.'
+                  : 'من له فرع يرى بيانات فرعه وحده، وزياراته تُنسب إليه.'}
+              </span>
+            </label>
           ) : null}
           {/* FOUR DIGITS, AND THE SERVER SAYS FOUR. A longer PIN is not meaningfully safer for what
               it protects and IS meaningfully slower to type a hundred times a day. */}

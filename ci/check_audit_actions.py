@@ -94,14 +94,28 @@ def emitted_actions(service: pathlib.Path) -> tuple[list[tuple[str, int, str]], 
                 continue
             if node.func.attr not in RECORD_METHODS or not node.args:
                 continue
-            # THE RECEIVER IS IGNORED ON PURPOSE. `auditor.record`, `self._auditor.record` and
-            # `request.app.state.auditor.record` are the same call, and a check that matched the
-            # receiver would pass a route simply because it reached the auditor by a new name.
+            # THE RECEIVER IS IGNORED FOR THE VERDICT, AND READ FOR THE NOISE.
+            #
+            # `auditor.record`, `self._auditor.record` and `request.app.state.auditor.record` are
+            # the same call, and matching the receiver would pass a route that reached the auditor
+            # by a new name — so a LITERAL action is checked whatever it was called on.
+            #
+            # But `record` is an ordinary English word, and this repo uses it for persistence too:
+            # `store.record(attempt)` writes a connection row and has nothing to do with the audit
+            # log. Those were being counted as «an audited action built at runtime», so the warning
+            # list filled with rows that were never audit calls — and a warning list nobody can act
+            # on is one people learn to scroll past, which is how the real entries in it get lost.
+            #
+            # NARROWED BY SCOPE, NEVER BY PATTERN: a non-literal action on something that IS an
+            # auditor is still reported, exactly as before.
+            receiver = node.func.value
+            name = (receiver.id if isinstance(receiver, ast.Name)
+                    else receiver.attr if isinstance(receiver, ast.Attribute) else "")
             first = node.args[0]
             rel = str(path.relative_to(ROOT)).replace("\\", "/")
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 literals.append((rel, node.lineno, first.value))
-            else:
+            elif "audit" in name.lower():
                 dynamic.append((rel, node.lineno))
     return literals, dynamic
 
