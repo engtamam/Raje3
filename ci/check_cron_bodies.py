@@ -25,6 +25,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "deploy" / "services"
 SERVICES = ROOT / "services"
+# The platform's own source, vendored as a submodule. Read, never written.
+PLATFORM_SERVICES = ROOT / "platform" / "services"
 
 C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 
@@ -32,7 +34,20 @@ C_G, C_R, C_N = "\033[32m", "\033[31m", "\033[0m"
 def cron_paths(values: Path) -> list[str]:
     """The `path:` of every cronJobs entry. Read with a regex rather than a YAML parser, because
     these files are read by three other guards the same way and a dependency here is a dependency
-    in CI."""
+    in CI.
+
+WHOSE SOURCE IT IS DOES NOT CHANGE WHETHER THE JOB RUNS. This used to skip any service whose
+`internal.py` was not under `services/` — nine of the fourteen cron jobs in the fleet, including
+the nightly backup run and the billing roll. The platform's source is vendored in `platform/` and
+every other check that reads it looks there; this one now does too.
+
+AND ONE OF THE NINE WAS BROKEN, ON ITS FIRST RUN AFTER THE WIDENING. `backup-service`'s
+`/internal/backup/run` declares a REQUIRED body, the platform's job template posts an empty
+payload, and the nightly backup has answered 422 every night since it was deployed. That is
+`platform/` — read-only here — so this gate STAYS RED until the submodule is fixed. It is not
+excused, silenced, or listed as an exception: a repository that goes green while its backups do
+not run is the exact silence this whole register exists to remove.
+"""
     text = values.read_text(encoding="utf-8")
     block = text.split("cronJobs:", 1)
     if len(block) < 2:
@@ -53,9 +68,32 @@ def main() -> int:
 
     for values in sorted(DEPLOY.glob("*.values.yaml")):
         service = values.name.replace(".values.yaml", "")
+        # OURS FIRST, THEN THE PLATFORM'S — AND «NOT OURS» WAS NEVER A REASON TO SKIP.
+        #
+        # This used to be `if not internal.is_file(): continue  # a platform service`, and that one
+        # line dropped NINE of the fourteen cron jobs in the fleet: backup-service, billing-service,
+        # audit-service, compliance-service, job-service, notification-service and the rest. Every
+        # one of them is a job WE schedule, in a values file WE wrote, and among them are the
+        # nightly backup run and the billing roll.
+        #
+        # The source was never out of reach — it is `platform/services/<name>/…`, in this tree,
+        # which is where every other check that reads platform code already looks. «Not ours to
+        # check» described the authorship, not the risk: a cron of ours pointing at a route that
+        # does not exist fails identically whoever wrote the service.
         internal = SERVICES / service / "app" / "api" / "internal.py"
         if not internal.is_file():
-            continue                     # a platform service: not ours to check
+            internal = PLATFORM_SERVICES / service / "app" / "api" / "internal.py"
+        if not internal.is_file():
+            # AND IF NEITHER TREE HAS IT, THAT IS A FINDING. A values file scheduling jobs against
+            # a service whose source is nowhere is either a stale values file or a missing
+            # submodule — and both are things a person must be told, not skipped past.
+            if cron_paths(values):
+                problems.append(
+                    f"{service}: schedules cron jobs and no `internal.py` exists for it in "
+                    f"services/ or platform/services/ — nothing here can be verified, and a "
+                    f"cron nobody can check is a cron that fails in a Job's exit code and "
+                    f"nowhere else")
+            continue
         source = internal.read_text(encoding="utf-8")
 
         for path in cron_paths(values):

@@ -90,7 +90,10 @@ def main() -> int:
     fail_open: list[str] = []
     checked = 0
 
-    for path in sorted(SERVICES.glob("*/app/api/v1/*.py")):
+    # EVERY ROUTE FILE (هـ-6). `v1/` was never the boundary — `portal/app/api/page.py` and six
+    # `internal.py` live outside it, and a per-branch read is a per-branch read whichever
+    # directory it was filed under.
+    for path in sorted(SERVICES.glob("*/app/api/**/*.py")):
         text = path.read_text(encoding="utf-8")
         rel = str(path.relative_to(ROOT)).replace("\\", "/")
 

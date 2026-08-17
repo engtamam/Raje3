@@ -46,7 +46,12 @@ def enforced_by_route(service: Path) -> dict[tuple[str, str], str]:
     require_capability(...), and which of those names each route lists.
     """
     out: dict[tuple[str, str], str] = {}
-    for py in sorted((service / "app" / "api" / "v1").glob("*.py")):
+    # EVERY ROUTE FILE, NOT JUST `v1/`. This globbed `app/api/v1/*.py` and the routes that
+    # matter most are not all there: `portal/app/api/page.py` serves the customer's own public
+    # page and carries `Depends(rate_limit)` — the very shape this gate was written to guard —
+    # and each service's `internal.py` sits outside too. A guard scoped by DIRECTORY rather than
+    # by what it is guarding is a guard whose coverage depends on where somebody filed a file.
+    for py in sorted((service / "app" / "api").rglob("*.py")):
         try:
             tree = ast.parse(py.read_text(encoding="utf-8"))
         except (SyntaxError, OSError):

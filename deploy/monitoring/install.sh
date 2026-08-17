@@ -48,7 +48,22 @@ kubectl create namespace "$NS_MON" --dry-run=client -o yaml | kubectl apply -f -
 # scrape time out against a policy nobody thinks to check.
 kubectl label namespace "$NS_MON" kubernetes.io/metadata.name="$NS_MON" --overwrite >/dev/null
 
+# ── PINNED, AND IT USED TO BE «WHATEVER IS LATEST TODAY» (هـ-3) ─────────────────────────
+# `helm upgrade --install` with no `--version` resolves to the newest chart in a third-party
+# repository at the moment the command runs. That is a whole CHART VERSION decided by
+# strangers: dozens of images at whatever tags it names, installed with operator privileges,
+# and a different result every time this script is run. It is the `caddy:2.8-alpine` family
+# one level up.
+#
+# AND IT IS THE COMPONENT THAT TELLS US WHEN SOMETHING BREAKS. A monitoring stack that
+# changed under us breaks the alarm about itself: nothing pages, and the silence reads as
+# health.
+#
+# The version lives here rather than in values.yaml because values CONFIGURE a chart and this
+# CHOOSES one — and a person raising it should have to say so in a diff.
+MON_CHART_VERSION="65.1.1"
 helm upgrade --install mon prometheus-community/kube-prometheus-stack \
+  --version "$MON_CHART_VERSION" \
   --namespace "$NS_MON" -f "$HERE/values.yaml" --wait --timeout 900s \
   || warn "helm --wait returned non-zero — on this stack that is usually a slow pull, not a
            failure. Continuing; the verification at the end is what decides."
@@ -73,7 +88,10 @@ kubectl -n "$NS_MON" create secret generic pg-exporter \
   --from-literal=DATA_SOURCE_NAME="$DSN" \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 
+# PINNED for the same reason as the stack above.
+PG_EXPORTER_CHART_VERSION="6.5.1"
 helm upgrade --install pg-exporter prometheus-community/prometheus-postgres-exporter \
+  --version "$PG_EXPORTER_CHART_VERSION" \
   --namespace "$NS_MON" \
   --set config.datasourceSecret.name=pg-exporter \
   --set config.datasourceSecret.key=DATA_SOURCE_NAME \

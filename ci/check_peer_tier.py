@@ -64,7 +64,9 @@ def _peer_paths(config: pathlib.Path) -> list[tuple[str, str]]:
 def _limited_user_routes() -> set[tuple[str, str]]:
     """(method, full path) for every user-tier route that carries a per-caller rate limit."""
     found: set[tuple[str, str]] = set()
-    for api in SERVICES.glob("*/app/api/v1/*.py"):
+    # EVERY ROUTE FILE (هـ-6) — see the note in check_capability_truth.py. A directory is not
+    # a security boundary.
+    for api in SERVICES.glob("*/app/api/**/*.py"):
         src = api.read_text(encoding="utf-8")
         tree = ast.parse(src)
         prefix = ""
