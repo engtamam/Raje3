@@ -579,7 +579,7 @@ class SeedRewardIn(BaseModel):
     name: str
     cost: int
     type: str
-    # Already resolved by the caller. Sector rows can only name a service, and a service id belongs
+    # Already resolved by the caller. A seed row could only name a service, and a service id belongs
     # to one establishment — so the lookup happens where that shop's catalogue is.
     service_id: str = ""
     discount_halalas: int = 0
@@ -594,7 +594,7 @@ class SeedRewardsIn(BaseModel):
 async def seed_rewards(request: Request, body: SeedRewardsIn) -> dict:
     """Give a new establishment its rewards table. Returns how many were created.
 
-    WHY THIS EXISTS AT ALL. «نقاطي» told owners the table "arrives filled for your sector — contact
+    WHY THIS EXISTS AT ALL. «نقاطي» once told owners the table "arrives filled for your trade — contact
     us if it stays empty", and nothing in this product ever filled it: there was no seeding code in
     any service. The screen was accusing the system of a fault that had no implementation behind
     it, and every shop was told to call support on its first day.

@@ -452,7 +452,7 @@ class ShopCatalogue:
 
     THE DEFECT THIS CLOSES, AND IT IS THE FOURTH OF ITS FAMILY HERE. The scheduler resolves a
     service's cycle through the settings tree, whose default is DEFAULT_INTERVAL_DAYS — 90. But an
-    establishment's real cycles live in its CATALOGUE (operations), seeded from its sector the day
+    establishment's real cycles live in its CATALOGUE (operations), written by its owner the day
     it registered: a car wash's «غسيل خارجي» is 10 days, a workshop's oil change is 90, a barber's
     haircut is 21. Nothing ever read that. So every shop that never hand-edited a service — which
     is every new shop — had every first reminder scheduled at 90 days.

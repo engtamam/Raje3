@@ -100,7 +100,7 @@ export const SECTIONS: Section[] = [
   // nothing downstream reads which noun he used. But the NAME did make one, and it excluded half
   // the market — a coffee shop or a spare-parts counter opening «خدماتي» reads a section that
   // apparently is not for them and does not open it again. The rail pays two extra words for a
-  // sector that would otherwise think the product was not built for it.
+  // trade that would otherwise think the product was not built for it.
   { service: 'operations', id: 'services', path: '/services', label: 'خدماتي ومنتجاتي', icon: Wrench, requires: ['operations.update_service'] },
   { service: 'reminders', id: 'messages', path: '/messages', label: 'رسائلي', icon: MessageSquare, requires: ['reminders.get_settings'] },
   // ON THE EDIT, NOT THE READ. `loyalty.settings.read` is `loyalty.read`, which the OPERATOR

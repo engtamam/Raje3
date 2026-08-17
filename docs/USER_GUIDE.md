@@ -27,7 +27,7 @@ job scheduling, analytics, audit logging, file storage, or an API gateway — **
 already exists in `base-services`. Configure it; do not write it.
 
 You build only what is unique to Raje3: **customers, assets, service records, reminder
-rules, loyalty points, campaigns, sectors.** Nobody else will ever build those for us.
+rules, loyalty points, campaigns.** Nobody else will ever build those for us.
 
 ---
 
@@ -88,7 +88,6 @@ services/   OUR product services (business logic), each generated from base-serv
 platform/   base-services: the Helm CHART + CI harness only (sparse submodule). NEVER edited.
 deploy/     the server install pipeline — k3s manifests + provision/install/update scripts.
 ui/         portals (establishment: dashboard + field-entry; super-admin console).
-data/       "the axes" — sectors, services, templates. Content that grows without a deploy.
 docs/       design, written before code. This guide lives here.
 brand/      colour tokens + logos.
 ```
@@ -176,8 +175,10 @@ not `raje3-operations`).
 | **`insights`** | the 20 metrics, adaptive and contextual re-sort, cross-sell matrix, at-risk lists, staff KPIs, the daily owner digest (spec §4.4, §10, §11.5) | analytics, job, notification |
 | **`portal`** | the customer's own page — due date, points, visits, offers banner, notification preferences (spec §8.6.1) | operations, loyalty, compliance |
 
-`catalog` is **not** a service: sectors, services, dynamic fields and sector templates are
-content under `data/`, edited and loaded without a deploy.
+`catalog` is **not** a service. A shop's services are its own, written by its owner in «خدماتي»;
+the message-template library is content operations seeds once and our console edits at runtime.
+Neither needs a deploy, and neither is guessed from a trade — that question is gone, replaced by
+one checkbox in «منشأتي»: does this shop work on cars.
 
 **Two product decisions that constrain these before a line is written:**
 

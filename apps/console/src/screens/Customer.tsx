@@ -43,7 +43,7 @@ interface Record {
    *  at all (أ-9): both doors accept them, the visit row stores them, and no screen in the
    *  product showed them back. Daily effort on a screen whose whole budget is five seconds. */
   visits: { id: string; services?: string; occurred_at?: number; meter?: number; note?: string }[];
-  /** His vehicles, when the sector has any. The record has always carried them. */
+  /** His vehicles, when this shop works on cars. The record has always carried them. */
   assets?: { id: string; plate?: string; make?: string; model?: string }[];
 }
 
@@ -98,8 +98,8 @@ const ADJUST_REASONS = [
  * One learned interval — HIS, for one service.
  *
  * `learned` is separate from the number on purpose: an owner told «تعلّمنا: 90 يوماً» from zero
- * observations stops trusting every number on the screen, so an estimate that is still the sector
- * default has to say it is one.
+ * observations stops trusting every number on the screen, so an estimate that is still the
+ * service's own default has to say it is one.
  */
 interface Rule {
   id?: string;
@@ -783,7 +783,7 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
                 <span className="text-sm">{r.service_name || r.service_id}</span>
                 <span className="text-xs text-text-secondary">
                   {/* STILL AN ESTIMATE, AND IT SAYS SO. `learned` false means the number is the
-                      sector default wearing his name. */}
+                      service's default wearing his name. */}
                   {r.learned
                     ? `تعلّمناها من ${r.observations ?? 0} زيارة`
                     : 'تقدير مبدئي — لم نتعلّمها بعد'}

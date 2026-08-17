@@ -84,7 +84,7 @@ class Schedule:
     # trace a message back to the thing that produced it.
     visit_id: str = ""
     branch_id: str = ""
-    # WHICH CAR THIS IS ABOUT, and empty for every sector that has none.
+    # WHICH CAR THIS IS ABOUT, and empty for every shop that does not work on cars.
     #
     # In بنشر, مغسلة and تنجيد the cycle belongs to the VEHICLE, not to the person holding the
     # phone: «ممكن عندي سيارتين برقمي». Without this in the key, an oil change on the second car
@@ -106,7 +106,7 @@ class Schedule:
     def key(self) -> str:
         """The natural key. Distinct from `id`: the id is stable for tracing, this is what a
         second visit collides with so it updates instead of duplicating."""
-        # THE ASSET IS PART OF IT, and an empty one changes nothing for the sectors without cars —
+        # THE ASSET IS PART OF IT, and an empty one changes nothing for the shops without cars —
         # their key keeps the exact shape it had, so no existing schedule is orphaned by this.
         return (f"{self.tenant}|{self.subject_ref}|{self.asset_id}"
                 f"|{self.service_id}|{self.kind}") if self.asset_id else (
@@ -121,7 +121,7 @@ class RuleState:
     is reminded every two months". A per-service average would be the same number for everybody,
     which is the thing this replaces.
 
-    `interval_days` starts at the sector default and moves toward the observed gap smoothly. It
+    `interval_days` starts at the service's default and moves toward the observed gap smoothly. It
     never jumps: one late return by a customer who travelled must not stretch the estimate for the
     rest of their life, which is what the anomaly filter in core/adaptive.py exists to prevent.
     """

@@ -25,7 +25,7 @@ THREE GUARDS AROUND IT, AND EACH EXISTS BECAUSE THE BARE AVERAGE FAILS WITHOUT I
                          counted. The customer who travelled for six months should not stretch
                          their own schedule for the rest of their life.
 
-  A WARM-UP              Below two observations the estimate is the sector default wearing a
+  A WARM-UP              Below two observations the estimate is the service's default wearing a
                          different hat. The API says so rather than presenting a guess as learning
                          — an owner who is told "learned: 90 days" from zero data stops trusting
                          every number the screen shows.
@@ -81,7 +81,7 @@ def observe(*, current_days: float, observed_days: float, observations: int,
         return _clamp(current_days, lo, hi), False
 
     # THE FIRST REAL OBSERVATION IS TRUSTED MORE THAN THE DEFAULT, because the default is a guess
-    # about a sector and this is a fact about a person. Without this the first genuine visit moves
+    # about a service and this is a fact about a person. Without this the first genuine visit moves
     # the estimate by alpha only, and a customer with a 30-day rhythm sits on a 90-day default for
     # four visits — long enough for the owner to conclude the feature does not work.
     if observations <= 0:

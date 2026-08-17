@@ -199,6 +199,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "shop_mode",
     },
     {
+        # Whether this shop works on cars — the switch «تسجيل زيارة» changes shape for. Recorded
+        # because the visible symptom is somebody else's: an operator rings to say the plate page
+        # vanished, and «who turned it off, and when» is the whole of the answer.
+        "action": "shop.vehicles_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "shop_vehicles",
+    },
+    {
         "action": "member.hired",
         "source": "admin",
         # CRITICAL: this is a person being given access to an establishment's data. An unrecorded

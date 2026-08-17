@@ -44,6 +44,7 @@ from app.core import branches as B
 from app.core import operator_ticket as OT
 from app.core import seats as S
 from app.core import shop_mode as SM
+from app.core import vehicles as V
 from app.core.signup import SignupRefused
 from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
 
@@ -475,6 +476,41 @@ async def set_mode(request: Request, body: ModeIn,
     # exists to answer, months later, is when the change was actually made.
     await request.app.state.auditor.record(
         "shop.mode_changed", actor=principal.subject, tenant=tenant, resource="shop_mode",
+        ip=request.client.host if request.client else "")
+    return row
+
+
+class VehiclesIn(BaseModel):
+    tracks_vehicle: bool
+
+
+@router.get("/vehicles", dependencies=[Depends(rate_limit)])
+async def read_vehicles(request: Request, principal: Principal = Depends(_READ)) -> dict:
+    """Does this shop work on cars — the one question the plate page and the meter depend on."""
+    tracks = await V.VehicleStore(request.app.state.container.datastore).tracks_vehicle(
+        _tenant(principal))
+    return {"tracks_vehicle": tracks}
+
+
+@router.put("/vehicles", dependencies=[Depends(rate_limit)])
+async def set_vehicles(request: Request, body: VehiclesIn,
+                       principal: Principal = Depends(_MANAGE)) -> dict:
+    """Turn the plate page on or off for this establishment.
+
+    BOTH DIRECTIONS, UNLIKE THE BRANCH MODE NEXT DOOR. Nothing outside our own database depends on
+    the answer — no number is registered, no template is approved against it — so a shop that tried
+    it and stopped doing cars simply says so, and the plate page goes away. A one-way switch here
+    would be strictness with nothing behind it.
+
+    AND IT IS EDITABLE AT ALL, which the trade it replaced was not: «نوع النشاط» was chosen once at
+    sign-up and never again, so the tyre shop that added detailing, and the car wash that stopped,
+    both lived with a screen that was wrong about them for ever.
+    """
+    tenant = _tenant(principal)
+    row = await V.VehicleStore(request.app.state.container.datastore).set(
+        tenant, body.tracks_vehicle)
+    await request.app.state.auditor.record(
+        "shop.vehicles_changed", actor=principal.subject, tenant=tenant, resource="shop_vehicles",
         ip=request.client.host if request.client else "")
     return row
 

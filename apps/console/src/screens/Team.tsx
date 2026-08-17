@@ -581,6 +581,7 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
   return (
     <div className="flex flex-col gap-4">
       <ModeCard session={session} catalog={catalog} />
+      <VehiclesCard session={session} catalog={catalog} />
       <section className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       {isLoading(branches) ? (
         <Skeleton height={120} />
@@ -639,6 +640,73 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
       ) : null}
       </section>
     </div>
+  );
+}
+
+/**
+ * Does this shop work on cars — the one question «تسجيل زيارة» changes shape for.
+ *
+ * IT REPLACED A TRADE. Sign-up used to ask «نوع النشاط» and that single answer decided four things
+ * at once: the services we seeded, the rewards we seeded, the plate page and the meter. The owner
+ * answering it could not see any of that, and could never change it — so the tyre shop that added
+ * detailing, and the car wash that stopped, both kept a screen that was wrong about them.
+ *
+ * NOW IT IS ONE CHECKBOX AND IT IS HIS. The rest a shop writes itself, because a catalogue guessed
+ * from a trade we have never seen is wrong on its first day, and correcting a guess is more work
+ * than writing the truth once.
+ */
+function VehiclesCard({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const read = action(catalog, 'operations.shop_vehicles');
+  const write = action(catalog, 'operations.set_shop_vehicles');
+  const [tracks, setTracks] = useState<boolean | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!read) { setTracks(null); return; }
+    call<{ tracks_vehicle?: boolean }>(session, read)
+      .then((x) => setTracks(x.tracks_vehicle === true))
+      .catch(() => setTracks(null));
+  }, [session, catalog]);
+
+  async function flip(next: boolean) {
+    if (!write) return;
+    setBusy(true);
+    setError('');
+    try {
+      const row = await call<{ tracks_vehicle?: boolean }>(
+        session, write, { tracks_vehicle: next });
+      setTracks(row.tracks_vehicle === true);
+    } catch (err) {
+      // THE OLD VALUE STAYS ON THE SCREEN. A checkbox that moves on a failed write tells him the
+      // plate page is on when the server still says off.
+      setError(err instanceof Error ? err.message : 'تعذّر حفظ الاختيار. حاول بعد قليل.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!read || tracks === null) return null;
+
+  return (
+    <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+      <h3 className="font-medium">العمل على السيارات</h3>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="size-5"
+          checked={tracks === true}
+          disabled={busy || !write}
+          onChange={(e) => flip(e.target.checked)}
+        />
+        <span>عملي يتم على السيارات</span>
+      </label>
+      <p className="text-sm text-text-secondary">
+        إن فعّلته ظهرت صفحة رقم اللوحة والعدّاد في «تسجيل زيارة»، وارتبطت الدورة بالسيارة لا
+        بصاحبها وحده. غيّره متى تغيّر عملك.
+      </p>
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
+    </section>
   );
 }
 

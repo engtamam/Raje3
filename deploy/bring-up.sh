@@ -501,7 +501,7 @@ PRODUCT_NAME=raje3 CHART="$ROOT/platform/deploy/chart" VALUES_DIR="$ROOT/deploy/
 
 # ── 8 ─────────────────────────────────────────────────────────────────────────────────────────
 # THE INSTALL ENDED HERE, AND THE CLUSTER WAS EMPTY. Every service ran, every probe was green, and
-# the product had no roles, no price list, no legal library and no sector definitions — because
+# the product had no roles, no price list and no legal library — because
 # nothing in this script had ever applied a single seed. The gap was invisible in exactly the way
 # this file's own verify step was built to catch elsewhere: a truthful report about the wrong
 # thing. A shop signing up on a fresh install would have got a login it could do nothing with.
@@ -531,32 +531,12 @@ soft "legal" bash "$HERE/seed/seed-legal.sh"
 soft "backup targets" bash "$HERE/seed/seed-backup-targets.sh"
 
 # AND THE SEED THAT LIVES INSIDE THE SERVICE, WHICH DEPENDS ON AN ORDER NOTHING GUARANTEES.
-# operations seeds its sectors and its 78 templates on the first boot that finds an empty table.
-# On this install it booted before its database existed — the databases were being created in
-# another step — so it found nothing to seed and never looked again. Everything then reported
-# success: the pod was ready, the endpoint answered 200, and it answered `{"sectors":[]}`.
+# operations seeds its 78 templates on the first boot that finds an empty table. On this install it
+# booted before its database existed — the databases were being created in another step — so it
+# found nothing to seed and never looked again, and everything reported success.
 #
-# The owner met it at the only place it shows: «نوع النشاط» on the sign-up form, empty, with a red
-# line under it. So we ask the service what it has, and if the answer is nothing we restart it once
-# — a boot with a database behind it seeds in under a second.
-if kubectl -n "$NS" get deploy operations >/dev/null 2>&1; then
-  SECTORS="$(kubectl -n "$NS" exec deploy/operations -- python -c "
-import urllib.request, json
-print(len(json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/signup/sectors'))['sectors']))
-" 2>/dev/null || echo 0)"
-  if [ "${SECTORS:-0}" -gt 0 ]; then
-    ok "sectors present ($SECTORS)"
-  else
-    echo "  no sectors — restarting operations so it seeds against a database that now exists"
-    kubectl -n "$NS" rollout restart deploy/operations >/dev/null
-    kubectl -n "$NS" rollout status deploy/operations --timeout=180s >/dev/null 2>&1 || true
-    SECTORS="$(kubectl -n "$NS" exec deploy/operations -- python -c "
-import urllib.request, json
-print(len(json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/signup/sectors'))['sectors']))
-" 2>/dev/null || echo 0)"
-    [ "${SECTORS:-0}" -gt 0 ] && ok "sectors seeded ($SECTORS)"       || warn "still no sectors — the sign-up form will show an empty «نوع النشاط»"
-  fi
-fi
+# The trade a shop was in used to be seeded the same way and checked here; it is gone. A shop now
+# starts with an empty catalogue it writes itself, so «empty» is no longer evidence of anything.
 
 # ── 9 ─────────────────────────────────────────────────────────────────────────────────────────
 # THE EDGE, WHICH NOTHING USED TO APPLY. Every service could be healthy, every secret minted, every

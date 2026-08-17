@@ -119,7 +119,7 @@ async def list_rules(request: Request, service_id: str = Query(default=""),
 
     `learned` is reported separately from the number itself. An owner told "learned: 90 days" from
     zero observations stops trusting every number on the screen — so an estimate that is still the
-    sector default says so.
+    service's default says so.
     """
     from app.config import get_settings
     from app.core.adaptive import AdaptiveConfig, is_learned

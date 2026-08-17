@@ -1178,7 +1178,7 @@ async def rhythms(request: Request, body: RhythmsIn) -> dict:
     months». Collapsing it to a shop average here would hand campaigns exactly the number the
     adaptive engine was built to replace.
 
-    OBSERVATIONS TRAVEL WITH IT. Below two, the estimate is the sector default wearing a different
+    OBSERVATIONS TRAVEL WITH IT. Below two, the estimate is the service's own default wearing a different
     hat — and a caller that cannot tell a learned 45 from a defaulted 45 will present a guess as a
     measurement.
 

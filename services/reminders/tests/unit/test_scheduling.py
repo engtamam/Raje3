@@ -208,7 +208,7 @@ def test_a_visit_with_no_pending_follow_up_earns_nothing(st, sch):
 
 def test_a_second_visit_moves_the_reminder_rather_than_adding_one(st, sch):
     """And it may move it EARLIER: a customer who came back after 40 days has told us their real
-    rhythm, and the first observation is trusted over the sector default."""
+    rhythm, and the first observation is trusted over the service's default."""
     run(sch.on_visit(visit(), now=NOW, service_config=CFG))
     first = run(ScheduleStore(st).pending_for_subject("t1", "sub_a"))[0]["due_at"]
     run(sch.on_visit(visit(visit_id="vis_2", occurred_at=NOW + 40 * DAY),
@@ -328,7 +328,7 @@ def test_two_cars_on_one_number_get_two_reminders(st, sch):
     assert sorted(r["asset_id"] for r in rows) == ["ast_camry", "ast_hilux"]
 
 
-def test_a_sector_without_cars_keeps_the_key_it_always_had(st, sch):
+def test_a_shop_without_cars_keeps_the_key_it_always_had(st, sch):
     """A salon has no asset, and its schedules must not be re-keyed by this change — a new key
     shape would orphan every row already scheduled and re-send what was already sent."""
     out = run(sch.on_visit(visit(visit_id="v3"), now=NOW, service_config=CFG))

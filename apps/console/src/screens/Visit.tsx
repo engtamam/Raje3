@@ -15,7 +15,7 @@ import {
   offerFor, pointsByService, type EarnSettings,
   redeem,
   suggestByPrefix,
-  type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type SectorField,
+  type Balance, type CatalogueService, type CustomerHit, type FieldOffer, type VisitField,
   sentenceFor,
 } from '../api';
 import { asLocal } from '../phone';
@@ -60,7 +60,7 @@ const MIN_PREFIX = 3;
 export function Visit() {
   const { session } = useSession();
   const [services, setServices] = useState<CatalogueService[] | null>([]);
-  const [fields, setFields] = useState<SectorField[]>([]);
+  const [fields, setFields] = useState<VisitField[]>([]);
   // NO `recent` HERE. It was fetched on every entry to this screen and never rendered once — the
   // matches come from search-service (see the note below), so this was a request the busiest screen
   // in the product paid for and threw away, plus a state that made a reviewer believe a «عملاء
@@ -88,7 +88,7 @@ export function Visit() {
   const stuck = queued.filter((r) => r.stuck);
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
 
-  // THE SERVER SAID SO. Not a list of sector keys in this file — that would be our own data
+  // THE SERVER SAID SO. Not a rule about trades written into this file — that would be our own data
   // living where our console cannot change it (spec 13.2).
   const has = (n: string) => fields.some((f) => f.name === n);
   const showPlate = has('plate');
@@ -918,7 +918,7 @@ export function Visit() {
             it. Recent customers live in «عملائي», where looking someone up is the point. */}
 
         {/* ── THE JOURNEY ───────────────────────────────────────────────────────────────────
-            One question per screen, moved by a thumb. In a vehicle sector the plate comes first
+            One question per screen, moved by a thumb. In a shop that works on cars the plate comes first
             and alone: the car rolls in and that is what is read off it. Everywhere else the
             person IS the phone number, so that is the first screen instead.
 

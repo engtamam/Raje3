@@ -8,8 +8,7 @@
  *   before any of our code runs (see SignInPane).
  *
  *   `SignupForm` asks a person's name and an email and offers a company/individual toggle — five
- *   values where we ask four, one of them an address an owner may not have, and none of them the
- *   sector his catalogue is seeded from.
+ *   values where we ask three, one of them an address an owner may not have.
  *
  * The canvas is ours too (DoorLayout), and that file says why.
  *
@@ -42,7 +41,7 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
 import { openShop, requestCode, signIn, verifyCode, AGREED_KEY, Refused } from '../auth';
-import { listSectors, sentenceFor, type Sector } from '../api';
+import { sentenceFor } from '../api';
 import type { Session } from '../session';
 
 export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
@@ -296,24 +295,9 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [proving, setProving] = useState<Proving | null>(null);
   const [v, setV] = useState<Record<FieldName, string>>({ phone: '', password: '', shopName: '' });
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
-  const [sector, setSector] = useState('');
-  /** null while the list is still being fetched — NOT an empty list. See the field below. */
-  const [sectors, setSectors] = useState<Sector[] | null | undefined>(undefined);
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-
-  const loadSectors = () => {
-    listSectors()
-      .then((list) => {
-        setSectors(list);
-        // Preselected when there is one, so nobody answers a question with one possible answer.
-        if (list.length === 1) setSector(list[0].key);
-      })
-      .catch(() => setSectors(null));
-  };
-
-  useEffect(loadSectors, []);
 
   const errs = useMemo(() => ({
     phone: errorFor('phone', v.phone),
@@ -331,7 +315,7 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const nameIsPassword = v.shopName.length > 0 && v.shopName === v.password;
 
   const looksComplete = !nameIsPassword && !errs.phone && !errs.password && !errs.shopName
-    && Boolean(sector) && agree;
+    && agree;
 
   const set = (k: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setV((p) => ({ ...p, [k]: e.target.value }));
@@ -358,13 +342,17 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
     }
     const bad = (Object.keys(filled) as FieldName[]).find((k) => errorFor(k, filled[k]));
     if (bad) return;
-    if (!sector) { setError('اختر نوع النشاط.'); return; }
     if (!agree) { setError('وافق على الشروط وسياسة الخصوصية للمتابعة.'); return; }
     setBusy(true);
     setError('');
     try {
+      // NO TRADE IS ASKED FOR. Sign-up used to open on «نوع النشاط», and that one answer seeded a
+      // service catalogue and a rewards table guessed from a business we had never seen — wrong on
+      // its first day for any shop that did two things. A shop now starts empty and its owner
+      // writes what he actually sells; whether he works on cars is a checkbox in «منشأتي» that he
+      // can change the day his work changes.
       await openShop({
-        phone: filled.phone, password: filled.password, shopName: filled.shopName, sector,
+        phone: filled.phone, password: filled.password, shopName: filled.shopName,
       });
       // HE AGREED HERE, against links to the documents. The legal gate records the version-pinned
       // acceptance the moment he is inside; this marker is what stops it asking the same question
@@ -454,45 +442,11 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         ) : null}
       </Field>
 
-      {/* THE FOURTH VALUE, AND THE ONLY ONE NOT ABOUT HIM. His catalogue is seeded from it — without
-          it his first screen is an empty «خدماتي», which costs him more than the question does.
-
-          IT IS ALWAYS ON THE FORM NOW. It used to render only when more than one sector had
-          ARRIVED — so a slow fetch or a failed one silently removed a required field, and the
-          button stayed dim over a form with nothing visibly missing. "Sometimes it appears" is
-          exactly what a race looks like from the outside.
-
-          A single sector is preselected and shown rather than hidden: the person still needs to
-          see what his shop was recorded as, and a question with one answer that answers itself is
-          not the same as a question that was never asked. */}
-      {/* A GROUP, NOT A CONTROL — so it carries no <label>. `Field`'s label is a `htmlFor`, and a
-          card group has no single element to point at; the binding would resolve to nothing and a
-          screen reader would announce the cards nameless. `role="group"` + `aria-label` names the
-          set, which is what is actually being labelled here. */}
-      <div role="group" aria-label="نوع النشاط" className="flex flex-col gap-1.5">
-        <span className="text-label font-medium text-text-secondary">
-          نوع النشاط<span className="ms-1 text-danger" aria-hidden>*</span>
-        </span>
-        {/* THREE STATES, NOT TWO (م · النمط 1). This read failed into the SAME value it started
-            from, so a failed load rendered the skeleton for ever: a permanent grey rectangle above
-            a dead «ابدأ», on the first screen of the product. `undefined` is «on its way»; `null`
-            is «it failed», and only now can the sentence below ever be reached. */}
-        {isLoading(sectors) ? (
-          <Skeleton height={40} />
-        ) : hasFailed(sectors) || sectors.length === 0 ? (
-          // A FAULT, AND IT SAYS SO. Silence here is what produced the dead button — the sector is
-          // required, so a missing list has to be visible and retryable rather than absent.
-          <button
-            type="button"
-            onClick={() => { setSectors(undefined); loadSectors(); }}
-            className="text-sm text-danger underline"
-          >
-            تعذّر تحميل أنواع النشاط — أعد المحاولة
-          </button>
-        ) : (
-          <SectorCards options={sectors} value={sector} onChange={setSector} />
-        )}
-      </div>
+      {/* THREE VALUES, ALL ABOUT HIM. There used to be a fourth — «نوع النشاط» — and it was the
+          only one that was not: it existed so we could seed a catalogue guessed from his trade.
+          A guess is wrong on its first day for any shop that does two things, and correcting it
+          means deleting our guesses one by one, so the shop starts empty and he writes what he
+          sells. Whether he works on cars is a checkbox in «منشأتي», where he can change it. */}
 
       <Terms agree={agree} onChange={setAgree} />
 
@@ -501,8 +455,8 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       {/* GENUINELY DISABLED UNTIL THE FORM IS COMPLETE, and here that is safe — which it is not on
           the sign-in pane.
           The autofill trap needs the browser to fill EVERY gate silently. It cannot here: the
-          consent box is a click nobody's password manager makes, and the sector is a control it
-          does not understand. So `looksComplete` is false only when the form really is incomplete.
+          consent box is a click nobody's password manager makes. So `looksComplete` is false only
+          when the form really is incomplete.
           The `soft` variant was tried and is wrong for this — it is `bg-accent-soft`, a bright
           wash meant for a secondary ACTION, so it read as a second, louder button. Disabled uses
           the kit's own dimming (`disabled:opacity-50` on solid), which is what "not yet" looks
@@ -514,62 +468,6 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   );
 }
 
-/**
- * Choosing the trade.
- *
- * `Segmented` WAS WRONG FOR THIS, AND IT SHOWED. It is a compact toggle — two or three short words
- * sharing one pill, sized for «الكل / المتأخرون». Four sector names of four words each wrapped
- * inside it into a beige block of run-together text, which is what "primitive" meant: not a
- * missing colour, a control being asked to do a job it was not shaped for.
- *
- * SO THEY ARE CARDS, one per choice, each with room to be read. The selected one is stated three
- * times over — a gold border, a tinted ground, and a tick — because on a phone in sunlight any one
- * of the three can be the one that survives, and this is the answer that decides which catalogue
- * his shop is born with.
- *
- * STILL RADIOS UNDERNEATH. A grid of `<button>`s looks identical and tells a screen reader
- * nothing: the group has no name, the options have no relationship, and nothing announces which is
- * chosen. Real inputs keep the keyboard arrows and the announcement for free.
- */
-function SectorCards({
-  options, value, onChange,
-}: {
-  options: Sector[];
-  value: string;
-  onChange: (key: string) => void;
-}) {
-  return (
-    <div role="radiogroup" aria-label="نوع النشاط" className="grid gap-2 sm:grid-cols-2">
-      {options.map((o) => {
-        const picked = o.key === value;
-        return (
-          <label
-            key={o.key}
-            className={[
-              'flex cursor-pointer items-center justify-between gap-3 rounded-card border px-4 py-3',
-              'transition-colors',
-              picked
-                ? 'border-accent bg-accent-soft text-accent-on-soft'
-                : 'border-border-subtle bg-surface-1 hover:border-border-strong',
-            ].join(' ')}
-          >
-            {/* The input carries the semantics and the keyboard; the card carries the look. */}
-            <input
-              type="radio"
-              name="sector"
-              value={o.key}
-              checked={picked}
-              onChange={() => onChange(o.key)}
-              className="sr-only"
-            />
-            <span className="text-sm leading-snug">{o.label}</span>
-            {picked ? <Check size={16} aria-hidden className="shrink-0" /> : null}
-          </label>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * The consent line.

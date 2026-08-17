@@ -514,18 +514,33 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
   // — which was written for exactly this — could never be reached.
   if (isLoading(services)) return <Waiting what="نقرأ خدماتك" />;
 
-  if (hasFailed(services) || services.length === 0) {
-    // A SHOP SHOULD NEVER SEE THIS. Its catalogue is seeded full from its sector at creation
-    // (§4.6) precisely so nobody starts from a blank page — so an empty list means the seeding did
-    // not run, which is a fault to report rather than an invitation to type twenty services.
+  // TWO DIFFERENT EMPTIES, AND THEY MUST NOT SHARE A SENTENCE. «We could not read your services»
+  // is about us; «you have not added any yet» is about his shop — and until now both arrived here
+  // as one branch, because a catalogue was seeded from his trade at sign-up and an empty list
+  // could only mean the seeding had failed.
+  //
+  // NOTHING IS SEEDED NOW. A list guessed from a trade we have never seen was wrong on its first
+  // day for any shop that does two things, so a new shop starts empty and its owner writes what he
+  // actually sells. Empty is therefore the true first state of the product, and this screen has to
+  // invite rather than apologise.
+  if (hasFailed(services) || unread) {
     return (
       <div className="p-4">
         <EmptyState
-          title={unread || hasFailed(services) ? 'تعذّر عرض خدماتك' : 'لا توجد خدمات'}
-          description={unread || hasFailed(services)
-            ? 'خدماتك موجودة ولم نستطع قراءتها الآن. أعد المحاولة، وإن تكرّر فتواصل معنا.'
-            : 'قائمة قطاعك تُضاف تلقائياً عند إنشاء الحساب — تواصل معنا إن بقيت فارغة.'}
-          action={unread ? <Button onClick={load}>أعد المحاولة</Button> : undefined}
+          title="تعذّر عرض خدماتك"
+          description="خدماتك موجودة ولم نستطع قراءتها الآن. أعد المحاولة، وإن تكرّر فتواصل معنا."
+          action={<Button onClick={load}>أعد المحاولة</Button>}
+        />
+      </div>
+    );
+  }
+
+  if (services.length === 0) {
+    return (
+      <div className="p-4">
+        <EmptyState
+          title="ابدأ بإضافة خدماتك"
+          description="اكتب ما تبيعه فعلاً — اسم الخدمة، وكل كم يوم يعود العميل لها. تقدر تضيف وتعدّل متى شئت."
         />
       </div>
     );

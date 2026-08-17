@@ -49,14 +49,14 @@ THE VERDICTS
                                   customer something he did not need today.
   low      low        none        nothing
 
-The `group` row is the answer to the family problem: found arithmetically, per shop, with no sector
+The `group` row is the answer to the family problem: found arithmetically, per shop, with no trade
 and no question to the owner — and without pretending we split the receipt into people.
 
 The `temporal` row is a gain we were not looking for: a relationship no single receipt can show, in
 a product whose entire subject is coming back.
 
 ────────────────────────────────────────────────────────────────────────────────────────────────
-NO SECTOR, ANYWHERE IN THIS FILE
+NO TRADE, ANYWHERE IN THIS FILE
 
 An earlier draft said "restaurants are group-prone by default". That is a rule whose input we do
 not have: most establishments reach us through a POS link that reports an invoice and never says
@@ -78,7 +78,7 @@ from app.core.models import Pair
 # ── THE ENGINE'S FOUR JUDGEMENTS — defaults, not constants ─────────────────────────────────────
 #
 # Every one of these is a CHOICE about where evidence becomes advice, and none is derived from
-# anything. They are also the numbers most likely to be wrong for a sector we have not met: a
+# anything. They are also the numbers most likely to be wrong for a shop we have not met: a
 # workshop's baskets are not a café's, and the lift that means something in one is noise in the
 # other. Frozen into code they would need a release to correct — for a shop that is already being
 # shown a wrong recommendation.
@@ -169,11 +169,11 @@ def is_group_basket(services: list[str], quantities: dict[str, int] | None = Non
     """Does this ONE receipt look like more than one person? (spec §10.6.2)
 
     EVIDENCE, NOT A CLASSIFIER. This judges a single receipt and says nothing whatever about the
-    shop — no sector is inferred, no flag is set on the establishment. A receipt that looks like a
+    shop — no trade is inferred, no flag is set on the establishment. A receipt that looks like a
     group is dropped from LEARNING and still counts in every other indicator: it was a real visit
     and the money was real.
 
-    Two signals, both sector-free:
+    Two signals, both trade-free:
 
       a repeated item      two coffees on one bill — one person does not drink two coffees, and
                            this is the clearest evidence there is,

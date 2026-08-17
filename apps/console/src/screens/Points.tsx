@@ -305,11 +305,14 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               description="لم نستطع جلبه الآن، والخلل عندنا. أعد المحاولة بعد قليل."
             />
           ) : rewards.length === 0 ? (
-            // A FAULT, NOT AN INVITATION. The table is seeded for his sector at creation, so empty
-            // means the seeding did not run.
+            // AN INVITATION, AND IT USED TO BE A FAULT REPORT. The table was seeded from the trade
+            // he picked at sign-up, so empty meant the seeding had failed and the sentence told him
+            // to contact us. Nothing is seeded now — a rewards table guessed from a trade we have
+            // never seen is wrong for most shops — so empty is the true first state of every new
+            // shop, and it must read as a beginning rather than as our failure.
             <EmptyState
-              title="جدول المكافآت فارغ"
-              description="يصل معبّأً لقطاعك عند إنشاء الحساب — تواصل معنا إن بقي فارغاً."
+              title="لا مكافآت بعد"
+              description="أضف أول مكافأة: اختر خدمة، وكم زيارة تُستحق بها."
             />
           ) : (
             <ul className="flex flex-col gap-2">

@@ -47,7 +47,8 @@ cat = call("/api/v1/field/catalogue", token=token)
 service = cat["services"][0]["id"]
 
 # EARN ENOUGH TO SPEND. The cheapest reward decides how many visits — read, not assumed, because a
-# seeded table differs by sector and a hardcoded loop would pass in a car wash and fail in a salon.
+# rewards table is whatever this shop wrote for itself, and a hardcoded loop would pass in one
+# shop and fail in the next.
 rewards = sorted(call("/api/v1/loyalty/rewards", token=token)["rewards"], key=lambda r: r["cost"])
 if not rewards:
     print("  ! this shop has no rewards seeded", file=sys.stderr)

@@ -10,7 +10,7 @@ edits a service — every new shop — reminded its customers three months late.
 
 THE ORDER THIS PINS:
     1. what the owner set explicitly (service, then its group, then his shop-wide setting)
-    2. his catalogue — the number seeded from his sector and shown to him in «خدماتي»
+    2. his catalogue — the number he wrote himself and sees in «خدماتي»
     3. our platform default, and only when nobody else has an answer
 """
 from __future__ import annotations

@@ -7,7 +7,7 @@ has it.
 
 THE AWARENESS CARD IS THE ONE WITH A STORY. The original plan had the system send advice
 automatically, matched to what a customer had taken and the season. It failed for an operational
-reason that settles it: a thousand sectors means a thousand pieces of advice we write and refresh
+reason that settles it: a thousand kinds of shop means a thousand pieces of advice we write and refresh
 seasonally, and nobody can run that. The owner knows their trade — a barber knows what to say about
 hair in summer, and we do not.
 
@@ -20,7 +20,7 @@ support ticket; a card that explains itself reads as a rule and generates nothin
 
 THE LOCK IS PER ESTABLISHMENT, not per customer. One awareness campaign a month for the whole shop
 satisfies the per-customer monthly cap in §8.4.2 automatically — no per-customer arithmetic, no
-sector model, and one number an owner can hold in their head.
+per-trade model, and one number an owner can hold in their head.
 """
 from __future__ import annotations
 

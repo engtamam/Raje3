@@ -28,7 +28,7 @@ router = APIRouter(prefix="/platform", tags=["platform"])
 _PLATFORM = require_capability("platform.reminders")
 
 LIMITS_COLLECTION = "limits"
-# Overrides live under a reserved tenant, the same pattern as operations' sector and template
+# Overrides live under a reserved tenant, the same pattern as operations' template
 # tables. One row per establishment, plus one row keyed "_global" that is the product default.
 PLATFORM_TENANT = "_platform"
 GLOBAL_KEY = "_global"
@@ -112,7 +112,7 @@ async def clear_limits(request: Request, tenant: str = "",
                        principal: Principal = Depends(_PLATFORM)) -> dict:
     """Remove an override and fall back to the product default.
 
-    Deleted rather than deactivated — the opposite of sectors and templates, and for a reason: this
+    Deleted rather than deactivated — the opposite of the template library, and for a reason: this
     row is not content anyone references by name, and a retired override that still exists is a
     permission somebody will eventually re-enable by accident.
     """

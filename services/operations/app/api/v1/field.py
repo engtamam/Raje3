@@ -29,6 +29,7 @@ from app.config import get_settings
 from app.core import erase_customer as E
 from app.core import operator_ticket as OT
 from app.core import plate as P
+from app.core import vehicles as V
 from app.core.operations import OperationError, Operations
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
@@ -139,15 +140,17 @@ async def record_visit(request: Request, body: VisitIn, background: BackgroundTa
     # «سيارتك», and its screen looks the customer up by plate before phone — so a plateless visit
     # is half a visit, and nobody notices until a returning customer cannot be found months later.
     #
-    # CHECKED HERE, NOT IN core/operations.py, because «is this sector a vehicle sector» is a fact
-    # the core does not hold and should not fetch — it takes what it is given and stays pure.
+    # CHECKED HERE, NOT IN core/operations.py, because «does this shop work on cars» is a fact the
+    # core does not hold and should not fetch — it takes what it is given and stays pure.
     #
     # AND THE RULE IS ONE LETTER AND ONE DIGIT, NOT THE SAUDI FORMAT (see core/plate.py): a format
     # check refuses temporary, transit, Gulf and diplomatic plates, and the man with a customer
     # waiting types «1» and moves on — which leaves the field required AND meaningless.
-    sectors = request.app.state.container.sectors
-    sector_key = await sectors.sector_of(tenant)
-    if sector_key and await sectors.tracks_vehicle(sector_key) and not P.is_plausible(body.plate):
+    # ONE FLAG, ASKED OF THIS SHOP. It used to be «which trade did he pick at sign-up, and is that
+    # trade one of the ones we listed as having vehicles» — an answer chosen once, never editable,
+    # and wrong for every shop that started doing cars later.
+    tracks_vehicle = await V.VehicleStore(request.app.state.container.datastore).tracks_vehicle(tenant)
+    if tracks_vehicle and not P.is_plausible(body.plate):
         # RETURNED, NOT RAISED — the platform strips a refusal's detail, and this refusal is the
         # entire value of the answer to the person holding the phone.
         return {"recorded": False, "reason": P.REFUSAL, "field": "plate"}
@@ -455,26 +458,18 @@ async def customer_record(request: Request, customer_id: str,
 
 @router.get("/catalogue", dependencies=[Depends(rate_limit)])
 async def catalogue(request: Request, principal: Principal = Depends(_READ)) -> dict:
-    """The service grid. Seeded full from the sector defaults at tenant creation — an
-    establishment that must build its own list before recording a first visit will not record a
-    first visit."""
+    """The service grid, and the extra inputs this shop's work needs."""
     tenant = _tenant(principal)
-    sectors = request.app.state.container.sectors
-    key = await sectors.sector_of(tenant)
+    store = request.app.state.container.datastore
     # THE FIELDS COME WITH THE GRID, and this is the point of answering them here at all.
     #
-    # Which inputs a screen renders is a property of the SECTOR (spec 13.2): the plate exists in a
-    # tyre shop and does not exist in a salon - not disabled, not empty, absent. The front end
-    # cannot work that out for itself without carrying its own list of sector keys, which is a
-    # copy of our data living where we cannot change it: our console adds a fifth sector at
-    # runtime and the screen keeps rendering the four it was built with.
-    #
-    # `fields` is the full descriptor rather than names, so the screen never needs its own idea of
-    # what "meter" means either. An establishment provisioned before we recorded sectors answers
-    # an empty list - honest, and it renders the phone and nothing else, which is always valid.
+    # `fields` is a list of descriptors rather than a boolean, so the screen asks «is `plate` among
+    # my fields» and never carries its own idea of which shops have plates. A shop that does not
+    # work on cars answers an empty list — honest, and it renders the phone and nothing else,
+    # which is always valid.
     return {"services": await _svc(request).catalogue(tenant),
-            "sector": key,
-            "fields": await sectors.fields_for(key) if key else []}
+            "tracks_vehicle": await V.VehicleStore(store).tracks_vehicle(tenant),
+            "fields": await V.fields_for(store, tenant)}
 
 class ApplyOfferIn(BaseModel):
     subject_ref: str = Field(min_length=8, max_length=128)

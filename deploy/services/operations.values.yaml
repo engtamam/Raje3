@@ -6,7 +6,7 @@
 # and proven; this is the layer that makes it Raje3.
 #
 # WHAT IT OWNS: the customer, the vehicle, the service catalogue, the visit, the operator, the
-# branch. And the sector table, which is platform-wide content our own console edits at runtime.
+# branch. And whether this shop works on cars, which is what the visit sheet changes shape for.
 #
 # THE ONE THING TO KNOW BEFORE CHANGING ANYTHING HERE: this service holds the phone number in the
 # clear. It is the only one that does, deliberately (core/models.py explains why — the field screen
@@ -211,20 +211,15 @@ env:
   # tenant has none, and creating one needed a capability only that role could grant. Until this
   # existed, every signup produced an owner with `caps: []` and an empty application.
   AUTHZ_SERVICE_URL: "http://authz-service:8000"
-  # THE REWARDS TABLE, at the same moment as the catalogue. «نقاطي» promised an owner it "arrives
-  # filled for your sector"; nothing filled it, because no service had ever been asked to. Without
-  # this URL a shop starts with a real catalogue and an empty rewards table — a missing table
-  # rather than a failed signup, which is why it is optional in code.
+  # LOYALTY, reachable at signup. Nothing is seeded into it any more — a rewards table guessed
+  # from a trade we have never seen was wrong for most shops, so a new shop starts empty and its
+  # owner writes what he wants to give away. The URL stays because the signup saga still greets the
+  # service, and it is optional in code: an unreachable loyalty is a missing table, never a failed
+  # signup.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
   SIGNUP_ROLES_FILE: "/app/data/roles.seed.json"
   SIGNUP_OWNER_ROLE: "owner"
 
-  # ── sectors: the ONE-TIME seed ────────────────────────────────────────────────────────────
-  # Applied only when the sector table is empty. After that the table is the source of truth and
-  # our platform console edits it at runtime — no rebuild, no restart. Re-applying this on every
-  # boot would silently undo an operator's edits, which is the worst kind of bug: the console
-  # appears to work and the change is gone by morning.
-  SECTORS_SEED_FILE: "/app/data/sectors.seed.json"
   # The 66-template library. Same contract as the sectors seed: applied ONCE, only when the table is
   # empty. After that the platform console owns the text, and re-applying this file on every boot
   # would quietly undo whatever an operator edited.
@@ -278,7 +273,7 @@ env:
   RETENTION_ENTITLEMENT_KEY: "messages.monthly"
   # The ceiling and the default. A shop may SHORTEN its own retention from the console; it may not
   # extend it past this, because "keep everything for fifty years" is not a preference we may
-  # honour. Five years without a visit is far longer than any cycle in our sectors — and a
+  # honour. Five years without a visit is far longer than any service cycle we have seen — and a
   # customer away three years is exactly what the return engine exists to bring back.
   RETENTION_CUSTOMER_YEARS: "5"
   RETENTION_LAPSED_YEARS: "2"

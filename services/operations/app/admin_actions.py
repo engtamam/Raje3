@@ -57,37 +57,9 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
     # behind operations.manage and not behind operations.record.
 
     # ── THE PLATFORM CONSOLE — ours, not an establishment's ───────────────────────────────────
-    # Gated by platform.operations, which no tenant token carries. This is the surface where WE
-    # curate the content every establishment is built from, and it is the highest-leverage set of
-    # edits in the product: a wrong cycle here propagates to every tenant created afterwards.
-    {
-        "id": "operations.list_sectors", "label": "القطاعات", "method": "GET",
-        "path": "/api/v1/platform/sectors", "capability": "platform.operations",
-        "group": "المنصة — القطاعات",
-        "help": "كل القطاعات، الفعّال والمتوقف. لوحة تعرض الحيّ وحده لا تُظهر ما أُوقف الشهر الماضي.",
-    },
-    {
-        "id": "operations.upsert_sector", "label": "إضافة أو تعديل قطاع", "method": "PUT",
-        "path": "/api/v1/platform/sectors/{key}", "capability": "platform.operations",
-        "group": "المنصة — القطاعات", "confirm": True,
-        "params": [{"name": "key", "in": "path", "type": "string", "required": True,
-                    "help": "أحرف صغيرة وشرطة سفلية، ولا يبدأ بشرطة"}],
-        "help": "يسري على المنشآت التي تُنشأ بعده. لا يُعاد على القائمة — المالك عدّل خدماته، "
-                "والكتابة فوقها تُتلف عملاً حقيقياً.",
-    },
-    {
-        "id": "operations.deactivate_sector", "label": "إيقاف قطاع", "method": "DELETE",
-        "path": "/api/v1/platform/sectors/{key}", "capability": "platform.operations",
-        "group": "المنصة — القطاعات", "confirm": True, "danger": True,
-        "params": [{"name": "key", "in": "path", "type": "string", "required": True}],
-        "help": "إيقاف لا حذف: منشآت قائمة تشير إليه، وحذفه يتركها تشير إلى ما لم يعد موجوداً.",
-    },
-    {
-        "id": "operations.set_sector_fields", "label": "حقول القطاعات", "method": "PUT",
-        "path": "/api/v1/platform/sector-fields", "capability": "platform.operations",
-        "group": "المنصة — القطاعات", "confirm": True,
-        "help": "تعريف كل حقل مرة واحدة يُشار إليه بالاسم — فـplate يعني الشيء نفسه في كل قطاع مركبات.",
-    },
+    # Gated by platform.operations, which no tenant token carries. What we curate here is the
+    # MESSAGE LIBRARY and nothing else: a shop's own services and rewards are its owner's to write,
+    # and the trade-shaped catalogue we used to seed from is gone (see core/vehicles.py).
     # ── the message library, edited by US at runtime (spec 8.4.1) ─────────────────────────
     {
         "id": "operations.list_templates", "label": "مكتبة الرسائل", "method": "GET",

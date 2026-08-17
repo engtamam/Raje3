@@ -162,6 +162,8 @@ def build_manifest(
             {"path": "/api/v1/staff/shop-name", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/mode", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/mode", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/staff/vehicles", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/staff/vehicles", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "POST"},
             {"path": "/api/v1/staff/branches", "tier": "user", "method": "GET"},
             {"path": "/api/v1/staff/branches/{}", "tier": "user", "method": "PATCH"},

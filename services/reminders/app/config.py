@@ -248,7 +248,7 @@ class Settings(BaseSettings):
     # existed. Empty here means the engine keeps whatever it last read and never an empty library.
     OPERATIONS_TEMPLATES_PATH: str = "/internal/operations/templates"
     # THE SHOP'S OWN SERVICE CYCLES. Not a preference of ours — the number the owner sees in
-    # «خدماتي», seeded from his sector at signup. Unread until today, so every shop that never
+    # «خدماتي», which the owner writes himself. Unread until today, so every shop that never
     # edited a service had every reminder scheduled on the 90-day default.
     OPERATIONS_CATALOGUE_PATH: str = "/internal/operations/catalogue"
     # Per tenant, per tick at most. A catalogue changes when its owner edits it; a minute of

@@ -22,7 +22,6 @@ export interface NewShop {
   phone: string;
   password: string;
   shopName: string;
-  sector: string;
 }
 
 interface Minted {
@@ -98,7 +97,6 @@ export async function openShop(shop: NewShop): Promise<Session> {
     phone: shop.phone,
     password: shop.password,
     shop_name: shop.shopName,
-    sector: shop.sector,
   });
   const session = await signIn(shop.phone, shop.password);
 

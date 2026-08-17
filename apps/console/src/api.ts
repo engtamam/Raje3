@@ -111,9 +111,9 @@ export interface CatalogueService {
   cycle_days?: number;
 }
 
-/** A field the sector renders — the full descriptor, so this app never carries its own idea of
- *  what "plate" or "meter" means. */
-export interface SectorField {
+/** An extra input the visit sheet renders — the full descriptor, so this app never carries its
+ *  own idea of what "plate" or "meter" means. */
+export interface VisitField {
   name: string;
   label?: string;
   type?: string;
@@ -123,17 +123,17 @@ export interface SectorField {
 /**
  * The grid AND the inputs, in one answer.
  *
- * WHICH FIELDS RENDER IS THE SERVER'S TO SAY, not this app's. The plate exists in a tyre shop and
- * does not exist at all in a salon (spec 13.2) — and a list of sector keys written into this file
- * would be a copy of our own data living where the console cannot reach it: an operator adds a
- * fifth sector at runtime and the screen keeps rendering the four it was built with.
+ * WHICH FIELDS RENDER IS THE SERVER'S TO SAY, not this app's. The plate belongs to a shop that
+ * works on cars and does not exist at all in a salon — not disabled, not empty, absent — and the
+ * answer is a list of NAMES rather than a flag, so the screen asks «is `plate` among my fields»
+ * and the day a second vehicle input is added no console release is needed.
  *
- * An establishment provisioned before we recorded sectors answers an empty list — which renders
- * the phone and nothing else, and is always valid.
+ * A shop that does not work on cars answers an empty list — which renders the phone and nothing
+ * else, and is always valid.
  */
 export function fetchCatalogue(
   session: Session,
-): Promise<{ services: CatalogueService[]; sector: string; fields: SectorField[] }> {
+): Promise<{ services: CatalogueService[]; tracks_vehicle: boolean; fields: VisitField[] }> {
   return call(session, '/api/v1/field/catalogue');
 }
 
@@ -520,24 +520,3 @@ export function recordVisit(session: Session, draft: VisitDraft): Promise<VisitA
 
 // ── before there is a session ──────────────────────────────────────────────────────────────────
 
-/** A sector a new shop may choose. Key and label only — see the route for why it is not the
- *  platform's fuller listing. */
-export interface Sector {
-  key: string;
-  label: string;
-}
-
-/**
- * THE ONE READ THAT CARRIES NO TOKEN, and it is here rather than in auth.ts because it is a read
- * of ordinary product data — the sectors we sell to — rather than part of proving who anyone is.
- *
- * A failure answers an empty list, and the form then has nothing to offer: better than a hardcoded
- * pair that keeps working while the real catalogue has three, which is the failure nobody notices
- * until an owner asks for the sector he saw on the website.
- */
-export async function listSectors(): Promise<Sector[]> {
-  const res = await fetch(`${BASE}/api/v1/signup/sectors`);
-  if (!res.ok) throw new ApiError(res.status, null, 'sectors');
-  const body = (await res.json()) as { sectors?: Sector[] };
-  return body.sectors ?? [];
-}

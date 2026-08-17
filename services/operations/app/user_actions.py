@@ -287,6 +287,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "من المركزي إلى المستقل قرارٌ يُتخذ مرة — والعودة تحتاج التواصل معنا.",
     },
     {
+        "id": "operations.shop_vehicles", "label": "العمل على السيارات", "method": "GET",
+        "path": "/api/v1/staff/vehicles", "capability": "operations.read", "group": "منشأتي",
+    },
+    {
+        "id": "operations.set_shop_vehicles", "label": "تغيير العمل على السيارات", "method": "PUT",
+        "path": "/api/v1/staff/vehicles", "capability": "operations.manage", "group": "منشأتي",
+        "params": [{"name": "tracks_vehicle", "in": "body", "type": "boolean",
+                    "required": True}],
+        "help": "إن كان العمل على السيارات ظهرت صفحة رقم اللوحة والعدّاد في تسجيل الزيارة.",
+    },
+    {
         "id": "operations.list_branches", "label": "الفروع", "method": "GET",
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
     },

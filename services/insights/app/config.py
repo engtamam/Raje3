@@ -279,7 +279,7 @@ class Settings(BaseSettings):
 
     # ── the association engine's four judgements ──────────────────────────────
     # Where evidence becomes advice, and every one of them a CHOICE rather than a derivation. They
-    # are also the numbers most likely to be wrong for a sector we have not met yet — a workshop's
+    # are also the numbers most likely to be wrong for a kind of shop we have not met yet — a workshop's
     # baskets are not a café's — and frozen into code, correcting one would need a release while a
     # shop is being shown a recommendation we no longer believe.
     ASSOC_STRONG_LIFT: float = 1.5          # above this, more than chance explains, by enough to act
