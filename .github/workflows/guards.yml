@@ -491,6 +491,11 @@ jobs:
       - name: the register says what the code says
         run: python3 ci/check_the_register_says_what_the_code_says.py
 
+      # A browser calling a peer service carries no scope anybody can enforce. The keypad did
+      # exactly that, and a supervisor scoped to Jeddah read Riyadh's customers by name and number.
+      - name: the browser does not search the fleet directly
+        run: python3 ci/check_the_browser_does_not_search_the_fleet_directly.py
+
       # ── seven gates that were written, reviewed, committed, and then never ran ──────────────
       #
       # They sat in ci/ and in no workflow. Each one prevents a defect this repository has already

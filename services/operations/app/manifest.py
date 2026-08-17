@@ -143,6 +143,10 @@ def build_manifest(
             {"path": "/api/v1/field/customers/recent", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-phone", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/customers/by-plate", "tier": "user", "method": "GET"},
+            # The keypad's suggestion list. It reaches search-service through us so the reader's
+            # branch can be resolved from his token — the browser used to call that service itself,
+            # and no route over there has ever known what a branch is (ط-3).
+            {"path": "/api/v1/field/customers/suggest", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/privacy-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/privacy-requests/{}/close", "tier": "user", "method": "POST"},
             {"path": "/internal/operations/privacy-request", "tier": "internal", "method": "POST"},

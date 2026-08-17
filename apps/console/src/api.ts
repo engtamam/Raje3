@@ -165,43 +165,32 @@ export interface CustomerHit {
  * entire premise disappears quietly.
  */
 export async function suggestByPrefix(session: Session, prefix: string): Promise<CustomerHit[]> {
-  // STEP ONE: /suggest ANSWERS TERMS, NOT PEOPLE — `{"suggestions": ["0527463428", …]}`, a list of
-  // strings. This function used to read `r.phone` off each one, get `undefined` from a string, and
-  // filter the whole list away: measured on the live cluster, «05» returned five numbers and this
-  // returned nothing. Every suggestion list in the product — the keypad AND the plate — was empty,
-  // and it looked exactly like "no such customer", which is the one wrong answer this screen must
-  // never give.
-  const q = new URLSearchParams({ index: 'customers', prefix });
-  const out = await call<{ suggestions?: unknown[] }>(
-    session, `/api/v1/search/suggest?${q.toString()}`);
-  const terms = (out.suggestions ?? []).filter((t): t is string => typeof t === 'string' && !!t);
-
-  // AND THE TYPED TEXT ITSELF, because /suggest deliberately omits it. An autocomplete does not
-  // offer you the word you have already finished typing — so the list appeared at «123» and
-  // VANISHED at «1234», the moment the operator finished the number he was reading off the bumper.
-  // The one keystroke that should have confirmed the car is the one that emptied the screen.
-  // It costs nothing: a partial token matches no document, and a complete one is the answer.
-  const words = [...new Set([...terms, ...prefix.trim().split(/\s+/).filter(Boolean)])];
-  if (!words.length) return [];
-
-  // STEP TWO: the terms fetch the people. POST /search matches WHOLE tokens and unions its terms —
-  // and a suggested term is by construction a whole token, so this is the one call it answers
-  // exactly. Bounded: at most `suggest_max` terms, one round trip, and no scan on our side.
-  const found = await call<{ hits?: { id?: string; fields?: Record<string, unknown> }[] }>(
-    session, '/api/v1/search', {
-      method: 'POST',
-      body: JSON.stringify({ index: 'customers', text: words.join(' '), size: 8, highlight: false }),
-    });
-
-  return (found.hits ?? [])
+  // OPERATIONS, NOT SEARCH-SERVICE (ط-3). This used to call the platform's two search routes
+  // itself — `/suggest` for the terms and `POST /search` for the people — and neither of them
+  // knows what a branch is. A supervisor scoped to Jeddah typed four digits and read Riyadh's
+  // customers by name, number and plate, walking around every narrowing operations already had,
+  // because the keypad never asked operations anything.
+  //
+  // AND THE FILTER COULD NOT LIVE HERE. Sending `filters: {branch_id: …}` from this file would
+  // read like a guard and be none: the next caller sends whatever it likes, and a browser is not
+  // a place a scope can be enforced. Operations resolves it from the token.
+  //
+  // The two-call dance and the «add the typed text» rule moved with it, comments and all — see
+  // the route. What is left here is one request.
+  const q = new URLSearchParams({ prefix });
+  const out = await call<{ customers?: unknown[]; ok?: boolean }>(
+    session, `/api/v1/field/customers/suggest?${q.toString()}`);
+  // `ok: false` IS «WE COULD NOT ASK», NOT «NOBODY MATCHED». The caller draws a different sentence
+  // for each, and telling a man at the counter he is not registered when the index was merely
+  // unreachable is the one wrong answer this screen must never give.
+  if (out.ok === false) throw new ApiError(503, out, 'تعذّر البحث الآن — حاول بعد لحظات');
+  return (out.customers ?? [])
     .map((h) => {
-      const f = h.fields ?? {};
+      const f = (h ?? {}) as Record<string, unknown>;
       return {
-        id: String(h.id ?? ''),
+        id: String(f.id ?? ''),
         phone: String(f.phone ?? ''),
         name: f.name ? String(f.name) : undefined,
-        // THE PLATE COMES BACK TOO, because the same document carries it (seams.py) — and in a
-        // vehicle shop it is the only field the operator has actually looked at.
         plate: f.plate ? String(f.plate) : undefined,
       };
     })

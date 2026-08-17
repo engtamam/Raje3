@@ -308,6 +308,65 @@ async def resolve_customers(request: Request, body: ResolveIn,
     return {"customers": kept}
 
 
+@router.get("/customers/suggest", dependencies=[Depends(rate_limit)])
+async def suggest_customers(request: Request, prefix: str = "",
+                            principal: Principal = Depends(_READ)) -> dict:
+    """The keypad's suggestion list, narrowed to the reader's branch (ط-3).
+
+    WHY THIS ROUTE EXISTS AT ALL. The console called search-service directly — `/suggest` for the
+    terms and `POST /search` for the people. Neither route knows what a branch is, so a supervisor
+    scoped to Jeddah typed four digits and read Riyadh's customers by name, phone and plate. It
+    walked around the whole of `overdue` and `customers_by_refs` above, because the keypad never
+    asked operations anything: the narrowing was in a service the browser talked past.
+
+    AND A FILTER THE BROWSER CHOOSES IS NOT A GUARD. Sending `filters: {branch_id: …}` from the
+    console would read the same in a screenshot and mean nothing — the next caller sends whatever
+    it likes. The scope is resolved HERE, from the token, by the same `branch_scope` the browse
+    routes use.
+
+    A BROWSE, NOT A TARGETED LOOKUP, and the rule at `customers_by_refs` decides which this is: a
+    list of candidates from four typed digits is browsing. `by-phone` stays open because a whole
+    number is one person the operator already has in front of him.
+
+    TWO CALLS, BECAUSE THE PEER ANSWERS TWO QUESTIONS. `suggest` matches a prefix and returns
+    TERMS; `search` matches whole tokens and returns PEOPLE. The typed text is added to the terms
+    because an autocomplete deliberately omits the word you have finished typing — without it the
+    list vanished at the keystroke that completed the number.
+
+    `null` MEANS «I COULD NOT ASK», and it is not an empty shop. The screen has to say «تعذّر
+    البحث»; «لا يوجد عميل» to a man standing at the counter is the one wrong answer here.
+    """
+    prefix = (prefix or "").strip()
+    if not prefix:
+        return {"customers": [], "ok": True}
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    index = get_settings().SEARCH_INDEX_NAME
+    terms = await c.search.suggest(index=index, tenant=tenant, prefix=prefix)
+    if terms is None:
+        return {"customers": [], "ok": False}
+    words = list(dict.fromkeys([*terms, *prefix.split()]))
+    if not words:
+        return {"customers": [], "ok": True}
+    hits = await c.search.query(index=index, tenant=tenant, text=" ".join(words[:8]), size=8)
+    if hits is None:
+        return {"customers": [], "ok": False}
+    rows = []
+    for h in hits:
+        f = h.get("fields") or {}
+        rows.append({"id": str(h.get("id") or ""),
+                     "phone": str(f.get("phone") or ""),
+                     "name": str(f.get("name") or "") or None,
+                     "plate": str(f.get("plate") or "") or None,
+                     # The scope field, and it is dropped from the answer below: the caller has no
+                     # use for it and it is what a scoped reader must not be able to enumerate.
+                     "branch_id": str(f.get("branch_id") or "")})
+    scope = await branch_scope(c.datastore, principal)
+    kept = SCOPE.visible(rows, scope, field="branch_id")
+    return {"customers": [{k: v for k, v in r.items() if k != "branch_id"} for r in kept],
+            "ok": True}
+
+
 class RenameIn(BaseModel):
     name: str = Field(default="", max_length=120)
 

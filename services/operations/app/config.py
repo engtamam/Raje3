@@ -159,6 +159,10 @@ class Settings(BaseSettings):
     # THEIRS, so it is a default rather than an assumption about another platform's routing.
     SEARCH_INDEX_PATH: str = "/internal/search/index"
     SEARCH_INDEX_NAME: str = "customers"
+    # The READING half, and it is two paths because the peer answers two different questions:
+    # a prefix returns TERMS and a whole token returns PEOPLE (ط-3).
+    SEARCH_SUGGEST_PATH: str = "/api/v1/search/suggest"
+    SEARCH_QUERY_PATH: str = "/api/v1/search"
     # Short, and it runs after the response anyway — a slow index must never hold a worker.
     SEARCH_TIMEOUT_SECONDS: int = 5
 
