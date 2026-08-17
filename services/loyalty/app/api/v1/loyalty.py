@@ -24,7 +24,7 @@ from app.api.authz import require_capability
 from app.adapters.branch_scope import DENIED
 from app.api.ratelimit import rate_limit
 from app.core.licence import NOT_INCLUDED as LICENCE_NOT_INCLUDED
-from app.core.models import LoyaltyError, Overdraft
+from app.core.models import REDEMPTIONS, LoyaltyError, Overdraft
 from app.core.notify import to_next_reward
 from app.core.redeem import needs_approval
 
@@ -207,12 +207,40 @@ async def _after_redeem(c, tenant: str, rec, remaining: int, actor: str) -> None
         # THE JOIN EVERYBODY FORGETS. A free wash that is not recorded as a visit means the
         # reminder cycle is never restarted, so the customer is reminded to come in for the
         # service he just received.
-        try:
-            reward = await c.rewards.get(tenant, rec.reward_id)
-            await c.visits.record(tenant=tenant, subject_ref=rec.subject_ref,
-                                  service_id=reward.service_id, actor=actor, source=rec.id)
-        except Exception as exc:                                        # noqa: BLE001
-            c.telemetry.event("loyalty_free_visit_failed", tenant=tenant, error=str(exc)[:200])
+        await record_free_visit(c, tenant, rec, actor)
+
+
+async def record_free_visit(c, tenant: str, rec, actor: str) -> bool:
+    """Record the visit a service reward IS, and mark the receipt when it lands.
+
+    FAILING SOFT WAS ONLY HALF A DESIGN (ز-9). This could not raise — the points are spent and the
+    customer is holding his reward, so refusing here would take back something already handed over
+    — but the failure was written to telemetry and then forgotten by everything. Nothing replayed
+    it. So the half-act was permanent: points gone, no visit, and the reminder engine cheerfully
+    inviting the man back for the wash he just had.
+
+    THE MARK IS WHAT MAKES THE REPAIR POSSIBLE. Without it, a sweep would have to ask operations
+    about every redemption ever made to find the few that are missing; with it, the work list is a
+    field on our own rows. And `source=rec.id` keeps the far door idempotent, so replaying one that
+    actually landed changes nothing.
+    """
+    try:
+        reward = await c.rewards.get(tenant, rec.reward_id)
+        await c.visits.record(tenant=tenant, subject_ref=rec.subject_ref,
+                              service_id=reward.service_id, actor=actor, source=rec.id)
+    except Exception as exc:                                            # noqa: BLE001
+        c.telemetry.event("loyalty_free_visit_failed", tenant=tenant, error=str(exc)[:200])
+        return False
+
+    rec.visit_recorded = True
+    try:
+        await c.redeemer.store.put(REDEMPTIONS, rec.id, rec.to_dict())
+    except Exception as exc:                                            # noqa: BLE001
+        # THE VISIT IS RECORDED AND THE MARK IS NOT. The repair will replay this one, the far door
+        # will refuse it as a duplicate, and the mark will be written then — so the cost of this
+        # failure is one wasted call, never a second visit.
+        c.telemetry.event("loyalty_visit_mark_failed", tenant=tenant, error=str(exc)[:200])
+    return True
 
 
 # ── the customer's own history ─────────────────────────────────────────────────────────────────

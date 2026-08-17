@@ -149,6 +149,17 @@ cronJobs:
   - name: recover
     schedule: "*/15 * * * *"
     path: /internal/loyalty/recover
+  # AND THE OTHER HALF OF A FREE REWARD (ز-9). A `service` reward is points spent AND a visit
+  # recorded; the visit ran in a try/except that wrote telemetry, and nothing replayed it. So a
+  # free wash left the shop with no visit behind it, and the reminder engine invited the customer
+  # back for the service he had just received — a shop that does not know him, which is the exact
+  # opposite of what he is paying for.
+  #
+  # HOURLY, NOT EVERY QUARTER. Unlike a missing point, nobody is standing at a counter waiting for
+  # this one: the harm arrives with the next reminder, days later.
+  - name: replay-free-visits
+    schedule: "25 * * * *"
+    path: /internal/loyalty/replay-free-visits
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:

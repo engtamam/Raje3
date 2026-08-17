@@ -197,14 +197,36 @@ async def hire_member(request: Request, body: MemberIn,
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
                             content={"error": "NOT_HIRED", "message": str(exc)})
 
-    op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
-                  branch_id=branch_id, created=int(time.time()))
+    person_id = out.get("person_id", "")
+
+    # ONE PERSON IS ONE ROW, AND THE PRESS IS NOT THE ACT (ز-10). The id used to be `new_id("opr")`
+    # — new on every call — while the membership behind it is keyed by phone at identity and is
+    # idempotent. So a double press, or a retry on a slow reply, created a SECOND operator row for
+    # the same human: two seats consumed by one employee on a plan the owner is paying per seat
+    # for, a name listed twice on his team screen, and `verify-pin` picking whichever row it found
+    # first — so the same person's work is attributed to one row today and the other tomorrow.
+    #
+    # `person_id` is the key identity already deduped for us. Reusing it means the second press
+    # overwrites the first row rather than adding one, and the count stays what the owner sees.
+    existing = None
+    if person_id:
+        for row in await store.list(tenant):
+            if row.person_id == person_id:
+                existing = row
+                break
+
+    op = Operator(id=existing.id if existing else new_id("opr"),
+                  tenant=tenant, name=body.name.strip(), role=body.role,
+                  branch_id=branch_id,
+                  created=existing.created if existing else int(time.time()))
     # HIS OWN LOGIN IS HIS IDENTITY, so there is no PIN on this row. `verify-pin` compares against
     # an empty hash and refuses — which is correct: a man with an account does not also need four
     # digits, and giving him one would be a second credential to leak.
-    op.person_id = out.get("person_id", "")
+    op.person_id = person_id
     await store.save(op)
-    await gauges.report(tenant, S.SEATS, current + 1)
+    # THE COUNT DOES NOT MOVE WHEN NOBODY WAS ADDED. Reporting `current + 1` after re-saving a row
+    # that already existed would tell billing the shop grew by an employee it did not hire.
+    await gauges.report(tenant, S.SEATS, current if existing else current + 1)
     return op.public()
 
 

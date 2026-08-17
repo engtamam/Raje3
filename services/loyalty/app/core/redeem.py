@@ -217,7 +217,11 @@ def _row_to_redemption(row: dict) -> Redemption:
                    channel=row.get("channel") or "field",
                    branch_id=row.get("branch_id") or "",
                    discount_halalas=int(row.get("discount_halalas") or 0),
-                   approved_by=row.get("approved_by") or "")
+                   approved_by=row.get("approved_by") or "",
+                   # ABSENT MEANS NOT DONE (ز-9), which is the safe reading: rows written before
+                   # this field existed get replayed once, and the far door is idempotent on
+                   # `source=rec.id`, so a replay of a visit that did land is a no-op.
+                   visit_recorded=bool(row.get("visit_recorded")))
     r.id = row["id"]
     r.created_at = int(row.get("created_at") or 0)
     return r

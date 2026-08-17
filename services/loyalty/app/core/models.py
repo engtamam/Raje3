@@ -197,6 +197,13 @@ class Redemption:
     branch_id: str = ""
     discount_halalas: int = 0
     approved_by: str = ""           # set when the reward was above the manager threshold
+    # WHETHER THE OTHER HALF OF THE ACT HAPPENED (ز-9). A `service` reward is two things: points
+    # spent, and a visit recorded so the reminder cycle restarts. The second ran in a try/except
+    # that only wrote telemetry, and nothing ever replayed it — so a free wash was handed over, the
+    # points were gone, no visit existed, and the customer was reminded to come in for the service
+    # he had just received. Written on the receipt rather than inferred, because the repair needs
+    # to find the halves without asking a peer about every redemption we ever made.
+    visit_recorded: bool = False
     created_at: int = field(default_factory=_now)
 
     def to_dict(self) -> dict[str, Any]:
@@ -207,6 +214,7 @@ class Redemption:
             "idem_key": self.idem_key, "channel": self.channel,
             "branch_id": self.branch_id,
             "discount_halalas": self.discount_halalas, "approved_by": self.approved_by,
+            "visit_recorded": self.visit_recorded,
             "created_at": self.created_at,
         }
 

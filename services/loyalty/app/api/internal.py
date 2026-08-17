@@ -240,6 +240,51 @@ async def recover(request: Request, body: TickIn | None = None) -> dict:
             "unreadable": unreadable}
 
 
+@router.post("/loyalty/replay-free-visits", dependencies=[Depends(require_internal_token)])
+async def replay_free_visits(request: Request, body: TickIn | None = None) -> dict:
+    """Record the visits that free rewards owed and never got (ز-9).
+
+    A `service` reward is two things at once: points spent, and a visit recorded so the reminder
+    cycle restarts from today. The second one ran inside a try/except that wrote telemetry and
+    nothing else, and NOBODY EVER REPLAYED IT. So the half-act was permanent: a free wash handed
+    over, the points gone, no visit anywhere — and the reminder engine, doing its job perfectly,
+    inviting the man back for the service he had just received. He reads that as a shop that does
+    not know him, which is the exact opposite of what he is being sold.
+
+    THE RECEIPT IS THE WORK LIST. `visit_recorded` is written on our own row, so the pass is a scan
+    of redemptions rather than a question to operations about every reward we ever gave.
+
+    IDEMPOTENT AT THE FAR DOOR: `source=rec.id` is stable, so replaying one that actually landed is
+    refused there as a duplicate. That is what makes «absent means not done» the safe reading for
+    rows written before the field existed.
+
+    NO BODY AND NO TENANT: the clock decides the work list, exactly like every other sweep here.
+    """
+    from app.api.v1.loyalty import record_free_visit
+    from app.core.models import REDEMPTIONS
+    from app.core.redeem import _row_to_redemption
+
+    c = request.app.state.container
+    if getattr(c, "visits", None) is None:
+        return {"ok": False, "reason": "NOT_CONFIGURED"}
+
+    rows = await c.datastore.scan_all(REDEMPTIONS, limit=2000)
+    owed = [r for r in rows
+            if str(r.get("reward_type") or "") == "service" and not r.get("visit_recorded")]
+
+    recorded = failed = 0
+    for row in owed:
+        rec = _row_to_redemption(row)
+        if await record_free_visit(c, rec.tenant, rec, rec.actor):
+            recorded += 1
+        else:
+            # COUNTED, NOT SWALLOWED. A pass that could reach nobody must not report the same
+            # «0 outstanding» as a fleet with nothing to repair — that is the shape of silence
+            # this whole finding is about.
+            failed += 1
+    return {"ok": True, "owed": len(owed), "recorded": recorded, "failed": failed}
+
+
 @router.post("/loyalty/tick", dependencies=[Depends(require_internal_token)])
 async def tick(request: Request, body: TickIn | None = None) -> dict:
     """Expire what is due, and warn what is about to expire (spec §9.7).

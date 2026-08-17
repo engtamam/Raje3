@@ -274,6 +274,13 @@ jobs:
       - name: a route with no token is open at the door
         run: python3 ci/check_a_route_with_no_token_is_open_at_the_door.py
 
+      # AND ONE PERSON IS ONE ROW (ز-10). `hire_member` asked identity for a membership — keyed by
+      # phone, idempotent — and then minted `new_id("opr")` for its own row. A double press made
+      # two rows for one human: two seats billed on a per-seat plan, one name listed twice, and
+      # `verify-pin` answering with whichever row it reached first.
+      - name: a person from a peer is not given a fresh id
+        run: python3 ci/check_a_person_from_a_peer_is_not_given_a_fresh_id.py
+
       # AND THE PIN NAMES THE PLATFORM THIS TREE ACTUALLY CONTAINS. Pinning to content proves the
       # cluster runs what the repository asked for; it says nothing about whether the repository
       # asked for its own submodule. It did not: `platform/` sat at v0.16.14 while seventeen values
