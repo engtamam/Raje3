@@ -518,6 +518,15 @@ jobs:
       - name: the front doors are named once
         run: python3 ci/check_the_front_doors_are_named_once.py
 
+      # `campaigns` took a branch off the request body and could not ask who was allowed it: no
+      # resolver, no call, nothing — so a branch-scoped employee could aim a campaign at the whole
+      # establishment, out of the owner's message quota. Everywhere else this family leaks a read;
+      # here it spends. The gate reads a structural fact — a service that names a branch at its
+      # door either owns the staffing join or asks for it — and the narrowing itself is proved by
+      # tests that fail when it is removed.
+      - name: a service that speaks of branches can ask who may see them
+        run: python3 ci/check_a_service_that_speaks_of_branches_can_ask_who_may_see_them.py
+
       # `GET /api/v1/branches` returned every branch of the establishment to anybody holding the
       # capability, while every other read in that service was narrowed by `branch_scope`. A
       # manager granted Jeddah could not read Riyadh's numbers and could read Riyadh's NAME — and

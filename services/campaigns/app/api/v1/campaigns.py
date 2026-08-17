@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.adapters.branch_scope import DENIED
 from app.adapters.datastore.drain import drain
 from app.api.auth import Principal
 from app.api.authz import require_capability
@@ -54,6 +55,57 @@ def _tenant(p: Principal) -> str:
     if not p.tenant:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "NO_TENANT")
     return p.tenant
+
+
+class AimRefused(Exception):
+    """The reach he asked for is not the reach he is allowed — carrying the sentence he reads."""
+
+    def __init__(self, reason: str, code: int) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.code = code
+
+
+async def _aim(container, principal: Principal, requested: str) -> str:
+    """The branch this campaign will actually be aimed at — never wider than the person pressing.
+
+    THE HOLE THIS FILLS. `branch_id` arrived in the body and was used exactly as sent: passed to
+    the audience resolver and written onto the campaign row the dispatcher re-reads at fire time.
+    Nothing asked whether the person pressing «أطلق» was allowed that reach, because until now this
+    service had no way to ask. An employee narrowed to one branch could leave the field empty —
+    «the whole establishment» — and message every customer the shop has, from the owner's quota.
+
+    IT NARROWS AND NEVER WIDENS, which is the same rule operations' own reads follow:
+      · unnarrowed person  → whatever he asked for, including «everything»
+      · one branch         → that branch, whether he named it or left it empty
+      · several branches   → only one of his own, and he must name which
+      · stopped, or unreadable → refused, because a campaign guessed at is a campaign paid for
+
+    ASKING FOR A BRANCH THAT IS NOT HIS IS A REFUSAL HERE, not a silent substitution. On a read,
+    quietly handing a scoped manager his own rows is kind; on a send it would put his text and the
+    owner's money in front of a different branch's customers than the count he was shown.
+    """
+    resolver = getattr(container, "branch_scope", None)
+    if resolver is None:
+        return requested
+    scope = await resolver.scope(_tenant(principal), getattr(principal, "subject", "") or "")
+    if scope in DENIED:
+        raise AimRefused("تعذّر التحقق من فرعك الآن — لا نُطلق حملةً قبل أن نعرف مداها. "
+                         "أعد المحاولة بعد قليل.", status.HTTP_503_SERVICE_UNAVAILABLE)
+    if not scope:
+        return requested
+    if isinstance(scope, (set, frozenset)):
+        if requested in scope:
+            return requested
+        if not requested:
+            raise AimRefused("اختر الفرع الذي تريد إرسال الحملة إليه — صلاحيتك على فروعٍ بعينها "
+                             "لا على المنشأة كلها.", status.HTTP_400_BAD_REQUEST)
+        raise AimRefused("هذا الفرع خارج صلاحيتك — اختر فرعاً من فروعك.",
+                         status.HTTP_403_FORBIDDEN)
+    if requested and requested != scope:
+        raise AimRefused("هذا الفرع خارج صلاحيتك — اختر فرعاً من فروعك.",
+                         status.HTTP_403_FORBIDDEN)
+    return scope
 
 
 
@@ -134,12 +186,22 @@ async def preview(request: Request, body: CampaignIn,
                             content={"error": "BAD_REQUEST",
                                      "reason": "لا يوجد قالب مفعّل لهذا الهدف — فعّله أولاً."})
 
+    # AND THE REACH IT WILL ACTUALLY HAVE. The same narrowing the send applies, for the same
+    # reason the class is resolved here: a preview computed under wider rules than the send is a
+    # count the owner is shown and never receives — and this one would have been shown to a branch
+    # manager as the whole establishment before his press was cut down to his own branch.
+    try:
+        aimed = await _aim(c, principal, (body.branch_id or "").strip())
+    except AimRefused as exc:
+        return JSONResponse(status_code=exc.code,
+                            content={"error": "BRANCH_REFUSED", "reason": exc.reason})
+
     # THE CLASS THE CAMPAIGN WILL ACTUALLY BE SENT UNDER (ج-1). Not the resolver's default: the
     # preview exists to tell the owner what will happen, and a preview run under different rules
     # than the send is a number that is worse than no number.
     audience = await c.audience.resolve_for(
         _tenant(principal), goal=body.goal, now=_now(), cls=spec["cls"],
-        already_reached=set(), service_id=body.service_id, branch_id=body.branch_id)
+        already_reached=set(), service_id=body.service_id, branch_id=aimed)
 
     try:
         p = build_preview(
@@ -309,9 +371,19 @@ async def create(request: Request, body: CampaignIn,
     # thing twice is keyed on `campaign_id`, and this route minted a new one on every request —
     # so two presses of a button that gives no feedback for several seconds were two campaigns
     # that could not see each other, and the shop paid for both.
+    # THE REACH HE IS ALLOWED, RESOLVED BEFORE ANYTHING IS CLAIMED OR STORED — and it is the
+    # narrowed branch that keys the press, not the one he sent. Keying on the raw field would let
+    # the same press by the same man count as two campaigns the moment his empty field and his own
+    # branch resolve to the same thing.
+    try:
+        aimed = await _aim(c, principal, (body.branch_id or "").strip())
+    except AimRefused as exc:
+        return JSONResponse(status_code=exc.code,
+                            content={"error": "BRANCH_REFUSED", "reason": exc.reason})
+
     press_key = press.key_for(
         _tenant(principal), goal=body.goal, owner_text=clean, service_id=body.service_id or "",
-        branch_id=body.branch_id or "", offer_value=body.offer_value or "",
+        branch_id=aimed, offer_value=body.offer_value or "",
         expires_at=body.expires_at or 0, fire_at=body.fire_at or 0)
     taken = await press.claim(c.datastore, _tenant(principal), press_key, now=now)
     if not taken.first:
@@ -342,7 +414,10 @@ async def create(request: Request, body: CampaignIn,
                         # not: the owner was shown a targeted count and the campaign went to the
                         # whole shop. One field, and it made the feature a demo.
                         service_id=(body.service_id or "").strip(),
-                        branch_id=(body.branch_id or "").strip(),
+                        # THE NARROWED BRANCH, not the requested one — this row is what the
+                        # dispatcher re-reads at fire time, so an unnarrowed value written here
+                        # would widen the send minutes after the request that was narrowed.
+                        branch_id=aimed,
                         offer_value=offer_value,
                         scope_service_names=([body.service_name] if body.service_name else []),
                         # THE TARGETED SERVICE IS ALWAYS IN ITS OWN SCOPE. `service_offer` reaches

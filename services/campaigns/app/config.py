@@ -173,6 +173,10 @@ class Settings(BaseSettings):
     # reached nobody, with a run report saying so and nothing explaining why.
     PEERS_DRIVER: str = "null"               # null | http
     OPERATIONS_SERVICE_URL: str = ""
+    # THEIRS. The branch a person may AIM a campaign at — the join between a token's subject and
+    # the place he works lives with the staff rows, and asking for it is the only honest way to
+    # know whether the reach he pressed for is the reach he is allowed.
+    OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
     # THEIRS. The template library and the customer list, both verified against operations'
     # manifest rather than assumed.
     CUSTOMERS_PATH: str = "/internal/operations/customers"
