@@ -60,8 +60,32 @@ SUFFIXES = (".sh", ".yaml", ".yml", ".py", ".json", ".ts", ".tsx", "")
 AN_IMAGE_LINE = re.compile(
     r"(?:^|\s)(?:image|repository)\s*:|docker\s+(?:push|pull|tag|save|load)\b|"
     r"docker\s+build[^\n]*\s-t\s|ctr\s+images?\b")
+# `localhost` AND AN IPv4 WERE NOT THE ONLY WAYS TO NAME A MACHINE ONLY YOU CAN REACH.
+# `host.docker.internal:5000/x` is the spelling Docker Desktop hands you, and it walked straight
+# through. So do `*.local` (mDNS), a bare hostname with a port, and `::1`. The question this gate
+# asks is «can the server resolve this without your laptop being awake», and the honest answer for
+# every one of these is no.
 A_PRIVATE_REGISTRY = re.compile(
-    r"(?<![\w.-])(?:\d{1,3}(?:\.\d{1,3}){3}|localhost)(?::\d+)?/[a-z0-9][\w./-]*", re.IGNORECASE)
+    r"(?<![\w.-])(?:"
+    r"\d{1,3}(?:\.\d{1,3}){3}"            # an IPv4 literal
+    r"|\[?::1\]?"                         # IPv6 loopback
+    r"|localhost"
+    r"|host\.docker\.internal"            # Docker Desktop's name for the machine running Docker
+    r"|[a-z0-9][\w-]*\.local"             # mDNS: only resolvable on one LAN
+    r")(?::\d+)?/[a-z0-9][\w./-]*", re.IGNORECASE)
+
+#: `REG="127.0.0.1:5055/raje3"` — a shell, YAML or env assignment whose value IS a private
+#: registry. Naming one is the act; the line that later spends the name carries no evidence at all.
+#:
+#: THE REPOSITORY PATH IS REQUIRED, AND THAT IS THE DEFINITION RATHER THAN A CONCESSION. Without it
+#: this matched `HOST = "0.0.0.0"` — a bind address, the opposite of a place to fetch from — and an
+#: audit-sink URL in six test files, eighteen findings that were all wrong. A gate that cries wolf
+#: eighteen times is a gate nobody reads the nineteenth time. `host:port/repo` is what a registry
+#: reference IS; `host` alone is a machine, and this gate has no opinion about machines.
+ASSIGNS_A_REGISTRY = re.compile(
+    r"""(?:^|\s)[A-Za-z_][\w.-]*\s*[:=]\s*["']?"""
+    r"""(?P<reg>(?:\d{1,3}(?:\.\d{1,3}){3}|\[?::1\]?|localhost|host\.docker\.internal"""
+    r"""|[a-z0-9][\w-]*\.local)(?::\d+)?/[a-z0-9][\w./-]*)""", re.IGNORECASE)
 
 # MOVING AN IMAGE BY HAND. Each of these is a way to put a layer on the node without the node
 # having pulled it, which is the thing being banned.
@@ -113,6 +137,31 @@ def main() -> int:
         # and a gate that reads it as two lines finds neither half. Continuations are joined before
         # anything is matched — which is how `registry.sh` first slipped past this check.
         joined = re.sub(r"\\\n\s*", " ", text)
+
+        # NEITHER IS A VARIABLE, AND THAT IS THE SHAPE THIS FILE'S OWN HEADER DESCRIBES. Requiring
+        # the registry and the image keyword on ONE line means
+        #
+        #     REG="127.0.0.1:5055/raje3"
+        #     ...
+        #     image: ${REG}/console@sha256:…
+        #
+        # passes both tests and fails the product: line one has the registry and no image keyword,
+        # line two has the keyword and no registry. The gate was reading for a coincidence of
+        # spelling rather than for the fact.
+        #
+        # So an assignment of a private registry to a name is itself reported, wherever the name is
+        # later used — because there is no innocent reason to write one down. That keeps the rule
+        # whole without a second, weaker rule about «variables that look like registries».
+        for n, line in enumerate(joined.splitlines(), 1):
+            if line.lstrip().startswith(("#", "//", "*")):
+                continue
+            if AN_IMAGE_LINE.search(line):
+                continue                      # handled by the pass below, with its own message
+            m = ASSIGNS_A_REGISTRY.search(line)
+            if m:
+                bad.append(f"{rel}:{n}: `{m.group('reg')}` is written into a name here. Wherever "
+                           f"that name is used later, the image comes from a registry only one "
+                           f"machine can reach — and the line that uses it looks innocent")
         for n, line in enumerate(joined.splitlines(), 1):
             if line.lstrip().startswith(("#", "//", "*")):
                 continue

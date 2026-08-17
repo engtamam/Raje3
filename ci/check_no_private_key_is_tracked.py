@@ -28,8 +28,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # itself — which it did on the first run, and it was right to: it must judge every tracked file by
 # the same rule, with no name of its own on an exceptions list.
 _HEAD = "-----" + "BEGIN "
+# `ENCRYPTED` WAS MISSING, AND THAT IS THE ONE PEOPLE FEEL SAFE COMMITTING. A passphrase-protected
+# key reads as «it is encrypted, so it is fine» — but the passphrase is guessable, crackable
+# offline at leisure, and usually written in the same runbook as the key. It is a private key and
+# it is banned like the rest.
 MARKERS = tuple(_HEAD + kind + " PRIVATE KEY"
-                for kind in ("RSA", "OPENSSH", "EC", "DSA", "PGP")) + (_HEAD + "PRIVATE KEY",)
+                for kind in ("RSA", "OPENSSH", "EC", "DSA", "PGP", "ENCRYPTED")) \
+    + (_HEAD + "PRIVATE KEY",)
 SUFFIXES = (".pem", ".key", ".p12", ".pfx")
 NAMES = ("id_rsa", "id_ed25519", "id_ecdsa", "id_dsa")
 
@@ -54,12 +59,27 @@ def main() -> int:
         if path.suffix.lower() in SUFFIXES or path.name in NAMES:
             bad.append(f"{name} · a private-key filename")
             continue
+        # THE WHOLE FILE, NOT ITS FIRST 4KB. The window was an optimisation against a claim that
+        # does not survive it: a key appended to the end of a long config, a .env, or a notes file
+        # sits past byte 4096 and this gate declared the repository clean. Nothing about «is a
+        # private key tracked» is answerable from a prefix, and the file this gate exists because
+        # of — `pilot.pem` — was only ever caught by its NAME.
+        # A GITLINK IS NOT A FILE. `git ls-files` lists a submodule (`platform`) as one entry whose
+        # content is a commit id, not bytes — so opening it raises, and that raise is not a finding.
+        # It is skipped BY KIND rather than by name, which is why there is still no exceptions
+        # table: any submodule is handled, and a file called `platform` would not be.
+        if path.is_dir():
+            continue
         try:
-            head = path.read_text(encoding="utf-8", errors="ignore")[:4096]
-        except OSError:
+            body = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError as exc:
+            # AND A FILE IT COULD NOT OPEN IS A FILE IT DID NOT CHECK. `continue` here turned an
+            # unreadable file into a clean one, silently, in the gate whose entire output is the
+            # sentence «no private key is tracked».
+            bad.append(f"{name} · could not be read ({exc}) — so it was NOT checked")
             continue
         for marker in MARKERS:
-            if marker in head:
+            if marker in body:
                 bad.append(f"{name} · carries «{marker}»")
                 break
 
