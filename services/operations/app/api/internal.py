@@ -29,6 +29,7 @@ from app.core.operations import OperationError, RecordedVisit
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
+from app.core.riyadh import RIYADH
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
@@ -575,7 +576,7 @@ def _arabic_date(epoch: int) -> str:
     if not epoch:
         return ""
     from datetime import datetime, timedelta, timezone
-    d = datetime.fromtimestamp(epoch, timezone(timedelta(hours=3)))
+    d = datetime.fromtimestamp(int(epoch), RIYADH)
     return f"{d.day} {_AR_MONTHS[d.month - 1]}"
 
 

@@ -21,7 +21,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-RIYADH = timezone(timedelta(hours=3))
+from app.core.riyadh import RIYADH
 
 
 def _post(url: str, body: dict[str, Any], token: str, timeout: int) -> dict[str, Any]:

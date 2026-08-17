@@ -41,6 +41,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
+from app.core.riyadh import local
 
 # A blank {{1}} is a Meta rejection at send time. This is what goes in instead.
 FALLBACK_NAME = "عميلنا العزيز"
@@ -332,7 +333,7 @@ def arabic_date(epoch: int) -> str:
     if not epoch:
         return ""
     from datetime import datetime, timedelta, timezone
-    d = datetime.fromtimestamp(int(epoch), timezone(timedelta(hours=3)))
+    d = local(epoch)
     return f"{d.day} {AR_MONTHS[d.month - 1]}"
 
 

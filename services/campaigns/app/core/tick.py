@@ -25,7 +25,7 @@ from typing import Any
 
 # Saudi Arabia has no daylight saving, so a fixed offset is correct — the same constant as
 # reminders' gate, and the same reason it is named rather than inlined.
-RIYADH = timezone(timedelta(hours=3))
+from app.core.riyadh import RIYADH
 
 # How long an awareness campaign locks its audience out of another one. A DEFAULT: it is a
 # judgement about how often a shop may educate the same customer, and the right answer differs

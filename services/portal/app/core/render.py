@@ -42,11 +42,9 @@ def _when(epoch: int) -> str:
     customer whose phone is set to another timezone must not be told his offer ends a day later
     than the shop believes. The countdown beside it works from the absolute moment and agrees.
     """
-    import datetime as _dt
+    from app.core.riyadh import local
 
-    riyadh = _dt.timezone(_dt.timedelta(hours=3))
-    t = _dt.datetime.fromtimestamp(int(epoch), riyadh)
-    return t.strftime("%Y-%m-%d · %H:%M")
+    return local(epoch).strftime("%Y-%m-%d · %H:%M")
 
 
 def _e(value: Any) -> str:

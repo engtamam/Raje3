@@ -33,6 +33,7 @@ from app.core.share import compute as compute_share
 from app.core.spread import plan as plan_spread
 from app.core.spread import sentence as spread_sentence
 from app.core.report import build as build_report, history, totals
+from app.core.riyadh import local
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
@@ -477,7 +478,7 @@ def arabic_date(epoch: int) -> str:
     if not epoch:
         return ""
     from datetime import datetime, timedelta, timezone
-    d = datetime.fromtimestamp(int(epoch), timezone(timedelta(hours=3)))
+    d = local(epoch)
     return f"{d.day} {_AR_MONTHS[d.month - 1]}"
 
 

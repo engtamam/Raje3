@@ -37,7 +37,7 @@ DAY = 86400
 # Saudi Arabia has no daylight saving, so a fixed offset is correct and a timezone database is not
 # needed. Written as a constant rather than inlined because the day this product crosses a border
 # it becomes a per-tenant setting, and a constant is a place to change.
-RIYADH = timezone(timedelta(hours=3))
+from app.core.riyadh import RIYADH
 
 # Message types that are a REPLY to something the customer just did, and are therefore exempt from
 # the quiet-hours window (spec 8.4.2 section 1). Someone who visits at 11pm is not served by a
