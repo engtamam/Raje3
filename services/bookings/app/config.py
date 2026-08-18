@@ -181,6 +181,12 @@ class Settings(BaseSettings):
     BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── the one question asked of `operations` (§3): what a set of service_ids costs in minutes.
+    # Empty means creating a booking always refuses — never a guessed duration (see
+    # app/core/operations.py::DurationLookup, app/adapters/duration_lookup/http.py).
+    OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
+    OPERATIONS_DURATIONS_PATH: str = "/internal/operations/service-durations"
+
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.
     DATASTORE_DRIVER: str = "memory"
@@ -353,6 +359,22 @@ class Settings(BaseSettings):
             raise ValueError(
                 "BILLING_SERVICE_URL/BILLING_CHECK_PATH empty in production: the bookings app "
                 "would be given away to every plan, quietly. Set them.")
+
+    def assert_operations_peer_config_ok(self) -> None:
+        """Boot guard. Refuse to start production without a way to ask `operations` how long a
+        service takes.
+
+        Without `OPERATIONS_SERVICE_URL` every `create()` call refuses with "مدة غير مضبوطة" —
+        correctly (§4's "silent default decides policy" refusal), but for every shop, forever,
+        which is a booking app that cannot create a single booking. This guard turns that into a
+        boot-time failure instead of a fleet-wide mystery discovered by a support ticket.
+        """
+        if not self.is_production:
+            return
+        if not self.OPERATIONS_SERVICE_URL or not self.OPERATIONS_DURATIONS_PATH:
+            raise ValueError(
+                "OPERATIONS_SERVICE_URL/OPERATIONS_DURATIONS_PATH empty in production: every "
+                "booking create would refuse with \"مدة غير مضبوطة\" — set them.")
 
     def assert_audit_config_ok(self) -> None:
         """Boot guard. Refuse to start production without somewhere to witness privileged actions.

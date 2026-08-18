@@ -17,6 +17,30 @@ class DataStore(Protocol):
 
     async def delete(self, collection: str, key: str) -> bool: ...
 
+    async def claim(self, collection: str, key: str, value: dict[str, Any],
+                    *, ttl_seconds: float, now: float) -> bool:
+        """Take `key` if nobody holds it, or if the holder's claim has expired. True == taken.
+
+        THE ONE OPERATION `put` CANNOT EXPRESS. `put` is last-writer-wins: two callers who both
+        read "absent" both write, and both believe they were first. Every read-then-write decision
+        in this codebase — is there a free slot? — is that race wearing a check's costume, and it
+        is invisible in testing because it needs two requests in the same millisecond, which is
+        exactly what two staff members booking the same operator on a Sunday morning produce.
+
+        SO THE DECISION AND THE WRITE ARE ONE STATEMENT, at the only layer that can make them one:
+        the store. Postgres does it with `ON CONFLICT DO NOTHING` and a conditional `UPDATE`; the
+        memory driver does it by not awaiting between the read and the write, which under a single
+        event loop is the same guarantee.
+
+        THE TTL IS NOT A CONVENIENCE. A claim held by a process that died must not hold the lane
+        forever, and no screen would say why. It expires, and the expiry is short — this guards
+        the microseconds between a check and an insert, not a human's session.
+
+        `now` IS PASSED IN rather than read here, so a test can place two callers on either side of
+        an expiry without sleeping, and so the two drivers cannot disagree about what time it is.
+        """
+        ...
+
     async def find(
         self,
         collection: str,

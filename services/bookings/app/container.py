@@ -235,4 +235,29 @@ def build_container(settings: Settings) -> Container:
     # appointment a customer already holds (app/core/licence.py).
     from app.core.licence import build_licence
     container.licence = build_licence(settings)
+
+    # Stage 3 (docs/خطة-تنفيذ-الحجوزات.md §3): the booking store, the one peer question
+    # (how long does this set of services take, right now), and the operations that use both.
+    from app.core.operations import BookingOperations, DurationLookup
+    from app.core.stores import BookingStore
+    container.bookings = BookingStore(container.datastore)
+    container.durations = _build_duration_lookup(settings)
+    container.booking_ops = BookingOperations(
+        datastore=container.datastore, bookings=container.bookings,
+        durations=DurationLookup(lookup=container.durations), licence=container.licence)
     return container
+
+
+def _build_duration_lookup(settings: Settings):
+    """`http` when `operations` is wired, or a lookup that always refuses (`None`) otherwise —
+    never a guessed duration. The boot guard (`assert_operations_peer_config_ok`) refuses this
+    empty state in production; local/dev runs get an honest, explicit refusal on every create."""
+    from app.adapters.duration_lookup.http import HttpDurationLookup
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_DURATIONS_PATH:
+        async def _refuses_always(tenant: str, service_ids) -> int | None:
+            return None
+        return _refuses_always
+    return HttpDurationLookup(
+        operations_url=settings.OPERATIONS_SERVICE_URL, path=settings.OPERATIONS_DURATIONS_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)

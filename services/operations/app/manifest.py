@@ -120,6 +120,9 @@ def build_manifest(
             # Who may see which branch — the staffing join no other service can make.
             {"path": "/internal/operations/branch-scope", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},
+            # bookings' one question of this service (docs/خطة-تنفيذ-الحجوزات.md §3):
+            # what does a set of service_ids cost in minutes, right now.
+            {"path": "/internal/operations/service-durations", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
             # that decides where commission goes (spec 16.6.3).

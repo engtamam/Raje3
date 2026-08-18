@@ -639,6 +639,34 @@ async def internal_templates(request: Request) -> dict:
     return {"templates": lib, "count": len(lib)}
 
 
+class ServiceDurationsIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+
+
+@router.post("/operations/service-durations", dependencies=[Depends(require_internal_token)])
+async def internal_service_durations(request: Request, body: ServiceDurationsIn) -> dict:
+    """The sum of `Service.duration_minutes` for a set of services, or `null` if ANY of them is
+    not configured — for `bookings`, the one question it asks this service (its own
+    `app/core/operations.py::DurationLookup`).
+
+    NULL, NOT ZERO, on a missing/unconfigured duration. Zero would be indistinguishable from a
+    real (if useless) zero-minute service, and bookings' own refusal ("مدة غير مضبوطة") depends on
+    telling "not configured" apart from "configured as zero" — the exact "silent default decides
+    policy" family this whole feature is built to avoid.
+    """
+    c = request.app.state.container
+    services = await ServiceStore(c.datastore).list(body.tenant, active_only=False)
+    by_id = {s.id: s for s in services}
+    total = 0
+    for sid in body.service_ids:
+        svc = by_id.get(sid)
+        if svc is None or not svc.duration_minutes:
+            return {"duration_minutes": None}
+        total += svc.duration_minutes
+    return {"duration_minutes": total}
+
+
 class CustomersIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     # Bounded, and the ceiling is a product decision: an establishment with more customers than
