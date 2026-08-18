@@ -386,9 +386,6 @@ class Settings(BaseSettings):
 
     SECRETS_DRIVER: str = "env"
     SECRETS_FILE: str = ""  # file driver: path to a KEY=VALUE file
-    VAULT_ADDR: str = ""
-    VAULT_TOKEN: str = ""
-    VAULT_PATH: str = ""
 
     # Token verifier — 'null' denies all (deny-by-default) until a real driver +
     # key is configured. Prefer asymmetric (rs256/jwks): verify-only, never forge.

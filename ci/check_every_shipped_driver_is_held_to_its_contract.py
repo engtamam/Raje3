@@ -51,8 +51,13 @@ REGISTRY = re.compile(r"^_([A-Z][A-Z0-9_]*)\s*:\s*dict\[str,\s*Builder\]", re.M)
 #: all. It is now one table of behaviours with a loopback key server for the length of a test, so
 #: «it needs a network» turned out to be a reason to give it one rather than to leave it unheld.
 #:
-#: WHAT THIS GATE STILL DOES NOT COVER, SAID OUT LOUD SO ITS GREEN IS NOT READ FOR MORE THAN IT
-#: IS: `secrets` (vault) and the peer-shaped adapters — audit sink, consent gate, telemetry. Those
+#: `secrets` FOLLOWED IT, and answered a different question on the way. Writing its contract
+#: is what surfaced that `vault` was selectable and chosen by nobody — no values file, no
+#: VAULT_* setting, not even its extra installed. Tamam's decision was to remove it rather
+#: than to describe it, so the port is `env` and `file`, which is what we actually ship.
+#:
+#: WHAT THIS GATE STILL DOES NOT COVER, SAID OUT LOUD SO ITS GREEN IS NOT READ FOR MORE THAN
+#: IT IS: the peer-shaped adapters — audit sink, consent gate, telemetry. Those
 #: are the same rule and each needs a server or a stub; they are recorded as work, not waved
 #: through here. A narrower rule fully enforced beats a broad one with a list of exceptions
 #: underneath it — but only while the narrowing is written down.
@@ -64,6 +69,7 @@ CONTRACT_OF = {
     "OBJECTSTORE": "test_object_store_contract.py",
     "RATELIMITER": "test_rate_limiter_contract.py",
     "TOKEN": "test_token_verifier_contract.py",
+    "SECRETS": "test_secrets_contract.py",
 }
 
 #: DOES NOTHING, ON PURPOSE. A null driver has no behaviour to agree with, and production refuses

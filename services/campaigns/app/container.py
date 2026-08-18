@@ -27,7 +27,6 @@ from app.adapters.rate_limiter.memory import MemoryRateLimiter
 from app.adapters.rate_limiter.redis import RedisRateLimiter
 from app.adapters.secrets.env import EnvSecrets
 from app.adapters.secrets.file import FileSecrets
-from app.adapters.secrets.vault import VaultSecrets
 from app.adapters.audit_sink.eventbus import EventBusAuditSink
 from app.adapters.audit_sink.http import HttpAuditSink
 from app.adapters.audit_sink.null import NullAuditSink
@@ -86,7 +85,6 @@ _OBJECTSTORE: dict[str, Builder] = {
 _SECRETS: dict[str, Builder] = {
     "env": lambda s: EnvSecrets(),
     "file": lambda s: FileSecrets(s.SECRETS_FILE),
-    "vault": lambda s: VaultSecrets(s.VAULT_ADDR, s.VAULT_TOKEN, s.VAULT_PATH),
 }
 _TOKEN: dict[str, Builder] = {
     "null": lambda s: NullVerifier(),
