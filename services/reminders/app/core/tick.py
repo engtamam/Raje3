@@ -303,7 +303,22 @@ class Tick:
                 # PERMANENT, not transient. There is nobody to send to — erased, or never there.
                 # Retrying would ask operations about a forgotten customer on every tick forever,
                 # which is both useless and the opposite of what they asked for.
-                await self._close(tenant, row, "suppressed", f"لا يوجد مستقبِل: {exc}", now)
+                #
+                # AND IT LEAVES A ROW, which it did not. The schedule ended and the log said
+                # nothing, so an owner asking why a customer heard nothing found no record that a
+                # message had ever been owed him — the send log is the only place that fact lives.
+                #
+                # THE SUBJECT REFERENCE IS ALL THIS ROW CARRIES OF HIM, and that is the point: he
+                # was erased, so there is nothing else left to write and nothing else may be
+                # written. A pseudonym in our own ledger is not a re-identification of somebody
+                # who asked to be forgotten (§PDPL, and `_a_pseudonym_is_not_a_subject`).
+                why = f"لا يوجد مستقبِل: {exc}"
+                await self._log.append(tenant, as_row(SendLog(
+                    tenant=tenant, subject_ref=row.get("subject_ref", ""),
+                    cls=row.get("cls", "service"), at=now, schedule_id=row.get("id", ""),
+                    branch_id=str(row.get("branch_id") or ""),
+                    outcome="suppressed", reason=why)))
+                await self._close(tenant, row, "suppressed", why, now)
                 res.suppressed += 1
                 res.note("no recipient")
             except Exception as exc:                                        # noqa: BLE001
@@ -573,7 +588,17 @@ class Tick:
         # a new one — the switch decides the future, not the past.
         reason = TR.for_row(str(row.get("kind", "")), str(row.get("template_type", "")))
         if reason and choices is not None and not choices.enabled(reason):
-            await self._close(tenant, row, "suppressed", "أوقفتَ هذا النوع من الرسائل", now)
+            # AND IT IS WRITTEN DOWN. This was the one refusal in the engine with no row behind
+            # it, and it is the one an owner asks about most: he throws a switch in the evening
+            # and wants to know in the morning whether anything went out under it, or how many
+            # were stopped. «لم يخرج شيء» and «لا سجلّ» are different answers, and only one of
+            # them was available.
+            off = "أوقفتَ هذا النوع من الرسائل"
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                outcome="suppressed", reason=off)))
+            await self._close(tenant, row, "suppressed", off, now)
             res.suppressed += 1
             res.reasons["أوقفتَ هذا النوع من الرسائل"] = (
                 res.reasons.get("أوقفتَ هذا النوع من الرسائل", 0) + 1)

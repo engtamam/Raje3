@@ -573,6 +573,12 @@ jobs:
       - name: a render failure is answered where it happens
         run: python3 ci/check_a_render_failure_is_answered_where_it_happens.py
 
+      # THE SEND LOG IS THE ONLY RECORD THAT A MESSAGE EVER EXISTED. Nine refusals wrote a row and
+      # two did not — the erased customer, and the trigger the owner switched off — so «لم يخرج
+      # شيء» and «لا سجلّ عندنا» were the same screen for the two cases he asks about most.
+      - name: every refused message leaves a row
+        run: python3 ci/check_a_refused_message_leaves_a_row.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully
