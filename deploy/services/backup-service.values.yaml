@@ -148,27 +148,23 @@ env:
   # system that loses backups. A SEPARATE BUCKET from the application's: a restore must not be
   # able to overwrite the archive it is restoring from, and a misconfigured file-service must not
   # be able to reach the backups.
-  # POINTED AT OSS, OUTSIDE THE FLEET (#329). The archive existed on the same node it protects
-  # against losing — an internal minio the backup itself would die with. This bucket is a separate
-  # OSS account resource in the same region, reachable over the public endpoint, with versioning
-  # and a private ACL set at creation (Tamam, 2026-08-18): losing this node cannot take it too.
-  OBJECTSTORE_DRIVER: "s3"
-  OBJECTSTORE_ENDPOINT_URL: "https://oss-me-central-1.aliyuncs.com"
-  OBJECTSTORE_BUCKET: "raje3-backups"
-  OBJECTSTORE_REGION: "me-central-1"
-  OBJECTSTORE_FORCE_PATH_STYLE: "true"
-  # CREDENTIALS COME FROM THE NODE'S OWN IDENTITY, NOT A SECRET. An Instance RAM Role is attached
-  # (Tamam, 2026-08-18) instead of static keys — the platform escalated 2026-08-18 answered exactly
-  # this in v0.16.21: `alibaba-ecs-ram` is a refreshable botocore provider reading Alibaba's own
-  # metadata dialect (AccessKeySecret/SecurityToken at OBJECTSTORE_METADATA_ENDPOINT, not AWS's
-  # 169.254.169.254). Refresh-before-expiry is botocore's job; a role name is left unset because
-  # the provider auto-discovers the one role attached to this node.
+  # REVERTED TO IN-CLUSTER, TEMPORARILY (#329 follow-up, 2026-08-18 rollback). Pointing this at
+  # the real OSS endpoint was tried live and rolled back within the hour: a pod on this cluster
+  # cannot reach the public internet over HTTPS at all — `urlopen("https://oss-me-central-1.
+  # aliyuncs.com")` from INSIDE the pod times out after 8s, while the same request from the NODE
+  # answers in 6ms. The node reaches OSS; the pod's network (Calico) does not. That is a cluster
+  # networking gap wider than this one bucket — nothing on this fleet has ever made an outbound
+  # HTTPS call to the public internet from a pod before, so it was never exercised until now.
   #
-  # THE ROLE IS NODE-WIDE, NOT SERVICE-SCOPED. Every pod that can reach the metadata address
-  # inherits it on this single-node cluster — the isolation is a NetworkPolicy restricting egress
-  # to OBJECTSTORE_METADATA_ENDPOINT to this service alone (#329 follow-up: not yet written).
-  OBJECTSTORE_CREDENTIALS: "alibaba-ecs-ram"
-  OBJECTSTORE_METADATA_ENDPOINT: "http://100.100.100.200"
+  # THE ARCHIVE IS BACK ON THE SAME NODE IT PROTECTS AGAINST LOSING, which is #329's original
+  # defect and is NOT closed — this is a return to that known-broken state, not a fix, because it
+  # is the only state proven to actually run. Do not re-point this at OSS without first proving a
+  # pod can reach the public internet (a plain `curl` from inside a throwaway pod is the test).
+  OBJECTSTORE_DRIVER: "s3"
+  OBJECTSTORE_ENDPOINT_URL: "http://objectstore:9000"
+  OBJECTSTORE_BUCKET: "raje3-backups"
+  OBJECTSTORE_REGION: "us-east-1"
+  OBJECTSTORE_FORCE_PATH_STYLE: "true"
 
   # ── Bounds ────────────────────────────────────────────────────────────────────────────────
   # 500 is the upstream default and far above our ~18 services. Left as-is: it is a ceiling
