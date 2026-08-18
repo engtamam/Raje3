@@ -161,33 +161,36 @@ env:
   # system that loses backups. A SEPARATE BUCKET from the application's: a restore must not be
   # able to overwrite the archive it is restoring from, and a misconfigured file-service must not
   # be able to reach the backups.
-  # POINTED AT OSS, OUTSIDE THE FLEET (#329). Tried once, rolled back within the hour because the
-  # egress NetworkPolicy above said `internet: false` — fixed there, not here; this is the second
-  # attempt with the actual cause addressed rather than the symptom worked around.
-  OBJECTSTORE_DRIVER: "s3"
-  OBJECTSTORE_ENDPOINT_URL: "https://oss-me-central-1.aliyuncs.com"
-  OBJECTSTORE_BUCKET: "raje3-backups"
-  OBJECTSTORE_REGION: "me-central-1"
-  # PATH STYLE IS FOR MINIO, NOT OSS. Verified live: `list_objects_v2`/`get_bucket_location`
-  # against real OSS with path style set answered `SecondLevelDomainForbidden — Please use
-  # virtual hosted style to access`, and `head_bucket` (the readiness check's own call) answered
-  # a plain 403 for the identical reason with a less legible error. OSS wants
-  # `bucket.oss-me-central-1.aliyuncs.com`, not `oss-me-central-1.aliyuncs.com/bucket` — the
-  # opposite convention from the in-cluster MinIO this value was carried over from.
-  OBJECTSTORE_FORCE_PATH_STYLE: "false"
-  # CREDENTIALS COME FROM THE NODE'S OWN IDENTITY, NOT A SECRET. An Instance RAM Role is attached
-  # (Tamam, 2026-08-18) instead of static keys. platform v0.16.21 answered the escalation this
-  # needed: `alibaba-ecs-ram` is a refreshable botocore provider reading Alibaba's own metadata
-  # dialect (AccessKeySecret/SecurityToken at OBJECTSTORE_METADATA_ENDPOINT, not AWS's
-  # 169.254.169.254). A role name is left unset — the provider auto-discovers the one role
-  # attached to this node.
+  # REVERTED TO IN-CLUSTER, AGAIN, TEMPORARILY (#329 follow-up, 2026-08-18, third attempt tonight).
+  # Network was fixed (egress `internet: true`). Addressing was fixed (`FORCE_PATH_STYLE: false`
+  # below — confirmed correct in the values file). The RAM role's permissions were fixed (Tamam
+  # attached AliyunOSSFullAccess to the role). All three verified live, individually, each one
+  # actually closing the failure it targeted. Still down — because the S3 ADAPTER ITSELF has a
+  # bug: `force_path_style=false` leaves its botocore Config unset entirely rather than requesting
+  # virtual-hosted addressing explicitly, and botocore's ambient default does not reliably resolve
+  # to virtual-hosted against a non-AWS custom endpoint. Verified with two calls, same live pod,
+  # same credentials, only the Config differing: `Config(s3={"addressing_style": "virtual"})`
+  # forced -> head_bucket succeeds; the adapter's own default (`_config = None`) -> head_bucket
+  # still answers 403. This is platform code (services/backup-service/app/adapters/object_store/
+  # s3.py), read-only to us — escalated, not fixable here.
   #
-  # THE ROLE IS NODE-WIDE, NOT SERVICE-SCOPED. Every pod that can reach the metadata address
-  # inherits it on this single-node cluster. The `internet: true` toggle above widens more than
-  # strictly needed for this reason too — a tighter fix scopes egress to the metadata address and
-  # OSS's resolved range alone, and is real follow-up work, not done here.
-  OBJECTSTORE_CREDENTIALS: "alibaba-ecs-ram"
-  OBJECTSTORE_METADATA_ENDPOINT: "http://100.100.100.200"
+  # THE ARCHIVE IS BACK ON THE SAME NODE IT PROTECTS AGAINST LOSING — #329's original defect,
+  # still open. Every other piece is now proven correct and stays as-is below; only the endpoint
+  # reverts, so the moment the adapter is fixed this is a one-line flip back with nothing else to
+  # re-diagnose.
+  OBJECTSTORE_DRIVER: "s3"
+  OBJECTSTORE_ENDPOINT_URL: "http://objectstore:9000"
+  OBJECTSTORE_BUCKET: "raje3-backups"
+  OBJECTSTORE_REGION: "us-east-1"
+  OBJECTSTORE_FORCE_PATH_STYLE: "true"
+  # CREDENTIALS, NETWORK EGRESS, AND THE OSS DESTINATION ITSELF ARE ALL PROVEN CORRECT (see above)
+  # — left commented rather than deleted, so the next attempt starts from a known-good baseline
+  # instead of re-deriving it:
+  #   OBJECTSTORE_ENDPOINT_URL: "https://oss-me-central-1.aliyuncs.com"
+  #   OBJECTSTORE_REGION: "me-central-1"
+  #   OBJECTSTORE_FORCE_PATH_STYLE: "false"
+  #   OBJECTSTORE_CREDENTIALS: "alibaba-ecs-ram"
+  #   OBJECTSTORE_METADATA_ENDPOINT: "http://100.100.100.200"
 
   # ── Bounds ────────────────────────────────────────────────────────────────────────────────
   # 500 is the upstream default and far above our ~18 services. Left as-is: it is a ceiling
