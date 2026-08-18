@@ -365,20 +365,11 @@ export function LocalScreen(
   /** The recompute in flight, and whatever the service said about it. */
   const [refreshing, setRefreshing] = useState(false);
   const [note, setNote] = useState('');
-  /**
-   * Whether HE receives the weekly report. Optimistic on write, and reverted if the save fails.
-   *
-   * READ ON MOUNT, and it was not. This was `useState(true)` with nothing behind it: the switch
-   * showed ON whatever the truth was, so an owner who turned the report off saw it ON again the
-   * moment he came back to this screen — and could not tell whether his choice had been saved,
-   * or whether tapping again would turn it off or on. The setting was real the whole time; only
-   * its reflection was missing, which is the harder kind to notice, because everything appears to
-   * work and the only person who knows otherwise is the one using it.
-   *
-   * `true` remains the starting value because it is the real default for a new owner, and the
-   * read tells us within a moment whether he has since decided otherwise.
-   */
-  const [digest, setDigest] = useState(true);
+  /* THE WEEKLY-REPORT SWITCH LEFT THIS SCREEN, and its state left with it. It lives in «حسابي ←
+     دخولي», where one person's WhatsApp preference belongs; what stayed behind here was a
+     `digest` nothing rendered and a read that fetched it on every open — a request per visit, for
+     an answer no eye ever saw. A preference is not a metric, and a state nobody reads is not a
+     feature, however carefully it is kept up to date. */
   // WHICH ROW'S MESSAGE WAS COPIED. Empty after a failure, so a clipboard the browser refused
   // never says «نُسخت» — he would paste nothing into a message to his vendor and never learn why.
   const [copied, setCopied] = useState('');
@@ -415,18 +406,6 @@ export function LocalScreen(
     const br = action(catalog, 'insights.branches');
     if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
 
-    // WHERE THE WEEKLY-REPORT SWITCH ACTUALLY STANDS. `decided: false` means he has never chosen,
-    // and the default (subscribed) is then the honest thing to show — so only a real decision
-    // moves the switch off its default.
-    //
-    // A FAILED READ CHANGES NOTHING, deliberately: flipping the switch to «off» because a request
-    // timed out would tell him he had unsubscribed when he had not.
-    const dg = action(catalog, 'insights.digest_state');
-    if (dg) {
-      call<{ on?: boolean; decided?: boolean }>(session, dg)
-        .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
-        .catch(() => undefined);
-    }
   }, [session, catalog]);
 
   useEffect(() => {
@@ -595,7 +574,14 @@ export function LocalScreen(
     );
   }
 
-  const digestAction = action(catalog, 'insights.digest');
+  /**
+   * WHETHER «يحتاج تصرّفاً منك» HAS ANYTHING UNDER IT.
+   *
+   * The heading used to be unconditional, and on the entry plan the only thing beneath it was one
+   * line saying a surface belongs to a higher plan — a section demanding action, about the one
+   * thing he cannot act on. A heading that is sometimes empty is a heading he stops reading.
+   */
+  const somethingToDo = Boolean(data.audience) || Boolean(locked.bundles) || Boolean(bundles?.length);
 
   /* ── the branch switch MOVED TO THE RAIL (§10.6.4) ────────────────────────────────────────
      It stood here, in this screen's header, and nowhere else. So «عملائي» beside it was always
@@ -607,95 +593,15 @@ export function LocalScreen(
      screens cannot live inside one of them. */
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      {/* THE WEEKLY REPORT MOVED TO «حسابي ← دخولي». It is one person's WhatsApp preference,
-          and it stood above every number this screen exists to show — so the retention rate was
-          below the fold behind a checkbox. A preference is not a metric. */}
+    <div className="flex flex-col gap-4">
+      {/* ── THE NUMBER FIRST, AND NOTHING ABOVE IT ─────────────────────────────────────────
+          TAMAM'S OWN READING OF THIS PAGE, and he was right: «ابغ تشيل كل شي من اللي فوق، ما
+          ابغاه فوق، على طول يبدا من النسبة». What stood above the ring was a group heading, a
+          locked surface we do not sell him yet, a second heading, a freshness caption and a
+          refresh button — five rows of our furniture before one number of his.
 
-      {/* ── 1 · what needs him now ───────────────────────────────────────────────────────
-          FIRST, BECAUSE IT IS THE ONLY GROUP WITH A VERB IN IT. A suggested bundle naming 340
-          customers is worth more than every percentage below it, and it used to sit under two
-          tables he had to scroll past. */}
-      <Group title="يحتاج تصرّفاً منك">
-      {/* ── the bundles ───────────────────────────────────────────────────────────────────
-            WE SAY WHERE, NEVER HOW MUCH (§10.6.2.1). The price is the shop's and nothing here
-            suggests one — a platform that prices a workshop's work is a platform that is wrong in
-            public. */}
-        {/* LOCKED, NOT ABSENT — the same shape «حملاتي» uses. It names what the surface DOES for
-            his shop, never the tier: "بعض خدماتك تُطلب معاً" is a fact about him, "هذه في باقة
-            أعلى" is a fact about our price list. */}
-        {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
-          /* ── A LOCKED SURFACE IS ONE LINE, NEVER A CARD ────────────────────────────────
-             It was a four-line card at the top of the screen: a heading, a paragraph selling the
-             engine, and «هذه في باقة أعلى». So the first thing an owner saw on «محلّي» was an
-             advertisement, and every number he actually opened the screen for was below the fold
-             — he had to scroll past our price list to reach his own retention rate.
-             The fact still shows (a surface he cannot see is worse hidden than named), in the
-             space a fact deserves: one line. */
-          <p className="flex items-center gap-2 px-1 text-xs text-text-secondary">
-            <Lock size={14} className="shrink-0" aria-hidden />
-            باقات مقترحة — في باقة أعلى.
-          </p>
-        ) : locked.bundles ? (
-          <section className="flex items-start gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-            <Lock size={16} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-medium">باقات مقترحة</h2>
-              <p className="text-sm text-text-secondary">{locked.bundles}</p>
-            </div>
-          </section>
-        ) : bundles && bundles.length ? (
-          <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
-            <h2 className="text-sm text-text-secondary">باقات مقترحة</h2>
-            {bundles.slice(0, 4).map((b, i) => (
-              <div key={i} className="flex flex-col gap-1 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
-                <span className="text-sm font-medium">{b.a_name} + {b.b_name}</span>
-                {b.why ? <span className="text-xs text-text-secondary">{b.why}</span> : null}
-                <div className="flex items-center justify-between gap-2">
-                  {b.action_label ? (
-                    <span className="text-xs text-accent-on-soft">{b.action_label}</span>
-                  ) : <span />}
-                  <span className="tabular-nums text-xs text-text-secondary">
-                    {b.customers} فرصة
-                  </span>
-                </div>
-              </div>
-            ))}
-          </section>
-        ) : null}
-
-      {data.audience ? (
-          // HIS OWN NUMBER, NOT AN ADVERT. Customers who explicitly agreed to receive his offers,
-          // sitting there while his plan cannot send one. It is the truest upgrade motivator in the
-          // product for exactly that reason, so it stays a LINE and never becomes a banner.
-          <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.audience.message}</p>
-        ) : null}
-
-      </Group>
-
-      {/* ── 2 · how the shop is doing ─────────────────────────────────────────────────────
-          THE AGE STAYS ATTACHED TO THE NUMBERS IT DESCRIBES. An owner comparing our figure to his
-          till at 2pm must see that ours was computed at 3am, or he stops trusting both — and a
-          freshness line floating above three sections describes none of them. */}
-      <Group
-        title="كيف يمشي محلك"
-        hint={data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}
-      >
-      {/* THE AGE IS NOW ACTIONABLE. Telling an owner the numbers were computed six hours ago and
-          leaving him nothing to do about it is a complaint on our behalf; the button beside it is
-          the answer, and the service's own cooldown keeps it honest. */}
-      <div className="flex flex-wrap items-center gap-2">
-        {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
-        {action(catalog, 'insights.refresh') ? (
-          <Button variant="ghost" disabled={refreshing} onClick={refreshNow}>
-            <RefreshCw size={16} aria-hidden className="me-1" />
-            {refreshing ? 'نحدّث…' : 'حدّث الآن'}
-          </Button>
-        ) : null}
-        {note ? <span className="text-sm text-text-secondary">{note}</span> : null}
-      </div>
-
-      {/* ── ONE NUMBER, LARGE ────────────────────────────────────────────────────────────────
+          None of it was wrong; all of it was first. The ring is what this product is about, so it
+          opens the page, and everything that describes or maintains it now stands underneath.
           FOUR EQUAL TILES ARE FOUR NUMBERS NOBODY REMEMBERS. On a phone they became two rows of
           small type with no order between them, and the owner left knowing none of them.
           نسبة العودة is the one this whole product is about, so it is a jewel at the top and the
@@ -721,10 +627,24 @@ export function LocalScreen(
         </div>
       ) : null}
 
-      {(() => {
-        const h = data.values['holdout_comparison'] as Holdout | undefined;
-        return h ? <HoldoutCard h={h} /> : null;
-      })()}
+      <div className="grid grid-cols-3 gap-2">
+        {HEADLINE.filter((h) => h.key !== 'return_rate').map((h) => {
+          const raw = data.values[h.key];
+          // ABSENT IS NOT ZERO. A key his plan withheld, or one the snapshot could not compute, is
+          // skipped entirely rather than rendered as 0 — see the module note.
+          if (typeof raw !== 'number') return null;
+          const shown = h.percent ? `${Math.round(raw * 100)}%` : String(raw);
+          return (
+            <KpiCard
+              key={h.key}
+              icon={<h.icon size={16} />}
+              tone={h.tone}
+              label={h.label}
+              value={h.suffix ? `${shown} ${h.suffix}` : shown}
+            />
+          );
+        })}
+      </div>
 
       {/* ── what the messages moved, and what they cost ───────────────────────────────────────
           TWO SENTENCES, SIDE BY SIDE, AND NEITHER IS A BOAST. The first is a COUNT of visits and
@@ -798,25 +718,73 @@ export function LocalScreen(
           </div>
         );
       })()}
-      <div className="grid grid-cols-3 gap-2">
-        {HEADLINE.filter((h) => h.key !== 'return_rate').map((h) => {
-          const raw = data.values[h.key];
-          // ABSENT IS NOT ZERO. A key his plan withheld, or one the snapshot could not compute, is
-          // skipped entirely rather than rendered as 0 — see the module note.
-          if (typeof raw !== 'number') return null;
-          const shown = h.percent ? `${Math.round(raw * 100)}%` : String(raw);
-          return (
-            <KpiCard
-              key={h.key}
-              icon={<h.icon size={16} />}
-              tone={h.tone}
-              label={h.label}
-              value={h.suffix ? `${shown} ${h.suffix}` : shown}
-            />
-          );
-        })}
-      </div>
-      </Group>
+
+      {(() => {
+        const h = data.values['holdout_comparison'] as Holdout | undefined;
+        return h ? <HoldoutCard h={h} /> : null;
+      })()}
+
+      {/* ── AND ONLY THEN, WHAT HE MIGHT DO ABOUT IT ────────────────────────────────────
+          THE HEADING IS DRAWN ONLY WHEN THERE IS SOMETHING UNDER IT. «يحتاج تصرّفاً منك» stood at
+          the top of the page over a single line saying a surface is in a higher plan — a demand
+          for action, about nothing he can act on. An empty section is worse than an absent one:
+          it teaches him that our headings do not mean anything. */}
+      {somethingToDo ? (
+        <Group title="يحتاج تصرّفاً منك">
+        {/* WE SAY WHERE, NEVER HOW MUCH (§10.6.2.1). The price is the shop's and nothing here
+            suggests one — a platform that prices a workshop's work is wrong in public. */}
+        {locked.bundles ? (
+          <section className="flex items-start gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+            <Lock size={16} className="mt-0.5 shrink-0 text-text-secondary" aria-hidden />
+            <div className="flex flex-col gap-1">
+              <h2 className="text-sm font-medium">باقات مقترحة</h2>
+              <p className="text-sm text-text-secondary">{locked.bundles}</p>
+            </div>
+          </section>
+        ) : bundles && bundles.length ? (
+          <section className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+            <h2 className="text-sm text-text-secondary">باقات مقترحة</h2>
+            {bundles.slice(0, 4).map((b, i) => (
+              <div key={i} className="flex flex-col gap-1 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+                <span className="text-sm font-medium">{b.a_name} + {b.b_name}</span>
+                {b.why ? <span className="text-xs text-text-secondary">{b.why}</span> : null}
+                <div className="flex items-center justify-between gap-2">
+                  {b.action_label ? (
+                    <span className="text-xs text-accent-on-soft">{b.action_label}</span>
+                  ) : <span />}
+                  <span className="tabular-nums text-xs text-text-secondary">
+                    {b.customers} فرصة
+                  </span>
+                </div>
+              </div>
+            ))}
+          </section>
+        ) : null}
+
+      {data.audience ? (
+          // HIS OWN NUMBER, NOT AN ADVERT. Customers who explicitly agreed to receive his offers,
+          // sitting there while his plan cannot send one. It is the truest upgrade motivator in the
+          // product for exactly that reason, so it stays a LINE and never becomes a banner.
+          <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.audience.message}</p>
+        ) : null}
+
+        </Group>
+      ) : null}
+
+        {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
+          /* ── A LOCKED SURFACE IS ONE LINE, NEVER A CARD ────────────────────────────────
+             It was a four-line card at the top of the screen: a heading, a paragraph selling the
+             engine, and «هذه في باقة أعلى». So the first thing an owner saw on «محلّي» was an
+             advertisement, and every number he actually opened the screen for was below the fold
+             — he had to scroll past our price list to reach his own retention rate.
+             The fact still shows (a surface he cannot see is worse hidden than named), in the
+             space a fact deserves: one line. */
+          <p className="flex items-center gap-2 px-1 text-xs text-text-secondary">
+            <Lock size={14} className="shrink-0" aria-hidden />
+            باقات مقترحة — في باقة أعلى.
+          </p>
+        ) : null}
+
 
       {/* ── 3 · the detail, folded ─────────────────────────────────────────────────────────
           FOLDED, NOT REMOVED. Pairs, branches and the indicators still too thin to be honest are
@@ -986,6 +954,28 @@ export function LocalScreen(
       {data.teaser?.message ? (
         <p className="rounded-card bg-surface-1 p-4 text-sm shadow-sm">{data.teaser.message}</p>
       ) : null}
+
+      {/* ── THE AGE, AT THE BOTTOM, WHERE MAINTENANCE BELONGS ───────────────────────────
+          IT STAYS ATTACHED TO THE NUMBERS IT DESCRIBES — an owner comparing our figure to his
+          till at 2pm must see that ours was computed at 3am, or he stops trusting both. But it is
+          a footnote about the numbers, not a reason to delay them, and it spent this page's most
+          valuable row saying «محسوبة قبل 17 ساعة» to a man who had not yet seen a single figure.
+
+          THE BUTTON IS BESIDE IT, so the age is actionable rather than a complaint on our behalf;
+          the service's own cooldown keeps the answer honest when he presses twice. */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+        <span>
+          {data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}
+        </span>
+        {data.stale ? <Badge tone="warning">قديمة</Badge> : null}
+        {action(catalog, 'insights.refresh') ? (
+          <Button variant="ghost" disabled={refreshing} onClick={refreshNow}>
+            <RefreshCw size={16} aria-hidden className="me-1" />
+            {refreshing ? 'نحدّث…' : 'حدّث الآن'}
+          </Button>
+        ) : null}
+        {note ? <span>{note}</span> : null}
+      </div>
     </div>
   );
 }

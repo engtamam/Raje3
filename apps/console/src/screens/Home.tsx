@@ -1,7 +1,7 @@
 /**
  * What `/` is — which depends on who opened it.
  *
- * «اليوم» IS THE HOME FOR ALMOST EVERYONE, and for the operator it is a page of 403s: he holds
+ * «محلّي» IS THE HOME FOR ALMOST EVERYONE, and for the operator it is a page of 403s: he holds
  * `operations.record` and nothing else. So the index route asks the nav — the same derived list
  * the sidebar renders — and shows the first section this person actually has.
  *
@@ -12,20 +12,20 @@
 import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { TodayScreen } from './Today';
+import { ShopScreen } from './Shop';
 import { Visit } from './Visit';
 import { visibleSections } from '../nav';
 import type { Catalog } from '../catalog';
 import type { Session } from '../session';
 
 export function Home() {
-  const { session, catalog } = useOutletContext<ShellContext>();
+  const { catalog } = useOutletContext<ShellContext>();
   const sections = visibleSections(catalog);
   // NEVER LAND HIM ON A SECTION THAT CANNOT ANSWER. The rail still shows it — he must know it
   // exists and why it is quiet — but the default screen has to be one that works.
   const first = (sections.find((s) => !s.unavailable) ?? sections[0])?.id;
 
-  if (first === 'today') return <TodayScreen session={session} catalog={catalog} />;
+  if (first === 'shop') return <ShopScreen />;
   if (first === 'visit') return <Visit />;
   // NEITHER, WHICH IS A REAL STATE RATHER THAN A FALLBACK: a person whose role reaches no section
   // at all. Saying so beats a blank page he would read as a broken product.

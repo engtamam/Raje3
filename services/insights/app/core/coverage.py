@@ -93,8 +93,15 @@ def can_rank(ordered: list[tuple[str, int]], unknown: int) -> bool:
 BLOCKED_REASONS = {
     "branch_comparison": {
         "lost": "لا تقدر تقارن فروعك",
-        "why": "زياراتٌ قديمة سُجّلت قبل أن نعرف من أيّ فرع جاءت، فتُحسب كلها معاً.",
-        "do": "الجديد يُسجَّل بفرعه تلقائياً — والمؤشر يفتح مع تراكم الزيارات الجديدة.",
+        # SHORT, AND WITH THE NUMBER IN IT — Tamam's own reading, on a shop that had just signed
+        # up: «احذفها، ايش هذا الكلام؟ هو مسوي حساب جديد يشوف هذا قدامه! ولازم يعرف الارقام».
+        #
+        # Two long sentences stood here, explaining our own history to a man on his first day:
+        # visits recorded before we knew their branch, and a promise that new ones carry theirs
+        # automatically. Both true, neither his business, and neither told him WHEN the indicator
+        # opens. The progress below answers that, and the bar draws itself from the same numbers.
+        "why": "أكثر زياراتك بلا فرع.",
+        "do": "",
         "owner": "time",
         # The text he forwards, KEPT for the one case that still needs somebody else's engineer: a
         # register that refuses to send a branch and therefore has all its sales rejected at the
@@ -142,7 +149,7 @@ def blocked(indicator: str, *, coverage: Coverage | None = None,
         d["progress"] = {"have": learning.get("have", 0), "need": learning.get("need", 0)}
         return d
     if coverage is not None and coverage.total and coverage.ratio < 0.4:
-        return dict(BLOCKED_REASONS.get(indicator) or
+        d = dict(BLOCKED_REASONS.get(indicator) or
                     # AN INDICATOR WE HAVE NO SENTENCE FOR STILL SAYS WHAT IS LOST. The fallback
                     # used to carry `why` alone, so a new indicator would draw a bullet reading
                     # «لا تكفي البيانات» — the exact shape of unhelpfulness this table exists to
@@ -151,4 +158,10 @@ def blocked(indicator: str, *, coverage: Coverage | None = None,
                     {"lost": "مؤشّر لا يعمل بعد",
                      "why": "لا تكفي البيانات المسجّلة حتى الآن.",
                      "do": "", "owner": "unknown", "request": ""})
+        # THE NUMBER, BECAUSE «قريباً» IS NOT AN ANSWER. `have` is what already carries the field,
+        # and `need` is where the indicator opens — the same 40% this branch is decided by, so the
+        # bar and the rule cannot drift apart. Told «60 من 100» he knows both that it is coming and
+        # roughly when; told a sentence, he knows neither.
+        d["progress"] = {"have": coverage.known, "need": -(-coverage.total * 2 // 5)}
+        return d
     return None

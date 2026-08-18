@@ -21,7 +21,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarCheck, ClipboardPlus, Gift, MessageSquare, TrendingUp, Users, Wrench,
+  ClipboardPlus, Gift, MessageSquare, TrendingUp, Users, Wrench,
 } from 'lucide-react';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
@@ -59,21 +59,31 @@ export interface SectionState extends Section {
 /**
  * THE ORDER IS THE PRODUCT'S ARGUMENT, not an alphabet.
  *
- * «اليوم» first because it is what the product opens on and what answers "is everything running".
- * «تسجيل زيارة» second because it is the most repeated act in the building. «محلّي» — the
- * indicators — sits fourth rather than second despite being what the top plan is bought for: it is
- * read once a week, and a shop in its first week has nothing to show there. Opening a product onto
- * "not enough data yet" is the worst first impression available.
+ * «محلّي» first because it is what the product opens on: it answers «is everything running» at the
+ * top and «how is my shop doing» underneath, which is what «اليوم» and «محلّي» each answered half
+ * of. «تسجيل زيارة» second because it is the most repeated act in the building.
+ *
+ * A SHOP IN ITS FIRST WEEK STILL OPENS ON SOMETHING THAT WORKS, which is why the indicators could
+ * not simply be promoted to first: they have nothing to show yet, and opening a paid product onto
+ * «not enough data yet» is the worst first impression available. The merged page answers that by
+ * ORDER rather than by address — what is running today is drawn whatever the snapshot holds.
  *
  * And the names are the thing rather than the system: «عملائي» not "the database", «رسائلي» not
  * "templates and campaigns".
  */
 export const SECTIONS: Section[] = [
-  // NOT `requires: []`. It was, and an OPERATOR would have landed here first: he has
-  // `operations.record` and nothing else, so every read this screen makes 403s and the product
-  // opens on a broken page for the person who uses it most. The section needs the read it is
-  // built out of, exactly like every other one.
-  { service: 'reminders', id: 'today', path: '/', label: 'اليوم', icon: CalendarCheck, requires: ['reminders.today'] },
+  // ONE ROW WHERE THERE WERE TWO. «اليوم» and «محلّي» were the same visit split in half: he read
+  // three tiles here and pressed «محلّي» to see the number he pays us for, every time. They are
+  // now one page (Shop.tsx), and the rail is one row shorter — which on a phone is a row the eight
+  // sections about the work get back.
+  //
+  // NOT `requires: []`. It was, on the old «اليوم», and an OPERATOR would have landed here first:
+  // he has `operations.record` and nothing else, so every read this page makes 403s and the
+  // product opens broken for the person who uses it most. It needs BOTH reads it is built out of,
+  // and that costs nobody anything: the four office roles hold `reminders.read` and
+  // `insights.read` together, and the two who hold neither (operator, partner) never saw either
+  // half of this page.
+  { service: 'insights', id: 'shop', path: '/', label: 'محلّي', icon: TrendingUp, requires: ['reminders.today', 'insights.dashboard'] },
   // The field screen: one action, and it is the one every operator has.
   { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'] },
   { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'] },
@@ -90,7 +100,7 @@ export const SECTIONS: Section[] = [
   //
   // The gate here is the CAPABILITY — a role that may read indicators — which is a different
   // question from which plan he bought.
-  { service: 'insights', id: 'shop', path: '/shop', label: 'محلّي', icon: TrendingUp, requires: ['insights.dashboard'] },
+
   // ON THE WRITE. `operations.catalogue` is `operations.read`, which the SUPERVISOR and the
   // MARKETER both hold — and neither may change a price. A section whose every control is inert
   // is worse than an absent one: the person tries, is refused, and learns to distrust the screen.
@@ -140,6 +150,12 @@ export const ACCOUNT_PATH = '/account';
  * `ACCOUNT_PATH` above was already right for the same reason. This is its pair.
  */
 export const TEAM_PATH = '/team';
+
+/** «محلّي» is the index route now, and `/shop` still answers — a bookmark, a link in a message and
+ *  the e2e suite all use it. Named here IN CODE for the same reason TEAM_PATH is: a path the
+ *  router serves and this file mentions only in prose is a screen `check_roles.py` cannot ask
+ *  about. */
+export const SHOP_PATH = '/shop';
 
 export function visibleSections(catalog: Catalog): SectionState[] {
   const down = new Set(catalog.unreachable);

@@ -526,6 +526,13 @@ jobs:
       - name: a script we upload sources nothing we left behind
         run: python3 ci/check_a_script_we_upload_sources_nothing_we_left_behind.py
 
+      # THE THIRD SIDE OF THE TRIANGLE. `verify-fleet.sh` compares repository to cluster and the
+      # digest compares declaration to image; both agreed perfectly while the console ran code from
+      # weeks earlier, because both sides were equally stale and neither was compared to the SOURCE.
+      # A service whose code moved after its image was built passes every other check we own.
+      - name: no image is older than the code it claims to run
+        run: python3 ci/check_no_image_is_older_than_the_code_it_claims_to_run.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully

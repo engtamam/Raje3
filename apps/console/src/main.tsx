@@ -11,7 +11,7 @@ import { Services } from './screens/ServicesRoute';
 import { Messages } from './screens/MessagesRoute';
 import { Points } from './screens/PointsRoute';
 import { Team } from './screens/TeamRoute';
-import { Local } from './screens/LocalRoute';
+import { ShopScreen } from './screens/Shop';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
 import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
 import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
@@ -40,7 +40,10 @@ const router = createBrowserRouter([
       { path: 'messages', element: <Messages /> },
       { path: 'points', element: <Points /> },
       { path: 'team', element: <Team /> },
-      { path: 'shop', element: <Local /> },
+      // «محلّي» IS ALSO THE INDEX ROUTE — the page «اليوم» and «محلّي» became. The path stays
+      // served because bookmarks, links in messages and the e2e suite all use it; it renders the
+      // same page rather than a redirect, which the back button would fight.
+      { path: 'shop', element: <ShopScreen /> },
     ],
   },
 ], {

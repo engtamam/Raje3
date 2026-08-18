@@ -208,9 +208,15 @@ def test_the_blocked_reason_names_who_owns_the_fix():
     """
     b = blocked("branch_comparison", coverage=Coverage(total=1000, known=100))
     assert b["owner"] == "time"
-    # AND HE IS NOT TOLD TO WAIT WITHOUT BEING TOLD WHY IT WILL RESOLVE. «الجديد يُسجَّل بفرعه» is
-    # the half that makes waiting reasonable rather than indefinite.
-    assert "الجديد" in b["do"], b["do"]
+    # AND HE IS NOT TOLD TO WAIT WITHOUT BEING TOLD HOW LONG — but the answer is now a NUMBER
+    # rather than a sentence. Two prose lines stood here, explaining our own history to a man on
+    # his first day and promising resolution with no sense of when; Tamam read them on a fresh
+    # account and asked for both to go: «احذفها… ولازم يعرف الارقام». `progress` is what replaces
+    # them, and the screen draws it as a bar: he has 100 visits carrying a branch and needs 400,
+    # which is the same 40% the block itself is decided by.
+    assert b["progress"] == {"have": 100, "need": 400}, b["progress"]
+    # SHORT, AND ABOUT HIM. Not a paragraph about what we did not record last year.
+    assert len(b["why"]) <= 40, b["why"]
 
 
 def test_the_learning_state_carries_progress_not_just_a_sentence():

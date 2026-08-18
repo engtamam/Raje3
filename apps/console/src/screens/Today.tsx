@@ -1,14 +1,19 @@
 /**
- * «اليوم» — the screen the product opens on, every day.
+ * WHAT «اليوم» LEFT BEHIND — two pieces, and no longer a page of its own.
  *
- * THE QUESTION IT ANSWERS IS NOT "how much did I sell" BUT "is everything running". That single
- * choice decides everything below: a number that cannot be acted on today does not belong here,
- * and every indicator that invites study belongs in «محلّي», which is read once a week.
+ * IT WAS A SCREEN, AND IT HELD HALF A SCREEN'S WORTH OF CONTENT. Three tiles and a short list, on
+ * its own row in the rail, one press away from «محلّي» — which the owner opened straight after,
+ * every time, to read the number he actually pays us for. Two rows, two loads, one glance's worth
+ * of information between them.
  *
- * AND IT IS WHY THE PRODUCT OPENS HERE RATHER THAN ON THE INDICATORS, even though the indicators
- * are what the top plan is bought for. A shop in its first week has nothing to show there —
- * opening a paid product onto "not enough data yet" is the worst first impression available, while
- * this screen works from the first visit.
+ * So it folds into «محلّي» (Shop.tsx), split by URGENCY rather than by subject:
+ *
+ *   TodayStrip    what is running RIGHT NOW, and what stops when it is not. Near the top, because
+ *                 a shop whose messages are dead must learn that before it reads any rate.
+ *   RecentVisits  reassurance rather than a decision — «we are still recording». It goes LAST, by
+ *                 Tamam's own reading of the page: it is what he looks at least.
+ *
+ * The question these answer is still «is everything running», and neither of them invites study.
  */
 import { hasFailed, isLoading } from '../loading';
 import { useEffect, useState } from 'react';
@@ -39,18 +44,19 @@ interface Today {
 
 interface CustomerRow { id: string; phone: string; name?: string }
 
-export function TodayScreen({ session, catalog }: { session: Session; catalog: Catalog }) {
-  /**
-   * THREE STATES, NOT TWO — and collapsing them is the bug this screen shipped with.
-   *
-   * `undefined` is loading, `null` is a read that FAILED, and a value is a value. It was written
-   * with `null` for both, and `if (!today)` painted the loading skeleton: so a failed read looked
-   * exactly like a slow one, for ever. Grey boxes that never resolve, nothing in the console,
-   * nothing on the screen — and the owner concludes the product is broken, which is nearly right
-   * and completely unactionable.
-   */
+/**
+ * WHAT IS RUNNING TODAY — the stop, the warning, and three numbers.
+ *
+ * THREE STATES, NOT TWO — and collapsing them is the bug this screen shipped with.
+ *
+ * `undefined` is loading, `null` is a read that FAILED, and a value is a value. It was written
+ * with `null` for both, and `if (!today)` painted the loading skeleton: so a failed read looked
+ * exactly like a slow one, for ever. Grey boxes that never resolve, nothing in the console,
+ * nothing on the screen — and the owner concludes the product is broken, which is nearly right
+ * and completely unactionable.
+ */
+export function TodayStrip({ session, catalog }: { session: Session; catalog: Catalog }) {
   const [today, setToday] = useState<Today | null | undefined>(undefined);
-  const [recent, setRecent] = useState<CustomerRow[] | null | undefined>(undefined);
   const [connected, setConnected] = useState<{ state: string; message: string; can_send?: boolean } | null | undefined>(undefined);
 
   useEffect(() => {
@@ -62,13 +68,6 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
       call<Today>(session, a).then(setToday).catch(() => setToday(null));
     } else {
       setToday(null);
-    }
-
-    const r = action(catalog, 'operations.recent');
-    if (r) {
-      call<{ customers: CustomerRow[] }>(session, r, { limit: 5 })
-        .then((x) => setRecent(x.customers))
-        .catch(() => setRecent(null));
     }
 
     const w = action(catalog, 'whatsapp.connect_status');
@@ -105,29 +104,27 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
     return '';
   })();
 
+  // A FAILED READ IS A LINE, NOT A PAGE. It used to replace the whole screen with «تعذّر تحميل
+  // شاشة اليوم» — which, now that the indicators live on the same page, would have thrown away a
+  // working retention rate because a different service was briefly unreachable.
   if (today === null) {
-    // SAID, NOT SPUN. He can act on this — wait, or tell us — and neither is possible while a
-    // skeleton implies the answer is still coming.
     return (
-      <div className="p-4">
-        <EmptyState
-          title="تعذّر تحميل شاشة اليوم"
-          description="حسابك سليم. حاول بعد قليل."
-        />
-      </div>
+      <p className="rounded-card bg-surface-1 px-4 py-3 text-sm text-text-secondary shadow-sm">
+        تعذّرت قراءة حالة اليوم — حسابك سليم، والأرقام أدناه صحيحة.
+      </p>
     );
   }
 
   if (today === undefined) {
     return (
-      <div className="grid gap-4 p-4 sm:grid-cols-3">
-        <Skeleton height={96} /><Skeleton height={96} /><Skeleton height={96} />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Skeleton height={88} /><Skeleton height={88} /><Skeleton height={88} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <>
       {/* ── THE STOP, ABOVE EVERYTHING ────────────────────────────────────────────────────
           NOT AMBER. Amber is «something needs attention soon»; this is «nothing you record today
           reaches anybody», which the screen used to render as a perfectly calm «0 خرجت · 3
@@ -174,36 +171,51 @@ export function TodayScreen({ session, catalog }: { session: Session; catalog: C
           }
         />
       </div>
+    </>
+  );
+}
 
-      <section className="rounded-card bg-surface-1 p-4 shadow-sm">
-        <h2 className="mb-3 text-sm text-text-secondary">آخر الزيارات</h2>
-        {isLoading(recent) ? (
-          <Skeleton height={64} />
-        ) : hasFailed(recent) ? (
-          // «لم تُسجَّل زيارة بعد» TO A SHOP THAT HAS BEEN BUSY ALL MORNING reads as «the system
-          // stopped recording» — which is the one fear this screen exists to answer.
-          <EmptyState
-            title="تعذّرت قراءة آخر الزيارات"
-            description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل."
-          />
-        ) : recent.length === 0 ? (
-          // "لم تُسجَّل زيارة بعد" AND NEVER A ZERO. A zero in this place reads as a fault — the
-          // shop wonders whether the system stopped recording rather than whether anyone came in.
-          <EmptyState
-            title="لم تُسجَّل زيارة بعد"
-            description="سجّل أول زيارة من «تسجيل زيارة»."
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {recent.map((c) => (
-              <li key={c.id} className="flex items-center justify-between text-sm">
-                <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
-                <span className="text-text-secondary">{c.name || '—'}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+/** «آخر الزيارات» — the last thing on the page, because it is the last thing he looks at. */
+export function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [recent, setRecent] = useState<CustomerRow[] | null | undefined>(undefined);
+
+  useEffect(() => {
+    const r = action(catalog, 'operations.recent');
+    if (!r) { setRecent(null); return; }
+    call<{ customers: CustomerRow[] }>(session, r, { limit: 5 })
+      .then((x) => setRecent(x.customers))
+      .catch(() => setRecent(null));
+  }, [session, catalog]);
+
+  return (
+    <section className="rounded-card bg-surface-1 p-4 shadow-sm">
+      <h2 className="mb-3 text-sm text-text-secondary">آخر الزيارات</h2>
+      {isLoading(recent) ? (
+        <Skeleton height={64} />
+      ) : hasFailed(recent) ? (
+        // «لم تُسجَّل زيارة بعد» TO A SHOP THAT HAS BEEN BUSY ALL MORNING reads as «the system
+        // stopped recording» — which is the one fear this section exists to answer.
+        <EmptyState
+          title="تعذّرت قراءة آخر الزيارات"
+          description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل."
+        />
+      ) : recent.length === 0 ? (
+        // "لم تُسجَّل زيارة بعد" AND NEVER A ZERO. A zero in this place reads as a fault — the
+        // shop wonders whether the system stopped recording rather than whether anyone came in.
+        <EmptyState
+          title="لم تُسجَّل زيارة بعد"
+          description="سجّل أول زيارة من «تسجيل زيارة»."
+        />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {recent.map((c) => (
+            <li key={c.id} className="flex items-center justify-between text-sm">
+              <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
+              <span className="text-text-secondary">{c.name || '—'}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
