@@ -1065,3 +1065,29 @@ jobs:
             fi
           done
           exit $fail
+
+  # ── WHAT BLOCKS THE LAUNCH, NOT THE PULL REQUEST ────────────────────────────────────────────
+  #
+  # A separate job, and deliberately not part of `guards`. What it holds is real and unfixed, but
+  # it is not a defect a developer can close in a branch: it needs a purchase, a key, or a
+  # decision that costs money. Putting it in `guards` would make every build red over something no
+  # commit can fix, and a check people must ignore to work is a check that has stopped guarding —
+  # the failure `check_a_check_that_found_nothing_says_so` exists to name.
+  #
+  # So it runs on every push, it names the risk in full, and it does not gate the merge. It turns
+  # green the day the thing it names is done, and until then nobody can look at a run and believe
+  # the fleet is ready to carry a real shop.
+  launch-blockers:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+
+      # THE ARCHIVE IS ON THE MACHINE IT PROTECTS. One node, one disk, and `postgres-data` and
+      # `objectstore-data` both bound to it — with the nightly archive written into the second.
+      # Losing the node loses the data and its only copy at the same instant. Closing it is a
+      # values change (`OBJECTSTORE_ENDPOINT_URL` at provider storage in the same region) and a
+      # bucket that does not exist yet.
+      - name: the archive does not live on the machine it protects
+        run: python3 ci/check_the_archive_does_not_live_on_the_machine_it_protects.py
