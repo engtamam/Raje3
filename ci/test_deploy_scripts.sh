@@ -20,6 +20,23 @@ ok(){   pass=$((pass+1)); printf '  %s✔ %s%s\n' "$C_G" "$1" "$C_N"; }
 no(){   fail=$((fail+1)); printf '  %s✘ %s%s\n' "$C_R" "$1" "$C_N"; }
 check(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1: expected [$3], got [$2]"; fi; }
 
+# ── THE SCHEDULE OUTCOME SECTION, RUN RATHER THAN READ ───────────────────────────────────────
+# `backup-service-run` failed three nights in a row while every green thing stayed green, so
+# verify-fleet now reads each CronJob's LATEST job. The picker is the part that can be wrong in a
+# way nobody notices — a CronJob keeps several jobs, and an older success must never speak for a
+# newer failure — so the awk that picks it is LIFTED OUT OF THE SCRIPT and run here against
+# fixture rows. Asserting on the text of a line would have passed on a line that does not work.
+picker="$(grep -o "awk '\$2 != \"<none>\".*END {for (o in last) print last\[o\]}'" "$ROOT/deploy/verify-fleet.sh" | head -1)"
+check "the latest-job picker was found in verify-fleet"       "$([ -n "$picker" ] && echo found)" "found"
+# NAME OWNER SUCCEEDED FAILED START — an old success, then a NEWER failure, for one CronJob.
+fixture='backup-service-run-1 backup-service-run 1 <none> 2026-08-15T02:42:00Z
+backup-service-run-2 backup-service-run <none> 1 2026-08-17T02:42:00Z
+backup-service-prune-9 backup-service-prune 1 <none> 2026-08-17T03:51:00Z'
+picked="$(printf '%s\n' "$fixture" | sort -k5 | eval "$picker" | sort)"
+check "the newer FAILED run is what is reported"       "$(printf '%s\n' "$picked" | grep -c 'backup-service-run backup-service-run-2 1')" "1"
+check "the older success does not speak for it"       "$(printf '%s\n' "$picked" | grep -c 'backup-service-run-1')" "0"
+check "a healthy schedule is carried through too"       "$(printf '%s\n' "$picked" | grep -c 'backup-service-prune backup-service-prune-9 <none>')" "1"
+
 # ── ل-5 · registries.yaml had two authors, and now has one ───────────────────────────────────
 # The defect was that `install.sh` wrote the ghcr credential and `registry.sh` wrote a node-local
 # mirror, both with `cat >`, so whichever ran last erased the other and restarted k3s on top of

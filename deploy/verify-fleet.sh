@@ -231,6 +231,51 @@ else
 ' "$C_G" "backup targets" "$targets" "$C_N"
 fi
 
+# ── AND WHETHER THE SCHEDULES THAT PROTECT US ACTUALLY FINISHED ──────────────────────────────
+#
+# THE SECTION ABOVE ASKS WHETHER BACKUPS ARE REGISTERED. IT DOES NOT ASK WHETHER THEY RAN, and on
+# 2026-08-18 that difference was three nights long: `backup-service-run` had failed on each of its
+# last three attempts — the CronJob POSTs an empty body, the route demanded one, so FastAPI
+# answered 422 before a line of it executed — while the hourly health-check completed green, the
+# prune completed, and this script printed «backup targets: N registered» over all of it. The only
+# record that our data went three nights unprotected was an exit code on a Job nobody opens.
+#
+# So the outcome is read here, for EVERY CronJob in the namespace and not a named list of the ones
+# we happen to worry about: a schedule exists because somebody decided the work must happen, and a
+# schedule whose last run failed is that decision quietly not happening.
+cron="$("${SSH[@]}" "kubectl -n $NS get jobs --no-headers -o custom-columns=\
+NAME:.metadata.name,OWNER:.metadata.ownerReferences[0].name,SUCCEEDED:.status.succeeded,FAILED:.status.failed,START:.status.startTime 2>/dev/null")" || cron=""
+if [ -z "$cron" ]; then
+  printf '  %s✗ %-24s could not be read — schedules were NOT checked%s\n' "$C_R" "cron outcomes" "$C_N"
+  bad=$((bad+1))
+else
+  # THE LATEST JOB PER OWNING CRONJOB. Sorted by start time so «latest» is a fact and not the
+  # order kubectl happened to return; a CronJob keeps a short history, and an older success must
+  # never speak for a newer failure.
+  cron_bad=0; cron_seen=0
+  while read -r owner name failed; do
+    [ -n "$owner" ] || continue
+    cron_seen=$((cron_seen+1))
+    if [ -n "$failed" ] && [ "$failed" != "<none>" ] && [ "$failed" != "0" ]; then
+      printf '  %s✗ %-24s last run FAILED (%s) — the work this schedule exists for did not happen%s\n' \
+        "$C_R" "$owner" "$name" "$C_N"
+      cron_bad=$((cron_bad+1))
+    fi
+  done <<CRONEOF
+$(printf '%s\n' "$cron" | sort -k5 | awk '$2 != "<none>" && $2 != "" {last[$2] = $2" "$1" "$4} END {for (o in last) print last[o]}')
+CRONEOF
+  if [ "$cron_seen" = "0" ]; then
+    printf '  %s✗ %-24s no scheduled run has EVER been recorded in this namespace%s\n' \
+      "$C_R" "cron outcomes" "$C_N"
+    bad=$((bad+1))
+  elif [ "$cron_bad" != "0" ]; then
+    bad=$((bad+cron_bad))
+  else
+    printf '  %s✔ %-24s %s schedule(s), every latest run succeeded%s\n' \
+      "$C_G" "cron outcomes" "$cron_seen" "$C_N"
+  fi
+fi
+
 # ── AND WHETHER THE RUN CAN FINISH BEFORE ITS CALLER GIVES UP (ي-7) ──────────────────────────
 #
 # THE CRONJOB IS A `urlopen(..., timeout=300)`. The run it starts walks every registered target in

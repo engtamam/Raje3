@@ -627,6 +627,14 @@ jobs:
       - name: the class of a message comes from its reason
         run: python3 ci/check_the_class_of_a_message_comes_from_its_reason.py
 
+      # A SCHEDULE POSTS NO BODY. `backup-service-run` demanded one, so FastAPI answered 422
+      # before the handler ran, and the nightly archive failed three nights running while the
+      # hourly health-check completed green and `verify-fleet.sh` printed «backup targets:
+      # N registered» over all of it. The one thing whose entire value is being there on the day
+      # everything else is gone was not there, and no screen, log or dashboard said so.
+      - name: a scheduled route accepts the empty POST its scheduler sends
+        run: python3 ci/check_a_scheduled_route_accepts_the_empty_post_its_scheduler_sends.py
+
       # AND THE GUARDS THEMSELVES. A check that discovers its subject and prints «ok N» says
       # nothing about whether N should have been zero: rename what it looks for and it goes green
       # for ever over a rule nobody enforces. Three checks had that shape, one of them a day old.
