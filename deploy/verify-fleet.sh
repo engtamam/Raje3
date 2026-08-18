@@ -79,6 +79,45 @@ for f in "$ROOT"/deploy/services/*.values.yaml; do
   fi
 done
 
+# ── AND WHETHER A POD HAS OUTGROWN THE FLOOR IT WAS GIVEN (#366) ─────────────────────────────
+#
+# #359 replaced 100-200m of invented declarations with 20m, measured: `kubectl top` put every one
+# of our services at 2m at rest. The open half of that task was «remeasure under real load» — and
+# the honest answer is that nobody can, because the product has no shops on it yet. A number
+# nobody can measure today does not become right by being remembered; it becomes folklore.
+#
+# So this does not guess at a future number. IT READS THE ONE THE CLUSTER HAS. A request is a
+# floor and a scheduling weight, never a ceiling — there is no `limits.cpu` anywhere in these
+# files, so a busy pod still takes a whole core on a quiet node. The failure that matters is
+# therefore not «the pod is slow»: it is a pod whose ORDINARY usage sits above its floor, which
+# means the share it is guaranteed under contention is smaller than the share it actually needs,
+# and on the one day the node is full it is the pod that gets squeezed.
+#
+# Threshold at 80% of the declared request, and it PRINTS rather than fails: today every service
+# reads 2m against 20m, and a check that goes red the first time a shop gets busy is a check
+# people learn to ignore. It speaks so the number is re-decided with evidence — which is exactly
+# what #366 asked for and had no way to obtain when it was written.
+printf '\n%s── CPU against the floor each workload declared ──%s\n' "$C_D" "$C_N"
+usage="$("${SSH[@]}" "kubectl top pods -n $NS --no-headers 2>/dev/null")" || usage=""
+if [ -z "$usage" ]; then
+  printf '  %s! metrics unavailable — cannot compare usage to requests%s\n' "$C_Y" "$C_N"
+else
+  tight=0
+  for f in "$ROOT"/deploy/services/*.values.yaml; do
+    svc="$(basename "$f" .values.yaml)"
+    want="$(sed -n 's/^ *cpu: *\([0-9]*\)m *$/\1/p' "$f" | head -1)"
+    [ -n "$want" ] || continue
+    got="$(printf '%s\n' "$usage" | awk -v s="^$svc-[0-9a-f]" '$1 ~ s {gsub(/m$/,"",$2); print $2; exit}')"
+    [ -n "$got" ] || continue
+    # Integer arithmetic on purpose: this runs in the same POSIX shell as the rest of the script.
+    if [ "$((got * 100))" -ge "$((want * 80))" ]; then
+      printf '  %s! %-24s using %sm against a %sm floor%s\n' "$C_Y" "$svc" "$got" "$want" "$C_N"
+      tight=$((tight+1))
+    fi
+  done
+  [ "$tight" -eq 0 ] && printf '  %s✔ every workload sits well inside its request%s\n' "$C_G" "$C_N"
+fi
+
 # ── AND THE TWO THINGS THE CUSTOMER ACTUALLY SEES (ل-7) ──────────────────────────────────────
 #
 # The loop above walks `deploy/services/*.values.yaml`. Neither the console nor the edge has a
