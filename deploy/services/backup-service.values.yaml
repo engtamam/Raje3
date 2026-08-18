@@ -168,7 +168,13 @@ env:
   OBJECTSTORE_ENDPOINT_URL: "https://oss-me-central-1.aliyuncs.com"
   OBJECTSTORE_BUCKET: "raje3-backups"
   OBJECTSTORE_REGION: "me-central-1"
-  OBJECTSTORE_FORCE_PATH_STYLE: "true"
+  # PATH STYLE IS FOR MINIO, NOT OSS. Verified live: `list_objects_v2`/`get_bucket_location`
+  # against real OSS with path style set answered `SecondLevelDomainForbidden — Please use
+  # virtual hosted style to access`, and `head_bucket` (the readiness check's own call) answered
+  # a plain 403 for the identical reason with a less legible error. OSS wants
+  # `bucket.oss-me-central-1.aliyuncs.com`, not `oss-me-central-1.aliyuncs.com/bucket` — the
+  # opposite convention from the in-cluster MinIO this value was carried over from.
+  OBJECTSTORE_FORCE_PATH_STYLE: "false"
   # CREDENTIALS COME FROM THE NODE'S OWN IDENTITY, NOT A SECRET. An Instance RAM Role is attached
   # (Tamam, 2026-08-18) instead of static keys. platform v0.16.21 answered the escalation this
   # needed: `alibaba-ecs-ram` is a refreshable botocore provider reading Alibaba's own metadata
