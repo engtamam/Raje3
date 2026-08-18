@@ -32,6 +32,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
+# `is_base` lives with the subscribe rules because "carries the message meter" is a statement
+# about the price list, not about this catalogue. Imported rather than repeated: two
+# spellings of «this row is a base» is how the two drift apart.
+from app.core.subscribe import is_base
 
 # ── the apps we sell ──────────────────────────────────────────────────────────────────────────
 #
@@ -135,7 +139,35 @@ def build_apps(settings: Any) -> Any:
                     timeout=int(getattr(settings, "PEER_TIMEOUT_SECONDS", 8) or 8))
 
 
-def public(held: set[str], checked: bool, base: dict[str, Any] | None = None) -> dict[str, Any]:
+def renewals_by_key(rows: list[dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
+    """Every live subscription this shop holds, keyed by the app it pays for — `""` for the base.
+
+    THE DATE WAS ALREADY IN HAND AND WAS THROWN AWAY. `/apps` fetched the whole subscription list,
+    kept the base's renewal date and dropped every other row on the floor. So a shop paying for
+    three things saw one date and discovered the other two on its card statement — the same defect
+    family as every other value this product computes and never says out loud.
+
+    THE ROW NAMES ITS OWN APP. `limits_snapshot` is what the plan granted, so the entitlement key
+    inside it IS the app; nothing here enumerates the price list, and an app added tomorrow is
+    carried by this without being mentioned. A row granting no key we sell is skipped rather than
+    guessed at — a capacity pack is not an app and has no card to sit on.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows or ():
+        limits = row.get("limits_snapshot") or {}
+        seen = {"status": row.get("status", ""), "renews_at": row.get("current_period_end", 0),
+                "plan_id": row.get("plan_id", "")}
+        if is_base(limits):
+            out.setdefault("", seen)
+            continue
+        for key in KEYS:
+            if key in limits:
+                out.setdefault(key, seen)
+    return out
+
+
+def public(held: set[str], checked: bool, base: dict[str, Any] | None = None,
+           renewals: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """The shape the console renders.
 
     `owned` is only ever claimed when we ASKED and were answered. On a failed check every app is
@@ -149,7 +181,13 @@ def public(held: set[str], checked: bool, base: dict[str, Any] | None = None) ->
     return {
         "checked": checked,
         "message": "" if checked else CANNOT_ASK,
-        "apps": [{**a, "owned": (a["key"] in held) if checked else None} for a in APPS],
+        # `renews_at` PER APP, not for the base alone. It is `None` — not zero and not absent —
+        # when this shop does not hold the app or billing could not be read, because «لا أعرف»
+        # and «لا يتجدّد» are two different sentences and a screen must be able to tell them apart.
+        "apps": [{**a, "owned": (a["key"] in held) if checked else None,
+                  "renews_at": ((renewals or {}).get(a["key"], {}).get("renews_at") or None)
+                               if checked else None}
+                 for a in APPS],
         # The flat list, for the screens that only need «هل أملك هذا».
         "keys": sorted(held) if checked else [],
         "base": base,

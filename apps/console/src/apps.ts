@@ -29,7 +29,10 @@ export interface Owned {
   checked: boolean;
   message: string;
   keys: string[];
-  apps: { key: string; name: string; what: string; screen: string; owned: boolean | null }[];
+  apps: { key: string; name: string; what: string; screen: string; owned: boolean | null;
+          /** When THIS app's own subscription renews. `null` when he does not hold it, or when
+           *  billing could not be read — «لا أعرف» and «لا يتجدّد» are different sentences. */
+          renews_at: number | null }[];
   /** THE BASE SUBSCRIPTION ITSELF — its plan, its status and when it renews, straight from
    *  billing's subscription list. `null` when this shop has no base. It replaced a `feature.base`
    *  entitlement flag, which could say only THAT one existed: «يتجدّد في 12 سبتمبر» is the first

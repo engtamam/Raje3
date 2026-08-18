@@ -96,6 +96,10 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
     # renewal date, so the screen can say «يتجدّد في …» — the first thing an owner opening this
     # page wants, and something an entitlement check could never answer.
     rows = await c.billing_plans.subscriptions(tenant)
+    # EVERY ROW, NOT THE BASE'S ALONE. This list arrived whole and left with one date in it: the
+    # apps a shop pays for renew on their own days — the day each was bought — and no screen said
+    # so, so the second and third charges of the month arrived unannounced.
+    renewals = app_catalogue.renewals_by_key(rows)
     base = None
     if rows:
         for row in rows:
@@ -103,7 +107,7 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
                 base = {"plan_id": row.get("plan_id", ""), "status": row.get("status", ""),
                         "renews_at": row.get("current_period_end", 0)}
                 break
-    return app_catalogue.public(held, checked, base)
+    return app_catalogue.public(held, checked, base, renewals)
 
 
 @router.post("", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])

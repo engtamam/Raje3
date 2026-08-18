@@ -201,8 +201,35 @@ export function canBuy(
   return hasAction && gatewayEnabled && canMint;
 }
 
+/** How many DIFFERENT days this shop is charged on — the base's and each owned app's.
+ *
+ * Counted off days rather than timestamps: two subscriptions bought hours apart on the same date
+ * are one billing day to the person paying, and telling him he has «تاريخان» because of a clock
+ * difference would be true of the data and false of his month. An unread billing (`checked` false)
+ * counts nothing — it has no dates to count.
+ */
+export function distinctRenewalDays(answer: Owned | null | undefined): Set<string> {
+  if (!answer?.checked) return new Set();
+  const days = new Set<string>();
+  for (const a of answer.apps) if (a.owned && a.renews_at) days.add(renewalDay(a.renews_at));
+  const base = renewalDay(answer.base?.renews_at);
+  if (base) days.add(base);
+  return days;
+}
+
+
+/** A day an owner can plan around: western digits and a Gregorian month, like every other date
+ *  in this product. Seconds on the wire — the subscription's `current_period_end`. */
+function renewalDay(epoch: number | null | undefined): string {
+  return epoch
+    ? new Date(epoch * 1000).toLocaleDateString('ar-SA-u-nu-latn-ca-gregory',
+                                                { day: 'numeric', month: 'long' })
+    : '';
+}
+
+
 function PlanCard({
-  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel,
+  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt,
 }: {
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
@@ -212,6 +239,8 @@ function PlanCard({
   onBuy: () => void;
   ownedLabel: string;
   buyLabel: string;
+  /** When THIS app renews — its own subscription's date, not the shop's base. */
+  renewsAt?: number | null;
 }) {
   const price = monthly(plan);
   const lines = planLines(plan);
@@ -242,6 +271,12 @@ function PlanCard({
         <h3 className="text-base font-medium leading-tight">{plan.name}</h3>
         {has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
       </header>
+
+      {/* THE DAY THIS ONE IS CHARGED. Only when he owns it and billing answered — an app he has
+          not bought has no date, and an unread billing has none to print. */}
+      {has && renewalDay(renewsAt) ? (
+        <p className="-mt-1 text-xs text-text-secondary">يتجدّد في {renewalDay(renewsAt)}</p>
+      ) : null}
 
       {/* WHAT IT DOES FOR HIM. The one line that does the selling. */}
       {app?.what ? (
@@ -420,10 +455,14 @@ export function PlansPane({
   const ownedApps = apps.filter((p) => owns(owned, appKey(p)) === true).length;
   // WESTERN DIGITS AND A GREGORIAN MONTH, like every other date in this product. Seconds on the
   // wire — the row's `current_period_end` — and a day a person can plan around on the screen.
-  const renews = answer?.base?.renews_at
-    ? new Date(answer.base.renews_at * 1000).toLocaleDateString('ar-SA-u-nu-latn-ca-gregory',
-                                                               { day: 'numeric', month: 'long' })
-    : '';
+  const renews = renewalDay(answer?.base?.renews_at);
+  // EVERY APP RENEWS ON ITS OWN DAY, because billing starts each subscription's period at the
+  // moment it was bought. A shop that added «الحملات» two weeks after the base is charged twice a
+  // month on two days; until now the screen printed the base's day and said nothing about the
+  // rest, so the second charge arrived unannounced. One billing day for the whole shop, with the
+  // first cycle prorated, is billing-service's `subscribe` to fix (#347) — it is read-only to us.
+  // Saying the truth we already hold is not.
+  const appDays = distinctRenewalDays(answer);
 
   if (plans === null || sub === undefined) {
     return (
@@ -456,6 +495,14 @@ export function PlansPane({
                   boolean flag could never answer. It arrives on the subscription row itself. */}
               {renews ? <span className="text-text-secondary"> · يتجدّد {renews}</span> : null}
             </span>
+            {/* AND WHEN THEY ARE NOT ALL ON ONE DAY, said here rather than discovered on the card
+                statement. The date on each card answers «متى يُخصم هذا»; this answers «كم مرة
+                يُخصم مني في الشهر», which is the question an owner actually has. */}
+            {appDays.size > 1 ? (
+              <p className="w-full text-xs text-text-secondary">
+                تطبيقاتك تتجدّد في {appDays.size} تواريخ مختلفة — كلٌّ في يوم شرائه.
+              </p>
+            ) : null}
             <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
               {sub.status === 'active' ? 'فعّال' : 'متوقف'}
             </Badge>
@@ -587,6 +634,7 @@ export function PlansPane({
                     onBuy={() => choose(p)}
                     ownedLabel="مفعّل"
                     buyLabel="أضِفه"
+                    renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}
                   />
                 </li>
               ))}
