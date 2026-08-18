@@ -32,7 +32,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/webhook-service
-  digest: "sha256:e578f3cbe6b4bb95e354dd1b630554f1dee93c8bebb224add0ebb6a68de27a4f"   # v0.16.20
+  digest: "sha256:e578f3cbe6b4bb95e354dd1b630554f1dee93c8bebb224add0ebb6a68de27a4f"   # v0.16.21
 
 replicas: 1
 

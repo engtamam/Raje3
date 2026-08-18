@@ -39,7 +39,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/backup-service
-  digest: "sha256:7a411275c50e4232fc37bc8443c17b2eb7631ab6333743c0d46f0ccfe1c8b6b1"   # v0.16.20
+  digest: "sha256:9464e05f57329008063d1abd473124814f18dc9cf2076e52d518da4cb63ff159"   # v0.16.21
 
 replicas: 1
 
@@ -148,11 +148,27 @@ env:
   # system that loses backups. A SEPARATE BUCKET from the application's: a restore must not be
   # able to overwrite the archive it is restoring from, and a misconfigured file-service must not
   # be able to reach the backups.
+  # POINTED AT OSS, OUTSIDE THE FLEET (#329). The archive existed on the same node it protects
+  # against losing — an internal minio the backup itself would die with. This bucket is a separate
+  # OSS account resource in the same region, reachable over the public endpoint, with versioning
+  # and a private ACL set at creation (Tamam, 2026-08-18): losing this node cannot take it too.
   OBJECTSTORE_DRIVER: "s3"
-  OBJECTSTORE_ENDPOINT_URL: "http://objectstore:9000"
+  OBJECTSTORE_ENDPOINT_URL: "https://oss-me-central-1.aliyuncs.com"
   OBJECTSTORE_BUCKET: "raje3-backups"
-  OBJECTSTORE_REGION: "us-east-1"
+  OBJECTSTORE_REGION: "me-central-1"
   OBJECTSTORE_FORCE_PATH_STYLE: "true"
+  # CREDENTIALS COME FROM THE NODE'S OWN IDENTITY, NOT A SECRET. An Instance RAM Role is attached
+  # (Tamam, 2026-08-18) instead of static keys — the platform escalated 2026-08-18 answered exactly
+  # this in v0.16.21: `alibaba-ecs-ram` is a refreshable botocore provider reading Alibaba's own
+  # metadata dialect (AccessKeySecret/SecurityToken at OBJECTSTORE_METADATA_ENDPOINT, not AWS's
+  # 169.254.169.254). Refresh-before-expiry is botocore's job; a role name is left unset because
+  # the provider auto-discovers the one role attached to this node.
+  #
+  # THE ROLE IS NODE-WIDE, NOT SERVICE-SCOPED. Every pod that can reach the metadata address
+  # inherits it on this single-node cluster — the isolation is a NetworkPolicy restricting egress
+  # to OBJECTSTORE_METADATA_ENDPOINT to this service alone (#329 follow-up: not yet written).
+  OBJECTSTORE_CREDENTIALS: "alibaba-ecs-ram"
+  OBJECTSTORE_METADATA_ENDPOINT: "http://100.100.100.200"
 
   # ── Bounds ────────────────────────────────────────────────────────────────────────────────
   # 500 is the upstream default and far above our ~18 services. Left as-is: it is a ceiling
@@ -180,11 +196,13 @@ env:
   BACKUP_STALE_AFTER_SECONDS: "93600"
 
   # ── Retention ─────────────────────────────────────────────────────────────────────────────
-  # 30 runs, and the last VERIFIED backup of every target is kept regardless of age — the sweep
-  # can never delete a service's only working archive. 90 days as a second bound so a target that
-  # stopped being backed up does not keep 30 stale runs forever.
-  BACKUP_RETENTION_RUNS: "30"
-  BACKUP_RETENTION_MAX_AGE_SECONDS: "7776000"
+  # 20 runs, and the last VERIFIED backup of every target is kept regardless of age — the sweep
+  # can never delete a service's only working archive. 30 days as a second bound so a target that
+  # stopped being backed up does not keep 20 stale runs forever: at one run a night the two limits
+  # agree with each other on a healthy target, so neither one is the surprise (Tamam, 2026-08-18 —
+  # narrowed from 30 runs / 90 days: the old bound outlived any use a shop's data has that far back).
+  BACKUP_RETENTION_RUNS: "20"
+  BACKUP_RETENTION_MAX_AGE_SECONDS: "2592000"
 
 
   # Alerts are recorded and readable on the health endpoint regardless. A push destination needs
