@@ -1,0 +1,21 @@
+# service.spec.toml — the record of how this service was generated.
+#
+# platform/scripts/create_service.py is hardcoded to clone into its OWN platform/services/, with
+# no output-path flag — it cannot target this repo directly, and platform/ is read-only to us.
+# loyalty's and operations' copies of this file are the trace of someone running it upstream and
+# relocating the result; this one was generated the same way `_template` says to ("clone and go")
+# but by hand, diffed against a current real service rather than the stale template — see
+# docs/adding-a-new-app.md for the full account. Written by hand for the same reason the tool
+# would have written it: so the next reader knows what was chosen and does not have to re-derive
+# it from container.py.
+name = "bookings"
+description = "Appointment scheduling: the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway (docs/وصف-تطبيق-الحجوزات.md)"
+port = 8028
+
+[drivers]
+datastore = "postgres"
+cache = "redis"
+event_bus = "redis"
+queue = "redis"
+token_verifier = "rs256"
+rate_limiter = "redis"

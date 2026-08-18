@@ -77,7 +77,8 @@
     "feature.insights.engine": "the association engine (§10.6) — the one thing nobody else has",
     "feature.api": "the programmatic link: a till writing visits in the shop's name",
     "templates.custom": "templates he writes himself and submits to Meta, per month",
-    "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing"
+    "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing",
+    "feature.bookings": "the appointment scheduler (docs/وصف-تطبيق-الحجوزات.md) — the staff-side grid, drag-and-drop reschedule, and the booking-to-visit gateway"
   },
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
@@ -146,6 +147,10 @@
         "feature.base": {
           "kind": "boolean",
           "limit": 1
+        },
+        "feature.bookings": {
+          "kind": "boolean",
+          "limit": 0
         }
       }
     },
@@ -206,6 +211,33 @@
           "limit": 9,
           "period": "month",
           "overage": "block"
+        }
+      }
+    },
+    {
+      "_": [
+        "THE HIGHEST-PRICED APP ON PURPOSE (docs/وصف-تطبيق-الحجوزات.md §10): not a feature added",
+        "to a product that reminds customers, but the way the shop is run day to day — the",
+        "schedule every staff member and every customer touches, not an add-on beside it.",
+        "",
+        "THE AMOUNT BELOW IS A PLACEHOLDER, NOT A PRICE — same convention as المؤسسات further",
+        "down: 'above campaigns + loyalty combined' is the decision on record, the exact figure",
+        "is deliberately deferred to launch, and this document does not invent it. Set for real",
+        "before this plan is ever listed.",
+        "",
+        "listed=false ON PURPOSE. Only Stage 0/1 of docs/خطة-تنفيذ-الحجوزات.md exist — no screen,",
+        "no booking flow, nothing a shop could actually use yet. Selling a key nothing serves is",
+        "the mirror of what ci/check_entitlements.py already catches on the other side (a key",
+        "enforced with nothing sold). Flip to true only when the app is real."
+      ],
+      "name": "الحجوزات",
+      "amount": 19900,
+      "trial_days": 0,
+      "listed": false,
+      "limits": {
+        "feature.bookings": {
+          "kind": "boolean",
+          "limit": 1
         }
       }
     },
@@ -303,6 +335,10 @@
         "feature.base": {
           "kind": "boolean",
           "limit": 1
+        },
+        "feature.bookings": {
+          "kind": "boolean",
+          "limit": 0
         }
       }
     }

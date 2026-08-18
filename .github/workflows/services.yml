@@ -35,7 +35,7 @@ jobs:
       # one, push, wait, and discover the second.
       fail-fast: false
       matrix:
-        service: [campaigns, insights, loyalty, operations, portal, reminders]
+        service: [bookings, campaigns, insights, loyalty, operations, portal, reminders]
 
     defaults:
       run:

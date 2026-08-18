@@ -88,6 +88,10 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
   'feature.insights.engine': { label: 'فرصي: أين الفرصة في محلّك' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
+  // SOLD, NOT BUILT YET (ci/check_entitlements.py's SOLD_UNBUILT). The plan itself carries
+  // `listed: false`, so this sentence never actually renders a card — it exists so the wording
+  // is ready the day the plan flips to listed, not written under launch pressure.
+  'feature.bookings': { label: 'نظام الحجوزات ومواعيد العملاء' },
   // THE BASE ITSELF, and it has a sentence for the same reason every other key does: it is
   // charged for, so the page where he decides must name it. «سجلّ الزيارات» rather than «الأساس»
   // — the card is already titled الأساس, and repeating the title tells him nothing about what

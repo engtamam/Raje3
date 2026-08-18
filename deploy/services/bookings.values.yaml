@@ -1,0 +1,96 @@
+# bookings — deployment values.
+#
+# STAGE 1 ONLY (docs/خطة-تنفيذ-الحجوزات.md): the platform-tax skeleton and the licence gate. No
+# domain routes exist yet, so no peer URLs are declared here — REMINDERS_SERVICE_URL,
+# OPERATIONS_SERVICE_URL and the rest arrive with the stages that actually call them (3-5). A URL
+# declared before anything reads it is "configured and inert"
+# (docs/PLATFORM-PLAYBOOK.md §4.2) — a setting that promises a behaviour the code does not have.
+#
+# Defaults are SAFE, not scalable: one replica, in-memory drivers. To scale out, move every
+# stateful port to a shared driver below; the chart REFUSES to render replicas>1 otherwise.
+service:
+  name: bookings
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/raje3/bookings
+  # PLACEHOLDER — this service has not been built or published yet (platform/scripts/
+  # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
+  # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
+  # a rollout against this digest fails at image pull, which is the correct, loud failure.
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    # MEASURED-NOT-GUESSED CONVENTION (see loyalty.values.yaml's own note): every live service on
+    # this fleet sits at 2-4m at rest. 20m matches the fleet's floor rather than the chart's
+    # unmeasured 50m default — revisit once this service actually carries traffic.
+    cpu: 20m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+autoscaling:
+  enabled: false        # flip on once you have load; requests.cpu above makes it real
+
+existingSecret: bookings-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # No internet, and no peer egress yet either — Stage 1 calls nothing outside itself except
+    # billing (in-cluster, covered by the default peer-service egress the chart already opens).
+    internet: false
+
+metrics:
+  serviceMonitor: false
+
+env:
+  # ── The request budget per person (§1.1, see loyalty.values.yaml for the full derivation) ──
+  RATELIMIT_MAX: "600"
+  RATELIMIT_WINDOW_SECONDS: "60"
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── what the shop bought (app/core/licence.py) ───────────────────────────────────────────
+  # WITHOUT THIS THE SERVICE REFUSES TO START IN PRODUCTION (assert_licence_config_ok) — the same
+  # boot guard loyalty carries, for the same reason: an unconfigured licence check is a booking
+  # app given away to every plan, silently, with nothing anywhere failing to say so.
+  BILLING_SERVICE_URL: "http://billing-service:8000"
+  BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  AUDIT_SINK_DRIVER: "http"
+  AUDIT_SERVICE_URL: "http://audit-service:8000"
+  AUDIT_FAIL_CLOSED: "true"
+
+  CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
+  CORS_ALLOW_CREDENTIALS: "true"
+  EGRESS_ALLOWED_HOSTS: ""
+
+ingress:
+  enabled: false   # operator-only, reached through the gateway — no console screen exists yet
+
+# ── the SHARED secrets ────────────────────────────────────────────────────────────────────────
+# Identical values across every service, injected by the chart from one source. BACKUP_KEK is the
+# one this service cannot do without: /internal/backup/export answers 503 without it, so a future
+# booking would be absent from the archive while the fleet reported itself backed up — same shape
+# as loyalty.values.yaml's own note, no domain data exists here yet to make this concrete.
+#
+# PII_SALT must be the SAME value every other service holds — two different salts fold one person
+# to two pseudonyms. INTERNAL_SERVICE_TOKEN authenticates peer-service calls once Stage 3+ makes
+# any (docs/خطة-تنفيذ-الحجوزات.md).
+# secretRefs: BACKUP_KEK, PII_SALT, INTERNAL_SERVICE_TOKEN

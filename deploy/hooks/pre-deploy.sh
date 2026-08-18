@@ -31,7 +31,7 @@ ok(){   echo -e "\e[32m  ✔ $*\e[0m"; }
 
 # Every service that needs its own database. One database per service is not tidiness: it is what
 # stops a migration in one service from locking a table in another.
-SERVICES="tenant authz identity audit gateway job file compliance notification featureflag analytics wallet billing ticket onboarding backup search webhook connector operations reminders campaigns loyalty insights"
+SERVICES="tenant authz identity audit gateway job file compliance notification featureflag analytics wallet billing ticket onboarding backup search webhook connector operations reminders campaigns loyalty insights bookings"
 
 # THE SUPERUSER IS READ, NOT ASSUMED. This loop said `-U platform` and postgres has no such role,
 # so every psql and every createdb failed — and `2>/dev/null || true` swallowed all of it, then the
