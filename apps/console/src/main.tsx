@@ -11,6 +11,7 @@ import { Services } from './screens/ServicesRoute';
 import { Messages } from './screens/MessagesRoute';
 import { Points } from './screens/PointsRoute';
 import { Team } from './screens/TeamRoute';
+import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
 import { Store } from './screens/StoreRoute';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: 'visit', element: <Visit /> },
+      { path: 'bookings', element: <Bookings /> },
       { path: 'customers', element: <Customers /> },
       // NOT A SECTION IN THE NAV, and deliberately: it is reached BY opening a
       // customer, never by choosing it. A tenth nav entry for a screen that needs an

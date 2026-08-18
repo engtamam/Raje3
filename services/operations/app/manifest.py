@@ -156,6 +156,10 @@ def build_manifest(
             # branch can be resolved from his token — the browser used to call that service itself,
             # and no route over there has ever known what a branch is (ط-3).
             {"path": "/api/v1/field/customers/suggest", "tier": "user", "method": "GET"},
+            # Resolve-or-create by phone, WITH NO VISIT (docs/خطة-تنفيذ-الحجوزات.md §6.2) —
+            # bookings' console dialog needs a customer_id before it can create a booking; this is
+            # the SAME act record_visit already makes, exposed on its own.
+            {"path": "/api/v1/field/customers/ensure", "tier": "user", "method": "POST"},
             {"path": "/api/v1/field/privacy-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/field/privacy-requests/{}/close", "tier": "user", "method": "POST"},
             {"path": "/internal/operations/privacy-request", "tier": "internal", "method": "POST"},

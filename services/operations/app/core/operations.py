@@ -265,18 +265,7 @@ class Operations:
                                      duplicate=True)
 
         now = _now()
-        customer = await self._customers.by_phone(tenant, phone)
-        created_customer = customer is None
-        if customer is None:
-            customer = Customer(
-                id=new_id("cus"), tenant=tenant, phone=phone,
-                subject_ref=subject_ref(self._salt, tenant, phone),
-                name=name.strip(), created=now)
-        elif name.strip() and not customer.name:
-            # A name arriving later fills a blank, but never overwrites one already there. The
-            # operator typing today does not know what the operator typed last month, and the
-            # older value was entered with the customer present just as this one is.
-            customer.name = name.strip()
+        customer, created_customer = await self._resolve_customer(tenant, phone, name)
 
         # UNKNOWN SERVICES ARE ABSORBED, NOT REFUSED — and only on the integration path, where
         # `allow_unknown_services` is set. A till sends a service the owner never added to our
@@ -409,6 +398,49 @@ class Operations:
 
     async def customer_by_phone(self, tenant: str, phone: str) -> Customer | None:
         return await self._customers.by_phone(tenant, _normalise_phone(phone))
+
+    async def _resolve_customer(self, tenant: str, phone: str, name: str) -> tuple[Customer, bool]:
+        """Find this phone's customer, or build a new (UNSAVED) one. Returns (customer, created).
+
+        EXTRACTED FROM `record_visit`, WHICH USED TO BE THE ONLY CALLER — and this is the whole
+        reason it exists rather than being reimplemented at a second call site. `bookings`' console
+        dialog needs "resolve or create a customer for this phone" without a visit attached to it
+        (docs/خطة-تنفيذ-الحجوزات.md §6.2: "نفس الفعل الخلفي الذي يستعمله VisitIn, لا إعادة
+        تنفيذ"), and duplicating this logic for that path is exactly the drift the platform's own
+        SHARED COPY convention exists to prevent one layer up.
+
+        NOT SAVED HERE. The caller decides when: `record_visit` saves once, at the end, together
+        with the visit-count update; `ensure_customer` below saves immediately because there is no
+        visit to save alongside.
+        """
+        customer = await self._customers.by_phone(tenant, phone)
+        created = customer is None
+        if customer is None:
+            customer = Customer(
+                id=new_id("cus"), tenant=tenant, phone=phone,
+                subject_ref=subject_ref(self._salt, tenant, phone),
+                name=name.strip(), created=_now())
+        elif name.strip() and not customer.name:
+            # A name arriving later fills a blank, but never overwrites one already there. The
+            # operator typing today does not know what the operator typed last month, and the
+            # older value was entered with the customer present just as this one is.
+            customer.name = name.strip()
+        return customer, created
+
+    async def ensure_customer(self, tenant: str, phone: str, name: str = "") -> Customer:
+        """Resolve or create a customer by phone, with NO visit attached — the booking console's
+        one call into this service before it has a `customer_id` to hand `bookings` (§6.2).
+
+        SAVED IMMEDIATELY, unlike `record_visit`'s deferred save: there is no visit-count update to
+        batch it with, and a customer resolved-or-created here must exist the moment this returns —
+        the caller's very next act is to pass the id to a different SERVICE.
+        """
+        phone = _normalise_phone(phone)
+        if not phone:
+            raise OperationError("رقم الجوال مطلوب، ولم نتعرّف على ما أُدخل — تأكّد أنه أرقام فقط")
+        customer, _ = await self._resolve_customer(tenant, phone, name)
+        await self._customers.save(customer)
+        return customer
 
     async def rename_customer(self, tenant: str, customer_id: str, name: str) -> Customer | None:
         """Give a customer his name — the one edit an owner needs and could not make.

@@ -109,6 +109,9 @@ export interface CatalogueService {
   icon?: string;
   colour?: string;
   cycle_days?: number;
+  /** Minutes this service takes, for the booking dialog's own duration snapshot
+   *  (docs/خطة-تنفيذ-الحجوزات.md §2/§4). 0 or absent means NOT CONFIGURED — never a guess. */
+  duration_minutes?: number;
 }
 
 /** An extra input the visit sheet renders — the full descriptor, so this app never carries its
@@ -202,6 +205,22 @@ export function customerByPhone(
   session: Session, phone: string,
 ): Promise<{ customer: (CustomerHit & { subject_ref?: string }) | null }> {
   return call(session, `/api/v1/field/customers/by-phone?phone=${encodeURIComponent(phone)}`);
+}
+
+/**
+ * Resolve or create a customer by phone, with NO visit attached.
+ *
+ * THE BOOKING DIALOG'S ONE STEP BEFORE IT HAS A `customer_id` TO GIVE BOOKINGS. Same act as
+ * `recordVisit`'s own customer resolution (docs/خطة-تنفيذ-الحجوزات.md §6.2: "نفس الفعل
+ * الخلفي الذي يستعمله VisitIn, لا إعادة تنفيذ") — never reimplemented here, only called.
+ */
+export function ensureCustomer(
+  session: Session, phone: string, name?: string,
+): Promise<{ customer: CustomerHit & { subject_ref?: string } }> {
+  return call(session, '/api/v1/field/customers/ensure', {
+    method: 'POST',
+    body: JSON.stringify({ phone, name: name || undefined }),
+  });
 }
 
 /**
@@ -477,11 +496,111 @@ export interface FieldOperator {
   name: string;
   active: boolean;
   has_pin: boolean;
+  /** Empty means unbranched — visible to every branch, the same rule operations' own staff route
+   *  documents. Read by the booking dialog's staff picker (§6, docs/خطة-تنفيذ-الحجوزات.md). */
+  branch_id?: string;
 }
 
 export async function listOperators(session: Session): Promise<FieldOperator[]> {
   const out = await call<{ operators?: FieldOperator[] }>(session, '/api/v1/staff/operators');
   return (out.operators ?? []).filter((o) => o.active && o.has_pin);
+}
+
+// ── الحجوزات (docs/خطة-تنفيذ-الحجوزات.md §6) ───────────────────────────────────────────────────
+
+/** A name the booking dialog can offer — active staff, whichever branch they work in.
+ *
+ * NOT `listOperators` ABOVE. That list is filtered to `has_pin` — the visit screen's own «من
+ * يحفظ؟» sheet needs a PIN to attribute a save; a booking is attributed by WHO IS SIGNED IN, and
+ * requiring a PIN here would hide every operator who has never been given one, on the one screen
+ * that is meant to reuse `Operator.id` exactly as VisitIn does (وصف-تطبيق-الحجوزات.md §6.2).
+ */
+export async function listBookingStaff(session: Session): Promise<FieldOperator[]> {
+  const out = await call<{ operators?: FieldOperator[] }>(session, '/api/v1/staff/operators');
+  return (out.operators ?? []).filter((o) => o.active);
+}
+
+/** One row of the grid, or one booking dialog's answer — the server's own shape (`Booking.public()`). */
+export interface Booking {
+  id: string;
+  branch_id: string;
+  operator_id: string;
+  customer_id: string;
+  service_ids: string[];
+  starts_at: number;
+  duration_minutes: number;
+  status: 'booked' | 'attended' | 'no_show' | 'cancelled';
+  series_id: string | null;
+  series_seq: number | null;
+  visit_id: string | null;
+  deposit_taken: boolean;
+  note: string;
+  reason_no_show: string | null;
+  created: number;
+  created_by: string;
+  updated: number;
+  cancelled_reason: string | null;
+  thumb_up: boolean | null;
+  rev: number;
+}
+
+/** The grid's own read — every booking for one branch, one business day. `date` is `YYYY-MM-DD`,
+ *  the shop's own business day, exactly as `day_bucket()` computes it server-side. */
+export function listBookings(
+  session: Session, branchId: string, date: string,
+): Promise<{ bookings: Booking[] }> {
+  const q = new URLSearchParams({ branch_id: branchId, date });
+  return call(session, `/api/v1/bookings?${q.toString()}`);
+}
+
+export interface CreateBookingDraft {
+  branch_id: string;
+  operator_id: string;
+  customer_id: string;
+  service_ids: string[];
+  starts_at: number;
+  note?: string;
+  idempotency_key?: string;
+}
+
+export function createBooking(session: Session, draft: CreateBookingDraft): Promise<Booking> {
+  return call(session, '/api/v1/bookings', { method: 'POST', body: JSON.stringify(draft) });
+}
+
+/** THE DRAG-AND-DROP IS THIS CALL (§6.1.1 من مستند القرارات) — Stage 7 reuses it unchanged. */
+export function rescheduleBooking(
+  session: Session, id: string, startsAt: number, operatorId?: string,
+): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/reschedule`, {
+    method: 'PATCH',
+    body: JSON.stringify({ starts_at: startsAt, operator_id: operatorId || undefined }),
+  });
+}
+
+export function editBookingNote(session: Session, id: string, note: string): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/note`, {
+    method: 'PATCH', body: JSON.stringify({ note }),
+  });
+}
+
+export function cancelBooking(session: Session, id: string, reason?: string): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/cancel`, {
+    method: 'PATCH', body: JSON.stringify({ reason: reason || undefined }),
+  });
+}
+
+/** ALLOWED even on a lapsed subscription (app/core/licence.py) — closing an existing booking's
+ *  status is never the growing half. */
+export function attendBooking(session: Session, id: string, occurredAt?: number): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/attend`, {
+    method: 'PATCH', body: JSON.stringify({ occurred_at: occurredAt || undefined }),
+  });
+}
+
+export function noShowBooking(session: Session, id: string, reason?: string): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/no-show`, {
+    method: 'PATCH', body: JSON.stringify({ reason: reason || undefined }),
+  });
 }
 
 /**

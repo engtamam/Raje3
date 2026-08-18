@@ -258,6 +258,31 @@ async def customer_by_phone(request: Request, phone: str,
     return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
 
 
+class EnsureCustomerIn(BaseModel):
+    phone: str = Field(min_length=1, max_length=32)
+    name: str = Field(default="", max_length=128)
+
+
+@router.post("/customers/ensure", dependencies=[Depends(rate_limit)])
+async def ensure_customer(request: Request, body: EnsureCustomerIn,
+                          principal: Principal = Depends(_RECORD)) -> dict:
+    """Resolve or create a customer by phone, with no visit attached — `bookings`' console dialog
+    needs a `customer_id` before it can create a booking, and this is the SAME resolve-or-create
+    act `record_visit` already makes (docs/خطة-تنفيذ-الحجوزات.md §6.2: "نفس الفعل الخلفي الذي
+    يستعمله VisitIn, لا إعادة تنفيذ") — `Operations.ensure_customer` is the same code, just
+    without a visit riding along.
+
+    SAME CAPABILITY AS RECORDING A VISIT (`operations.record`), because it is the same act minus
+    the visit: an operator who may register a customer while recording one may register a customer
+    on his own.
+    """
+    try:
+        c = await _svc(request).ensure_customer(_tenant(principal), body.phone, body.name)
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
+
+
 class ResolveIn(BaseModel):
     """Pseudonyms in, customers out. NO TENANT FIELD — see the route."""
 

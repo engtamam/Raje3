@@ -119,6 +119,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
                 "المنشأة من الجلسة لا من الطلب.",
     },
     {
+        "id": "operations.ensure_customer", "label": "تسجيل عميلة برقمها (بلا زيارة)", "method": "POST",
+        "path": "/api/v1/field/customers/ensure", "capability": "operations.record",
+        "group": "الشاشة",
+        # bookings' console dialog: resolve-or-create the exact same way record_visit does, minus
+        # the visit. Same capability as recording one — it is the same act.
+        "help": "يحلّ العميلة برقم جوالها أو ينشئها إن لم توجد، بلا زيارة — تستعمله نافذة الحجز.",
+    },
+    {
         "id": "operations.customer_by_plate", "label": "بحث بلوحة السيارة", "method": "GET",
         "path": "/api/v1/field/customers/by-plate", "capability": "operations.read",
         "group": "الشاشة",

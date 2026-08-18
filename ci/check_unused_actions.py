@@ -54,18 +54,11 @@ NOT_FOR_A_SCREEN: dict[str, str] = {
     "wallet.my_ledger": "wallet is not sold in any plan (§6.8)",
     "wallet.my_balance": "wallet is not sold in any plan (§6.8)",
 
-    # ── bookings: the backend is Stage 6 (docs/خطة-تنفيذ-الحجوزات.md); the console screen — the
-    # catalogue link, the booking dialog, the read-only grid — is the stage's own remaining half
-    # and is not built yet. Same shape as tenant.update_config above: the route is real and
-    # tested, the caller is the next commit, not a gap in this one.
-    "bookings.list": "no console screen yet — Stage 6's grid (docs/خطة-تنفيذ-الحجوزات.md)",
-    "bookings.create": "no console screen yet — Stage 6's booking dialog",
-    "bookings.reschedule": "no console screen yet — Stage 7's drag-and-drop calls this route",
-    "bookings.edit_services": "no console screen yet — Stage 6's booking dialog",
-    "bookings.edit_note": "no console screen yet — Stage 6's booking dialog",
-    "bookings.cancel": "no console screen yet — Stage 6's booking dialog",
-    "bookings.attend": "no console screen yet — Stage 6's booking dialog",
-    "bookings.no_show": "no console screen yet — Stage 8's no-show flow",
+    # bookings.list/create/reschedule/edit_note/cancel/attend are all called now — Bookings.tsx
+    # and BookingDialog.tsx (Stage 6). bookings.no_show is called too (the row action on a booked
+    # appointment) — the whole family shipped together rather than screen by screen.
+    "bookings.edit_services": "no console screen yet — a booking dialog editing an ALREADY-made "
+                              "booking's services is Stage 7's re-open, not Stage 6's create path",
 
     # ── written down by the audit, each with the reason it is not a gap ────────────────────────
     "reminders.get_prefs": "the CUSTOMER's own page renders these switches — portal calls the "

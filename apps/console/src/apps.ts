@@ -80,6 +80,14 @@ export const APP_ROWS: AppRow[] = [
     onCustomer: 'رصيده، وما يستطيع استبداله',
   },
   {
+    id: 'bookings',
+    key: 'feature.bookings',
+    name: 'الحجوزات',
+    what: 'حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً.',
+    section: 'bookings',
+    onCustomer: '',
+  },
+  {
     id: 'insights',
     key: 'feature.insights.engine',
     name: 'فرصي',

@@ -141,7 +141,8 @@ env:
       {"prefix":"/api/v1/loyalty","upstream":"http://loyalty:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/insights","upstream":"http://insights:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/campaigns","upstream":"http://campaigns:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/api/v1/search","upstream":"http://search-service:8000","auth":"required","strip_prefix":false}
+      {"prefix":"/api/v1/search","upstream":"http://search-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/bookings","upstream":"http://bookings:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
 

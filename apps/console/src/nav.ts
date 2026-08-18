@@ -21,7 +21,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  ClipboardPlus, Gift, MessageSquare, Store, TrendingUp, Users, Wrench,
+  CalendarClock, ClipboardPlus, Gift, MessageSquare, Store, TrendingUp, Users, Wrench,
 } from 'lucide-react';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
@@ -86,6 +86,9 @@ export const SECTIONS: Section[] = [
   { service: 'insights', id: 'shop', path: '/', label: 'محلّي', icon: TrendingUp, requires: ['reminders.today', 'insights.dashboard'] },
   // The field screen: one action, and it is the one every operator has.
   { service: 'operations', id: 'visit', path: '/visit', label: 'تسجيل زيارة', icon: ClipboardPlus, requires: ['operations.record_visit'] },
+  // الحجوزات: نفس الباب الذي يفتح الزيارة (docs/وصف-تطبيق-الحجوزات.md §2.5) — من يحجز لعميلةٍ
+  // هو نفسه من يفتح زيارتها حين تحضر، فالقسم يظهر بجانب «تسجيل زيارة» مباشرة، لا بعيداً عنه.
+  { service: 'bookings', id: 'bookings', path: '/bookings', label: 'الحجوزات', icon: CalendarClock, requires: ['bookings.list'] },
   { service: 'operations', id: 'customers', path: '/customers', label: 'عملائي', icon: Users, requires: ['operations.recent'] },
   // OPEN TO ALL FOUR PLANS, and this comment used to say the opposite — it repeated a sentence
   // the spec has since corrected. The indicators are FREE (16.1): they are the demand engine, not
