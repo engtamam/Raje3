@@ -13,6 +13,8 @@
  */
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+
+import { SubscriptionBar } from './SubscriptionBar';
 import { AppShell } from '@base-ui/shell';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
@@ -215,6 +217,12 @@ export function App() {
           the content until he answers, with his own nav still around him. Nothing outstanding
           renders nothing at all. */}
       <LegalGate session={session} catalog={catalog}>
+        {/* THE SUBSCRIPTION STATE, ABOVE THE WORK AND NOT INSIDE IT. operations and reminders
+            answer 402 on every write once the base lapses, and a 402 arrives after he has typed a
+            customer's name and reached for save — the worst possible moment to learn the month
+            ended. One line here says it before the first press, and says what still works.
+            It renders nothing at all while the answer is unknown or the month has time left. */}
+        <SubscriptionBar owned={owned} now={Date.now()} />
         <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
       </LegalGate>
     </AppShell>

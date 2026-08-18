@@ -113,3 +113,50 @@ export function owns(owned: Loading<Owned>, key: string | null): boolean | null 
   if (!isReady(owned) || !owned.checked) return null;
   return owned.keys.includes(key);
 }
+
+/**
+ * The base subscription's own state, as the four words a screen actually needs.
+ *
+ * WHY THIS EXISTS NOW AND NOT BEFORE. `owns(owned, null)` returns `true` for the base and says so
+ * in a comment — «the base is not for sale separately». That was true while nothing enforced
+ * `feature.base`. It stopped being true the day operations and reminders began refusing writes on
+ * a lapsed month: the screen went on promising what the services had stopped promising, which is
+ * this repository's oldest defect wearing a new shirt.
+ *
+ * `owns` IS LEFT ALONE ON PURPOSE. It answers «may he use this app», and for the base the answer
+ * is still yes — he keeps reading his customers, his history and his messages when the month
+ * lapses. What changed is that he may not ADD to them, and that is a different question, so it
+ * gets a different function rather than a third meaning for `true`.
+ *
+ * FOUR STATES, AND «unknown» IS ONE OF THEM. While billing has not answered, and when it could not
+ * be asked, a screen must show neither a countdown nor a lock — telling a paying shop its
+ * subscription ended is worse than telling it nothing for a moment.
+ */
+export type BaseState = 'unknown' | 'none' | 'trial' | 'active' | 'lapsed';
+
+/** billing's own words for a subscription that still entitles: `_BILLABLE` in billing_service. */
+const LIVE = ['active', 'trialing', 'past_due'];
+
+export function baseState(owned: Loading<Owned>): BaseState {
+  if (!isReady(owned) || !owned.checked) return 'unknown';
+  const base = owned.base;
+  if (!base) return 'none';
+  if (base.status === 'trialing') return 'trial';
+  return LIVE.includes(base.status) ? 'active' : 'lapsed';
+}
+
+/**
+ * Whole days left before the base period ends, or `null` when there is nothing to count.
+ *
+ * READ FROM `renews_at`, NEVER FROM A LOCAL CLOCK PLUS AN ASSUMED LENGTH. The trial is thirty days
+ * because a PLAN says so, and a screen that recomputed «30 - days since signup» would disagree
+ * with billing the moment anybody changed the number, extended a trial by hand, or crossed a month
+ * boundary. `now` is a parameter so a test can state the day instead of waiting for one.
+ */
+export function daysLeft(owned: Loading<Owned>, now: number): number | null {
+  if (!isReady(owned) || !owned.checked || !owned.base?.renews_at) return null;
+  const seconds = owned.base.renews_at - Math.floor(now / 1000);
+  // ALREADY PAST IS NOT «0 DAYS LEFT», it is not a countdown at all — `baseState` says «lapsed»
+  // and the screen shows the sentence for that, not a zero that reads like a deadline today.
+  return seconds <= 0 ? null : Math.ceil(seconds / 86400);
+}
