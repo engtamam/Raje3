@@ -694,56 +694,92 @@ class Tick:
         own_name2 = _own_template(choices, [reason] if reason else [])
         own_row2 = (await CustomTemplateStore(self._store).get(tenant, own_name2)
                     if own_name2 else None)
-        template = R.choose(template_type=row.get("template_type", ""), tone=tone,
-                            library=library, approved=approved,
-                            # HIS OWN TEXT ON THIS PATH TOO. Two render sites is two chances to
-                            # wire one of them and believe the feature works: an owner who
-                            # customised his visit confirmation would see it on some messages and
-                            # ours on others, which reads as a product that cannot make up its mind.
-                            tone_index=int(row.get("tone_index") or 1),
-                            own=own_name2, own_row=own_row2)
-        service_text = R.merged_service_text(
-            [service_names.get(s, s) for s in
-             [row.get("service_id", "")] + list(row.get("also_services") or [])])
-        # THE REDEMPTION, IF ONE JOINED THIS MESSAGE (§9.6). A confirmation waits ten minutes on
-        # purpose, and that is exactly the window in which a redemption happens at the counter —
-        # so it rides along instead of becoming a second message. Slots 3, 4 and 5 of
-        # `svc_visit_redeemed`: what he took, what it cost, what is left.
+        # ── A MESSAGE THAT CANNOT BE BUILT IS AN ANSWER, NOT AN OUTAGE ────────────────────────
         #
-        # 3 AND 4 ARE SHARED SLOTS. On every other template they hold the service text; on this
-        # one the reward's name and its cost. Same numbering, different template — which is the
-        # whole reason this is a template VARIANT rather than an optional sentence: WhatsApp has
-        # no optional part, and a visit without a redemption has nothing true to put in them.
-        redeemed = row.get("redeemed_name", "")
-        rendered = R.render(
-            template=template,
-            system={"1": customer_name, "2": establishment,
-                    "3": redeemed or service_text,
-                    "4": str(row.get("redeemed_cost", "")) if redeemed else service_text,
-                    "5": str(row.get("redeemed_remaining", ""))},
-            catalogue={"3": service_text, "4": service_text},
-            owner={"3": row.get("owner_text", ""), "4": row.get("owner_text", "")},
-            # THE SAME VALUES, KEYED BY WHAT THEY MEAN (ح-1). A template the OWNER wrote declares
-            # its blanks by meaning, not by position — «{{2}} is the service» in his text and «the
-            # shop name» in the library's. Handing the renderer only the positional dicts is what
-            # made his sentence arrive rewritten.
-            by_meaning={
-                "customer": customer_name,
-                "shop": establishment,
-                "service": service_text,
-                "reward": redeemed,
-                "points": str(row.get("redeemed_cost", "")) if redeemed else "",
-                "balance": str(row.get("redeemed_remaining", "")),
-                "free_text": row.get("owner_text", ""),
-            },
-            public_base_url=self._public_base_url,
-            # Same reason as the campaign path above: portal reads `{tenant}.{subject}`.
-            reference=LINKS.reference_for(tenant, subject),
-            # WHAT THE INVITE LINE NEEDS, AND IT COMES FROM THE READ THE GATE ALREADY DID.
-            # A second read here would be a second answer, and the two could disagree across
-            # the milliseconds between them — the message would then invite somebody the gate
-            # had just recorded as having agreed.
-            marketing_consent=consent)
+        # These two calls were the only ones in the product outside a handler that names
+        # `RenderError`. The campaign path a few hundred lines above has caught it since it was
+        # written; this path — the visit confirmation, the most frequent message the product
+        # sends — did not, so the exception left `_one` entirely and landed in the batch's generic
+        # `except Exception`, which calls `_fail`: back to pending, due in an hour, for ever.
+        #
+        # WHY THAT IS THE WORST OF THE AVAILABLE OUTCOMES. `_fail` is written for a peer being
+        # briefly unavailable, and every reason `render` refuses is the opposite of brief: no
+        # approved template of this type, a numbering gap, an owner's text that breaks a rule,
+        # or — the live one — the public base being unset, which kills all 36 service wordings
+        # while the customer page is switched off. The same inputs produce the same refusal next
+        # hour and every hour after. Nothing reached the send log, because as far as the log was
+        # concerned nothing was attempted; nothing was closed, so it retried for ever; and the
+        # only number that moved was `res.failed`, which no screen reads. An owner watching this
+        # saw a product that never messaged anybody, with no row and no reason to ask about.
+        #
+        # RECORDED AND CLOSED, THEREFORE — and `suppressed` rather than a new outcome word,
+        # because the log's vocabulary is "sent" or "suppressed" and every counter in the product
+        # reads it. What separates this from a policy suppression is the REASON, which carries the
+        # renderer's own sentence: the one thing that tells an owner whether he is waiting on
+        # Meta, on his own text, or on us.
+        try:
+            template = R.choose(template_type=row.get("template_type", ""), tone=tone,
+                                library=library, approved=approved,
+                                # HIS OWN TEXT ON THIS PATH TOO. Two render sites is two chances to
+                                # wire one of them and believe the feature works: an owner who
+                                # customised his visit confirmation would see it on some messages and
+                                # ours on others, which reads as a product that cannot make up its mind.
+                                tone_index=int(row.get("tone_index") or 1),
+                                own=own_name2, own_row=own_row2)
+            service_text = R.merged_service_text(
+                [service_names.get(s, s) for s in
+                 [row.get("service_id", "")] + list(row.get("also_services") or [])])
+            # THE REDEMPTION, IF ONE JOINED THIS MESSAGE (§9.6). A confirmation waits ten minutes on
+            # purpose, and that is exactly the window in which a redemption happens at the counter —
+            # so it rides along instead of becoming a second message. Slots 3, 4 and 5 of
+            # `svc_visit_redeemed`: what he took, what it cost, what is left.
+            #
+            # 3 AND 4 ARE SHARED SLOTS. On every other template they hold the service text; on this
+            # one the reward's name and its cost. Same numbering, different template — which is the
+            # whole reason this is a template VARIANT rather than an optional sentence: WhatsApp has
+            # no optional part, and a visit without a redemption has nothing true to put in them.
+            redeemed = row.get("redeemed_name", "")
+            rendered = R.render(
+                template=template,
+                system={"1": customer_name, "2": establishment,
+                        "3": redeemed or service_text,
+                        "4": str(row.get("redeemed_cost", "")) if redeemed else service_text,
+                        "5": str(row.get("redeemed_remaining", ""))},
+                catalogue={"3": service_text, "4": service_text},
+                owner={"3": row.get("owner_text", ""), "4": row.get("owner_text", "")},
+                # THE SAME VALUES, KEYED BY WHAT THEY MEAN (ح-1). A template the OWNER wrote declares
+                # its blanks by meaning, not by position — «{{2}} is the service» in his text and «the
+                # shop name» in the library's. Handing the renderer only the positional dicts is what
+                # made his sentence arrive rewritten.
+                by_meaning={
+                    "customer": customer_name,
+                    "shop": establishment,
+                    "service": service_text,
+                    "reward": redeemed,
+                    "points": str(row.get("redeemed_cost", "")) if redeemed else "",
+                    "balance": str(row.get("redeemed_remaining", "")),
+                    "free_text": row.get("owner_text", ""),
+                },
+                public_base_url=self._public_base_url,
+                # Same reason as the campaign path above: portal reads `{tenant}.{subject}`.
+                reference=LINKS.reference_for(tenant, subject),
+                # WHAT THE INVITE LINE NEEDS, AND IT COMES FROM THE READ THE GATE ALREADY DID.
+                # A second read here would be a second answer, and the two could disagree across
+                # the milliseconds between them — the message would then invite somebody the gate
+                # had just recorded as having agreed.
+                marketing_consent=consent)
+        except R.RenderError as exc:
+            # `why`, NOT `reason` — the name is already taken on this path by the trigger that
+            # scheduled the row, and it is read a few lines above to find the owner's own text.
+            why = f"تعذّر بناء الرسالة: {exc}"
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                outcome="suppressed", reason=why)))
+            await self._close(tenant, row, "suppressed", why, now)
+            res.suppressed += 1
+            res.note("render failed")
+            return
 
         # ── 4. send ───────────────────────────────────────────────────────────────────────────
         # The key is generated and stored BEFORE the call and reused on every retry: a timeout is

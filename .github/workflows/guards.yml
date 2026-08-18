@@ -565,6 +565,14 @@ jobs:
       - name: every screen a sentence names is a place that exists
         run: python3 ci/check_a_screen_a_sentence_names_exists.py
 
+      # A PERMANENT REFUSAL RETRIED AS A NETWORK BLIP IS A MESSAGE NOBODY EVER SEES. `render`
+      # refuses for reasons that do not change on their own — no approved template, a numbering
+      # gap, a base that is unset. The visit path let that exception escape into the batch's
+      # generic handler, which reschedules for an hour, for ever, and writes nothing to the send
+      # log: the fleet failing hourly with no row on any screen.
+      - name: a render failure is answered where it happens
+        run: python3 ci/check_a_render_failure_is_answered_where_it_happens.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully
