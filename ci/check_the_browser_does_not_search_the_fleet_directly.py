@@ -84,6 +84,12 @@ def main() -> int:
         print("browser chooses is decoration; it is not a guard.")
         return 1
 
+    if not read:
+        # Same reason as the sends check: an empty scan is not a clean console, it is a check that
+        # lost its subject — a moved directory, a renamed extension, a path typo.
+        print("  [31m✗ read no console files at all — this check no longer knows where to "
+              "look[0m")
+        return 1
     print(f"ok  {read} console files — every /api/v1 call goes to a route of ours")
     return 0
 

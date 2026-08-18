@@ -39,9 +39,20 @@ DEFAULTED = re.compile(r'^\s*cls:\s*str\s*=\s*Field\([^)]*default="([a-z]+)"', r
 def main() -> int:
     bad: list[str] = []
     checked = 0
+    files = 0
+    # WHAT THIS CHECK MUST PROVE IT LOOKED AT, and the reason it is not a count of findings. Zero
+    # defaults IS the passing state here — the whole point of the fix was to remove them — so
+    # «found nothing» cannot be the failure signal the way it is in the other counting checks.
+    # What CAN silently go wrong is the looking: a moved directory, a renamed field, a class list
+    # that came back empty. So the evidence is the SUBJECT, not the verdict.
+    if not KNOWN:
+        print("  [31m✗ read no message classes from the reason registry — the pattern that "
+              "reads them no longer matches[0m")
+        return 1
     for path in sorted(SERVICES.rglob("app/**/*.py")):
         if "/tests/" in path.as_posix():
             continue
+        files += 1
         src = path.read_text(encoding="utf-8", errors="ignore")
         for m in DEFAULTED.finditer(src):
             checked += 1
@@ -58,7 +69,12 @@ def main() -> int:
               "window and the monthly cap. A default means a caller that omits the field decides "
               "all four by accident — read the class from the reason instead.")
         return 1
-    print(f"ok no request model decides a message class by default ({checked} class fields read)")
+    if not files:
+        print("  [31m✗ read no service files at all — this check no longer knows where to "
+              "look[0m")
+        return 1
+    print(f"ok no request model decides a message class by default "
+          f"({files} files, {len(KNOWN)} classes, {checked} defaulted fields)")
     return 0
 
 

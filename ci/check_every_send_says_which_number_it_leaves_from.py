@@ -70,6 +70,14 @@ def main() -> int:
               "shop on a number per branch that is the WRONG number, and nothing anywhere "
               "reports it — pass the identity rather than letting it default.")
         return 1
+    if not checked:
+        # A CLEAN REPO AND AN UNPLUGGED CHECK LOOK IDENTICAL FROM HERE. This finds sends by the
+        # shape `.send(` + `template_name=`; rename either and the loop above matches nothing, the
+        # count is zero, and this prints ok for ever while the rule it exists for goes unenforced.
+        # There ARE template sends in this fleet — the day there are none, that is the news.
+        print("  [31m✗ found no template sends at all — this check no longer knows where to "
+              "look[0m")
+        return 1
     print(f"ok {checked} template sends each name the number they leave from")
     return 0
 

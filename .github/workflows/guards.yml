@@ -627,6 +627,12 @@ jobs:
       - name: the class of a message comes from its reason
         run: python3 ci/check_the_class_of_a_message_comes_from_its_reason.py
 
+      # AND THE GUARDS THEMSELVES. A check that discovers its subject and prints «ok N» says
+      # nothing about whether N should have been zero: rename what it looks for and it goes green
+      # for ever over a rule nobody enforces. Three checks had that shape, one of them a day old.
+      - name: a check that found nothing says so
+        run: python3 ci/check_a_check_that_found_nothing_says_so.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.
