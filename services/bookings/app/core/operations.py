@@ -1,8 +1,9 @@
-"""Booking creation, editing and cancellation — the acts that grow or change a commitment.
+"""Booking creation, editing, cancellation, and the states an attended booking passes through.
 
 Stage 3 (docs/خطة-تنفيذ-الحجوزات.md §3): create/edit/cancel, the double-booking lock, the slot
-index. Attendance and the booking->visit gateway are Stage 4 and do not live here — this module
-never writes a Visit or touches `status` beyond the create/cancel transitions it itself owns.
+index. Stage 4 (§3, "الحالات ونداء بوابة الحجز→الزيارة") adds `attend`/`no_show` — attendance
+is the ONLY path that ever produces a Visit, and it does so by calling `operations` (a peer
+service), never by writing a Visit row directly: this service does not own that shape.
 
 THE DOUBLE-TAP GUARD, first, before anything else — same shape as `record_visit()`: one indexed
 read on `idempotency_key`, before the licence check, before the lock, before anything is created.
@@ -16,7 +17,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.lock import SlotClaimBusy, claiming
-from app.core.models import STATUS_BOOKED, STATUS_CANCELLED, TERMINAL, Booking
+from app.core.models import (STATUS_ATTENDED, STATUS_BOOKED, STATUS_CANCELLED, STATUS_NO_SHOW,
+                             TERMINAL, Booking)
 from app.core.stores import BookingStore, day_bucket, new_id
 
 
@@ -26,22 +28,33 @@ class OperationError(Exception):
 
 @dataclass
 class DurationLookup:
-    """The one question this module asks a peer: what is `service_ids` worth in minutes, right
-    now. Kept as a tiny injected port rather than a direct import — `bookings` and `operations`
-    are independent services and do not import each other's code."""
+    """The one question this module asks `operations`: what is `service_ids` worth in minutes,
+    right now. Kept as a tiny injected port rather than a direct import — `bookings` and
+    `operations` are independent services and do not import each other's code."""
     lookup: Any   # async (tenant, service_ids) -> int | None; None == not configured
 
     async def minutes(self, tenant: str, service_ids: tuple[str, ...]) -> int | None:
         return await self.lookup(tenant, service_ids)
 
 
+@dataclass
+class VisitGateway:
+    """The booking->visit gateway (§4) — the SECOND, and last, question this module asks
+    `operations`. Same shape as `DurationLookup`: a tiny injected port, not a direct import."""
+    create: Any   # async (**kwargs) -> dict | None; see HttpVisitGateway.create's signature
+
+    async def record(self, **kwargs: Any) -> dict | None:
+        return await self.create(**kwargs)
+
+
 class BookingOperations:
     def __init__(self, *, datastore: Any, bookings: BookingStore, durations: DurationLookup,
-                licence: Any) -> None:
+                licence: Any, visits: VisitGateway) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
         self._licence = licence
+        self._visits = visits
 
     async def create(self, *, tenant: str, branch_id: str, operator_id: str, customer_id: str,
                      service_ids: list[str], starts_at: int, note: str = "",
@@ -145,6 +158,56 @@ class BookingOperations:
         expected = booking.rev
         booking.status = STATUS_CANCELLED
         booking.cancelled_reason = (reason or "").strip()[:300] or None
+        booking.updated = int(time.time())
+        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+
+    async def attend(self, tenant: str, booking_id: str, occurred_at: int = 0) -> Booking:
+        """The ONE way an attended booking becomes a real Visit (§4). `occurred_at` empty means
+        "now"; a value lets a late entry (recorded after the fact) carry the real time.
+
+        NOT `_require`: cancelled and no_show ARE terminal and correctly refuse re-entry, but
+        ATTENDED must return early — idempotent, same shape as `cancel()` — rather than be told
+        the booking is closed, since a retried confirm-attendance tap must not risk a second call
+        into the visit gateway.
+        """
+        booking = await self._bookings.get(tenant, booking_id)
+        if booking is None:
+            raise OperationError("الحجز غير موجود")
+        if booking.status == STATUS_ATTENDED:
+            return booking   # idempotent — the visit already exists, nothing to redo
+        if booking.status in TERMINAL:
+            raise OperationError("هذا الحجز أُغلِق ولا يمكن تسجيل حضوره")
+
+        # THE PEER CALL, BEFORE THE STATUS FLIPS. A Visit that failed to get created must never be
+        # implied by a booking that already reads "attended" — the booking's own idempotency_key
+        # namespace is reused as the visit's (prefixed, so a booking id can never collide with a
+        # till's own key), so a retried attend() that DID create the visit last time reaches the
+        # SAME visit through `operations`' own idempotency, never a second one.
+        result = await self._visits.record(
+            tenant=tenant, customer_id=booking.customer_id, service_ids=booking.service_ids,
+            operator_id=booking.operator_id, branch_id=booking.branch_id, note=booking.note,
+            idempotency_key=f"bkg:{booking.id}", occurred_at=occurred_at)
+        if result is None or not result.get("visit_id"):
+            raise OperationError("تعذّر تسجيل الزيارة الآن — حاول مجدداً بعد قليل")
+
+        expected = booking.rev
+        booking.status = STATUS_ATTENDED
+        booking.visit_id = str(result["visit_id"])
+        booking.updated = int(time.time())
+        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+
+    async def no_show(self, tenant: str, booking_id: str, reason: str = "") -> Booking:
+        """The other terminal outcome — no peer call, no Visit: the customer never arrived."""
+        booking = await self._bookings.get(tenant, booking_id)
+        if booking is None:
+            raise OperationError("الحجز غير موجود")
+        if booking.status == STATUS_NO_SHOW:
+            return booking   # idempotent, same shape as cancel()/attend()
+        if booking.status in TERMINAL:
+            raise OperationError("هذا الحجز أُغلِق ولا يمكن تعديله")
+        expected = booking.rev
+        booking.status = STATUS_NO_SHOW
+        booking.reason_no_show = (reason or "").strip()[:300] or None
         booking.updated = int(time.time())
         return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
 

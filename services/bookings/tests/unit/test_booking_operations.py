@@ -12,7 +12,7 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.licence import LicenceError, NullLicence
 from app.core.models import STATUS_CANCELLED
-from app.core.operations import BookingOperations, DurationLookup, OperationError
+from app.core.operations import BookingOperations, DurationLookup, OperationError, VisitGateway
 from app.core.stores import BookingStore, ConcurrentEditError
 
 TENANT = "t1"
@@ -40,12 +40,28 @@ class _RefusingLicence:
         raise LicenceError("تطبيق الحجوزات ليس في اشتراكك")
 
 
-def _ops(*, licence=None, minutes=None) -> BookingOperations:
+class _FixedVisits:
+    """A stand-in for `operations`' booking->visit gateway. `answer=None` means the peer refused
+    or was unreachable; `boom=True` proves attend() never marks a booking attended silently."""
+    def __init__(self, *, answer=None, boom: bool = False) -> None:
+        self._answer = answer
+        self._boom = boom
+        self.calls: list[dict] = []
+
+    async def __call__(self, **kwargs) -> dict | None:
+        self.calls.append(kwargs)
+        if self._boom:
+            raise RuntimeError("operations is restarting")
+        return self._answer
+
+
+def _ops(*, licence=None, minutes=None, visits=None) -> BookingOperations:
     store = MemoryDataStore()
     return BookingOperations(
         datastore=store, bookings=BookingStore(store),
         durations=DurationLookup(lookup=_FixedDurations(minutes or {"svc1": 30})),
-        licence=licence or NullLicence())
+        licence=licence or NullLicence(),
+        visits=VisitGateway(create=visits or _FixedVisits(answer={"visit_id": "vis_1"})))
 
 
 def _run(coro):
@@ -192,3 +208,96 @@ def test_a_double_booking_across_reschedule_is_refused():
     from app.core.lock import SlotClaimBusy
     with pytest.raises(SlotClaimBusy):
         _run(run())
+
+
+# ── Stage 4: attendance and the booking->visit gateway (§4) ─────────────────────────────────
+
+def test_attending_a_booking_creates_a_real_visit_via_the_gateway():
+    visits = _FixedVisits(answer={"visit_id": "vis_42"})
+    ops = _ops(visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.status == "attended"
+    assert attended.visit_id == "vis_42"
+    assert visits.calls[0]["idempotency_key"] == f"bkg:{attended.id}"
+
+
+def test_a_retried_attend_does_not_call_the_gateway_twice():
+    """Idempotent — the visit already exists (§4's own duplicate-prevention requirement)."""
+    visits = _FixedVisits(answer={"visit_id": "vis_1"})
+    ops = _ops(visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        first = await ops.attend(TENANT, booking.id)
+        second = await ops.attend(TENANT, booking.id)
+        return first, second
+
+    first, second = _run(run())
+    assert first.visit_id == second.visit_id == "vis_1"
+    assert len(visits.calls) == 1, "a retried attend must not call the gateway a second time"
+
+
+def test_a_failed_gateway_call_never_marks_the_booking_attended():
+    """§4's own warning, verified: a Visit that failed to get created must never be implied by a
+    booking that already reads 'attended'."""
+    ops = _ops(visits=_FixedVisits(answer=None))
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        with pytest.raises(OperationError, match="تعذّر تسجيل الزيارة"):
+            await ops.attend(TENANT, booking.id)
+        return await ops._bookings.get(TENANT, booking.id)
+
+    still_booked = _run(run())
+    assert still_booked.status == "booked"
+    assert still_booked.visit_id is None
+
+
+def test_no_show_never_calls_the_visit_gateway():
+    visits = _FixedVisits(answer={"visit_id": "vis_should_not_happen"})
+    ops = _ops(visits=visits)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        return await ops.no_show(TENANT, booking.id, "لم تحضر")
+
+    marked = _run(run())
+    assert marked.status == "no_show"
+    assert marked.visit_id is None
+    assert visits.calls == []
+
+
+def test_no_show_is_idempotent():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        first = await ops.no_show(TENANT, booking.id, "لم تحضر")
+        second = await ops.no_show(TENANT, booking.id, "سبب آخر")
+        return first, second
+
+    first, second = _run(run())
+    assert second.reason_no_show == first.reason_no_show, "a retried no_show must not overwrite"
+
+
+def test_attended_and_no_show_cannot_be_re_entered_into_each_other():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        await ops.no_show(TENANT, booking.id)
+        with pytest.raises(OperationError):
+            await ops.attend(TENANT, booking.id)
+
+    _run(run())

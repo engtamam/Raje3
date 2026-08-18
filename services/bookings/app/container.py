@@ -236,15 +236,18 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_licence
     container.licence = build_licence(settings)
 
-    # Stage 3 (docs/خطة-تنفيذ-الحجوزات.md §3): the booking store, the one peer question
-    # (how long does this set of services take, right now), and the operations that use both.
-    from app.core.operations import BookingOperations, DurationLookup
+    # Stage 3/4 (docs/خطة-تنفيذ-الحجوزات.md §3/§4): the booking store, and the two questions
+    # this service asks `operations` — how long a set of services takes, and (on attendance) the
+    # booking->visit gateway — plus the operations that use all three.
+    from app.core.operations import BookingOperations, DurationLookup, VisitGateway
     from app.core.stores import BookingStore
     container.bookings = BookingStore(container.datastore)
     container.durations = _build_duration_lookup(settings)
+    container.visit_gateway = _build_visit_gateway(settings)
     container.booking_ops = BookingOperations(
         datastore=container.datastore, bookings=container.bookings,
-        durations=DurationLookup(lookup=container.durations), licence=container.licence)
+        durations=DurationLookup(lookup=container.durations), licence=container.licence,
+        visits=VisitGateway(create=container.visit_gateway))
     return container
 
 
@@ -261,3 +264,20 @@ def _build_duration_lookup(settings: Settings):
     return HttpDurationLookup(
         operations_url=settings.OPERATIONS_SERVICE_URL, path=settings.OPERATIONS_DURATIONS_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_visit_gateway(settings: Settings):
+    """`http` when `operations` is wired, or a call that always refuses (`None`) otherwise — an
+    attend() with nowhere to send the visit must refuse, never mark a booking attended with no
+    Visit behind it."""
+    from app.adapters.visit_gateway.http import HttpVisitGateway
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_VISIT_FROM_CUSTOMER_PATH:
+        async def _refuses_always(**kwargs) -> dict | None:
+            return None
+        return _refuses_always
+    gateway = HttpVisitGateway(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_VISIT_FROM_CUSTOMER_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+    return gateway.create

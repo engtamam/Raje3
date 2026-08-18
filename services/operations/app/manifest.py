@@ -123,6 +123,9 @@ def build_manifest(
             # bookings' one question of this service (docs/خطة-تنفيذ-الحجوزات.md §3):
             # what does a set of service_ids cost in minutes, right now.
             {"path": "/internal/operations/service-durations", "tier": "internal", "method": "POST"},
+            # bookings' booking->visit gateway (§4): the ONE way an attended booking becomes a
+            # real Visit — record_visit() itself, resolved by customer_id instead of phone.
+            {"path": "/internal/operations/visits/from-customer", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
             # that decides where commission goes (spec 16.6.3).

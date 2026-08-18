@@ -48,9 +48,15 @@ async def _lookup(tenant: str, service_ids) -> int:
     return 30
 
 
+async def _no_visits(**kwargs):
+    return None
+
+
 def _ops(store) -> BookingOperations:
+    from app.core.operations import VisitGateway
     return BookingOperations(datastore=store, bookings=BookingStore(store),
-                             durations=DurationLookup(lookup=_lookup), licence=NullLicence())
+                             durations=DurationLookup(lookup=_lookup), licence=NullLicence(),
+                             visits=VisitGateway(create=_no_visits))
 
 
 def test_only_one_of_two_simultaneous_bookings_wins():

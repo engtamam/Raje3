@@ -186,6 +186,10 @@ class Settings(BaseSettings):
     # app/core/operations.py::DurationLookup, app/adapters/duration_lookup/http.py).
     OPERATIONS_SERVICE_URL: str = ""         # e.g. http://operations:8000
     OPERATIONS_DURATIONS_PATH: str = "/internal/operations/service-durations"
+    # The booking->visit gateway (§4) — same peer, same URL, a second path. An attended booking
+    # calls this; nothing here ever writes a Visit row directly (see
+    # app/adapters/visit_gateway/http.py).
+    OPERATIONS_VISIT_FROM_CUSTOMER_PATH: str = "/internal/operations/visits/from-customer"
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.
@@ -375,6 +379,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "OPERATIONS_SERVICE_URL/OPERATIONS_DURATIONS_PATH empty in production: every "
                 "booking create would refuse with \"مدة غير مضبوطة\" — set them.")
+        if not self.OPERATIONS_VISIT_FROM_CUSTOMER_PATH:
+            raise ValueError(
+                "OPERATIONS_VISIT_FROM_CUSTOMER_PATH empty in production: attendance could never "
+                "create a real visit — set it (it shares OPERATIONS_SERVICE_URL above).")
 
     def assert_audit_config_ok(self) -> None:
         """Boot guard. Refuse to start production without somewhere to witness privileged actions.

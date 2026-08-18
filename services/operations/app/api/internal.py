@@ -667,6 +667,46 @@ async def internal_service_durations(request: Request, body: ServiceDurationsIn)
     return {"duration_minutes": total}
 
 
+class VisitFromCustomerIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    customer_id: str = Field(min_length=1, max_length=64)
+    service_ids: list[str] = Field(min_length=1, max_length=20)
+    operator_id: str = Field(default="", max_length=64)
+    branch_id: str = Field(default="", max_length=64)
+    note: str = Field(default="", max_length=1000)
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    occurred_at: int = Field(default=0, ge=0)
+
+
+@router.post("/operations/visits/from-customer", dependencies=[Depends(require_internal_token)])
+async def internal_visit_from_customer(request: Request, body: VisitFromCustomerIn) -> dict:
+    """`bookings`' one call into the booking->visit gateway (docs/خطة-تنفيذ-الحجوزات.md §4, Stage
+    4): a booking already holds `customer_id` — this SERVICE's identity for the person, not a
+    phone bookings would have to hold a second copy of — so this resolves by id and hands off to
+    the SAME `record_visit()` every other path uses, rather than re-implementing visit creation.
+
+    404-shaped refusal, not a 500, when the customer no longer exists (deleted between the booking
+    being made and the appointment being attended — rare, but not impossible over weeks).
+
+    `idempotency_key` REQUIRED, unlike the interactive route — this is a service-to-service call
+    with no user re-tapping a screen, so the caller (bookings, keying on its own booking id) is the
+    only party that can tell a genuine retry from a second attendance.
+    """
+    c = request.app.state.container
+    customer = await CustomerStore(c.datastore).get(body.tenant, body.customer_id)
+    if customer is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "العميلة غير موجودة")
+    try:
+        recorded = await c.operations.record_visit(
+            tenant=body.tenant, phone=customer.phone, service_ids=body.service_ids,
+            operator_id=body.operator_id, branch_id=body.branch_id, note=body.note,
+            idempotency_key=body.idempotency_key, occurred_at=body.occurred_at)
+    except OperationError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return {"visit_id": recorded.visit.id, "customer_id": recorded.customer.id,
+           "duplicate": recorded.duplicate}
+
+
 class CustomersIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     # Bounded, and the ceiling is a product decision: an establishment with more customers than
