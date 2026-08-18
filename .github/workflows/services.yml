@@ -41,6 +41,52 @@ jobs:
       run:
         working-directory: services/${{ matrix.service }}
 
+    # ── THE SERVERS THE CONTRACT TESTS HAVE BEEN WAITING FOR ──────────────────────────────────
+    #
+    # WITHOUT THESE, A HUNDRED AND FIFTY-SIX TESTS SKIPPED ON EVERY RUN. `tests/contracts/` holds
+    # each real adapter to the same contract as the in-memory one — nineteen datastore tests and
+    # seven object-store tests per service — and each of them begins by reading an environment
+    # variable that nothing here set. They reported themselves honestly as skips, and the suite
+    # summary reported «930 passed, 27 skipped», which is what everybody read.
+    #
+    # SO THE ONE LAYER THAT ACTUALLY HOLDS EVERY SHOP'S DATA WAS THE ONE LAYER CI NEVER EXERCISED.
+    # Every other test in the product runs against `MemoryDataStore`, whose `asyncio.Lock`
+    # serialises writers and hides precisely the races a real database must survive — the contract
+    # file says so in its own words, and then waited for a server nobody gave it.
+    #
+    # AND THE STEP BELOW ALREADY KNEW THE PRINCIPLE: «without `--strict` the gate is allowed to
+    # skip checks it cannot run and still exit zero — which reads as a pass and is not one.» That
+    # sentence was written about the security gate, one line under the tests it did not apply to.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: pw
+        ports: ["5432:5432"]
+        # THE JOB MUST NOT START TESTING BEFORE IT ANSWERS. Without a health check the first
+        # connection races the server's own startup, and the failure looks like a flaky test
+        # rather than a missing wait.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # WHAT THE CONTRACT TESTS READ. Absent, they skip; present, they run against a real server
+      # and the real adapters are held to the contract the in-memory one is held to.
+      DATASTORE_TEST_DSN: postgresql://postgres:pw@127.0.0.1:5432/postgres
+      OBJECTSTORE_TEST_ENDPOINT: http://127.0.0.1:9000
+      OBJECTSTORE_TEST_BUCKET: raje3-contract
+      # AND THESE ARE BOTO3'S OWN NAMES, NOT NAMES OF OURS. The contract builds `S3ObjectStore`
+      # with no credentials on purpose, which makes the adapter fall back to the ambient AWS chain
+      # — the right default on a real deployment, where static keys would be worse. So the keys
+      # must arrive under the names that chain reads; inventing `OBJECTSTORE_TEST_ACCESS_KEY`
+      # would be config nothing consults, and the tests would fail unauthenticated instead of
+      # running.
+      AWS_ACCESS_KEY_ID: raje3
+      AWS_SECRET_ACCESS_KEY: raje3-secret
+      AWS_DEFAULT_REGION: us-east-1
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,11 +96,32 @@ jobs:
         with:
           python-version: "3.12"
 
+      # MINIO AS A STEP, NOT A SERVICE CONTAINER. A service container takes an image and no
+      # command, and this image does nothing without `server /data` — so declared up there it
+      # would start, exit, and leave the S3 half of the contract skipping exactly as before, with
+      # the workflow looking as though it had been fixed.
+      - name: An S3-compatible server for the object-store contract
+        working-directory: .
+        run: |
+          docker run -d --name objectstore -p 9000:9000             -e MINIO_ROOT_USER=raje3 -e MINIO_ROOT_PASSWORD=raje3-secret             minio/minio:RELEASE.2024-09-13T20-26-02Z server /data
+          # WAITED FOR, NOT ASSUMED. Without this the first test races the server's startup and
+          # the failure reads as a flaky adapter rather than a missing wait.
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:9000/minio/health/live && exit 0
+            sleep 2
+          done
+          echo "objectstore did not become ready" >&2
+          docker logs objectstore >&2 || true
+          exit 1
+
       - name: Install (runtime + dev + ci)
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,ci]"
 
+      # NOTHING MAY SKIP FOR WANT OF A SERVER THIS JOB NOW PROVIDES. `-p no:randomly` is not used
+      # and no marker is filtered: the run is the whole suite, and the contract tests are part of
+      # it like everything else.
       - name: Tests
         run: python -m pytest -q
 

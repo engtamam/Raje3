@@ -599,6 +599,14 @@ jobs:
       - name: the screen says everything the summary reports
         run: python3 ci/check_the_screen_says_everything_the_summary_reports.py
 
+      # A GUARD THAT SKIPS ON EVERY RUN IS NOT A GUARD. The contract suites — the only tests that
+      # hold the REAL postgres and S3 adapters to the same contract as the in-memory ones — read an
+      # environment variable to decide whether to run, and nothing set it. A hundred and fifty-six
+      # tests reported themselves as skips under a green summary, over the layer that holds every
+      # shop's data.
+      - name: CI provides what the tests wait for
+        run: python3 ci/check_ci_provides_what_the_tests_wait_for.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully
