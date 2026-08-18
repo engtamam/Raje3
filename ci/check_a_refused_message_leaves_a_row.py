@@ -14,6 +14,16 @@ from history. Two of them shipped:
   · the owner switched that trigger off — the messages already scheduled under it were dropped in
     silence, which is precisely the moment he most wants a record («أوقفتُه أمس، هل خرجت رسائل؟»).
 
+AND THE CAMPAIGN PATH REFUSES IN A DIFFERENT SHAPE, which is how three more survived a gate
+written for the first one. `send_one` has no schedule to close — «it is decided, sent, and
+recorded, and nothing waits for it» — so it says no by RETURNING `{"sent": False, …}`. Three of its
+six refusals wrote nothing: a render that failed, an erased recipient, and the daily ceiling. A
+campaign of a hundred and forty people, every one of them refused, left the owner a screen with no
+rows on it at all.
+
+So the rule is one rule with two shapes, and widening the PATTERN is the fix — never narrowing the
+scope until the second shape falls outside it.
+
 THE RULE, AND THE REASON IT IS ABOUT `suppressed` ALONE. `_close` ends a schedule in one of four
 states. `sent` already logs, immediately above the call. `merged` is not a refusal — the folded row
 has no message of its own and the lead's row names it, so logging here would count one message
@@ -35,6 +45,9 @@ ENGINE = ROOT / "services" / "reminders" / "app" / "core" / "tick.py"
 #: The state that means «this message will not go».
 REFUSED = "suppressed"
 
+#: The campaign path's way of saying the same thing: it returns rather than closing.
+NOT_SENT = "sent"
+
 
 def _is_call(node: ast.AST, attr: str) -> bool:
     return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
@@ -43,6 +56,17 @@ def _is_call(node: ast.AST, attr: str) -> bool:
 
 def _calls_in(stmt: ast.AST, attr: str) -> list[ast.Call]:
     return [n for n in ast.walk(stmt) if _is_call(n, attr)]
+
+
+def _returns_not_sent(stmt: ast.AST) -> bool:
+    """`return {"sent": False, …}` — a refusal with no schedule behind it."""
+    if not isinstance(stmt, ast.Return) or not isinstance(stmt.value, ast.Dict):
+        return False
+    for key, value in zip(stmt.value.keys, stmt.value.values):
+        if (isinstance(key, ast.Constant) and key.value == NOT_SENT
+                and isinstance(value, ast.Constant) and value.value is False):
+            return True
+    return False
 
 
 def _closes_as_refused(call: ast.Call) -> bool:
@@ -85,6 +109,10 @@ def main() -> int:
                     seen.add(call.lineno)
                     if not logged:
                         bad.append(f"{ENGINE.relative_to(ROOT)}:{call.lineno}")
+                if _returns_not_sent(stmt):
+                    seen.add(stmt.lineno)
+                    if not logged:
+                        bad.append(f"{ENGINE.relative_to(ROOT)}:{stmt.lineno}")
 
     if bad:
         print("  \033[31m✘ a message is refused and no row records it:\033[0m")

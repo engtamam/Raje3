@@ -497,6 +497,14 @@ class Tick:
                                 reference=LINKS.reference_for(tenant, row.get("subject_ref", "")),
                                 marketing_consent=consent)
         except R.RenderError as exc:
+            # RECORDED, LIKE EVERY OTHER REFUSAL ON THIS PATH. It was the one that mattered most
+            # and the one that wrote nothing: with the public base unset every service wording
+            # fails here, so a campaign to a hundred and forty people produced a hundred and forty
+            # silent refusals and a screen with no rows on it.
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                outcome="suppressed", reason=str(exc))))
             return {"sent": False, "reason": str(exc)}
 
         key = row.get("idempotency_key") or f"cmp_{row.get('id','')}"
@@ -527,7 +535,14 @@ class Tick:
             # not happen leaves a unit spent — and an erased recipient is not something the shop
             # should pay for.
             await self._quota.release(tenant=tenant, idempotency_key=key)
-            return {"sent": False, "reason": f"لا يوجد مستقبِل: {exc}"}
+            # THE SUBJECT REFERENCE IS ALL THAT IS LEFT OF HIM, and all that may be written: he was
+            # erased, and a pseudonym in our own ledger is not a re-identification.
+            gone = f"لا يوجد مستقبِل: {exc}"
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                outcome="suppressed", reason=gone)))
+            return {"sent": False, "reason": gone}
         except CeilingReached as exc:
             # A campaign message is always deferrable — see the 8.4.3 table, where every mkt_* is
             # `defer`. It goes when the ceiling opens; nobody is waiting for an offer.
@@ -544,9 +559,16 @@ class Tick:
             # from where it stopped. `_already_reached` means the second pass contacts only the
             # remainder, so nobody is messaged twice and the owner keeps the decision about a
             # marketing send, which is the whole reason a manual campaign is manual.
-            return {"sent": False,
-                    "reason": f"سقف واتساب اليومي ({exc.code}) — لم تُرسل. أعد الإرسال غداً "
-                              f"وتُكمل من حيث توقّفت دون تكرار على أحد."}
+            capped = (f"سقف واتساب اليومي ({exc.code}) — لم تُرسل. أعد الإرسال غداً "
+                      f"وتُكمل من حيث توقّفت دون تكرار على أحد.")
+            # AND THE ROW IS WHAT MAKES «تُكمل من حيث توقّفت» CHECKABLE. Without it the sentence is
+            # a promise with no evidence behind it: nobody — not the owner, not support — could
+            # say which customers the ceiling stopped and which were never reached at all.
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=subject, cls=cls, at=now,
+                schedule_id=row.get("id", ""), branch_id=str(row.get("branch_id") or ""),
+                outcome="suppressed", reason=capped)))
+            return {"sent": False, "reason": capped}
         except Exception:
             # Every other failure — a template still in Meta's review, a peer down — is transient
             # and retried. It must not be charged either.
