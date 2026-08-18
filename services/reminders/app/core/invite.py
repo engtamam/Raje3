@@ -56,14 +56,33 @@ GRANTED = "ومزاياك الخاصة مفعّلة — جديدنا يوصلك 
 #: refuses a template whose variable arrives blank.
 WITHDRAWN = "نتشرّف بخدمتك دائماً 🌿"
 
+#: THE SAME INVITATION, WITH NOWHERE TO SEND HIM YET.
+#:
+#: WHAT THIS COSTS AND WHAT IT SAVES. The grant screen lives on the customer page, and the page is
+#: closed for this release. Until it opens there is no address to hand anybody — and the first
+#: version of this file answered that by REFUSING, which killed the whole message: thirty-six
+#: wordings, every service confirmation and every reminder in the fleet, because an invitation
+#: could not be made perfect.
+#:
+#: A VISIT CONFIRMATION IS LAWFUL WITHOUT AN INVITATION. So the line steps back to something true
+#: with no address in it: it says there is something for him, and it asks him to raise it where he
+#: already is — at the counter — instead of tapping a link that opens nothing. No price, no
+#: discount, no number, for the same reason as every other line here: a utility text that sells is
+#: re-categorised by Meta as marketing.
+NOT_GRANTED_NO_LINK = "ولك عندنا مزايا خاصة — اسأل عنها في زيارتك القادمة 🎁"
+
 
 def line(*, consent: str, public_base_url: str, reference: str) -> str:
     """The invitation, the acknowledgement, or the neutral line. Never empty, never two.
 
-    RAISES `LinkError` when the grant link cannot be composed — from `links.py`, deliberately, and
-    the send fails rather than delivering a sentence that invites somebody to tap nothing. That is
-    the same refusal the stop link already makes, for the same reason: a message reported as sent
-    which carries a dead address is worse than one that was never sent, because nobody looks again.
+    NEVER RAISES. It used to: `links.py` refuses to compose an address it cannot honour, and that
+    refusal travelled all the way up and killed the message. Correct for a stop link on a
+    promotional text — that one is the law — and wrong here, where the message is a visit
+    confirmation and the line is an invitation. The fleet sent nothing for it.
+
+    So an address that cannot be composed costs the LINK, not the MESSAGE: the invitation is made
+    in words and the confirmation goes out. The day the page opens, the link returns on its own
+    and no template is touched.
     """
     if consent == "granted":
         return GRANTED
@@ -72,4 +91,14 @@ def line(*, consent: str, public_base_url: str, reference: str) -> str:
     # `never_asked` — and anything unrecognised lands here too, which is the safe direction: the
     # worst case is one invitation to somebody who might have had one already, never a message
     # that re-asks a person who refused.
-    return NOT_GRANTED.format(link=L.grant_link(public_base_url, reference))
+    try:
+        return NOT_GRANTED.format(link=L.grant_link(public_base_url, reference))
+    except L.LinkError:
+        # NO ADDRESS TODAY IS NOT A REASON TO SAY NOTHING AT ALL.
+        #
+        # The refusal from `links.py` is right on its own terms — a message must never carry a
+        # link that opens nothing. What was wrong was letting it end the MESSAGE. The stop link on
+        # a promotional text still refuses and still should: that one is the customer's right and
+        # the law's requirement. This one is an offer, and an offer we cannot address is an offer
+        # we make in words.
+        return NOT_GRANTED_NO_LINK

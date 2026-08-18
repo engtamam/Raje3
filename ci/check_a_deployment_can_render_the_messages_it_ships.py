@@ -50,7 +50,20 @@ BASE = re.compile(r'^\s+PUBLIC_BASE_URL:\s*"([^"]*)"', re.M)
 #: A body reads «... {{3}} 🎁»; nothing in it mentions a link. What decides is `fills`, the list
 #: naming what each blank MEANS: a blank filled from `invite` is built by `core/invite.py`, which
 #: builds a URL, which needs the base. So the gate reads the same field the renderer reads.
-NEEDS_BASE = ("invite", "stop", "link", "page")
+#: AND `invite` IS NO LONGER ONE OF THEM, WHICH IS A CORRECTION AND NOT A CONCESSION.
+#:
+#: The measurement that forced it: of the sixty-six shipped wordings, THIRTY carry `stop_link`
+#: and every one of those is MARKETING; the thirty-six that were failing carry `invite`, and
+#: they are service, personal, awareness and warning. No service wording has ever carried a
+#: stop link. What was killing the fleet's ordinary traffic was the marketing OPT-IN
+#: INVITATION riding in the last line of a utility text.
+#:
+#: The invitation now steps back to a line with no address when there is none to give
+#: (`core/invite.py`), so a visit confirmation carrying it renders and goes. What still refuses
+#: is the customer's one-tap exit from marketing — required by §8.3 and by WhatsApp — and a
+#: promotional message without it must not be sent. Counting `invite` here would report a
+#: shop's service traffic as dead while it is running, which is the opposite of the job.
+NEEDS_BASE = ("stop_link", "link", "page")
 
 
 def main() -> int:
@@ -95,14 +108,18 @@ def main() -> int:
         print("  \033[32m✔ PUBLIC_BASE_URL is empty and nothing shipped requires it\033[0m")
         return 0
 
-    print("  \033[31m✘ PUBLIC_BASE_URL is empty, and the library ships wordings built around it:"
-          "\033[0m")
-    # THE COUNT FIRST, AND A HANDFUL OF NAMES. Thirty-six red lines is a wall a reader scrolls
-    # past; «36 wordings — among them …» is the same fact in a sentence he finishes.
+    print("  \033[31m✘ PUBLIC_BASE_URL is empty, and these wordings may not lawfully "
+          "be sent without it:\033[0m")
+    # THE COUNT FIRST, AND A HANDFUL OF NAMES. Thirty red lines is a wall a reader scrolls
+    # past; «30 wordings — among them …» is the same fact in a sentence he finishes.
     print(f"      \033[31m{len(needing)} wording(s) — among them {', '.join(needing[:3])}\033[0m")
-    print("\n    Every one of those fails at RENDER — before the send log, before any screen — so "
-          "the fleet\n    sends nothing and reports nothing. Give the tail a base, ship wordings "
-          "that do not need one,\n    or point it at a page that only stops messages. Do not "
+    print("\n    Each carries the customer's one-tap exit from marketing, which a "
+          "promotional message may not\n    go without. They fail at RENDER — before "
+          "the send log, before any screen — so campaigns are silent\n    and report "
+          "nothing."
+          "\n\n    SERVICE, PERSONAL AND WARNING MESSAGES ARE UNAFFECTED: their "
+          "invitation line steps back to prose\n    when there is no address. Give "
+          "the exit a page to open, or stop selling campaigns until there is one. Do not "
           "exempt it here.")
     return 1
 

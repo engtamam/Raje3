@@ -1254,16 +1254,28 @@ def test_somebody_who_already_agreed_is_not_invited_again(st):
     assert last.strip(), "Meta refuses an empty variable"
 
 
-def test_the_invitation_never_ships_a_dead_address(st):
-    """No public base means no link can be composed — and a message that invites somebody to tap
-    nothing is worse than one never sent, because nobody looks at it twice."""
+def test_the_invitation_steps_back_rather_than_taking_the_message_with_it(st):
+    """A message that invites somebody to tap nothing is worse than one that invites nobody — but
+    it is not worse than SILENCE, which is what this used to cost.
+
+    THE CORRECTION, FROM COUNTING THE LIBRARY. Thirty-six wordings carry the `invite` fill and they
+    are service, personal, awareness and warning; not one service wording has ever carried a stop
+    link. So refusing to render without a base was killing the shop's ordinary traffic — every
+    visit confirmation, every reminder — to protect the perfection of a marketing opt-in offer.
+
+    The invitation is now a line that promises nothing when there is nothing to promise. The exit
+    from marketing still refuses, and must: see test_marketing_needs_a_reachable_stop.
+    """
     sched(st)
     s = FakeSender()
 
     res = go(st, s, library=LIB_INVITE, public_base_url="")
 
-    assert not s.calls, "a message went out carrying an invitation to nowhere"
-    assert res.failed + res.suppressed == 1, res
+    assert res.sent == 1, res
+    last = s.calls[0]["variables"][-1]
+    assert "http" not in last, f"an invitation to nowhere still went out: {last}"
+    assert last.strip(), "Meta refuses an empty variable"
+
 
 
 def test_somebody_who_stopped_the_offers_is_never_invited_back(st):
