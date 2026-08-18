@@ -27,11 +27,21 @@
 # in a phase it does not recognise. Storage and credentials are not litter, and «I do not know what
 # this is» is a reason to leave it alone rather than a reason to be thorough.
 #
-# WHERE IT RUNS. Twice, deliberately:
-#   1. inside `deploy/server/update.sh`, before every roll — which is the moment the seats are
-#      actually needed, so the fix arrives exactly when the problem bites;
-#   2. as a weekly cron for what accumulates BETWEEN deploys — a fleet that is not shipped for a
-#      month still fills its disk with images and its scheduler with tombstones.
+# WHERE IT RUNS TODAY, AND WHERE IT DOES NOT.
+#
+#   IT RUNS inside `deploy/server/update.sh`, before every roll — which is the moment the seats are
+#   actually needed, so the fix arrives exactly when the problem bites.
+#
+#   IT IS NOT SCHEDULED, and this file used to claim it was. There is no host crontab on the node
+#   and no CronJob for it, so a fleet nobody ships to for a month accumulates exactly what this
+#   script exists to remove: sixteen dead pods held 2410m on the pilot before the first sweep, and
+#   they got there over five days of not deploying. A standing schedule is the honest answer, and
+#   it is Tamam's to authorise because it means something deleting objects on a live cluster on a
+#   timer rather than under a human's hand.
+#
+#   The claim was written before the schedule existed. It is corrected here rather than
+#   half-honoured, because a header that describes a cron nobody created is the same defect this
+#   whole file was written after: a report of work that did not happen.
 #
 # NO `set -e`: each sweep reports for itself and a single failure must not skip the rest.
 set -uo pipefail
