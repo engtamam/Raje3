@@ -25,7 +25,28 @@ import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 
-interface Option { name: string; tone: string; text: string; mine?: boolean }
+export interface Option {
+  name: string; tone: string; text: string; mine?: boolean;
+  /** Can this wording actually leave today, on HIS number. `null`/absent is NOT KNOWN — the
+   *  reader that answers it says so when it could not ask, and a verdict we did not get must
+   *  never be drawn as one. */
+  approved?: boolean | null;
+  /** For his own texts: where it stands with Meta, and Meta's words when it was refused. */
+  status?: string;
+  reason?: string;
+}
+
+/** What a row says about itself, in his words — never Meta's status names. */
+export function standing(o: Option): { label: string; tone: 'success' | 'warning' | 'danger' | 'neutral' } | null {
+  if (o.mine && o.status === 'rejected') return { label: 'رفضها واتساب', tone: 'danger' };
+  if (o.mine && o.status === 'pending') return { label: 'عند واتساب للمراجعة', tone: 'warning' };
+  if (o.mine && o.status === 'draft') return { label: 'لم تُرفَع بعد', tone: 'neutral' };
+  // NOT KNOWN DRAWS NOTHING. «ليست جاهزة» about a wording we simply could not ask about is the
+  // same defect as «تُراجَع لدى واتساب» about one that was never submitted, one row smaller.
+  if (o.approved === true) return { label: 'جاهزة للإرسال', tone: 'success' };
+  if (o.approved === false) return { label: 'بانتظار اعتماد واتساب', tone: 'warning' };
+  return null;
+}
 
 /** One of his own texts that is not sending yet — and why it is not. */
 interface Mine { name: string; status: string; reason?: string; body: string }
@@ -62,6 +83,12 @@ export function MessagePreview({
   // Same reason as the send log: `null` already means «loading» here, so «we could not read» gets
   // its own field rather than borrowing one that means something else.
   const [optionsFailed, setOptionsFailed] = useState(false);
+  /** WHY the list is empty, in the server's word — «unread», «pending», «none» or empty.
+   *  The screen chooses the sentence; it does not decide the cause, which is the whole defect
+   *  this replaced: one reassurance about Meta shown for three unrelated states. */
+  const [emptyBecause, setEmptyBecause] = useState('');
+  /** Which row is open. One at a time: two bubbles side by side is the grid this replaced. */
+  const [opened, setOpened] = useState('');
   /** Bumped after a save, so both reads run again — the new draft appears without a reopen. */
   const [reload, setReload] = useState(0);
   /** The shop's tone — what it sends today when it has chosen no text of its own. */
@@ -89,11 +116,13 @@ export function MessagePreview({
     const a = action(catalog, 'reminders.preview_reason');
     if (!a) { setOptions(DENIED); return; }
     call<{ options: Option[]; chosen?: string; tone?: string; error?: string;
+           empty_because?: string;
            reason?: { slots?: Slot[]; mandatory?: Mandatory } }>(
       session, a, { reason_id: reasonId })
       .then((x) => {
         if (x.error) { setError(x.error); setOptions([]); return; }
         setOptions(x.options ?? []);
+        setEmptyBecause(x.empty_because ?? '');
         setChosen(x.chosen ?? '');
         setTone(x.tone ?? 'brief');
         setSlots(x.reason?.slots ?? []);
@@ -229,122 +258,143 @@ export function MessagePreview({
             تعذّر عرض نصّ هذه الرسالة الآن — والخلل عندنا. حاول بعد قليل.
           </p>
         ) : !isReady(options) || options.length === 0 ? (
+          /* THREE REASONS, THREE SENTENCES — and one of them used to be shown for all three.
+             «القوالب تُراجَع لدى واتساب، وقد تستغرق ساعات» told him to wait for Meta even when
+             nothing had ever been submitted, and even when the failure was ours: the list is built
+             from OUR library, which Meta never sees. So he waited for a review that was not
+             happening, about texts we ship, while the real cause went unread.
+             The server names the state; this only chooses the words. */
           <p className="text-sm text-text-secondary">
-            لا توجد صيغة معتمدة لهذه الرسالة بعد. القوالب تُراجَع لدى واتساب، وقد تستغرق ساعات.
+            {emptyBecause === 'unread'
+              ? 'تعذّرت قراءة صيغنا الآن — والخلل عندنا، لا عندك. حاول بعد قليل.'
+              : emptyBecause === 'pending'
+                ? 'نصّك مُرسَل إلى واتساب للمراجعة، وقد تستغرق ساعات. سنعلمك فور اعتماده.'
+                : 'لا توجد صيغة جاهزة لهذه الرسالة بعد — وهذا نقصٌ عندنا نعمل عليه.'}
           </p>
         ) : (
           <>
-            {/* ── ours: three voices, one chosen by his tone ─────────────────────────────── */}
-            <section className="flex flex-col gap-3">
+            {/* ── ONE TABLE, AND A ROW THAT OPENS INTO THE MESSAGE ─────────────────────────
+                TAMAM'S DECISION, AFTER HIS OWN QUESTION: «مو المفروض الصيغ والرسائل تكون ظاهرة
+                له؟ ويكون معها الحالات حقت واتساب؟» — and he chose «الاثنان: جدولٌ يفتح فقاعة».
+
+                WHAT IT REPLACED WAS THREE PLACES FOR ONE QUESTION. Our wordings sat in one grid
+                with no standing on them at all, his APPROVED texts in a second, and everything of
+                his still a draft, waiting or refused in a third section further down — so «which
+                of these can actually reach my customer today» had to be assembled by the reader
+                out of three layouts. A wording of his that Meta refused was reachable only by
+                scrolling past the two grids that did not contain it.
+
+                THE TABLE IS FOR SCANNING AND THE BUBBLE IS FOR READING, so neither is asked to do
+                the other's job: the row carries the tone, the opening words and the standing; one
+                press opens the message at full size, exactly as the customer receives it — which
+                is the whole reason this screen exists and the one thing a table must not replace. */}
+            <section className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-sm font-medium">صيغنا</h3>
+                <h3 className="text-sm font-medium">الصيغ المتاحة</h3>
                 <span className="text-xs text-text-secondary">
-                  اختر نبرتك — تُطبَّق على كل رسائلك.
+                  اضغط الصيغة لتقرأها كاملة كما تصل عميلك.
                 </span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {ours.map((o) => (
-                  <Bubble
-                    key={o.name}
-                    text={o.text}
-                    caption={TONE[o.tone] ?? o.tone}
-                    active={!chosen && o.tone === tone}
-                    activeLabel="نبرتك · تُرسَل"
-                    busy={saving === o.tone}
-                    onChoose={chosen || o.tone === tone ? undefined
-                              : () => { void chooseTone(o.tone); }}
-                  />
-                ))}
-              </div>
-              {chosen ? (
-                <p className="text-xs text-text-secondary">
-                  نصّك أدناه هو ما يُرسَل الآن لهذه الرسالة — النبرة تحكم البقية.
-                </p>
-              ) : null}
-            </section>
 
-            {/* ── his own, when he has any approved ──────────────────────────────────────── */}
-            {his.length > 0 ? (
-              <section className="flex flex-col gap-3 border-t border-border-subtle pt-4">
-                <h3 className="text-sm font-medium">نصوصك</h3>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {his.map((o) => (
-                    <Bubble
-                      key={o.name}
-                      text={o.text}
-                      caption="نصّك"
-                      active={chosen === o.name}
-                      activeLabel="هذه التي تُرسَل"
-                      action={chosen === o.name ? null : (
-                        <Button variant="ghost" disabled={saving === o.name}
-                                onClick={() => pick(o)}>
-                          استعملها
-                        </Button>
-                      )}
-                    />
-                  ))}
-                </div>
-                {chosen ? (
-                  <button type="button" onClick={useOurs} disabled={saving === 'ours'}
-                          className="self-start text-sm text-accent-on-soft underline disabled:opacity-50">
-                    العودة إلى صياغتنا
-                  </button>
-                ) : null}
-              </section>
-            ) : null}
+              <ul className="flex flex-col divide-y divide-border-subtle rounded-card border border-border-subtle">
+                {arrived.map((o) => {
+                  const state = standing(o);
+                  const isOpen = opened === o.name;
+                  const sending = o.mine ? chosen === o.name : !chosen && o.tone === tone;
+                  return (
+                    <li key={o.name} className="flex flex-col">
+                      <button
+                        type="button"
+                        onClick={() => setOpened(isOpen ? '' : o.name)}
+                        aria-expanded={isOpen}
+                        className="flex items-center gap-3 px-3 py-2.5 text-right"
+                      >
+                        <span className="w-20 shrink-0 text-xs text-text-secondary">
+                          {o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone}
+                        </span>
+                        {/* THE OPENING WORDS, NOT THE WHOLE MESSAGE. A row that wraps to four
+                            lines is not a row, and the full text is one press away. */}
+                        <span className="min-w-0 flex-1 truncate text-sm">{o.text}</span>
+                        {sending ? (
+                          <Badge tone="accent">
+                            <Check size={12} aria-hidden className="me-1" />
+                            تُرسَل الآن
+                          </Badge>
+                        ) : null}
+                        {/* NO BADGE AT ALL when we could not ask — see `standing`. */}
+                        {state ? <Badge tone={state.tone}>{state.label}</Badge> : null}
+                      </button>
 
-            {/* ── what he wrote and where it stands ─────────────────────────────────────── */}
-            {(mine ?? []).length > 0 ? (
-              <section className="flex flex-col gap-2 border-t border-border-subtle pt-4">
-                <h3 className="text-sm font-medium">نصوصٌ لم تبدأ بعد</h3>
-                <ul className="flex flex-col gap-2">
-                  {(mine ?? []).map((m) => (
-                    <li key={m.name}
-                        className="flex flex-col gap-1 rounded-card border border-border-subtle p-3">
-                      <span className="text-sm">{m.body}</span>
-                      <span className="flex items-center gap-2">
-                        <Badge tone={m.status === 'rejected' ? 'warning' : 'neutral'}>
-                          {STATUS[m.status] ?? m.status}
-                        </Badge>
-                        {/* META'S OWN WORDS. Re-wording a refusal sends him looking for a problem
-                            we invented. */}
-                        {m.reason ? (
-                          <span className="text-xs text-text-secondary">{m.reason}</span>
-                        ) : null}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {m.status === 'draft' && action(catalog, 'reminders.submit_template') ? (
-                          <Button variant="ghost" disabled={saving === m.name}
-                                  onClick={() => act('reminders.submit_template', m.name, m.name)}>
-                            ارفعه إلى واتساب
-                          </Button>
-                        ) : null}
-                        {m.status === 'rejected'
-                          && action(catalog, 'reminders.template_help') ? (
-                          <Button variant="ghost" disabled={saving === `help:${m.name}`}
-                                  onClick={() =>
-                                    act('reminders.template_help', m.name, `help:${m.name}`)}>
-                            ساعدوني
-                          </Button>
-                        ) : null}
-                        {/* OUR ANSWER, ON THE SCREEN HE ASKED FROM. A reply that lives only in a
-                            support channel is one he reads once and cannot find the day he sits
-                            down to fix the text. */}
-                        {(help ?? []).find((h) => h.name === m.name)?.answer ? (
-                          <span className="text-xs text-accent-on-soft">
-                            {(help ?? []).find((h) => h.name === m.name)?.answer}
-                          </span>
-                        ) : (help ?? []).some((h) => h.name === m.name && h.status === 'open') ? (
-                          <span className="text-xs text-text-secondary">
-                            طلبك وصلنا — نرد عليك هنا.
-                          </span>
-                        ) : null}
-                      </div>
+                      {isOpen ? (
+                        <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-2 px-3 py-3">
+                          <Bubble text={o.text} caption={o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone} />
+                          {/* META'S OWN WORDS when it refused. Re-wording a refusal sends him
+                              looking for a problem we invented. */}
+                          {o.reason ? (
+                            <p className="text-xs text-text-secondary">{o.reason}</p>
+                          ) : null}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {sending ? (
+                              <span className="text-xs text-text-secondary">
+                                هذه الصيغة هي ما يخرج باسمك لهذه الرسالة.
+                              </span>
+                            ) : o.mine ? (
+                              <Button variant="ghost" disabled={saving === o.name}
+                                      onClick={() => pick(o)}>
+                                استعملها
+                              </Button>
+                            ) : chosen ? (
+                              <Button variant="ghost" disabled={saving === 'ours'}
+                                      onClick={useOurs}>
+                                العودة إلى صياغتنا
+                              </Button>
+                            ) : (
+                              <Button variant="ghost" disabled={saving === o.tone}
+                                      onClick={() => { void chooseTone(o.tone); }}>
+                                اجعلها نبرتي
+                              </Button>
+                            )}
+                            {o.mine && o.status === 'draft'
+                              && action(catalog, 'reminders.submit_template') ? (
+                              <Button variant="ghost" disabled={saving === o.name}
+                                      onClick={() => act('reminders.submit_template', o.name, o.name)}>
+                                ارفعه إلى واتساب
+                              </Button>
+                            ) : null}
+                            {o.mine && o.status === 'rejected'
+                              && action(catalog, 'reminders.template_help') ? (
+                              <Button variant="ghost" disabled={saving === `help:${o.name}`}
+                                      onClick={() =>
+                                        act('reminders.template_help', o.name, `help:${o.name}`)}>
+                                ساعدوني
+                              </Button>
+                            ) : null}
+                            {/* OUR ANSWER, ON THE SCREEN HE ASKED FROM. A reply that lives only in
+                                a support channel is one he cannot find the day he sits down to fix
+                                the text. */}
+                            {(help ?? []).find((h) => h.name === o.name)?.answer ? (
+                              <span className="text-xs text-accent-on-soft">
+                                {(help ?? []).find((h) => h.name === o.name)?.answer}
+                              </span>
+                            ) : (help ?? []).some((h) => h.name === o.name && h.status === 'open') ? (
+                              <span className="text-xs text-text-secondary">
+                                طلبك وصلنا — نرد عليك هنا.
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
                     </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
+                  );
+                })}
+              </ul>
+
+              <p className="text-xs text-text-secondary">
+                {chosen
+                  ? 'نصّك هو ما يُرسَل لهذه الرسالة — والنبرة تحكم بقية رسائلك.'
+                  : 'نبرتك تُطبَّق على كل رسائلك، لا على هذه وحدها.'}
+              </p>
+            </section>
 
             {/* ── his own words, when he wants them ─────────────────────────────────────── */}
             {canRetext && action(catalog, 'reminders.write_template') ? (

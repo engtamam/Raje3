@@ -464,27 +464,55 @@ class PlatformLibrary:
         self._at = 0.0
 
     async def all(self) -> list[dict[str, Any]]:
+        """The rows, and nothing about whether they were read.
+
+        RIGHT FOR THE SEND PATH, WRONG FOR A SCREEN. A scheduler that cannot reach the library
+        skips this tick and tries the next one; nobody is told anything, which is correct. But a
+        SCREEN handed the same `[]` cannot tell an outage from an empty shelf, and the one that was
+        invented a sentence about Meta reviewing templates that had never been submitted. `read()`
+        below carries the answer; `ci/check_a_screen_is_never_handed_an_unread_list.py` keeps this
+        one out of `api/v1`.
+        """
+        return (await self.read())["templates"]
+
+    async def read(self) -> dict[str, Any]:
+        """`{"ok": bool, "templates": [...]}` — the rows AND whether this call actually got them.
+
+        `ok` is FALSE for a peer that refused or could not be reached, and TRUE for a library that
+        answered with nothing in it. Those are different facts about different people: the first is
+        ours to fix and the owner should be told only that; the second is a gap in what we ship.
+
+        A CACHED ANSWER IS A READ ANSWER. Inside the TTL we return what we hold with `ok: True` —
+        it came from a successful call, and calling it unread would flicker a screen between two
+        sentences for no reason a person could see.
+        """
         import json
         import time as _time
         import urllib.error
         import urllib.request
 
         if not self._url:
-            return list(self._rows)
+            # NOT CONFIGURED IS NOT A FAILED READ. A local run with no peer holds whatever it was
+            # seeded with, and that is exactly what it should serve.
+            return {"ok": True, "templates": list(self._rows)}
         now = _time.time()
         if self._rows and (now - self._at) < self._ttl:
-            return list(self._rows)
+            return {"ok": True, "templates": list(self._rows)}
         req = urllib.request.Request(self._url, headers={"X-Internal-Token": self._token})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
                 out = json.loads(resp.read() or b"{}")
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            return list(self._rows)          # the last good answer, never an empty library
+            # THE LAST GOOD ANSWER, NEVER AN EMPTY LIBRARY — and now it says so.
+            return {"ok": False, "templates": list(self._rows)}
         rows = out.get("templates")
         if isinstance(rows, list) and rows:
             self._rows = rows
             self._at = now
-        return list(self._rows)
+            return {"ok": True, "templates": list(self._rows)}
+        # ANSWERED, AND ANSWERED WITH NOTHING. The peer is up; the shelf is empty. Whoever asked
+        # may say so plainly instead of blaming a network it cannot see.
+        return {"ok": True, "templates": list(self._rows)}
 
 
 class ShopCatalogue:

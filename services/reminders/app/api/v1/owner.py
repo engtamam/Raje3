@@ -360,7 +360,12 @@ async def preview_reason(request: Request, reason_id: str,
     c = request.app.state.container
     shop = await c.identity.get(_tenant(principal))
     establishment = getattr(shop, "name", "") or "محلّك"
-    library = await c.library.all()
+    # READ, NOT JUST FETCHED. `all()` answers `[]` for a library it could not reach exactly as it
+    # does for one with nothing in it, and the screen turned that single emptiness into «القوالب
+    # تُراجَع لدى واتساب» — a cause it had no evidence for, and reassurance in the two cases that
+    # needed a report instead.
+    shelf = await c.library.read()
+    library = shelf.get("templates") or []
 
     options: list[dict] = []
     for row in library:
@@ -378,19 +383,60 @@ async def preview_reason(request: Request, reason_id: str,
         for i, value in enumerate(rendered.variables, start=1):
             body = body.replace("{{" + str(i) + "}}", value)
         options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
-                        "text": body, "mine": False})
+                        "text": body, "mine": False,
+                        # CAN THIS ONE ACTUALLY GO OUT TODAY — asked of the account, not assumed.
+                        # `approved` is filled below in one read rather than one per row.
+                        "approved": None, "status": "", "reason": ""})
+
+    # WHAT META HAS ACTUALLY APPROVED ON HIS NUMBER. `None` from this reader means NOT KNOWN —
+    # notification-service unreachable or not configured — and not-known must never be rendered as
+    # a verdict. The screen shows no badge at all in that case, because «not ready» and «we could
+    # not ask» are different sentences and only one of them is about him.
+    approved_names = await c.approved_templates.names(_tenant(principal))
+    if approved_names is not None:
+        for option in options:
+            option["approved"] = option["name"] in approved_names
 
     mine = await CustomTemplateStore(c.datastore).list(_tenant(principal), reason_id=reason_id)
     for row in mine:
-        if row.get("status") != APPROVED:
-            continue
+        # EVERY TEXT HE WROTE, WHATEVER ITS STATE — and this is Tamam's own reading of the screen:
+        # «مو المفروض الصيغ والرسائل تكون ظاهرة له؟». They were filtered to APPROVED only, so a
+        # text he wrote and Meta REFUSED simply vanished: no wording, no reason, nothing to fix. He
+        # writes it again, it is refused again, and the product never says why.
+        #
+        # His own row carries Meta's verdict verbatim in `reason` — never re-worded, because a
+        # refusal he cannot read is a refusal he cannot answer.
         options.append({"name": row.get("name", ""), "tone": "", "mine": True,
+                        "status": row.get("status", ""), "reason": row.get("reason", ""),
+                        "approved": row.get("status") == APPROVED,
                         # HIS OWN WORDS WITH THE BLANKS SHOWN FILLED, by what each blank MEANS —
                         # his numbering is his, not the library's.
                         "text": _fill_custom(row, establishment=establishment)})
 
     chosen = (await ChoiceStore(c.datastore).load(_tenant(principal))).template_name(reason_id)
+    # WHY THE LIST IS EMPTY, WHEN IT IS — because there are three reasons and they belong to three
+    # different people.
+    #
+    #   unread   we could not read our own library. His to be told about, ours to fix, and Meta
+    #            has nothing to do with it.
+    #   none     read, and we ship no active wording for this reason. Our gap, not a wait.
+    #   pending  he wrote his own and it is genuinely at Meta — the ONLY case the old sentence
+    #            described, and it was shown for all three.
+    #
+    # THE SCREEN IS TOLD THE STATE, NOT THE SENTENCE. Wording belongs where the reader is, and a
+    # state travels safely through a version skew that a translated sentence does not.
+    waiting = any(row.get("status") != APPROVED for row in mine)
+    empty_because = ""
+    if not options:
+        # NO DEFAULT ON `ok`. `.get("ok", True)` would read an answer that never carried the field
+        # — an adapter changed under us, a driver that predates `read()` — as a successful read,
+        # and the empty list would then be reported to the owner as our gap rather than as an
+        # unread. Absent is treated as unread, which costs a truthful «حاول بعد قليل» and never a
+        # sentence about a shelf nobody looked at.
+        read_ok = bool(shelf.get("ok"))
+        empty_because = "unread" if not read_ok else ("pending" if waiting else "none")
     return {"reason": TR.public(reason), "options": options, "chosen": chosen,
+            "empty_because": empty_because,
             "tone": getattr(shop, "tone", "") or "brief"}
 
 

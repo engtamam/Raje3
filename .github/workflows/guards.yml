@@ -541,6 +541,13 @@ jobs:
       - name: a capped sweep records where it stopped
         run: python3 ci/check_a_capped_sweep_records_where_it_stopped.py
 
+      # A LIST A PERSON READS MUST SAY WHETHER IT WAS READ. The template library answers `[]` for a
+      # peer it could not reach exactly as it does for a shelf with nothing on it, and the preview
+      # turned that single emptiness into «القوالب تُراجَع لدى واتساب» — a cause it had no evidence
+      # for, told to an owner whose texts had never been submitted at all.
+      - name: no screen is handed a list that cannot say whether it was read
+        run: python3 ci/check_a_screen_is_never_handed_an_unread_list.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully
