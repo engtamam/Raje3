@@ -31,7 +31,19 @@ interface Today {
   can_send?: boolean;
   /** The service's own sentence for why nothing can go out — shown whole, never re-worded. */
   blocked?: string;
-  messages: { sent_today: number; waiting: number };
+  messages: {
+    sent_today: number;
+    /** CALMLY WAITING ONLY. The service tells this apart from a message that keeps failing, and
+     *  the two used to arrive added together — so a shop whose every message was failing read a
+     *  perfectly ordinary «12 بانتظار الإرسال». */
+    waiting: number;
+    /** HOW MANY ARE TRYING AND NOT SUCCEEDING. Optional because a console can be newer than the
+     *  service it talks to, and `undefined` must not render as «0 متعثّرة» — that is the same
+     *  lie as the one this field exists to end, pointed the other way. */
+    retrying?: number;
+    /** The service's own sentence for what that means. Shown whole, never re-worded. */
+    retrying_reason?: string;
+  };
   ceiling: {
     known: boolean;
     unlimited: boolean;
@@ -140,6 +152,43 @@ export function TodayStrip({ session, catalog }: { session: Session; catalog: Ca
           <a href="/app/account" className="text-sm font-medium text-accent-on-soft underline">
             افتح «حسابي»
           </a>
+        </div>
+      ) : null}
+
+      {/* ── TRYING AND NOT SUCCEEDING ────────────────────────────────────────────────────
+          THE NUMBER THE SERVICE LEARNED AND THE SCREEN DID NOT SAY. `pending` holds two states:
+          a reminder booked for next Tuesday, and a message that has thrown eleven times and is
+          being retried hourly until it is given up on. They used to arrive added together under
+          «بانتظار الإرسال», so a shop whose every message was failing read a calm queue.
+
+          AMBER, NOT RED. Red is «nothing you record today reaches anybody» — the stop above. This
+          is «some messages are struggling and we are still trying», which resolves itself when a
+          peer comes back and does not when the content is wrong. The service's own sentence says
+          which, and where he will find them if it does not.
+
+          `> 0` RATHER THAN TRUTHINESS, and the count is optional: a console newer than its
+          service reads `undefined`, and «0 متعثّرة» about a shop with none is the same kind of
+          invented certainty the rest of this screen refuses. */}
+      {/* ── TRYING AND NOT SUCCEEDING ────────────────────────────────────────────────────
+          THE NUMBER THE SERVICE LEARNED AND THE SCREEN DID NOT SAY. `pending` holds two states:
+          a reminder booked for next Tuesday, and a message that has thrown eleven times and is
+          being retried hourly until it is given up on. They used to arrive added together under
+          «بانتظار الإرسال», so a shop whose every message was failing read a calm queue.
+
+          AMBER, NOT RED. Red is «nothing you record today reaches anybody» — the stop above. This
+          is «some messages are struggling and we are still trying», which resolves itself when a
+          peer comes back and does not when the content is wrong. The service's own sentence says
+          which, and where he will find them if it does not.
+
+          `> 0` RATHER THAN TRUTHINESS, and the count is optional: a console newer than its
+          service reads `undefined`, and «0 متعثّرة» about a shop with none is the same kind of
+          invented certainty the rest of this screen refuses. */}
+      {(today.messages.retrying ?? 0) > 0 ? (
+        <div className="flex flex-col gap-1 rounded-card border border-warning bg-warning-soft px-4 py-3 text-warning-on-soft">
+          <span className="font-semibold">{today.messages.retrying} رسالة تحاول الخروج</span>
+          {today.messages.retrying_reason ? (
+            <span className="text-sm">{today.messages.retrying_reason}</span>
+          ) : null}
         </div>
       ) : null}
 
