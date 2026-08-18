@@ -188,8 +188,21 @@ export function App() {
       // THE SCOPE ABOVE THE NAV, which is where a scope belongs: everything below this line is
       // about what it says. The shell keeps this slot for exactly that and hides it on the
       // collapsed rail, where there is no room for a control with a label.
+      // AND THE STATE TRAVELS WHOLE INTO IT. `allowed` is the collapsed list every OTHER reader
+      // wants — «is there a scope to apply» — but the control itself must tell a shop with ONE
+      // branch from a shop whose branches we could not READ, and only the raw state can.
       projectSwitcher={
-        <BranchSwitch branches={allowed} branch={scoped} onChange={setBranch} />
+        <BranchSwitch
+          branches={scopeBranches}
+          branch={scoped}
+          onChange={setBranch}
+          catalog={catalog}
+          // AND THE DOOR IT OPENS IS THE SHOP'S OWN, not a second form built beside the rail.
+          // «منشأتي» already creates a branch, counts it against the plan, names it and can close
+          // it; a quick field here would be a second way in that drifts from the first the day
+          // either changes. What this saves him is the search — not the screen.
+          onAdd={() => navigate(`${ACCOUNT_PATH}?tab=shop`)}
+        />
       }
       onAccount={() => navigate(ACCOUNT_PATH)}
       onSignOut={() => { signOut(); navigate('/'); }}

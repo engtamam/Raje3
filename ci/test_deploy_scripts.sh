@@ -114,6 +114,24 @@ check "a console mismatch counts as drift"       "$(printf '%s
 check "an edge mismatch counts as drift"       "$(printf '%s
 ' "$edge_block" | grep -c 'bad=$((bad+1))')" "2"
 
+# ── THE SHIP THAT REACHES THE SERVER AND NOT THE SCREEN ───────────────────────────────────────
+#
+# Nothing set Cache-Control on the console, so a browser applied its own heuristic to index.html —
+# the ONE file that names the hashed bundle — and served it from disk without asking. A deployment
+# rolled, the pod reported the new digest, verify-fleet agreed, and the owner opened the console and
+# read the old screen. «الشحن غير صحيح ما زالت الواجهة نفسها», twice in one night, on a cluster
+# running exactly what the repository declared.
+#
+# THE TWO RULES ARE OPPOSITES AND BOTH ARE REQUIRED. A hashed asset may be kept for a year because
+# its name changes with its contents; the page that points at it may never be trusted from cache,
+# because its staleness hides every other thing we ship.
+check "the console's pages are never served from cache"       "$(grep -c 'header @page Cache-Control "no-cache"' "$ROOT/apps/console/Caddyfile")" "1"
+check "and its hashed assets are kept for a year"       "$(grep -c 'header @asset Cache-Control "public, max-age=31536000, immutable"' "$ROOT/apps/console/Caddyfile")" "1"
+# THE PAGE MATCHER IS «NOT AN ASSET», NOT A LIST OF PAGES. Every screen has a real URL and the SPA
+# rewrite serves index.html for all of them, so a matcher naming `/app/` and `/app/index.html`
+# would cover the two paths a person never types and miss every one he does.
+check "and the page rule is matched by exclusion, not by a list"       "$(grep -c '@page not path /assets/[*] /app/assets/[*]' "$ROOT/apps/console/Caddyfile")" "1"
+
 # ── ل-3 · nothing committed may name a registry only one machine can reach ────────────────────
 check "the console manifest names a reachable registry" \
       "$(grep -c '127.0.0.1' "$ROOT/deploy/edge/console.yaml")" "0"

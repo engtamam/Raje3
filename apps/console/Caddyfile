@@ -8,6 +8,35 @@
 		body "ok"
 	}
 
+	# ── WHY A SHIPPED SCREEN KEPT NOT ARRIVING ────────────────────────────────────────────────
+	#
+	# Nothing here set Cache-Control, so a browser applied its own heuristic to `index.html` and
+	# served it from disk without asking us. And index.html is the ONLY file that names the bundle:
+	# every build writes `assets/index-<hash>.js`, and the page that points at it is the page the
+	# browser had already decided it did not need to re-fetch. So a deployment rolled, the pod
+	# reported the new digest, `verify-fleet` agreed, and the owner opened the console and saw the
+	# old screen — with no way to know a hard refresh was the missing step, and no reason to guess.
+	#
+	# Tamam hit it twice in one night: «الشحن غير صحيح ما زالت الواجهة نفسها», on a cluster that
+	# was running exactly what the repository declared.
+	#
+	# TWO RULES, AND THEY ARE OPPOSITES ON PURPOSE:
+	#
+	#   the HTML is never trusted from cache — it is small, it is the entry point, and it is the
+	#   one file whose staleness hides everything else;
+	#
+	#   the hashed assets are trusted for a year — their NAME contains a hash of their content, so
+	#   a changed file is a different URL and there is nothing to invalidate. Re-validating them
+	#   would spend a round trip per asset on every load to be told nothing changed.
+	# MATCHED ON WHAT IS NOT AN ASSET, NOT ON A LIST OF PAGES. Every screen has a real URL and the
+	# rewrite below serves index.html for all of them — `/app/shop`, `/app/customers/42` — so a
+	# matcher naming the html paths would have covered the two a person never types and missed
+	# every one he does.
+	@asset path /assets/* /app/assets/*
+	header @asset Cache-Control "public, max-age=31536000, immutable"
+	@page not path /assets/* /app/assets/*
+	header @page Cache-Control "no-cache"
+
 	# SPA ROUTING IS NOT OPTIONAL HERE. Every screen has a real URL — a customer page arrives as a
 	# link inside a WhatsApp message — and reloading one of those is a request with no file behind
 	# it. Without the rewrite the owner sees 404 on a screen that works perfectly when navigated to.
