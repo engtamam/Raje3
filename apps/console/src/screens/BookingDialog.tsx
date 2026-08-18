@@ -1,15 +1,15 @@
 /**
- * نافذة الحجز — إنشاء حجزٍ جديد (docs/خطة-تنفيذ-الحجوزات.md §6).
+ * Booking dialog — creates a new booking (docs/خطة-تنفيذ-الحجوزات.md §6).
  *
- * THE CUSTOMER STEP REUSES THE SAME RESOLVE-OR-CREATE ACT `VisitIn` MAKES (§6.2 من مستند
- * القرارات: «نفس الفعل الخلفي… لا إعادة تنفيذ»): `ensureCustomer` calls
+ * THE CUSTOMER STEP REUSES THE SAME RESOLVE-OR-CREATE ACT `VisitIn` MAKES (§6.2 of the decisions
+ * doc: "the same backend act… never reimplemented"): `ensureCustomer` calls
  * `/api/v1/field/customers/ensure`, which is `Operations.record_visit`'s own customer resolution,
  * exposed without a visit riding along. Search-while-typing is the SAME `/customers/suggest` the
  * keypad already uses.
  *
- * THE SERVICE GRID IS THE SAME COMPONENT, SHARED DATA, NEVER SHARED UI (§6.1 من مستند القرارات):
- * `ServiceGrid` renders the same tiles the visit screen does because it is the same catalogue —
- * this dialog's own frame, order and controls are entirely its own.
+ * THE SERVICE GRID IS THE SAME COMPONENT, SHARED DATA, NEVER SHARED UI (§6.1 of the decisions
+ * doc): `ServiceGrid` renders the same tiles the visit screen does because it is the same
+ * catalogue — this dialog's own frame, order and controls are entirely its own.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@base-ui/design-system/Button';
@@ -30,23 +30,33 @@ export interface BookingDialogProps {
   branchId: string;
   /** The grid's own day, prefilled — he is already looking at it. */
   date: string;
+  /** Set when opened from a click on an empty grid cell — the exact operator and time already
+   *  chosen, so the dialog opens with nothing left to pick but the customer and the services. */
+  initialOperatorId?: string;
+  initialStartsAt?: number;
   services: CatalogueService[];
   staff: FieldOperator[];
   onClose: () => void;
   onCreated: (booking: Booking) => void;
 }
 
+function timeOfEpoch(epoch: number): string {
+  const d = new Date(epoch * 1000);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function BookingDialog(
-  { session, branchId, date, services, staff, onClose, onCreated }: BookingDialogProps,
+  { session, branchId, date, initialOperatorId, initialStartsAt, services, staff, onClose,
+   onCreated }: BookingDialogProps,
 ) {
   const [phone, setPhone] = useState('');
   const [matches, setMatches] = useState<CustomerHit[]>([]);
   const [customer, setCustomer] = useState<CustomerHit | null>(null);
   const [name, setName] = useState('');
   const [chosen, setChosen] = useState<string[]>([]);
-  const [operatorId, setOperatorId] = useState('');
+  const [operatorId, setOperatorId] = useState(initialOperatorId ?? '');
   const [day, setDay] = useState(date);
-  const [time, setTime] = useState('');
+  const [time, setTime] = useState(initialStartsAt ? timeOfEpoch(initialStartsAt) : '');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

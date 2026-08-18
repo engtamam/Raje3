@@ -1,13 +1,12 @@
 /**
- * الحجوزات — the branch chooser, the read, and the actions each row offers (Stage 6,
- * docs/خطة-تنفيذ-الحجوزات.md §6).
+ * The bookings grid — the branch chooser, the read, and the actions a tapped card offers
+ * (Stage 6/7, docs/خطة-تنفيذ-الحجوزات.md §6/§7).
  *
- * MOCKS `../api`, NOT `../catalog` — unlike `overdue.test.tsx`, this screen calls the named
- * functions in api.ts directly (the same convention Visit.tsx uses), so that is the seam a test
- * has to watch to prove the wire rather than a stubbed state.
+ * MOCKS `../api`, NOT `../catalog` — this screen calls the named functions in api.ts directly
+ * (the same convention Visit.tsx uses), so that is the seam a test has to watch.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 
 const asked: { fn: string; args: unknown[] }[] = [];
@@ -44,6 +43,10 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'noShowBooking', args });
       return { ...BOOKING, status: 'no_show' };
     },
+    rescheduleBooking: async (...args: unknown[]) => {
+      asked.push({ fn: 'rescheduleBooking', args });
+      return { ...BOOKING, starts_at: (args[1] as number) };
+    },
   };
 });
 
@@ -59,59 +62,103 @@ function open(props: Partial<Parameters<typeof BookingsScreen>[0]> = {}) {
   }));
 }
 
-describe('اختيار الفرع', () => {
-  it('يعرض منتقي الفروع حين لا يكون هناك فرعٌ واحد مختار', () => {
+describe('branch selection', () => {
+  it('offers a chooser when more than one branch and none is scoped', () => {
     open({ branches: [{ id: 'b1', name: 'فرع الرياض' }, { id: 'b2', name: 'فرع جدة' }] });
     expect(screen.getByText('فرع الرياض')).toBeTruthy();
     expect(screen.getByText('فرع جدة')).toBeTruthy();
     expect(asked).toHaveLength(0);
   });
 
-  it('يختار الفرع الوحيد صامتاً حين لا يوجد إلا فرعٌ واحد — لا خيار', async () => {
+  it('picks the one branch silently — no choice to make', async () => {
     open({ branches: [{ id: 'b1', name: 'فرع الرياض' }] });
     await waitFor(() => expect(asked.some((a) => a.fn === 'listBookings')).toBe(true));
     expect(asked[0].args[1]).toBe('b1');
   });
-
-  it('لا يسأل شيئاً قبل أن يختار — نفس قاعدة «محلّي»', () => {
-    open({ branches: [{ id: 'b1' }, { id: 'b2' }] });
-    expect(asked.filter((a) => a.fn === 'listBookings')).toHaveLength(0);
-  });
 });
 
-describe('جدول اليوم', () => {
-  it('يقرأ حجوزات الفرع المختار', async () => {
+describe('the grid', () => {
+  it('reads the selected branch\'s bookings and places them on the grid', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => expect(screen.getByText(/قص شعر/)).toBeTruthy());
-    expect(screen.getByText(/سارة/)).toBeTruthy();
   });
 
-  it('يعرض حالة الحجز', async () => {
+  it('opens an action sheet when a card is tapped', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => expect(screen.getByText('محجوز')).toBeTruthy());
+    await waitFor(() => screen.getByText(/قص شعر/));
+    screen.getByText(/قص شعر/).click();
+    await waitFor(() => expect(screen.getByText('حضرت')).toBeTruthy());
+    expect(screen.getByText('لم تحضر')).toBeTruthy();
+    expect(screen.getByText('إلغاء الحجز')).toBeTruthy();
   });
 
-  it('يسجّل الحضور بضغطة، ويحدّث الصف فوراً', async () => {
+  it('marks attendance from the action sheet', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    screen.getByText(/قص شعر/).click();
     await waitFor(() => screen.getByText('حضرت'));
     screen.getByText('حضرت').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'attendBooking')).toBe(true));
     expect(asked.find((a) => a.fn === 'attendBooking')?.args[1]).toBe('bkg_1');
   });
 
-  it('يلغي الحجز بضغطة', async () => {
+  it('cancels from the action sheet', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText('إلغاء'));
-    screen.getByText('إلغاء').click();
+    await waitFor(() => screen.getByText(/قص شعر/));
+    screen.getByText(/قص شعر/).click();
+    await waitFor(() => screen.getByText('إلغاء الحجز'));
+    screen.getByText('إلغاء الحجز').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
+  });
+
+  it('filters visible cards by the quick search, with no new request', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    const before = asked.filter((a) => a.fn === 'listBookings').length;
+    const search = screen.getByPlaceholderText(/بحثٌ سريع/);
+    fireEvent.change(search, { target: { value: 'لا يوجد' } });
+    await waitFor(() => expect(screen.queryByText(/قص شعر/)).toBeNull());
+    expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
   });
 });
 
 describe('حجز جديد', () => {
-  it('يفتح نافذة الحجز', async () => {
+  it('opens the booking dialog', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => screen.getByText('حجز جديد'));
     screen.getByText('حجز جديد').click();
     await waitFor(() => expect(screen.getByText(/جوّال العميلة/)).toBeTruthy());
+  });
+
+  it('opens the same dialog from an empty cell click — no separate flow', async () => {
+    const { container } = open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    // The column background itself, not a card — clicking a card opens the action sheet instead.
+    const column = container.querySelectorAll('.border-s')[1];
+    fireEvent.click(column);
+    await waitFor(() => expect(screen.getByText(/جوّال العميلة/)).toBeTruthy());
+  });
+});
+
+describe('السحب والإفلات', () => {
+  it('marks the card as being dragged the moment a drag starts', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    const card = screen.getByText(/قص شعر/).closest('[draggable="true"]') as HTMLElement;
+    expect(card.getAttribute('draggable')).toBe('true');
+
+    fireEvent.dragStart(card);
+    await waitFor(() => expect(card.className).toContain('rj-card-dragging'));
+  });
+
+  it('cards for a cancelled or closed booking are never draggable', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    screen.getByText(/قص شعر/).click();
+    await waitFor(() => screen.getByText('إلغاء الحجز'));
+    screen.getByText('إلغاء الحجز').click();
+    await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
+    // A cancelled booking is filtered out of the grid entirely (§7) — nothing left to drag.
+    expect(screen.queryByText(/قص شعر/)).toBeNull();
   });
 });

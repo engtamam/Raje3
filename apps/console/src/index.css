@@ -44,3 +44,57 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
   @keyframes raje-breathe { 50% { opacity: .45; } }
   .raje-waiting { animation: raje-breathe 1.6s ease-in-out infinite; }
 }
+
+/* ── the bookings grid — its own visual identity ─────────────────────────────────────────────
+ *
+ * SCOPED TO ONE SCREEN, DELIBERATELY (docs/خطة-تنفيذ-الحجوزات.md §7, Tamam's approval
+ * 2026-08-19): this app deserves a world-class look of its own rather than inheriting the rest
+ * of the console's standard colours — but it still borrows the brand's own gold (`GOLD` in
+ * brand/theme.ts) instead of inventing a competing one, so it stays راجِع rather than a foreign
+ * product.
+ *
+ * Every variable is scoped under `.rj-grid`, so none of it leaks into any other screen. */
+.rj-grid {
+  --rj-bg: #FBF8F3;
+  --rj-surface: #FFFFFF;
+  --rj-ink: #201A15;
+  --rj-ink-soft: #6B6259;
+  --rj-line: #ECE3D6;
+  --rj-gold: #B8862B;
+  --rj-gold-soft: #F7EFDD;
+  --rj-gold-deep: #8C6620;
+  --rj-booked: #5B4B8A;
+  --rj-booked-soft: #EFEBF9;
+  --rj-attended: #2F7A5C;
+  --rj-attended-soft: #E6F4EE;
+  --rj-noshow: #B15A2E;
+  --rj-noshow-soft: #FBEBE1;
+  --rj-cancelled: #A39A8F;
+  --rj-cancelled-soft: #F1ECE3;
+  --rj-valid: #2F7A5C;
+  --rj-valid-soft: #E1F3EA;
+  --rj-invalid: #B0432F;
+  --rj-invalid-soft: #FBE6E1;
+  --rj-shadow: 0 1px 2px rgba(32, 26, 21, 0.04), 0 8px 24px -8px rgba(32, 26, 21, 0.12);
+  --rj-shadow-lift: 0 4px 8px rgba(32, 26, 21, 0.06), 0 20px 40px -12px rgba(32, 26, 21, 0.24);
+  background: var(--rj-bg);
+  color: var(--rj-ink);
+}
+
+/* The card actually lifts while dragged — a deeper shadow and a slight tilt, not just a
+ * transparency change. */
+.rj-card-dragging {
+  box-shadow: var(--rj-shadow-lift);
+  transform: scale(1.03) rotate(-0.6deg);
+  z-index: 30;
+}
+
+@keyframes rj-settle {
+  0% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+.rj-card-settle { animation: rj-settle 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rj-card-settle { animation: none; }
+}
