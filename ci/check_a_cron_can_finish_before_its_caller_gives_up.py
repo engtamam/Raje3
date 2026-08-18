@@ -58,7 +58,17 @@ CHART_CRON = ROOT / "platform" / "deploy" / "chart" / "templates" / "cronjob.yam
 
 #: How long the CronJob body waits for the route it POSTs to. Read from the chart rather than
 #: written here, so the day somebody raises it this gate agrees without being edited.
-CALLER = re.compile(r"urlopen\([^)]*timeout=(\d+)")
+#:
+#: TWO SHAPES, BECAUSE THE CHART GREW A KNOB AND THIS GATE ASKED FOR IT. Until v0.16.18 the body
+#: carried the number inline — `urlopen(..., timeout=300)` — and one fixed window had to cover
+#: every job, which is the escalation that produced the change: backup-service needs 2400s worst
+#: case and every short maintenance call needs 300. Now the value is per-cronJob, passed in as
+#: `TIMEOUT_SECONDS` and defaulted in the template, so the number to read is the DEFAULT.
+#:
+#: The gate refused rather than guessed when the shape moved, and that was the right answer: a
+#: reader that silently matches nothing reports a green window it never measured.
+CALLER_INLINE = re.compile(r"urlopen\([^)]*timeout=(\d+)")
+CALLER_DEFAULTED = re.compile(r"\.timeoutSeconds \| default (\d+)")
 
 #: A per-item budget: how long one unit of the run may take.
 A_TIMEOUT = re.compile(r"^\s+([A-Z0-9_]*TIMEOUT[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
@@ -127,10 +137,12 @@ def main() -> int:
               "cannot be read, so no window can be judged")
         return 1
 
-    m = CALLER.search(CHART_CRON.read_text(encoding="utf-8"))
+    chart_text = CHART_CRON.read_text(encoding="utf-8")
+    m = CALLER_INLINE.search(chart_text) or CALLER_DEFAULTED.search(chart_text)
     if not m:
-        print("the CronJob body no longer spells its timeout as `urlopen(..., timeout=N)` — this "
-              "gate is reading for a shape that changed and will not guess")
+        print("the CronJob body spells its timeout in neither shape this gate knows — an inline "
+              "`urlopen(..., timeout=N)` nor a `.timeoutSeconds | default N`. It changed again, "
+              "and this gate will not guess a window it cannot read")
         return 1
     caller = int(m.group(1))
 
