@@ -46,11 +46,16 @@ REGISTRY = re.compile(r"^_([A-Z][A-Z0-9_]*)\s*:\s*dict\[str,\s*Builder\]", re.M)
 #: and each already has a contract file whose whole purpose is that switching the pointer is
 #: configuration rather than a change in what the product does.
 #:
-#: WHAT THIS GATE DOES NOT YET COVER, SAID OUT LOUD SO ITS GREEN IS NOT READ FOR MORE THAN IT IS:
-#: `secrets` (vault), `token_verifier` (jwks/rs256) and the peer-shaped adapters — audit sink,
-#: consent gate, telemetry. Those are the same rule and they need a server or a stub each; they
-#: are recorded as work, not waved through here. A narrower rule fully enforced beats a broad one
-#: with a list of exceptions underneath it — but only while the narrowing is written down.
+#: `token_verifier` JOINED THEM, AND WHAT IT COST WAS A THREAD. Its three drivers looked covered
+#: — there were tests named after two of them — but the sets were different and `jwks` had none at
+#: all. It is now one table of behaviours with a loopback key server for the length of a test, so
+#: «it needs a network» turned out to be a reason to give it one rather than to leave it unheld.
+#:
+#: WHAT THIS GATE STILL DOES NOT COVER, SAID OUT LOUD SO ITS GREEN IS NOT READ FOR MORE THAN IT
+#: IS: `secrets` (vault) and the peer-shaped adapters — audit sink, consent gate, telemetry. Those
+#: are the same rule and each needs a server or a stub; they are recorded as work, not waved
+#: through here. A narrower rule fully enforced beats a broad one with a list of exceptions
+#: underneath it — but only while the narrowing is written down.
 CONTRACT_OF = {
     "DATASTORE": "test_datastore_contract.py",
     "CACHE": "test_cache_contract.py",
@@ -58,6 +63,7 @@ CONTRACT_OF = {
     "QUEUE": "test_queue_contract.py",
     "OBJECTSTORE": "test_object_store_contract.py",
     "RATELIMITER": "test_rate_limiter_contract.py",
+    "TOKEN": "test_token_verifier_contract.py",
 }
 
 #: DOES NOTHING, ON PURPOSE. A null driver has no behaviour to agree with, and production refuses

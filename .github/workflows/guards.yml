@@ -559,6 +559,14 @@ jobs:
       - name: a deployment can render the messages it ships
         run: python3 ci/check_a_deployment_can_render_the_messages_it_ships.py
 
+      # THE OTHER HALF OF THE SAME QUESTION, AND THE ONE THAT TURNED OUT TO BE THE REAL DEFECT.
+      # Counting the library showed that no service wording has ever carried a stop link: the
+      # thirty-six that were failing carried the marketing OPT-IN INVITATION, riding in the last
+      # line of a visit confirmation. So a shop's entire ordinary traffic was dying for a line that
+      # is an offer rather than a requirement. This refuses the confusion coming back.
+      - name: only a mandatory line may stop a message
+        run: python3 ci/check_only_a_mandatory_line_may_stop_a_message.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.
