@@ -206,9 +206,27 @@ for svc in "${targets[@]}"; do
             | sed -n 's/.*"version":[ ]*\([0-9]*\).*/\1/p' | head -1)"
   fi
 
-  if helm upgrade --install "$svc" "$CHART" -f "$values" \
-       --namespace "$NS" --create-namespace --wait --timeout "${HEALTH_TIMEOUT}s" >/dev/null 2>&1; then
+  # THE ERROR IS KEPT, NOT DISCARDED. `2>&1 >/dev/null` used to throw away the one sentence that
+  # says WHY an upgrade failed, and the branch below then asked a question that cannot distinguish
+  # the causes: «is the deployment healthy?» is true for a deployment nobody managed to change.
+  # `|| helm_rc=$?`, because this file runs under `set -e`: an assignment whose command substitution
+  # FAILS ends the script, and a failing upgrade is precisely the case this code exists to handle.
+  helm_rc=0
+  helm_err="$(helm upgrade --install "$svc" "$CHART" -f "$values" \
+                --namespace "$NS" --create-namespace --wait \
+                --timeout "${HEALTH_TIMEOUT}s" 2>&1 >/dev/null)" || helm_rc=$?
+  if [[ $helm_rc -eq 0 ]]; then
     echo -e "${C_G}ok${C_N}"; updated=$((updated+1))
+  elif [[ "$helm_err" != *"timed out waiting"* ]]; then
+    # HELM DID NOT EVEN GET TO WAIT. An unreachable cluster, a bad chart, a rejected manifest —
+    # none of these is «still pulling», and the pull-grace branch below must not be asked about
+    # them. It reads `kubectl rollout status`, which SUCCEEDS for a deployment that was never
+    # touched, so a `helm` that could not connect at all was reported as a successful roll. That
+    # is exactly what happened: every upgrade failed with «Kubernetes cluster unreachable», every
+    # service was marked ok, and the release revision on the node had not moved in a day.
+    echo -e "${C_R}failed${C_N}"; failed=$((failed+1))
+    echo "      ${helm_err%%$'\n'*}"
+    continue
   elif kubectl -n "$NS" rollout status "deploy/$svc" --timeout="${PULL_GRACE}s" >/dev/null 2>&1; then
     # helm --wait ran out, but the rollout CONVERGED within the pull grace: the node was still
     # PULLING the freshly published image, not failing. Report success, and name which budget was
