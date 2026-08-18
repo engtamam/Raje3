@@ -627,6 +627,15 @@ jobs:
       - name: the class of a message comes from its reason
         run: python3 ci/check_the_class_of_a_message_comes_from_its_reason.py
 
+      # AND WHICH CLOCK THAT SCHEDULE IS KEPT ON. Every hour in deploy/services/*.values.yaml
+      # argues for itself in the life of a Saudi workshop — «nightly», «off-hour», «when no
+      # operator has a customer standing in front of them» — and the fleet's node keeps
+      # Asia/Shanghai, so the retention sweep written for 01:17 runs at 20:17 Riyadh and the
+      # weekly digest written for 09:00 goes out at 04:00. The hour was reasoned about and then
+      # dropped: it lived in prose and nothing ever read it.
+      - name: a schedule names the clock its hour was chosen on
+        run: python3 ci/check_a_schedule_names_the_clock_its_hour_was_chosen_on.py
+
       # A SCHEDULE POSTS NO BODY. `backup-service-run` demanded one, so FastAPI answered 422
       # before the handler ran, and the nightly archive failed three nights running while the
       # hourly health-check completed green and `verify-fleet.sh` printed «backup targets:

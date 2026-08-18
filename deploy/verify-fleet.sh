@@ -231,6 +231,51 @@ else
 ' "$C_G" "backup targets" "$targets" "$C_N"
 fi
 
+# ── AND WHOSE CLOCK THE SCHEDULES ARE ACTUALLY KEPT ON ───────────────────────────────────────
+#
+# Every hour in deploy/services/*.values.yaml is argued for in the life of a Saudi workshop, and
+# `cronTimeZone` now says so out loud. Nothing carries it to the cluster yet — the chart renders a
+# bare `schedule` (platform/deploy/chart/templates/cronjob.yaml, read-only; escalated in #321) — so
+# k3s times every one of them by whatever zone the NODE is set to. This fleet's node is
+# Asia/Shanghai, which puts «02:42» at 21:42 Riyadh and the weekly digest written for 09:00 at
+# 04:00 — a WhatsApp message to a shop owner before dawn.
+#
+# THE READER IS A FUNCTION so ci/test_deploy_scripts.sh can lift it out and RUN it. That is the
+# part which rots quietly: return the whole line instead of the zone and this section compares two
+# strings that can never be equal, crying wolf every deploy until somebody deletes the check.
+cron_zone_of(){ printf '%s\n' "$1" | sed -n 's/^CRON_TIMEZONE=\([A-Za-z_]*\/[A-Za-z_]*\)[[:space:]]*$/\1/p'; }
+
+# THE DECLARED VALUE IS FOUND HERE, NOT PASSED IN — read from deploy/fleet-clock.env, which owns it, so this
+# cannot become a check that agrees with itself.
+want_tz="$(cron_zone_of "$(grep -h '^CRON_TIMEZONE=' "$ROOT/deploy/fleet-clock.env" 2>/dev/null | head -1)")"
+got_tz="$("${SSH[@]}" "timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null")"
+got_tz="$(printf '%s\n' "$got_tz" | grep -xE '[A-Za-z_]+/[A-Za-z_]+' | head -1)"
+# A CronJob naming its own zone overrides the node's, so an EMPTY answer here is the whole point.
+own_tz="$("${SSH[@]}" "kubectl -n $NS get cronjobs -o jsonpath='{.items[*].spec.timeZone}' 2>/dev/null")"
+own_tz="$(printf '%s' "$own_tz" | tr -d '[:space:]')"
+
+if [ -z "$want_tz" ]; then
+  printf '  %s✗ %-24s no cronTimeZone is declared in any values file%s\n' "$C_R" "cron clock" "$C_N"
+  bad=$((bad+1))
+elif [ -z "$got_tz" ]; then
+  printf '  %s✗ %-24s the node zone could not be read — the clock was NOT checked%s\n' \
+    "$C_R" "cron clock" "$C_N"
+  bad=$((bad+1))
+elif [ -n "$own_tz" ]; then
+  printf '  %s✔ %-24s the CronJobs carry their own zone%s\n' "$C_G" "cron clock" "$C_N"
+elif [ "$got_tz" != "$want_tz" ]; then
+  printf '  %s✗ %-24s schedules are written for %s and RUN on %s%s\n' \
+    "$C_R" "cron clock" "$want_tz" "$got_tz" "$C_N"
+  printf '%s     no CronJob declares a timeZone, so the node decides every hour in the fleet%s\n' \
+    "$C_R" "$C_N"
+  printf '%s     the chart has no timeZone field — this needs the platform change in #321%s\n' \
+    "$C_D" "$C_N"
+  bad=$((bad+1))
+else
+  printf '  %s✔ %-24s the node keeps %s, the zone the schedules are written for%s\n' \
+    "$C_G" "cron clock" "$want_tz" "$C_N"
+fi
+
 # ── AND WHETHER THE SCHEDULES THAT PROTECT US ACTUALLY FINISHED ──────────────────────────────
 #
 # THE SECTION ABOVE ASKS WHETHER BACKUPS ARE REGISTERED. IT DOES NOT ASK WHETHER THEY RAN, and on

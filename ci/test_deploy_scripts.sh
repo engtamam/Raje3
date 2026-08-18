@@ -20,6 +20,22 @@ ok(){   pass=$((pass+1)); printf '  %s✔ %s%s\n' "$C_G" "$1" "$C_N"; }
 no(){   fail=$((fail+1)); printf '  %s✘ %s%s\n' "$C_R" "$1" "$C_N"; }
 check(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1: expected [$3], got [$2]"; fi; }
 
+# ── THE CLOCK COMPARISON, RUN RATHER THAN READ ───────────────────────────────────────────────
+# The fleet's schedules are written for Riyadh and executed on the node's zone, which is
+# Asia/Shanghai. What can silently rot here is the READER: `cronTimeZone: "Asia/Riyadh"` has to
+# come out as `Asia/Riyadh` and not as the whole line, or the comparison compares two strings that
+# are never equal and cries wolf at every deploy until somebody deletes the check.
+eval "$(grep '^cron_zone_of()' "$ROOT/deploy/verify-fleet.sh" | head -1)"
+check "the cronTimeZone reader was found in verify-fleet"       "$(type -t cron_zone_of)" "function"
+check "it extracts the zone, not the line"       "$(cron_zone_of 'CRON_TIMEZONE=Asia/Riyadh')" "Asia/Riyadh"
+check "and a line that only mentions it is not one"       "$(cron_zone_of '# CRON_TIMEZONE=Asia/Riyadh')" ""
+check "the fleet's clock file names one zone"       "$(grep -c '^CRON_TIMEZONE=' "$ROOT/deploy/fleet-clock.env")" "1"
+# EVERY VALUES FILE THAT SCHEDULES WORK AGREES ON IT — the shape the gate enforces, asserted here
+# against the files themselves so a half-applied sweep cannot pass by having one file left behind.
+# AND NO VALUES FILE KEEPS A SECOND COPY. The chart's schema rejects keys it does not render, so
+# a stray `cronTimeZone:` there does not sit quietly — it fails every deploy.
+check "no values file keeps its own clock"       "$(grep -l 'cronTimeZone' "$ROOT"/deploy/services/*.values.yaml 2>/dev/null | wc -l)" "0"
+
 # ── THE SCHEDULE OUTCOME SECTION, RUN RATHER THAN READ ───────────────────────────────────────
 # `backup-service-run` failed three nights in a row while every green thing stayed green, so
 # verify-fleet now reads each CronJob's LATEST job. The picker is the part that can be wrong in a
