@@ -142,6 +142,23 @@ sync_and_roll() {
 # `imageID`, never the spec. A digest reference is a NAME until something reads back what the
 # kubelet resolved; a pod ran two-version-old code for hours under a correct-looking pin, and only
 # this comparison disagreed.
+#
+# AND THE COMPARISON ITSELF HAD TO LEARN THE SAME LESSON, POINTED THE OTHER WAY. `imageID` and a
+# pinned digest are BOTH names, and on a multi-arch image they are names of different things: the
+# pin is an index (a manifest list) and `imageID` is whatever index containerd already had
+# associated with the content it resolved. Measured on the cluster, loyalty showed
+#
+#     spec:    …@sha256:225470f1…      the pin
+#     imageID: …@sha256:0b9518d3…      a different index
+#
+# and both resolve to the SAME manifest (1d51c7b9…) and the SAME config (5ca4425a…). Identical
+# content published twice; the second index differs only by the attestation entry the builder
+# attaches. The ship printed «RUNNING 0b9518… but pinned 225470…» over a shipment that had
+# worked perfectly.
+#
+# A proof that cries wolf is worse than no proof, because the next real drift ships behind it. So
+# the question asked here is CONTENT: what config digest does the pin resolve to on this node, and
+# what config digest is the pod running. Two names for one manifest agree; two manifests do not.
 verify_running() {
   local svc="$1" digest="$2" running="" live=""
   for _ in $(seq 1 40); do
@@ -159,12 +176,75 @@ verify_running() {
   fi
   live="$("${SSH[@]}" "kubectl -n $NS get pod $running \
       -o jsonpath='{.status.containerStatuses[0].imageID}'" | sed 's/.*@//')"
-  if [ "$live" != "$digest" ]; then
-    red "$svc: RUNNING ${live:0:26}… but pinned ${digest:0:26}…"
-    return 1
+  if [ "$live" = "$digest" ]; then
+    grn "$svc is running the digest its values file names"
+    return 0
   fi
-  grn "$svc is running the digest its values file names"
-  return 0
+
+  # THE NAMES DIFFER. That is not yet a failure — see the note above — so ask the content store
+  # what each name resolves to. Only if the CONTENT differs has the wrong code been rolled.
+  local want_config live_config
+  want_config="$(resolve_config "$digest")"
+  live_config="$(resolve_config "$live")"
+  if [ -n "$want_config" ] && [ "$want_config" = "$live_config" ]; then
+    grn "$svc is running the pinned content (config ${want_config:7:12}…, reached by two indexes)"
+    return 0
+  fi
+  red "$svc: RUNNING ${live:0:26}… but pinned ${digest:0:26}…"
+  if [ -n "$want_config$live_config" ]; then
+    red "      and they are different content: ${live_config:0:19}… vs ${want_config:0:19}…"
+  else
+    # COULD NOT RESOLVE EITHER. Reporting a pass on «I could not tell» is the failure this whole
+    # file exists to prevent, so an unreadable content store is a red, not a shrug.
+    red "      and the node's content store could not be read, so this is unproven, not fine"
+  fi
+  return 1
+}
+
+# ── WHAT A DIGEST ACTUALLY POINTS AT ──────────────────────────────────────────────────────────
+#
+# TWO HOPS, NOT ONE, AND THE FIRST DRAFT OF THIS ONLY DID ONE. An INDEX names a list of manifests;
+# a MANIFEST names the config that is the running image's identity. The pin is an index, so a
+# resolver that only understood manifests returned nothing for it — and «returned nothing» was
+# then read as «could not resolve», which would have failed exactly the shipment this fix exists
+# to stop failing. The fix has to be exercised against the shape it will actually meet.
+#
+# Prints the config digest, or nothing when the node cannot tell us. Empty is never read as
+# agreement by the caller above: unproven is a red, not a shrug.
+resolve_config() {
+  local d="$1"
+  [ -n "$d" ] || return 0
+  "${SSH[@]}" "python3 - $d <<'RESOLVE'
+import json, subprocess, sys
+
+def blob(digest):
+    out = subprocess.run(['k3s', 'ctr', '-n', 'k8s.io', 'content', 'get', digest],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        return None
+    try:
+        return json.loads(out.stdout)
+    except ValueError:
+        return None
+
+doc = blob(sys.argv[1])
+if doc is None:
+    raise SystemExit(0)
+
+# An index: follow the entry for this machine's platform. Attestation entries carry no platform
+# and must not be followed — they are about the image, not the image.
+if 'manifests' in doc:
+    for entry in doc['manifests']:
+        platform = entry.get('platform') or {}
+        if platform.get('architecture') == 'amd64' and platform.get('os') == 'linux':
+            doc = blob(entry['digest'])
+            break
+    else:
+        raise SystemExit(0)
+
+if doc and 'config' in doc:
+    print(doc['config']['digest'])
+RESOLVE" 2>/dev/null || true
 }
 
 # ── A PLATFORM IMAGE: ROLLED, NEVER BUILT ─────────────────────────────────────────────────────
@@ -276,19 +356,19 @@ ship publishes there first}"
   # find.
   for svc in "${svcs[@]}"; do
     case "$(kind_of "$svc")" in
-      console)  roll_console || rc=1 ;;
-      platform) ship_platform_one "$svc" || rc=1 ;;
+      console)  roll_console || { rc=1; FAILED+=("$svc"); } ;;
+      platform) ship_platform_one "$svc" || { rc=1; FAILED+=("$svc"); } ;;
       ours)
         local digest
         digest="$(pinned_digest "$svc")"
         if [ -z "$digest" ]; then
           red "$svc: publish reported success but wrote no digest — refusing to roll a guess"
-          rc=1; continue
+          rc=1; FAILED+=("$svc"); continue
         fi
         say "$svc · 3/4 sync + roll"
-        sync_and_roll "$svc" "$digest" || { rc=1; continue; }
+        sync_and_roll "$svc" "$digest" || { rc=1; FAILED+=("$svc"); continue; }
         say "$svc · 4/4 verify"
-        verify_running "$svc" "$digest" || rc=1
+        verify_running "$svc" "$digest" || { rc=1; FAILED+=("$svc"); }
         ;;
     esac
   done
@@ -300,11 +380,27 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
+# WHAT FAILED, AND NOTHING ELSE. This used to close with «did not ship: $*» — every service the
+# operator named. One shipment verified six services green and one red, and the last line called
+# all seven failures. The last line is the one line everybody reads.
+FAILED=()
+
 if ship_many "$@"; then
   echo
   grn "shipped: $* — every one running the digest its declaration names"
   exit 0
 fi
 echo
-red "did not ship: $*"
+if [ ${#FAILED[@]} -gt 0 ]; then
+  red "did not ship: ${FAILED[*]}"
+  shipped=()
+  for svc in "$@"; do
+    case " ${FAILED[*]} " in *" $svc "*) ;; *) shipped+=("$svc") ;; esac
+  done
+  [ ${#shipped[@]} -gt 0 ] && grn "shipped: ${shipped[*]}"
+else
+  # A FAILURE NOBODY ATTRIBUTED — publish died before any service was rolled, most likely. Naming
+  # the whole list is correct here and only here, because none of them got as far as a rollout.
+  red "did not ship: $* (failed before any rollout)"
+fi
 exit 1

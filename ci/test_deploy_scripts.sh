@@ -143,6 +143,15 @@ check "ship.sh rewrites no image reference at all" \
 check "ship.sh carries no image to the node" \
       "$(grep -vE '^\s*#' "$ROOT/deploy/ship.sh" | grep -cE 'docker save|ctr images import')" "0"
 
+# ── the ship's proof reaches content, and its summary names only what failed ───────────────────
+# MEASURED, NOT ASSUMED. A shipment verified six services green and one red; the red one was a
+# multi-arch image whose pinned INDEX digest and reported `imageID` are two different names for
+# the same manifest and the same config. The proof called a good shipment bad, and then the last
+# line called all seven bad.
+check "verify resolves the pinned digest to content"       "$(grep -c 'resolve_config' "$ROOT/deploy/ship.sh")" "3"
+check "the summary is built from a collected failure set"       "$(grep -c 'FAILED\[\*\]' "$ROOT/deploy/ship.sh")" "2"
+check 'no bare "did not ship: $*" line remains'       "$(grep -c 'did not ship: \$\*"$' "$ROOT/deploy/ship.sh")" "0"
+
 # ── every deploy script still parses ──────────────────────────────────────────────────────────
 # COUNTED, AND THE TICK IS CONDITIONAL (د-12). `ok "every deploy script parses"` used to run
 # UNCONDITIONALLY after the loop: a script with a syntax error printed its own red line and then

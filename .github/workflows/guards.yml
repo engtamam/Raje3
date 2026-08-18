@@ -574,6 +574,13 @@ jobs:
       - name: the public address reaches every service that composes one
         run: python3 ci/check_the_public_address_reaches_every_service_that_composes_one.py
 
+      # AND THE INSTRUMENT ITSELF. #300 exists because the ship's proof once said green over an
+      # old image; this is the same instrument lying the other way — calling a good shipment bad
+      # by comparing an index digest to an imageID, then naming all seven services as failures
+      # when one failed. A proof that cries wolf gets muted, and the next real drift ships behind.
+      - name: the ship verifies content and names only what failed
+        run: python3 ci/check_the_ship_verifies_content_and_names_only_what_failed.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.
