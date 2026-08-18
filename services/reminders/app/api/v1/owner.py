@@ -384,6 +384,13 @@ async def preview_reason(request: Request, reason_id: str,
             body = body.replace("{{" + str(i) + "}}", value)
         options.append({"name": row.get("name", ""), "tone": row.get("tone", ""),
                         "text": body, "mine": False,
+                        # AND THE SHAPE THE EXAMPLE CAME FROM. Tamam, reading the sheet: «العميل
+                        # يقرأ الرسالة ما يعرف وين الفراغات». A filled example is what his
+                        # customer receives; it is not what the message IS. Without the blanks he
+                        # cannot tell which words are his shop's forever and which change per
+                        # person — and if he wants to write his own he has no idea where the
+                        # blanks go.
+                        "template": _with_named_blanks(row),
                         # CAN THIS ONE ACTUALLY GO OUT TODAY — asked of the account, not assumed.
                         # `approved` is filled below in one read rather than one per row.
                         "approved": None, "status": "", "reason": ""})
@@ -411,7 +418,8 @@ async def preview_reason(request: Request, reason_id: str,
                         "approved": row.get("status") == APPROVED,
                         # HIS OWN WORDS WITH THE BLANKS SHOWN FILLED, by what each blank MEANS —
                         # his numbering is his, not the library's.
-                        "text": _fill_custom(row, establishment=establishment)})
+                        "text": _fill_custom(row, establishment=establishment),
+                        "template": _with_named_blanks(row)})
 
     chosen = (await ChoiceStore(c.datastore).load(_tenant(principal))).template_name(reason_id)
     # WHY THE LIST IS EMPTY, WHEN IT IS — because there are three reasons and they belong to three
@@ -438,6 +446,28 @@ async def preview_reason(request: Request, reason_id: str,
     return {"reason": TR.public(reason), "options": options, "chosen": chosen,
             "empty_because": empty_because,
             "tone": getattr(shop, "tone", "") or "brief"}
+
+
+def _with_named_blanks(row: dict) -> str:
+    """The wording as it is WRITTEN — every blank replaced by what fills it, in his words.
+
+    NOT `{{1}}`, WHICH IS META'S NUMBERING AND MEANS NOTHING TO A SHOP OWNER. `{{2}}` is a
+    customer's name in one template and a service in the next; the numbers are positions, and the
+    only thing that carries meaning is the `fills` list beside them. So the blank is shown as
+    «[اسم العميل]» — the same word the editor puts on its chips, from `reasons.SLOT_LABEL`, so one
+    vocabulary describes a blank everywhere it appears.
+
+    A BLANK WITH NO DECLARED MEANING STAYS A NUMBER rather than being guessed at. A wrong name
+    over a blank is worse than a bare one: he would write his own text around a promise the
+    template does not keep.
+    """
+    from app.core import reasons as TR
+    body = str(row.get("body") or "")
+    for i, kind in enumerate(list(row.get("fills") or []), start=1):
+        label = TR.SLOT_LABEL.get(kind, "")
+        if label:
+            body = body.replace("{{" + str(i) + "}}", f"[{label}]")
+    return body
 
 
 def _fill_custom(row: dict, *, establishment: str) -> str:

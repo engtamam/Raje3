@@ -85,3 +85,24 @@ def test_the_same_pass_would_not_send_a_promotion(st):
     sender = FakeSender()
     go(st, sender, library=STOPPING_LIB, public_base_url="")
     assert sender.calls == []
+
+
+def test_no_consent_line_claims_a_benefit_the_shop_may_not_have():
+    """TAMAM CAUGHT THIS TWICE, AND THE SECOND TIME IS THE ONE WORTH KEEPING.
+
+    The first fix corrected only the line used when there is no address. The LINKED one — the one
+    that actually goes out once a shop has a public page — still said «ولك عندنا مزايا خاصة», and
+    the granted line said «ومزاياك الخاصة مفعّلة». Both assert that this shop is running something
+    for this customer. We do not know that. A shop may have no offer at all, and then a message in
+    the shop's name has told his customer something untrue — at the moment right after a visit,
+    when the customer trusts it most.
+
+    WHAT IS TRUE WHATEVER THE SHOP IS DOING is the channel, never the contents: would you like our
+    offers to reach you on WhatsApp, and yes they will reach you there. So every line here is
+    about WHERE a message arrives, and none of them about what it will contain.
+    """
+    for line in (I.NOT_GRANTED, I.GRANTED, I.WITHDRAWN, I.NOT_GRANTED_NO_LINK):
+        assert "مزايا" not in line and "مزاياك" not in line, line
+        # AND NO PRICE OR DISCOUNT EITHER, for the separate reason that a utility text which sells
+        # is re-categorised by Meta as marketing — and then it needs consent to be sent at all.
+        assert "خصم" not in line and "%" not in line, line

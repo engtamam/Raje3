@@ -27,6 +27,8 @@ import type { Session } from '../session';
 
 export interface Option {
   name: string; tone: string; text: string; mine?: boolean;
+  /** The wording AS WRITTEN, with «[اسم العميل]» where a blank is — see the sheet. */
+  template?: string;
   /** Can this wording actually leave today, on HIS number. `null`/absent is NOT KNOWN — the
    *  reader that answers it says so when it could not ask, and a verdict we did not get must
    *  never be drawn as one. */
@@ -292,7 +294,7 @@ export function MessagePreview({
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="text-sm font-medium">الصيغ المتاحة</h3>
                 <span className="text-xs text-text-secondary">
-                  اضغط الصيغة لتقرأها كاملة كما تصل عميلك.
+                  اضغط الصيغة لتقرأ قالبها كما هو مكتوب، ومثالاً كما يصل عميلك.
                 </span>
               </div>
 
@@ -327,6 +329,26 @@ export function MessagePreview({
 
                       {isOpen ? (
                         <div className="flex flex-col gap-3 border-t border-border-subtle bg-surface-2 px-3 py-3">
+                          {/* ── THE SHAPE, THEN THE EXAMPLE ────────────────────────────
+                              TAMAM, READING THIS SHEET: «العميل يقرا الرساله ما يعرف وين
+                              الفراغات». What was here was the filled example alone — what his
+                              customer receives — and from it he cannot tell which words are his
+                              shop's forever and which change with every person. If he then wants
+                              to write his own, he has no idea where the blanks belong.
+
+                              THE BLANKS ARE NAMED, NOT NUMBERED. `{{2}}` is a customer in one
+                              wording and a service in the next; the number is a position. The
+                              server substitutes the meaning from the same vocabulary the editor
+                              puts on its chips, so one word describes a blank everywhere. */}
+                          {o.template && o.template !== o.text ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-text-secondary">القالب كما هو مكتوب</span>
+                              <p className="whitespace-pre-wrap rounded-card bg-surface-1 px-3 py-2
+                                            text-sm text-text-secondary">
+                                {o.template}
+                              </p>
+                            </div>
+                          ) : null}
                           <Bubble text={o.text} caption={o.mine ? 'نصّك' : TONE[o.tone] ?? o.tone} />
                           {/* META'S OWN WORDS when it refused. Re-wording a refusal sends him
                               looking for a problem we invented. */}
