@@ -471,6 +471,38 @@ else
        service messages are unaffected, marketing cannot be sent"
 fi
 
+# ── 4b2 ───────────────────────────────────────────────────────────────────────────────────────
+# THE ARCHIVE'S OWN BUCKET — same shape as PUBLIC_BASE_URL just above, one step up: install.sh is
+# the one that REFUSES an unset bucket (a machine already carrying another machine's bucket name
+# must never be silently accepted), so by the time this step runs OSS_BUCKET is either a real
+# answer or the installer explicitly said REUSE_ARCHIVE_BUCKET=1. This step only ever WRITES —
+# an empty OSS_BUCKET here means bring-up.sh was invoked directly, outside install.sh's gate, and
+# the values file's own bucket is left exactly as it is, same as DOMAIN above.
+step "archive bucket -- shared out"
+if [ -n "${OSS_BUCKET:-}" ] && [ -n "${OSS_ENDPOINT:-}" ]; then
+  # THE REGION IS DERIVED, NEVER ASKED TWICE. OSS names its region in the endpoint's own host
+  # (`oss-me-central-1.aliyuncs.com` -> `me-central-1`) — a second prompt for the same fact is a
+  # second place it can be told two different answers.
+  OSS_REGION="$(printf '%s' "$OSS_ENDPOINT" | sed -E 's#^https?://oss-([a-z0-9-]+)\.aliyuncs\.com/?$#\1#')"
+  [ "$OSS_REGION" != "$OSS_ENDPOINT" ] || OSS_REGION="us-east-1"   # not an Alibaba OSS host — a
+                                                                    # generic S3-compatible fallback
+  f="$ROOT/deploy/services/backup-service.values.yaml"
+  if grep -qE '^[[:space:]]*OBJECTSTORE_BUCKET:[[:space:]]*' "$f"; then
+    kubectl -n "$NS" get cm backup-service >/dev/null 2>&1 && {
+      kubectl -n "$NS" patch cm backup-service --type=merge -p "$(cat <<PATCHEOF
+{"data":{"OBJECTSTORE_BUCKET":"$OSS_BUCKET","OBJECTSTORE_ENDPOINT_URL":"$OSS_ENDPOINT","OBJECTSTORE_REGION":"$OSS_REGION"}}
+PATCHEOF
+)" >/dev/null
+      kubectl -n "$NS" rollout restart deploy backup-service >/dev/null 2>&1 || true
+      ok "archive bucket $OSS_BUCKET given to backup-service"
+    } || warn "backup-service not deployed yet -- the bucket answer is in the values file for its first rollout"
+  fi
+else
+  warn "no OSS_BUCKET given to bring-up.sh directly: backup-service keeps whatever bucket
+       deploy/services/backup-service.values.yaml already names -- correct only if this really is
+       the same machine that bucket belongs to"
+fi
+
 # ── 4c ────────────────────────────────────────────────────────────────────────────────────────
 # THE AUDIT CHAIN'S KEY — ours for the same reason the keypair is.
 #

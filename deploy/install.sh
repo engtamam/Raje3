@@ -25,7 +25,8 @@
 #       wreckage read exactly like a product defect.
 #
 #  Env that skips a prompt: DOMAIN · ACME_EMAIL · ADMIN_EMAIL · ADMIN_PASSWORD · GHCR_USER ·
-#                           GHCR_TOKEN · WIPE=1 (destructive) · ASSUME_YES=1
+#                           GHCR_TOKEN · OSS_BUCKET · OSS_ENDPOINT ·
+#                           WIPE=1 (destructive) · ASSUME_YES=1 · REUSE_ARCHIVE_BUCKET=1
 # ==================================================================================================
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -102,6 +103,27 @@ fi
 [ -z "${GHCR_USER:-}" ]  && GHCR_USER="$(_ask 'مستخدم ghcr.io' "${GHCR_USER_SAVED:-}")"
 [ -z "${GHCR_TOKEN:-}" ] && GHCR_TOKEN="$(_asks 'رمز ghcr.io (read:packages) — مخفي')"
 
+# THE ARCHIVE'S OWN BUCKET, PER MACHINE — not a fleet-wide constant, and NO SILENT FALLBACK. Two
+# clusters pointed at one bucket mix their backups: a restore on cluster B could pull cluster A's
+# data with nothing anywhere saying so. So an empty answer here is not "keep whatever the file
+# says" — the repo's file already names a REAL bucket belonging to a real, specific machine, and
+# treating silence as consent to reuse it is exactly the defect this prompt exists to prevent.
+#
+# REUSE MUST BE SAID, NOT DEFAULTED INTO. Reusing the repo's own bucket on purpose (this IS that
+# same machine, re-run) needs `REUSE_ARCHIVE_BUCKET=1` explicitly — the same shape as `WIPE=1` for
+# a destructive default: a real decision, spelled out, never the quiet consequence of pressing
+# Enter.
+[ -z "${OSS_BUCKET:-}" ]   && OSS_BUCKET="$(_ask 'حاوية OSS للنسخ الاحتياطي (إلزامي لكل خادم)' "${OSS_BUCKET_SAVED:-}")"
+[ -z "${OSS_ENDPOINT:-}" ] && OSS_ENDPOINT="$(_ask 'عنوان OSS (مثال https://oss-me-central-1.aliyuncs.com)' "${OSS_ENDPOINT_SAVED:-}")"
+if [ -n "$OSS_BUCKET" ] && [ -z "$OSS_ENDPOINT" ]; then
+  die "اسم حاوية بلا عنوان OSS — الاثنان معاً أو لا شيء، وإلا حُفظ الاسم بلا وجهة."
+fi
+if [ -z "$OSS_BUCKET" ] && [ "${REUSE_ARCHIVE_BUCKET:-0}" != "1" ]; then
+  die "لا حاوية أرشيف مُدخَلة. هذا الملف يحمل حاوية خادمٍ آخر بالفعل — تركها فارغة يخلط أرشيف
+       خادمين بصمت. أدخل حاوية هذا الخادم الآن، أو إن كنت تقصد إعادة استعمال نفس الحاوية عمداً
+       (نفس الخادم يُثبَّت من جديد) شغّل بـ REUSE_ARCHIVE_BUCKET=1"
+fi
+
 [ -n "${ADMIN_EMAIL:-}" ] || warn "بلا حساب إدارة — يمكن إنشاؤه لاحقاً"
 [ -n "${GHCR_TOKEN:-}" ]  || warn "بلا رمز صور — السحب سيفشل إن كانت الصور خاصة"
 
@@ -113,6 +135,8 @@ DOMAIN_SAVED="${DOMAIN:-}"
 ACME_EMAIL_SAVED="${ACME_EMAIL:-}"
 ADMIN_EMAIL_SAVED="${ADMIN_EMAIL:-}"
 GHCR_USER_SAVED="${GHCR_USER:-}"
+OSS_BUCKET_SAVED="${OSS_BUCKET:-}"
+OSS_ENDPOINT_SAVED="${OSS_ENDPOINT:-}"
 CONFEOF
 chmod 600 "$CONF"
 
@@ -121,12 +145,13 @@ echo -e "  النطاق        ${C_B}${DOMAIN:-—(محلي)}${C_N}"
 echo -e "  شهادات        ${C_B}${ACME_EMAIL}${C_N}"
 echo -e "  حساب الإدارة  ${C_B}${ADMIN_EMAIL:-—}${C_N}"
 echo -e "  الصور         ${C_B}${GHCR_USER:-—}${C_N} ${C_D}(الرمز لا يُعرض ولا يُحفظ)${C_N}"
+echo -e "  حاوية الأرشيف ${C_B}${OSS_BUCKET:-—(ما في الملف)}${C_N}"
 if [ "${ASSUME_YES:-0}" != "1" ] && _tty; then
   read -r -p "ابدأ التثبيت؟ [y/N]: " go </dev/tty || true
   case "${go:-}" in y|Y|yes|نعم) ;; *) die "أُلغي — لم يُمسّ شيء";; esac
 fi
 
-export DOMAIN ACME_EMAIL ADMIN_EMAIL ADMIN_PASSWORD GHCR_USER GHCR_TOKEN
+export DOMAIN ACME_EMAIL ADMIN_EMAIL ADMIN_PASSWORD GHCR_USER GHCR_TOKEN OSS_BUCKET OSS_ENDPOINT
 
 # ── 1 · the registry credential, before k3s starts ────────────────────────────────────────────
 # ONLY THE FILE HERE — the cluster-side secret is minted by bring-up.sh, in the first second a
