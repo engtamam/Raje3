@@ -49,6 +49,10 @@ from typing import Any
 from app.core.sending_identity import SEPARATOR as SI_SEPARATOR
 
 CONNECTIONS = "whatsapp_connections"
+#: How far each scheduled sweep has got. One row per (sweep, tenant), holding only when it was last
+#: done — the smallest thing that turns a capped pass from «the same head every hour» into a
+#: rotation that reaches everybody.
+SWEEP_MARKS = "sweep_marks"
 
 # The six steps Meta names when the owner cancels. A CLOSED vocabulary, transcribed from its
 # documentation rather than invented: an unknown step is recorded as-is instead of being mapped to
@@ -303,7 +307,19 @@ class ConnectionStore:
                 for r in rows if r.get("tenant"))
         return out[:cap]
 
-    async def live_tenants(self, *, limit: int = 500) -> list[str]:
+    async def mark_swept(self, sweep: str, tenant: str, at: int) -> None:
+        """Record that `sweep` has just finished with `tenant`.
+
+        A SEPARATE COLLECTION, NOT A FIELD ON THE CONNECTION. A tenant may hold several connection
+        rows — one per branch — so «which row carries the mark» would have no honest answer, and
+        `record()` rewrites a connection row whole, which would erase a marker written between two
+        connects. A mark is about a SWEEP's progress, not about a number.
+        """
+        await self._s.put(SWEEP_MARKS, f"{sweep}|{tenant}",
+                          {"id": f"{sweep}|{tenant}", "sweep": sweep, "tenant": tenant,
+                           "at": int(at)})
+
+    async def live_tenants(self, *, limit: int = 500, sweep: str = "") -> list[str]:
         """Every establishment whose connection reached WhatsApp — the sweep's work list.
 
         BOTH LIVE STATES, and the second is the one that matters. `finished_unconfirmed` means the
@@ -313,19 +329,51 @@ class ConnectionStore:
 
         A cap rather than a full scan: a sweep is a repair pass that runs again in an hour, and
         progress beats completeness on a repair path.
+
+        AND `sweep` IS WHAT MAKES «PROGRESS» TRUE RATHER THAN A HOPE. Without it this returned the
+        newest connections first, every hour, in the same order — so a pass that ran out of window
+        did not resume where it stopped; it restarted at the head and re-did the same shops. The
+        establishments at the end of the list were never reached at all, and for
+        `template-publish` that means their library is never registered, no template is ever
+        approved, and the send path refuses every message for ever. Green screen, silent shop.
+
+        Given a sweep name the order becomes LEAST-RECENTLY-SWEPT FIRST, so each run takes the
+        oldest slice and every shop comes round in a bounded number of ticks. A shop with no mark
+        sorts first, which is the honest reading of «never done».
+
+        THE ORDERING IS DONE HERE RATHER THAN IN THE QUERY, deliberately: the marks live in their
+        own collection, so no store needs to support a join or a sort over a field that may not
+        exist on a row. The live set is read whole (the cap is 2000 against a fleet in the
+        hundreds) and ordered in hand — exact, and free of any driver's opinion about missing keys.
         """
         # ONE QUERY PER STATE, not one scan filtered in memory: the datastore refuses an empty
         # `where` on purpose (scan_all exists for whole-collection reads and is not what a sweep
         # of live connections wants), and a filtered read stays cheap as the fleet grows.
         cap = max(1, min(2000, limit))
+        # THE WHOLE LIVE SET IS READ, and only then cut. Reading `cap` rows and cutting there would
+        # rotate inside a window that never moves — the newest `cap` shops would take turns among
+        # themselves while everything behind them stayed invisible.
+        wide = 2000
         out: list[str] = []
         for state in (STATE_CONNECTED, STATE_FINISHED_UNCONFIRMED):
-            rows, _ = await self._s.find(CONNECTIONS, {"state": state}, limit=cap,
+            rows, _ = await self._s.find(CONNECTIONS, {"state": state}, limit=wide,
                                          sort=("at", "desc"))
             for row in rows:
                 tenant = str(row.get("tenant") or "")
                 if tenant and tenant not in out:
                     out.append(tenant)
+        if not sweep:
+            return out[:cap]
+
+        marks: dict[str, int] = {}
+        rows, _ = await self._s.find(SWEEP_MARKS, {"sweep": sweep}, limit=wide, sort=("at", "asc"))
+        for row in rows:
+            tenant = str(row.get("tenant") or "")
+            if tenant:
+                marks[tenant] = int(row.get("at") or 0)
+        # STABLE, so two shops that have never been swept keep the order the read gave them — which
+        # is newest-first, and right: a shop that connected this morning wants its library today.
+        out.sort(key=lambda t: marks.get(t, 0))
         return out[:cap]
 
 

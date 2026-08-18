@@ -166,6 +166,20 @@ class Settings(BaseSettings):
     # Short, and it runs after the response anyway — a slow index must never hold a worker.
     SEARCH_TIMEOUT_SECONDS: int = 5
 
+    # THE MOST VISIT ROWS ONE READ MAY CARRY — and it is the SAME NUMBER insights asks for.
+    #
+    # It was `le=1000`, written straight into the route's request model, while insights asked for
+    # `SNAPSHOT_VISIT_LIMIT: 5000`. Neither number was wrong on its own: 5000 is what ninety-day
+    # indicators need on a busy shop, 1000 is what one response may comfortably hold. Nothing had
+    # ever compared them, so every snapshot computation was refused 422 before it reached any
+    # logic — the dashboard was never computed for any establishment, and the owner's «حدّث الآن»
+    # answered 500.
+    #
+    # DECLARED HERE RATHER THAN INLINE so there is one place to change and one place to read, and
+    # paired with insights' own name in `ci/check_paired_config.py`: two processes cannot share a
+    # variable, and a gate that fails the build the day they differ is the closest honest thing.
+    VISITS_PAGE_MAX: int = 5000
+
     # ── consent gate — ask before processing personal data ────────────────────
     # compliance-service served consent-check with ZERO callers for four phases: the control was
     # built and nothing consulted it. `null` answers UNKNOWN (never ALLOWED — a gate that invented

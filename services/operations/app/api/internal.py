@@ -748,7 +748,11 @@ class VisitsSinceIn(BaseModel):
     # Exclusive watermark. The caller stores the highest `created` it has processed and asks for
     # what came after — a cursor it owns, not a subscription we owe it.
     since: int = Field(ge=0)
-    limit: int = Field(default=200, ge=1, le=1000)
+    # THE CEILING COMES FROM CONFIG, NOT FROM A LITERAL. Written here as `le=1000` it was invisible
+    # to the service that had to respect it, and insights asked for five thousand — so every
+    # snapshot was refused 422 before any work was done. Now both sides read one declared number
+    # and `ci/check_paired_config.py` fails the build the day they part.
+    limit: int = Field(default=200, ge=1, le=get_settings().VISITS_PAGE_MAX)
     # NEWEST FIRST, FOR THE READER THAT WANTS A WINDOW RATHER THAN A CATCH-UP.
     #
     # The catch-up needs ascending: a watermark that skips a row is a visit no consumer will ever
@@ -1279,6 +1283,16 @@ async def visits_reseam(request: Request) -> dict:
 #: one event, and racing a request that is about to succeed costs a duplicate of both.
 _RESEAM_AFTER = 300
 
+#: Names for the two hourly template passes' rotation cursors.
+#:
+#: ONE EACH, NOT ONE SHARED. They do different work at different costs — reading Meta's verdicts is
+#: a single call per shop, handing the library over is sixty-seven — so they run out of window at
+#: different places. A shared mark would let the cheap pass drag the expensive one's cursor past
+#: shops it had never published for, which is the starvation this rotation exists to end, hidden
+#: one level deeper.
+SWEEP_APPROVALS = "template-approvals"
+SWEEP_PUBLISH = "template-publish"
+
 
 @router.post("/operations/retention/sweep", dependencies=[Depends(require_internal_token)])
 async def retention_sweep(request: Request) -> dict:
@@ -1355,10 +1369,18 @@ async def sync_template_approvals(request: Request) -> dict:
         # with nothing to do — and that is the shape of the bug this whole route exists to fix.
         return {"ok": False, "configured": False, "tenants": 0, "synced": 0, "failed": 0}
 
-    tenants = await ConnectionStore(c.datastore).live_tenants(limit=s.TEMPLATE_SYNC_MAX_TENANTS)
+    # LEAST-RECENTLY-SYNCED FIRST, AND THE MARK IS WRITTEN AS WE GO. This used to take the newest
+    # connections, capped, in the same order every hour — so a pass that ran out of window restarted
+    # at the head rather than resuming, and the shops behind the cut were never read at all.
+    store = ConnectionStore(c.datastore)
+    tenants = await store.live_tenants(limit=s.TEMPLATE_SYNC_MAX_TENANTS, sweep=SWEEP_APPROVALS)
     synced = failed = 0
     for tenant in tenants:
         out = await approvals.sync(tenant)
+        # MARKED WHETHER IT SUCCEEDED OR NOT. A shop whose sync fails every time would otherwise
+        # keep its place at the head of the queue for ever and starve everybody behind it — the
+        # same defect one layer down. A failure is reported; it does not get priority.
+        await store.mark_swept(SWEEP_APPROVALS, tenant, int(time.time()))
         if out.get("ok", False) is False:
             failed += 1
             c.telemetry.event("template_sync_failed", tenant=tenant,
@@ -1402,10 +1424,16 @@ async def publish_template_libraries(request: Request) -> dict:
         return {"ok": False, "configured": False, "tenants": 0, "published": 0, "failed": 0}
 
     templates = await c.templates.list()
-    tenants = await ConnectionStore(c.datastore).live_tenants(limit=s.TEMPLATE_SYNC_MAX_TENANTS)
+    # THE SLOWEST PASS IN THE FLEET, AND THE ONE STARVATION COST MOST. One shop here is 66 register
+    # calls plus a drain, so a handful of them can fill an entire window — and the shops that never
+    # came round had no template registered at all, which means no template approved, which means
+    # the send path refuses every message they will ever try to send.
+    store = ConnectionStore(c.datastore)
+    tenants = await store.live_tenants(limit=s.TEMPLATE_SYNC_MAX_TENANTS, sweep=SWEEP_PUBLISH)
     published = failed = 0
     for tenant in tenants:
         out = await publish(c.library, templates, tenant)
+        await store.mark_swept(SWEEP_PUBLISH, tenant, int(time.time()))
         if out.get("failed") or not out.get("drain", {}).get("ok", False):
             failed += 1
             c.telemetry.event("template_publish_failed", tenant=tenant,

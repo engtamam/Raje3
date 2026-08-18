@@ -117,6 +117,12 @@ env:
   # Short, and it runs after the response anyway. A slow index must never hold a worker.
   SEARCH_TIMEOUT_SECONDS: "5"
 
+  # THE CEILING ON ONE VISITS READ — the same number insights asks for, and it must stay that way.
+  # `ci/check_paired_config.py` fails the build if this and insights' SNAPSHOT_VISIT_LIMIT differ,
+  # because they did: 1000 here against 5000 there meant every snapshot was refused 422 and the
+  # dashboard was never computed for anybody.
+  VISITS_PAGE_MAX: "5000"
+
   # SEATS AND BRANCHES, AS GAUGES. This service owns both counts, so this service reports them —
   # billing holds the limit and no list. Reported as the whole number after every change, never
   # incremented: a gauge that is incremented only ever rises, so a deleted employee never gives

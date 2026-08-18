@@ -397,7 +397,23 @@ async def refresh(request: Request, principal: Principal = Depends(_READ)) -> di
         return {"ok": False, "computed_at": computed_at,
                 "message": f"حُدّثت قبل قليل — جرّب بعد {minutes} دقيقة."}
 
-    fresh = await c.tick.compute(tenant, now=now)
+    # A PEER'S REFUSAL IS NOT A CRASH, AND THE OWNER MUST NOT READ ONE.
+    #
+    # This was an unguarded call, so the day operations answered 422 — its `limit` ceiling was
+    # 1000 while this service asked for 5000 — the owner pressing «حدّث الآن» got a bare 500 and
+    # the console logged `POST /api/v1/insights/refresh 500`. Nothing on the screen said what had
+    # happened, and the same 422 was silently failing every nightly computation as well.
+    #
+    # The number is one shared declaration now (VISITS_PAGE_MAX / SNAPSHOT_VISIT_LIMIT, paired in
+    # ci/check_paired_config.py) so this exact cause cannot return. This guard is for the NEXT
+    # one: whatever a peer refuses, he is told we could not refresh — a sentence he can act on by
+    # waiting — rather than shown our stack trace's status code.
+    try:
+        fresh = await c.tick.compute(tenant, now=now)
+    except Exception:                                  # noqa: BLE001 — any peer failure, one answer
+        c.telemetry.event("insights_refresh_failed", tenant=tenant)
+        return {"ok": False, "computed_at": computed_at,
+                "message": "تعذّر التحديث الآن — والخلل عندنا. أرقامك محفوظة، جرّب بعد قليل."}
     return {"ok": True, "computed_at": fresh.computed_at, "visits": fresh.visits}
 
 
