@@ -60,9 +60,12 @@ def build_manifest(
         # leaving it empty is correct; the point is that it must be a decision, not a leftover.
         # THE PLATFORM OPERATOR SURFACE, inherited from _template and kept: `platform.secrets` and
         # `platform.config` are what admin_actions.py's operator routes enforce (secrets/config
-        # get/set/clear, the ping check). No domain capabilities yet — bookings.read/write/manage
-        # or similar arrive with the routes that need them (Stage 3+, docs/خطة-تنفيذ-الحجوزات.md).
-        "capabilities": ["platform.secrets", "platform.config"],
+        # get/set/clear, the ping check). `bookings.read`/`bookings.write` (Stage 6,
+        # docs/خطة-تنفيذ-الحجوزات.md) are the domain capabilities app/api/v1/bookings.py enforces —
+        # matching app/core/licence.py's own read/write asymmetry: read opens the grid, write is
+        # everything that grows or changes a commitment (create/edit/cancel), and licence itself
+        # decides underneath which of those a lapsed subscription may still do (attend/no_show).
+        "capabilities": ["platform.secrets", "platform.config", "bookings.read", "bookings.write"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -95,12 +98,23 @@ def build_manifest(
             {"path": "/api/v1/operator/config", "tier": "user", "method": "GET"},
             {"path": "/api/v1/operator/config", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/operator/config/{}", "tier": "user", "method": "DELETE"},
+            # Stage 6 (docs/خطة-تنفيذ-الحجوزات.md §6): the grid's own read, and every write
+            # app/core/operations.py::BookingOperations exposes.
+            {"path": "/api/v1/bookings", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/bookings/{}/reschedule", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/services", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/note", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/cancel", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/attend", "tier": "user", "method": "PATCH"},
+            {"path": "/api/v1/bookings/{}/no-show", "tier": "user", "method": "PATCH"},
         ],
         "ports": ports or [],  # port -> driver, from the composition root
         # FILL THIS too, or leave it empty deliberately. Same trap as capabilities: an empty
         # `emitted` reads as "this service publishes nothing", so a consumer wiring against it
         # subscribes to nothing and fails silently rather than at boot.
-        "events": {"emitted": [], "consumed": []},  # e.g. {"emitted": ["wallet.credited"], ...}
+        # `bookings.booking.changed` (§5): what `reminders` schedules the confirmation from.
+        "events": {"emitted": ["bookings.booking.changed"], "consumed": []},
         "admin_actions": _admin_actions(),
         "backup": _backup(),
         "user_actions": _user_actions(),

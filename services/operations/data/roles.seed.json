@@ -32,6 +32,8 @@
         "loyalty.read",
         "loyalty.redeem",
         "loyalty.manage",
+        "bookings.read",
+        "bookings.write",
         "billing.read",
         "billing.manage",
         "billing.self",
@@ -81,6 +83,8 @@
         "loyalty.read",
         "loyalty.redeem",
         "loyalty.manage",
+        "bookings.read",
+        "bookings.write",
         "insights.read",
         "compliance.self",
         "compliance.manage"
@@ -119,6 +123,8 @@
         "analytics.read",
         "loyalty.read",
         "loyalty.redeem",
+        "bookings.read",
+        "bookings.write",
         "insights.read",
         "compliance.self"
       ]
@@ -126,13 +132,15 @@
     {
       "name": "operator",
       "label": "الموظف الميداني",
-      "description": "تسجيل الزيارات فقط. صلاحية واحدة، وهي التصميم لا اختصاراً: شاشته شاشة واحدة (4.1)، وكل صلاحية زائدة عنصرُ قائمة يمرّ عليه مئة مرة في اليوم.",
+      "description": "تسجيل الزيارات، والحجوزات. صلاحيتان لا اختصاراً: شاشته شاشة واحدة (4.1)، لكن من يحجز لعميلةٍ هو نفسه من يفتح زيارتها حين تحضر (docs/وصف-تطبيق-الحجوزات.md §2.5) — بابان لنظامٍ واحد، لا نظامان يتزامنان.",
       "protected": false,
       "capabilities": [
         "operations.record",
         "search.read",
         "loyalty.read",
         "loyalty.redeem",
+        "bookings.read",
+        "bookings.write",
         "compliance.self"
       ]
     },

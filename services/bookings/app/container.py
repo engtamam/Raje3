@@ -246,6 +246,8 @@ def build_container(settings: Settings) -> Container:
     container.durations = _build_duration_lookup(settings)
     container.visit_gateway = _build_visit_gateway(settings)
     container.subject_ref_lookup = _build_subject_ref_lookup(settings)
+    from app.adapters.branch_scope import build as build_branch_scope
+    container.branch_scope = build_branch_scope(settings)
     container.booking_ops = BookingOperations(
         datastore=container.datastore, bookings=container.bookings,
         durations=DurationLookup(lookup=container.durations), licence=container.licence,

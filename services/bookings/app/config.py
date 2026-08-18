@@ -192,6 +192,8 @@ class Settings(BaseSettings):
     OPERATIONS_VISIT_FROM_CUSTOMER_PATH: str = "/internal/operations/visits/from-customer"
     # The customer's pseudonym (§5, §6.5) — the third peer question, same URL, a third path.
     OPERATIONS_SUBJECT_REF_PATH: str = "/internal/operations/customers/subject-ref"
+    # Which branch a caller may act for (§6, Stage 6) — the fourth peer question, same URL.
+    OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.

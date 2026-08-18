@@ -31,4 +31,56 @@ from __future__ import annotations
 from typing import Any
 
 
-USER_ACTIONS: list[dict[str, Any]] = []
+USER_ACTIONS: list[dict[str, Any]] = [
+    {
+        "id": "bookings.list", "label": "جدول الحجوزات", "method": "GET",
+        "path": "/api/v1/bookings", "capability": "bookings.read",
+        "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
+                  {"name": "date", "in": "query", "type": "string", "required": True}],
+        "group": "الحجوزات",
+    },
+    {
+        "id": "bookings.create", "label": "حجز جديد", "method": "POST",
+        "path": "/api/v1/bookings", "capability": "bookings.write",
+        "group": "الحجوزات",
+    },
+    {
+        "id": "bookings.reschedule", "label": "تعديل الموعد", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/reschedule", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        # THE DRAG-AND-DROP IS THIS CALL (§6.1.1 من مستند القرارات) — لا مسارٌ ثانٍ.
+    },
+    {
+        "id": "bookings.edit_services", "label": "تعديل الخدمات", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/services", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحجوزات",
+    },
+    {
+        "id": "bookings.edit_note", "label": "تعديل الملاحظة", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/note", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحجوزات",
+    },
+    {
+        "id": "bookings.cancel", "label": "إلغاء الحجز", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/cancel", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "الحجوزات",
+    },
+    {
+        "id": "bookings.attend", "label": "تسجيل الحضور", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/attend", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        # مسموحةٌ حتى على اشتراكٍ منتهٍ (app/core/licence.py) — إغلاق حجزٍ قائم ليس النصف
+        # النامي أبداً.
+    },
+    {
+        "id": "bookings.no_show", "label": "تسجيل عدم الحضور", "method": "PATCH",
+        "path": "/api/v1/bookings/{booking_id}/no-show", "capability": "bookings.write",
+        "params": [{"name": "booking_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True, "group": "الحجوزات",
+    },
+]
