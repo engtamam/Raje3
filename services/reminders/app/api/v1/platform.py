@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from app.api.auth import Principal
 from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
@@ -80,7 +81,7 @@ async def get_limits(request: Request, tenant: str = "",
     }
 
 
-@router.put("/limits", dependencies=[Depends(rate_limit)])
+@router.put("/limits", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def set_limits(request: Request, body: LimitsIn, tenant: str = "",
                      principal: Principal = Depends(_PLATFORM)) -> dict:
     """Raise or lower the caps, globally or for one establishment.
@@ -107,7 +108,7 @@ async def set_limits(request: Request, body: LimitsIn, tenant: str = "",
             "note": "يسري على الرسائل القادمة. النافذة الزمنية لا تتغيّر — نظامية."}
 
 
-@router.delete("/limits", dependencies=[Depends(rate_limit)])
+@router.delete("/limits", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def clear_limits(request: Request, tenant: str = "",
                        principal: Principal = Depends(_PLATFORM)) -> dict:
     """Remove an override and fall back to the product default.
@@ -195,7 +196,7 @@ async def template_help_queue(request: Request, status: str = "open") -> dict:
 
 
 @router.post("/template-help/{name}/answer",
-             dependencies=[Depends(_PLATFORM), Depends(rate_limit)])
+             dependencies=[Depends(no_subscription_needed), Depends(_PLATFORM), Depends(rate_limit)])
 async def answer_template_help(request: Request, name: str, body: AnswerIn,
                                principal: Principal = Depends(_PLATFORM)) -> dict:
     """Answer one, and close it. The answer goes back to the screen he asked from.

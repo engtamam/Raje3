@@ -496,6 +496,26 @@ class Settings(BaseSettings):
                 f"AUDIT_SERVICE_URL {self.AUDIT_SERVICE_URL!r} must start with http:// or https://"
             )
 
+    def assert_subscription_config_ok(self) -> None:
+        """Boot guard. A deployment that cannot ask about a subscription gives the product away.
+
+        `build_base_licence` returns `NullBaseLicence` when billing is not wired, and it allows
+        every write. That is right for tests and fatal in production: the base is the thing every
+        shop pays for, and a null licence is a silent decision to charge nobody. It would look
+        exactly like a healthy service for as long as nobody thought to check.
+
+        This is the same shape as the audit guard above, and it exists for the same reason: the
+        failure is invisible from the outside, so it has to be refused at boot, once.
+        """
+        if not self.is_production:
+            return
+        if not self.BILLING_SERVICE_URL or not self.BILLING_CHECK_PATH:
+            raise ValueError(
+                "BILLING_SERVICE_URL/BILLING_CHECK_PATH are empty in production: the base licence "
+                "would fall back to the null driver and every write would be allowed, so an "
+                "expired shop — and a shop that never subscribed — would keep using the product."
+            )
+
     def assert_consent_config_ok(self) -> None:
         """Boot guard. A service that gates processing on consent must be able to ask.
 

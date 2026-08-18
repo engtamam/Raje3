@@ -47,6 +47,7 @@ from app.core import shop_mode as SM
 from app.core import vehicles as V
 from app.core.signup import SignupRefused
 from app.core.stores import BranchStore, OperatorStore, ServiceStore, new_id
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
 router = APIRouter(prefix="/staff", tags=["staff"])
@@ -85,7 +86,7 @@ class OperatorIn(BaseModel):
 
 
 @router.post("/operators", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def create_operator(request: Request, body: OperatorIn,
                           principal: Principal = Depends(_MANAGE)) -> dict:
     tenant = _tenant(principal)
@@ -168,7 +169,7 @@ class MemberIn(BaseModel):
 
 
 @router.post("/members", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def hire_member(request: Request, body: MemberIn,
                       principal: Principal = Depends(_MANAGE)) -> dict:
     """Hire somebody: an account he signs in with, a role, and the branch he works at.
@@ -291,7 +292,7 @@ class OperatorPatch(BaseModel):
     active: bool | None = None
 
 
-@router.patch("/operators/{operator_id}", dependencies=[Depends(rate_limit)])
+@router.patch("/operators/{operator_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_operator(request: Request, operator_id: str, body: OperatorPatch,
                           principal: Principal = Depends(_MANAGE)) -> dict:
     """Move somebody to a branch, rename him, or stop him.
@@ -419,7 +420,7 @@ class PinVerifyIn(BaseModel):
     pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
 
 
-@router.post("/operators/verify-pin", dependencies=[Depends(rate_limit)])
+@router.post("/operators/verify-pin", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def verify_pin(request: Request, body: PinVerifyIn,
                      principal: Principal = Depends(_READ)) -> dict:
     """Confirm which operator is saving. Called by the field screen at the moment of saving.
@@ -487,7 +488,7 @@ async def read_mode(request: Request, principal: Principal = Depends(_READ)) -> 
     return {**row, "available": SM.PER_BRANCH in _modes_available(request)}
 
 
-@router.put("/mode", dependencies=[Depends(rate_limit)])
+@router.put("/mode", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_mode(request: Request, body: ModeIn,
                    principal: Principal = Depends(_MANAGE)) -> dict:
     """Move to per-branch. One way, and never back from this screen — see core/shop_mode.py."""
@@ -522,7 +523,7 @@ async def read_vehicles(request: Request, principal: Principal = Depends(_READ))
     return {"tracks_vehicle": tracks}
 
 
-@router.put("/vehicles", dependencies=[Depends(rate_limit)])
+@router.put("/vehicles", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_vehicles(request: Request, body: VehiclesIn,
                        principal: Principal = Depends(_MANAGE)) -> dict:
     """Turn the plate page on or off for this establishment.
@@ -549,7 +550,7 @@ class ShopNameIn(BaseModel):
     name: str = Field(min_length=1, max_length=256)
 
 
-@router.put("/shop-name", dependencies=[Depends(rate_limit)])
+@router.put("/shop-name", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_shop_name(request: Request, body: ShopNameIn,
                         principal: Principal = Depends(_MANAGE)) -> Any:
     """The shop's name — ONE name, and the owner can change it.
@@ -633,7 +634,7 @@ def _live(rows: list[Branch]) -> int:
 
 
 @router.post("/branches", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def create_branch(request: Request, body: BranchIn,
                         principal: Principal = Depends(_MANAGE)) -> dict:
     tenant = _tenant(principal)
@@ -668,7 +669,7 @@ async def create_branch(request: Request, body: BranchIn,
     return b.public()
 
 
-@router.patch("/branches/{branch_id}", dependencies=[Depends(rate_limit)])
+@router.patch("/branches/{branch_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                         principal: Principal = Depends(_MANAGE)) -> dict:
     """Rename a branch, or close one — and NEVER delete one.
@@ -834,7 +835,7 @@ async def list_services(request: Request, include_retired: bool = False,
 
 
 @router.post("/services", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def create_service(request: Request, body: ServiceIn,
                          principal: Principal = Depends(_MANAGE)) -> dict:
     tenant = _tenant(principal)
@@ -856,7 +857,7 @@ class ServicePatch(BaseModel):
     sort: int | None = Field(default=None, ge=0, le=9999)
 
 
-@router.patch("/services/{service_id}", dependencies=[Depends(rate_limit)])
+@router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_service(request: Request, service_id: str, body: ServicePatch,
                          principal: Principal = Depends(_MANAGE)) -> dict:
     """Edit a catalogue entry.

@@ -19,6 +19,7 @@ from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core import connect
 from app.core import sending_identity as SI
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -60,7 +61,7 @@ class SignupResultIn(BaseModel):
     detail: str = Field(default="", max_length=400)
 
 
-@router.post("/connect", dependencies=[Depends(rate_limit)])
+@router.post("/connect", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def whatsapp_connect(request: Request, body: SignupResultIn,
                            background: BackgroundTasks, principal=Depends(_OWNER)) -> Any:
     """Receive the Embedded Signup result and act on it inside this request.
@@ -287,7 +288,7 @@ _REGISTER_SENTENCE = {
 _REGISTER_FALLBACK = "تعذّر تفعيل الإرسال الآن. حاول بعد قليل، ولا تكرّر المحاولة كثيراً."
 
 
-@router.post("/connect/register", dependencies=[Depends(rate_limit)])
+@router.post("/connect/register", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def whatsapp_register(request: Request, body: RegisterIn,
                             principal=Depends(_OWNER)) -> Any:
     """Finish the connection: register the number so it can actually send.

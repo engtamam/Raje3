@@ -88,6 +88,11 @@ const LIMIT_WORDS: Record<string, { label: string; unit?: string }> = {
   'feature.campaigns': { label: 'حملات على شرائح عملائك' },
   'feature.insights.engine': { label: 'فرصي: أين الفرصة في محلّك' },
   'feature.api': { label: 'ربط برمجي مع أنظمتك' },
+  // THE BASE ITSELF, and it has a sentence for the same reason every other key does: it is
+  // charged for, so the page where he decides must name it. «سجلّ الزيارات» rather than «الأساس»
+  // — the card is already titled الأساس, and repeating the title tells him nothing about what
+  // the money buys.
+  'feature.base': { label: 'سجلّ الزيارات والتذكيرات' },
 };
 
 // Halalas on the wire, riyals on the screen — see money.ts. This rounded to whole riyals, so a
@@ -500,86 +505,96 @@ export function PlansPane({
           AND IT IS WHAT MAKES THE NEXT APP CHEAP TO ADD. Invoicing and CRM arrive as rows in the
           price list; this screen groups by what a row GRANTS, so neither needs a line here. */}
 
-      {/* ── 1 · the base ─────────────────────────────────────────────────────────────────── */}
-      {bases.length ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
-          {/* HALF THE WIDTH, ON THE SAME GRID AS THE APPS BELOW IT. Full-bleed, the base card alone
-              was taller than the fold and pushed «السعة» off the screen entirely — he had to scroll
-              to learn that a second branch is for sale. The three sections are one decision. */}
-          <ul className="grid gap-3 md:grid-cols-2">
-            {bases.map((p) => (
-              <li key={p.id}>
-                <PlanCard
-                  plan={p}
-                  owned={hasBase}
-                  busy={busy}
-                  sellable={Boolean(canSubscribe && pay?.enabled)}
-                  onBuy={() => choose(p)}
-                  ownedLabel="اشتراكك"
-                  buyLabel="فعّل الأساس"
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      {/* ── THE THREE OF THEM IN ONE LOOK ──────────────────────────────────────────────────
+          ONE DECISION, NOT THREE PAGES. Stacked full-width, «السعة» sat below two other sections
+          and an owner who wanted a second branch had to scroll past everything he already had to
+          learn a second branch was for sale. Two columns on a wide screen: what he pays for and
+          what he can add to it on one side, the apps that plug into it on the other. Below `lg`
+          it falls back to the same stack, because on a phone there is no beside. */}
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="flex flex-col gap-4">
+        {/* ── 1 · the base ─────────────────────────────────────────────────────────────────── */}
+        {bases.length ? (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
+            {/* HALF THE WIDTH, ON THE SAME GRID AS THE APPS BELOW IT. Full-bleed, the base card alone
+                was taller than the fold and pushed «السعة» off the screen entirely — he had to scroll
+                to learn that a second branch is for sale. The three sections are one decision. */}
+            <ul className="grid gap-3 md:grid-cols-2">
+              {bases.map((p) => (
+                <li key={p.id}>
+                  <PlanCard
+                    plan={p}
+                    owned={hasBase}
+                    busy={busy}
+                    sellable={Boolean(canSubscribe && pay?.enabled)}
+                    onBuy={() => choose(p)}
+                    ownedLabel="اشتراكك"
+                    buyLabel="فعّل الأساس"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
-      {/* ── 2 · the apps ─────────────────────────────────────────────────────────────────── */}
-      {apps.length ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm text-text-secondary">التطبيقات</h2>
-          {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
-              after he presses. operations refuses the pair regardless; this is so he never meets
-              that refusal. */}
-          {hasBase === false ? (
-            <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
-          ) : null}
-          <ul className="grid gap-3 md:grid-cols-2">
-            {apps.map((p) => (
-              <li key={p.id}>
-                <PlanCard
-                  plan={p}
-                  owned={owns(owned ?? null, appKey(p))}
-                  busy={busy}
-                  sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
-                  onBuy={() => choose(p)}
-                  ownedLabel="مفعّل"
-                  buyLabel="أضِفه"
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        {/* ── 3 · capacity ────────────────────────────────────────────────────────────────────
+            THE TWO ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a
+            two-branch shop that wanted nothing else had to buy a whole tier for the second branch.
+            They are bought AGAIN rather than owned: each purchase adds to what he has. */}
+        {capacity.length ? (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm text-text-secondary">السعة</h2>
+            {/* THREE UP, BECAUSE THERE IS ALMOST NOTHING TO READ. A capacity row carries one feature
+                line — «فروع: 1» — so a half-width card is mostly empty space, and empty space here
+                costs the height that «السعة» needs to be visible at all. */}
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {capacity.map((p) => (
+                <li key={p.id}>
+                  <PlanCard
+                    plan={p}
+                    owned={false}
+                    busy={busy}
+                    sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                    onBuy={() => choose(p)}
+                    ownedLabel=""
+                    buyLabel="أضِف"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        </div>
+        {/* ── 2 · the apps ─────────────────────────────────────────────────────────────────── */}
+        {apps.length ? (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-sm text-text-secondary">التطبيقات</h2>
+            {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
+                after he presses. operations refuses the pair regardless; this is so he never meets
+                that refusal. */}
+            {hasBase === false ? (
+              <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
+            ) : null}
+            <ul className="grid gap-3 md:grid-cols-2">
+              {apps.map((p) => (
+                <li key={p.id}>
+                  <PlanCard
+                    plan={p}
+                    owned={owns(owned ?? null, appKey(p))}
+                    busy={busy}
+                    sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                    onBuy={() => choose(p)}
+                    ownedLabel="مفعّل"
+                    buyLabel="أضِفه"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </div>
 
-      {/* ── 3 · capacity ────────────────────────────────────────────────────────────────────
-          THE TWO ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a
-          two-branch shop that wanted nothing else had to buy a whole tier for the second branch.
-          They are bought AGAIN rather than owned: each purchase adds to what he has. */}
-      {capacity.length ? (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-sm text-text-secondary">السعة</h2>
-          {/* THREE UP, BECAUSE THERE IS ALMOST NOTHING TO READ. A capacity row carries one feature
-              line — «فروع: 1» — so a half-width card is mostly empty space, and empty space here
-              costs the height that «السعة» needs to be visible at all. */}
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {capacity.map((p) => (
-              <li key={p.id}>
-                <PlanCard
-                  plan={p}
-                  owned={false}
-                  busy={busy}
-                  sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
-                  onBuy={() => choose(p)}
-                  ownedLabel=""
-                  buyLabel="أضِف"
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </div>
   );
 }

@@ -31,6 +31,7 @@ from app.core import operator_ticket as OT
 from app.core import plate as P
 from app.core import vehicles as V
 from app.core.operations import OperationError, Operations
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
 router = APIRouter(prefix="/field", tags=["field"])
@@ -98,7 +99,7 @@ class VisitIn(BaseModel):
     occurred_at: int = Field(default=0, ge=0)
 
 
-@router.post("/visits", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit)])
+@router.post("/visits", status_code=status.HTTP_201_CREATED, dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def record_visit(request: Request, body: VisitIn, background: BackgroundTasks,
                        principal: Principal = Depends(_RECORD)) -> dict:
     """Record a visit. This endpoint is the product, as far as the shop floor is concerned."""
@@ -263,7 +264,7 @@ class ResolveIn(BaseModel):
     refs: list[str] = Field(default_factory=list, max_length=200)
 
 
-@router.post("/customers/resolve", dependencies=[Depends(rate_limit)])
+@router.post("/customers/resolve", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def resolve_customers(request: Request, body: ResolveIn, branch_id: str = "",
                             principal: Principal = Depends(_READ)) -> dict:
     """Turn a list of `subject_ref` pseudonyms into this establishment's customers.
@@ -378,7 +379,7 @@ class RenameIn(BaseModel):
     name: str = Field(default="", max_length=120)
 
 
-@router.patch("/customers/{customer_id}", dependencies=[Depends(rate_limit)])
+@router.patch("/customers/{customer_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def rename_customer(request: Request, customer_id: str, body: RenameIn,
                           principal: Principal = Depends(_RECORD)) -> dict:
     """Name a customer who arrived without one (§4.3).
@@ -394,7 +395,7 @@ async def rename_customer(request: Request, customer_id: str, body: RenameIn,
     return {"ok": True, "customer": {"id": c.id, "name": c.name}}
 
 
-@router.post("/customers/{customer_id}/erase", dependencies=[Depends(rate_limit)])
+@router.post("/customers/{customer_id}/erase", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def erase_customer(request: Request, customer_id: str, authorization: str = Header(""),
                          principal: Principal = Depends(_MANAGE)) -> dict:
     """«امسح بياناتي» — honoured by the shop that was asked, in the shop's own screen.
@@ -468,7 +469,7 @@ async def privacy_requests(request: Request, principal: Principal = Depends(_MAN
     return {"requests": [r.public() for r in rows]}
 
 
-@router.post("/privacy-requests/{request_id}/close", dependencies=[Depends(rate_limit)])
+@router.post("/privacy-requests/{request_id}/close", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def close_privacy_request(request: Request, request_id: str,
                                 principal: Principal = Depends(_MANAGE)) -> dict:
     """Answered. WHO closed it is kept — «we answered him» is a claim that needs a name on it.
@@ -549,7 +550,7 @@ class ApplyOfferIn(BaseModel):
     subject_ref: str = Field(min_length=8, max_length=128)
 
 
-@router.post("/visits/{visit_id}/offer", dependencies=[Depends(rate_limit)])
+@router.post("/visits/{visit_id}/offer", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def apply_offer(request: Request, visit_id: str, body: ApplyOfferIn,
                       principal: Principal = Depends(_RECORD)) -> dict:
     """Record that an offer was applied to this visit — the tap that proves it (§5.6.2).

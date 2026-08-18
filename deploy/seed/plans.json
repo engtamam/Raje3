@@ -67,9 +67,7 @@
     "2,000 after (spec 6.2.2). A second ceiling from us on top of theirs is a number he explains",
     "twice and understands once."
   ],
-
   "currency": "SAR",
-
   "limit_keys": {
     "messages.monthly": "measured, never sold — see the note above. Uncapped, on the BASE ONLY",
     "staff.seats": "people who can sign in; operations owns the count and reports it",
@@ -78,9 +76,9 @@
     "feature.loyalty": "the points programme (§9)",
     "feature.insights.engine": "the association engine (§10.6) — the one thing nobody else has",
     "feature.api": "the programmatic link: a till writing visits in the shop's name",
-    "templates.custom": "templates he writes himself and submits to Meta, per month"
+    "templates.custom": "templates he writes himself and submits to Meta, per month",
+    "feature.base": "the base itself — the visit register. Enforced on every write in operations and reminders (core/base_licence.py); a lapsed month keeps reading and stops writing"
   },
-
   "_removed": [
     "feature.roles.custom IS GONE, and its absence is the honest state. It was sold on every tier",
     "and the product has three fixed roles with no screen that creates a fourth — a line on an",
@@ -88,7 +86,6 @@
     "guard stopped counting a price-list LABEL as enforcement. It comes back the day it is built,",
     "as its own app row, and nobody was charged for it in the meantime."
   ],
-
   "plans": [
     {
       "_": [
@@ -108,17 +105,48 @@
       ],
       "name": "الأساس",
       "amount": 9900,
-      "trial_days": 14,
+      "trial_days": 30,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": "unlimited", "period": "billing_period",
-                             "overage": "allow_and_bill"},
-        "staff.seats": {"kind": "gauge", "limit": 5},
-        "branches": {"kind": "gauge", "limit": 1},
-        "feature.campaigns": {"kind": "boolean", "limit": 0},
-        "feature.loyalty": {"kind": "boolean", "limit": 0},
-        "feature.insights.engine": {"kind": "boolean", "limit": 0},
-        "feature.api": {"kind": "boolean", "limit": 1},
-        "templates.custom": {"kind": "counter", "limit": 0, "period": "month", "overage": "block"}
+        "messages.monthly": {
+          "kind": "counter",
+          "limit": "unlimited",
+          "period": "billing_period",
+          "overage": "allow_and_bill"
+        },
+        "staff.seats": {
+          "kind": "gauge",
+          "limit": 5
+        },
+        "branches": {
+          "kind": "gauge",
+          "limit": 1
+        },
+        "feature.campaigns": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.loyalty": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.insights.engine": {
+          "kind": "boolean",
+          "limit": 0
+        },
+        "feature.api": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "templates.custom": {
+          "kind": "counter",
+          "limit": 0,
+          "period": "month",
+          "overage": "block"
+        },
+        "feature.base": {
+          "kind": "boolean",
+          "limit": 1
+        }
       }
     },
     {
@@ -141,8 +169,16 @@
       "amount": 9900,
       "trial_days": 0,
       "limits": {
-        "feature.campaigns": {"kind": "boolean", "limit": 1},
-        "templates.custom": {"kind": "counter", "limit": 1, "period": "month", "overage": "block"}
+        "feature.campaigns": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "templates.custom": {
+          "kind": "counter",
+          "limit": 1,
+          "period": "month",
+          "overage": "block"
+        }
       }
     },
     {
@@ -150,7 +186,10 @@
       "amount": 9900,
       "trial_days": 0,
       "limits": {
-        "feature.loyalty": {"kind": "boolean", "limit": 1}
+        "feature.loyalty": {
+          "kind": "boolean",
+          "limit": 1
+        }
       }
     },
     {
@@ -158,8 +197,16 @@
       "amount": 9900,
       "trial_days": 0,
       "limits": {
-        "feature.insights.engine": {"kind": "boolean", "limit": 1},
-        "templates.custom": {"kind": "counter", "limit": 9, "period": "month", "overage": "block"}
+        "feature.insights.engine": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "templates.custom": {
+          "kind": "counter",
+          "limit": 9,
+          "period": "month",
+          "overage": "block"
+        }
       }
     },
     {
@@ -180,7 +227,10 @@
       "amount": 5000,
       "trial_days": 0,
       "limits": {
-        "staff.seats": {"kind": "gauge", "limit": 10}
+        "staff.seats": {
+          "kind": "gauge",
+          "limit": 10
+        }
       }
     },
     {
@@ -188,7 +238,10 @@
       "amount": 7500,
       "trial_days": 0,
       "limits": {
-        "branches": {"kind": "gauge", "limit": 1}
+        "branches": {
+          "kind": "gauge",
+          "limit": 1
+        }
       }
     },
     {
@@ -208,19 +261,49 @@
       ],
       "name": "المؤسسات",
       "amount": 0,
-      "trial_days": 0,
+      "trial_days": 30,
       "listed": false,
       "limits": {
-        "messages.monthly": {"kind": "counter", "limit": "unlimited", "period": "billing_period",
-                             "overage": "allow_and_bill"},
-        "staff.seats": {"kind": "gauge", "limit": "unlimited"},
-        "branches": {"kind": "gauge", "limit": "unlimited"},
-        "feature.campaigns": {"kind": "boolean", "limit": 1},
-        "feature.loyalty": {"kind": "boolean", "limit": 1},
-        "feature.insights.engine": {"kind": "boolean", "limit": 1},
-        "feature.api": {"kind": "boolean", "limit": 1},
-        "templates.custom": {"kind": "counter", "limit": "unlimited", "period": "month",
-                             "overage": "block"}
+        "messages.monthly": {
+          "kind": "counter",
+          "limit": "unlimited",
+          "period": "billing_period",
+          "overage": "allow_and_bill"
+        },
+        "staff.seats": {
+          "kind": "gauge",
+          "limit": "unlimited"
+        },
+        "branches": {
+          "kind": "gauge",
+          "limit": "unlimited"
+        },
+        "feature.campaigns": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "feature.loyalty": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "feature.insights.engine": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "feature.api": {
+          "kind": "boolean",
+          "limit": 1
+        },
+        "templates.custom": {
+          "kind": "counter",
+          "limit": "unlimited",
+          "period": "month",
+          "overage": "block"
+        },
+        "feature.base": {
+          "kind": "boolean",
+          "limit": 1
+        }
       }
     }
   ]

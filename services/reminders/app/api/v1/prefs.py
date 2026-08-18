@@ -38,6 +38,7 @@ from app.api.ratelimit import rate_limit
 from app.core.consent import Consent, GRANTED, WITHDRAWN
 from app.core.models import SendLog, CLASSES, Preferences, as_row
 from app.core.stores import PrefsStore, SendLogStore
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 router = APIRouter(prefix="/prefs", tags=["prefs"])
 
@@ -105,7 +106,7 @@ class PrefsIn(BaseModel):
     stopped: list[str] = Field(default_factory=list, max_length=5)
 
 
-@router.put("/{ref}", dependencies=[Depends(rate_limit)])
+@router.put("/{ref}", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def set_prefs(request: Request, ref: str, body: PrefsIn) -> dict:
     """Switch classes off, or back on.
 

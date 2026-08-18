@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     # A service that cannot witness its own privileged actions must not serve traffic as if it can.
     settings.assert_audit_config_ok()
+    settings.assert_subscription_config_ok()
     settings.assert_pii_config_ok()
     settings.assert_cors_config_ok()
     settings.assert_search_config_ok()

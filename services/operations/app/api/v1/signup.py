@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from app.api.ratelimit import rate_limit
 from app.core.signup import NewShop, SignupRefused
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 router = APIRouter(prefix="/signup", tags=["signup"])
 
@@ -78,7 +79,7 @@ def _refused(exc: SignupRefused) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
-@router.post("", dependencies=[Depends(rate_limit)])
+@router.post("", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def open_shop(request: Request, body: OpenShopIn) -> Any:
     try:
         out = await _svc(request).open_shop(NewShop(
@@ -98,7 +99,7 @@ async def open_shop(request: Request, body: OpenShopIn) -> Any:
     return {"ok": True, **out}
 
 
-@router.post("/code", dependencies=[Depends(rate_limit)])
+@router.post("/code", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def send_code(request: Request, body: CodeIn) -> Any:
     try:
         return await _svc(request).send_code(body.phone)
@@ -106,7 +107,7 @@ async def send_code(request: Request, body: CodeIn) -> Any:
         return _refused(exc)
 
 
-@router.post("/verify", dependencies=[Depends(rate_limit)])
+@router.post("/verify", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def prove(request: Request, body: ProveIn) -> Any:
     """Spend the code HERE rather than at identity, so the verdict is written down.
 
@@ -120,7 +121,7 @@ async def prove(request: Request, body: ProveIn) -> Any:
         return _refused(exc)
 
 
-@router.post("/claim", dependencies=[Depends(rate_limit)])
+@router.post("/claim", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def claim(request: Request, body: ClaimIn) -> Any:
     """Open the shop a till company invited. Public — he has no token yet, that is the point.
 
@@ -139,7 +140,7 @@ async def claim(request: Request, body: ClaimIn) -> Any:
     return out
 
 
-@router.post("/signin", dependencies=[Depends(rate_limit)])
+@router.post("/signin", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def sign_in(request: Request, body: SignInIn) -> Any:
     try:
         return await _svc(request).sign_in(body.phone, body.password, body.code)

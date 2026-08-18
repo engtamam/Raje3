@@ -26,6 +26,7 @@ from app.config import get_settings
 from app.core.pii import subject_ref
 from app.core.runtime_config import RuntimeConfig, RuntimeConfigError
 from app.core.secret_store import SecretError, SecretStore
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 router = APIRouter(prefix="/api/v1/operator", tags=["operator"])
 
@@ -116,7 +117,7 @@ async def list_secrets(request: Request, tenant: str = "",
                          "rotating": i.rotating} for i in infos]}
 
 
-@router.put("/secrets", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
+@router.put("/secrets", dependencies=[Depends(no_subscription_needed), Depends(_SECRETS), Depends(rate_limit)])
 async def set_secret(request: Request, body: SecretIn,
                      principal: Principal = Depends(require_user)) -> dict:
     """Set or rotate a credential. The previous one stays valid for a bounded window.
@@ -136,7 +137,7 @@ async def set_secret(request: Request, body: SecretIn,
     return {"name": info.name, "hint": info.hint, "rotating": info.rotating}
 
 
-@router.delete("/secrets/{name}", dependencies=[Depends(_SECRETS), Depends(rate_limit)])
+@router.delete("/secrets/{name}", dependencies=[Depends(no_subscription_needed), Depends(_SECRETS), Depends(rate_limit)])
 async def clear_secret(request: Request, name: str, tenant: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """Remove a credential so the configured environment value applies again."""
@@ -159,7 +160,7 @@ async def effective_config(request: Request, tenant: str = "",
     return {"config": await rc.effective(tenant=tenant, settings=get_settings())}
 
 
-@router.put("/config", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+@router.put("/config", dependencies=[Depends(no_subscription_needed), Depends(_CONFIG), Depends(rate_limit)])
 async def set_config(request: Request, body: ConfigIn,
                      principal: Principal = Depends(require_user)) -> dict:
     """Override one policy value. Refused if the boot guard would refuse it."""
@@ -180,7 +181,7 @@ async def set_config(request: Request, body: ConfigIn,
     return {"key": o.key, "value": o.value}
 
 
-@router.delete("/config/{key}", dependencies=[Depends(_CONFIG), Depends(rate_limit)])
+@router.delete("/config/{key}", dependencies=[Depends(no_subscription_needed), Depends(_CONFIG), Depends(rate_limit)])
 async def clear_config(request: Request, key: str, tenant: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """Drop an override so the configured default applies again."""

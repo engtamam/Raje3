@@ -319,4 +319,9 @@ def build_container(settings: Settings) -> Container:
                           ceiling_defer_seconds=settings.CEILING_DEFER_SECONDS,
                           ceiling=container.ceiling,
                           public_base_url=settings.PUBLIC_BASE_URL)
+    # `feature.base`, asked on every owner write here for the same reason operations asks it: a
+    # lapsed shop keeps reading its schedules and stops editing them.
+    from app.core.base_licence import build_base_licence
+
+    container.base_licence = build_base_licence(settings)
     return container

@@ -20,6 +20,7 @@ from app.core.reach import Reach
 from app.core.spent import SpentUnknown, spent_refs
 from app.core import rendering as R
 from app.core.stores import RuleStore, ScheduleStore, SendLogStore, _sched_key
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 
 def _ops_url(request: Request) -> str:
@@ -70,7 +71,7 @@ async def list_schedule(request: Request, state: str = Query(default="pending"),
     return {"schedule": rows, "count": len(rows)}
 
 
-@router.delete("/schedule/{schedule_key:path}", dependencies=[Depends(rate_limit)])
+@router.delete("/schedule/{schedule_key:path}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def cancel(request: Request, schedule_key: str,
                  principal: Principal = Depends(_MANAGE)) -> dict:
     """Cancel one pending reminder.
@@ -147,7 +148,7 @@ class RuleIn(BaseModel):
     lead_days: float = Field(default=7, ge=0, le=60)
 
 
-@router.put("/rules/{rule_key:path}", dependencies=[Depends(rate_limit)])
+@router.put("/rules/{rule_key:path}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_rule(request: Request, rule_key: str, body: RuleIn,
                    principal: Principal = Depends(_MANAGE)) -> dict:
     """Override a learned interval.
@@ -312,7 +313,7 @@ async def list_reasons(request: Request, principal: Principal = Depends(_READ)) 
     return {"reasons": choices.public()}
 
 
-@router.put("/reasons/{reason_id}", dependencies=[Depends(rate_limit)])
+@router.put("/reasons/{reason_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_reason(request: Request, reason_id: str, body: ReasonIn,
                       principal: Principal = Depends(_MANAGE)) -> dict:
     """Switch one on or off, or point it at his own text.
@@ -509,7 +510,7 @@ async def list_custom_templates(request: Request, reason_id: str = "",
                             "version", "updated")} for r in rows]}
 
 
-@router.post("/templates", dependencies=[Depends(rate_limit)])
+@router.post("/templates", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def write_custom_template(request: Request, body: CustomTemplateIn,
                                 principal: Principal = Depends(_MANAGE)) -> dict:
     """Write one. It is a DRAFT — nothing reaches Meta until he says so.
@@ -533,7 +534,7 @@ async def write_custom_template(request: Request, body: CustomTemplateIn,
     return {"ok": True, "template": row.public()}
 
 
-@router.post("/templates/{name}/submit", dependencies=[Depends(rate_limit)])
+@router.post("/templates/{name}/submit", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def submit_custom_template(request: Request, name: str,
                                  principal: Principal = Depends(_MANAGE)) -> dict:
     """Hand HIS text to Meta, on his own number, with no review of ours in between.
@@ -625,7 +626,7 @@ class HelpIn(BaseModel):
     note: str = Field(default="", max_length=600)
 
 
-@router.post("/templates/{name}/help", dependencies=[Depends(rate_limit)])
+@router.post("/templates/{name}/help", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def ask_for_help(request: Request, name: str, body: HelpIn | None = None,
                        principal: Principal = Depends(_MANAGE)) -> dict:
     """«ساعدوني» — Meta refused his text, and this turns the refusal into a request we answer.
@@ -766,7 +767,7 @@ class DsarCodeOut(BaseModel):
     dsar_id: str = Field(min_length=1, max_length=128)
 
 
-@router.post("/dsar-code", dependencies=[Depends(rate_limit)])
+@router.post("/dsar-code", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def send_my_dsar_code(request: Request, body: DsarCodeOut,
                             principal: Principal = Depends(_READ)) -> dict:
     """Send ME the code that proves this request is mine (PDPL Article 4).
@@ -861,7 +862,7 @@ async def read_settings(request: Request, service_id: str = Query(default=""),
             "services": tree.services}
 
 
-@router.put("/settings", dependencies=[Depends(rate_limit)])
+@router.put("/settings", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_general_settings(request: Request, body: SettingsIn,
                                principal: Principal = Depends(_MANAGE)) -> dict:
     """Change the tenant-wide setting.
@@ -877,7 +878,7 @@ async def set_general_settings(request: Request, body: SettingsIn,
             "note": "يسري على كل خدمة تتبع الإعداد العام. الخدمات المخصّصة تبقى كما هي."}
 
 
-@router.put("/settings/service/{service_id}", dependencies=[Depends(rate_limit)])
+@router.put("/settings/service/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_service_settings(request: Request, service_id: str, body: SettingsIn,
                                principal: Principal = Depends(_MANAGE)) -> dict:
     """Give one service its own values — which is what "customising" means here."""
@@ -890,7 +891,7 @@ async def set_service_settings(request: Request, service_id: str, body: Settings
             "note": "هذه الخدمة لها إعدادها الخاص الآن. للعودة إلى العام احذف تخصيصها."}
 
 
-@router.delete("/settings/service/{service_id}", dependencies=[Depends(rate_limit)])
+@router.delete("/settings/service/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def follow_general_again(request: Request, service_id: str,
                                principal: Principal = Depends(_MANAGE)) -> dict:
     """The "tap to go back" the note offers.
@@ -911,7 +912,7 @@ class GroupIn(SettingsIn):
     service_ids: list[str] = Field(default_factory=list, max_length=200)
 
 
-@router.put("/settings/group/{name}", dependencies=[Depends(rate_limit)])
+@router.put("/settings/group/{name}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def set_group_settings(request: Request, name: str, body: GroupIn,
                              principal: Principal = Depends(_MANAGE)) -> dict:
     """Create or update a group. Arrives late and by suggestion — never as a step somebody must
@@ -926,7 +927,7 @@ async def set_group_settings(request: Request, name: str, body: GroupIn,
             "services": [s for s, g in tree.service_group.items() if g == name]}
 
 
-@router.delete("/settings/group/{name}/service/{service_id}", dependencies=[Depends(rate_limit)])
+@router.delete("/settings/group/{name}/service/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def leave_group(request: Request, name: str, service_id: str,
                       principal: Principal = Depends(_MANAGE)) -> dict:
     """Take one service out of its group.
@@ -943,7 +944,7 @@ async def leave_group(request: Request, name: str, service_id: str,
     return {"service_id": service_id, "group": "", "follows": "general"}
 
 
-@router.delete("/settings/group/{name}", dependencies=[Depends(rate_limit)])
+@router.delete("/settings/group/{name}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def delete_group(request: Request, name: str,
                        principal: Principal = Depends(_MANAGE)) -> dict:
     """Delete a group. Its members become ungrouped and keep whatever they hold of their own."""

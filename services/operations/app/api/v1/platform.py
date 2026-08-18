@@ -31,6 +31,7 @@ from app.core import evidence as EV
 from app.core.stores import PrivacyRequestStore
 from app.core.partners import PartnerError, PartnerRegistry
 from app.core.templates import TemplateError, TemplateLibrary
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 # The parent router in __init__ already carries /api/v1 — this prefix is appended to it.
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -112,7 +113,7 @@ async def list_templates(request: Request, cls: str = "", tone: str = "", model:
     return {"templates": await lib.list(cls=cls, tone=tone, active_only=False)}
 
 
-@router.put("/templates/{name}", dependencies=[Depends(rate_limit)])
+@router.put("/templates/{name}", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def upsert_template(request: Request, name: str, body: TemplateIn,
                           principal: Principal = Depends(_PLATFORM)) -> dict:
     """Create or replace a template — at runtime, with no rebuild and no restart.
@@ -133,7 +134,7 @@ async def upsert_template(request: Request, name: str, body: TemplateIn,
         return _refuse(str(exc))
 
 
-@router.delete("/templates/{name}", dependencies=[Depends(rate_limit)])
+@router.delete("/templates/{name}", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def deactivate_template(request: Request, name: str,
                               principal: Principal = Depends(_PLATFORM)) -> dict:
     """Deactivate, never delete. Establishments carry this name in their registry and Meta holds
@@ -163,7 +164,7 @@ async def list_partners(request: Request, principal: Principal = Depends(_PLATFO
     return {"partners": await reg.list()}
 
 
-@router.post("/partners", dependencies=[Depends(rate_limit)])
+@router.post("/partners", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def create_partner(request: Request, body: PartnerIn,
                          principal: Principal = Depends(_PLATFORM)) -> dict:
     """Register a partner and mint its key.
@@ -199,7 +200,7 @@ class RotateIn(BaseModel):
     overlap_days: int = Field(default=14, ge=0, le=90)
 
 
-@router.post("/partners/{partner_id}/rotate", dependencies=[Depends(rate_limit)])
+@router.post("/partners/{partner_id}/rotate", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def rotate_partner(request: Request, partner_id: str, body: RotateIn,
                          principal: Principal = Depends(_PLATFORM)) -> dict:
     """Issue a new key while the old one keeps working for a window that closes itself."""
@@ -217,7 +218,7 @@ async def rotate_partner(request: Request, partner_id: str, body: RotateIn,
             "note": "المفتاح القديم يعمل حتى التاريخ أعلاه ثم يتوقف تلقائياً."}
 
 
-@router.delete("/partners/{partner_id}", dependencies=[Depends(rate_limit)])
+@router.delete("/partners/{partner_id}", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def deactivate_partner(request: Request, partner_id: str,
                              principal: Principal = Depends(_PLATFORM)) -> dict:
     """Stop NEW attributions. Existing shops keep their stamp — they came through this partner
@@ -266,7 +267,7 @@ class StatementStateIn(BaseModel):
     paid_at: int = Field(default=0, ge=0)
 
 
-@router.post("/statements/{partner_id}/{period_start}/paid", dependencies=[Depends(rate_limit)])
+@router.post("/statements/{partner_id}/{period_start}/paid", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def mark_statement_paid(request: Request, partner_id: str, period_start: int,
                               body: StatementStateIn,
                               principal: Principal = Depends(_PLATFORM)) -> dict:
@@ -293,7 +294,7 @@ async def mark_statement_paid(request: Request, partner_id: str, period_start: i
 
 
 @router.post("/statements/{partner_id}/{period_start}/dispute",
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def dispute_statement(request: Request, partner_id: str, period_start: int,
                             body: StatementStateIn,
                             principal: Principal = Depends(_PLATFORM)) -> dict:
@@ -353,7 +354,7 @@ class SandboxIn(BaseModel):
     days: int = Field(default=30, ge=1, le=180)
 
 
-@router.post("/sandbox", dependencies=[Depends(rate_limit)])
+@router.post("/sandbox", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def mark_sandbox(request: Request, body: SandboxIn,
                        principal: Principal = Depends(_PLATFORM)) -> dict:
     """Label a shop as a sandbox — same routes, same rules, no money.
@@ -389,7 +390,7 @@ class EvidenceRequest(BaseModel):
     until: int = Field(default=0, ge=0)
 
 
-@router.post("/evidence", dependencies=[Depends(rate_limit)])
+@router.post("/evidence", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def evidence_file(request: Request, body: EvidenceRequest,
                         principal: Principal = Depends(_PLATFORM)) -> dict:
     """One establishment's evidence file, for whoever is handling the complaint.

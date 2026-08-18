@@ -21,6 +21,7 @@ from app.core import apps as app_catalogue
 from app.core.subscribe import held_keys, is_base, may_add, may_subscribe
 
 from app.api.ratelimit import rate_limit
+from app.api.subscribed import no_subscription_needed, subscribed_write
 
 #: EXACTLY WHAT billing KNOWS (platform/.../billing_service.py `_INTERVAL`). It reads an unknown
 #: word as a month rather than refusing it, so the refusal has to happen on this side.
@@ -105,7 +106,7 @@ async def apps(request: Request, principal=Depends(_OWNER)) -> dict:
     return app_catalogue.public(held, checked, base)
 
 
-@router.post("", dependencies=[Depends(rate_limit)])
+@router.post("", dependencies=[Depends(no_subscription_needed), Depends(rate_limit)])
 async def subscribe(request: Request, body: SubscribeIn,
                     principal=Depends(_OWNER)) -> JSONResponse:
     """Subscribe, once the one rule that is ours has been satisfied."""

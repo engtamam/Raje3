@@ -594,6 +594,14 @@ jobs:
       - name: one key names a schedule
         run: python3 ci/check_one_key_names_a_schedule.py
 
+      # THE BASE WAS THE ONLY PRODUCT NOBODY GUARDED. `feature.api`, `feature.campaigns`,
+      # `feature.loyalty` and `feature.insights.engine` each got a licence the moment someone
+      # noticed one route; the 99-a-month visit register — the thing every shop actually pays for
+      # — was enforced nowhere, and the cluster held no subscription row at all. The question now
+      # lives on the decorator, where one line answers it and this can read it.
+      - name: every write says whether it needs a subscription
+        run: python3 ci/check_every_write_says_whether_it_needs_a_subscription.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.

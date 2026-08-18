@@ -276,6 +276,11 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_api_licence
 
     container.api_licence = build_api_licence(settings)
+    # And `feature.base` — the 99-a-month product itself, which had no licence at all until the
+    # subscription gate. Asked on every write the owner makes; never on a read.
+    from app.core.base_licence import build_base_licence
+
+    container.base_licence = build_base_licence(settings)
     container.templates = TemplateLibrary(container.datastore)
     # The door. Built early, because a signup that cannot
     # seed a catalogue is a signup that lands the new owner on an empty «خدماتي».
