@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.models import key_of
+
 SCHEDULES = "schedules"
 RULES = "rules"
 SEND_LOG = "send_log"
@@ -129,8 +131,10 @@ class ScheduleStore(_Base):
         return n
 
 
-def _sched_key(row: dict[str, Any]) -> str:
-    return f"{row['tenant']}|{row['subject_ref']}|{row['service_id']}|{row['kind']}"
+#: KEPT AS A NAME, DELEGATED AS A BEHAVIOUR. `owner.py` imports this, so removing it would move
+#: the edit into a screen's API layer for no gain; what it must never do again is spell the key
+#: out. See `models.schedule_key` for what the second spelling cost.
+_sched_key = key_of
 
 
 class RuleStore(_Base):

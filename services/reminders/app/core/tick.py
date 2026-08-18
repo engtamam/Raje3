@@ -59,7 +59,7 @@ _DEFAULT_CEILING_DEFER = 12 * 3600
 # retrying a permanently rejected message» right.
 MAX_ATTEMPTS = 20
 from app.core import rendering as R
-from app.core.models import SendLog, as_row
+from app.core.models import SendLog, as_row, key_of
 from app.adapters.message_sender import CeilingReached, Unsendable
 from app.core.consent import Consent
 from app.core.stores import (CLAIM_LEASE_SECONDS, EngagementStore, PrefsStore, RuleStore,
@@ -1135,6 +1135,4 @@ def _send_key(row: dict[str, Any]) -> str:
     return "rem_" + hashlib.sha256(occasion.encode("utf-8")).hexdigest()[:32]
 
 
-def _key(row: dict[str, Any]) -> str:
-    return (f"{row.get('tenant','')}|{row.get('subject_ref','')}|"
-            f"{row.get('service_id','')}|{row.get('kind','')}")
+_key = key_of

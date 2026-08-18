@@ -587,6 +587,13 @@ jobs:
       - name: a tab that was removed still has somewhere to land
         run: python3 ci/check_a_tab_that_was_removed_still_has_somewhere_to_land.py
 
+      # A KEY IS AN IDENTITY, AND THREE WRITERS SPELLED IT THEMSELVES. All three predate the car
+      # segment and none grew it, so for every shop that services CARS they wrote to a key the row
+      # was not stored under: the owner's «أوقفها» landed on a copy while the tick kept reading
+      # the original. Nine hundred and fifty-seven tests passed throughout.
+      - name: one key names a schedule
+        run: python3 ci/check_one_key_names_a_schedule.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.

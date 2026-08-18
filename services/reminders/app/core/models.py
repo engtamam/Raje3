@@ -117,11 +117,51 @@ class Schedule:
     def key(self) -> str:
         """The natural key. Distinct from `id`: the id is stable for tracing, this is what a
         second visit collides with so it updates instead of duplicating."""
-        # THE ASSET IS PART OF IT, and an empty one changes nothing for the shops without cars —
-        # their key keeps the exact shape it had, so no existing schedule is orphaned by this.
-        return (f"{self.tenant}|{self.subject_ref}|{self.asset_id}"
-                f"|{self.service_id}|{self.kind}") if self.asset_id else (
-            f"{self.tenant}|{self.subject_ref}|{self.service_id}|{self.kind}")
+        return schedule_key(tenant=self.tenant, subject_ref=self.subject_ref,
+                            asset_id=self.asset_id, service_id=self.service_id, kind=self.kind)
+
+
+def schedule_key(*, tenant: str, subject_ref: str, asset_id: str, service_id: str,
+                 kind: str) -> str:
+    """WHERE A SCHEDULE'S NAME IS SPELLED, AND THE ONLY PLACE.
+
+    THE ASSET IS PART OF IT, and an empty one changes nothing for the shops without cars — their
+    key keeps the exact shape it had, so no existing schedule is orphaned.
+
+    WHY THIS IS A FUNCTION AND NOT JUST A PROPERTY. Three writers rebuilt this string by hand:
+    `stores.cancel_kind`, `internal` on the redeem-merge, and the tick's claim. All three predate
+    the asset segment and none grew it, so for every shop that services CARS they wrote to a key
+    the row was not stored under:
+
+        tenant|subject|ASSET|service|kind   pending, and the tick keeps reading it
+        tenant|subject|service|kind         cancelled, and nothing reads it at all
+
+    Measured on the cluster, not imagined: an owner pressed «أوقفها», the screen said done, the
+    audit recorded it — and the reminder was still pending. The cancel had written a second row
+    beside the first. A new visit could not supersede last month's reminder either (spec 5.6), and
+    the redeem-merge duplicated rather than merged.
+
+    A key is an identity. A second spelling of an identity is a second identity, and the copy that
+    drifts is always the one written far from the definition — so there is one, here, and callers
+    ask for it.
+    """
+    if asset_id:
+        return f"{tenant}|{subject_ref}|{asset_id}|{service_id}|{kind}"
+    return f"{tenant}|{subject_ref}|{service_id}|{kind}"
+
+
+def key_of(row: dict[str, Any]) -> str:
+    """The same name, for a row that came back from the store rather than a dataclass.
+
+    RECOMPUTED, NEVER READ OFF THE ROW: `key` is a property and `asdict` does not serialise
+    properties, so a stored row has no `key` field — trusting one would work in a test that
+    hand-built the dict and write to a fresh row in production.
+    """
+    return schedule_key(tenant=str(row.get("tenant") or ""),
+                        subject_ref=str(row.get("subject_ref") or ""),
+                        asset_id=str(row.get("asset_id") or ""),
+                        service_id=str(row.get("service_id") or ""),
+                        kind=str(row.get("kind") or ""))
 
 
 @dataclass

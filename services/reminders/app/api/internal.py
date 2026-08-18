@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from app.adapters.datastore.drain import drain
 from app.config import Settings, get_settings
 from app.core.erasure import RemindersErasure
+from app.core.models import key_of
 from app.api.v1.prefs import PrefsIn
 from app.core.stores import ScheduleStore, SendLogStore
 from app.core import backup as _backup
@@ -335,9 +336,7 @@ async def redemption(request: Request, body: RedemptionIn) -> dict:
     return {"merged": True, "schedule": row.get("id", ""), "template_type": row["template_type"]}
 
 
-def _sched_key(row: dict) -> str:
-    return (f"{row.get('tenant','')}|{row.get('subject_ref','')}|"
-            f"{row.get('service_id','')}|{row.get('kind','')}")
+_sched_key = key_of
 
 
 @router.post("/reminders/receipts/pull", dependencies=[Depends(require_internal_token)])
