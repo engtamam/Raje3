@@ -812,6 +812,11 @@ class ServiceIn(BaseModel):
     cycle_days: int = Field(default=0, ge=0, le=3650)
     # Minor units. No float ever touches an amount.
     price_minor: int = Field(default=0, ge=0)
+    # 0 means NOT CONFIGURED, read by bookings to derive availability (docs/خطة-تنفيذ-الحجوزات.md
+    # §2). Not defaulted to a guessed length here for the same reason `cycle_days` is not defaulted
+    # to 30 above — an invented duration would let bookings compute a slot nobody actually set.
+    # 720 = 12 hours, generous above any real salon/workshop service, still a real ceiling.
+    duration_minutes: int = Field(default=0, ge=0, le=720)
     sort: int = Field(default=0, ge=0, le=9999)
 
 
@@ -843,7 +848,8 @@ async def create_service(request: Request, body: ServiceIn,
         "service.created", actor=principal.subject, tenant=tenant, resource="service",
         ip=request.client.host if request.client else "")
     s = Service(id=new_id("srv"), tenant=tenant, name=body.name.strip(),
-                cycle_days=body.cycle_days, price_minor=body.price_minor, sort=body.sort,
+                cycle_days=body.cycle_days, price_minor=body.price_minor,
+                duration_minutes=body.duration_minutes, sort=body.sort,
                 created=int(time.time()))
     await ServiceStore(request.app.state.container.datastore).save(s)
     return s.public()
@@ -853,6 +859,7 @@ class ServicePatch(BaseModel):
     name: str | None = Field(default=None, max_length=128)
     cycle_days: int | None = Field(default=None, ge=0, le=3650)
     price_minor: int | None = Field(default=None, ge=0)
+    duration_minutes: int | None = Field(default=None, ge=0, le=720)
     active: bool | None = None
     sort: int | None = Field(default=None, ge=0, le=9999)
 
@@ -876,7 +883,7 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         "service.updated", actor=principal.subject, tenant=tenant,
         resource=f"service:{service_id}", ip=request.client.host if request.client else "")
 
-    for fld in ("name", "cycle_days", "price_minor", "active", "sort"):
+    for fld in ("name", "cycle_days", "price_minor", "duration_minutes", "active", "sort"):
         val = getattr(body, fld)
         if val is not None:
             setattr(s, fld, val.strip() if isinstance(val, str) else val)

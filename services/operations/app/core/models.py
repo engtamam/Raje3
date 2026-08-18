@@ -137,12 +137,19 @@ class Service:
 
     `cycle_days` is what `reminders` will read to schedule the next visit; 0 means the service has
     no natural cycle (a one-off repair) and generates no reminder.
+
+    `duration_minutes` is what bookings reads to derive availability (docs/خطة-تنفيذ-الحجوزات.md
+    §2/§4). 0 means NOT CONFIGURED — not "instant" and not a guessed default. A shop that has not
+    set it must not have a length silently invented for its services: bookings refuses to compute
+    a slot for a service whose duration is 0, and the console prompts the owner to set a real one.
+    Guessing here would be the same defect family as an unread config deciding policy.
     """
     id: str
     tenant: str
     name: str
     cycle_days: int = 0
     price_minor: int = 0             # minor units. No float ever touches an amount.
+    duration_minutes: int = 0        # 0 = not configured. See docstring — never defaulted silently.
     active: bool = True
     sort: int = 0                    # the field screen's grid order; the adaptive re-sort (§4.4)
                                      # overlays this rather than rewriting it
@@ -170,6 +177,7 @@ class Service:
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
                 "cycle_days": self.cycle_days, "price_minor": self.price_minor,
+                "duration_minutes": self.duration_minutes,
                 "active": self.active, "sort": self.sort, "catchall": self.catchall,
                 "external_id": self.external_id, "seeded": self.seeded, "created": self.created}
 
