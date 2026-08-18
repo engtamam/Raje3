@@ -43,8 +43,18 @@ check "a failed step is recorded" "${#FAILED[@]}" "1"
 check "the failed step is named" "${FAILED[0]}" "plans"
 
 # AND THE SHAPE IS STILL IN THE SCRIPT — a helper nobody calls is the defect it replaced.
-check "bring-up calls soft for the seeds" \
-      "$(grep -c '^soft "' "$ROOT/deploy/bring-up.sh")" "4"
+#
+# THE RULE, NOT A TALLY. This counted `soft "` lines and expected FOUR, so the day a fifth seed was
+# added — `backup targets` — it went red about a number while the rule it exists to protect was
+# perfectly intact. A test that fails for being out of date teaches its reader that red is normal,
+# which is the defect this whole file was written against.
+#
+# What matters is that EVERY seed goes through `soft`: a seed invoked directly aborts bring-up on a
+# machine where one optional seed cannot run, and a seed nobody wraps is a failure nobody records.
+# So the assertion is «no seed is called outside soft» — true at four seeds, at five, and at the
+# next one somebody adds.
+check "every seed in bring-up goes through soft"       "$(grep -n 'seed/seed-[a-z-]*[.]sh' "$ROOT/deploy/bring-up.sh"          | grep -v '^[0-9]*:[[:space:]]*#' | grep -cv ':soft "')" "0"
+check "and there is at least one seed to wrap"       "$([ "$(grep -c '^soft "' "$ROOT/deploy/bring-up.sh")" -gt 0 ] && echo yes || echo no)" "yes"
 check "bring-up refuses to end 0 with a failed step" \
       "$(grep -c 'FAILED\[@\]' "$ROOT/deploy/bring-up.sh")" "1"
 
@@ -88,7 +98,21 @@ check "no \`[ -n \$want ] &&\` back door remains"       "$(grep -v '^[[:space:]]
 
 # AND BOTH COUNT AS DRIFT, which is what makes the comparison mean anything: the console's used to
 # print a note and increment the OK tally.
-check "and a mismatch in either counts as drift"       "$(grep -c 'bad=$((bad+1))' "$ROOT/deploy/verify-fleet.sh")" "7"
+# AGAIN THE RULE RATHER THAN THE TALLY. This counted every `bad=$((bad+1))` in the whole file and
+# expected SEVEN — a number about the entire script, asserted inside a section about two
+# components. verify-fleet has since grown more drift causes (the cron window, the node, the
+# digests), every one of them wanted, and this went red for counting them while neither console
+# nor edge had changed at all.
+#
+# So each block is read on its own: the console's comparison and the edge's must EACH move the
+# counter, in both of their failing branches — no pin, and a pin that disagrees. That is the
+# sentence this section's heading actually makes.
+console_block="$(sed -n '/^console_want=/,/^edge_want=/p' "$ROOT/deploy/verify-fleet.sh")"
+edge_block="$(sed -n '/^edge_want=/,$p' "$ROOT/deploy/verify-fleet.sh" | sed -n '1,/^fi$/p')"
+check "a console mismatch counts as drift"       "$(printf '%s
+' "$console_block" | grep -c 'bad=$((bad+1))')" "2"
+check "an edge mismatch counts as drift"       "$(printf '%s
+' "$edge_block" | grep -c 'bad=$((bad+1))')" "2"
 
 # ── ل-3 · nothing committed may name a registry only one machine can reach ────────────────────
 check "the console manifest names a reachable registry" \
