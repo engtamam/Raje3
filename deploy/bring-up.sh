@@ -428,6 +428,44 @@ for f in "$ROOT"/deploy/services/*.values.yaml; do
 done
 ok "object store credential shared with $shared service(s)"
 
+# -- 4b4 ---------------------------------------------------------------------------------------
+# THE PUBLIC ADDRESS, INTO EVERY SERVICE THAT COMPOSES ONE.
+#
+# WHAT WAS WRONG FOR FIVE DAYS. reminders' values carry `PUBLIC_BASE_URL: ""` under a comment
+# saying it is left empty until an install fills it. No install filled it. The installer asked for
+# the domain, rendered it into the edge, and printed `https://<DOMAIN>/p/...` on the way out --
+# and the one service that turns that path into a tappable address never received it.
+#
+# `core/links.py` then refused to compose, correctly, and every message carrying a link died at
+# RENDER: before the send log, before any screen. The customer's stop and grant screens were live
+# and answering the whole time. The address was known by everyone except the process that needed it.
+#
+# SELECTED BY THE DECLARATION, not by a list. A service that starts composing links tomorrow is
+# covered by declaring the key, the same way the verifier and object-store loops above work.
+#
+# AND EMPTY DOMAIN STAYS EMPTY. A local box has no public name, and a guess would send a pilot's
+# customers to somebody else's domain while delivery still reported success.
+step "public address -- shared out"
+if [ -n "${DOMAIN:-}" ]; then
+  PUBLIC_BASE="https://${DOMAIN}"
+  addressed=0
+  for f in "$ROOT"/deploy/services/*.values.yaml; do
+    grep -qE '^[[:space:]]*PUBLIC_BASE_URL:[[:space:]]*""[[:space:]]*$' "$f" || continue
+    svc="$(basename "$f" .values.yaml)"
+    kubectl -n "$NS" get cm "$svc" >/dev/null 2>&1 || continue
+    kubectl -n "$NS" patch cm "$svc" --type=merge \
+      -p "{\"data\":{\"PUBLIC_BASE_URL\":\"$PUBLIC_BASE\"}}" >/dev/null
+    kubectl -n "$NS" rollout restart deploy "$svc" >/dev/null 2>&1 || true
+    addressed=$((addressed + 1))
+  done
+  ok "public address $PUBLIC_BASE given to $addressed service(s)"
+else
+  # NOT A WARNING TO SCROLL PAST. Without a domain the marketing path cannot run at all, and the
+  # operator should learn that here rather than from a campaign that sends nothing.
+  warn "no DOMAIN: PUBLIC_BASE_URL stays empty, so no message carrying a link can be composed --
+       service messages are unaffected, marketing cannot be sent"
+fi
+
 # ── 4c ────────────────────────────────────────────────────────────────────────────────────────
 # THE AUDIT CHAIN'S KEY — ours for the same reason the keypair is.
 #

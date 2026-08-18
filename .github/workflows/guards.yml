@@ -567,6 +567,13 @@ jobs:
       - name: only a mandatory line may stop a message
         run: python3 ci/check_only_a_mandatory_line_may_stop_a_message.py
 
+      # AND THE THIRD PIECE, WHICH TURNED OUT TO BE THE WHOLE OF IT. reminders' values leave
+      # PUBLIC_BASE_URL empty under a comment saying an install fills it. No install ever did: the
+      # value was empty in the repository, in the ConfigMap and in the running pod, five days after
+      # an install that had been told the domain and printed it back. A comment is not a wire.
+      - name: the public address reaches every service that composes one
+        run: python3 ci/check_the_public_address_reaches_every_service_that_composes_one.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.

@@ -66,6 +66,18 @@ BASE = re.compile(r'^\s+PUBLIC_BASE_URL:\s*"([^"]*)"', re.M)
 NEEDS_BASE = ("stop_link", "link", "page")
 
 
+def _the_installer_fills_it() -> bool:
+    """Whether bring-up.sh writes the base from DOMAIN — asked of the check that owns it.
+
+    IMPORTED RATHER THAN REPHRASED. A second copy of «is the installer wired» would be the copy
+    that drifts, and the two gates would then disagree about the same fleet on the same day.
+    """
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    from check_the_public_address_reaches_every_service_that_composes_one import main as wired
+
+    return wired() == 0
+
+
 def main() -> int:
     values = VALUES / "reminders.values.yaml"
     if not values.is_file():
@@ -86,7 +98,21 @@ def main() -> int:
               f"render\033[0m")
         return 0
 
-    # EMPTY. Now the only question left is whether anything we ship actually needs it.
+    # EMPTY IN THE FILE — WHICH IS NOT THE SAME AS EMPTY IN THE CLUSTER, and reading it as such
+    # was this gate's own defect for as long as it existed. The value is meant to come from the
+    # DOMAIN the installer asks for once; a repository cannot carry it, because it differs per
+    # install and a default here would silently misdirect every pilot.
+    #
+    # So the question this gate asks when the file is empty is «does an install fill it?», and it
+    # asks the check that owns that question rather than re-deriving the answer. The two together
+    # are the whole rule: the value is either written here, or written by the install, and a fleet
+    # where neither is true is a fleet that cannot send.
+    if _the_installer_fills_it():
+        print("  \033[32m✔ PUBLIC_BASE_URL comes from the DOMAIN the installer takes — the "
+              "mandatory tail has a base\033[0m")
+        return 0
+
+    # Nobody fills it. Now the only question left is whether anything we ship actually needs it.
     needing: list[str] = []
     seed = LIBRARY / "templates.seed.json"
     if not seed.is_file():
