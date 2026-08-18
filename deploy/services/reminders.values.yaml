@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:ee158d4bb8ad3914f1c6fb135ee40defda999e980cd23c08b711be51ed266055"   # 5bd5022, published by publish-images.sh
+  digest: "sha256:ee56a1fced1c448e8b62c7e7c7c31faf3af55de6685e5c20a44eccd1f2adda10"   # 5bd5022, published by publish-images.sh
 
 replicas: 1
 
@@ -40,9 +40,17 @@ drivers:
 
 resources:
   requests:
-    # Lower than operations: nothing here is on a human's critical path. The tick runs on a cron
-    # and an owner reading their schedule can wait 200ms.
-    cpu: 100m
+    # MEASURED, NOT GUESSED. `kubectl top` on the live node put every one of our services at
+    # 2m at rest (backup-service at 4m), against declarations of 100-200m written when the
+    # values files were generated and never checked. The sum of those declarations was 3220m
+    # on a 4000m box, which is why a rollout could not place its new pod: the node was full of
+    # reservations while the cpu itself sat at 9%.
+    #
+    # A REQUEST IS A FLOOR AND A WEIGHT, NEVER A CEILING. There is no cpu limit anywhere in
+    # these files, so on a quiet node this service still takes a whole core if it needs one.
+    # The number below decides two things only: that it is always guaranteed this much, and
+    # what share it gets when the node is genuinely contended.
+    cpu: 20m
     memory: 192Mi
   limits:
     memory: 384Mi

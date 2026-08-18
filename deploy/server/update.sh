@@ -173,6 +173,23 @@ except Exception:
   fi
 }
 
+# ── THE SEATS THE DEAD ARE HOLDING, RETURNED BEFORE WE NEED THEM ─────────────────────────────
+#
+# A pod that has FINISHED — Failed or Succeeded — no longer runs and is still counted by the
+# scheduler: its requests stay booked. Sixteen of them on the pilot node held 5180m against a
+# 4000m box, so a rollout could not place its new pod, the pod died `OutOfcpu`, the OLD pod kept
+# serving, and helm reported a healthy release — truthfully, about the old one.
+#
+# CALLED, NOT COPIED. `deploy/sweep.sh` is the one place that decides what may be swept and what
+# may never be, and it runs here because THIS is the moment the seats are actually needed. The
+# weekly cron runs the same file for what accumulates between deploys.
+sweep_before_rolling() {
+  local sweeper="$ROOT/deploy/sweep.sh"
+  [[ -f "$sweeper" ]] || return 0
+  NS="$NS" bash "$sweeper" 2>&1 | sed 's/^/  /'
+}
+
+[[ $DRY_RUN -eq 1 ]] || sweep_before_rolling
 [[ $DRY_RUN -eq 1 ]] || prepull
 
 updated=0 failed=0 skipped=0

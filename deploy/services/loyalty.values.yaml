@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/loyalty
-  digest: "sha256:6534f1e0295d4732a099e3535431bc657938f2c8d7407767a63175171c25ff19"   # 5bd5022, published by publish-images.sh
+  digest: "sha256:0b9518d39790f02d04a27d72485f5fa357ba5be68cedb4ef0758676afe9ad169"   # 5bd5022, published by publish-images.sh
 
 replicas: 1
 
@@ -23,7 +23,17 @@ drivers:
 
 resources:
   requests:
-    cpu: 50m
+    # MEASURED, NOT GUESSED. `kubectl top` on the live node put every one of our services at
+    # 2m at rest (backup-service at 4m), against declarations of 100-200m written when the
+    # values files were generated and never checked. The sum of those declarations was 3220m
+    # on a 4000m box, which is why a rollout could not place its new pod: the node was full of
+    # reservations while the cpu itself sat at 9%.
+    #
+    # A REQUEST IS A FLOOR AND A WEIGHT, NEVER A CEILING. There is no cpu limit anywhere in
+    # these files, so on a quiet node this service still takes a whole core if it needs one.
+    # The number below decides two things only: that it is always guaranteed this much, and
+    # what share it gets when the node is genuinely contended.
+    cpu: 20m
     memory: 128Mi
   limits:
     memory: 256Mi

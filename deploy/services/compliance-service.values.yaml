@@ -22,7 +22,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/compliance-service
-  digest: "sha256:200bdc7815ee412e25cb0a9d6ae8828c8bca911db2b49c8eec8deeb1df0fbe9b"   # v0.16.17
+  digest: "sha256:0997f7172e4bd2cd1dbca1afd5da2ddb7b6fccbfc015097447fb1d5147211a85"   # v0.16.18
 
 replicas: 1
 
@@ -35,7 +35,17 @@ drivers:
 
 resources:
   requests:
-    cpu: 100m
+    # MEASURED, NOT GUESSED. `kubectl top` on the live node put every one of our services at
+    # 2m at rest (backup-service at 4m), against declarations of 100-200m written when the
+    # values files were generated and never checked. The sum of those declarations was 3220m
+    # on a 4000m box, which is why a rollout could not place its new pod: the node was full of
+    # reservations while the cpu itself sat at 9%.
+    #
+    # A REQUEST IS A FLOOR AND A WEIGHT, NEVER A CEILING. There is no cpu limit anywhere in
+    # these files, so on a quiet node this service still takes a whole core if it needs one.
+    # The number below decides two things only: that it is always guaranteed this much, and
+    # what share it gets when the node is genuinely contended.
+    cpu: 20m
     memory: 192Mi
   limits:
     memory: 384Mi
