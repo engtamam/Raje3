@@ -71,12 +71,25 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        # THE CACHE, THE QUEUE, THE EVENT BUS AND THE RATE LIMITER — four ports, one server,
+        # and the one the fleet actually runs. Their contracts held the in-memory driver alone
+        # until this cycle, which is why the queue's own docstring could describe a defect the
+        # redis adapter had while testing something else entirely.
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       # WHAT THE CONTRACT TESTS READ. Absent, they skip; present, they run against a real server
       # and the real adapters are held to the contract the in-memory one is held to.
       DATASTORE_TEST_DSN: postgresql://postgres:pw@127.0.0.1:5432/postgres
       OBJECTSTORE_TEST_ENDPOINT: http://127.0.0.1:9000
       OBJECTSTORE_TEST_BUCKET: raje3-contract
+      REDIS_TEST_URL: redis://127.0.0.1:6379/0
       # AND THESE ARE BOTO3'S OWN NAMES, NOT NAMES OF OURS. The contract builds `S3ObjectStore`
       # with no credentials on purpose, which makes the adapter fall back to the ambient AWS chain
       # — the right default on a real deployment, where static keys would be worse. So the keys

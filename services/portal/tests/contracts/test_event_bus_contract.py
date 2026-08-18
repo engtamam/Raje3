@@ -1,16 +1,36 @@
 """EventBus contract."""
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app.adapters.event_bus.memory import MemoryEventBus
 from app.ports.event_bus import Event
 from tests.contracts.util import run
+from app.adapters.event_bus.redis import RedisEventBus
+
+#: THE REAL DRIVER, HELD TO THE SAME PROMISE — whenever a server is there to hold it against.
+#:
+#: WITHOUT THIS PARAMETER THE CONTRACT ONLY EVER PROVED THAT THE IN-MEMORY DRIVER AGREES WITH
+#: ITSELF. The fleet runs redis for this port; the memory driver exists for tests and for a
+#: single-process bring-up. So the one that carries real traffic was the one nothing held.
+#:
+#:   docker run -d -p 6379:6379 redis:7-alpine
+#:   REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/contracts
+_REDIS_URL = os.environ.get("REDIS_TEST_URL", "")
 
 
-@pytest.fixture(params=[MemoryEventBus])
+_PARAMS = [pytest.param(lambda: MemoryEventBus(), id="memory")]
+if _REDIS_URL:
+    _PARAMS.append(pytest.param(lambda: RedisEventBus(_REDIS_URL), id="redis"))
+
+
+@pytest.fixture(params=_PARAMS)
 def bus(request):
     b = request.param()
+    if hasattr(b, "_client"):
+        run(b._client.flushdb())
     yield b
     run(b.close())
 

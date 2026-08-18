@@ -10,17 +10,39 @@ worker; a driver that cannot pass them does not belong behind this port.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app.adapters.queue.memory import MemoryQueue
 from tests.contracts.util import run
+from app.adapters.queue.redis import RedisQueue
+
+#: THE REAL DRIVER, HELD TO THE SAME PROMISE — whenever a server is there to hold it against.
+#:
+#: WITHOUT THIS PARAMETER THE CONTRACT ONLY EVER PROVED THAT THE IN-MEMORY DRIVER AGREES WITH
+#: ITSELF. The fleet runs redis for this port; the memory driver exists for tests and for a
+#: single-process bring-up. So the one that carries real traffic was the one nothing held.
+#:
+#:   docker run -d -p 6379:6379 redis:7-alpine
+#:   REDIS_TEST_URL=redis://127.0.0.1:6379/0 pytest tests/contracts
+_REDIS_URL = os.environ.get("REDIS_TEST_URL", "")
 
 LEASE = 30
 
 
-@pytest.fixture(params=[MemoryQueue])
+_PARAMS = [pytest.param(lambda: MemoryQueue(), id="memory")]
+if _REDIS_URL:
+    # THE DRIVER THIS FILE'S OWN DOCSTRING IS ABOUT. It names a defect the redis adapter had —
+    # `LPOP`, so a worker killed mid-job took the job with it — and then tested memory alone.
+    _PARAMS.append(pytest.param(lambda: RedisQueue(_REDIS_URL), id="redis"))
+
+
+@pytest.fixture(params=_PARAMS)
 def queue(request):
     q = request.param()
+    if hasattr(q, "_client"):
+        run(q._client.flushdb())
     yield q
     run(q.close())
 

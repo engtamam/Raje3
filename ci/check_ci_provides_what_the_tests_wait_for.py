@@ -47,9 +47,16 @@ def _gates_of_skipping() -> dict[str, set[str]]:
             continue
         for path in sorted(tests.rglob("*.py")):
             source = path.read_text(encoding="utf-8", errors="ignore")
-            # NOT EVERY ENV READ — only the ones in a file that can decide not to run. A test that
-            # reads a variable and runs regardless is configuration, not a skipped guard.
-            if "skip" not in source:
+            # NOT EVERY ENV READ — only the ones a file uses to decide whether to run at all. A
+            # test that reads a variable and runs regardless is configuration, not a guard that
+            # excuses itself.
+            #
+            # AND OMITTING A PARAMETER IS ALSO DECIDING NOT TO RUN — quieter than a skip, because
+            # it produces no line in any summary. The contracts hold each driver by adding it to
+            # `_PARAMS` when its server is reachable; a variable that gates that list gates real
+            # coverage exactly as a `skip` does, and the first version of this gate could not see
+            # it.
+            if "skip" not in source and "_PARAMS" not in source:
                 continue
             for first, second in READ.findall(source):
                 out.setdefault(first or second, set()).add(
