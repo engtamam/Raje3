@@ -367,6 +367,15 @@ class Settings(BaseSettings):
     # OFF UNTIL THE SENDING IDENTITY EXISTS. Per-branch numbers need credentials keyed by number
     # rather than by establishment; until then this deployment can only honour `central`, and the
     # screen says so instead of offering a switch that changes nothing.
+    #
+    # WHAT IS PROVEN, so the next reader does not re-audit the whole chain (#386): the derivation
+    # that decides which number a message leaves from is pinned by
+    # `reminders/tests/unit/test_the_branch_decides_which_number_sends.py`, and
+    # `ci/check_every_send_says_which_number_it_leaves_from.py` refuses a send site that omits it
+    # — it found one the day it was written. What is NOT proven is the last seam: that the
+    # sender's credential lookup resolves `tenant:branch` to that branch's own registered Meta
+    # number. That needs two registered numbers (#167). This flag turns on after that ONE check,
+    # not after a chain nobody has walked.
     BRANCH_MODE_PER_BRANCH_READY: bool = False
 
     # ── the shared-tablet employee ────────────────────────────────────────────────────────────

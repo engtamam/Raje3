@@ -791,6 +791,13 @@ async def send_dsar_code(request: Request, body: DsarCodeIn) -> dict:
     await request.app.state.container.sender.send(
         tenant=body.tenant, subject_ref=body.subject_ref,
         template_name="per_dsar_code",
+        # FROM THE ESTABLISHMENT, DELIBERATELY — not from a branch, and said rather than defaulted.
+        # A privacy request is made against the establishment, which is the controller under PDPL;
+        # the person may have visited three of its branches and there is no branch on this request
+        # to name. Every other send passes the branch its schedule carries, so an omission here
+        # would read as one more site that forgot — and the check that found this cannot tell a
+        # decision from an oversight unless the decision is written down.
+        sending_identity=body.tenant,
         # THE LIBRARY NUMBERS ITS SLOTS ONCE, FOR EVERY TEMPLATE: {{1}} is the name (or its
         # substitute), {{2}} is the establishment, and the rest is the message. This call filled
         # them in its own order, so the code would have arrived where a name belongs and the shop

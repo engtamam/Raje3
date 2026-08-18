@@ -610,6 +610,14 @@ jobs:
       - name: every template has a sender and every slot a template
         run: python3 ci/check_every_template_has_a_sender_and_every_slot_a_template.py
 
+      # WHICH NUMBER A MESSAGE LEAVES FROM, and the reason this is a gate rather than a review
+      # note: `sending_identity` DEFAULTS. A send site that omits it does not fail — it sends from
+      # the establishment's number for a shop that has moved to a number per branch, silently, and
+      # the customer receives a message from the wrong branch of the shop he visited. It found one
+      # on its first run.
+      - name: every send says which number it leaves from
+        run: python3 ci/check_every_send_says_which_number_it_leaves_from.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.
