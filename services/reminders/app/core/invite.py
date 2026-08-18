@@ -64,12 +64,24 @@ WITHDRAWN = "نتشرّف بخدمتك دائماً 🌿"
 #: wordings, every service confirmation and every reminder in the fleet, because an invitation
 #: could not be made perfect.
 #:
-#: A VISIT CONFIRMATION IS LAWFUL WITHOUT AN INVITATION. So the line steps back to something true
-#: with no address in it: it says there is something for him, and it asks him to raise it where he
-#: already is — at the counter — instead of tapping a link that opens nothing. No price, no
-#: discount, no number, for the same reason as every other line here: a utility text that sells is
-#: re-categorised by Meta as marketing.
-NOT_GRANTED_NO_LINK = "ولك عندنا مزايا خاصة — اسأل عنها في زيارتك القادمة 🎁"
+#: A VISIT CONFIRMATION IS LAWFUL WITHOUT AN INVITATION. So the line steps back to an ASK with no
+#: address in it, and the difference between an ask and a claim is the whole of this note.
+#:
+#: THE FIRST VERSION SAID «ولك عندنا مزايا خاصة» — you have special benefits with us — and Tamam
+#: caught it: we do not know that. The shop may run no offer at all, and then a message in the
+#: shop's name has told his customer something untrue, and told it at the moment the customer
+#: trusts it most, right after a visit. It is the defect family this whole repository chases,
+#: arriving in the friendliest possible sentence.
+#:
+#: What is true whatever the shop is doing is the QUESTION: would you like our offers to reach
+#: you? It asks for the consent §8.5 needs, promises nothing that has to exist, and points him at
+#: the counter — where a person can answer — rather than at a link that opens nothing.
+#:
+#: AND NO EMOJI, which was the second half of the same mistake. The body it lands in already ends
+#: with one: `... {{3}} 🎁`. The line carried its own, so the customer read «🎁 🎁». No price, no
+#: discount, no number either, for the reason every line here avoids them: a utility text that
+#: sells is re-categorised by Meta as marketing.
+NOT_GRANTED_NO_LINK = "وإن أحببت أن تصلك عروضنا، أخبرنا في زيارتك القادمة"
 
 
 def line(*, consent: str, public_base_url: str, reference: str) -> str:

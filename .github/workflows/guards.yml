@@ -581,6 +581,12 @@ jobs:
       - name: the ship verifies content and names only what failed
         run: python3 ci/check_the_ship_verifies_content_and_names_only_what_failed.py
 
+      # HALF THE PRODUCT LINKS INTO «حسابي» BY NAME — every locked card says «أضِفه إلى اشتراكي»
+      # and opens `?tab=…`. A tab that is removed without redirecting its name does not fail: the
+      # person lands on the default, does not find the setting, and reads that as a deletion.
+      - name: a tab that was removed still has somewhere to land
+        run: python3 ci/check_a_tab_that_was_removed_still_has_somewhere_to_land.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.

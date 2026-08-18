@@ -330,29 +330,32 @@ function Fact({ label, value, wide }: { label: string; value: string; wide?: boo
   );
 }
 
-// ── دخولي ────────────────────────────────────────────────────────────────────────────────────
+// ── بياناتي وأوراقي ──────────────────────────────────────────────────────────────────────────
 
 /**
- * WHAT HE SIGNS IN WITH, and one honest sentence about what he cannot change here.
+ * PDPL, AS A CONTROL HE CAN PRESS — not as a paragraph.
  *
- * The phone IS the identity in this product — it is the login field and the channel every
- * verification code arrives on — so changing it is not an edit, it is moving the account. There is
- * no action for it in the catalogue and there should not be a box for it here.
+ * The right to access, export, correct and erase is his by law; a product that describes the right
+ * and offers no way to use it has not granted it. `compliance.open_my_dsar` is that way, and this
+ * pane exists to put it one tap from where he already is.
  */
-export function LoginPane({ session, catalog }: { session: Session; catalog: Catalog }) {
-  // ── THE WEEKLY REPORT LIVES HERE, AND NOT ON «محلّي» ──────────────────────────────────────
+export function DataPane({ session, catalog }: { session: Session; catalog: Catalog }) {
+  // ── THE WEEKLY REPORT, WHICH ARRIVED HERE BY WAY OF TWO OTHER SCREENS ────────────────────
   //
-  // It was the first thing on the shop's dashboard: a checkbox about ONE PERSON'S WhatsApp, above
-  // every number the screen exists to show. A preference is not a metric, and putting it first
-  // pushed his retention rate below the fold — he had to scroll past a setting to reach his own
-  // figures.
+  // It began on «محلّي», first thing on the shop's dashboard: a checkbox about ONE PERSON'S
+  // WhatsApp above every number the screen exists to show, pushing his retention rate below the
+  // fold. It moved to «دخولي», beside his phone number, which was right — until «دخولي» turned
+  // out to be three cards of prose and this one switch, a tab nobody opened twice.
   //
-  // It belongs beside his phone number, because that is what it is: a message to this person, on
-  // this person's phone. PER PERSON and not per shop (the route says so): a manager may want the
-  // report and the owner may not, and one flag on the establishment makes unsubscribing an act
-  // that silently switches a colleague off.
+  // So it lives with his other preferences. PER PERSON and not per shop (the route says so): a
+  // manager may want the report and the owner may not, and one flag on the establishment makes
+  // unsubscribing an act that silently switches a colleague off.
   const [digest, setDigest] = useState(true);
   const digestAction = action(catalog, 'insights.digest');
+  const [busy, setBusy] = useState('');
+  const [said, setSaid] = useState('');
+  const [error, setError] = useState('');
+  const canAsk = action(catalog, 'compliance.open_my_dsar');
 
   useEffect(() => {
     // `decided: false` means he has never chosen, and the default (subscribed) is then the honest
@@ -364,66 +367,6 @@ export function LoginPane({ session, catalog }: { session: Session; catalog: Cat
       .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
       .catch(() => undefined);
   }, [session, catalog]);
-
-  return (
-    <div className="flex flex-col gap-4">
-      {digestAction ? (
-        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
-          <span className="flex flex-col">
-            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
-            <span className="text-xs text-text-secondary">
-              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={digest}
-            aria-label="تقريري الأسبوعي على واتساب"
-            onChange={async (e) => {
-              const on = e.target.checked;
-              setDigest(on);
-              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
-              // the box ticked teaches him he is subscribed when he is not — and he finds out by
-              // a report that never comes.
-              await call(session, digestAction, { on }).catch(() => setDigest(!on));
-            }}
-            className="size-6 shrink-0 accent-[var(--accent)]"
-          />
-        </label>
-      ) : null}
-      <Card>
-        <Row label="تدخل برقم جوالك" value="هو نفسه رقم محلّك المسجّل" />
-        <Row label="مدة الجلسة" value="31 يوماً — لا تُطالَب بكلمة المرور كل مرة" />
-      </Card>
-      <Quiet>
-        لتغيير كلمة المرور: سجّل الخروج، ثم «نسيت كلمة المرور» في شاشة الدخول — نرسل لك رابطاً على
-        واتساب. نفعلها هكذا لأن كلمة المرور لا تُغيَّر من جلسة مفتوحة على جهاز قد لا يكون بيدك.
-      </Quiet>
-      <Quiet>
-        تغيير رقم الجوال ليس تعديلاً — الرقم هو حسابك نفسه وقناة رسائلك. راسلنا وننقله لك بأمان.
-      </Quiet>
-      {/* THE TENANT ID USED TO BE PRINTED HERE, raw — a thirty-two character hexadecimal string
-          under three Arabic paragraphs, which an owner reads as something broken rather than as
-          "which shop this browser is in". The question it was answering is real and «منشأتي»
-          answers it properly, by name. An identifier nobody can act on is not information. */}
-    </div>
-  );
-}
-
-// ── بياناتي وأوراقي ──────────────────────────────────────────────────────────────────────────
-
-/**
- * PDPL, AS A CONTROL HE CAN PRESS — not as a paragraph.
- *
- * The right to access, export, correct and erase is his by law; a product that describes the right
- * and offers no way to use it has not granted it. `compliance.open_my_dsar` is that way, and this
- * pane exists to put it one tap from where he already is.
- */
-export function DataPane({ session, catalog }: { session: Session; catalog: Catalog }) {
-  const [busy, setBusy] = useState('');
-  const [said, setSaid] = useState('');
-  const [error, setError] = useState('');
-  const canAsk = action(catalog, 'compliance.open_my_dsar');
 
   /**
    * `type`, NOT `kind` — read off compliance-service rather than guessed, which is how the first
@@ -468,6 +411,30 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
 
   return (
     <div className="flex flex-col gap-4">
+      {digestAction ? (
+        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
+          <span className="flex flex-col">
+            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
+            <span className="text-xs text-text-secondary">
+              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={digest}
+            aria-label="تقريري الأسبوعي على واتساب"
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setDigest(on);
+              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
+              // the box ticked teaches him he is subscribed when he is not — and he finds out by
+              // a report that never comes.
+              await call(session, digestAction, { on }).catch(() => setDigest(!on));
+            }}
+            className="size-6 shrink-0 accent-[var(--accent)]"
+          />
+        </label>
+      ) : null}
       <Card>
         <h3 className="mb-1">الاحتفاظ بالبيانات</h3>
         <p className="text-sm text-text-secondary">

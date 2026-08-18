@@ -11,13 +11,18 @@ import { MOVED, resolvePane } from './Account';
 
 describe('resolvePane', () => {
   it('keeps the four tabs that still exist', () => {
-    for (const p of ['shop', 'billing', 'login', 'data'] as const) {
+    // «الفواتير» REPLACED «دخولي» IN THIS LIST, and the swap is the whole point of the file: the
+    // invoices came out of the app store and became a destination, and the login tab — three
+    // cards of prose and one switch — stopped being one.
+    for (const p of ['shop', 'billing', 'invoices', 'data'] as const) {
       expect(resolvePane(p)).toBe(p);
     }
   });
 
   it('sends every name that became a section to the tab now holding it', () => {
-    expect(resolvePane('invoices')).toBe('billing');
+    // AND «دخولي» IS NOW ONE OF THEM. Its switch — the weekly report — lives in «بياناتي», so a
+    // link written when it was a tab must land where the switch actually is.
+    expect(resolvePane('login')).toBe('data');
     expect(resolvePane('whatsapp')).toBe('shop');
     expect(resolvePane('team')).toBe('shop');
     expect(resolvePane('keys')).toBe('shop');

@@ -28,7 +28,7 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { Connect } from './Connect';
-import { DataPane, InvoicesPane, KeysPane, LoginPane, ShopPane } from './AccountPanes';
+import { DataPane, InvoicesPane, KeysPane, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { TeamScreen } from './Team';
 import { type Loading } from '../loading';
@@ -47,8 +47,8 @@ interface ConnectState { state: string; message: string; can_send?: boolean }
  * a page that opens on the wrong thing — which is exactly the failure a deep link exists to
  * prevent.
  */
-export type Pane = 'shop' | 'billing' | 'login' | 'data';
-export type PaneLink = Pane | 'invoices' | 'whatsapp' | 'team' | 'keys';
+export type Pane = 'shop' | 'billing' | 'invoices' | 'data';
+export type PaneLink = Pane | 'login' | 'whatsapp' | 'team' | 'keys';
 
 /**
  * The tab a link opens on. Unknown and absent both land on «منشأتي».
@@ -63,14 +63,18 @@ export function resolvePane(link?: string): Pane {
   // answers with an object rather than undefined — which would leave `pane` holding something
   // that is not a tab at all.
   if (Object.hasOwn(MOVED, link)) return MOVED[link];
-  return (['shop', 'billing', 'login', 'data'] as const).includes(link as Pane)
+  return (['shop', 'billing', 'invoices', 'data'] as const).includes(link as Pane)
     ? (link as Pane)
     : 'shop';
 }
 
 /** Where a name that is no longer a tab now lives. */
 export const MOVED: Record<string, Pane> = {
-  invoices: 'billing',
+  // «دخولي» IS GONE, AND ONLY ONE THING ON IT WAS EVER USED. Three cards of prose explaining what
+  // he cannot change here — that his phone is his login, that a session lasts 31 days, how to
+  // reset a password — a page to read rather than a page to use. The switch that WAS used, his
+  // weekly report, moved to «بياناتي», which is where his own preferences live.
+  login: 'data',
   whatsapp: 'shop',
   team: 'shop',
   keys: 'shop',
@@ -94,9 +98,13 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   // «متجر التطبيقات», WHICH IS WHAT THE REST OF THE PRODUCT ALREADY CALLED IT. The tab said
   // «اشتراكي» and four screens said «متجر التطبيقات» — two names for one place, and the one
   // printed in the sentences that send people here was the one that did not exist.
-  { id: 'billing', label: 'متجر التطبيقات', hint: 'تطبيقاتك وفواتيرك ووسيلة الدفع' },
-  { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك وتقريرك الأسبوعي' },
-  { id: 'data', label: 'بياناتي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
+  { id: 'billing', label: 'متجر التطبيقات', hint: 'تطبيقاتك ووسيلة الدفع' },
+  // THE INVOICES CAME OUT OF THE STORE AND BECAME A TAB. They were the second half of a tab
+  // whose first half is a catalogue: a person arriving to buy an app scrolled past his
+  // receipts, and a person arriving for a receipt scrolled past the shop. Two errands, and
+  // only one of them is browsing.
+  { id: 'invoices', label: 'الفواتير', hint: 'فواتيرك وإيصالاتك' },
+  { id: 'data', label: 'بياناتي', hint: 'تقريرك الأسبوعي، الاحتفاظ، التصدير، الاتفاقيات' },
 ];
 
 
@@ -128,9 +136,12 @@ export function AccountScreen(
 
   const tabs = TABS.filter((t) => {
     if (t.id === 'billing') {
-      return Boolean(action(catalog, 'billing.plans') || action(catalog, 'billing.my_subscriptions')
-        || action(catalog, 'billing.my_invoices'));
+      return Boolean(action(catalog, 'billing.plans')
+        || action(catalog, 'billing.my_subscriptions'));
     }
+    // ITS OWN READ, NOT THE STORE'S. Offering «الفواتير» to somebody whose role cannot list them
+    // is a tab that can only ever say «لا يشمل دورك فواتير المحل» — a door with a wall behind it.
+    if (t.id === 'invoices') return Boolean(action(catalog, 'billing.my_invoices'));
     // OFFERED IF ANY ONE OF ITS SECTIONS IS. The tab is a container now, and gating it on the
     // identity read alone would hide a manager's team and connection behind a permission he does
     // not need for either.
@@ -225,9 +236,10 @@ export function AccountScreen(
             // now a section on another tab rather than a tab of its own.
             onGoConnect={() => setPane('shop')}
           />
-          <InvoicesPane session={session} catalog={catalog} />
         </div>
       ) : null}
+
+      {active === 'invoices' ? <InvoicesPane session={session} catalog={catalog} /> : null}
 
       {active === 'shop' ? (
         <div className="flex flex-col gap-6">
@@ -242,7 +254,6 @@ export function AccountScreen(
         </div>
       ) : null}
 
-      {active === 'login' ? <LoginPane session={session} catalog={catalog} /> : null}
       {active === 'data' ? <DataPane session={session} catalog={catalog} /> : null}
     </div>
   );
