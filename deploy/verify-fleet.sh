@@ -295,11 +295,16 @@ fi
 # ── AND WHOSE CLOCK THE SCHEDULES ARE ACTUALLY KEPT ON ───────────────────────────────────────
 #
 # Every hour in deploy/services/*.values.yaml is argued for in the life of a Saudi workshop, and
-# `cronTimeZone` now says so out loud. Nothing carries it to the cluster yet — the chart renders a
-# bare `schedule` (platform/deploy/chart/templates/cronjob.yaml, read-only; escalated in #321) — so
-# k3s times every one of them by whatever zone the NODE is set to. This fleet's node is
-# Asia/Shanghai, which puts «02:42» at 21:42 Riyadh and the weekly digest written for 09:00 at
-# 04:00 — a WhatsApp message to a shop owner before dawn.
+# deploy/fleet-clock.env says which clock those hours are written on. platform v0.16.20 renders
+# that value into `spec.timeZone` on every CronJob, and a CI gate refuses any job that would ship a
+# different one — so the value is carried now, where before it could only be compared.
+#
+# THIS STILL ASKS THE CLUSTER, because shipping a value and keeping it are two claims. Before
+# v0.16.20 the chart rendered a bare `schedule` and k3s timed every job by the NODE's zone: this
+# fleet's node is Asia/Shanghai, which put «02:42» at 21:42 Riyadh and the weekly digest written
+# for 09:00 at 04:00 — a WhatsApp message to a shop owner before dawn. Until the new release is
+# deployed the cluster is still in exactly that state, and this section says so rather than
+# reporting the repository's intention as though it were the fleet's condition.
 #
 # THE READER IS A FUNCTION so ci/test_deploy_scripts.sh can lift it out and RUN it. That is the
 # part which rots quietly: return the whole line instead of the zone and this section compares two
@@ -327,9 +332,9 @@ elif [ -n "$own_tz" ]; then
 elif [ "$got_tz" != "$want_tz" ]; then
   printf '  %s✗ %-24s schedules are written for %s and RUN on %s%s\n' \
     "$C_R" "cron clock" "$want_tz" "$got_tz" "$C_N"
-  printf '%s     no CronJob declares a timeZone, so the node decides every hour in the fleet%s\n' \
+  printf '%s     no CronJob on the cluster declares a timeZone, so the node decides every hour%s\n' \
     "$C_R" "$C_N"
-  printf '%s     the chart has no timeZone field — this needs the platform change in #321%s\n' \
+  printf '%s     platform v0.16.20 renders it — this fleet has not been deployed with it yet%s\n' \
     "$C_D" "$C_N"
   bad=$((bad+1))
 else
