@@ -201,6 +201,21 @@ export function canBuy(
   return hasAction && gatewayEnabled && canMint;
 }
 
+/** The server's own sentence when billing was ASKED and could not answer — empty otherwise.
+ *
+ * TWO STATES, NOT ONE. `undefined`/`null` means the read is still in flight or failed in the
+ * browser; `checked: false` means operations reached us and said it could not reach billing, and
+ * it sends the sentence with it. Merging them prints «جارٍ التحقق…» over an outage, which is a
+ * spinner that never ends on the screen where an owner goes to buy.
+ *
+ * AND THE SENTENCE IS NOT REWRITTEN HERE. Two vocabularies for one failure is how an owner comes
+ * to believe there are two problems — the same rule `Locked.tsx` follows.
+ */
+export function unreadSentence(answer: Owned | null | undefined): string {
+  return answer && !answer.checked ? answer.message : '';
+}
+
+
 /** How many DIFFERENT days this shop is charged on — the base's and each owned app's.
  *
  * Counted off days rather than timestamps: two subscriptions bought hours apart on the same date
@@ -229,7 +244,7 @@ function renewalDay(epoch: number | null | undefined): string {
 
 
 function PlanCard({
-  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt,
+  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote,
 }: {
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
@@ -241,6 +256,9 @@ function PlanCard({
   buyLabel: string;
   /** When THIS app renews — its own subscription's date, not the shop's base. */
   renewsAt?: number | null;
+  /** The server's own sentence when billing was ASKED and could not answer. Empty while the read
+   *  is still in flight — the two are different states and the card must not merge them. */
+  unreadNote?: string;
 }) {
   const price = monthly(plan);
   const lines = planLines(plan);
@@ -324,9 +342,17 @@ function PlanCard({
         )}
         {/* THE THIRD STATE, SAID RATHER THAN GUESSED. While the answer has not arrived — or when
             billing could not be asked — the card claims neither. Telling a paying shop it has not
-            paid is worse than telling it to wait a moment. */}
+            paid is worse than telling it to wait a moment.
+            AND «ما زلنا نقرأ» IS NOT «سألنا ولم نصل». Both used to print «جارٍ التحقق…», so a
+            billing outage read as a spinner that never ends, on the one screen an owner opens to
+            BUY — no reason, and nothing to retry. `Locked.tsx` has told these two apart since م;
+            this card is where the rule had not reached. The sentence is the server's own, because
+            it knows what happened and a second vocabulary for one failure invents a second
+            problem. */}
         {owned === null ? (
-          <p className="mt-2 text-xs text-text-secondary">جارٍ التحقق من اشتراكك…</p>
+          <p className="mt-2 text-xs text-text-secondary">
+            {unreadNote || 'جارٍ التحقق من اشتراكك…'}
+          </p>
         ) : null}
       </div>
     </article>
@@ -463,6 +489,10 @@ export function PlansPane({
   // first cycle prorated, is billing-service's `subscribe` to fix (#347) — it is read-only to us.
   // Saying the truth we already hold is not.
   const appDays = distinctRenewalDays(answer);
+  // WHAT BILLING SAID WHEN IT COULD NOT ANSWER — its sentence, not ours. Empty while the read is
+  // still in flight, so the cards below can tell «ما زلنا نقرأ» from «سألنا ولم نصل» instead of
+  // printing one line for both.
+  const unreadNote = unreadSentence(answer);
 
   if (plans === null || sub === undefined) {
     return (
@@ -576,6 +606,7 @@ export function PlansPane({
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled)}
                     onBuy={() => choose(p)}
+                    unreadNote={unreadNote}
                     ownedLabel="اشتراكك"
                     buyLabel="فعّل الأساس"
                   />
@@ -604,6 +635,7 @@ export function PlansPane({
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
                     onBuy={() => choose(p)}
+                    unreadNote={unreadNote}
                     ownedLabel=""
                     buyLabel="أضِف"
                   />
@@ -632,6 +664,7 @@ export function PlansPane({
                     busy={busy}
                     sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
                     onBuy={() => choose(p)}
+                    unreadNote={unreadNote}
                     ownedLabel="مفعّل"
                     buyLabel="أضِفه"
                     renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}

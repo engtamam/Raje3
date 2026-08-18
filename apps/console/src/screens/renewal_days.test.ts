@@ -8,7 +8,7 @@
  * billing-service's `subscribe`, which is read-only to us; saying the truth we already hold is not.
  */
 import { describe, expect, it } from 'vitest';
-import { distinctRenewalDays } from './Plans';
+import { distinctRenewalDays, unreadSentence } from './Plans';
 import type { Owned } from '../apps';
 
 const DAY = 86_400;
@@ -61,5 +61,23 @@ describe('how many days a month the shop is charged', () => {
       apps: [app('feature.campaigns', true, JAN_17)],
     }));
     expect(days.size).toBe(0);
+  });
+});
+
+describe('«ما زلنا نقرأ» is not «سألنا ولم نصل»', () => {
+  it('carries the server\'s own sentence when billing was asked and could not answer', () => {
+    // The card used to print «جارٍ التحقق…» for this, which reads as a spinner rather than an
+    // outage — on the one screen an owner opens to buy, with nothing to retry.
+    expect(unreadSentence(shop({ checked: false, message: 'تعذّر التحقق من اشتراكك الآن.' })))
+      .toBe('تعذّر التحقق من اشتراكك الآن.');
+  });
+
+  it('says nothing while the read is still in flight', () => {
+    expect(unreadSentence(undefined)).toBe('');
+    expect(unreadSentence(null)).toBe('');
+  });
+
+  it('says nothing once billing answered', () => {
+    expect(unreadSentence(shop({ checked: true, message: '' }))).toBe('');
   });
 });
