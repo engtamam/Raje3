@@ -108,11 +108,27 @@ def check(t: dict) -> list[str]:
 #: The two blanks that carry an ADDRESS. Named and exampled by what they ARE rather than by where
 #: they sit, because they sit somewhere different in every text. Kept equal to the seeder's own
 #: table by `ci/check_who_fills_a_blank_is_one_vocabulary.py` naming the same sources.
-ADDRESS_SLOTS = {
+# A BLANK IS NAMED BY WHAT FILLS IT, AND THE POSITION TABLE IS THE FALLBACK — not the rule.
+#
+# This started as two entries for the two address slots, with everything else read out of
+# `variables` by POSITION. That was already wrong and nobody could see it: `mkt_offer` slot 3 is a
+# discount amount and position 3 is called «الخدمة», so Meta's reviewer received a variable named
+# «service» whose example was «غيار الزيت» sitting where «20%» goes. The reviewer approves the
+# WORDS, and we were describing them inaccurately.
+#
+# It became visible only when an offer grew a seventh blank and the position table — which stops
+# at five — raised KeyError. The crash was the honest failure; the silent one had been running for
+# months.
+FILL_SLOTS = {
     "invite": {"name": "invite_line",
-               "example": "ولك عندنا مزايا خاصة — فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"},
+               "example": "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"},
     "stop_link": {"name": "stop_link",
                   "example": "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"},
+    "amount": {"name": "offer_value", "example": "20%"},
+    "code": {"name": "coupon_code", "example": "RJ-7K2M"},
+    "date": {"name": "expires_on", "example": "12 سبتمبر"},
+    "catalogue": {"name": "service", "example": "غيار الزيت"},
+    "owner": {"name": "owner_line", "example": "افتتحنا فرعنا الجديد في حي الياسمين"},
 }
 
 
@@ -139,7 +155,7 @@ def expand(lib: dict) -> list[dict]:
             by_pos = {n: (fills[i] if i < len(fills) else "") for i, n in enumerate(used)}
             names, examples = [], []
             for i in used:
-                slot = ADDRESS_SLOTS.get(by_pos.get(i, ""))
+                slot = FILL_SLOTS.get(by_pos.get(i, ""))
                 names.append(slot["name"] if slot else variables[str(i)]["name"])
                 examples.append(slot["example"] if slot else variables[str(i)]["example"])
             out.append({
@@ -163,10 +179,17 @@ def live_rows() -> list[dict]:
     out: list[dict] = []
     for row in lib.get("templates") or []:
         used = list(row.get("variables") or [])
+        # THE ROW'S OWN EXAMPLES FIRST, EXACTLY AS `library.examples_for` PREFERS THEM. This read
+        # the by-number table alone, and that table stops at six because it was written when the
+        # longest wording had six blanks — so an offer that grew a coupon blank arrived at Meta
+        # with seven placeholders and six examples, which Meta refuses outright. Reading it the way
+        # the shipping code reads it is the only way this check answers the question it prints.
+        explicit = [str(e).strip() for e in (row.get("examples") or []) if str(e).strip()]
+        examples = explicit if len(explicit) == len(used) else [
+            e for e in (str(by_number.get(str(n), "")).strip() for n in used) if e]
         out.append({**row,
                     "variables": [f"var_{n}" for n in used],
-                    "examples": [e for e in (str(by_number.get(str(n), "")).strip()
-                                             for n in used) if e]})
+                    "examples": examples})
     return out
 
 

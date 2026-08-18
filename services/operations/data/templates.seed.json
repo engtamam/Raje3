@@ -56,7 +56,12 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_visit_confirmation_warm",
@@ -82,7 +87,12 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_visit_confirmation_formal",
@@ -108,13 +118,18 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_visit_redeemed_brief",
       "type": "svc_visit_redeemed",
       "tone": "brief",
-      "label": "تأكيد الزيارة مع استبدال نقاط",
+      "label": "تأكيد الزيارة ومعه الاستبدال",
       "class": "service",
       "category": "UTILITY",
       "language": "ar",
@@ -140,13 +155,21 @@
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "40",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_visit_redeemed_warm",
       "type": "svc_visit_redeemed",
       "tone": "warm",
-      "label": "تأكيد الزيارة مع استبدال نقاط",
+      "label": "تأكيد الزيارة ومعه الاستبدال",
       "class": "service",
       "category": "UTILITY",
       "language": "ar",
@@ -172,13 +195,21 @@
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "40",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_visit_redeemed_formal",
       "type": "svc_visit_redeemed",
       "tone": "formal",
-      "label": "تأكيد الزيارة مع استبدال نقاط",
+      "label": "تأكيد الزيارة ومعه الاستبدال",
       "class": "service",
       "category": "UTILITY",
       "language": "ar",
@@ -204,7 +235,15 @@
       "model": "both",
       "model_why": "الاستبدال يحدث في كل قطاع يمنح نقاطاً.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "40",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_follow_up_brief",
@@ -232,7 +271,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_follow_up_warm",
@@ -260,7 +305,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_follow_up_formal",
@@ -288,7 +339,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_service_reminder_brief",
@@ -316,7 +373,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_service_reminder_warm",
@@ -344,7 +407,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_service_reminder_formal",
@@ -372,7 +441,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_receipt_brief",
@@ -402,7 +477,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_receipt_warm",
@@ -432,7 +514,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "svc_receipt_formal",
@@ -462,7 +551,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "drop"
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_account_notice_brief",
@@ -492,7 +588,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_account_notice_warm",
@@ -522,7 +625,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_account_notice_formal",
@@ -552,7 +662,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_points_expiring_brief",
@@ -582,7 +699,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_points_expiring_warm",
@@ -612,7 +736,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_points_expiring_formal",
@@ -642,7 +773,14 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_dsar_code_brief",
@@ -672,7 +810,14 @@
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_dsar_code_warm",
@@ -702,7 +847,14 @@
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_dsar_code_formal",
@@ -732,7 +884,14 @@
       "model": "both",
       "model_why": "حق نظامي لكل عميل في كل قطاع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "1234",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "awr_seasonal_care_brief",
@@ -742,27 +901,31 @@
       "class": "awareness",
       "category": "UTILITY",
       "language": "ar",
-      "body": "مرحباً {{1}}، مع {{3}} ننصح بـ{{4}}. من {{2}}. {{5}} 🎁",
+      "body": "مرحباً {{1}}، من {{2}}: {{3}}. {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "date",
         "owner",
         "invite"
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "awr_seasonal_care_warm",
@@ -772,27 +935,31 @@
       "class": "awareness",
       "category": "UTILITY",
       "language": "ar",
-      "body": "هلا {{1}}، {{3}} على الأبواب و{{4}} يفرق. تذكير من {{2}} لا أكثر. {{5}} 🎁",
+      "body": "هلا {{1}}، من {{2}} نصيحة تنفعك: {{3}}. {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "date",
         "owner",
         "invite"
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "awr_seasonal_care_formal",
@@ -802,27 +969,31 @@
       "class": "awareness",
       "category": "UTILITY",
       "language": "ar",
-      "body": "عزيزنا {{1}}، مع {{3}} يوصي {{2}} بـ{{4}} حفاظاً على السلامة. {{5}} 🎁",
+      "body": "عزيزنا {{1}}، يسرّ {{2}} تذكيركم: {{3}}. {{4}} 🎁",
       "variables": [
         1,
         2,
         3,
-        4,
-        5
+        4
       ],
       "header": "",
       "button": "",
       "fills": [
         "system",
         "system",
-        "date",
         "owner",
         "invite"
       ],
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "awr_care_tip_brief",
@@ -850,7 +1021,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "awr_care_tip_warm",
@@ -878,7 +1055,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "awr_care_tip_formal",
@@ -906,7 +1089,13 @@
       "model": "cycle",
       "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_weekly_digest_brief",
@@ -934,7 +1123,13 @@
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_weekly_digest_warm",
@@ -962,7 +1157,13 @@
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "per_weekly_digest_formal",
@@ -990,13 +1191,19 @@
       "model": "both",
       "model_why": "تقرير المحل عن نفسه إلى صاحبه، وكل قطاع له أسبوع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "wrn_safety_notice_brief",
       "type": "wrn_safety_notice",
       "tone": "brief",
-      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
+      "label": "تحذير سلامة",
       "class": "warning",
       "category": "UTILITY",
       "language": "ar",
@@ -1020,13 +1227,20 @@
       "model": "both",
       "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "wrn_safety_notice_warm",
       "type": "wrn_safety_notice",
       "tone": "warm",
-      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
+      "label": "تحذير سلامة",
       "class": "warning",
       "category": "UTILITY",
       "language": "ar",
@@ -1050,13 +1264,20 @@
       "model": "both",
       "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "wrn_safety_notice_formal",
       "type": "wrn_safety_notice",
       "tone": "formal",
-      "label": "تحذير سلامة (بمراجعتنا، ولا يُطلق ذاتياً)",
+      "label": "تحذير سلامة",
       "class": "warning",
       "category": "UTILITY",
       "language": "ar",
@@ -1080,7 +1301,14 @@
       "model": "both",
       "model_why": "السلامة لا تخص قطاعاً دون قطاع.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "غيار الزيت",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
     },
     {
       "name": "mkt_offer_brief",
@@ -1090,14 +1318,15 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "أهلاً {{1}}، من {{2}} لك خصم {{3}} على {{4}}. ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
+      "body": "أهلاً {{1}}، من {{2}} لك خصم {{3}} على {{4}}. رمزك: {{5}}، ساري حتى {{6}}. لإيقاف العروض: {{7}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
         5,
-        6
+        6,
+        7
       ],
       "header": "",
       "button": "",
@@ -1106,13 +1335,23 @@
         "system",
         "amount",
         "catalogue",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "غيار الزيت",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_offer_warm",
@@ -1122,14 +1361,15 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "هلا {{1}}، جهّزنا لك خصم {{3}} على {{4}} في {{2}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
+      "body": "هلا {{1}}، عندنا لك من {{2}} خصم {{3}} على {{4}}. رمزك: {{5}}، ساري حتى {{6}}. لإيقاف العروض: {{7}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
         5,
-        6
+        6,
+        7
       ],
       "header": "",
       "button": "",
@@ -1138,13 +1378,23 @@
         "system",
         "amount",
         "catalogue",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "غيار الزيت",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_offer_formal",
@@ -1154,14 +1404,15 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "عزيزنا {{1}}، يسر {{2}} تقديم خصم {{3}} على {{4}} حتى تاريخ {{5}}. لإيقاف العروض: {{6}} ✋",
+      "body": "عزيزنا {{1}}، يسرّ {{2}} منحكم خصم {{3}} على {{4}}. الرمز: {{5}}، ساري حتى {{6}}. لإيقاف العروض: {{7}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
         5,
-        6
+        6,
+        7
       ],
       "header": "",
       "button": "",
@@ -1170,37 +1421,6 @@
         "system",
         "amount",
         "catalogue",
-        "date",
-        "stop_link"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل المحلات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_coupon_brief",
-      "type": "mkt_coupon",
-      "tone": "brief",
-      "label": "قسيمة برمز",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، من {{2}} لك خصم {{3}} برمز {{4}}. ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "amount",
         "code",
         "date",
         "stop_link"
@@ -1208,71 +1428,16 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_coupon_warm",
-      "type": "mkt_coupon",
-      "tone": "warm",
-      "label": "قسيمة برمز",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، هذي قسيمتك من {{2}}: خصم {{3}} برمز {{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "amount",
-        "code",
-        "date",
-        "stop_link"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل المحلات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_coupon_formal",
-      "type": "mkt_coupon",
-      "tone": "formal",
-      "label": "قسيمة برمز",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يقدم {{2}} لكم قسيمة خصم {{3}} برمز {{4}} حتى تاريخ {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "amount",
-        "code",
-        "date",
-        "stop_link"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل المحلات.",
-      "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "غيار الزيت",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_winback_brief",
@@ -1282,13 +1447,14 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "أهلاً {{1}}، لك خصم {{3}} في زيارتك القادمة لـ{{2}}، ساري حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "أهلاً {{1}}، لك خصم {{3}} في زيارتك القادمة لـ{{2}}، برمز {{4}} ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "header": "",
       "button": "",
@@ -1296,13 +1462,22 @@
         "system",
         "system",
         "amount",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_winback_warm",
@@ -1312,13 +1487,14 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "صار لنا فترة ما شفناك {{1}}! جهّزنا لك خصم {{3}} في زيارتك الجاية لـ{{2}} — ساري لين {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "هلا {{1}}، وحشتنا — لك خصم {{3}} في زيارتك القادمة لـ{{2}}، برمز {{4}} ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "header": "",
       "button": "",
@@ -1326,13 +1502,22 @@
         "system",
         "system",
         "amount",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_winback_formal",
@@ -1342,13 +1527,14 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "عزيزنا {{1}}، نتشرف بعودتكم إلى {{2}}، ولكم خصم {{3}} في زيارتكم القادمة حتى تاريخ {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "عزيزنا {{1}}، يسرّ {{2}} منحكم خصم {{3}} في زيارتكم القادمة، بالرمز {{4}} حتى {{5}}. لإيقاف العروض: {{6}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "header": "",
       "button": "",
@@ -1356,13 +1542,22 @@
         "system",
         "system",
         "amount",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_loyalty_activation_brief",
@@ -1392,7 +1587,14 @@
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "غيار الزيت",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_loyalty_activation_warm",
@@ -1422,7 +1624,14 @@
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "غيار الزيت",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_loyalty_activation_formal",
@@ -1452,283 +1661,14 @@
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_cross_sell_brief",
-      "type": "mkt_cross_sell",
-      "tone": "brief",
-      "label": "خدمة مكمّلة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، مع {{3}} قد يناسبك {{4}} في {{2}}. لإيقاف العروض: {{5}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "catalogue",
-        "stop_link"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_cross_sell_warm",
-      "type": "mkt_cross_sell",
-      "tone": "warm",
-      "label": "خدمة مكمّلة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، بما إنك مهتم بـ{{3}}، كثير من عملاء {{2}} يضيفون معها {{4}}. لإيقاف العروض: {{5}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "catalogue",
-        "stop_link"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_cross_sell_formal",
-      "type": "mkt_cross_sell",
-      "tone": "formal",
-      "label": "خدمة مكمّلة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، نوصي بإضافة {{4}} إلى {{3}} لدى {{2}} لضمان أفضل النتائج. لإيقاف العروض: {{5}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "catalogue",
-        "stop_link"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_package_brief",
-      "type": "mkt_package",
-      "tone": "brief",
-      "label": "باقة أو اشتراك",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، باقة {{3}} من {{2}} بـ{{4}}. ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_package_warm",
-      "type": "mkt_package",
-      "tone": "warm",
-      "label": "باقة أو اشتراك",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، وفّر أكثر مع باقة {{3}} من {{2}} بـ{{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_package_formal",
-      "type": "mkt_package",
-      "tone": "formal",
-      "label": "باقة أو اشتراك",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، يقدم {{2}} باقة {{3}} بقيمة {{4}} حتى تاريخ {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "catalogue",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "cycle",
-      "model_why": "تناسب المحلات ذات الخدمة الدورية — ورش، بنشر، مغاسل، صالونات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_referral_brief",
-      "type": "mkt_referral",
-      "tone": "brief",
-      "label": "إحالة صديق",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، رشّح {{2}} لصديقك، ولكما خصم {{3}}. ساري حتى {{4}}. لإيقاف العروض: {{5}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_referral_warm",
-      "type": "mkt_referral",
-      "tone": "warm",
-      "label": "إحالة صديق",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "هلا {{1}}، إذا عجبتك خدمتنا في {{2}} رشّحنا لصاحبك — لك وله خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_referral_formal",
-      "type": "mkt_referral",
-      "tone": "formal",
-      "label": "إحالة صديق",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، بترشيح {{2}} لأصدقائكم تحصلون أنتم وهم على خصم {{3}} حتى تاريخ {{4}}. لإيقاف العروض: {{5}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "loyalty",
-      "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
-      "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "غيار الزيت",
+        "غيار الزيت",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_announcement_brief",
@@ -1756,7 +1696,13 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_announcement_warm",
@@ -1784,7 +1730,13 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_announcement_formal",
@@ -1812,7 +1764,13 @@
       "model": "both",
       "model_why": "تناسب كل المحلات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "افتتحنا فرعنا الجديد في حي الياسمين",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_personal_occasion_brief",
@@ -1822,13 +1780,14 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنت بخير {{1}}. من {{2}} لك خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "كل عام وأنت بخير {{1}}. من {{2}} لك خصم {{3}} برمز {{4}} حتى {{5}}. لإيقاف العروض: {{6}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "header": "",
       "button": "",
@@ -1836,13 +1795,22 @@
         "system",
         "system",
         "amount",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_personal_occasion_warm",
@@ -1852,13 +1820,14 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "كل عام وأنت بخير {{1}}، وهديتنا لك من {{2}}: خصم {{3}} ساري لين {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "كل عام وأنت بخير يا {{1}} 🌿 من {{2}} لك خصم {{3}} برمز {{4}} حتى {{5}}. لإيقاف العروض: {{6}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "header": "",
       "button": "",
@@ -1866,13 +1835,22 @@
         "system",
         "system",
         "amount",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     },
     {
       "name": "mkt_personal_occasion_formal",
@@ -1882,13 +1860,14 @@
       "class": "marketing",
       "category": "MARKETING",
       "language": "ar",
-      "body": "عزيزنا {{1}}، يتقدم {{2}} بأطيب التهاني، ولكم خصم {{3}} بهذه المناسبة حتى تاريخ {{4}}. لإيقاف العروض: {{5}} ✋",
+      "body": "عزيزنا {{1}}، كل عام وأنتم بخير. من {{2}} خصم {{3}} بالرمز {{4}} حتى {{5}}. لإيقاف العروض: {{6}} ✋",
       "variables": [
         1,
         2,
         3,
         4,
-        5
+        5,
+        6
       ],
       "header": "",
       "button": "",
@@ -1896,109 +1875,22 @@
         "system",
         "system",
         "amount",
+        "code",
         "date",
         "stop_link"
       ],
       "model": "loyalty",
       "model_why": "تناسب المحلات المتكررة الزيارة — مطاعم، مقاهٍ، حلويات.",
       "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_seasonal_brief",
-      "type": "mkt_seasonal",
-      "tone": "brief",
-      "label": "مناسبة عامة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "أهلاً {{1}}، بمناسبة {{3}} من {{2}} لك خصم {{4}}. ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل المحلات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_seasonal_warm",
-      "type": "mkt_seasonal",
-      "tone": "warm",
-      "label": "مناسبة عامة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "كل عام وأنت بخير {{1}}، بمناسبة {{3}} جهزنا لك في {{2}} خصم {{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل المحلات.",
-      "active": true,
-      "deferral": "defer"
-    },
-    {
-      "name": "mkt_seasonal_formal",
-      "type": "mkt_seasonal",
-      "tone": "formal",
-      "label": "مناسبة عامة",
-      "class": "marketing",
-      "category": "MARKETING",
-      "language": "ar",
-      "body": "عزيزنا {{1}}، بمناسبة {{3}} يقدم {{2}} لكم خصم {{4}} حتى تاريخ {{5}}. لإيقاف العروض: {{6}} ✋",
-      "variables": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "header": "",
-      "button": "",
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "amount",
-        "date",
-        "stop_link"
-      ],
-      "model": "both",
-      "model_why": "تناسب كل المحلات.",
-      "active": true,
-      "deferral": "defer"
+      "deferral": "defer",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "20%",
+        "RJ-7K2M",
+        "12 سبتمبر",
+        "https://my.raje3.sa/p/nakheel.sub_rj7k2m/stop"
+      ]
     }
   ]
 }

@@ -64,6 +64,26 @@ CARDS = {
         "line": "نصيحة تخصّ ما أخذوه",
         "icon": "info",
     },
+    # A SEASON IS NOT A SERVICE, WHICH IS WHY THIS IS NOT `awareness`. A care tip is tied to what
+    # the customer took — «مع غيار الزيت، افحص الفلتر» — and reaches the people who took it. A
+    # seasonal one is tied to the calendar and reaches everyone: «مع الصيف، افحص المكيّف». Same
+    # class, so neither is promotional and neither needs marketing consent; different audience,
+    # so folding them into one card would ask the owner one question and answer another.
+    "seasonal_care": {
+        "title": "نصيحة موسمية",
+        "line": "نصيحة تخصّ الموسم، للجميع",
+        "icon": "info",
+    },
+    # A SHOP THAT DISCOVERS A FAULT HAS TO BE ABLE TO SAY SO, and until this row it could not.
+    # `wrn_safety_notice` was written, seeded and submitted to Meta at every connect — and named
+    # by no goal, so a workshop that learned a batch of filters was defective had exactly one way
+    # to warn the people driving on them: phone each one. It is not promotional and never carries
+    # an offer, which is why it sits beside `awareness` rather than among the campaigns.
+    "safety": {
+        "title": "نبّه عن خطر",
+        "line": "عيب أو استدعاء يخصّ خدمة أخذها",
+        "icon": "alert",
+    },
     "service_offer": {
         "title": "عرض على خدمة",
         # THE LINE IS THE RULE, IN HIS WORDS. He is not told about a threshold or a cycle — he is

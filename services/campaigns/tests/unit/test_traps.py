@@ -162,8 +162,15 @@ def test_no_peer_url_assumes_a_namespace_it_was_not_given():
 # ── and the promise the whole service rests on ─────────────────────────────────────────────────
 def test_a_campaign_can_never_choose_its_own_regulatory_class():
     from app.core.models import GOAL_TEMPLATE
-    classes = {c for _, c in GOAL_TEMPLATE.values()}
-    assert classes == {"marketing", "awareness"}
+    # PINNED AS A PROPERTY, NOT AS A LIST. It read `== {"marketing", "awareness"}` and broke the
+    # day a third class was needed — which is a test asserting the size of the product rather than
+    # the promise. The promise is that the class travels with the GOAL and nothing in a request
+    # can move it: a shop cannot post a promotional campaign wearing a warning's exemptions.
+    allowed = {"marketing", "awareness", "warning"}
+    for template_type, cls in GOAL_TEMPLATE.values():
+        assert cls in allowed, f"{template_type} carries an unknown regulatory class {cls!r}"
+    assert GOAL_TEMPLATE["safety"][1] == "warning"
+    assert GOAL_TEMPLATE["announce"][1] == "marketing"
 
 
 def test_the_boot_guard_refuses_a_service_that_can_reach_nobody():

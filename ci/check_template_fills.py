@@ -57,15 +57,21 @@ C_G, C_R, C_Y, C_N = "\033[32m", "\033[31m", "\033[33m", "\033[0m"
 #
 # A LINE HERE IS A DECISION, not a silencer. Anything not fired and not listed is a text we pay
 # Meta to review for every establishment and that no customer can ever receive.
+# THIS LIST WAS RIGHT BEFORE ANYBODY ACTED ON IT, and that is worth saying plainly. Every line
+# named exactly what was missing — a goal, a trigger, a pricing decision — and the templates stayed
+# in the library anyway, submitted to Meta at every connect, waiting for a reason that never came.
+# A note explaining why something is broken is not a fix; #387 acted on the notes.
+#
+# WHAT CHANGED:
+#   · `wrn_safety_notice` is no longer asleep — «نبّه عن خطر» is a manual goal now, which is what
+#     §8.4.1 asked for all along: reviewed case by case, launched by a human, never automatic.
+#   · `awr_seasonal_care` woke the same way — «نصيحة موسمية», manual, no calendar needed.
+#   · `mkt_coupon` was MERGED rather than woken: its code blank now lives in the three offer
+#     wordings that can actually be selected, so a separate template would be two wordings for one
+#     intention.
+#   · the other four LEFT the library (#389) instead of sleeping in it. A wording nobody can send
+#     still costs the shop a template slot and a review — sleeping in the seed was never free.
 SLEEPING = {
-    "wrn_safety_notice":
-        "بقرار (§8.4.1): تحذير السلامة لا يُطلَق ذاتياً — يُراجَع لكل حالة، والقالب معتمَد ونائم",
-    "mkt_cross_sell": "ينتظر هدفاً: «خدمة مكمّلة» — المحرك يعرف الاقترانات ولا بطاقة تطلقها",
-    "mkt_package": "ينتظر هدفاً: «باقة» — ولم نقرّر بعد كيف تُسعَّر الباقة داخل الحملة",
-    "mkt_referral": "ينتظر هدفاً: «ترشيح صديق» — ويحتاج أثراً يربط الصديق بمن رشّحه",
-    "mkt_seasonal": "ينتظر مُطلِقاً تقويمياً ومباعدةً بين المنشآت (§10.9): يومٌ وطني ترسل فيه كلها",
-    "mkt_coupon": "جاهز وينتظر خيار «قسيمة» في شاشة الحملة — الرمز والمولّد مبنيان",
-    "awr_seasonal_care": "ينتظر المُطلِق التقويمي نفسه الذي ينتظره mkt_seasonal",
     # The receipt needs a total and a transaction reference. A VISIT DOES NOT CARRY EITHER: the
     # price lives on the service in the catalogue, and nothing records what was actually charged
     # — a visit is «من جاء وماذا أخذ», not an invoice. Wiring it would mean recording money at the
@@ -92,7 +98,14 @@ def campaign_types() -> dict[str, str]:
     exemption; the library is the authority, and this is the only place the two are compared.
     """
     src = (SERVICES / "campaigns" / "app" / "core" / "models.py").read_text(encoding="utf-8")
-    return dict(re.findall(r'\("([a-z_]+)",\s*"(marketing|awareness|service|personal)"\)', src))
+    # THE CLASSES ARE READ, NOT LISTED. This named four of them, and the fifth — `warning`, added
+    # when a shop gained a way to warn customers about a defect — was invisible to it: the goal
+    # existed, the template was wired, and this check reported the template as fired by nothing and
+    # demanded a note explaining why it slept. A pattern that enumerates what the product may
+    # contain goes stale the first time the product grows; a pattern that reads what it declares
+    # does not. The classes themselves are pinned by campaigns' own tests, which is where that
+    # belongs.
+    return dict(re.findall(r'\("([a-z_]+)",\s*"([a-z_]+)"\)', src))
 
 
 def goal_template_types() -> dict[str, str]:

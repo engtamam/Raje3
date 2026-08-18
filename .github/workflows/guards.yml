@@ -602,6 +602,14 @@ jobs:
       - name: every write says whether it needs a subscription
         run: python3 ci/check_every_write_says_whether_it_needs_a_subscription.py
 
+      # A WORDING NOTHING CAN SEND, AND A VALUE NOTHING CAN CARRY. Seven of the twenty-two seeded
+      # wordings are named by no line of code, and they are still submitted to Meta the moment a
+      # shop connects — each waiting in review and eating the shop's allowance for a message
+      # nobody can send. One of the seven is the only wording with a `code` blank, so the unique
+      # per-customer coupon of #245 is minted, handed to the renderer, and delivered to no one.
+      - name: every template has a sender and every slot a template
+        run: python3 ci/check_every_template_has_a_sender_and_every_slot_a_template.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.
