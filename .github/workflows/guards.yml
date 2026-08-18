@@ -579,6 +579,13 @@ jobs:
       - name: every refused message leaves a row
         run: python3 ci/check_a_refused_message_leaves_a_row.py
 
+      # AND THE LAST OF THE THREE. `_fail` handed a thrown row back to `pending` every hour with
+      # no memory of how often it had — right for a peer briefly away, and a loop with no exit for
+      # a number Meta refuses or a template rejected for this shop alone. Nothing logged, nothing
+      # closed, one wasted pass an hour for as long as the establishment exists.
+      - name: a retry after a failure is counted and can give up
+        run: python3 ci/check_a_retry_after_a_failure_is_counted.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully

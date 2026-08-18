@@ -99,6 +99,17 @@ class Schedule:
     # months and nothing read it — a field the model does not know about is a field nobody has to
     # keep, which is how it stayed unread without anything failing.
     tone_index: int = 1
+    # HOW MANY TIMES A PASS OVER THIS ROW HAS THROWN.
+    #
+    # `_fail` used to hand a row back to `pending` for ever on the assumption that a failure is a
+    # peer being briefly unavailable. Most are. The rest — a number Meta refuses, a template
+    # rejected for this shop alone, a malformed row — produce the same exception every hour until
+    # the shop closes, with no row in the send log and no terminal state: a message nobody
+    # receives and nobody can see.
+    #
+    # ON THE ROW RATHER THAN IN MEMORY, because the tick is a process that dies: a counter held
+    # anywhere else resets on every deploy, which is exactly when failures cluster.
+    attempts: int = 0
     created: int = field(default_factory=_now)
     updated: int = field(default_factory=_now)
 

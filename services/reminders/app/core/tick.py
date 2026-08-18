@@ -49,6 +49,15 @@ from app.core.reach import Reach
 # depends on when in the rolling window the refusal happened, and the only wrong answer is "an
 # hour", which walks back into the same closed door. Deployments set CEILING_DEFER_SECONDS.
 _DEFAULT_CEILING_DEFER = 12 * 3600
+
+# HOW MANY TIMES A ROW MAY THROW BEFORE WE STOP ASKING. At one try an hour this spans most of a
+# day: far past any outage worth waiting through, and far short of for ever — which is what it was
+# before, for a peer that will never accept this particular message.
+#
+# A CONSTANT AND NOT A SETTING, deliberately. A deployment that could raise this would be handed
+# the ability to restore the defect by configuration, and nothing about one cluster makes «keep
+# retrying a permanently rejected message» right.
+MAX_ATTEMPTS = 20
 from app.core import rendering as R
 from app.core.models import SendLog, as_row
 from app.adapters.message_sender import CeilingReached, Unsendable
@@ -1038,12 +1047,42 @@ class Tick:
         await self._sched.upsert(tenant, _key(row), row)
 
     async def _fail(self, tenant: str, row: dict[str, Any], error: str, now: int) -> None:
-        """A row that threw goes back to pending with a short delay, not to a dead state.
+        """A row that threw goes back to pending with a short delay — a bounded number of times.
 
         Most failures here are a peer being briefly unavailable, and a schedule closed as `failed`
-        is a reminder that silently never happens. It retries on the next tick; a row that keeps
-        failing shows up in the reason counts, which is where an operator will actually see it.
+        is a reminder that silently never happens. So it retries on the next tick.
+
+        BUT «MOST» IS NOT «ALL», AND THE REST USED TO RETRY FOR EVER. A number Meta refuses, a
+        template rejected for this shop alone, a row whose data is malformed: the same inputs
+        raise the same exception every hour until the shop closes. Nothing reached the send log,
+        because as far as the log was concerned no attempt had been made; the row never left
+        `pending`, so it appeared in no report; and one pass per hour was spent for as long as the
+        establishment existed. The owner saw a customer who was never messaged and had nothing to
+        ask about.
+
+        The comfort this docstring used to offer — «a row that keeps failing shows up in the
+        reason counts» — was about ONE tick's counts, which are not stored and which no screen
+        reads. It was true and useless.
+
+        SO THE ROW COUNTS ITS OWN TRIES, and when they run out it ends like every other refusal:
+        a line in the send log carrying the last error, and a closed schedule. `MAX_ATTEMPTS`
+        spans most of a day at one try an hour, which is far past any outage worth waiting
+        through and far short of for ever.
         """
+        attempts = int(row.get("attempts") or 0) + 1
+        row["attempts"] = attempts
+        if attempts >= MAX_ATTEMPTS:
+            # GIVING UP IS AN ANSWER, AND IT IS RECORDED AS ONE. `suppressed` rather than a new
+            # word, for the same reason every other refusal uses it: the log's vocabulary is what
+            # every counter in the product reads.
+            why = f"توقّفنا بعد {attempts} محاولات: {error}"
+            await self._log.append(tenant, as_row(SendLog(
+                tenant=tenant, subject_ref=row.get("subject_ref", ""),
+                cls=row.get("cls", "service"), at=now, schedule_id=row.get("id", ""),
+                branch_id=str(row.get("branch_id") or ""),
+                outcome="suppressed", reason=why)))
+            await self._close(tenant, row, "suppressed", why, now)
+            return
         row["state"] = "pending"
         row["due_at"] = now + 3600
         row["reason"] = f"تعذّر الإرسال، سيُعاد: {error}"
