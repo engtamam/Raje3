@@ -225,13 +225,38 @@ class CustomTemplateStore:
         return row
 
     async def draft(self, tenant: str, *, reason_id: str, body: str, fills: list[str],
-                    cls: str = "service", replaces: str = "") -> CustomTemplate:
+                    cls: str = "", replaces: str = "") -> CustomTemplate:
         """Write a new text, or a new VERSION of one Meta already approved.
 
         A NEW NAME EVERY TIME, and this is not caution — Meta freezes a name at approval and
         editing it sends it back for review. Reusing it would take the shop's messages off the air
         for a day over one word. So the old text keeps sending until the new one is approved.
         """
+        # THE CLASS COMES FROM THE REASON, exactly like `version` below: found, never trusted to
+        # the caller. `cls` decides the mandatory tail, the consent required, the quiet window and
+        # the monthly marketing cap — every rule the law and Meta's policy impose — and the reason
+        # registry already knows it, because a reason IS «متى تُرسَل ولماذا».
+        #
+        # WHAT THIS WAS. The argument defaulted to `"service"` and `TextEditor.tsx` sent
+        # `{reason_id, body, fills, replaces}` — no class at all. So an owner rewriting the text of
+        # «استرجاع» or «تفعيل النقاط» — MARKETING reasons, four of them in the registry — had his
+        # text stored as service. It would then go out with no «أوقفها» link (§8.3 makes it
+        # mandatory for every marketing message), to people who never granted marketing consent,
+        # inside the quiet window, and outside the cap that protects the shop's number. Nothing
+        # would have refused it and nothing would have looked wrong.
+        #
+        # A caller MAY still name a class, and it must agree. Disagreement is refused rather than
+        # silently corrected: a caller that believes it is writing a service text when the reason
+        # is marketing has a defect of its own, and quietly fixing the value hides it.
+        reason = T.get(reason_id)
+        if reason is None:
+            # REFUSED HERE RATHER THAN TWO LINES LOWER, where `check` would say the same thing.
+            # Without this the tail below is composed from an empty class first, and a reader
+            # tracing why an unknown reason produced an invite line finds nothing to read.
+            raise CustomTemplateError("لا يوجد داعٍ للإرسال بهذا الاسم.")
+        if cls and cls != reason.cls:
+            raise CustomTemplateError("صنف الرسالة يأتي من داعي الإرسال نفسه، ولا يُختار هنا.")
+        cls = reason.cls
         # THE ADDRESS IS ADDED BEFORE IT IS CHECKED, so an owner who never thought about it still
         # ends up with a lawful text, and one who put it in the wrong place is told where it goes.
         body, fills = with_mandatory_tail(body, list(fills), cls)

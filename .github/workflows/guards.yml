@@ -618,6 +618,15 @@ jobs:
       - name: every send says which number it leaves from
         run: python3 ci/check_every_send_says_which_number_it_leaves_from.py
 
+      # AND WHICH RULES IT IS SENT UNDER. The message class decides the mandatory «أوقفها» link,
+      # the consent required, the quiet window and the monthly cap. It arrived as a request field
+      # defaulting to «service» — the most permissive value — while the only screen that writes a
+      # custom template posts no class at all, so an owner rewriting a MARKETING reason had
+      # advertising filed as a service message. The class is read from the reason now; this
+      # refuses the shape that made the omission possible.
+      - name: the class of a message comes from its reason
+        run: python3 ci/check_the_class_of_a_message_comes_from_its_reason.py
+
       # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
       # tab or row in the console carried that name — the place that sold apps was called
       # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.

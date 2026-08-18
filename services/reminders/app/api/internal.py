@@ -542,7 +542,12 @@ async def _establishment(c, tenant: str):
 class EligibilityIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)
-    cls: str = Field(default="marketing", alias="class", max_length=32)
+    # REQUIRED, WITH NO DEFAULT. Both callers — campaigns and insights — always send it, so the
+    # default only ever fired for a caller that FORGOT, and «marketing» is not a safe thing to
+    # guess: it decides the mandatory stop link, the consent required, the quiet window and the
+    # monthly cap. A guess in either direction is wrong, and a 422 naming the missing field is a
+    # better answer than a message sent under a class nobody chose.
+    cls: str = Field(alias="class", min_length=1, max_length=32)
 
     model_config = {"populate_by_name": True}
 
@@ -627,7 +632,12 @@ class CampaignSendIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     subject_ref: str = Field(min_length=8, max_length=128)
     template_type: str = Field(min_length=3, max_length=128)
-    cls: str = Field(default="marketing", alias="class", max_length=32)
+    # REQUIRED, WITH NO DEFAULT. Both callers — campaigns and insights — always send it, so the
+    # default only ever fired for a caller that FORGOT, and «marketing» is not a safe thing to
+    # guess: it decides the mandatory stop link, the consent required, the quiet window and the
+    # monthly cap. A guess in either direction is wrong, and a 422 naming the missing field is a
+    # better answer than a message sent under a class nobody chose.
+    cls: str = Field(alias="class", min_length=1, max_length=32)
     # The owner's ONE free-text field. Sanitised by the caller AND here — a rule enforced on one
     # side of a boundary is a rule the other side can bypass.
     #

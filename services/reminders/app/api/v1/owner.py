@@ -489,10 +489,12 @@ class CustomTemplateIn(BaseModel):
     # numbers blanks and names nothing, so `{{2}}` is a customer's name in one template and a
     # service in another. The editor knows, because he inserted the chip.
     fills: list[str] = Field(default_factory=list, max_length=10)
-    # HIS ANSWER TO ONE QUESTION — «متى تُرسَل؟» — and never our analysis of his words. The class
-    # decides consent, the window and the monthly cap, and Meta re-categorises what it disagrees
-    # with; there is no checker of ours between him and them.
-    cls: str = Field(default="service", max_length=32)
+    # NOT HIS ANSWER, AND NOT A DEFAULT — the class comes from the reason he is rewriting, and
+    # `CustomTemplateStore.draft` reads it there. It decides the mandatory «أوقفها» tail, the
+    # consent required, the quiet window and the monthly cap; a reason is precisely «متى تُرسَل
+    # ولماذا», so it already holds the answer. Empty here, and a value that disagrees with the
+    # reason is refused rather than corrected — see the note at the derivation.
+    cls: str = Field(default="", max_length=32)
     # The approved text this one replaces. A new NAME every time: Meta freezes a name at approval,
     # so reusing it would take his messages off the air for a day over one word.
     replaces: str = Field(default="", max_length=512)
