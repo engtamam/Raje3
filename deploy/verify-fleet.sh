@@ -245,7 +245,17 @@ fi
 
 per_target="$(sed -n 's/^  BACKUP_TARGET_TIMEOUT_SECONDS: *"\([0-9]*\)".*/\1/p' \
   "$ROOT/deploy/services/backup-service.values.yaml" | head -1)"
-caller_wait=300     # `platform/deploy/chart/templates/cronjob.yaml` — read-only, hence the escalation
+# THE WINDOW THE `run` JOB DECLARES, not a number typed here. It WAS typed here — 300, with a
+# comment calling it read-only and an escalation attached — and that was true while the chart
+# carried one inline timeout for every job in the fleet. v0.16.18 made it per-cronJob, so a
+# hard-coded 300 became a claim wider than its evidence: it would keep printing «the cron waits
+# 300s» about a job that now waits 2700, and the red mark would never clear no matter what we did.
+#
+# `sed` walks to the `- name: run` entry and takes the `timeoutSeconds` under it; a job that
+# declares nothing keeps the chart's default, which is what the chart actually does.
+caller_wait="$(sed -n '/^  - name: run$/,/^  - name: /{s/^    timeoutSeconds: *\([0-9]*\).*/\1/p;}' \
+  "$ROOT/deploy/services/backup-service.values.yaml" | head -1)"
+[ -n "$caller_wait" ] || caller_wait=300
 if [ -n "$per_target" ] && [ -n "$targets" ] && [ "$targets" -gt 0 ] 2>/dev/null; then
   worst=$((targets * per_target))
   if [ "$worst" -gt "$caller_wait" ]; then

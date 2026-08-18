@@ -120,9 +120,80 @@ LOCAL = re.compile(r"each-unit-is-a-local-read")
 #: machine-readable, so the gate stops demanding an edit nobody should make.
 CEILING = re.compile(r"a-ceiling-not-a-tuning-knob")
 
+#: THE ROSTER A CEILING HIDES. `BACKUP_TARGET_LIMIT: 500` is a runaway guard over a fleet of about
+#: eighteen, so multiplying it by a per-target timeout produces 60000s — a number about nothing,
+#: which no window can ever cover and which therefore made the escalation permanent furniture.
+#:
+#: What a run ACTUALLY walks is what the seeder registers, and that is a repository fact:
+#: compliance-service's `PRIVACY_TARGETS`, less the services declared exempt in
+#: `podAnnotations.raje3.io/backup-exempt`. `deploy/seed/seed-backup-targets.sh` derives its roster
+#: from exactly those two, so counting them here cannot drift from what the cluster is given — and
+#: a twenty-third service moves this arithmetic by itself, which a number typed into a comment
+#: never would.
+REAL_BOUND_IS_ROSTER = re.compile(r"the-real-bound-is-PRIVACY_TARGETS")
+ROSTER = re.compile(r"^\s+PRIVACY_TARGETS: *\"([^\"]*)\"", re.M)
+EXEMPT = re.compile(r"^\s+raje3\.io/backup-exempt: *\"([^\"]*)\"", re.M)
+
+#: WHICH SCHEDULED JOB A BOUND ACTUALLY RUNS IN — and the gate refuses to guess.
+#:
+#: Until v0.16.18 the question could not be asked: the CronJob body carried one inline
+#: `timeout=300` and every job in the fleet waited exactly that long. The chart now takes
+#: `timeoutSeconds` PER JOB, so «how long does the caller wait» has a different answer for
+#: `backup-service/run` (declared) than for `backup-service/health-check` (defaulted) — and a gate
+#: that keeps comparing everything against the default reports a window it did not measure.
+#:
+#: A bound with no declared job falls back to the SMALLEST window that service schedules, which is
+#: the conservative reading and never flatters; it is reported below so the guess is visible rather
+#: than silent.
+RUNS_IN = re.compile(r"this-bound-runs-in:\s*([a-z0-9-]+)")
+
+#: A cronJob entry: its name, and the window it declares if it declares one.
+A_CRONJOB = re.compile(r"^\s+- name: *([a-z0-9-]+)\s*$", re.M)
+A_JOB_TIMEOUT = re.compile(r"^\s+timeoutSeconds: *(\d+)\s*$")
+
 #: THE OUTER BOUND — how many tenants the run walks. Not ours to fit inside 300s at any value, so
 #: it is not judged; it is multiplied into the escalation line so the true number is on screen.
 A_OUTER = re.compile(r"^\s+([A-Z0-9_]*MAX_TENANTS[A-Z0-9_]*): *\"?(\d+)\"?", re.M)
+
+
+def windows(text: str, default: int) -> dict[str, int]:
+    """Each cronJob this file schedules, and how long its caller waits for it.
+
+    A job that declares nothing gets the chart's default — read from the chart, not written here,
+    so the day it moves this gate agrees without being edited.
+    """
+    out: dict[str, int] = {}
+    name = ""
+    for line in text.splitlines():
+        hit = A_CRONJOB.match(line)
+        if hit:
+            name = hit.group(1)
+            out[name] = default
+            continue
+        got = A_JOB_TIMEOUT.match(line)
+        if got and name:
+            out[name] = int(got.group(1))
+    return out
+
+
+def roster_size() -> int | None:
+    """How many targets the seeder actually registers — not the runaway ceiling beside it.
+
+    Both halves are read where the seeder reads them, so this count and the cluster's cannot
+    disagree without somebody editing one of the two files.
+    """
+    compliance = SERVICES / "compliance-service.values.yaml"
+    backup = SERVICES / "backup-service.values.yaml"
+    if not compliance.is_file() or not backup.is_file():
+        return None
+    listed = ROSTER.search(compliance.read_text(encoding="utf-8"))
+    if not listed:
+        return None
+    names = {t.split("=")[0].strip() for t in listed.group(1).split(",") if t.strip()}
+    exempt = EXEMPT.search(backup.read_text(encoding="utf-8"))
+    if exempt:
+        names -= {e.strip() for e in exempt.group(1).split(",") if e.strip()}
+    return len(names) or None
 
 
 def main() -> int:
@@ -144,7 +215,12 @@ def main() -> int:
               "`urlopen(..., timeout=N)` nor a `.timeoutSeconds | default N`. It changed again, "
               "and this gate will not guess a window it cannot read")
         return 1
-    caller = int(m.group(1))
+    # THE DEFAULT, AND ONLY THE DEFAULT. It is what a job that declares nothing waits; a job that
+    # declares `timeoutSeconds` waits its own number, and since v0.16.18 that is the common case
+    # for anything that fans out. Treating this as «the caller» for every job was true when one
+    # inline timeout governed the whole fleet and became a claim wider than its evidence the day
+    # the chart grew the knob.
+    chart_default = int(m.group(1))
 
     files = sorted(SERVICES.glob("*.values.yaml"))
     if not files:
@@ -193,6 +269,28 @@ def main() -> int:
         # is not the same as the right one, so a bound that knows its own cost says so.
         pk = named_cost if named_cost in timeouts else min(timeouts, key=lambda k: timeouts[k])
 
+        # THE WINDOW THIS SERVICE'S OWN SCHEDULE DECLARES, per job.
+        declared = windows(text, chart_default)
+        job = None
+        for line in text.splitlines():
+            hit = RUNS_IN.search(line)
+            if hit:
+                job = hit.group(1)
+                break
+        if job and job in declared:
+            caller = declared[job]
+            waits = f"{job} waits {caller}s"
+        else:
+            # NO DECLARED JOB — the smallest window it schedules, which can only under-report the
+            # patience and never over-report it. Named below rather than assumed silently.
+            caller = min(declared.values()) if declared else chart_default
+            waits = f"caller waits {caller}s"
+            if job:
+                unpaired.append(f"{svc}: this-bound-runs-in names «{job}», which it does not schedule")
+            elif len(set(declared.values())) > 1:
+                unpaired.append(f"{svc}: schedules windows {sorted(set(declared.values()))} and no "
+                                f"bound says which job it runs in — judged against the smallest")
+
         # A BOUND ALONE IS NOT AN ARGUMENT. Multiplying it by the smallest declared timeout only
         # says anything if ONE UNIT REALLY COSTS THAT — true of the reminders tick, where each row
         # is a live send, and false of `loyalty`'s expiry sweep, which reads five hundred rows from
@@ -203,16 +301,29 @@ def main() -> int:
         # is reported below rather than multiplied. Reported, not ignored: it was invisible before,
         # which is how `insights` carried a 5000-row bound this gate called comfortable.
         units = sum(inner.values()) if inner else 1
+        # A CEILING IS NOT A WORKLOAD. Where the file says its real bound is the roster, the roster
+        # is COUNTED — otherwise the arithmetic is 500 x 120s = 60000s, a number about nothing that
+        # no window could ever cover, which is precisely how this line became furniture: a run that
+        # can never be made to fit is a run nobody tries to fix.
+        counted = ""
+        if REAL_BOUND_IS_ROSTER.search(text):
+            real = roster_size()
+            if real:
+                units, counted = real, " (the roster, not the ceiling)"
+            else:
+                # REFUSED, NOT GUESSED: a roster this gate cannot read is not a roster of zero.
+                unpaired.append(f"{svc}: names PRIVACY_TARGETS as its real bound and the roster "
+                                f"could not be counted — judged against the ceiling instead")
         slice_worst = timeouts[pk] * units
         judged += 1
         if slice_worst > caller:
             shape = " x ".join(f"{k}={v}" for k, v in sorted(inner.items()))
-            if CEILING.search(text):
+            if CEILING.search(text) and not counted:
                 escalate.append(f"{svc}: {units} units x {timeouts[pk]}s = {slice_worst}s "
                                 f"({shape}, {pk}={timeouts[pk]})")
             else:
-                over.append(f"{svc}: one tenant is {units} units x {timeouts[pk]}s = "
-                            f"{slice_worst}s, caller waits {caller}s\n      ({shape}, "
+                over.append(f"{svc}: one tenant is {units} units{counted} x {timeouts[pk]}s = "
+                            f"{slice_worst}s, {waits}\n      ({shape}, "
                             f"{pk}={timeouts[pk]})")
 
         tenants = 1
@@ -229,16 +340,24 @@ def main() -> int:
         print("STANDING ESCALATION — these runs cannot fit in any case, at any batch size:")
         for line in escalate:
             print("  " + line)
-        print(f"  the caller waits {caller}s: platform/deploy/chart/templates/cronjob.yaml, which")
-        print("  this repository does not edit. Raise it there, or make the route answer")
-        print("  immediately and report through its own runs endpoint. Tracked in #340.\n")
+        # AND THE REMEDY CHANGED. It used to be one sentence — «raise the 300 in the chart» — for
+        # every member, because a single inline timeout governed the whole fleet. v0.16.18 made the
+        # window per-cronJob, so a run whose worst case is a real number now DECLARES a window that
+        # covers it, and backup-service does. What is left here is the other shape: a run whose
+        # bound is the loop itself, where no window is the answer because thirteen hours is not a
+        # window — it is a route that must stop answering synchronously.
+        print("  These exceed any window worth declaring: the run's SHAPE is the problem, not its")
+        print("  batch size. Make the route answer immediately and report through its own runs")
+        print("  endpoint. Tracked in #340.")
+        print()
 
     if over:
         print(f"{len(over)} of {judged} scheduled run(s) give ONE tenant more than the whole "
               f"window:")
         for line in over:
             print("  " + line)
-        print(f"\nWith a {caller}s guillotine the question is no longer «does it finish» but «who is")
+        print()
+        print("With a guillotine that short the question is no longer «does it finish» but «who is")
         print("served before it falls». A slice this size lets the first establishment consume the")
         print("entire window, and every shop behind it waits for the next tick — every tick.")
         return 1
@@ -253,7 +372,7 @@ def main() -> int:
         print("  is a local read, say so there. Neither is assumed here.")
 
     print()
-    print(f"{judged} scheduled run(s): no tenant's slice exceeds the caller's {caller}s")
+    print(f"{judged} scheduled run(s): every tenant's slice fits the window its own job declares")
     return 0
 
 

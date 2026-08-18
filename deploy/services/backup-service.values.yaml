@@ -158,10 +158,14 @@ env:
   # 500 is the upstream default and far above our ~18 services. Left as-is: it is a ceiling
   # against a runaway, not a number to tune.
   # a-ceiling-not-a-tuning-knob: 500 over a fleet of ~18 services. Lowering it until the
-  # arithmetic fits would mean backing up two collections and calling it a backup — the
-  # window is the platform's 300s to raise, not this number to shrink. See #340.
+  # arithmetic fits would mean backing up two collections and calling it a backup.
+  # the-real-bound-is-PRIVACY_TARGETS: and the gate counts it rather than believing a number
+  # written here. 500 is a runaway guard; what a run ACTUALLY walks is the roster the seeder
+  # registers — compliance-service's PRIVACY_TARGETS, less the exemption declared above — so a
+  # twenty-third service moves the arithmetic by itself, and no hand-kept copy can go stale.
   # each-unit-is-a-remote-call: BACKUP_TARGET_TIMEOUT_SECONDS is per TARGET by its own name,
   # and a target is a collection copied over the network.
+  # this-bound-runs-in: run
   BACKUP_TARGET_LIMIT: "500"
   BACKUP_TARGET_TIMEOUT_SECONDS: "120"
   # A failed backup beats an OOM. Sized well above anything Raje3 holds today — the largest
@@ -209,19 +213,46 @@ env:
 #   prune        retention, after the run so a fresh archive is never the one pruned
 #   drill        WEEKLY RESTORE REHEARSAL. This is the job that turns "we have backups" into
 #                something with evidence behind it.
+#
+# AND TWO OF THEM DECLARE HOW LONG THEY MAY TAKE, which until v0.16.18 was not sayable at all.
+#
+# THE STANDING ESCALATION THIS CLOSES. Every run of `verify-fleet.sh` printed «21 targets x 120s =
+# 2520s worst case, and the cron waits 300s» — a nightly backup that SUCCEEDS and is reported
+# FAILED, because the CronJob body carried one fixed `timeout=300` for every job in the fleet and
+# that number lived in the platform chart, which this repository does not edit. The second reading
+# is the dangerous one: «backup always fails» becomes the expected state, and that is how a real
+# failure goes unread. v0.16.18 made the window per-cronJob, so the half that was never ours is
+# ours now.
+#
+# THE NUMBER IS THE ARITHMETIC PLUS A MARGIN, NOT A ROUND FIGURE. The roster is
+# compliance-service's PRIVACY_TARGETS less search-service (exempt above) — 21 targets — and each
+# may take BACKUP_TARGET_TIMEOUT_SECONDS: 2520s worst case. 2700 covers it with 180s of slack, and
+# the chart adds 120s more for image pull and startup before the Job's own deadline falls.
+#
+# THE OTHER TWO KEEP THE DEFAULT 300 DELIBERATELY. `health-check` and `prune` are single short
+# calls, and a job that cannot finish in five minutes is a job with a problem worth hearing about —
+# raising every window because one of them needed it would throw away the alarm on the other two.
+#
+# AND IT STILL FITS BETWEEN THE JOBS: run starts 02:42 and prune 03:51, sixty-nine minutes apart,
+# against a worst case of forty-seven.
 cronJobs:
   - name: run
     schedule: "42 2 * * *"
     path: /internal/backup/run
+    timeoutSeconds: 2700
   - name: health-check
     schedule: "23 * * * *"
     path: /internal/backup/health/check
   - name: prune
     schedule: "51 3 * * *"
     path: /internal/backup/prune
+  # A RESTORE REHEARSAL FANS OUT EXACTLY AS THE BACKUP DOES — it restores each target into a
+  # scratch space and verifies it — so it needs the same window. It ran under 300s too, and its
+  # failures read as «the drill is broken» rather than «the drill was cut off».
   - name: drill
     schedule: "7 4 * * 0"
     path: /internal/backup/drill
+    timeoutSeconds: 2700
 
 ingress:
   enabled: false   # operator-only, reached through the gateway
