@@ -321,6 +321,57 @@ CRONEOF
   fi
 fi
 
+# ── AND WHETHER ANY OF THEM HAS EVER FINISHED AT ALL ─────────────────────────────────────────
+#
+# THE SECTION ABOVE READS THE LAST JOB. That is not the same question, and the difference is the
+# whole reason this exists: a CronJob keeps a SHORT history (three failures here, one success), so
+# a schedule that has failed since the day it was installed goes quiet the moment its oldest jobs
+# are pruned, and the last-run check has nothing left to look at. `lastSuccessfulTime` does not
+# prune. It is the durable answer to «has this ever worked once».
+#
+# Measured 2026-08-18: `backup-service-run` has been due three times and `lastSuccessfulTime` is
+# EMPTY. Not «failed lately» — the nightly archive has never completed a single time since it was
+# installed, and every green thing on this fleet said otherwise.
+#
+# DUE, NOT MERELY DECLARED. `operations-partner-statements` runs on the second of the month and has
+# never been due on this cluster, so it has no success either — and it is not a fault. The rule is
+# `lastScheduleTime` set AND `lastSuccessfulTime` empty: the scheduler asked for the work and the
+# work has never once finished. That is decidable per CronJob, needs no list of names, and stays
+# silent for a schedule whose turn has not come.
+# A FUNCTION, so ci/test_deploy_scripts.sh lifts it out and RUNS it on both rows. Written inline,
+# a fixture copy in the test would pass while this line rotted — which is how a test comes to
+# guard nothing. Due (lastScheduleTime) and never finished (lastSuccessfulTime) — both halves, or
+# a monthly job whose turn has not come reads as a fault and this whole section gets deleted.
+cron_never_finished(){ [ -n "$1" ] && [ -z "$2" ]; }
+ever="$("${SSH[@]}" "kubectl -n $NS get cronjobs -o jsonpath='{range .items[*]}{.metadata.name}|{.status.lastScheduleTime}|{.status.lastSuccessfulTime}{\"\n\"}{end}' 2>/dev/null")" || ever=""
+if [ -z "$ever" ]; then
+  printf '  %s✗ %-24s could not be read — «has it ever worked» was NOT asked%s\n' \
+    "$C_R" "cron first success" "$C_N"
+  bad=$((bad+1))
+else
+  never=0; ever_seen=0
+  while IFS='|' read -r cname csched csucc; do
+    [ -n "$cname" ] || continue
+    ever_seen=$((ever_seen+1))
+    if cron_never_finished "$csched" "$csucc"; then
+      printf '  %s✗ %-24s has been due and has NEVER completed once%s\n' "$C_R" "$cname" "$C_N"
+      never=$((never+1))
+    fi
+  done <<EVEREOF
+$(printf '%s\n' "$ever")
+EVEREOF
+  if [ "$ever_seen" = "0" ]; then
+    printf '  %s✗ %-24s no CronJob exists in this namespace at all%s\n' \
+      "$C_R" "cron first success" "$C_N"
+    bad=$((bad+1))
+  elif [ "$never" != "0" ]; then
+    bad=$((bad+never))
+  else
+    printf '  %s✔ %-24s %s schedule(s), every one that came due has completed at least once%s\n' \
+      "$C_G" "cron first success" "$ever_seen" "$C_N"
+  fi
+fi
+
 # ── AND WHETHER THE RUN CAN FINISH BEFORE ITS CALLER GIVES UP (ي-7) ──────────────────────────
 #
 # THE CRONJOB IS A `urlopen(..., timeout=300)`. The run it starts walks every registered target in

@@ -36,6 +36,20 @@ check "the fleet's clock file names one zone"       "$(grep -c '^CRON_TIMEZONE='
 # a stray `cronTimeZone:` there does not sit quietly — it fails every deploy.
 check "no values file keeps its own clock"       "$(grep -l 'cronTimeZone' "$ROOT"/deploy/services/*.values.yaml 2>/dev/null | wc -l)" "0"
 
+# ── «HAS IT EVER FINISHED», RUN RATHER THAN READ ─────────────────────────────────────────────
+# `backup-service-run` had been due three times with `lastSuccessfulTime` EMPTY — never once
+# completed since installation — while `operations-partner-statements` runs on the second of the
+# month, has never been DUE, and is not a fault. The predicate that separates them is the whole
+# check, so it is exercised here against both rows rather than admired in the script.
+eval "$(grep '^cron_never_finished()' "$ROOT/deploy/verify-fleet.sh" | head -1)"
+check "the predicate was found in verify-fleet"       "$(type -t cron_never_finished)" "function"
+check "due and never finished is caught"       "$(cron_never_finished '2026-08-17T18:42:00Z' '' && echo caught)" "caught"
+check "never been due is not called a fault"       "$(cron_never_finished '' '' && echo caught)" ""
+check "due and finished once is not a fault"       "$(cron_never_finished '2026-08-18T15:50:00Z' '2026-08-18T15:50:07Z' && echo caught)" ""
+# AND THE SCRIPT ASKS THE CLUSTER FOR THE FIELD THAT DOES NOT PRUNE. Job history keeps three
+# entries; lastSuccessfulTime keeps the answer for ever, which is why it is read at all.
+check "verify-fleet asks the cluster for lastSuccessfulTime"       "$(grep -c 'jsonpath.*lastScheduleTime.*lastSuccessfulTime' "$ROOT/deploy/verify-fleet.sh")" "1"
+
 # ── THE SCHEDULE OUTCOME SECTION, RUN RATHER THAN READ ───────────────────────────────────────
 # `backup-service-run` failed three nights in a row while every green thing stayed green, so
 # verify-fleet now reads each CronJob's LATEST job. The picker is the part that can be wrong in a
