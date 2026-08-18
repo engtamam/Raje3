@@ -1,4 +1,4 @@
-# {service-name} — developer tasks. Requires a Python 3.12 venv at .venv.
+# bookings — developer tasks. Requires a Python 3.12 venv at .venv.
 PY := .venv/bin/python
 # On Windows the venv interpreter lives under Scripts/
 ifeq ($(OS),Windows_NT)
@@ -32,4 +32,4 @@ sbom:
 	$(PY) -m cyclonedx_py environment .venv --output-format JSON -o sbom.cdx.json
 
 docker-build:
-	docker build -t {service-name}:local .
+	docker build -t bookings:local .

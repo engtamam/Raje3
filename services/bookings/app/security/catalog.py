@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — CWE catalog (bundled MITRE CWE, self-contained)
+# bookings — CWE catalog (bundled MITRE CWE, self-contained)
 # -----------------------------------------------------------------------------
 # Resolves any CWE id to a name + type. Three distinct sections are kept apart so
 # a Category/View can NEVER be reported as a Weakness (real flaw).

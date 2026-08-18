@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Step->CWE map loader (stdlib tomllib, no extra dependency)
+# bookings — Step->CWE map loader (stdlib tomllib, no extra dependency)
 # =============================================================================
 from __future__ import annotations
 

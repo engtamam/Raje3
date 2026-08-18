@@ -40,12 +40,17 @@ the manual steps below — and writing `service.spec.toml` by hand afterward, ma
 shape, so the paper trail exists even though the tool that would have written it automatically
 could not run against this repo.
 
+**Two placeholder shapes, not one — the real generator's own `replace_placeholders()` handles
+both (`text.replace("{service-name}", name).replace("service-template", name)`), and a hand-copy
+must too.** The curly-brace form is the one worth stating explicitly: it hides in `.env.example`,
+`Makefile`, `Dockerfile`, `pyproject.toml` and every `app/security/*.toml` file — none of which a
+`--include=*.py` filter catches, so **do not filter by extension at all**; grep everything.
+
 ```
 cp -r platform/services/_template services/<name>
-grep -rl "service-template\|service_template" services/<name> \
-    --include=*.py --include=*.toml --include=*.md --include=Dockerfile \
-  | xargs sed -i 's/service-template/<name>/g; s/service_template/<name>/g'
-grep -rn "service-template\|service_template" services/<name>   # must be empty, check .env.example too
+grep -rl "{service-name}\|service-template\|service_template" services/<name> \
+  | xargs sed -i 's/{service-name}/<name>/g; s/service-template/<name>/g; s/service_template/<name>/g'
+grep -rn "{service-name}\|service-template\|service_template" services/<name>   # must be empty
 find services/<name> -name "__pycache__" | xargs rm -rf
 ```
 
@@ -259,6 +264,24 @@ For a brand-new service with no domain routes yet (Stage 1: platform tax only), 
 6 are all still required the moment the manifest declares `/internal/backup/export` and
 `/internal/privacy/erase` — which `_template` does by default, before a single domain route
 exists. Do not defer these to "when the domain is built"; they are already load-bearing.
+
+## 3c. A pure, store-free module (`ci/check_dead_core.py`) still needs a real caller
+
+A staged plan can legitimately want one stage to be "just the derivation, pure and testable,
+before the store or the route exists" (docs/خطة-تنفيذ-الحجوزات.md's own Stage 2 was written this
+way). `ci/check_dead_core.py` does not honor that staging — a `core/` module none of `app/`
+imports outside `core/` itself fails the build immediately, tests or no tests: "a module kept 'for
+later' is a promise the product does not keep."
+
+**The fix is not to fight the gate — pull forward the smallest honest slice of the next stage
+that gives the pure module a real caller.** For an availability-shaped module that will not have
+a real store until a later stage, that meant a genuine internal route
+(`/internal/availability/check`) that accepts the schedule and busy intervals in the request body
+rather than reading them from a store that does not exist yet — still real, still callable, still
+tested via `TestClient`, and it becomes the exact interface a peer/console/portal client calls
+once the store lands (the design doc's own §7 requirement — "a clean internal interface from day
+one" — turns out to already demand this). Nothing about the derivation's own signature changes
+later; only where `busy` comes from does.
 
 ## 4. Run gates in two halves, not only at the very end
 

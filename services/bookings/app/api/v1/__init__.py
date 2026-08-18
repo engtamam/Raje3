@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — User tier (/api/v1/*, token-authenticated)
+# bookings — User tier (/api/v1/*, token-authenticated)
 # -----------------------------------------------------------------------------
 # Every route is protected: Depends(require_user) verifies the Bearer token
 # (deny-by-default), require_capability adds fine-grained RBAC, rate_limit

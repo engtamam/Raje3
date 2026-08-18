@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =============================================================================
-# {service-name} — License gate (permissive-only, stdlib)
+# bookings — License gate (permissive-only, stdlib)
 # -----------------------------------------------------------------------------
 # Enforces the project rule: dependencies must be PERMISSIVE. Strong/network
 # copyleft and source-available/non-commercial licenses FAIL the build. Weak

@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Capability RBAC (deny-by-default)
+# bookings — Capability RBAC (deny-by-default)
 # -----------------------------------------------------------------------------
 # The `caps` claim is the SOLE authority (RBAC-v2, generalized). A token without
 # caps resolves to NO capabilities — a `role` string alone can never grant

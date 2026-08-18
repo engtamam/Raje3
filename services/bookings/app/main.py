@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Application factory & lifespan
+# bookings — Application factory & lifespan
 # -----------------------------------------------------------------------------
 # Builds the FastAPI app: validated config (fail-fast), structured logging,
 # hardened middleware, safe error handlers, and the three endpoint tiers

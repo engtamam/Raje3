@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — API dependencies
+# bookings — API dependencies
 # -----------------------------------------------------------------------------
 # require_user now performs REAL token verification (app/api/auth.py) via the
 # configured TokenVerifier port; the default 'null' verifier still denies all

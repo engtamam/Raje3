@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Prometheus metrics (public, no auth)
+# bookings — Prometheus metrics (public, no auth)
 # -----------------------------------------------------------------------------
 # Exposes the default process/registry metrics in Prometheus text format.
 # =============================================================================

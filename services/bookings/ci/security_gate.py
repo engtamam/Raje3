@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =============================================================================
-# {service-name} — Security gate orchestrator
+# bookings — Security gate orchestrator
 # -----------------------------------------------------------------------------
 # Runs every security gate, prints a summary, exits non-zero on any FAIL.
 # NO SILENT GAPS: a gate that cannot run (missing tool / offline) is reported

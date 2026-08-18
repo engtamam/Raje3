@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Configuration (fail-fast, ZERO-HARDCODED)
+# bookings — Configuration (fail-fast, ZERO-HARDCODED)
 # -----------------------------------------------------------------------------
 # Every knob is an env var validated by Pydantic at boot. If a required value is
 # missing or invalid, the process refuses to start (fail-fast). Defaults are

@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Security & hardening middleware
+# bookings — Security & hardening middleware
 # -----------------------------------------------------------------------------
 #   SecurityHeadersMiddleware — CSP, HSTS, Permissions-Policy, nosniff, referrer,
 #                               frame-ancestors; hides server banner.

@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Composition root (config-driven port -> adapter wiring)
+# bookings — Composition root (config-driven port -> adapter wiring)
 # -----------------------------------------------------------------------------
 # The registry is the ALLOWLIST: only listed drivers can be constructed, so an
 # unknown/injected driver is impossible (fail-fast ConfigError at boot). Adapter

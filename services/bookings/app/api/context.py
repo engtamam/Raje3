@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Request principal / tenant context
+# bookings — Request principal / tenant context
 # =============================================================================
 from __future__ import annotations
 

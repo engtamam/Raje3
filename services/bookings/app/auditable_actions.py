@@ -1,4 +1,4 @@
-"""{service-name} — auditable actions: what this service must be able to PROVE it did.
+"""bookings — auditable actions: what this service must be able to PROVE it did.
 
 ════════════════════════════════════════════════════════════════════════════════════
   COPY THIS FILE INTO YOUR SERVICE AND FILL IN THE LIST. That is the whole job.

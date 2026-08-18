@@ -1,4 +1,4 @@
-# {service-name}
+# bookings
 
 > Self-contained, plug-and-play **FastAPI** service — the copy-me seed for every
 > base-services microservice. Backend + endpoints only (no UI).
@@ -65,7 +65,7 @@ pytest -q
 ## Clone into a new service
 
 Until the `create-service` scaffolder lands (Phase 5), copy this folder and
-replace the `{service-name}` placeholders + `pyproject.toml` name, then add your
+replace the `bookings` placeholders + `pyproject.toml` name, then add your
 business routes under `app/api/v1/` (each with `Depends(require_user)`).
 
 ---

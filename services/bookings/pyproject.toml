@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-# {service-name} — rename when cloning this template.
+# bookings — rename when cloning this template.
 name = "bookings"
 version = "0.1.0"
 description = "Self-contained, plug-and-play FastAPI service (base-services template)."

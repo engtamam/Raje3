@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Internal tier (service-to-service, X-Internal-Token)
+# bookings — Internal tier (service-to-service, X-Internal-Token)
 # -----------------------------------------------------------------------------
 # NOT user-facing. Guarded by a shared token compared in CONSTANT TIME
 # (CWE-208: observable timing discrepancy). Never a user JWT.
@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import hmac
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import TemplateErasure
 from app.core import backup as _backup
+from app.core.availability import (Busy, DayException, DurationNotConfigured, Schedule, Window,
+                                   free_slots, nearest_slot)
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
 
@@ -164,3 +166,87 @@ async def backup_import(request: Request, body: BackupImportIn,
         # A bad archive is the caller's problem, not a 500: the checksum failed, the key did not
         # match, or a row had no identity. Say which, so an operator can act.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+
+
+# ── availability: the query, and only the query (docs/خطة-تنفيذ-الحجوزات.md §2) ────────────
+#
+# NO STORE HERE YET, ON PURPOSE. Stage 2 is the derivation alone (app/core/availability.py) — pure,
+# clock-free, store-free. This route is its first real caller: the schedule and the busy intervals
+# arrive in the request body rather than being read from a booking store that does not exist until
+# Stage 3. What changes when Stage 3 lands is WHERE `busy` comes from, never the derivation itself
+# or this route's shape — the same interface a peer, the console, and eventually the portal all
+# call (docs' §7, "a clean internal interface from day one").
+class WindowIn(BaseModel):
+    start_minute: int = Field(ge=0, le=24 * 60)
+    end_minute: int = Field(ge=0, le=24 * 60)
+
+
+class DayExceptionIn(BaseModel):
+    closed: bool = True
+    windows: list[WindowIn] = Field(default_factory=list)
+
+
+class ScheduleIn(BaseModel):
+    # "0"-"6" as strings — JSON object keys are always strings; Monday=0..Sunday=6, `date.weekday()`'s
+    # own numbering, matching app/core/availability.py exactly rather than inventing a second one.
+    weekly: dict[str, list[WindowIn]] = Field(default_factory=dict)
+    exceptions: dict[str, DayExceptionIn] = Field(default_factory=dict)
+
+    def to_schedule(self) -> Schedule:
+        weekly = {int(k): tuple(Window(w.start_minute, w.end_minute) for w in v)
+                  for k, v in self.weekly.items()}
+        exceptions = {k: DayException(closed=v.closed,
+                                      windows=tuple(Window(w.start_minute, w.end_minute)
+                                                    for w in v.windows))
+                     for k, v in self.exceptions.items()}
+        return Schedule(weekly=weekly, exceptions=exceptions)
+
+
+class BusyIn(BaseModel):
+    starts_at: int
+    ends_at: int
+
+
+class AvailabilityCheckIn(BaseModel):
+    schedule: ScheduleIn
+    busy: list[BusyIn] = Field(default_factory=list)
+    duration_minutes: int = Field(gt=0, le=720)
+    window_start: int
+    window_end: int
+
+
+def _to_busy(rows: list[BusyIn]) -> list[Busy]:
+    return [Busy(r.starts_at, r.ends_at) for r in rows]
+
+
+@router.post("/availability/check", dependencies=[Depends(require_internal_token)])
+async def availability_check(body: AvailabilityCheckIn) -> dict:
+    """Every candidate start time in the window — the grid's own data source, and the "أقرب فتحة"
+    button's underlying query. `duration_minutes` is a required, positive field at the API
+    boundary already (`Field(gt=0)`), so `DurationNotConfigured` from the pure layer below is
+    unreachable through this route by construction — the boundary enforces what the design doc
+    calls "refuses rather than guesses" one layer earlier than the derivation itself has to.
+    """
+    slots = free_slots(body.schedule.to_schedule(), _to_busy(body.busy),
+                       duration_minutes=body.duration_minutes,
+                       window_start=body.window_start, window_end=body.window_end)
+    return {"slots": [{"starts_at": s.starts_at, "ends_at": s.ends_at} for s in slots]}
+
+
+class NearestSlotIn(BaseModel):
+    schedule: ScheduleIn
+    busy: list[BusyIn] = Field(default_factory=list)
+    duration_minutes: int = Field(gt=0, le=720)
+    after: int
+    search_days: int = Field(default=14, ge=1, le=90)
+
+
+@router.post("/availability/nearest", dependencies=[Depends(require_internal_token)])
+async def availability_nearest(body: NearestSlotIn) -> dict:
+    """The "أقرب فتحة" button (docs/وصف-تطبيق-الحجوزات.md §6.2): the first open candidate at or
+    after `after`. `null` when nothing is free in `search_days` — the caller renders that as "لا
+    فتحة قريبة", never as a silently empty grid."""
+    found = nearest_slot(body.schedule.to_schedule(), _to_busy(body.busy),
+                         duration_minutes=body.duration_minutes, after=body.after,
+                         search_days=body.search_days)
+    return {"slot": {"starts_at": found.starts_at, "ends_at": found.ends_at} if found else None}

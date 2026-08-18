@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — Self-describing service manifest
+# bookings — Self-describing service manifest
 # -----------------------------------------------------------------------------
 # A machine-readable descriptor so a gateway/platform can discover what this
 # service is, what it exposes, which ports (adapters) it uses, and which events
@@ -72,6 +72,11 @@ def build_manifest(
             {"path": "/internal/backup/export", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
+            # Stage 2's own first caller (docs/خطة-تنفيذ-الحجوزات.md §2/§7) — the availability
+            # derivation exposed as the same clean interface a peer, the console and a future
+            # portal client will all call, from day one, never a parallel path.
+            {"path": "/internal/availability/check", "tier": "internal", "method": "POST"},
+            {"path": "/internal/availability/nearest", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # DECLARED, because a data map built from manifests is how a DSAR fan-out
              # finds who holds a person. An undeclared holder is never asked, never acks,

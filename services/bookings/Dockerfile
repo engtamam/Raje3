@@ -1,5 +1,5 @@
 # =============================================================================
-# {service-name} — hardened production image
+# bookings — hardened production image
 # Multi-stage · python:3.12-slim · non-root · runtime deps only · read-only-friendly
 # (CIS-aligned: minimal surface, unprivileged user, no build tools in final image)
 # =============================================================================
