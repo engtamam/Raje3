@@ -123,6 +123,21 @@ interface ReasonRow {
  *  Marketing is the only class that needs consent, is barred from the quiet window and is billed
  *  at the higher rate — so it is the one an owner must be able to find in a list without reading.
  *  The other four behave alike and are toned to sit quietly. */
+/** THE THREE CLASSES AS FILTER PILLS, in the order an owner thinks about them: the ones that
+ *  simply happen, the ones about him personally, and the ones that need his customer's consent —
+ *  which is the row he is legally answerable for and therefore the one he comes here to find.
+ *
+ *  THE LABELS ARE NOT READ FROM THE ROWS. Each row carries `cls_label` from the server and that is
+ *  what the badge prints; a filter, though, has to exist before any row is read, and building the
+ *  pill list out of whatever happened to arrive would give a shop with no promotional reasons a
+ *  different set of filters from the shop next door. */
+const CLASS_ORDER = ['service', 'personal', 'marketing'] as const;
+const CLASS_LABEL: Record<string, string> = {
+  service: 'خدمية',
+  personal: 'شخصية',
+  marketing: 'تسويقية',
+};
+
 const CLASS_TONE: Record<string, 'neutral' | 'accent' | 'info' | 'warning' | 'danger'> = {
   service: 'info',
   personal: 'neutral',
@@ -185,6 +200,20 @@ export function MessagesScreen(
   const [busy, setBusy] = useState('');
   /** The row he opened to read its wording. `null` is closed — it is not a screen of its own. */
   const [reading, setReading] = useState<ReasonRow | null | undefined>(undefined);
+  /** THE TWO FILTERS, AND THEY LIVE HERE RATHER THAN IN THE URL. A filter a person set to answer
+   *  one question is not a place he wants to come back to tomorrow — «موقوفة» remembered across a
+   *  session would hide his working messages the next time he opened the screen, and he would
+   *  read that as the product having switched them off. */
+  const [clsFilter, setClsFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState<'' | 'on' | 'off'>('');
+
+  /** The rows the two pills leave standing. Nothing is invented and nothing is re-ordered: the
+   *  server's order is the product's order, and a filter that also sorted would make «where did
+   *  that row go» a second question. */
+  const shown = (isReady(reasons) ? reasons : []).filter(
+    (t) => (!clsFilter || t.cls === clsFilter)
+      && (!stateFilter || (stateFilter === 'on' ? t.on : !t.on)),
+  );
   const [switchError, setSwitchError] = useState('');
 
   /**
@@ -473,65 +502,134 @@ export function MessagesScreen(
               description="تظهر هنا حالما يبدأ محلك في تسجيل الزيارات."
             />
           ) : (
-            <ul className="flex flex-col gap-2">
-              {reasons.map((t) => (
-                <li key={t.id}
-                    className={[
-                      'flex items-start justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm',
-                      t.on ? '' : 'opacity-70',
-                    ].join(' ')}>
-                  {/* THE WHOLE ROW OPENS IT, not a small "preview" link. What the message SAYS is
-                      the thing he came to see; the switch is the smaller act, and it keeps its own
-                      hit area on the other side. */}
-                  <button type="button"
-                          onClick={() => setReading(t)}
-                          className="flex min-w-0 flex-1 flex-col gap-1 text-start">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="truncate font-medium">{t.label}</span>
-                      {/* THE CLASS, ON EVERY ROW. Without it «متى نرسل» is thirteen sentences that
-                          look alike and behave nothing alike — and the owner, who carries the fine
-                          if a promotional message goes out without consent, could not tell which
-                          was which. */}
-                      {t.cls_label ? (
-                        <Badge tone={CLASS_TONE[t.cls ?? ''] ?? 'neutral'}>{t.cls_label}</Badge>
-                      ) : null}
-                    </span>
-                    <span className="text-sm text-text-secondary">{t.when}</span>
-                    {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a line
-                        saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}
-                    {t.template ? (
-                      <Badge tone="neutral">بنصّك أنت</Badge>
-                    ) : null}
-                  </button>
-                  {t.can_switch ? (
-                    // THE NAME STAYS, THE SECOND COPY GOES. The kit uses `label` for BOTH the
-                    // switch's accessible name and a visible caption beside it — so every row
-                    // printed its own title twice, once as the heading and once next to the
-                    // switch. Dropping the label would fix the look and leave the switch unnamed
-                    // to a screen reader and to our own tests, which find it by name.
-                    //
-                    // So the caption is hidden VISUALLY ONLY: `sr-only` keeps it in the
-                    // accessibility tree, where it is the one thing that makes thirteen identical
-                    // switches distinguishable.
-                    <span className="shrink-0 [&_label>span]:sr-only">
-                      <Toggle
-                        label={t.label}
-                        checked={t.on}
-                        disabled={busy === t.id}
-                        onChange={(on) => flip(t, on)}
-                      />
-                    </span>
-                  ) : (
-                    // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying does
-                    // nothing; a lock with a reason answers before he asks.
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-text-secondary">
-                      <Lock size={14} aria-hidden />
-                      حقٌّ لعميلك
-                    </span>
+            <>
+              {/* ── FILTERS FIRST, BECAUSE THIRTEEN ROWS ARE READ WITH A QUESTION IN MIND ──────
+                  Tamam's decision: «الشاشة نفسها تسير جدول ويسير فيه فلاتر على أنواع الرسائل
+                  وأيضاً على الحالات».
+
+                  The list answered «what messages exist» and nothing else. «أيّها مفعّل؟» and «أيّ
+                  التسويقية عندي؟» — the two questions an owner actually arrives with — were
+                  answered by scanning thirteen cards with his eye, every time.
+
+                  ON THE ROW'S OWN FACTS, NEVER ON A SECOND LIST. Both filters read `cls` and `on`
+                  from the rows the server sent; nothing here invents a category or remembers one. */}
+              <div className="flex flex-wrap items-center gap-2 px-1">
+                <div className="flex flex-wrap items-center gap-1">
+                  {[['', 'الكل'], ...CLASS_ORDER.map((c) => [c, CLASS_LABEL[c]] as const)].map(
+                    ([value, label]) => (
+                      <button
+                        key={value || 'all'}
+                        type="button"
+                        onClick={() => setClsFilter(value as string)}
+                        aria-pressed={clsFilter === value}
+                        className={[
+                          'rounded-full px-2.5 py-1 text-xs',
+                          clsFilter === value
+                            ? 'bg-accent-soft text-accent-on-soft'
+                            : 'bg-surface-2 text-text-secondary',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </button>
+                    ),
                   )}
-                </li>
-              ))}
-            </ul>
+                </div>
+                <span className="text-text-secondary">·</span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {([['', 'الكل'], ['on', 'مفعّلة'], ['off', 'موقوفة']] as const).map(
+                    ([value, label]) => (
+                      <button
+                        key={value || 'any'}
+                        type="button"
+                        onClick={() => setStateFilter(value)}
+                        aria-pressed={stateFilter === value}
+                        className={[
+                          'rounded-full px-2.5 py-1 text-xs',
+                          stateFilter === value
+                            ? 'bg-accent-soft text-accent-on-soft'
+                            : 'bg-surface-2 text-text-secondary',
+                        ].join(' ')}
+                      >
+                        {label}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+
+              {/* A FILTER THAT MATCHES NOTHING SAYS SO. An empty table under two pressed pills
+                  reads as «you have none of these» — which is true — but a reader who cannot see
+                  which pill did it presses them one by one to find out. */}
+              {shown.length === 0 ? (
+                <p className="px-1 py-6 text-center text-sm text-text-secondary">
+                  لا شيء بهذا الوصف — جرّب «الكل».
+                </p>
+              ) : (
+                <ul className="flex flex-col divide-y divide-border-subtle rounded-card border border-border-subtle bg-surface-1">
+                  {shown.map((t) => (
+                    <li key={t.id}
+                        className={['flex items-center gap-3 px-3 py-2.5',
+                                    t.on ? '' : 'opacity-70'].join(' ')}>
+                      {/* THE WHOLE ROW OPENS IT, not a small "preview" link. What the message SAYS
+                          is the thing he came to see; the switch keeps its own hit area at the far
+                          side, where a thumb reaching for it cannot open a modal by accident. */}
+                      <button type="button"
+                              onClick={() => setReading(t)}
+                              className="flex min-w-0 flex-1 flex-col gap-0.5 text-start">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="truncate font-medium">{t.label}</span>
+                          {/* THE CLASS, ON EVERY ROW. Without it «متى نرسل» is thirteen sentences
+                              that look alike and behave nothing alike — and the owner, who carries
+                              the fine if a promotional message goes out without consent, could not
+                              tell which was which. */}
+                          {t.cls_label ? (
+                            <Badge tone={CLASS_TONE[t.cls ?? ''] ?? 'neutral'}>{t.cls_label}</Badge>
+                          ) : null}
+                          {/* WHOSE WORDS GO OUT. Silent while it is ours — the normal case, and a
+                              line saying «بصياغتنا» on thirteen rows is thirteen lines of noise. */}
+                          {t.template ? <Badge tone="neutral">بنصّك أنت</Badge> : null}
+                        </span>
+                        {/* THE «WHEN» STAYS, AND IT IS THE REASON THIS IS NOT A BARE TABLE. «بعد
+                            تسجيل الزيارة بعشر دقائق» is what makes the name mean something to
+                            somebody reading it for the first time; a column of names alone would
+                            be tidier and less useful. */}
+                        <span className="truncate text-xs text-text-secondary">{t.when}</span>
+                      </button>
+
+                      {/* THE STATE IN A WORD, BESIDE THE SWITCH THAT CHANGES IT. The switch alone
+                          is readable to a person watching for it and invisible to one scanning
+                          fast — and «موقوفة» is exactly what the filter above promises to find. */}
+                      <span className="shrink-0 text-xs text-text-secondary">
+                        {t.can_switch ? (t.on ? 'مفعّلة' : 'موقوفة') : ''}
+                      </span>
+
+                      {t.can_switch ? (
+                        // THE NAME STAYS, THE SECOND COPY GOES. The kit uses `label` for BOTH the
+                        // switch's accessible name and a visible caption beside it — so every row
+                        // printed its own title twice. Hiding it VISUALLY ONLY keeps it in the
+                        // accessibility tree, where it is the one thing that makes thirteen
+                        // identical switches distinguishable.
+                        <span className="shrink-0 [&_label>span]:sr-only">
+                          <Toggle
+                            label={t.label}
+                            checked={t.on}
+                            disabled={busy === t.id}
+                            onChange={(on) => flip(t, on)}
+                          />
+                        </span>
+                      ) : (
+                        // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying
+                        // does nothing; a lock with a reason answers before he asks.
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-text-secondary">
+                          <Lock size={14} aria-hidden />
+                          حقٌّ لعميلك
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
           <p className="px-1 text-xs text-text-secondary">
             الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
