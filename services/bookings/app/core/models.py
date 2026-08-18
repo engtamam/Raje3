@@ -33,6 +33,9 @@ class Booking:
                                           # + a new booking, never a field edit)
     operator_id: str                     # mutable — reassignment
     customer_id: str                     # fixed after creation
+    subject_ref: str = ""                # the customer's pseudonym, stamped once at creation
+                                          # from operations (§6.5, DSAR fan-out target; also what
+                                          # bookings.booking.changed events key on for reminders)
     service_ids: tuple[str, ...] = ()    # mutable; drives duration_minutes and the picker
     starts_at: int = 0                   # unix seconds, mutable — this IS the reschedule act
     duration_minutes: int = 0            # a SNAPSHOT of the sum of Service.duration_minutes at

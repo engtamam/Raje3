@@ -12,7 +12,8 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.licence import LicenceError, NullLicence
 from app.core.models import STATUS_CANCELLED
-from app.core.operations import BookingOperations, DurationLookup, OperationError, VisitGateway
+from app.core.operations import (BookingEvents, BookingOperations, DurationLookup, OperationError,
+                                 SubjectRefLookup, VisitGateway)
 from app.core.stores import BookingStore, ConcurrentEditError
 
 TENANT = "t1"
@@ -55,13 +56,19 @@ class _FixedVisits:
         return self._answer
 
 
-def _ops(*, licence=None, minutes=None, visits=None) -> BookingOperations:
+async def _subject_ref(tenant: str, customer_id: str) -> str:
+    return "sub_" + customer_id
+
+
+def _ops(*, licence=None, minutes=None, visits=None, subject_ref_lookup=None) -> BookingOperations:
     store = MemoryDataStore()
     return BookingOperations(
         datastore=store, bookings=BookingStore(store),
         durations=DurationLookup(lookup=_FixedDurations(minutes or {"svc1": 30})),
         licence=licence or NullLicence(),
-        visits=VisitGateway(create=visits or _FixedVisits(answer={"visit_id": "vis_1"})))
+        visits=VisitGateway(create=visits or _FixedVisits(answer={"visit_id": "vis_1"})),
+        subject_refs=SubjectRefLookup(lookup=subject_ref_lookup or _subject_ref),
+        events=BookingEvents(publish=None))
 
 
 def _run(coro):
@@ -301,3 +308,65 @@ def test_attended_and_no_show_cannot_be_re_entered_into_each_other():
             await ops.attend(TENANT, booking.id)
 
     _run(run())
+
+
+# ── Stage 5: subject_ref stamped at create, the confirmation event (§5, §6.5) ───────────────
+
+def test_create_stamps_the_customers_subject_ref():
+    ops = _ops()
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+
+    booking = _run(run())
+    assert booking.subject_ref == "sub_c1"
+
+
+def test_an_unreachable_peer_refuses_creation_rather_than_stamping_nothing():
+    async def _cannot_ask(tenant: str, customer_id: str) -> str | None:
+        return None
+    ops = _ops(subject_ref_lookup=_cannot_ask)
+
+    async def run():
+        await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                         service_ids=["svc1"], starts_at=1786860000)
+
+    with pytest.raises(OperationError):
+        _run(run())
+
+
+def test_a_created_booking_publishes_the_confirmation_event():
+    published = []
+
+    async def publish(topic, event):
+        published.append((topic, event.payload))
+
+    ops = _ops()
+    ops._events = BookingEvents(publish=publish)
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+
+    booking = _run(run())
+    assert len(published) == 1
+    topic, payload = published[0]
+    assert topic == "bookings.booking.changed"
+    assert payload["kind"] == "created"
+    assert payload["booking_id"] == booking.id
+    assert payload["subject_ref"] == "sub_c1"
+
+
+def test_a_failed_event_publish_does_not_fail_the_booking():
+    async def boom(topic, event):
+        raise RuntimeError("event bus is down")
+    ops = _ops()
+    ops._events = BookingEvents(publish=boom)
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+
+    booking = _run(run())
+    assert booking.status == "booked", "a missed event must never undo or refuse the booking itself"

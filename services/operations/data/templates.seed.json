@@ -126,6 +126,108 @@
       ]
     },
     {
+      "name": "svc_booking_confirmation_brief",
+      "type": "svc_booking_confirmation",
+      "tone": "brief",
+      "label": "تأكيد الحجز",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "أهلاً {{1}}، تأكّد حجزك لدى {{2}} يوم {{3}}. {{4}} 🎁",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت نظام الحجوزات.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "الأحد 9:00 مساءً",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
+    },
+    {
+      "name": "svc_booking_confirmation_warm",
+      "type": "svc_booking_confirmation",
+      "tone": "warm",
+      "label": "تأكيد الحجز",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "يا هلا {{1}}، حجزنا لك موعدك في {{2}} يوم {{3}}، بانتظارك. {{4}} 🎁",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت نظام الحجوزات.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "الأحد 9:00 مساءً",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
+    },
+    {
+      "name": "svc_booking_confirmation_formal",
+      "type": "svc_booking_confirmation",
+      "tone": "formal",
+      "label": "تأكيد الحجز",
+      "class": "service",
+      "category": "UTILITY",
+      "language": "ar",
+      "body": "عزيزنا {{1}}، نفيدكم بتأكيد حجزكم لدى {{2}} يوم {{3}}. {{4}} 🎁",
+      "variables": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "header": "",
+      "button": "",
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ],
+      "model": "both",
+      "model_why": "تناسب كل المحلات التي فعّلت نظام الحجوزات.",
+      "active": true,
+      "deferral": "drop",
+      "examples": [
+        "محمد",
+        "مغسلة النخيل",
+        "الأحد 9:00 مساءً",
+        "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا: https://my.raje3.sa/p/nakheel.sub_rj7k2m/allow"
+      ]
+    },
+    {
       "name": "svc_visit_redeemed_brief",
       "type": "svc_visit_redeemed",
       "tone": "brief",

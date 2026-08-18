@@ -126,6 +126,9 @@ def build_manifest(
             # bookings' booking->visit gateway (§4): the ONE way an attended booking becomes a
             # real Visit — record_visit() itself, resolved by customer_id instead of phone.
             {"path": "/internal/operations/visits/from-customer", "tier": "internal", "method": "POST"},
+            # bookings' one way to carry the pseudonym every peer already needs (§5, §6.5): the
+            # DSAR fan-out target and the event this service's own reminders/campaigns key on.
+            {"path": "/internal/operations/customers/subject-ref", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/visits/since", "tier": "internal", "method": "POST"},
             # Attribution: who brought this establishment. First key wins, permanently — the rule
             # that decides where commission goes (spec 16.6.3).

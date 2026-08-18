@@ -236,18 +236,22 @@ def build_container(settings: Settings) -> Container:
     from app.core.licence import build_licence
     container.licence = build_licence(settings)
 
-    # Stage 3/4 (docs/خطة-تنفيذ-الحجوزات.md §3/§4): the booking store, and the two questions
-    # this service asks `operations` — how long a set of services takes, and (on attendance) the
-    # booking->visit gateway — plus the operations that use all three.
-    from app.core.operations import BookingOperations, DurationLookup, VisitGateway
+    # Stage 3/4/5 (docs/خطة-تنفيذ-الحجوزات.md §3/§4/§5): the booking store, the three questions
+    # this service asks `operations` (a service's duration, the booking->visit gateway, and the
+    # customer's pseudonym), the confirmation event, and the operations that use all of them.
+    from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
+                                     SubjectRefLookup, VisitGateway)
     from app.core.stores import BookingStore
     container.bookings = BookingStore(container.datastore)
     container.durations = _build_duration_lookup(settings)
     container.visit_gateway = _build_visit_gateway(settings)
+    container.subject_ref_lookup = _build_subject_ref_lookup(settings)
     container.booking_ops = BookingOperations(
         datastore=container.datastore, bookings=container.bookings,
         durations=DurationLookup(lookup=container.durations), licence=container.licence,
-        visits=VisitGateway(create=container.visit_gateway))
+        visits=VisitGateway(create=container.visit_gateway),
+        subject_refs=SubjectRefLookup(lookup=container.subject_ref_lookup),
+        events=BookingEvents(publish=container.event_bus.publish))
     return container
 
 
@@ -263,6 +267,20 @@ def _build_duration_lookup(settings: Settings):
         return _refuses_always
     return HttpDurationLookup(
         operations_url=settings.OPERATIONS_SERVICE_URL, path=settings.OPERATIONS_DURATIONS_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_subject_ref_lookup(settings: Settings):
+    """`http` when `operations` is wired, or a lookup that always refuses (`None`) otherwise —
+    booking creation refuses fail-closed when it cannot be told the customer's pseudonym."""
+    from app.adapters.subject_ref_lookup.http import HttpSubjectRefLookup
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_SUBJECT_REF_PATH:
+        async def _refuses_always(tenant: str, customer_id: str) -> str | None:
+            return None
+        return _refuses_always
+    return HttpSubjectRefLookup(
+        operations_url=settings.OPERATIONS_SERVICE_URL, path=settings.OPERATIONS_SUBJECT_REF_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
 
 

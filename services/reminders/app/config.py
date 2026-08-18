@@ -313,6 +313,11 @@ class Settings(BaseSettings):
     # and becomes a shop remembering him, which is a different message with a different name.
     VISIT_CONFIRM_DELAY_SECONDS: int = 600
 
+    # SAME QUESTION, DIFFERENT ANSWER (docs/خطة-تنفيذ-الحجوزات.md §5). A booking is confirmed with
+    # the customer standing right there, mid-conversation — a short mistake-tolerant window, not
+    # visit's ten minutes ("has he left yet"), which does not apply here.
+    BOOKING_CONFIRM_DELAY_SECONDS: int = 120
+
     ENGAGEMENT_HALF_LIFE_DAYS: float = 60.0
     # Derived from the half-life, not chosen to look round: with a visit worth 10 points, a
     # threshold of 10 is reachable only on the DAY of the visit. See core/engagement.py.

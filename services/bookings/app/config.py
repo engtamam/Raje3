@@ -190,6 +190,8 @@ class Settings(BaseSettings):
     # calls this; nothing here ever writes a Visit row directly (see
     # app/adapters/visit_gateway/http.py).
     OPERATIONS_VISIT_FROM_CUSTOMER_PATH: str = "/internal/operations/visits/from-customer"
+    # The customer's pseudonym (§5, §6.5) — the third peer question, same URL, a third path.
+    OPERATIONS_SUBJECT_REF_PATH: str = "/internal/operations/customers/subject-ref"
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.
@@ -383,6 +385,10 @@ class Settings(BaseSettings):
             raise ValueError(
                 "OPERATIONS_VISIT_FROM_CUSTOMER_PATH empty in production: attendance could never "
                 "create a real visit — set it (it shares OPERATIONS_SERVICE_URL above).")
+        if not self.OPERATIONS_SUBJECT_REF_PATH:
+            raise ValueError(
+                "OPERATIONS_SUBJECT_REF_PATH empty in production: every booking create would "
+                "refuse — set it (it shares OPERATIONS_SERVICE_URL above).")
 
     def assert_audit_config_ok(self) -> None:
         """Boot guard. Refuse to start production without somewhere to witness privileged actions.

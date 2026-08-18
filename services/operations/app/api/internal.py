@@ -707,6 +707,31 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
            "duplicate": recorded.duplicate}
 
 
+class CustomerSubjectRefIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    customer_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/operations/customers/subject-ref", dependencies=[Depends(require_internal_token)])
+async def internal_customer_subject_ref(request: Request, body: CustomerSubjectRefIn) -> dict:
+    """A customer's PSEUDONYM, for a peer that holds `customer_id` (this service's own identifier)
+    and needs the identifier every OTHER service already carries every day — `reminders`' whole
+    schedule table is keyed on it, `insights` counts by it, `campaigns` targets by it.
+
+    NOT `/operations/recipient`'s sibling — that route turns a pseudonym back into a PHONE NUMBER
+    and is, by its own docstring, "the single most sensitive surface this service has". This one
+    goes the other way and stops at the pseudonym everybody already holds; it reveals nothing a
+    peer could not already ask for by other means, and unlike the recipient route it answers
+    ONE identifier a caller already possesses (`customer_id`) with another, not a phone number.
+
+    Empty string, not 404, for an unknown or erased customer — same reasoning as `/recipient`: a
+    404 here would let anyone holding the internal token probe which customer ids exist.
+    """
+    c = request.app.state.container
+    row = await c.datastore.get(CUSTOMERS, f"{body.tenant}|{body.customer_id}")
+    return {"subject_ref": str((row or {}).get("subject_ref") or "")}
+
+
 class CustomersIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     # Bounded, and the ceiling is a product decision: an establishment with more customers than

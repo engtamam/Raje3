@@ -65,6 +65,25 @@
       ]
     },
     {
+      "name": "svc_booking_confirmation",
+      "deferral": "drop",
+      "title": "تأكيد الحجز",
+      "cls": "service",
+      "category": "UTILITY",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، تأكّد حجزك لدى {{2}} يوم {{3}}. {{4}} 🎁",
+        "warm": "يا هلا {{1}}، حجزنا لك موعدك في {{2}} يوم {{3}}، بانتظارك. {{4}} 🎁",
+        "formal": "عزيزنا {{1}}، نفيدكم بتأكيد حجزكم لدى {{2}} يوم {{3}}. {{4}} 🎁"
+      },
+      "fills": [
+        "system",
+        "system",
+        "system",
+        "invite"
+      ]
+    },
+    {
       "name": "svc_visit_redeemed",
       "deferral": "drop",
       "title": "تأكيد الزيارة ومعه الاستبدال",

@@ -376,6 +376,28 @@ def arabic_date(epoch: int) -> str:
     return f"{d.day} {AR_MONTHS[d.month - 1]}"
 
 
+#: `date.weekday()`'s own numbering — Monday=0..Sunday=6 — matching `bookings`' own
+#: `app/core/availability.py` exactly rather than inventing a second one for this reader.
+AR_WEEKDAYS = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+
+
+def arabic_appointment(epoch: int) -> str:
+    """A booking's day and hour, as its customer reads it — «الأحد 9:00 مساءً» — in Riyadh, in
+    Western digits, 12-hour with the Arabic ص/م rather than a bare 24-hour number nobody reads a
+    WhatsApp message in.
+
+    RIYADH AND NOT UTC, same reasoning as `arabic_date`: a booking at 21:00 UTC is a different
+    evening for the customer holding the phone, and a wrong day in a confirmation is worse than no
+    confirmation at all.
+    """
+    if not epoch:
+        return ""
+    d = local(epoch)
+    hour12 = d.hour % 12 or 12
+    suffix = "م" if d.hour >= 12 else "ص"
+    return f"{AR_WEEKDAYS[d.weekday()]} {hour12}:{d.minute:02d} {suffix}"
+
+
 def campaign_slots(template: dict[str, Any], *, establishment: str, owner_text: str,
                    service_text: str = "", offer_value: str = "",
                    coupon_code: str = "", expires_at: int = 0) -> dict[str, str]:

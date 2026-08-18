@@ -83,6 +83,13 @@ class Schedule:
     # The visit that caused it. Lets a later visit find and cancel this row, and lets an owner
     # trace a message back to the thing that produced it.
     visit_id: str = ""
+    # THE BOOKING THAT CAUSED THIS ROW (§4/§5, docs/خطة-تنفيذ-الحجوزات.md), the same relationship
+    # `visit_id` carries for a visit — lets `bookings`' own edit/cancel find and cancel this row.
+    booking_id: str = ""
+    # The booking's day and hour, ALREADY PHRASED (rendering.arabic_appointment), computed once at
+    # scheduling time and never re-derived: a shop that changes its clock convention later must
+    # not silently reword a message already sitting in the queue.
+    appt_time: str = ""
     branch_id: str = ""
     # WHICH CAR THIS IS ABOUT, and empty for every shop that does not work on cars.
     #

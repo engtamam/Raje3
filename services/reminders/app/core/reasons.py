@@ -18,12 +18,15 @@ WHAT IS NOT HERE. The firing itself. This is a registry, not a scheduler: `sched
 decides when a cycle is due, loyalty still decides when a balance changed. They ask this module
 which template answers their event, and the answer stops being a literal in five places.
 
-AND WHAT IS DELIBERATELY ABSENT. Five texts sat in the library with nothing to fire them — a
-booking confirmation, an appointment reminder, a ready-for-pickup, a review request and a free-slot
-offer. Three need a booking system this product does not have and has decided not to build yet; the
-review request folds into the follow-up, which already asks «كل شيء تمام؟» and does not compete
-with the one button that collects marketing consent. A registry that listed them would describe a
-product that does not exist.
+AND WHAT IS STILL DELIBERATELY ABSENT. Four texts sat in the library with nothing to fire them — an
+appointment reminder, a ready-for-pickup, a review request and a free-slot offer. `booking_confirmed`
+below is the FIRST of the five to be wired, now that a booking system exists
+(docs/خطة-تنفيذ-الحجوزات.md); the appointment reminder and the free-slot offer follow it in that
+product's own Stage 8, once there is a scheduled tick that knows a booking's time is approaching —
+this registry only answers "which template", never "when". The review request folds into the
+follow-up, which already asks «كل شيء تمام؟» and does not compete with the one button that collects
+marketing consent. A registry that listed the rest before their triggers exist would describe a
+product that does not exist yet.
 """
 from __future__ import annotations
 
@@ -49,6 +52,7 @@ ENDS_AT = "ends_at"          # the last day, phrased by us
 FREE_TEXT = "free_text"      # his own line — at most one per message (§8.4.2)
 CODE = "code"                # a one-time code the customer is waiting for
 MINUTES = "minutes"          # how long that code lives
+APPT_TIME = "appt_time"      # a booking's day and hour, phrased by us — never the raw epoch
 # THE TWO THAT ARE ADDRESSES, NOT WORDS. Every slot above is text we hold or a number we computed;
 # these two are places a thumb has to reach, so core/links.py composes them from the fleet's public
 # base and refuses when it is unset. They are on ALWAYS because both are true of every message: a
@@ -116,6 +120,7 @@ SLOT_LABEL = {
     FREE_TEXT: "نصّك",
     CODE: "الرمز",
     MINUTES: "المدة",
+    APPT_TIME: "موعد الحجز",
     LINK: "رابط صفحته",
     STOP_LINK: "رابط الإيقاف",
     INVITE: "دعوة تفعيل المزايا",
@@ -171,6 +176,13 @@ REASONS: tuple[Reason, ...] = (
         label="سُجّلت زيارة",
         when="بعد تسجيل الزيارة بعشر دقائق — حين يكون قد غادر",
         cls="service", template_type="svc_visit_confirmation",
+    ),
+    Reason(
+        id="booking_confirmed",
+        label="تأكيد حجز",
+        when="بعد إنشاء الحجز بمهلة قصيرة تحتمل التراجع (نظام الحجوزات، `BOOKING_CONFIRM_DELAY_SECONDS`)",
+        cls="service", template_type="svc_booking_confirmation",
+        slots=(APPT_TIME,), source="bookings",
     ),
     Reason(
         id="visit_redeemed",
@@ -292,6 +304,7 @@ _BY_KIND = {
     "visit_confirmation": "visit_recorded",
     "reminder": "service_due",
     "follow_up": "after_visit",
+    "booking_confirmation": "booking_confirmed",
 }
 
 
@@ -343,6 +356,7 @@ SAMPLE = {
     FREE_TEXT: "افتتحنا فرعاً جديداً",
     CODE: "4821",
     MINUTES: "15",
+    APPT_TIME: "الأحد 9:00 مساءً",
     # THE TWO ADDRESSES, AND THEY NEEDED SAMPLES AS MUCH AS ANY WORD.
     #
     # `public()` builds the owner's chips from `SAMPLE.get(k, "")`, and neither of these was

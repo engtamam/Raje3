@@ -3,7 +3,10 @@
 Stage 3 (docs/خطة-تنفيذ-الحجوزات.md §3): create/edit/cancel, the double-booking lock, the slot
 index. Stage 4 (§3, "الحالات ونداء بوابة الحجز→الزيارة") adds `attend`/`no_show` — attendance
 is the ONLY path that ever produces a Visit, and it does so by calling `operations` (a peer
-service), never by writing a Visit row directly: this service does not own that shape.
+service), never by writing a Visit row directly: this service does not own that shape. Stage 5
+adds the `bookings.booking.changed` event `reminders` schedules the confirmation from, and stamps
+`subject_ref` at create time (§6.5) — the SAME peer question, since the event needs the same
+pseudonym the DSAR fan-out needs.
 
 THE DOUBLE-TAP GUARD, first, before anything else — same shape as `record_visit()`: one indexed
 read on `idempotency_key`, before the licence check, before the lock, before anything is created.
@@ -39,22 +42,66 @@ class DurationLookup:
 
 @dataclass
 class VisitGateway:
-    """The booking->visit gateway (§4) — the SECOND, and last, question this module asks
-    `operations`. Same shape as `DurationLookup`: a tiny injected port, not a direct import."""
+    """The booking->visit gateway (§4) — the SECOND question this module asks `operations`. Same
+    shape as `DurationLookup`: a tiny injected port, not a direct import."""
     create: Any   # async (**kwargs) -> dict | None; see HttpVisitGateway.create's signature
 
     async def record(self, **kwargs: Any) -> dict | None:
         return await self.create(**kwargs)
 
 
+@dataclass
+class SubjectRefLookup:
+    """The customer's pseudonym (§5, §6.5) — the THIRD, and last, question this module asks
+    `operations`. `None` means "could not ask", never "no pseudonym" — see
+    `HttpSubjectRefLookup`'s own docstring for the distinction and why it matters here."""
+    lookup: Any   # async (tenant, customer_id) -> str | None
+
+    async def resolve(self, tenant: str, customer_id: str) -> str | None:
+        return await self.lookup(tenant, customer_id)
+
+
+BOOKING_EVENTS_TOPIC = "bookings.booking.changed"
+
+
+@dataclass
+class BookingEvents:
+    """Publishes what `reminders` schedules the confirmation from (§5) — never a direct call into
+    another service, same reasoning as `operations`' own `_emit_visit`: a service that knows its
+    consumers has to be changed every time one is added. `publish` is `None` in tests/local runs
+    with no event bus; a missed publish there costs one confirmation, never the booking itself."""
+    publish: Any   # bound EventBus.publish(topic, Event), or None
+
+    async def emit(self, *, kind: str, booking: Booking) -> None:
+        if self.publish is None:
+            return
+        try:
+            from app.ports.event_bus import Event
+            await self.publish(BOOKING_EVENTS_TOPIC, Event(
+                type=BOOKING_EVENTS_TOPIC,
+                payload={
+                    "tenant": booking.tenant, "subject_ref": booking.subject_ref,
+                    "booking_id": booking.id, "kind": kind, "starts_at": booking.starts_at,
+                    "branch_id": booking.branch_id,
+                }))
+        except Exception:                                                   # noqa: BLE001
+            # A CONFIRMATION MISSED IS NOT A BOOKING LOST. The write already happened; failing the
+            # request now over a notification side effect would tell the shop their booking did
+            # not go through when it did. Same asymmetry as `operations`' own event publish.
+            pass
+
+
 class BookingOperations:
     def __init__(self, *, datastore: Any, bookings: BookingStore, durations: DurationLookup,
-                licence: Any, visits: VisitGateway) -> None:
+                licence: Any, visits: VisitGateway, subject_refs: SubjectRefLookup,
+                events: BookingEvents) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
         self._licence = licence
         self._visits = visits
+        self._subject_refs = subject_refs
+        self._events = events
 
     async def create(self, *, tenant: str, branch_id: str, operator_id: str, customer_id: str,
                      service_ids: list[str], starts_at: int, note: str = "",
@@ -88,15 +135,27 @@ class BookingOperations:
             # guess. §4 of the plan requires this refusal by name.
             raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
 
+        # STAMPED ONCE, HERE, FAIL-CLOSED — same family as the duration refusal above. Without a
+        # pseudonym this booking can never be found by a DSAR (§6.5) and can never key a
+        # confirmation event `reminders` can act on (§5): a booking created without one is a
+        # booking this product cannot honour either promise for, silently, for its whole life.
+        subject_ref = await self._subject_refs.resolve(tenant, customer_id)
+        if not subject_ref:
+            raise OperationError(
+                "تعذّر التحقق من العميلة الآن — حاول مجدداً بعد قليل" if subject_ref is None
+                else "العميلة غير موجودة — أعد اختيارها")
+
         now = time.time()
         booking = Booking(
             id=new_id("bkg"), tenant=tenant, branch_id=branch_id, operator_id=operator_id,
-            customer_id=customer_id, service_ids=tuple(service_ids), starts_at=int(starts_at),
-            duration_minutes=duration, status=STATUS_BOOKED, series_id=series_id,
-            series_seq=series_seq, deposit_taken=deposit_taken, note=note.strip()[:500],
-            idempotency_key=idempotency_key, created=int(now), created_by=created_by,
-            updated=int(now))
-        return await self._claim_and_save(booking, now=now)
+            customer_id=customer_id, subject_ref=subject_ref, service_ids=tuple(service_ids),
+            starts_at=int(starts_at), duration_minutes=duration, status=STATUS_BOOKED,
+            series_id=series_id, series_seq=series_seq, deposit_taken=deposit_taken,
+            note=note.strip()[:500], idempotency_key=idempotency_key, created=int(now),
+            created_by=created_by, updated=int(now))
+        saved = await self._claim_and_save(booking, now=now)
+        await self._events.emit(kind="created", booking=saved)
+        return saved
 
     async def reschedule(self, *, tenant: str, booking_id: str, starts_at: int,
                          operator_id: str = "") -> Booking:
@@ -109,7 +168,9 @@ class BookingOperations:
         if operator_id:
             booking.operator_id = operator_id
         booking.updated = int(now)
-        return await self._claim_and_save(booking, now=now)
+        saved = await self._claim_and_save(booking, now=now)
+        await self._events.emit(kind="rescheduled", booking=saved)
+        return saved
 
     async def edit_services(self, tenant: str, booking_id: str, service_ids: list[str]) -> Booking:
         """`duration_minutes` is a SNAPSHOT (§2) — it is recomputed HERE, on an explicit edit, and
@@ -159,7 +220,9 @@ class BookingOperations:
         booking.status = STATUS_CANCELLED
         booking.cancelled_reason = (reason or "").strip()[:300] or None
         booking.updated = int(time.time())
-        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+        saved = await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+        await self._events.emit(kind="cancelled", booking=saved)
+        return saved
 
     async def attend(self, tenant: str, booking_id: str, occurred_at: int = 0) -> Booking:
         """The ONE way an attended booking becomes a real Visit (§4). `occurred_at` empty means
@@ -194,7 +257,9 @@ class BookingOperations:
         booking.status = STATUS_ATTENDED
         booking.visit_id = str(result["visit_id"])
         booking.updated = int(time.time())
-        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+        saved = await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+        await self._events.emit(kind="attended", booking=saved)
+        return saved
 
     async def no_show(self, tenant: str, booking_id: str, reason: str = "") -> Booking:
         """The other terminal outcome — no peer call, no Visit: the customer never arrived."""
@@ -209,7 +274,9 @@ class BookingOperations:
         booking.status = STATUS_NO_SHOW
         booking.reason_no_show = (reason or "").strip()[:300] or None
         booking.updated = int(time.time())
-        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+        saved = await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+        await self._events.emit(kind="no_show", booking=saved)
+        return saved
 
     async def _require(self, tenant: str, booking_id: str) -> Booking:
         booking = await self._bookings.get(tenant, booking_id)

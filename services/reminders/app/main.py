@@ -119,6 +119,18 @@ def create_app() -> FastAPI:
             # would turn a degraded fast path into a total outage.
             logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
 
+        # ── the booking event (docs/خطة-تنفيذ-الحجوزات.md §5) — event-only, no catch-up path.
+        # See Scheduler.on_booking's own docstring for why that trade-off is deliberate here.
+        async def _on_booking(event) -> None:
+            payload = event.payload if hasattr(event, "payload") else (event or {})
+            await container.scheduler.on_booking(dict(payload), now=int(time.time()))
+
+        try:
+            await container.event_bus.subscribe("bookings.booking.changed", _on_booking)
+            logger.info("subscribed", extra={"topic": "bookings.booking.changed"})
+        except Exception as exc:                                            # noqa: BLE001
+            logger.warning("subscribe_failed", extra={"error": str(exc)[:200]})
+
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})

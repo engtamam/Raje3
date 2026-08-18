@@ -52,11 +52,17 @@ async def _no_visits(**kwargs):
     return None
 
 
+async def _subject_ref(tenant: str, customer_id: str) -> str:
+    return "sub_" + customer_id
+
+
 def _ops(store) -> BookingOperations:
-    from app.core.operations import VisitGateway
+    from app.core.operations import BookingEvents, SubjectRefLookup, VisitGateway
     return BookingOperations(datastore=store, bookings=BookingStore(store),
                              durations=DurationLookup(lookup=_lookup), licence=NullLicence(),
-                             visits=VisitGateway(create=_no_visits))
+                             visits=VisitGateway(create=_no_visits),
+                             subject_refs=SubjectRefLookup(lookup=_subject_ref),
+                             events=BookingEvents(publish=None))
 
 
 def test_only_one_of_two_simultaneous_bookings_wins():

@@ -47,10 +47,14 @@ from app.core.riyadh import RIYADH
 # BY TEMPLATE TYPE, NOT BY CLASS. Reminders and follow-ups are service-class too, and neither is a
 # reply to anything: they are ours, sent on our schedule, and they wait for the morning.
 WINDOW_EXEMPT_TYPES = frozenset({
-    # A BOOKING CONFIRMATION AND A READY-FOR-PICKUP USED TO BE HERE. Both were library texts with
-    # nothing to fire them — they need a booking system this product has decided not to build yet
-    # — and a window exemption for a message that cannot exist is a rule nobody can test.
-    "svc_visit_confirmation", "svc_receipt",
+    # A READY-FOR-PICKUP USED TO BE HERE TOO. Still a library text with nothing to fire it — it
+    # needs a booking system this product has decided not to build yet — and a window exemption
+    # for a message that cannot exist is a rule nobody can test.
+    #
+    # `svc_booking_confirmation` NO LONGER BELONGS ON THAT LIST — a booking system exists now
+    # (docs/خطة-تنفيذ-الحجوزات.md), and its confirmation is a reply to an act just taken (booking
+    # made), exactly like `svc_visit_confirmation` beside it.
+    "svc_visit_confirmation", "svc_booking_confirmation", "svc_receipt",
     "per_account_notice", "per_points_expiring",
     # A CODE THE SUBJECT IS WAITING ON, and a legal clock that does not stop at night. He asked
     # for his data minutes ago; holding the proof of identity until morning delays a PDPL deadline

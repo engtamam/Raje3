@@ -62,7 +62,8 @@ class Scheduler:
     def __init__(self, *, store, cfg: adaptive.AdaptiveConfig,
                  eng_cfg: engagement.EngagementConfig,
                  default_interval_days: float = 90.0, lead_days: float = 7.0,
-                 confirm_delay_seconds: int = 600) -> None:
+                 confirm_delay_seconds: int = 600,
+                 booking_confirm_delay_seconds: int = 120) -> None:
         self._store = store
         self._sched = ScheduleStore(store)
         self._rules = RuleStore(store)
@@ -72,6 +73,10 @@ class Scheduler:
         self._default = default_interval_days
         self._lead = lead_days
         self._confirm_delay = int(confirm_delay_seconds)
+        # Its own, separate delay (docs/خطة-تنفيذ-الحجوزات.md §5) — a booking is confirmed on the
+        # spot with the customer standing there; the visit confirmation's ten minutes answers a
+        # different question ("has he left") that a booking does not ask.
+        self._booking_confirm_delay = int(booking_confirm_delay_seconds)
 
     async def on_visit(self, event: dict[str, Any], *, now: int,
                        service_config: dict[str, dict[str, Any]] | None = None,
@@ -250,6 +255,63 @@ class Scheduler:
         # ── the visit is the strongest engagement signal there is ──────────────────────────────
         await self._credit(tenant, subject, "visit", now=now)
         await self._remember(tenant, visit_id, now)
+        return outcome
+
+    async def on_booking(self, event: dict[str, Any], *, now: int) -> VisitOutcome:
+        """Consume one `bookings.booking.*` event (docs/خطة-تنفيذ-الحجوزات.md §5).
+
+        SIMPLER THAN `on_visit`, AND DELIBERATELY SO — one message, one kind, no learning, no
+        merge across services. `bookings` publishes on every act that changes what the customer
+        should be told: `created`/`rescheduled` (re)schedule the confirmation at the booking's
+        CURRENT time; `cancelled`/`attended`/`no_show` cancel a still-pending one — a confirmed
+        appointment the shop closed some other way does not also need a text about the booking.
+
+        KEYED BY `booking_id`, NOT BY SERVICE. `Schedule.key` is (tenant, subject, asset, service,
+        kind); a booking has no natural "service" for that key the way a visit does, and re-using
+        an empty one would collide two DIFFERENT bookings for the same customer into one row —
+        the second booking's confirmation would silently cancel the first's. `service_id` carries
+        `booking_id` here instead, exactly the way `asset_id` was added for vehicles: not because
+        it IS a service, but because it is the field the key needs to stay unique per booking.
+
+        NO CATCH-UP PATH, UNLIKE VISITS. A missed booking-confirmation is a smaller harm than a
+        missed loyalty-earning visit event (§5's own scope), so this is the event-only fast path;
+        a gap here means one confirmation text late or absent, not a silently wrong cycle. If that
+        trade-off turns out wrong in practice, the fix is the same shape `ingest.py` already has
+        for visits — a catch-up read against `bookings`, not a redesign of this method.
+        """
+        tenant = event.get("tenant") or ""
+        subject = event.get("subject_ref") or ""
+        booking_id = event.get("booking_id") or ""
+        kind_word = event.get("kind") or ""
+        if not tenant or not subject or not booking_id:
+            return VisitOutcome(scheduled=[], duplicate=False)
+
+        outcome = VisitOutcome(scheduled=[])
+
+        if kind_word in ("cancelled", "attended", "no_show"):
+            dropped = await self._sched.cancel_kind(
+                tenant, subject, booking_id, "booking_confirmation",
+                reason="أُغلِق الحجز قبل إرسال التأكيد", now=now)
+            outcome.cancelled = dropped
+            return outcome
+
+        if kind_word not in ("created", "rescheduled"):
+            return outcome   # an unrecognised kind refuses to guess rather than schedule blindly
+
+        starts_at = int(event.get("starts_at") or 0)
+        if not starts_at:
+            return outcome
+
+        from app.core.rendering import arabic_appointment
+
+        sch = Schedule(
+            tenant=tenant, subject_ref=subject, service_id=booking_id, kind="booking_confirmation",
+            due_at=now + self._booking_confirm_delay, cls="service",
+            template_type=T.get("booking_confirmed").template_type,
+            appt_time=arabic_appointment(starts_at), booking_id=booking_id,
+            branch_id=event.get("branch_id") or "")
+        await self._sched.upsert(tenant, sch.key, as_row(sch))
+        outcome.scheduled.append(sch.key)
         return outcome
 
     async def _learn(self, tenant: str, subject: str, service_id: str, *,

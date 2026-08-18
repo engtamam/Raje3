@@ -795,10 +795,19 @@ class Tick:
             # whole reason this is a template VARIANT rather than an optional sentence: WhatsApp has
             # no optional part, and a visit without a redemption has nothing true to put in them.
             redeemed = row.get("redeemed_name", "")
+            # A BOOKING CONFIRMATION IS NOT A VISIT'S SHAPE. Slot 3 on `svc_visit_confirmation`'s
+            # kin is the service or the redemption; on `svc_booking_confirmation` it is the
+            # appointment's own day and hour (Schedule.appt_time, phrased once at scheduling time
+            # by rendering.arabic_appointment — never re-derived here). Falling through to
+            # `service_text` for this kind would put `service_id`'s raw value on the row — which
+            # for a booking schedule IS THE BOOKING ID (see Scheduler.on_booking) — into a
+            # customer-facing message.
+            is_booking = row.get("kind") == "booking_confirmation"
+            slot_3 = row.get("appt_time", "") if is_booking else (redeemed or service_text)
             rendered = R.render(
                 template=template,
                 system={"1": customer_name, "2": establishment,
-                        "3": redeemed or service_text,
+                        "3": slot_3,
                         "4": str(row.get("redeemed_cost", "")) if redeemed else service_text,
                         "5": str(row.get("redeemed_remaining", ""))},
                 catalogue={"3": service_text, "4": service_text},

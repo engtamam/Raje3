@@ -89,8 +89,10 @@ def _vars(text: str) -> list[int]:
 DEFERRALS = ("drop", "defer", "priority")
 
 
-def deferral_map(doc: str) -> dict[str, str]:
-    """The policy per type, read from the table in the specification (§8.4.3).
+def deferral_map(doc: str) -> tuple[dict[str, str], set[str]]:
+    """The policy per type, read from the table in the specification (§8.4.3) — and separately,
+    the names DELIBERATELY struck through in that same table (`~~name~~`), which is the spec's own
+    way of saying "written, approved in spirit, not yet seeded" (see `awr_seasonal_care`, #389).
 
     WHY IT IS PARSED AND NOT LISTED HERE. A policy in this file is a policy nobody reviewing the
     product ever sees, and the question it answers — "does this message still make sense tomorrow?"
@@ -98,11 +100,21 @@ def deferral_map(doc: str) -> dict[str, str]:
 
     THE ROWS ARE PATTERNS, not only names, because ten marketing templates share one answer and
     ten identical rows is ten chances to get one wrong.
+
+    THE EXCLUDED SET EXISTS SO A STRIKETHROUGH ROW IS NOT ALSO A BUILD FAILURE. Before this, a
+    name struck through here still had a full `**`name` — title**` block earlier in the doc (the
+    text itself, kept for the day it IS seeded), so `parse()` found it, found no policy for it —
+    correctly, `—` is not a policy — and reported "no deferral policy" as though somebody had
+    simply forgotten to fill in a row. The generator has refused to write `deploy/seed/
+    templates.json` at all since the day that strikethrough was added, and nothing said so beyond
+    a red exit code nobody connected to `awr_seasonal_care`'s own deliberate omission a few lines
+    above it in the same table.
     """
     out: dict[str, str] = {}
+    excluded: set[str] = set()
     block = doc.split("## 8.4.3", 1)
     if len(block) < 2:
-        return out
+        return out, excluded
     block = block[1].split("## 8.5", 1)[0]
     for line in block.splitlines():
         if not line.startswith("|") or "`" not in line:
@@ -110,12 +122,16 @@ def deferral_map(doc: str) -> dict[str, str]:
         cells = [c.strip() for c in line.strip("|").split("|")]
         if len(cells) < 2:
             continue
+        names = re.findall(r"`([a-z_*]+)`", cells[0])
         policy = cells[1].strip(" `*")
+        if "~~" in cells[0]:
+            excluded.update(names)
+            continue
         if policy not in DEFERRALS:
             continue
-        for name in re.findall(r"`([a-z_*]+)`", cells[0]):
+        for name in names:
             out[name] = policy
-    return out
+    return out, excluded
 
 
 def deferral_for(name: str, policies: dict[str, str]) -> str | None:
@@ -133,12 +149,16 @@ def parse() -> tuple[list[dict], list[str]]:
         r"\*\*`((?:svc|per|awr|wrn|mkt)_[a-z_]+)`\s*—\s*([^*\n]+)\*\*\n(.*?)(?=\n\*\*`|\n---|\n## )",
         doc, re.S)
 
-    policies = deferral_map(doc)
+    policies, excluded = deferral_map(doc)
     types: list[dict] = []
     problems: list[str] = []
     seen: set[str] = set()
 
     for name, title, body in blocks:
+        if name in excluded:
+            # Written, struck through in the 8.4.3 table on purpose (see deferral_map's doc) —
+            # skipped silently, not a problem: the spec is stating an intent, not a mistake.
+            continue
         tones = dict(re.findall(r"\|\s*`_(brief|warm|formal)`\s*\|\s*(.+?)\s*\|", body))
         if len(tones) != 3:
             problems.append(f"{name}: has {sorted(tones)} — every text needs all three tones, "
