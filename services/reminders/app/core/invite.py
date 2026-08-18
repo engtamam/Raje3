@@ -45,11 +45,11 @@ from app.core import links as L
 
 #: Somebody who has not agreed. It names no discount and no price on purpose (see the module note);
 #: what it promises is that something is waiting, and the screen behind the link says what.
-NOT_GRANTED = "تحب توصلك عروض مخصّصة لك على واتساب؟ فعّلها من هنا: {link}"
+NOT_GRANTED = "تحب توصلك عروضنا على واتساب؟ فعّلها من هنا، وتوقفها وقت ما تحب: {link}"
 
 #: Somebody who already agreed. NO LINK: the page it would point at is closed for this release, and
 #: a first message that opens on «قيد التجهيز» is worse than a message with one line fewer.
-GRANTED = "وعروضك المخصّصة توصلك على واتساب أول بأول"
+GRANTED = "وعروضنا توصلك على واتساب، وتوقفها وقت ما تحب"
 
 
 #: Somebody who asked us to stop. No invitation, no link — and NOT an empty string, because Meta
@@ -81,7 +81,7 @@ WITHDRAWN = "نتشرّف بخدمتك دائماً 🌿"
 #: with one: `... {{3}} 🎁`. The line carried its own, so the customer read «🎁 🎁». No price, no
 #: discount, no number either, for the reason every line here avoids them: a utility text that
 #: sells is re-categorised by Meta as marketing.
-NOT_GRANTED_NO_LINK = "وإن أحببت توصلك عروض مخصّصة لك، أخبرنا في زيارتك القادمة"
+NOT_GRANTED_NO_LINK = "وإن أحببت توصلك عروضنا، أخبرنا في زيارتك القادمة"
 
 
 def line(*, consent: str, public_base_url: str, reference: str) -> str:

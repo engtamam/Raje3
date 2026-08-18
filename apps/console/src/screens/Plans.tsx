@@ -504,18 +504,24 @@ export function PlansPane({
       {bases.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
-          {bases.map((p) => (
-            <PlanCard
-              key={p.id}
-              plan={p}
-              owned={hasBase}
-              busy={busy}
-              sellable={Boolean(canSubscribe && pay?.enabled)}
-              onBuy={() => choose(p)}
-              ownedLabel="اشتراكك"
-              buyLabel="فعّل الأساس"
-            />
-          ))}
+          {/* HALF THE WIDTH, ON THE SAME GRID AS THE APPS BELOW IT. Full-bleed, the base card alone
+              was taller than the fold and pushed «السعة» off the screen entirely — he had to scroll
+              to learn that a second branch is for sale. The three sections are one decision. */}
+          <ul className="grid gap-3 md:grid-cols-2">
+            {bases.map((p) => (
+              <li key={p.id}>
+                <PlanCard
+                  plan={p}
+                  owned={hasBase}
+                  busy={busy}
+                  sellable={Boolean(canSubscribe && pay?.enabled)}
+                  onBuy={() => choose(p)}
+                  ownedLabel="اشتراكك"
+                  buyLabel="فعّل الأساس"
+                />
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -554,7 +560,10 @@ export function PlansPane({
       {capacity.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-sm text-text-secondary">السعة</h2>
-          <ul className="grid gap-3 md:grid-cols-2">
+          {/* THREE UP, BECAUSE THERE IS ALMOST NOTHING TO READ. A capacity row carries one feature
+              line — «فروع: 1» — so a half-width card is mostly empty space, and empty space here
+              costs the height that «السعة» needs to be visible at all. */}
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {capacity.map((p) => (
               <li key={p.id}>
                 <PlanCard
