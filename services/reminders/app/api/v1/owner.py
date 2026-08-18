@@ -972,6 +972,18 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
 
     pending, _ = await store._find(tenant, {"state": "pending"}, limit=200,
                                    sort=("due_at", "asc"))
+    # ── WAITING IS NOT THE SAME AS STUCK, AND `pending` HOLDS BOTH ────────────────────────────
+    #
+    # A row whose pass throws goes back to `pending` an hour out with its `attempts` raised — a
+    # number Meta refuses, a template rejected for this shop alone, a peer that is down. So the
+    # single word covered two states: a reminder calmly booked for next Tuesday, and a message
+    # that has failed eleven times and will be tried a few more before it is given up on.
+    #
+    # COUNTED TOGETHER, THE SCREEN LIED IN THE ONLY DIRECTION THAT MATTERS. It is named «هل كل
+    # شيء يعمل؟», and a shop whose every message was failing read «12 في الانتظار» and concluded
+    # it was working. This screen already refuses to render an unknown ceiling as a zero and an
+    # unreadable name as calm; this is the same rule, one field further along.
+    stuck = [r for r in pending if int(r.get("attempts") or 0) > 0]
     sent, _ = await store._find(tenant, {"state": "sent"}, limit=200, sort=("due_at", "desc"))
 
     now = int(time.time())
@@ -1001,7 +1013,16 @@ async def today(request: Request, principal: Principal = Depends(_READ)) -> dict
         "blocked": blocked_reason,
         "messages": {
             "sent_today": len(sent_today),
-            "waiting": len(pending),
+            # WAITING IS THE CALM ONES ONLY. Subtracting rather than counting a second query: one
+            # read, and the two numbers cannot disagree about the same rows.
+            "waiting": len(pending) - len(stuck),
+            # AND THE STUCK ONES CARRY THEIR OWN NUMBER AND THEIR OWN SENTENCE. Zero is a real
+            # answer here and the screen shows nothing for it — a warning that is always present
+            # is furniture, exactly as the `blocked` field above says.
+            "retrying": len(stuck),
+            "retrying_reason": (
+                "رسائل تحاول الخروج ولا تنجح — سنعيد المحاولة، وإن لم تنجح ستجدها في سجلّ "
+                "الرسائل بسببها." if stuck else ""),
         },
         "ceiling": {
             # `known` distinguishes "we asked and Meta said unlimited" from "we could not ask".

@@ -586,6 +586,13 @@ jobs:
       - name: a retry after a failure is counted and can give up
         run: python3 ci/check_a_retry_after_a_failure_is_counted.py
 
+      # AND THE COUNTER THAT RETRY CREATED MUST BE READ. `pending` now holds two states wearing one
+      # word — a reminder booked for next Tuesday, and a message that has failed eleven times — so
+      # the screen named «هل كل شيء يعمل؟» answered «12 في الانتظار» to a shop whose every message
+      # was failing.
+      - name: a stuck message is not counted as a calm one
+        run: python3 ci/check_a_stuck_message_is_not_counted_as_calm.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully
