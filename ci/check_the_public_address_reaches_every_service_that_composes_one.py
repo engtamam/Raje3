@@ -32,8 +32,17 @@ INSTALLER = ROOT / "deploy" / "bring-up.sh"
 
 SETTING = "PUBLIC_BASE_URL"
 
-#: The declaration: the key, present in a values file, with an empty value.
-DECLARED_EMPTY = re.compile(rf"^\s*{SETTING}:\s*\"\"\s*$", re.M)
+#: The declaration: the key, present in a values file, WHATEVER its value.
+#:
+#: IT USED TO REQUIRE AN EMPTY ONE, and that made the repository's own value into a decision the
+#: installer had to respect. Once `reminders.values.yaml` carried the real address — which it had
+#: to, because a ship renders values and would otherwise wipe the ConfigMap back to blank on every
+#: roll — an install for a DIFFERENT domain would have skipped it in silence, and the new cluster
+#: would have composed links pointing at somebody else's site while every screen looked healthy.
+#:
+#: So both the installer and this now select by the KEY. Whoever declares it composes links, and
+#: whoever composes links gets the domain the installer was given.
+DECLARED = re.compile(rf"^\s*{SETTING}:", re.M)
 
 #: THE SELECTION: a `grep` for the setting against the LOOP VARIABLE — each values file read in
 #: turn. The filename must be `"$f"` rather than a literal, and that is the whole point: a line
@@ -70,7 +79,7 @@ def main() -> int:
         return 1
 
     declaring = sorted(p.name for p in VALUES.glob("*.values.yaml")
-                       if DECLARED_EMPTY.search(p.read_text(encoding="utf-8")))
+                       if DECLARED.search(p.read_text(encoding="utf-8")))
     if not declaring:
         # NOBODY DECLARES IT ANY MORE. Either the setting was renamed or it is filled in place;
         # either way this gate now checks nothing, and silence would hide that.

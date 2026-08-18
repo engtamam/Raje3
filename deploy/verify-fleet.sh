@@ -343,6 +343,45 @@ if [ "$cfg_bad" -eq 0 ]; then
     "$C_G" "config" "$cfg_seen" "$C_N"
 fi
 
+# -- AND THE ONES A VALUES FILE DECLARES EMPTY *ON PURPOSE, TO BE FILLED* ----------------------
+#
+# THE CHECK ABOVE PASSES THIS CASE AND MUST. `PUBLIC_BASE_URL: ""` in the repository and `""` on
+# the cluster agree perfectly, so comparing declared against live prints green -- and it printed
+# green for five days while every consent invitation in the fleet degraded to «أخبرنا في زيارتك
+# القادمة», because `links.py` cannot compose an address out of nothing. The customer's grant
+# screen answered 200 the whole time. Nothing anywhere connected the two facts.
+#
+# A DECLARED-EMPTY KEY IS NOT A VALUE, IT IS A PLACEHOLDER, and `bring-up.sh` step 4b4 is what
+# fills it -- selecting which services to fill BY THAT SAME DECLARATION. So this needs no list of
+# its own and cannot drift from the installer: whatever 4b4 would fill, a live cluster must
+# already hold non-empty. A service that starts composing links tomorrow is covered the day it
+# declares the key, in both places at once.
+#
+# WHY IT SURVIVED. 4b4 runs at INSTALL. This cluster was installed before 4b4 existed, and a ship
+# syncs values and rolls pods; it does not re-run the installer. Same shape as the platform-pin
+# drift this whole script was written for: a fix that is right in the repository and never reaches
+# what is running.
+fill_bad=0
+fill_seen=0
+for f in "$ROOT"/deploy/services/*.values.yaml; do
+  # The same selector as bring-up.sh step 4b4, deliberately character-for-character: a service
+  # that DECLARES the key composes links, and a service that composes links must hold an address.
+  grep -qE '^[[:space:]]*PUBLIC_BASE_URL:[[:space:]]*' "$f" || continue
+  svc="$(basename "$f" .values.yaml)"
+  fill_seen=$((fill_seen+1))
+  live="$("${SSH[@]}" "kubectl -n $NS get cm $svc -o jsonpath='{.data.PUBLIC_BASE_URL}' 2>/dev/null")" || live=""
+  if [ -z "$live" ]; then
+    printf '  %s✗ %-24s PUBLIC_BASE_URL is EMPTY on the cluster%s\n' "$C_R" "$svc" "$C_N"
+    printf '    %severy link it composes is refused at render, so consent cannot be granted%s\n' "$C_R" "$C_N"
+    fill_bad=$((fill_bad+1))
+  fi
+done
+if [ "$fill_bad" -eq 0 ] && [ "$fill_seen" -gt 0 ]; then
+  printf '  %s✔ %-24s %d service(s) that compose links hold a public address%s\n' \
+    "$C_G" "public address" "$fill_seen" "$C_N"
+fi
+
+
 # ── AND WHAT THE CLUSTER HOLDS THAT NOBODY DEPLOYS (أ-4، أ-5) ────────────────────────────────
 #
 # EVERY CHECK ABOVE ASKS «is what the repository names actually running». None of them asks the

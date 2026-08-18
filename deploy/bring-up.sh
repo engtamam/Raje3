@@ -450,7 +450,12 @@ if [ -n "${DOMAIN:-}" ]; then
   PUBLIC_BASE="https://${DOMAIN}"
   addressed=0
   for f in "$ROOT"/deploy/services/*.values.yaml; do
-    grep -qE '^[[:space:]]*PUBLIC_BASE_URL:[[:space:]]*""[[:space:]]*$' "$f" || continue
+    # SELECTED BY THE KEY, NOT BY ITS BEING EMPTY. It used to require `""`, and that made the
+    # repository's own value a decision this installer had to respect: once a values file carried
+    # `https://kobo-cloud.com`, an install for a DIFFERENT domain skipped it silently and the new
+    # cluster composed links pointing at somebody else's site. The installer was asked for the
+    # domain; it is the authority. So it overwrites whatever the file happens to hold.
+    grep -qE '^[[:space:]]*PUBLIC_BASE_URL:[[:space:]]*' "$f" || continue
     svc="$(basename "$f" .values.yaml)"
     kubectl -n "$NS" get cm "$svc" >/dev/null 2>&1 || continue
     kubectl -n "$NS" patch cm "$svc" --type=merge \

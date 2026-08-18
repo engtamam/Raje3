@@ -22,7 +22,7 @@ image:
   # prefixed because that is the name containerd stores it under. Still pinned BY DIGEST — a tag
   # can be moved, so a tag-pinned rollback is a hope.
   repository: ghcr.io/engtamam/raje3/reminders
-  digest: "sha256:ab9d0748214a53777a09186015478d22bea1f9ff5872eb61a183bf3ad50774f8"   # 84daeac, published by publish-images.sh
+  digest: "sha256:1a0e3f3fb49b3890263810a4ad414bc08de749649c7e3b00e910c189df1bf5f0"   # 961e0be, published by publish-images.sh
 
 replicas: 1
 
@@ -283,7 +283,7 @@ env:
   # raises instead of composing, so a fleet whose address nobody set stops the message and says so.
   # A default of `https://raje3.sa` would work here and send every pilot's customers to a domain
   # that is not theirs — the failure nobody sees, because delivery still reports success.
-  PUBLIC_BASE_URL: ""
+  PUBLIC_BASE_URL: "https://kobo-cloud.com"
   CORS_ALLOWED_ORIGINS: "https://app.raje3.sa,https://admin.raje3.sa"
   CORS_ALLOW_CREDENTIALS: "true"
   EGRESS_ALLOWED_HOSTS: ""
