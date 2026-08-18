@@ -36,6 +36,33 @@ check "the fleet's clock file names one zone"       "$(grep -c '^CRON_TIMEZONE='
 # a stray `cronTimeZone:` there does not sit quietly — it fails every deploy.
 check "no values file keeps its own clock"       "$(grep -l 'cronTimeZone' "$ROOT"/deploy/services/*.values.yaml 2>/dev/null | wc -l)" "0"
 
+# ── THE CERTIFICATE THRESHOLD, FIRED RATHER THAN READ ────────────────────────────────────────
+# Caddy renews the edge certificate at thirty days remaining, so anything under three weeks means
+# renewal has been tried and has FAILED — and when it finally lapses the console, the customer's
+# page and Meta's webhook go dark together, for every shop, in the same minute. Nothing measured
+# it until now. The threshold is asserted here by MINTING certificates and asking the script's own
+# functions about them: a limit checked by grepping the source is a limit nobody has seen fire.
+eval "$(grep '^CERT_MIN_DAYS=' "$ROOT/deploy/verify-fleet.sh" | head -1)"
+eval "$(grep '^cert_renewal_overdue()' "$ROOT/deploy/verify-fleet.sh" | head -1)"
+eval "$(grep '^cert_already_expired()' "$ROOT/deploy/verify-fleet.sh" | head -1)"
+check "the threshold was found in verify-fleet"       "$CERT_MIN_DAYS" "21"
+check "the overdue test was found"       "$(type -t cert_renewal_overdue)" "function"
+if command -v openssl >/dev/null 2>&1; then
+  # `-batch` AND NO `-subj`, WHICH IS NOT LAZINESS. Git-bash rewrites a `/CN=...` argument into a
+  # Windows path, and disabling that rewriting (MSYS_NO_PATHCONV) also stops `-keyout /tmp/...`
+  # from resolving — the two needs contradict. `-batch` takes the subject from openssl's own
+  # defaults and needs neither. Every failure here was silent behind `2>/dev/null`: the mint
+  # produced an EMPTY string, which the functions correctly read as «no certificate, treat it as
+  # overdue», so the test failed for a reason that had nothing to do with the threshold.
+  _mint(){ openssl req -x509 -batch -newkey rsa:2048 -nodes -keyout "$TMP/mint.key" -days "$1" 2>/dev/null; }
+  fresh="$(_mint 90)"; nearly="$(_mint 10)"
+  check "a certificate with 90 days left is not overdue"       "$(cert_renewal_overdue "$fresh" && echo overdue)" ""
+  check "a certificate with 10 days left IS overdue"       "$(cert_renewal_overdue "$nearly" && echo overdue)" "overdue"
+  check "neither of them reads as already expired"       "$(cert_already_expired "$fresh" || cert_already_expired "$nearly" && echo expired)" ""
+else
+  no "openssl is missing here, so the certificate threshold was NOT exercised"
+fi
+
 # ── «HAS IT EVER FINISHED», RUN RATHER THAN READ ─────────────────────────────────────────────
 # `backup-service-run` had been due three times with `lastSuccessfulTime` EMPTY — never once
 # completed since installation — while `operations-partner-statements` runs on the second of the

@@ -189,6 +189,67 @@ else
 ' "$C_G" "edge" "$C_N"; ok=$((ok+1))
 fi
 
+# ── AND WHETHER THE CERTIFICATE THE WHOLE PRODUCT STANDS ON IS STILL BEING RENEWED ───────────
+#
+# NOTHING IN THIS FLEET MEASURED THIS. The edge is caddy, which gets its certificate from Let's
+# Encrypt itself and renews it when a third of the lifetime is left — thirty days on a ninety-day
+# certificate. That automation is excellent right up to the day it stops, and the day it stops
+# there is no alarm: the certificate simply ages out, and then the console, the customer's page
+# opened from a WhatsApp link, and Meta's webhook all fail at the same minute, for every shop at
+# once. Meta disables a webhook whose TLS fails. It is the single widest blast radius we have and
+# it was measured by nobody.
+#
+# THE HOST IS FOUND, NOT PASSED. It is read from the site address in the Caddyfile the cluster is
+# ACTUALLY serving, so this tests the certificate a customer's browser receives rather than a
+# domain somebody typed into this script.
+# THE DECISION IS A FUNCTION, so ci/test_deploy_scripts.sh lifts it out and runs it against real
+# certificates it mints on the spot — one with months left, one with days. A threshold asserted by
+# reading the source is a threshold nobody has ever seen fire.
+CERT_MIN_DAYS=21
+cert_renewal_overdue(){ ! printf '%s\n' "$1" | openssl x509 -noout -checkend "$((CERT_MIN_DAYS * 86400))" >/dev/null 2>&1; }
+cert_already_expired(){ ! printf '%s\n' "$1" | openssl x509 -noout -checkend 0 >/dev/null 2>&1; }
+site="$("${SSH[@]}" "kubectl -n $NS get cm edge-caddyfile -o jsonpath='{.data.Caddyfile}' 2>/dev/null")" || site=""
+host="$(printf '%s\n' "$site" | sed -n 's/^\([A-Za-z0-9.-]*\.[A-Za-z][A-Za-z]*\) {[[:space:]]*$/\1/p' | head -1)"
+
+# RENEWAL IS OVERDUE, NOT «EXPIRY IS NEAR». Caddy renews at thirty days remaining, so a certificate
+# still under thirty days out has already had its renewal attempted and retried. Twenty-one days is
+# that moment plus a week of retries: past it, renewal is not «coming up», it is FAILING — and
+# three weeks is enough time to fix it by hand before a single customer notices.
+if [ -z "$host" ]; then
+  printf '  %s✗ %-24s no https site address in the edge config — TLS was NOT checked%s\n' \
+    "$C_R" "edge certificate" "$C_N"
+  bad=$((bad+1))
+elif ! command -v openssl >/dev/null 2>&1; then
+  printf '  %s✗ %-24s openssl is not installed here — the certificate was NOT checked%s\n' \
+    "$C_R" "edge certificate" "$C_N"
+  bad=$((bad+1))
+else
+  chain="$(echo | openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null)"
+  if [ -z "$chain" ]; then
+    printf '  %s✗ %-24s %s did not answer on 443 — the certificate was NOT checked%s\n' \
+      "$C_R" "edge certificate" "$host" "$C_N"
+    bad=$((bad+1))
+  else
+    until_when="$(printf '%s\n' "$chain" | openssl x509 -noout -enddate 2>/dev/null | sed 's/^notAfter=//')"
+    # `-checkend` ASKS OPENSSL, rather than parsing its date here. A shell that subtracts two dates
+    # is a shell that behaves differently on the machine of whoever runs this next; openssl already
+    # knows the answer and its exit code is the whole result.
+    if cert_already_expired "$chain"; then
+      printf '  %s✗ %-24s EXPIRED (%s) — every shop is dark right now%s\n' \
+        "$C_R" "edge certificate" "$until_when" "$C_N"
+      bad=$((bad+1))
+    elif cert_renewal_overdue "$chain"; then
+      printf '  %s✗ %-24s expires %s — under %s days, so RENEWAL IS FAILING, not pending%s\n' \
+        "$C_R" "edge certificate" "$until_when" "$CERT_MIN_DAYS" "$C_N"
+      printf '%s     caddy renews at 30 days; past this point it has tried and not succeeded%s\n' \
+        "$C_R" "$C_N"
+      bad=$((bad+1))
+    else
+      printf '  %s✔ %-24s %s valid until %s%s\n' "$C_G" "edge certificate" "$host" "$until_when" "$C_N"
+    fi
+  fi
+fi
+
 # ── AND WHETHER ANYTHING IS ACTUALLY BEING BACKED UP ─────────────────────────────────────────
 #
 # A digest check answers «the right code is running». It does not answer «our data survives the
