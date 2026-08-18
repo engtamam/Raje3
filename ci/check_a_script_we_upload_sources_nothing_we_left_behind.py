@@ -41,6 +41,13 @@ BUNDLE = re.compile(r'tar\s+czf\s+-\s+-C\s+"\$ROOT"\s+(.*?)\|', re.S)
 #: `. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/<relative>"` — the one form these scripts use.
 SOURCES = re.compile(r'^\s*(?:\.|source)\s+"\$\(cd\s+"\$\(dirname[^)]*\)[^)]*\)"?/([^"]+)"', re.M)
 
+#: AND WHAT THEY RUN, NOT ONLY WHAT THEY READ. `$ROOT/deploy/sweep.sh`, invoked as `bash "$sweeper"`
+#: after an `[[ -f … ]] ||  return 0` guard — the shape that made this half necessary. The guard is
+#: right (a missing sweeper must not fail a rollout) and it is exactly why the absence is silent:
+#: the roll reported success while the seats it was supposed to reclaim stayed booked, and the
+#: cluster went on refusing to schedule. A file we RUN is as much a dependency as one we READ.
+RUNS = re.compile(r'"?\$(?:\{)?ROOT(?:\})?/([A-Za-z0-9_./-]+\.sh)"?')
+
 
 def bundle_paths() -> list[str]:
     text = SHIP.read_text(encoding="utf-8")
@@ -75,22 +82,27 @@ def main() -> int:
         base = ROOT / entry
         files = [base] if base.is_file() else sorted(base.rglob("*.sh")) if base.is_dir() else []
         for f in files:
-            for target in SOURCES.findall(f.read_text(encoding="utf-8")):
+            text = f.read_text(encoding="utf-8")
+            # Sourced: relative to the script's own directory. Run: relative to the repo root the
+            # script computed for itself. Two spellings, one question — is it in the bundle?
+            wanted = [((f.parent / t).resolve(), "sources") for t in SOURCES.findall(text)]
+            wanted += [((ROOT / t).resolve(), "runs") for t in RUNS.findall(text)]
+            for resolved, verb in wanted:
                 read_count += 1
-                resolved = (f.parent / target).resolve()
                 if not carried(resolved, bundle):
-                    guilty.append((f.relative_to(ROOT).as_posix(),
+                    guilty.append((f.relative_to(ROOT).as_posix(), verb,
                                    resolved.relative_to(ROOT).as_posix()))
     if not read_count:
-        print("FAIL: no uploaded script sources anything — the gate read nothing")
+        print("FAIL: no uploaded script sources or runs anything — the gate read nothing")
         return 1
-    for script, missing in guilty:
-        print(f"FAIL: {script} sources {missing}, and the bundle does not carry it — "
-              f"the roll dies before it rolls")
+    for script, verb, missing in guilty:
+        consequence = ("the roll dies before it rolls" if verb == "sources"
+                       else "the step is skipped in silence and the run reports success anyway")
+        print(f"FAIL: {script} {verb} {missing}, and the bundle does not carry it — {consequence}")
     if guilty:
         print("\nAdd the file to the tar list in deploy/ship.sh — do not exempt it here.")
         return 1
-    print(f"{read_count} source line(s) across the uploaded bundle, every one of them carried")
+    print(f"{read_count} dependency line(s) across the uploaded bundle, every one of them carried")
     return 0
 
 

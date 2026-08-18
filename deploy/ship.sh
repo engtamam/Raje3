@@ -114,8 +114,13 @@ sync_and_roll() {
   # line had just printed a true «✔ declaration synced». The verify step caught the consequence
   # every time; nothing named the cause. ci/check_a_script_we_upload_sources_nothing_we_left_behind.py
   # now compares this list against what these scripts actually read.
-  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/cluster.sh deploy/hooks \
-         deploy/server platform/deploy/chart 2>/dev/null \
+  # `deploy/sweep.sh` IS HERE FOR THE SAME REASON `cluster.sh` IS, and it was learned the same way
+  # — twice in one night. update.sh calls it before rolling, behind an `[[ -f … ]] || return 0`
+  # guard that is correct (a missing sweeper must never fail a rollout) and therefore SILENT. The
+  # roll reported success, the seats sixteen dead pods were holding stayed booked, and the node
+  # went on refusing to schedule. A file we RUN is as much a dependency as one we READ.
+  if ! tar czf - -C "$ROOT" "deploy/services/$svc.values.yaml" deploy/cluster.sh deploy/sweep.sh \
+         deploy/hooks deploy/server platform/deploy/chart 2>/dev/null \
        | "${SSH[@]}" "mkdir -p ~/raje3 && cd ~/raje3 && tar xzf - 2>/dev/null \
          && chmod +x deploy/hooks/*.sh && grep -q '$digest' deploy/services/$svc.values.yaml"; then
     red "$svc: the values file on the server does not carry the pinned digest"; return 1
