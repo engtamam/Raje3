@@ -26,6 +26,8 @@ import { Segmented } from '@base-ui/design-system/Segmented';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { STORE_PATH } from '../nav';
 import { action, call, type Catalog } from '../catalog';
 import { branchGate } from '../branches';
 import type { Session } from '../session';
@@ -500,7 +502,10 @@ function People({ session, operators, branches, add, edit, hire, pinKind, onChan
   );
 }
 
-function Branches({ session, catalog, branches, operators, add, edit, mayRead, limit, mayAdd,
+// EXPORTED FOR ONE REASON: the cap. Whether a full plan REMOVES the button or turns it into an
+// offer is a decision, and a decision nothing renders in a test is a decision that quietly
+// reverts. Nothing outside this file and its test imports it.
+export function Branches({ session, catalog, branches, operators, add, edit, mayRead, limit, mayAdd,
                    onChanged }: {
   session: Session;
   catalog: Catalog;
@@ -517,6 +522,11 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // HE PRESSED THE BUTTON AND THE OFFER ANSWERED. The cap used to REMOVE the button and leave
+  // a grey sentence in its place, which reads as «this shop cannot have another branch» — and
+  // it can, for money we would like to be paid. Tamam's decision: «يعطيه الخيار ولما يضغط
+  // عليه يطلع له الرسالة مع رابط لبطاقة الترقية».
+  const [capped, setCapped] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -556,6 +566,15 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
         <p className="mt-1 text-sm text-text-secondary">
           افتح فرعاً ثانياً وتابع كل فرع على حدة.
         </p>
+        {/* THE SAME DOOR AS THE CAP BELOW. This screen sold branches and left him to find where
+            they are sold — and the name it would have printed did not exist in the console until
+            the store became a place. */}
+        <Link
+          to={STORE_PATH}
+          className="mt-3 inline-block rounded-control bg-accent px-3 py-1.5 text-sm text-accent-foreground"
+        >
+          افتح متجر التطبيقات
+        </Link>
       </section>
     );
   }
@@ -618,12 +637,36 @@ function Branches({ session, catalog, branches, operators, add, edit, mayRead, l
           what the shop already holds: a shop allowed three and holding three used to see this
           button, type a name, and read the refusal only after pressing save. `=== false` on
           purpose, so an answer that never came leaves the button where it was. */}
-      {add && mayAdd !== false && !open
-        ? <Button onClick={() => setOpen(true)}>إضافة فرع</Button> : null}
-      {add && mayAdd === false ? (
-        <p className="text-sm text-text-secondary">
-          بلغت عدد الفروع المتاحة في باقتك. للمزيد، رقِّ باقتك من «متجر التطبيقات».
-        </p>
+      {add && !open && !capped ? (
+        // THE BUTTON STAYS AT THE CAP. `mayAdd === false` is «your plan is full», not «you may
+        // not» — and a control that disappears teaches him the product cannot do it. Pressing
+        // it at the cap opens the offer instead of the form; `=== false` on purpose, so an
+        // answer that never came still opens the form rather than selling him something.
+        <Button onClick={() => (mayAdd === false ? setCapped(true) : setOpen(true))}>
+          إضافة فرع
+        </Button>
+      ) : null}
+      {add && capped ? (
+        // AN OFFER, WITH THE DOOR IN IT. The sentence named «متجر التطبيقات» and left him to
+        // find it — and until this cycle that name existed nowhere in the product: no row, no
+        // tab, no address. Now it is a place, and this is a link to it rather than an
+        // instruction.
+        <div className="flex flex-col items-start gap-2 rounded-card bg-surface-2 p-3">
+          <p className="text-sm">
+            وصلت إلى عدد الفروع في اشتراكك الحالي. أضِف فروعاً أكثر من متجر التطبيقات.
+          </p>
+          <div className="flex items-center gap-2">
+            <Link
+              to={STORE_PATH}
+              className="rounded-control bg-accent px-3 py-1.5 text-sm text-accent-foreground"
+            >
+              افتح متجر التطبيقات
+            </Link>
+            <Button type="button" variant="ghost" onClick={() => setCapped(false)}>
+              ليس الآن
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {add && open ? (

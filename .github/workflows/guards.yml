@@ -559,6 +559,12 @@ jobs:
       - name: a deployment can render the messages it ships
         run: python3 ci/check_a_deployment_can_render_the_messages_it_ships.py
 
+      # A DIRECTION MUST LEAD SOMEWHERE. «رقِّ باقتك من «متجر التطبيقات»» shipped while no screen,
+      # tab or row in the console carried that name — the place that sold apps was called
+      # «اشتراكي». The owner followed our own sentence to a name that existed nowhere.
+      - name: every screen a sentence names is a place that exists
+        run: python3 ci/check_a_screen_a_sentence_names_exists.py
+
       # A DEPLOY THAT CANNOT BE PLACED REPORTS SUCCESS. The pilot node had 5180m of requests booked
       # against 4 vCPU — sixteen of them held by pods that had already died — so a rollout could not
       # place its new pod, the pod went `OutOfcpu`, the OLD pod kept serving, and helm truthfully

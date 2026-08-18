@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { hasFailed, isReady, type Loading } from '../loading';
+import { STORE_PATH } from '../nav';
 import { APP_ROWS, owns, type Owned } from '../apps';
 
 export function LockedCard({ appId }: { appId: string }) {
@@ -36,10 +37,10 @@ export function LockedCard({ appId }: { appId: string }) {
             runs through `subscription.activate`, which is the only path that enforces the rule
             that a paid subscription needs WhatsApp connected first. */}
         <Link
-          to="/account?tab=billing"
+          to={STORE_PATH}
           className="rounded-control bg-accent px-3 py-1.5 text-sm text-accent-foreground"
         >
-          أضِفه إلى اشتراكي
+          أضِفه من متجر التطبيقات
         </Link>
       </div>
     </section>

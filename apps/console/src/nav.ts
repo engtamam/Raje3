@@ -21,7 +21,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  ClipboardPlus, Gift, MessageSquare, TrendingUp, Users, Wrench,
+  ClipboardPlus, Gift, MessageSquare, Store, TrendingUp, Users, Wrench,
 } from 'lucide-react';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
@@ -118,6 +118,16 @@ export const SECTIONS: Section[] = [
   // would put a settings section in the nav of a man whose screen is one screen. The section
   // exists to change the programme, so it is gated on being able to.
   { service: 'loyalty', id: 'points', path: '/points', label: 'نقاطي', icon: Gift, requires: ['loyalty.rewards.update'] },
+  // THE STORE IS A PLACE NOW, BECAUSE FOUR SCREENS ALREADY SENT PEOPLE TO IT.
+  //
+  // «رقِّ باقتك من «متجر التطبيقات»» — «أضِفه إلى اشتراكي» — every locked card and the branch
+  // cap pointed at a name that existed nowhere: the tab was called «اشتراكي», the rail had no
+  // row, and the only way in was a link somebody had to already be looking at. An owner who
+  // read the sentence and went looking found four tabs, none of them the one he was sent to.
+  //
+  // ONE NAME, IN THE RAIL, WHERE A SHOP GOES TO BUY. Not a ninth errand: it is the only row
+  // that takes money, and a product that hides its own till is a product that does not sell.
+  { service: 'billing', id: 'store', path: '/store', label: 'متجر التطبيقات', icon: Store, requires: ['billing.plans'] },
   // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
   // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
   // once rather than a place to stand. The rail keeps the eight rows that are about the work.
@@ -156,6 +166,10 @@ export const TEAM_PATH = '/team';
  *  router serves and this file mentions only in prose is a screen `check_roles.py` cannot ask
  *  about. */
 export const SHOP_PATH = '/shop';
+
+/** Where «متجر التطبيقات» lives — named once, so no screen builds the address out of a literal
+ *  and drifts from the row above it. Every «أضِفه» button in the product points here. */
+export const STORE_PATH = '/store';
 
 export function visibleSections(catalog: Catalog): SectionState[] {
   const down = new Set(catalog.unreachable);

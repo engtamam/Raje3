@@ -91,7 +91,10 @@ const TABS: { id: Pane; label: string; hint: string }[] = [
   // THE PLAN AND THE INVOICES ARE ONE ERRAND: money. They were split because choosing a plan and
   // fetching a receipt are different acts — which is true, and still leaves both under the one
   // word an owner thinks of when he is here for either.
-  { id: 'billing', label: 'اشتراكي', hint: 'باقتك وفواتيرك ووسيلة الدفع' },
+  // «متجر التطبيقات», WHICH IS WHAT THE REST OF THE PRODUCT ALREADY CALLED IT. The tab said
+  // «اشتراكي» and four screens said «متجر التطبيقات» — two names for one place, and the one
+  // printed in the sentences that send people here was the one that did not exist.
+  { id: 'billing', label: 'متجر التطبيقات', hint: 'تطبيقاتك وفواتيرك ووسيلة الدفع' },
   { id: 'login', label: 'دخولي', hint: 'جوالك وكلمة مرورك وتقريرك الأسبوعي' },
   { id: 'data', label: 'بياناتي', hint: 'الاحتفاظ، التصدير، الاتفاقيات' },
 ];

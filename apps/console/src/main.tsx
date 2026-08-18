@@ -12,6 +12,7 @@ import { Messages } from './screens/MessagesRoute';
 import { Points } from './screens/PointsRoute';
 import { Team } from './screens/TeamRoute';
 import { ShopScreen } from './screens/Shop';
+import { Store } from './screens/StoreRoute';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
 import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
 import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
@@ -44,6 +45,10 @@ const router = createBrowserRouter([
       // served because bookmarks, links in messages and the e2e suite all use it; it renders the
       // same page rather than a redirect, which the back button would fight.
       { path: 'shop', element: <ShopScreen /> },
+      // «متجر التطبيقات» — the name four screens print, given the address it never had. It renders
+      // the selling pane of «حسابي» rather than a second copy of it; `/account?tab=billing` still
+      // answers, for every link already sent.
+      { path: 'store', element: <Store /> },
     ],
   },
 ], {
