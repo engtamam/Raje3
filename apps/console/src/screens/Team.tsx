@@ -55,8 +55,10 @@ interface Operator {
  * with no consequence beside it is a guess.
  */
 const ROLES: { value: string; label: string; can: string }[] = [
-  { value: 'operator', label: 'موظف ميداني', can: 'يسجّل الزيارات فقط' },
-  { value: 'supervisor', label: 'مشرف وردية', can: 'الزيارات وعملاء وردیته والتقارير' },
+  // "يسجّل الزيارات فقط" كانت صحيحة قبل الحجوزات — الدور نفسه في roles.json يحمل
+  // bookings.read/bookings.write منذ ذلك الحين (Tamam, 2026-08-19: تأكد من دقّة الوصف الظاهر).
+  { value: 'operator', label: 'موظف ميداني', can: 'يسجّل الزيارات ويحجز' },
+  { value: 'supervisor', label: 'مشرف وردية', can: 'الزيارات والحجوزات وعملاء ورديته والتقارير' },
   { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات' },
   { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب' },
 ];
