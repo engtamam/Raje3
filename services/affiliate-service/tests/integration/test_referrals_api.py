@@ -30,3 +30,16 @@ def test_commissions_sync_reports_billing_not_configured_in_this_test_app(client
                     headers={"X-Internal-Token": INTERNAL_TOKEN})
     assert r.status_code == 200, r.text
     assert r.json() == {"synced": False, "reason": "billing_not_configured"}
+
+
+def test_sweep_refuses_without_the_internal_token(client):
+    r = client.post("/internal/commissions/sweep")
+    assert r.status_code == 401
+
+
+def test_sweep_runs_with_no_referrals_at_all(client):
+    r = client.post("/internal/commissions/sweep", headers={"X-Internal-Token": INTERNAL_TOKEN})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["referrals_checked"] == 0
+    assert body["truncated"] is False

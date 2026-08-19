@@ -235,6 +235,11 @@ env:
   # service, and it is optional in code: an unreachable loyalty is a missing table, never a failed
   # signup.
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
+  # WHO BROUGHT THIS SHOP — the affiliate portal's own attribution (core/signup.py's own
+  # affiliate_ref note). Same optionality as LOYALTY_SERVICE_URL above: a shop signing up with no
+  # `?aff=` link never calls this at all, and the stamp is best-effort either way (a bad/unknown
+  # affiliate id is reported to telemetry, never costs the owner his shop).
+  AFFILIATE_SERVICE_URL: "http://affiliate-service:8000"
   SIGNUP_ROLES_FILE: "/app/data/roles.seed.json"
   SIGNUP_OWNER_ROLE: "owner"
 

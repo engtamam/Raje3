@@ -166,3 +166,17 @@ async def test_an_empty_owner_phone_does_not_block_a_legitimate_referral():
     await _seed_affiliate(store)
     out = await reg.stamp(tenant="t-1", affiliate_id="aff-1", shop_owner_phone="")
     assert out["affiliate_id"] == "aff-1"
+
+
+# ── the sweep's own worklist ──────────────────────────────────────────────────────────────────
+@pytest.mark.anyio
+async def test_all_referred_lists_only_still_eligible_referrals():
+    reg, store = build()
+    await _seed_affiliate(store, affiliate_id="aff-1")
+    await reg.stamp(tenant="t-1", affiliate_id="aff-1")
+    await reg.stamp(tenant="t-2", affiliate_id="aff-1")
+    stamped = await reg.stamp(tenant="t-3", affiliate_id="aff-1")
+    await reg.lapse_if_expired("t-3", now=stamped["stamped_at"] + 400 * 24 * 60 * 60)
+
+    rows = await reg.all_referred()
+    assert {r.tenant for r in rows} == {"t-1", "t-2"}   # t-3 lapsed, excluded

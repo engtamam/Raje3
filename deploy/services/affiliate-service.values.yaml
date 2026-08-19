@@ -31,7 +31,7 @@ resources:
 autoscaling:
   enabled: false        # flip on once you have load; requests.cpu above makes it real
 
-existingSecret: affiliate-service-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*
+existingSecret: affiliate-service-secrets   # INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_*, PII_SALT (SAME value every other service holds)
 
 networkPolicy:
   enabled: true
@@ -49,7 +49,29 @@ metrics:
 env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_SINK_DRIVER: "http"
+  IDENTITY_SERVICE_URL: "http://identity-service:8000"
+  # THE ONE SHARED TENANT (spec §1/§12) every marketer becomes a member of. REQUIRED in
+  # production (Settings.assert_onboarding_config_ok refuses to boot without it) — but setting
+  # it here is NOT enough on its own: this tenant does not exist yet at tenant-service, and no
+  # role (affiliate_manager/affiliate_promoter -> capabilities) has ever been bootstrapped for it
+  # at authz. Provisioning that — once, before this ever goes live — is tracked as a real,
+  # outstanding gap; see the commit that added this line for the full explanation.
+  AFFILIATE_TENANT: "raje3-affiliates"
+  # The durable read the commission engine keys money on — never the event bus alone. See
+  # app/core/commission.py's own module docstring and this session's escalation that led to
+  # billing-service v0.16.26 (GET /internal/billing/invoices).
+  BILLING_SERVICE_URL: "http://billing-service:8000"
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:
   enabled: false
+
+# THE BACKSTOP for the event-driven fast path (app/main.py's own subscriber to billing's
+# payment.succeeded/invoice.paid — a HINT only, per app/ports/event_bus.py's own contract: "at-
+# most-once, best effort... never the only way a fact can be learned"). Hourly, not nightly: the
+# fast path usually beats this by a lot, but a marketer waiting on his own commission dashboard
+# should not have to wait a whole day for the one case the event was missed.
+cronJobs:
+  - name: commissions-sweep
+    schedule: "17 * * * *"
+    path: /internal/commissions/sweep

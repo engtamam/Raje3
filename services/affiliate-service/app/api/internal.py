@@ -134,6 +134,31 @@ async def sync_commissions(request: Request, body: CommissionSyncIn) -> dict:
     return out
 
 
+@router.post("/commissions/sweep", dependencies=[Depends(require_internal_token)])
+async def sweep_commissions(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    """The DURABLE backstop for the event-driven fast path (app/main.py's own subscriber) — meant
+    to run on a schedule (see the deploy values' cronJobs), so a missed event costs latency, not
+    a lost commission. Bounded (Settings.AFFILIATE_SWEEP_MAX) and reports `truncated` loudly
+    rather than silently sweeping only part of a referral history past that cap."""
+    c = request.app.state.container
+    referrals = await c.referrals.all_referred(limit=settings.AFFILIATE_SWEEP_MAX)
+    synced = 0
+    created = 0
+    voided = 0
+    for r in referrals:
+        out = await c.commissions.sync(r.tenant)
+        if out.get("synced"):
+            synced += 1
+            created += len(out.get("created") or [])
+            voided += len(out.get("voided") or [])
+    out = {"referrals_checked": len(referrals), "synced": synced, "created": created,
+          "voided": voided, "truncated": len(referrals) >= settings.AFFILIATE_SWEEP_MAX}
+    await request.app.state.auditor.record(
+        "affiliate.commissions_swept", actor="", tenant="", resource="sweep",
+        ip=request.client.host if request.client else "", metadata=out)
+    return out
+
+
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
     tenant: str = ""

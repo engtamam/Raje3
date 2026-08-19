@@ -110,6 +110,15 @@ class ReferralRegistry:
         row = await self._s.get(REFERRALS, tenant)
         return Referral.from_dict(row) if row else None
 
+    async def all_referred(self, *, limit: int = 500) -> list[Referral]:
+        """Every referral still eligible for a commission — the sweep's own worklist
+        (core/commission.py's sync() is a no-op for LAPSED/REVOKED, so there is nothing to gain
+        syncing those; excluding them here keeps the sweep's one bounded read from growing with
+        the platform's whole referral history instead of just what is still live)."""
+        rows, _ = await self._s.find(REFERRALS, {"status": REFERRED}, limit=limit,
+                                     sort=("stamped_at", "asc"))
+        return [Referral.from_dict(r) for r in rows]
+
     async def of_affiliate(self, affiliate_id: str, *, limit: int = 200) -> list[Referral]:
         """Every establishment THIS affiliate brought — the input to a dashboard/statement (a
         later slice). Scoped by `affiliate_id`, never by tenant: unlike a shop's own data, a

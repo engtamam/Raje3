@@ -170,6 +170,21 @@ class Settings(BaseSettings):
     # renewal commissions entirely rather than accidentally paying every renewal.
     AFFILIATE_RENEWAL_AT_NTH: int = 0
     AFFILIATE_RENEWAL_COMMISSION_HALALAS: int = 0
+    # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
+    # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
+    # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a
+    # fact can be learned"). Comma list; empty disables the subscription entirely (an in-memory
+    # eventbus driver makes this inert regardless — each pod's bus is its own, so a real
+    # subscription needs EVENTBUS_DRIVER=redis shared with billing-service).
+    AFFILIATE_COMMISSION_SYNC_TOPICS: str = "payment.succeeded,invoice.paid"
+    # THE BACKSTOP — POST /internal/commissions/sweep, meant to run on a schedule (see the
+    # deploy values' cronJobs). Bounded: a referral history that outgrows this in one sweep needs
+    # a real paged sweep, not a bigger number silently hiding the day it happens.
+    AFFILIATE_SWEEP_MAX: int = 500
+
+    @property
+    def affiliate_commission_sync_topics(self) -> list[str]:
+        return [t.strip() for t in self.AFFILIATE_COMMISSION_SYNC_TOPICS.split(",") if t.strip()]
 
     # ── audit trail (Phase 38) — where privileged actions are witnessed ───────
     # `null` records NOTHING and says so; the boot guard below refuses it in production, because a

@@ -44,15 +44,15 @@ def test_the_shipped_examples_are_valid():
     validate(AUDITABLE_ACTIONS, "affiliate-service")
 
 
-def test_this_service_declares_its_real_actions_across_admin_and_internal():
+def test_this_service_declares_its_real_actions_across_admin_internal_and_system():
     """Names what is true today rather than keeping a stale assertion around unexamined — see
-    this test's own earlier version's note on why that matters. The internal-source action
-    (affiliate.commissions_synced) is the "most-missed" category the template's own docstring
-    warns about, and it earned its place here the moment a real /internal/* route needed one."""
+    this test's own earlier version's note on why that matters. affiliate.commissions_swept is
+    this service's first system-source action (scheduled work, no human actor) — the template's
+    own docstring calls internal the most-missed category, but system is easy to forget too."""
     actions = {a["action"] for a in AUDITABLE_ACTIONS}
     assert {"affiliate.application_approved", "affiliate.application_rejected",
-           "affiliate.commissions_synced"} <= actions
-    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin", "internal"}
+           "affiliate.commissions_synced", "affiliate.commissions_swept"} <= actions
+    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin", "internal", "system"}
 
 
 def test_the_template_shows_both_criticalities():

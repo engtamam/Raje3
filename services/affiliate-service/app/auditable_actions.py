@@ -180,6 +180,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "loses nothing that a retry cannot recover",
     },
     {
+        "action": "affiliate.commissions_swept",
+        "source": "system",
+        "critical": False,
+        "resource": "sweep",
+        "why": "scheduled work with no human actor still needs a record — how many referrals "
+               "were checked, how many commissions moved — so a silent sweep failure is "
+               "discoverable from the log rather than only from a marketer noticing a missing "
+               "commission weeks later",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

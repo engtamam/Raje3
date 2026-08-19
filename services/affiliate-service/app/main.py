@@ -41,6 +41,26 @@ from app.security.cwe_guard import CweGuard
 from app.security.step_map import load_step_map
 
 
+def _commission_sync_handler(container, logger):
+    """One handler, reused for every subscribed topic — billing's payment_payload() puts `tenant`
+    on every event type this service subscribes to, so there is nothing topic-specific to branch
+    on. Exceptions are swallowed here on purpose: the event bus already swallows a subscriber's
+    exceptions per-publish (so one bad handler cannot break the publisher), but logging it once
+    ourselves is the difference between a silent miss and a miss somebody can find in the logs —
+    and it still costs nothing but latency, since the sweep is the actual backstop."""
+    async def handler(event) -> None:
+        tenant = (event.payload or {}).get("tenant", "") if isinstance(event.payload, dict) else ""
+        if not tenant:
+            return
+        try:
+            await container.commissions.sync(tenant)
+        except Exception as exc:                                             # noqa: BLE001
+            logger.warning("commission_sync_from_event_failed",
+                           extra={"tenant": tenant, "topic": event.type,
+                                 "error": type(exc).__name__})
+    return handler
+
+
 def create_app() -> FastAPI:
     # Fail-fast: this raises (and aborts startup) if the environment is invalid.
     settings = get_settings()
@@ -73,6 +93,13 @@ def create_app() -> FastAPI:
                 "ports": container.describe(),
             },
         )
+        # THE FAST PATH ONLY — see Settings.AFFILIATE_COMMISSION_SYNC_TOPICS and
+        # app/ports/event_bus.py's own contract. sync() itself (reading billing's durable
+        # invoice history) is what actually creates/confirms a commission correctly; this just
+        # makes it happen sooner than the sweep (POST /internal/commissions/sweep, on a
+        # schedule) would on its own. A missed event costs latency, never correctness.
+        for topic in settings.affiliate_commission_sync_topics:
+            await container.event_bus.subscribe(topic, _commission_sync_handler(container, logger))
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})
