@@ -39,21 +39,24 @@ function timeOf(epoch: number): string {
 }
 
 export function TodayBookingsStrip({ session, branchId, services }: TodayBookingsStripProps) {
-  const [rows, setRows] = useState<Booking[] | null>(null);
-  const [staff, setStaff] = useState<FieldOperator[]>([]);
+  // undefined = «not loaded yet» (nothing rendered); null = «the read failed» — distinct from an
+  // ordinary empty day, because an empty strip on a failed read reads as «nobody is coming», and
+  // an operator told that stops chasing the people who actually are.
+  const [rows, setRows] = useState<Booking[] | null | undefined>(undefined);
+  const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
   const [busy, setBusy] = useState('');
   const [note, setNote] = useState('');
 
   useEffect(() => {
-    if (!branchId) { setRows(null); return; }
+    if (!branchId) { setRows(undefined); return; }
     listBookings(session, branchId, todayLocal())
       .then((r) => setRows(r.bookings.filter((b) => b.status === 'booked')))
       .catch(() => setRows(null));
-    listBookingStaff(session).then(setStaff).catch(() => setStaff([]));
+    listBookingStaff(session).then(setStaff).catch(() => setStaff(null));
   }, [session, branchId]);
 
   const nameOf = useMemo(() => {
-    const m = new Map(staff.map((o) => [o.id, o.name]));
+    const m = new Map((staff ?? []).map((o) => [o.id, o.name]));
     return (id: string) => m.get(id) || id;
   }, [staff]);
   const serviceNameOf = useMemo(() => {
@@ -81,8 +84,18 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
     }
   };
 
+  // A FAILED READ SAYS SO — an empty strip here reads as «nobody is coming today», which is a
+  // different claim than «we could not check». Only THIS gets a visible line; a day that loaded
+  // fine and genuinely has no bookings still renders nothing (see below).
+  if (rows === null) {
+    return (
+      <p className="mb-3 text-sm text-danger">تعذّرت قراءة حجوزات اليوم.</p>
+    );
+  }
+
   // NOTHING TODAY, NOTHING SHOWN — an empty strip above the field screen is a row of blank space
-  // on the screen used a hundred times a day, for a day that genuinely has no bookings.
+  // on the screen used a hundred times a day, for a day that genuinely has no bookings (or has not
+  // loaded yet).
   if (!branchId || sorted.length === 0) return null;
 
   return (

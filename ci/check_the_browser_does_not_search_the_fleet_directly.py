@@ -34,7 +34,8 @@ CONSOLE = ROOT / "apps" / "console" / "src"
 #: be better still; this list is checked against the running routers by check_deploy_wiring.
 OURS = ("field", "staff", "owner", "till", "partner", "loyalty", "campaigns", "insights",
         "portal", "reminders", "subscription", "apps", "connect", "signup", "auth", "branches",
-        "privacy", "operators", "services", "customers", "visits", "platform", "admin")
+        "privacy", "operators", "services", "customers", "visits", "platform", "admin",
+        "bookings")
 
 #: Any `/api/v1/<something>` inside a string literal in the console.
 CALL = re.compile(r"['\"`]/api/v1/([a-z0-9_-]+)")

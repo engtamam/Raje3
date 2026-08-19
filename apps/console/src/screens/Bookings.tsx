@@ -127,10 +127,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [view, setView] = useState<'day' | 'week'>('day');
   const [date, setDate] = useState(todayLocal);
   const [weekStaffId, setWeekStaffId] = useState('');
-  const [rows, setRows] = useState<Booking[] | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [services, setServices] = useState<CatalogueService[]>([]);
-  const [staff, setStaff] = useState<FieldOperator[]>([]);
+  // undefined = «not loaded yet» (skeleton); null = «the read failed» (retry). Collapsing them to
+  // one value made a failed read indistinguishable from one still in flight — the retry sentence
+  // written below was unreachable.
+  const [rows, setRows] = useState<Booking[] | null | undefined>(undefined);
+  // null = «the read failed», not «this shop has none» — a failed staff read must not render as
+  // «لا موظفاتٌ نشِطاتٌ», which reads as a fact about the shop instead of a fact about the network.
+  const [services, setServices] = useState<CatalogueService[] | null | undefined>(undefined);
+  const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
   const [note, setNote] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [search, setSearch] = useState('');
@@ -158,24 +162,23 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
   const load = useCallback(() => {
     if (!activeBranch) return;
-    setRows(null);
-    setFailed(false);
+    setRows(undefined);
     Promise.all(daysToLoad.map((d) => listBookings(session, activeBranch, d)))
       .then((answers) => setRows(answers.flatMap((a) => a.bookings)))
-      .catch(() => { setRows(null); setFailed(true); });
+      .catch(() => setRows(null));
   }, [session, activeBranch, daysToLoad]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    fetchCatalogue(session).then((r) => setServices(r.services)).catch(() => setServices([]));
-    listBookingStaff(session).then(setStaff).catch(() => setStaff([]));
+    fetchCatalogue(session).then((r) => setServices(r.services)).catch(() => setServices(null));
+    listBookingStaff(session).then(setStaff).catch(() => setStaff(null));
   }, [session]);
 
   // THIS BRANCH'S TEAM ONLY. `listBookingStaff` returns every branch the caller may see;
   // unbranched operators stay visible everywhere, the same rule operations' own staff route uses.
   const staffHere = useMemo(
-    () => staff.filter((o) => !o.branch_id || o.branch_id === activeBranch),
+    () => (staff ?? []).filter((o) => !o.branch_id || o.branch_id === activeBranch),
     [staff, activeBranch],
   );
   useEffect(() => {
@@ -187,7 +190,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     return (id: string) => m.get(id) || id;
   }, [staffHere]);
   const serviceNameOf = useMemo(() => {
-    const m = new Map(services.map((s) => [s.id, s.name]));
+    const m = new Map((services ?? []).map((s) => [s.id, s.name]));
     return (ids: string[]) => ids.map((id) => m.get(id) || id).join('، ');
   }, [services]);
 
@@ -395,15 +398,23 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
       {/* ── body ───────────────────────────────────────────────────────────────────────────── */}
       <div className="mx-auto max-w-[1400px] px-4 pb-28 pt-4 sm:px-6">
-        {rows === null && !failed ? (
+        {rows === undefined ? (
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
             يُحمَّل الجدول…
           </div>
-        ) : failed ? (
+        ) : rows === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
             <p className="text-base font-medium">تعذّر قراءة الحجوزات</p>
             <button type="button" onClick={load} className="text-sm font-medium underline"
                    style={{ color: 'var(--rj-gold-deep)' }}>حاول مجدداً</button>
+          </div>
+        ) : view === 'day' && staff === null ? (
+          <div className="grid place-items-center gap-2 py-24 text-center">
+            <p className="text-base font-medium">تعذّرت قراءة فريق العمل</p>
+            <button type="button" onClick={() => listBookingStaff(session).then(setStaff).catch(() => setStaff(null))}
+                   className="text-sm font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
+              حاول مجدداً
+            </button>
           </div>
         ) : columns.length === 0 ? (
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
@@ -582,7 +593,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           initialStartsAt={dialog.startsAt}
           initialCustomer={dialog.customer}
           initialServiceIds={dialog.serviceIds}
-          services={services}
+          services={services ?? []}
           staff={staffHere}
           onClose={() => setDialog('closed')}
           onCreated={(b) => {
@@ -598,7 +609,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           booking={openBooking}
           customerLabel={serviceNameOf(openBooking.service_ids)}
           operatorLabel={nameOf(openBooking.operator_id)}
-          services={services}
+          services={services ?? []}
           onClose={() => setOpenBooking(null)}
           onChanged={(b) => {
             setRows((cur) => (cur ?? []).map((x) => (x.id === b.id ? b : x)));
@@ -609,7 +620,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           onBookNext={(b) => {
             setOpenBooking(null);
             const cycleDays = Math.max(
-              0, ...b.service_ids.map((id) => services.find((s) => s.id === id)?.cycle_days ?? 0));
+              0, ...b.service_ids.map((id) => (services ?? []).find((s) => s.id === id)?.cycle_days ?? 0));
             setDialog({
               operatorId: b.operator_id,
               startsAt: b.starts_at + cycleDays * 86400,
