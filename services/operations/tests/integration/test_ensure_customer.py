@@ -63,6 +63,25 @@ def env_guard():
     get_settings.cache_clear()
 
 
+def test_ensuring_a_customer_indexes_him_for_search_too(client):
+    # Tamam, 2026-08-19: a customer created via the booking dialog (this route) could not be
+    # FOUND by his own phone number until his first visit was confirmed — `index_customer_row`
+    # used to run only from `after_visit`. This proves the ensure route is the second caller its
+    # own docstring ("TWO CALLERS, ONE SHAPE") already anticipated.
+    calls = []
+
+    async def fake_index(**kwargs):
+        calls.append(kwargs)
+
+    client.app.state.container.seams.index_customer_row = fake_index
+    r = client.post(PATH, json={"phone": "966500009999", "name": "خالد"}, headers=_auth())
+    assert r.status_code == 200, r.text
+    assert len(calls) == 1
+    assert calls[0]["phone"] == "966500009999"
+    assert calls[0]["name"] == "خالد"
+    assert calls[0]["customer_id"] == r.json()["customer"]["id"]
+
+
 def test_a_new_phone_creates_a_customer(client):
     r = client.post(PATH, json={"phone": "966500001111", "name": "سارة"}, headers=_auth())
     assert r.status_code == 200, r.text

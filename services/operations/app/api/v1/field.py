@@ -264,7 +264,7 @@ class EnsureCustomerIn(BaseModel):
 
 
 @router.post("/customers/ensure", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
-async def ensure_customer(request: Request, body: EnsureCustomerIn,
+async def ensure_customer(request: Request, body: EnsureCustomerIn, background: BackgroundTasks,
                           principal: Principal = Depends(_RECORD)) -> dict:
     """Resolve or create a customer by phone, with no visit attached — `bookings`' console dialog
     needs a `customer_id` before it can create a booking, and this is the SAME resolve-or-create
@@ -275,6 +275,14 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn,
     SAME CAPABILITY AS RECORDING A VISIT (`operations.record`), because it is the same act minus
     the visit: an operator who may register a customer while recording one may register a customer
     on his own.
+
+    INDEXED HERE TOO, NOT ONLY AFTER A VISIT (Tamam, 2026-08-19: a customer booked but not yet
+    attended could not be FOUND by his own phone number — `seams.index_customer_row` used to run
+    only from `after_visit`, so a fresh customer stayed invisible to the keypad's own search until
+    his first visit was confirmed, weeks after the booking that created him). `Seams` already
+    names this exact shape "TWO CALLERS, ONE SHAPE" in its own docstring, anticipating a second
+    caller — this is it. Backgrounded, same as `record_visit`'s own seam below: the operator is
+    not waiting on a search index write to get his `customer_id` back.
     """
     try:
         c = await _svc(request).ensure_customer(_tenant(principal), body.phone, body.name)
@@ -283,6 +291,9 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn,
         # HTTPException detail on the way out (CWE-209 by design), and the console dialog calling
         # this needs the actual reason to show the operator, not a bare `{"error": "BAD_REQUEST"}`.
         return {"customer": None, "reason": str(exc)}
+    seams = request.app.state.container.seams
+    background.add_task(seams.index_customer_row, tenant=_tenant(principal), customer_id=c.id,
+                        phone=c.phone, name=c.name, plates=[])
     return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
 
 
