@@ -40,6 +40,10 @@ vi.mock('../api', async (importOriginal) => {
       return { starts_at: 1786860000 };
     },
     listBookingStaff: async () => ([{ id: 'op1', name: 'سارة', active: true, has_pin: false, branch_id: '' }]),
+    suggestByPrefix: async (...args: unknown[]) => {
+      asked.push({ fn: 'suggestByPrefix', args });
+      return [{ id: 'c1', phone: '966501234567', name: 'محمد' }];
+    },
     attendBooking: async (...args: unknown[]) => {
       asked.push({ fn: 'attendBooking', args });
       return { ...BOOKING, status: 'attended' };
@@ -140,6 +144,21 @@ describe('the grid', () => {
     fireEvent.click(screen.getAllByText('بعربون')[0]);
     await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(1));
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
+  });
+
+  it('finds a customer\'s own booking by his phone number', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    // The inline row's own field — jsdom renders it regardless of the `sm:` breakpoint.
+    const [field] = screen.getAllByPlaceholderText('جوّال العميل');
+    fireEvent.change(field, { target: { value: '9665012' } });
+    await waitFor(() => expect(asked.some((a) => a.fn === 'suggestByPrefix')).toBe(true));
+    await waitFor(() => screen.getByText('محمد'));
+    screen.getByText('محمد').click();
+    // BOOKING.customer_id is 'c1', the same id the mock suggestion carries — his own card stays,
+    // matched by identity rather than merely by a name that happens to appear on screen.
+    expect(card()).toBeTruthy();
+    expect(screen.getAllByText('محمد').length).toBeGreaterThan(0);
   });
 });
 

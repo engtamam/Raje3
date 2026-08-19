@@ -27,9 +27,18 @@ import { Toggle } from '@base-ui/design-system/Toggle';
 import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
+import { halalas, riyals } from '../money';
 import type { Session } from '../session';
 
-interface Service { id: string; name: string; cycle_days: number; price_minor: number; catchall?: boolean; active?: boolean }
+interface Service {
+  id: string; name: string; cycle_days: number; price_minor: number;
+  // DEFAULTS TO 0 = «NOT CONFIGURED», not «free» and not «instant» — bookings refuses to create a
+  // slot for a service carrying this, by design (see BookingDialog's own missingDuration check).
+  // Editable here for the first time; the field itself was already read by bookings and never
+  // writable anywhere in the console — a service could only ever get a real duration by seed.
+  duration_minutes?: number;
+  catchall?: boolean; active?: boolean;
+}
 
 /** One service's entry in the tree, and whether it is its own or inherited. */
 interface ServiceSetting { interval_days?: number; lead_days?: number; follow_up_days?: number; enabled?: boolean }
@@ -320,7 +329,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    */
   const addService = async (
     name: string,
-    opts: { cycleDays: number; followUpDays: number; points: number | null; group: string },
+    opts: { cycleDays: number; durationMinutes: number; followUpDays: number; points: number | null; group: string },
   ) => {
     const a = action(catalog, 'operations.create_service');
     if (!a || !name.trim()) return;
@@ -328,7 +337,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     setError('');
     try {
       const created = await call<{ id?: string }>(
-        session, a, { name: name.trim(), cycle_days: opts.cycleDays });
+        session, a, { name: name.trim(), cycle_days: opts.cycleDays, duration_minutes: opts.durationMinutes });
       const id = created?.id ?? '';
 
       if (id) {
@@ -762,6 +771,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   const pts = String(f.get('points') || '').trim();
                   addService(String(f.get('name') || ''), {
                     cycleDays: Number(f.get('cycle_days') || 0),
+                    durationMinutes: Number(f.get('duration_minutes') || 0),
                     followUpDays: Number(f.get('follow_up_days') || 0),
                     // AN EMPTY BOX IS NOT A ZERO HERE. Blank means "whatever the shop's general
                     // rule is"; a typed 0 means "this one earns nothing", and they are different
@@ -785,6 +795,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <Row label="دورة التذكير"
                      hint="كل كم يوماً يحتاج العميل هذه الخدمة؟ اتركه 0 إن كانت لمرة واحدة — فلا تذكير لها.">
                   <input name="cycle_days" type="number" min={0} defaultValue={0} dir="ltr"
+                         className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                </Row>
+
+                {/* 15 دقيقة، القيمة المقترحة (Tamam, 2026-08-19) — أصغر وحدة يتحرّك عليها الجدول
+                    أصلاً، وأقرب افتراض واقعي لخدمة سريعة. رقم مقترح يُعدَّل قبل الحفظ، لا قيمة
+                    يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً. */}
+                <Row label="المدة (بالدقائق)"
+                     hint="كم تستغرق هذه الخدمة عادةً؟ الحجوزات تحتاجها لحساب الفتحات — بلا مدة، لا يمكن حجزها.">
+                  <input name="duration_minutes" type="number" min={0} max={720} defaultValue={15} dir="ltr"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
@@ -873,6 +892,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           <thead>
             <tr className="border-b border-border-subtle bg-surface-2/50 text-text-secondary">
               <Th className="w-[38%]">الخدمة</Th>
+              <Th wide className="w-24">المدة (د)</Th>
+              <Th wide className="w-24">السعر</Th>
               <Th narrow>الدورة</Th>
               <Th narrow wide>الاطمئنان</Th>
               {earnAction ? <Th narrow wide>النقاط</Th> : null}
@@ -896,7 +917,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               not a division of it. */}
           {shown.length > 1 ? (
             <tr className="border-b border-border-subtle bg-surface-2/30">
-              <td colSpan={9} className="px-3 py-2">
+              <td colSpan={11} className="px-3 py-2">
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 text-sm font-semibold text-text-secondary">
                     {group === UNGROUPED ? 'غير مجمّعة' : group}
@@ -950,6 +971,57 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-medium">{svc.name}</span>
                   {stopped ? <Badge tone="neutral">موقوفة</Badge> : null}
+                </span>
+              )}
+            </td>
+
+            {/* THE ONE FIELD BOOKINGS ACTUALLY REFUSES WITHOUT (docs/خطة-تنفيذ-الحجوزات.md §6.2):
+                a service with no duration cannot be scheduled at all — this was readable
+                everywhere and writable nowhere in the console until now. `operations.update_service`
+                already accepted it; only the console never asked. */}
+            <td className="hidden px-3 py-2 tabular-nums md:table-cell">
+              {editing && action(catalog, 'operations.update_service') ? (
+                <input
+                  type="number" min={0} max={720} dir="ltr"
+                  defaultValue={svc.duration_minutes ? String(svc.duration_minutes) : ''}
+                  aria-label={`مدة ${svc.name}`}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === '') return;   // blank saves nothing, same rule as every Num cell
+                    const n = Number(raw);
+                    if (n !== (svc.duration_minutes ?? 0)) patchService(svc.id, { duration_minutes: n });
+                  }}
+                  className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
+                />
+              ) : (
+                <span className={svc.duration_minutes ? '' : 'text-danger'}>
+                  {svc.duration_minutes ? svc.duration_minutes : 'غير مضبوطة'}
+                </span>
+              )}
+            </td>
+
+            {/* THE PRICE IS OPTIONAL (Tamam, 2026-08-19) — a shop that only wants operations'
+                scheduling and reminders, never invoicing, leaves it at «—» and nothing downstream
+                requires it. Riyals on the screen, halalas on the wire — see money.ts; never a
+                float, never `* 100` at this call site. */}
+            <td className="hidden px-3 py-2 tabular-nums md:table-cell">
+              {editing && action(catalog, 'operations.update_service') ? (
+                <input
+                  type="text" inputMode="decimal" dir="ltr"
+                  defaultValue={svc.price_minor ? riyals(svc.price_minor) : ''}
+                  aria-label={`سعر ${svc.name}`}
+                  placeholder="—"
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === '') return;
+                    const minor = halalas(raw);
+                    if (minor !== null && minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
+                  }}
+                  className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
+                />
+              ) : (
+                <span className={svc.price_minor ? '' : 'text-text-secondary/60'}>
+                  {svc.price_minor ? riyals(svc.price_minor) : '—'}
                 </span>
               )}
             </td>
@@ -1122,7 +1194,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           {/* THE NEW-GROUP BOX, on its own full-width row so it cannot squeeze a column. */}
           {naming === svc.id ? (
             <tr className="border-b border-border-subtle bg-surface-2/40">
-              <td colSpan={9} className="px-3 py-2">
+              <td colSpan={11} className="px-3 py-2">
                 <div className="flex items-center gap-2">
                   <input
                     autoFocus
