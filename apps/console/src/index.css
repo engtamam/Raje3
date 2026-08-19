@@ -98,3 +98,38 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
 @media (prefers-reduced-motion: reduce) {
   .rj-card-settle { animation: none; }
 }
+
+/* ── two theme-wide gaps, fixed once here rather than screen by screen ──────────────────────────
+ *
+ * WHY HERE AND NOT IN platform/ui/…/Button.tsx OR theme.config.ts: those live in the platform
+ * submodule, which is upstream's to author — this file is the one place THIS product overrides
+ * what the shared kit renders, the same technique .rj-grid already uses for one screen. These two
+ * rules are deliberately global: the defect is in the SHARED component every screen already uses,
+ * not in any one screen's own markup.
+ *
+ * 1 · A CARD WITH NO BORDER, ON A BACKGROUND NEARLY ITS OWN COLOUR, is a card that disappears —
+ *     `--surface-1` and `--surface-0` sit a few percent apart and a soft shadow alone does not
+ *     read as an edge at this contrast. Every `.rounded-card` gets a real hairline now, so a page
+ *     of them reads as distinct panels instead of one long unbroken sheet.
+ */
+.rounded-card {
+  border: 1px solid var(--border-subtle);
+}
+
+/* 2 · A "GHOST" BUTTON IS `bg-transparent` AT REST AND GAINS A BACKGROUND ONLY ON `:hover` — on
+ *     the tablet this product is actually used on, there IS no hover, so every ghost button on
+ *     every screen looks exactly like plain text, always, for as long as anyone has used this
+ *     product on a touch device. `.rounded-card` cards were the same defect at the container
+ *     level; this is it at the control level, and both come from the same cause: an affordance
+ *     that only appeared on the interaction a touchscreen cannot make.
+ *
+ *     A resting hairline is enough to read as "this presses" without competing with `outline`
+ *     (whose border is `--border-strong`, deliberately heavier — the two must stay visibly two
+ *     different weights of button, not converge into one).
+ */
+button.bg-transparent.text-text-secondary {
+  border: 1px solid var(--border-subtle);
+}
+button.bg-transparent.text-text-secondary:hover {
+  border-color: var(--border-strong);
+}
