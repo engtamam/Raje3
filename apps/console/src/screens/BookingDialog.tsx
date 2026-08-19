@@ -17,7 +17,8 @@ import { Field, Input } from '@base-ui/design-system/Field';
 import { Modal } from '@base-ui/design-system/Modal';
 import {
   ApiError, type Booking, type CatalogueService, createBooking, type CustomerHit,
-  ensureCustomer, type FieldOperator, sentenceFor, suggestByPrefix,
+  ensureCustomer, type FieldOperator, nearestSlot, type NoShowRisk, noShowRisk, sentenceFor,
+  suggestByPrefix,
 } from '../api';
 import { asLocal } from '../phone';
 import { digitsOnly } from '../digits';
@@ -34,6 +35,10 @@ export interface BookingDialogProps {
    *  chosen, so the dialog opens with nothing left to pick but the customer and the services. */
   initialOperatorId?: string;
   initialStartsAt?: number;
+  /** Set by "احجزي الجلسة القادمة" (§2.7) — she is already a known customer, and asking her
+   *  phone again for someone standing at the counter a moment ago would be a step backwards. */
+  initialCustomer?: CustomerHit;
+  initialServiceIds?: string[];
   services: CatalogueService[];
   staff: FieldOperator[];
   onClose: () => void;
@@ -46,20 +51,22 @@ function timeOfEpoch(epoch: number): string {
 }
 
 export function BookingDialog(
-  { session, branchId, date, initialOperatorId, initialStartsAt, services, staff, onClose,
-   onCreated }: BookingDialogProps,
+  { session, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
+   initialServiceIds, services, staff, onClose, onCreated }: BookingDialogProps,
 ) {
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(initialCustomer?.phone ?? '');
   const [matches, setMatches] = useState<CustomerHit[]>([]);
-  const [customer, setCustomer] = useState<CustomerHit | null>(null);
-  const [name, setName] = useState('');
-  const [chosen, setChosen] = useState<string[]>([]);
+  const [customer, setCustomer] = useState<CustomerHit | null>(initialCustomer ?? null);
+  const [name, setName] = useState(initialCustomer?.name ?? '');
+  const [chosen, setChosen] = useState<string[]>(initialServiceIds ?? []);
   const [operatorId, setOperatorId] = useState(initialOperatorId ?? '');
   const [day, setDay] = useState(date);
   const [time, setTime] = useState(initialStartsAt ? timeOfEpoch(initialStartsAt) : '');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [risk, setRisk] = useState<NoShowRisk | null>(null);
+  const [finding, setFinding] = useState(false);
   // MINTED ONCE, PER OPEN OF THIS DIALOG — a double-press of «احجز» carries the same key and
   // returns the same booking rather than creating a second one, exactly as the visit screen's
   // own save does.
@@ -75,6 +82,16 @@ export function BookingDialog(
     }, 180);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phone, session]);
+
+  // A NUMBER BESIDE HER NAME, THE MOMENT SHE IS IDENTIFIED (§2.6) — never a verdict, never a
+  // refusal; the staff member reads it and decides. Silent on failure, same as everything else
+  // in this dialog that is not the save itself.
+  useEffect(() => {
+    if (!customer) { setRisk(null); return; }
+    let stale = false;
+    noShowRisk(session, customer.id).then((r) => { if (!stale) setRisk(r); }).catch(() => {});
+    return () => { stale = true; };
+  }, [customer, session]);
 
   const durationTotal = useMemo(() => {
     const byId = new Map(services.map((s) => [s.id, s.duration_minutes ?? 0]));
@@ -95,6 +112,37 @@ export function BookingDialog(
 
   const ready = Boolean((customer || phone.trim().length >= 3) && chosen.length > 0
     && !missingDuration && operatorId && starts_at > 0);
+
+  // "أقرب فتحة" (§6.2) — the same availability derivation the grid's own conflict lock rests
+  // on, from the moment a service and (optionally) an operator are chosen.
+  const findNearest = async () => {
+    if (chosen.length === 0 || missingDuration || finding) return;
+    setFinding(true);
+    setError('');
+    const after = starts_at > 0 ? starts_at : Math.floor(Date.now() / 1000);
+    try {
+      const staffToTry = operatorId ? [operatorId] : staff.map((o) => o.id);
+      // THE EARLIEST SLOT, AND WHO OWNS IT — a search across several staff must know which one
+      // produced the winning answer, not merely the winning TIME.
+      let best: { operatorId: string; startsAt: number } | null = null;
+      for (const opId of staffToTry) {
+        // eslint-disable-next-line no-await-in-loop
+        const r = await nearestSlot(session, branchId, opId, chosen, after);
+        if (r.starts_at !== null && (best === null || r.starts_at < best.startsAt)) {
+          best = { operatorId: opId, startsAt: r.starts_at };
+        }
+      }
+      if (best === null) { setError('لا فتحة قريبة خلال أسبوعين.'); return; }
+      const d = new Date(best.startsAt * 1000);
+      setDay(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+      if (!operatorId) setOperatorId(best.operatorId);
+    } catch (e) {
+      setError(sentenceFor(e, 'تعذّر البحث عن فتحة.'));
+    } finally {
+      setFinding(false);
+    }
+  };
 
   const save = async () => {
     if (!ready || saving) return;
@@ -153,7 +201,17 @@ export function BookingDialog(
           </div>
         ) : null}
         {customer ? (
-          <p className="text-sm text-success">✓ عميلة معروفة{customer.name ? ` — ${customer.name}` : ''}</p>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-success">✓ عميلة معروفة{customer.name ? ` — ${customer.name}` : ''}</p>
+            {/* A NUMBER, NEVER A VERDICT (§2.6) — the staff member reads it and decides: confirm
+                twice, ask for a recorded deposit, or book as usual. Nothing here refuses anything. */}
+            {risk?.risky ? (
+              <p className="rounded-lg px-2.5 py-1.5 text-xs font-medium"
+                style={{ background: '#FBEBE1', color: '#B15A2E' }}>
+                غابت عن {risk.no_shows} من آخر {risk.considered} مواعيد
+              </p>
+            ) : null}
+          </div>
         ) : phone.length >= 3 ? (
           <Field label="اسمها (اختياري)" htmlFor="bkg-name">
             <Input id="bkg-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -201,6 +259,11 @@ export function BookingDialog(
                   onChange={(e) => setTime(e.target.value)} />
           </Field>
         </div>
+        {/* "أقرب فتحة" (§6.2) — the same availability derivation the grid's own lock rests on. */}
+        <Button variant="ghost" disabled={chosen.length === 0 || missingDuration || finding}
+               onClick={findNearest}>
+          {finding ? 'يبحث…' : 'أقرب فتحة'}
+        </Button>
 
         <Field label="ملاحظة (اختياري)" htmlFor="bkg-note">
           <Input id="bkg-note" value={note} onChange={(e) => setNote(e.target.value)} />

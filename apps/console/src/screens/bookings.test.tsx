@@ -28,8 +28,17 @@ vi.mock('../api', async (importOriginal) => {
       return { bookings: [BOOKING] };
     },
     fetchCatalogue: async () => ({
-      services: [{ id: 'svc1', name: 'قص شعر', duration_minutes: 30 }], tracks_vehicle: false, fields: [],
+      services: [{ id: 'svc1', name: 'قص شعر', duration_minutes: 30, cycle_days: 21 }],
+      tracks_vehicle: false, fields: [],
     }),
+    noShowRisk: async (...args: unknown[]) => {
+      asked.push({ fn: 'noShowRisk', args });
+      return { considered: 4, no_shows: 3, risky: true };
+    },
+    nearestSlot: async (...args: unknown[]) => {
+      asked.push({ fn: 'nearestSlot', args });
+      return { starts_at: 1786860000 };
+    },
     listBookingStaff: async () => ([{ id: 'op1', name: 'سارة', active: true, has_pin: false, branch_id: '' }]),
     attendBooking: async (...args: unknown[]) => {
       asked.push({ fn: 'attendBooking', args });
@@ -160,5 +169,44 @@ describe('السحب والإفلات', () => {
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
     // A cancelled booking is filtered out of the grid entirely (§7) — nothing left to drag.
     expect(screen.queryByText(/قص شعر/)).toBeNull();
+  });
+});
+
+describe('احجزي الجلسة القادمة', () => {
+  it('offers the next session after marking attendance, when the service has a real cycle', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    screen.getByText(/قص شعر/).click();
+    await waitFor(() => screen.getByText('حضرت'));
+    screen.getByText('حضرت').click();
+    await waitFor(() => expect(screen.getByText(/احجزي الجلسة القادمة/)).toBeTruthy());
+  });
+
+  it('opens the booking dialog with the customer already known — no phone search needed', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText(/قص شعر/));
+    screen.getByText(/قص شعر/).click();
+    await waitFor(() => screen.getByText('حضرت'));
+    screen.getByText('حضرت').click();
+    await waitFor(() => screen.getByText(/احجزي الجلسة القادمة/));
+    screen.getByText(/احجزي الجلسة القادمة/).click();
+    await waitFor(() => expect(screen.getByText(/عميلة معروفة/)).toBeTruthy());
+  });
+});
+
+describe('booking dialog — Stage 8', () => {
+  it('shows the no-show risk note once a known customer is picked, never before', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('حجز جديد'));
+    screen.getByText('حجز جديد').click();
+    await waitFor(() => screen.getByText(/جوّال العميلة/));
+    expect(screen.queryByText(/غابت عن/)).toBeNull();
+  });
+
+  it('offers "أقرب فتحة" once the dialog is open', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('حجز جديد'));
+    screen.getByText('حجز جديد').click();
+    await waitFor(() => expect(screen.getByText('أقرب فتحة')).toBeTruthy());
   });
 });

@@ -94,6 +94,36 @@ async def list_bookings(request: Request, branch_id: str, date: str,
     return {"bookings": [_public(b) for b in rows]}
 
 
+@router.get("/risk", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def no_show_risk(request: Request, customer_id: str,
+                       principal: Principal = Depends(require_user)) -> dict:
+    """A number beside her name at the moment the dialog opens, not a verdict (§2.6) — how many
+    of her last five CLOSED appointments she did not attend. Never refuses, never blocks; the
+    staff member reads it and decides."""
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    return await c.booking_ops.no_show_risk(tenant, customer_id)
+
+
+@router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def nearest_slot(request: Request, branch_id: str, operator_id: str,
+                       service_ids: str, after: int,
+                       principal: Principal = Depends(require_user)) -> dict:
+    """The "أقرب فتحة" button (§6.2) — `service_ids` is a comma-separated list, since query
+    params carry no arrays cleanly. `null` when nothing is free in the search window."""
+    tenant = _tenant(principal)
+    await _require_branch(request, principal, branch_id)
+    c = request.app.state.container
+    ids = [s for s in service_ids.split(",") if s]
+    try:
+        found = await c.booking_ops.nearest_slot(
+            tenant=tenant, branch_id=branch_id, operator_id=operator_id,
+            service_ids=ids, after=after)
+    except OperationError as exc:
+        return _handle(exc)
+    return {"starts_at": found}
+
+
 class CreateIn(BaseModel):
     branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(min_length=1, max_length=64)

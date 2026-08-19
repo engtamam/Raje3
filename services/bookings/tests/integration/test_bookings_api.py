@@ -9,6 +9,14 @@ import os
 import jwt
 import pytest
 
+
+class _DeniedScope:
+    """A branch_scope stand-in that always answers UNREADABLE — proves the route fails closed."""
+
+    async def scope(self, tenant: str, subject: str) -> str:
+        from app.adapters.branch_scope import UNREADABLE
+        return UNREADABLE
+
 TOKEN_SECRET = "h" * 40
 ISS, AUD = "iss", "aud"
 TENANT = "tnt_console"
@@ -132,6 +140,37 @@ def test_a_second_tenant_never_sees_the_first_tenants_booking(env_guard):
     listed = client.get("/api/v1/bookings", params={"branch_id": "b1", "date": "2026-08-16"},
                         headers=auth_b)
     assert listed.json()["bookings"] == []
+
+
+def test_no_show_risk_is_reachable_and_answers_honestly_for_a_new_customer(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.read")
+    r = client.get("/api/v1/bookings/risk", params={"customer_id": "cus_new"}, headers=auth)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"considered": 0, "no_shows": 0, "risky": False}
+
+
+def test_nearest_slot_is_reachable(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.read")
+    r = client.get("/api/v1/bookings/nearest", params={
+        "branch_id": "b1", "operator_id": "op1", "service_ids": "svc1", "after": 1786860000,
+    }, headers=auth)
+    assert r.status_code == 200, r.text
+    assert r.json()["starts_at"] == 1786860000
+
+
+def test_nearest_slot_respects_branch_scope(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    client.app.state.container.branch_scope = _DeniedScope()
+    auth = _auth("bookings.read")
+    r = client.get("/api/v1/bookings/nearest", params={
+        "branch_id": "b1", "operator_id": "op1", "service_ids": "svc1", "after": 1786860000,
+    }, headers=auth)
+    assert r.status_code == 503
 
 
 def test_no_establishment_on_the_token_is_refused(env_guard):

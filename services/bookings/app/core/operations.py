@@ -278,6 +278,58 @@ class BookingOperations:
         await self._events.emit(kind="no_show", booking=saved)
         return saved
 
+    # ── Stage 8 (docs/وصف-تطبيق-الحجوزات.md §2.6/§6.2): read at the moment it is useful ────────
+
+    RISK_WINDOW = 5     # of the last five COMPLETED appointments…
+    RISK_THRESHOLD = 3  # …three or more no-shows is worth a number beside her name, not a verdict
+
+    async def no_show_risk(self, tenant: str, customer_id: str) -> dict[str, int | bool]:
+        """A number, never a judgement (§2.6): how many of her last five CLOSED appointments she
+        did not attend. `booked` (still pending) and `cancelled` (never happened) are excluded —
+        neither is an attendance outcome. The staff member decides what to do with the number;
+        this never refuses or requires anything on its own.
+        """
+        rows = await self._bookings.for_customer(tenant, customer_id, limit=200)
+        closed = sorted(
+            (b for b in rows if b.status in (STATUS_ATTENDED, STATUS_NO_SHOW)),
+            key=lambda b: b.starts_at, reverse=True,
+        )[: self.RISK_WINDOW]
+        no_shows = sum(1 for b in closed if b.status == STATUS_NO_SHOW)
+        return {"considered": len(closed), "no_shows": no_shows,
+               "risky": len(closed) > 0 and no_shows >= self.RISK_THRESHOLD}
+
+    async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
+                           service_ids: list[str], after: int,
+                           search_days: int = 14) -> int | None:
+        """The "أقرب فتحة" button (§6.2) — the same pure derivation
+        (app/core/availability.py), fed busy intervals from the operator's OWN real bookings.
+
+        NO WORKING-HOURS STORE YET (§4 names working hours as a real, still-missing input) — the
+        schedule used here is the grid's own fixed display window (08:00–22:00 Riyadh, every day),
+        the same simplification Bookings.tsx's grid already renders against. This is an honest
+        stand-in, not a silent guess: the day a real working-hours store exists, only THIS
+        function's `schedule` changes, not its callers.
+        """
+        duration = await self._durations.minutes(tenant, tuple(service_ids))
+        if not duration:
+            raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+
+        from app.core.availability import Schedule, Window, Busy, nearest_slot as _nearest
+
+        FULL_WINDOW = (Window(8 * 60, 22 * 60),)
+        schedule = Schedule(weekly={d: FULL_WINDOW for d in range(7)}, exceptions={})
+
+        bucket = day_bucket(after)
+        end_bucket = day_bucket(after + search_days * 86400)
+        candidates = await self._bookings.slots_between(
+            tenant, branch_id, start_bucket=bucket, end_bucket=end_bucket, limit=500)
+        busy = [Busy(b.starts_at, b.starts_at + b.duration_minutes * 60)
+               for b in candidates if b.operator_id == operator_id and b.status != STATUS_CANCELLED]
+
+        found = _nearest(schedule, busy, duration_minutes=duration, after=after,
+                         search_days=search_days)
+        return found.starts_at if found else None
+
     async def _require(self, tenant: str, booking_id: str) -> Booking:
         booking = await self._bookings.get(tenant, booking_id)
         if booking is None:

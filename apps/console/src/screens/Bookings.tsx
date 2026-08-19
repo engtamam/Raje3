@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
 import {
-  attendBooking, type Booking, cancelBooking, type CatalogueService,
+  attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
   fetchCatalogue, type FieldOperator, listBookings, listBookingStaff, noShowBooking,
   rescheduleBooking, sentenceFor,
 } from '../api';
@@ -135,7 +135,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [search, setSearch] = useState('');
 
-  const [dialog, setDialog] = useState<{ operatorId?: string; startsAt?: number } | 'closed'>('closed');
+  const [dialog, setDialog] = useState<{
+    operatorId?: string; startsAt?: number; customer?: CustomerHit; serviceIds?: string[];
+  } | 'closed'>('closed');
   const [openBooking, setOpenBooking] = useState<Booking | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [dragOver, setDragOver] = useState<{ column: string; minutes: number; valid: boolean } | null>(null);
@@ -578,6 +580,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           date={dialog.startsAt ? dateKeyOf(dialog.startsAt) : date}
           initialOperatorId={dialog.operatorId}
           initialStartsAt={dialog.startsAt}
+          initialCustomer={dialog.customer}
+          initialServiceIds={dialog.serviceIds}
           services={services}
           staff={staffHere}
           onClose={() => setDialog('closed')}
@@ -594,10 +598,26 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           booking={openBooking}
           customerLabel={serviceNameOf(openBooking.service_ids)}
           operatorLabel={nameOf(openBooking.operator_id)}
+          services={services}
           onClose={() => setOpenBooking(null)}
           onChanged={(b) => {
             setRows((cur) => (cur ?? []).map((x) => (x.id === b.id ? b : x)));
+            // Attending stays open — BookingActions shows its own follow-up view (§2.7); cancel
+            // and no-show have nothing further to say, so the sheet closes right away.
+            if (b.status !== 'attended') setOpenBooking(null);
+          }}
+          onBookNext={(b) => {
             setOpenBooking(null);
+            const cycleDays = Math.max(
+              0, ...b.service_ids.map((id) => services.find((s) => s.id === id)?.cycle_days ?? 0));
+            setDialog({
+              operatorId: b.operator_id,
+              startsAt: b.starts_at + cycleDays * 86400,
+              // Only the id is known here — a closed Booking carries no phone number, and the
+              // dialog never reads `.phone` once `customer` is already set (it saves by id).
+              customer: { id: b.customer_id, phone: '' },
+              serviceIds: b.service_ids,
+            });
           }}
           session={session}
           say={say}
@@ -608,16 +628,23 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 }
 
 /** A small action sheet opened by tapping a card — attend / no-show / cancel, in the grid's own
- *  visual identity. */
-function BookingActions({ booking, customerLabel, operatorLabel, onClose, onChanged, session, say }: {
-  booking: Booking; customerLabel: string; operatorLabel: string; onClose: () => void;
-  onChanged: (b: Booking) => void; session: Session; say: (t: string) => void;
+ *  visual identity. Closing a booking as attended offers "احجزي الجلسة القادمة" (§2.7) when the
+ *  service has a real cycle — the sleeping field `cycle_days` already in the catalogue, used for
+ *  its own purpose rather than reinvented. */
+function BookingActions({ booking, customerLabel, operatorLabel, services, onClose, onChanged,
+                         onBookNext, session, say }: {
+  booking: Booking; customerLabel: string; operatorLabel: string; services: CatalogueService[];
+  onClose: () => void; onChanged: (b: Booking) => void; onBookNext: (b: Booking) => void;
+  session: Session; say: (t: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [attended, setAttended] = useState<Booking | null>(null);
   const act = async (fn: (s: Session, id: string) => Promise<Booking>, doneMsg: string) => {
     setBusy(true);
     try {
-      onChanged(await fn(session, booking.id));
+      const updated = await fn(session, booking.id);
+      onChanged(updated);
+      if (updated.status === 'attended') setAttended(updated);
       say(doneMsg);
     } catch (e) {
       say(sentenceFor(e, 'تعذّر تنفيذ الإجراء.'));
@@ -625,6 +652,34 @@ function BookingActions({ booking, customerLabel, operatorLabel, onClose, onChan
       setBusy(false);
     }
   };
+  const cycleDays = Math.max(
+    0, ...booking.service_ids.map((id) => services.find((s) => s.id === id)?.cycle_days ?? 0));
+
+  if (attended) {
+    return (
+      <div className="rj-grid fixed inset-0 z-40 flex items-end justify-center sm:items-center"
+          onClick={onClose}>
+        <div className="absolute inset-0" style={{ background: 'rgba(32,26,21,0.35)' }} />
+        <div onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-sm rounded-t-[28px] p-5 shadow-lg sm:rounded-[28px]"
+            style={{ background: 'var(--rj-surface)' }}>
+          <p className="mb-3 text-base font-semibold">سُجّل الحضور ✓</p>
+          {cycleDays > 0 ? (
+            <button type="button" onClick={() => onBookNext(attended)}
+                   className="w-full rounded-2xl py-3 text-sm font-semibold"
+                   style={{ background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }}>
+              احجزي الجلسة القادمة — بعد {cycleDays} يوماً
+            </button>
+          ) : null}
+          <button type="button" onClick={onClose}
+                 className="mt-2 w-full rounded-2xl py-3 text-sm font-medium"
+                 style={{ color: 'var(--rj-ink-soft)' }}>
+            إغلاق
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="rj-grid fixed inset-0 z-40 flex items-end justify-center sm:items-center"
         onClick={onClose}>

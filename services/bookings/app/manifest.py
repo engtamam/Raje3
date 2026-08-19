@@ -102,6 +102,9 @@ def build_manifest(
             # app/core/operations.py::BookingOperations exposes.
             {"path": "/api/v1/bookings", "tier": "user", "method": "GET"},
             {"path": "/api/v1/bookings", "tier": "user", "method": "POST"},
+            # Stage 8 (docs/وصف-تطبيق-الحجوزات.md §2.6/§6.2): read at the moment it is useful.
+            {"path": "/api/v1/bookings/risk", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/bookings/nearest", "tier": "user", "method": "GET"},
             {"path": "/api/v1/bookings/{}/reschedule", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/services", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/bookings/{}/note", "tier": "user", "method": "PATCH"},

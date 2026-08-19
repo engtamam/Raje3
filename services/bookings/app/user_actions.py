@@ -40,6 +40,22 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "الحجوزات",
     },
     {
+        "id": "bookings.no_show_risk", "label": "مؤشّر عدم الحضور", "method": "GET",
+        "path": "/api/v1/bookings/risk", "capability": "bookings.read",
+        "params": [{"name": "customer_id", "in": "query", "type": "string", "required": True}],
+        "group": "الحجوزات",
+        # §2.6: a number beside her name at the moment the dialog opens, never a verdict.
+    },
+    {
+        "id": "bookings.nearest", "label": "أقرب فتحة", "method": "GET",
+        "path": "/api/v1/bookings/nearest", "capability": "bookings.read",
+        "params": [{"name": "branch_id", "in": "query", "type": "string", "required": True},
+                  {"name": "operator_id", "in": "query", "type": "string", "required": True},
+                  {"name": "service_ids", "in": "query", "type": "string", "required": True},
+                  {"name": "after", "in": "query", "type": "integer", "required": True}],
+        "group": "الحجوزات",
+    },
+    {
         "id": "bookings.create", "label": "حجز جديد", "method": "POST",
         "path": "/api/v1/bookings", "capability": "bookings.write",
         "group": "الحجوزات",

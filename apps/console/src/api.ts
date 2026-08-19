@@ -603,6 +603,29 @@ export function noShowBooking(session: Session, id: string, reason?: string): Pr
   });
 }
 
+/** A number beside her name, never a verdict (docs/وصف-تطبيق-الحجوزات.md §2.6) — how many of her
+ *  last five CLOSED appointments she did not attend. */
+export interface NoShowRisk {
+  considered: number;
+  no_shows: number;
+  risky: boolean;
+}
+export function noShowRisk(session: Session, customerId: string): Promise<NoShowRisk> {
+  const q = new URLSearchParams({ customer_id: customerId });
+  return call(session, `/api/v1/bookings/risk?${q.toString()}`);
+}
+
+/** The "أقرب فتحة" button (§6.2) — `null` when nothing is free in the search window. */
+export function nearestSlot(
+  session: Session, branchId: string, operatorId: string, serviceIds: string[], after: number,
+): Promise<{ starts_at: number | null }> {
+  const q = new URLSearchParams({
+    branch_id: branchId, operator_id: operatorId, service_ids: serviceIds.join(','),
+    after: String(after),
+  });
+  return call(session, `/api/v1/bookings/nearest?${q.toString()}`);
+}
+
 /**
  * Confirm who is saving, and come back with the PROOF — not just the name.
  *
