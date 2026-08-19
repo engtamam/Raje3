@@ -18,7 +18,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:6c1d810fe9682c7ff5d5b4d2d4a045fa10a169a1d677d2a8379443acde93ae87"   # 65031c3, published by publish-images.sh
+  digest: "sha256:47d73490fb8ada4ded6de10631158ca0f9720703bccc2966fc2070de912878a5"   # 9ef5d99, published by publish-images.sh
 
 replicas: 1
 
@@ -50,8 +50,8 @@ networkPolicy:
   egress:
     dns: true
     datastore: true
-    # No internet, and no peer egress yet either — Stage 1 calls nothing outside itself except
-    # billing (in-cluster, covered by the default peer-service egress the chart already opens).
+    # No internet. It calls billing, audit and operations — all in-cluster, all covered by the
+    # default peer-service egress the chart already opens (same shape as loyalty.values.yaml's).
     internet: false
 
 metrics:
