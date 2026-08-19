@@ -12,7 +12,7 @@ const BOOKING = {
   id: 'bkg_1', branch_id: 'b1', operator_id: 'op1', customer_id: 'c1',
   service_ids: ['svc1'], starts_at: 1786860000, duration_minutes: 30,
   status: 'booked', series_id: null, series_seq: null, visit_id: null,
-  deposit_taken: false, note: '', reason_no_show: null, created: 1, created_by: '',
+  payment_status: 'none', deposit_amount_minor: null, note: '', reason_no_show: null, created: 1, created_by: '',
   updated: 1, cancelled_reason: null, thumb_up: null, rev: 1,
 } as const;
 
@@ -57,21 +57,21 @@ describe('today\'s bookings strip', () => {
 
   it('opens the visit with one tap — the same booking->visit gateway the grid uses', async () => {
     open();
-    await waitFor(() => screen.getByLabelText('حضرت'));
-    screen.getByLabelText('حضرت').click();
+    await waitFor(() => screen.getByLabelText('حضر'));
+    screen.getByLabelText('حضر').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'attendBooking')).toBe(true));
     expect(asked.find((a) => a.fn === 'attendBooking')?.args[1]).toBe('bkg_1');
   });
 
   it('removes the card from the strip once the visit is opened', async () => {
     open();
-    await waitFor(() => screen.getByLabelText('حضرت'));
-    screen.getByLabelText('حضرت').click();
+    await waitFor(() => screen.getByLabelText('حضر'));
+    screen.getByLabelText('حضر').click();
     await waitFor(() => expect(screen.queryByText(/سارة/)).toBeNull());
   });
 
   it('only offers still-booked appointments — an already-attended one is not shown twice', async () => {
     open();
-    await waitFor(() => expect(screen.getAllByLabelText('حضرت')).toHaveLength(1));
+    await waitFor(() => expect(screen.getAllByLabelText('حضر')).toHaveLength(1));
   });
 });

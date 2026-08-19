@@ -370,3 +370,115 @@ def test_a_failed_event_publish_does_not_fail_the_booking():
 
     booking = _run(run())
     assert booking.status == "booked", "a missed event must never undo or refuse the booking itself"
+
+
+def test_a_booking_defaults_to_no_payment():
+    ops = _ops()
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+
+    assert _run(run()).payment_status == "none"
+
+
+def test_an_unknown_payment_state_refuses_not_guesses():
+    ops = _ops()
+
+    async def run():
+        with pytest.raises(OperationError, match="دفع"):
+            await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                            service_ids=["svc1"], starts_at=1786860000, payment_status="half")
+
+    _run(run())
+
+
+def test_payment_status_is_editable_after_the_booking_is_terminal():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        await ops.cancel(TENANT, booking.id)
+        # A cancelled booking still owes a truthful record of what was actually paid — the
+        # appointment itself is closed, but "was it paid" is a separate fact that outlives it.
+        return await ops.set_payment_status(TENANT, booking.id, "paid")
+
+    updated = _run(run())
+    assert updated.payment_status == "paid"
+
+
+def test_a_deposit_with_no_amount_refuses_not_guesses():
+    ops = _ops()
+
+    async def run():
+        with pytest.raises(OperationError, match="العربون"):
+            await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1", customer_id="c1",
+                            service_ids=["svc1"], starts_at=1786860000, payment_status="deposit")
+
+    _run(run())
+
+
+def test_a_deposit_with_a_real_amount_is_kept():
+    ops = _ops()
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                payment_status="deposit", deposit_amount_minor=5000)
+
+    booking = _run(run())
+    assert booking.payment_status == "deposit"
+    assert booking.deposit_amount_minor == 5000
+
+
+def test_paid_needs_no_amount_of_its_own():
+    ops = _ops()
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                payment_status="paid")
+
+    booking = _run(run())
+    assert booking.payment_status == "paid"
+    assert booking.deposit_amount_minor is None
+
+
+def test_switching_away_from_deposit_clears_the_amount():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   payment_status="deposit", deposit_amount_minor=5000)
+        return await ops.set_payment_status(TENANT, booking.id, "paid")
+
+    updated = _run(run())
+    assert updated.payment_status == "paid"
+    assert updated.deposit_amount_minor is None
+
+
+def test_re_sending_deposit_with_no_new_amount_keeps_the_one_already_on_file():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   payment_status="deposit", deposit_amount_minor=5000)
+        return await ops.set_payment_status(TENANT, booking.id, "deposit")
+
+    updated = _run(run())
+    assert updated.deposit_amount_minor == 5000
+
+
+def test_an_unknown_payment_state_refuses_the_edit_too():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        with pytest.raises(OperationError, match="دفع"):
+            await ops.set_payment_status(TENANT, booking.id, "half")
+
+    _run(run())

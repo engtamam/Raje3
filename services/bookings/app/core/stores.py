@@ -155,4 +155,10 @@ def _from_row(row: dict[str, Any]) -> Booking:
     if "service_ids" in row and row["service_ids"] is not None:
         row["service_ids"] = tuple(row["service_ids"])
     row.pop("bucket", None)
+    # MIGRATED, NOT DROPPED (2026-08-19) — `deposit_taken: bool` became `payment_status: str`
+    # (§ "بدون عربون بعربون او مدفوع"). Every row already on disk still carries the old key; read
+    # it once here rather than requiring a backfill job before this deploy is safe to roll out.
+    if "deposit_taken" in row:
+        old = row.pop("deposit_taken")
+        row.setdefault("payment_status", "deposit" if old else "none")
     return Booking(**row)

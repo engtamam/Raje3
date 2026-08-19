@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.lock import SlotClaimBusy, claiming
-from app.core.models import (STATUS_ATTENDED, STATUS_BOOKED, STATUS_CANCELLED, STATUS_NO_SHOW,
-                             TERMINAL, Booking)
+from app.core.models import (PAYMENT_DEPOSIT, PAYMENT_NONE, PAYMENT_STATES, STATUS_ATTENDED,
+                             STATUS_BOOKED, STATUS_CANCELLED, STATUS_NO_SHOW, TERMINAL, Booking)
 from app.core.stores import BookingStore, day_bucket, new_id
 
 
@@ -107,7 +107,7 @@ class BookingOperations:
                      service_ids: list[str], starts_at: int, note: str = "",
                      idempotency_key: str = "", created_by: str = "",
                      series_id: str | None = None, series_seq: int | None = None,
-                     deposit_taken: bool = False,
+                     payment_status: str = PAYMENT_NONE, deposit_amount_minor: int | None = None,
                      price_override_minor: int | None = None) -> Booking:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
@@ -117,6 +117,16 @@ class BookingOperations:
             raise OperationError("اختر خدمة واحدة على الأقل")
         if not starts_at or int(starts_at) <= 0:
             raise OperationError("وقت الحجز مطلوب")
+        if payment_status not in PAYMENT_STATES:
+            raise OperationError("حالة دفع غير معروفة")
+        # "عربون اجباري ولكن مدفوع السعر غير اجباري" (Tamam, 2026-08-19) — a deposit with no
+        # amount is not a fact anyone can act on later; «مدفوع» has the booking's own price to
+        # stand for it and needs nothing extra. Never carried over from a different state either:
+        # a booking that was never a deposit has no deposit amount to remember.
+        if payment_status == PAYMENT_DEPOSIT and (
+                deposit_amount_minor is None or int(deposit_amount_minor) <= 0):
+            raise OperationError("مبلغ العربون مطلوب")
+        deposit_amount_minor = int(deposit_amount_minor) if payment_status == PAYMENT_DEPOSIT else None
 
         # The double-tap guard, before the licence check and before the lock — a retry of an
         # already-created booking must never be told "ليس في اشتراكك" or contend for a lane it
@@ -151,7 +161,8 @@ class BookingOperations:
             id=new_id("bkg"), tenant=tenant, branch_id=branch_id, operator_id=operator_id,
             customer_id=customer_id, subject_ref=subject_ref, service_ids=tuple(service_ids),
             starts_at=int(starts_at), duration_minutes=duration, status=STATUS_BOOKED,
-            series_id=series_id, series_seq=series_seq, deposit_taken=deposit_taken,
+            series_id=series_id, series_seq=series_seq, payment_status=payment_status,
+            deposit_amount_minor=deposit_amount_minor,
             price_override_minor=price_override_minor,
             note=note.strip()[:500], idempotency_key=idempotency_key, created=int(now),
             created_by=created_by, updated=int(now))
@@ -199,6 +210,30 @@ class BookingOperations:
         booking = await self._require(tenant, booking_id)
         expected = booking.rev
         booking.note = note.strip()[:500]
+        booking.updated = int(time.time())
+        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+
+    async def set_payment_status(self, tenant: str, booking_id: str, payment_status: str,
+                                 deposit_amount_minor: int | None = None) -> Booking:
+        """Editable any time, on ANY status — including a terminal one. A booking closed as
+        attended three days ago can still be marked paid today; `_require` would refuse that
+        (it exists to stop the appointment itself changing after the fact), so this reads
+        directly, same shape as `cancel`'s own idempotent-terminal handling above."""
+        if payment_status not in PAYMENT_STATES:
+            raise OperationError("حالة دفع غير معروفة")
+        booking = await self._bookings.get(tenant, booking_id)
+        if booking is None:
+            raise OperationError("الحجز غير موجود")
+        # A deposit amount omitted here still counts if the booking is ALREADY a deposit and
+        # already carries one — re-sending "deposit" with no new number must not force the
+        # amount to be retyped. Only a genuine switch INTO deposit, with none on file yet, needs it.
+        amount = deposit_amount_minor if deposit_amount_minor is not None else (
+            booking.deposit_amount_minor if booking.payment_status == PAYMENT_DEPOSIT else None)
+        if payment_status == PAYMENT_DEPOSIT and (amount is None or int(amount) <= 0):
+            raise OperationError("مبلغ العربون مطلوب")
+        expected = booking.rev
+        booking.payment_status = payment_status
+        booking.deposit_amount_minor = int(amount) if payment_status == PAYMENT_DEPOSIT else None
         booking.updated = int(time.time())
         return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
 

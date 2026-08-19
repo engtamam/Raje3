@@ -15,7 +15,7 @@ const BOOKING = {
   id: 'bkg_1', branch_id: 'b1', operator_id: 'op1', customer_id: 'c1',
   service_ids: ['svc1'], starts_at: 1786860000, duration_minutes: 30,
   status: 'booked', series_id: null, series_seq: null, visit_id: null,
-  deposit_taken: false, note: '', reason_no_show: null, created: 1, created_by: '',
+  payment_status: 'none', deposit_amount_minor: null, note: '', reason_no_show: null, created: 1, created_by: '',
   updated: 1, cancelled_reason: null, thumb_up: null, rev: 1,
 } as const;
 
@@ -114,8 +114,8 @@ describe('the grid', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => expect(screen.getByText('حضرت')).toBeTruthy());
-    expect(screen.getByText('لم تحضر')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('حضر')).toBeTruthy());
+    expect(screen.getByText('لم يحضر')).toBeTruthy();
     expect(screen.getByText('إلغاء الحجز')).toBeTruthy();
   });
 
@@ -123,8 +123,8 @@ describe('the grid', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('حضرت'));
-    screen.getByText('حضرت').click();
+    await waitFor(() => screen.getByText('حضر'));
+    screen.getByText('حضر').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'attendBooking')).toBe(true));
     expect(asked.find((a) => a.fn === 'attendBooking')?.args[1]).toBe('bkg_1');
   });
@@ -146,9 +146,9 @@ describe('the grid', () => {
     // card away leaves exactly the option.
     await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(2));
     const before = asked.filter((a) => a.fn === 'listBookings').length;
-    // BOOKING.deposit_taken is false, so "بعربون" excludes the one card on screen — the same
+    // BOOKING.payment_status is 'none', so "عربون" excludes the one card on screen — the same
     // outcome the old search-by-text test proved, now over a chip instead of a query.
-    fireEvent.click(screen.getAllByText('بعربون')[0]);
+    fireEvent.click(screen.getAllByText('عربون')[0]);
     await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(1));
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
   });
@@ -166,6 +166,29 @@ describe('حجز جديد', () => {
     await waitFor(() => screen.getByLabelText('حجز جديد'));
     screen.getByLabelText('حجز جديد').click();
     await waitFor(() => expect(screen.getByText(/جوّال العميل/)).toBeTruthy());
+  });
+
+  it('a deposit with no amount marks exactly that field red on a press, never disables «احجز»', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = () => within(screen.getByRole('dialog'));
+
+    dialog().getByText('عربون').click();
+    await waitFor(() => dialog().getByLabelText(/^مبلغ العربون/));
+    // «احجز» is always clickable — a fresh, entirely empty dialog is no exception.
+    expect(dialog().getByText('احجز').closest('button')?.disabled).toBe(false);
+
+    // A press with nothing filled in teaches, not just refuses — every empty required field
+    // gets its own red line, the deposit amount among them.
+    dialog().getByText('احجز').click();
+    await waitFor(() => dialog().getByText('مبلغ العربون مطلوب'));
+    expect(dialog().getByText('الجوال مطلوب')).toBeTruthy();
+    expect(dialog().getByText('اختر خدمة واحدة على الأقل')).toBeTruthy();
+
+    fireEvent.change(dialog().getByLabelText(/^مبلغ العربون/), { target: { value: '50' } });
+    await waitFor(() => expect(dialog().queryByText('مبلغ العربون مطلوب')).toBeNull());
   });
 
   it('opens the same dialog from an empty cell click — no separate flow', async () => {
@@ -232,8 +255,8 @@ describe('احجز الجلسة القادمة', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('حضرت'));
-    screen.getByText('حضرت').click();
+    await waitFor(() => screen.getByText('حضر'));
+    screen.getByText('حضر').click();
     await waitFor(() => expect(screen.getByText(/احجز الجلسة القادمة/)).toBeTruthy());
   });
 
@@ -241,8 +264,8 @@ describe('احجز الجلسة القادمة', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('حضرت'));
-    screen.getByText('حضرت').click();
+    await waitFor(() => screen.getByText('حضر'));
+    screen.getByText('حضر').click();
     await waitFor(() => screen.getByText(/احجز الجلسة القادمة/));
     screen.getByText(/احجز الجلسة القادمة/).click();
     await waitFor(() => expect(screen.getByText(/عميل معروف/)).toBeTruthy());

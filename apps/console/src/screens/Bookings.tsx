@@ -19,6 +19,8 @@ import {
   rescheduleBooking, sentenceFor,
 } from '../api';
 import type { ScopeBranch } from '../branch-scope';
+import { riyals } from '../money';
+import { PAYMENT_COLOR, PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
 import type { Session } from '../session';
 import { BookingDialog } from './BookingDialog';
 
@@ -85,7 +87,7 @@ function dateKeyOf(epoch: number): string {
 }
 
 const STATUS_LABEL: Record<Booking['status'], string> = {
-  booked: 'محجوز', attended: 'حضرت', no_show: 'لم تحضر', cancelled: 'ملغى',
+  booked: 'محجوز', attended: 'حضر', no_show: 'لم يحضر', cancelled: 'ملغى',
 };
 const STATUS_VARS: Record<Booking['status'], { fg: string; bg: string }> = {
   booked: { fg: 'var(--rj-booked)', bg: 'var(--rj-booked-soft)' },
@@ -140,7 +142,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // FILTERS, NOT SEARCH — a shop reads this grid a hundred times a day; typing a name is a
   // request nobody asked to make when the same narrowing is three taps away as a chip.
   const [filterService, setFilterService] = useState('');   // '' = every service
-  const [filterDeposit, setFilterDeposit] = useState<'any' | 'yes' | 'no'>('any');
+  const [filterPayment, setFilterPayment] = useState<'any' | PaymentStatus>('any');
   const [filtersOpen, setFiltersOpen] = useState(false);
   // "البحث بالجوال" كان هنا — عُطِّل مؤقتاً (لا يعمل: مساره في search-service لم يُبنَ بعد،
   // مُشخَّصٌ ومُصحَّحٌ في platform/ بانتظار إصدارٍ حقيقي منك). يعود حين يعمل فعلاً.
@@ -209,13 +211,12 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const visible = useMemo(() => {
     return (rows ?? []).filter((b) => {
       if (filterService && !b.service_ids.includes(filterService)) return false;
-      if (filterDeposit === 'yes' && !b.deposit_taken) return false;
-      if (filterDeposit === 'no' && b.deposit_taken) return false;
+      if (filterPayment !== 'any' && b.payment_status !== filterPayment) return false;
       return true;
     });
-  }, [rows, filterService, filterDeposit]);
+  }, [rows, filterService, filterPayment]);
 
-  const activeFilterCount = (filterService ? 1 : 0) + (filterDeposit !== 'any' ? 1 : 0);
+  const activeFilterCount = (filterService ? 1 : 0) + (filterPayment !== 'any' ? 1 : 0);
 
   // ── columns: staff in day view, days in week view ───────────────────────────────────────────
   const columns = view === 'day'
@@ -447,18 +448,25 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <div className="flex overflow-hidden rounded-full shadow-sm" style={{ border: '1px solid var(--rj-line)' }}>
-                {([['any', 'الكل'], ['yes', 'بعربون'], ['no', 'بدون عربون']] as const).map(([v, label]) => (
-                  <button key={v} type="button" onClick={() => setFilterDeposit(v)}
+                <button type="button" onClick={() => setFilterPayment('any')}
+                       className="h-9 px-3 text-xs font-medium"
+                       style={filterPayment === 'any'
+                         ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
+                         : { background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
+                  الكل
+                </button>
+                {PAYMENT_ORDER.map((v) => (
+                  <button key={v} type="button" onClick={() => setFilterPayment(v)}
                          className="h-9 px-3 text-xs font-medium"
-                         style={v === filterDeposit
-                           ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
-                           : { background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
-                    {label}
+                         style={v === filterPayment
+                           ? { background: PAYMENT_COLOR[v].fg, color: 'var(--rj-bg)' }
+                           : { background: PAYMENT_COLOR[v].bg, color: PAYMENT_COLOR[v].fg }}>
+                    {PAYMENT_LABEL[v]}
                   </button>
                 ))}
               </div>
               {activeFilterCount ? (
-                <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); }}
+                <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); }}
                        aria-label="إزالة كل الفلاتر"
                        className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
                        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
@@ -502,22 +510,29 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                     </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>العربون</span>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الدفع</span>
                     <div className="flex gap-1.5">
-                      {([['any', 'الكل'], ['yes', 'بعربون'], ['no', 'بدون']] as const).map(([v, label]) => (
-                        <button key={v} type="button" onClick={() => setFilterDeposit(v)}
+                      <button type="button" onClick={() => setFilterPayment('any')}
+                             className="flex-1 rounded-full py-1.5 text-xs font-medium"
+                             style={filterPayment === 'any'
+                               ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
+                               : { background: 'var(--rj-bg)', color: 'var(--rj-ink-soft)',
+                                  border: '1px solid var(--rj-line)' }}>
+                        الكل
+                      </button>
+                      {PAYMENT_ORDER.map((v) => (
+                        <button key={v} type="button" onClick={() => setFilterPayment(v)}
                                className="flex-1 rounded-full py-1.5 text-xs font-medium"
-                               style={v === filterDeposit
-                                 ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
-                                 : { background: 'var(--rj-bg)', color: 'var(--rj-ink-soft)',
-                                    border: '1px solid var(--rj-line)' }}>
-                          {label}
+                               style={v === filterPayment
+                                 ? { background: PAYMENT_COLOR[v].fg, color: 'var(--rj-bg)' }
+                                 : { background: PAYMENT_COLOR[v].bg, color: PAYMENT_COLOR[v].fg }}>
+                          {PAYMENT_LABEL[v]}
                         </button>
                       ))}
                     </div>
                   </div>
                   {activeFilterCount ? (
-                    <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); }}
+                    <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); }}
                            className="text-xs font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
                       إزالة كل الفلاتر
                     </button>
@@ -721,6 +736,17 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           {b.status === 'booked' ? (
                             <GripVertical size={11} aria-hidden
                                          className="absolute inset-inline-start-1 top-1/2 -translate-y-1/2 opacity-40" />
+                          ) : null}
+                          {/* A DOT, NOT A CHIP — one glance at the grid should tell "عربون" from
+                              "مدفوع" without opening the card; a full badge would fight the
+                              service tags for the same few pixels a short card has. */}
+                          {b.payment_status !== 'none' ? (
+                            <span aria-hidden
+                                 title={b.payment_status === 'deposit' && b.deposit_amount_minor
+                                   ? `${PAYMENT_LABEL.deposit} — ${riyals(b.deposit_amount_minor)} ريال`
+                                   : PAYMENT_LABEL[b.payment_status]}
+                                 className="absolute inset-inline-end-1.5 top-1.5 h-2 w-2 rounded-full"
+                                 style={{ background: PAYMENT_COLOR[b.payment_status].fg }} />
                           ) : null}
                           {height < 30 ? (
                             // A very short card (a quick service) has no room for two lines — one
@@ -940,13 +966,13 @@ function BookingActions({ booking, customerLabel, operatorLabel, services, onClo
             <button type="button" disabled={busy} onClick={() => act(attendBooking, 'سُجّل الحضور ✓')}
                    className="rounded-2xl py-3 text-sm font-semibold"
                    style={{ background: 'var(--rj-attended-soft)', color: 'var(--rj-attended)' }}>
-              حضرت
+              حضر
             </button>
             <button type="button" disabled={busy}
                    onClick={() => act((s, id) => noShowBooking(s, id), 'سُجّل عدم الحضور')}
                    className="rounded-2xl py-3 text-sm font-semibold"
                    style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
-              لم تحضر
+              لم يحضر
             </button>
             <button type="button" disabled={busy}
                    onClick={() => act((s, id) => cancelBooking(s, id), 'أُلغي الحجز')}

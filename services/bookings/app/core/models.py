@@ -15,6 +15,15 @@ from typing import Any
 BOOKINGS = "bookings"
 BOOKING_SLOTS = "booking_slots"
 
+# Three states, one field — "how much of this booking's price is actually in hand", never two
+# booleans that can silently disagree (Tamam, 2026-08-19: "بدون عربون بعربون او مدفوع"). Chosen at
+# booking time, editable any time after — never inferred from status (a booking can be attended
+# with nothing paid, or paid in full days before the appointment).
+PAYMENT_NONE = "none"
+PAYMENT_DEPOSIT = "deposit"
+PAYMENT_PAID = "paid"
+PAYMENT_STATES = frozenset({PAYMENT_NONE, PAYMENT_DEPOSIT, PAYMENT_PAID})
+
 # One-way, and the four terminal states never reopen — a cancelled booking is never un-cancelled,
 # it is re-created. Enforced in operations.py, not here: a dataclass cannot refuse a transition.
 STATUS_BOOKED = "booked"
@@ -45,7 +54,12 @@ class Booking:
     series_id: str | None = None
     series_seq: int | None = None
     visit_id: str | None = None          # set once, on attendance — the one link booking->visit
-    deposit_taken: bool = False
+    payment_status: str = PAYMENT_NONE   # one of PAYMENT_STATES — see the constants above
+    # THE PROOF OF "عربون", NOT A GUESS — required whenever payment_status is PAYMENT_DEPOSIT
+    # (enforced in operations.py), cleared whenever it is anything else. `paid` needs no amount
+    # of its own: the booking's own price (price_override_minor, or the catalogue sum) already
+    # says what was owed, and "مدفوع" means all of it came in.
+    deposit_amount_minor: int | None = None
     # THE ONE PRICE THAT NEVER TOUCHES THE CATALOGUE (Tamam, 2026-08-19). Some bookings are
     # negotiated at the counter — a returning customer, a bundle, a courtesy — and that number
     # belongs to THIS booking alone. `None` means "whatever the catalogue says"; a real value here

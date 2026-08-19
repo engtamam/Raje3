@@ -18,12 +18,21 @@ import { Modal } from '@base-ui/design-system/Modal';
 import {
   ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
   type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
-  editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator, nearestSlot,
-  type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking, sentenceFor,
-  setServiceDuration, setServicePrice, suggestByPrefix,
+  editBookingPayment, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
+  nearestSlot, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
+  sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix,
 } from '../api';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
+import { PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
+
+// THIS DIALOG USES THE DESIGN SYSTEM'S OWN PALETTE, NOT `--rj-*` — those custom properties are
+// scoped to `.rj-grid` (Bookings.tsx's own bespoke identity), and this Modal portals outside it.
+const PAYMENT_CLASS: Record<PaymentStatus, { active: string; idle: string }> = {
+  none: { active: 'bg-text-secondary text-white', idle: 'bg-surface-2 text-text-secondary' },
+  deposit: { active: 'bg-warning text-white', idle: 'bg-warning-soft text-warning-on-soft' },
+  paid: { active: 'bg-success text-white', idle: 'bg-success-soft text-success-on-soft' },
+};
 import { digitsOnly } from '../digits';
 import { newIdempotencyKey } from '../queue';
 import { ServiceGrid } from '../ServiceGrid';
@@ -84,6 +93,11 @@ export function BookingDialog(
   const [note, setNote] = useState(editing?.note ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // A PRESS THAT TEACHES, NOT ONE THAT REFUSES SILENTLY (Tamam, 2026-08-19) — «احجز» is always
+  // clickable; a press while something required is still empty marks EXACTLY that field red,
+  // right under it, instead of sitting disabled with no way to tell why. Stays false until the
+  // first press, so an empty fresh dialog never opens already covered in red ink.
+  const [attempted, setAttempted] = useState(false);
   const [risk, setRisk] = useState<NoShowRisk | null>(null);
   const [finding, setFinding] = useState(false);
   // MINTED ONCE, PER OPEN OF THIS DIALOG — a double-press of «احجز» carries the same key and
@@ -172,6 +186,15 @@ export function BookingDialog(
   const [priceText, setPriceText] = useState('');
   const [priceTouched, setPriceTouched] = useState(false);
   const [saveToCatalog, setSaveToCatalog] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(editing?.payment_status ?? 'none');
+  // "عربون اجباري ولكن مدفوع السعر غير اجباري" — required only for «عربون»; «مدفوع» reads the
+  // price field above instead, so it needs no number of its own.
+  const [depositAmountText, setDepositAmountText] = useState(
+    editing?.deposit_amount_minor ? riyals(editing.deposit_amount_minor) : '',
+  );
+  const depositAmountMinor = depositAmountText.trim() ? halalas(depositAmountText) : null;
+  const depositAmountMissing = paymentStatus === 'deposit'
+    && (depositAmountMinor === null || depositAmountMinor <= 0);
   const priceMinor = priceText.trim() ? halalas(priceText) : (catalogPriceMinor || null);
   // ONLY WHEN ONE SERVICE IS CHOSEN — a total across several services has no single catalogue row
   // to write back to, so the checkbox that would do it is not offered at all rather than guessing
@@ -191,8 +214,12 @@ export function BookingDialog(
     return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
   })();
 
-  const ready = Boolean((editing || customer || phone.trim().length >= 3) && chosen.length > 0
-    && !missingDuration && operatorId && starts_at > 0);
+  const phoneMissing = !editing && !customer && phone.trim().length < 3;
+  const servicesMissing = chosen.length === 0;
+  const operatorMissing = !operatorId;
+  const timeMissing = starts_at <= 0;
+  const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
+    && !operatorMissing && !timeMissing && !depositAmountMissing);
 
   // "أقرب فتحة" (§6.2) — the same availability derivation the grid's own conflict lock rests
   // on, from the moment a service and (optionally) an operator are chosen.
@@ -242,6 +269,11 @@ export function BookingDialog(
         booking = await rescheduleBooking(session, editing.id, starts_at, operatorId);
       }
       if (note !== (editing.note ?? '')) booking = await editBookingNote(session, editing.id, note);
+      if (paymentStatus !== editing.payment_status
+          || (paymentStatus === 'deposit' && depositAmountMinor !== editing.deposit_amount_minor)) {
+        booking = await editBookingPayment(
+          session, editing.id, paymentStatus, depositAmountMinor ?? undefined);
+      }
       onCreated(booking);
     } catch (e) {
       setError(sentenceFor(e, 'تعذّر حفظ التعديل.'));
@@ -251,7 +283,8 @@ export function BookingDialog(
   };
 
   const save = async () => {
-    if (!ready || saving) return;
+    if (saving) return;
+    if (!ready) { setAttempted(true); return; }
     if (editing) { await saveEdit(); return; }
     setSaving(true);
     setError('');
@@ -274,6 +307,8 @@ export function BookingDialog(
         // override at all, rather than a redundant copy of a number that can change under it.
         price_override_minor: priceMinor !== null && priceMinor !== catalogPriceMinor
           ? priceMinor : undefined,
+        payment_status: paymentStatus,
+        deposit_amount_minor: paymentStatus === 'deposit' ? depositAmountMinor ?? undefined : undefined,
       });
       // A SEPARATE WRITE, AFTER THE BOOKING ITSELF SUCCEEDED — ticking the box changes what every
       // FUTURE booking of this service defaults to; it must never block or unwind the one he is
@@ -304,7 +339,8 @@ export function BookingDialog(
             العميل: <span className="font-semibold text-text-primary">{editingCustomerLabel || '—'}</span>
           </p>
         ) : (
-        <Field label="جوّال العميل" required htmlFor="bkg-phone">
+        <Field label="جوّال العميل" required htmlFor="bkg-phone"
+              error={attempted && phoneMissing ? 'الجوال مطلوب' : undefined}>
           <Input
             id="bkg-phone"
             value={phone}
@@ -354,6 +390,9 @@ export function BookingDialog(
         {/* ── الخدمات ─────────────────────────────────────────────────────────────────── */}
         <div>
           <h3 className="mb-2 text-sm text-text-secondary">الخدمات</h3>
+          {attempted && servicesMissing ? (
+            <p className="mb-2 text-sm text-danger">اختر خدمة واحدة على الأقل</p>
+          ) : null}
           <ServiceGrid services={services} selected={chosen}
                       onToggle={(id) => setChosen((cur) => (
                         cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))}
@@ -403,8 +442,36 @@ export function BookingDialog(
           </Field>
         ) : null}
 
+        {/* ── حالة الدفع — ثلاث حالات بلون كل واحدة، تُغيَّر في أي وقت من عمر الحجز ─────────── */}
+        <Field label="حالة الدفع" htmlFor="bkg-payment">
+          <div id="bkg-payment" className="flex gap-1.5">
+            {PAYMENT_ORDER.map((s) => (
+              <button key={s} type="button" onClick={() => setPaymentStatus(s)}
+                     className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-colors ${
+                       s === paymentStatus ? PAYMENT_CLASS[s].active : PAYMENT_CLASS[s].idle}`}>
+                {PAYMENT_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </Field>
+        {/* «مدفوع» يتّكئ على حقل السعر أعلاه؛ «عربون» وحده يحتاج رقماً — إجباري، لا يُخمَّن. */}
+        {paymentStatus === 'deposit' ? (
+          <Field label="مبلغ العربون (ريال)" required htmlFor="bkg-deposit"
+                error={attempted && depositAmountMissing ? 'مبلغ العربون مطلوب' : undefined}>
+            <Input
+              id="bkg-deposit"
+              value={depositAmountText}
+              dir="ltr"
+              inputMode="decimal"
+              placeholder="0"
+              onChange={(e) => setDepositAmountText(e.target.value)}
+            />
+          </Field>
+        ) : null}
+
         {/* ── الموظف ───────────────────────────────────────────────────────────────────── */}
-        <Field label="الموظف" required htmlFor="bkg-op">
+        <Field label="الموظف" required htmlFor="bkg-op"
+              error={attempted && operatorMissing ? 'اختر موظفاً' : undefined}>
           <select
             id="bkg-op"
             value={operatorId}
@@ -422,7 +489,8 @@ export function BookingDialog(
             <Input id="bkg-day" type="date" value={day} dir="ltr"
                   onChange={(e) => setDay(e.target.value)} />
           </Field>
-          <Field label="الوقت" required htmlFor="bkg-time">
+          <Field label="الوقت" required htmlFor="bkg-time"
+                error={attempted && timeMissing ? 'الوقت مطلوب' : undefined}>
             <Input id="bkg-time" type="time" value={time} dir="ltr"
                   onChange={(e) => setTime(e.target.value)} />
           </Field>
@@ -441,7 +509,7 @@ export function BookingDialog(
 
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
           <Button variant="ghost" onClick={onClose}>إلغاء</Button>
-          <Button disabled={!ready || saving} onClick={save}>
+          <Button disabled={saving} onClick={save}>
             {saving ? 'جارٍ الحفظ…' : editing ? 'حفظ التعديل' : 'احجز'}
           </Button>
         </div>

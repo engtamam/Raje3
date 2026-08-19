@@ -566,7 +566,13 @@ export interface Booking {
   series_id: string | null;
   series_seq: number | null;
   visit_id: string | null;
-  deposit_taken: boolean;
+  /** "بدون عربون بعربون او مدفوع" (Tamam, 2026-08-19) — one field, three states, never inferred
+   *  from `status`: an attended booking can still owe money, and a booked one can already be
+   *  paid in full days ahead. */
+  payment_status: 'none' | 'deposit' | 'paid';
+  /** Required whenever `payment_status` is `'deposit'`, `null` otherwise — «مدفوع» needs no
+   *  amount of its own; the booking's own price already says what was owed. */
+  deposit_amount_minor: number | null;
   /** THIS booking's own price, when it was negotiated away from the catalogue's — never a write
    *  to the service itself. `null` means "whatever the catalogue says". */
   price_override_minor: number | null;
@@ -597,6 +603,8 @@ export interface CreateBookingDraft {
   starts_at: number;
   note?: string;
   idempotency_key?: string;
+  payment_status?: 'none' | 'deposit' | 'paid';
+  deposit_amount_minor?: number;
   /** THIS booking only — see Booking.price_override_minor. */
   price_override_minor?: number;
 }
@@ -620,6 +628,19 @@ export function editBookingServices(
 ): Promise<Booking> {
   return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/services`, {
     method: 'PATCH', body: JSON.stringify({ service_ids: serviceIds }),
+  });
+}
+
+export function editBookingPayment(
+  session: Session, id: string, paymentStatus: 'none' | 'deposit' | 'paid',
+  depositAmountMinor?: number,
+): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/payment`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      payment_status: paymentStatus,
+      deposit_amount_minor: depositAmountMinor ?? undefined,
+    }),
   });
 }
 

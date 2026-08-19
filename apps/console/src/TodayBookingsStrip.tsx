@@ -1,9 +1,9 @@
 /**
  * Today's bookings strip — Stage 9 (docs/وصف-تطبيق-الحجوزات.md §6.3): "لا شاشة جديدة", a strip
- * ABOVE the existing field screen, so the operator taps "حضرت" instead of hunting for the
+ * ABOVE the existing field screen, so the operator taps "حضر" instead of hunting for the
  * customer she already knows is coming.
  *
- * ONE TAP IS THE VISIT. "حضرت" here calls the same `attendBooking` the grid's own action sheet
+ * ONE TAP IS THE VISIT. "حضر" here calls the same `attendBooking` the grid's own action sheet
  * calls — the booking->visit gateway (Stage 4) creates the Visit directly, so this is FASTER than
  * "opens the visit form pre-filled" would have been, not merely equivalent to it: nothing left to
  * confirm, because everything the visit needs (customer, services, operator) was already decided
@@ -115,7 +115,7 @@ export function TodayBookingsStrip({ session, branchId, services }: TodayBooking
               type="button"
               disabled={busy === b.id}
               onClick={() => attend(b)}
-              aria-label="حضرت"
+              aria-label="حضر"
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-on-soft disabled:opacity-50"
             >
               <Check size={16} aria-hidden />
