@@ -25,7 +25,7 @@ import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { Lock } from 'lucide-react';
+import { Check, Lock, Megaphone, ShieldCheck, UserCog, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { STORE_PATH } from '../nav';
 import { action, call, type Catalog } from '../catalog';
@@ -54,13 +54,13 @@ interface Operator {
  * «مشرف وردية» is not choosing a word, he is choosing what that person may touch — and a name
  * with no consequence beside it is a guess.
  */
-const ROLES: { value: string; label: string; can: string }[] = [
+const ROLES: { value: string; label: string; can: string; icon: typeof UserRound }[] = [
   // "يسجّل الزيارات فقط" كانت صحيحة قبل الحجوزات — الدور نفسه في roles.json يحمل
   // bookings.read/bookings.write منذ ذلك الحين (Tamam, 2026-08-19: تأكد من دقّة الوصف الظاهر).
-  { value: 'operator', label: 'موظف ميداني', can: 'يسجّل الزيارات ويحجز' },
-  { value: 'supervisor', label: 'مشرف وردية', can: 'الزيارات والحجوزات وعملاء ورديته والتقارير' },
-  { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات' },
-  { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب' },
+  { value: 'operator', label: 'موظف ميداني', can: 'يسجّل الزيارات ويحجز', icon: UserRound },
+  { value: 'supervisor', label: 'مشرف وردية', can: 'الزيارات والحجوزات وعملاء ورديته والتقارير', icon: ShieldCheck },
+  { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات', icon: Megaphone },
+  { value: 'manager', label: 'مدير', can: 'كل شيء عدا الفوترة وحذف الحساب', icon: UserCog },
 ];
 interface Branch { id: string; name: string; active?: boolean }
 
@@ -462,26 +462,39 @@ function People({ session, operators, branches, add, edit, hire, pinKind, onChan
               kind of person. */}
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm text-text-secondary">الدور</legend>
-            {ROLES.map((r) => (
-              <label
-                key={r.value}
-                className={[
-                  'flex cursor-pointer items-start gap-3 rounded-card border px-3 py-2',
-                  role === r.value
-                    ? 'border-accent bg-accent-soft text-accent-on-soft'
-                    : 'border-border-subtle hover:border-border-strong',
-                ].join(' ')}
-              >
-                <input
-                  type="radio" name="op-role" value={r.value} checked={role === r.value}
-                  onChange={() => setRole(r.value)} className="sr-only"
-                />
-                <span className="flex flex-col">
-                  <span className="text-sm">{r.label}</span>
-                  <span className="text-xs opacity-80">{r.can}</span>
-                </span>
-              </label>
-            ))}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {ROLES.map((r) => {
+                const selected = role === r.value;
+                const Icon = r.icon;
+                return (
+                  <label
+                    key={r.value}
+                    className={[
+                      'flex cursor-pointer items-center gap-3 rounded-card border px-3 py-3 shadow-sm transition-colors',
+                      selected
+                        ? 'border-accent bg-accent-soft text-accent-on-soft'
+                        : 'border-border-subtle hover:border-border-strong hover:bg-surface-2',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="radio" name="op-role" value={r.value} checked={selected}
+                      onChange={() => setRole(r.value)} className="sr-only"
+                    />
+                    <span className={[
+                      'grid h-9 w-9 shrink-0 place-items-center rounded-full',
+                      selected ? 'bg-accent text-white' : 'bg-surface-2 text-text-secondary',
+                    ].join(' ')}>
+                      <Icon size={18} aria-hidden />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-semibold">{r.label}</span>
+                      <span className="truncate text-xs opacity-80">{r.can}</span>
+                    </span>
+                    {selected ? <Check size={16} aria-hidden className="shrink-0" /> : null}
+                  </label>
+                );
+              })}
+            </div>
           </fieldset>
 
           {error ? <p role="alert" className="text-danger">{error}</p> : null}
