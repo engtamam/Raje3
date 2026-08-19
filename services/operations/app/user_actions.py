@@ -259,17 +259,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         # THE OWNER'S LIST, distinct from `operations.catalogue` which is the field grid. It can
         # show what the shop has retired; the field grid must not.
         "id": "operations.manage_services", "label": "خدماتي ومنتجاتي — للإدارة", "method": "GET",
-        "path": "/api/v1/staff/services", "capability": "operations.manage", "group": "خدماتي ومنتجاتي",
+        "path": "/api/v1/staff/services", "capability": "operations.manage_services", "group": "خدماتي ومنتجاتي",
         "help": "يشمل الموقوفة عند طلبها، ليمكن إعادة تفعيلها.",
     },
     {
         "id": "operations.create_service", "label": "إضافة خدمة أو منتج", "method": "POST",
-        "path": "/api/v1/staff/services", "capability": "operations.manage", "group": "خدماتي ومنتجاتي",
+        "path": "/api/v1/staff/services", "capability": "operations.manage_services", "group": "خدماتي ومنتجاتي",
         "help": "مدة الدورة 0 تعني خدمة بلا دورة طبيعية — فلا تُنتج تذكيراً.",
     },
     {
         "id": "operations.update_service", "label": "تعديل خدمة أو منتج", "method": "PATCH",
-        "path": "/api/v1/staff/services/{id}", "capability": "operations.manage",
+        "path": "/api/v1/staff/services/{id}", "capability": "operations.manage_services",
         "group": "خدماتي ومنتجاتي", "confirm": True,
         "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
         "help": "الإيقاف بـ active=false لا بالحذف — الحذف ييتّم كل زيارة تشير إليها.",

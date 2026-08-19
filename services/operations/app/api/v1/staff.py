@@ -54,6 +54,14 @@ router = APIRouter(prefix="/staff", tags=["staff"])
 
 _MANAGE = require_capability("operations.manage")
 _READ = require_capability("operations.read")
+# A NARROWER DOOR, ONLY FOR THE CATALOGUE (Tamam, 2026-08-19: "سوي للخدمات وحدة تهتم بالخدمات من
+# تعديل وانشاء وغيرها") — `operations.manage` also creates staff and branches and renames the
+# shop, which is why it stayed owner/manager-only. A role that should touch the SERVICE catalogue
+# and nothing else now can, without inheriting the rest of what `operations.manage` grants. A
+# SINGLE capability, not an OR of two — `ci/check_capability_truth.py` reads exactly one name per
+# route, so owner/manager hold `operations.manage_services` explicitly too (roles.json), same
+# shape as `bookings.manage` sitting beside `bookings.write`.
+_MANAGE_SERVICES = require_capability("operations.manage_services")
 
 
 def _tenant(p: Principal) -> str:
@@ -822,7 +830,7 @@ class ServiceIn(BaseModel):
 
 @router.get("/services", dependencies=[Depends(rate_limit)])
 async def list_services(request: Request, include_retired: bool = False,
-                        principal: Principal = Depends(_MANAGE)) -> dict:
+                        principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """The OWNER's catalogue, which is not the field grid.
 
     /field/catalogue answers what an operator may record a visit against, and it is right that a
@@ -831,8 +839,8 @@ async def list_services(request: Request, include_retired: bool = False,
     nothing left to act on. The same shape of bug as the rewards table, found the same way: by
     stopping something and looking for it.
 
-    Gated on `operations.manage`, not read: this is the list you edit, and an operator has no
-    business seeing what the shop has retired.
+    Gated on `operations.manage` OR `operations.manage_services` (Tamam, 2026-08-19) — not read:
+    this is the list you edit, and an operator has no business seeing what the shop has retired.
     """
     rows = await ServiceStore(request.app.state.container.datastore).list(
         _tenant(principal), active_only=not include_retired)
@@ -842,7 +850,7 @@ async def list_services(request: Request, include_retired: bool = False,
 @router.post("/services", status_code=status.HTTP_201_CREATED,
              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def create_service(request: Request, body: ServiceIn,
-                         principal: Principal = Depends(_MANAGE)) -> dict:
+                         principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     tenant = _tenant(principal)
     await request.app.state.auditor.record(
         "service.created", actor=principal.subject, tenant=tenant, resource="service",
@@ -866,7 +874,7 @@ class ServicePatch(BaseModel):
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_service(request: Request, service_id: str, body: ServicePatch,
-                         principal: Principal = Depends(_MANAGE)) -> dict:
+                         principal: Principal = Depends(_MANAGE_SERVICES)) -> dict:
     """Edit a catalogue entry.
 
     DEACTIVATE rather than delete — `active: false`. Deleting a service would orphan every visit
