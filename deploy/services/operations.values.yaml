@@ -156,6 +156,11 @@ env:
   # the SAME billable set the entitlement resolver computes over, so a purchase refused here and a
   # feature gated in another service can never disagree about what was bought.
   BILLING_SUBSCRIPTIONS_PATH: "/internal/billing/subscriptions"
+  # THE DRIVER ITSELF — every path above was set and this was not, so `build_plans()` fell back to
+  # its safe-but-inert default (`null`) and every call silently answered "could not read": no plan
+  # list, no subscribe, and `/api/v1/subscription/apps`'s own `base` read `null` for every shop on
+  # this box, forever, with nothing failing loudly to say why.
+  BILLING_PLANS_DRIVER: "http"
 
   # ── the door (§16.5) ──────────────────────────────────────────────────────────────────────
   # Signing up creates a TENANT and registers its owner. No platform service does both: identity

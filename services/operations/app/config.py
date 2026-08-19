@@ -586,6 +586,34 @@ class Settings(BaseSettings):
                 "not read what any establishment bought, so every paid app would be drawn locked "
                 "for every shop — including the ones that pay for all of them.")
 
+    def assert_billing_plans_config_ok(self) -> None:
+        """Boot guard. A deployment that cannot list or read subscriptions sells nothing.
+
+        `build_plans` returns `NullPlans` when `BILLING_PLANS_DRIVER` is anything but `http` —
+        `"null"` by default, on purpose, so a service under test never dials out. In production
+        that silence is total: the store shows no plans, no purchase can be made, and
+        `/api/v1/subscription/apps` answers `base: null` for every shop, forever — a paying
+        establishment reads exactly the same screen as one that never subscribed, and nothing
+        anywhere says why. This is the same shape as `assert_apps_config_ok` and
+        `assert_subscription_config_ok` above, guarding the one billing path neither of them
+        reaches.
+        """
+        if not self.is_production:
+            return
+        if (self.BILLING_PLANS_DRIVER or "null").lower() != "http":
+            raise ValueError(
+                "BILLING_PLANS_DRIVER is not 'http' in production: no plan can be listed or "
+                "subscribed to, and every shop's own subscription reads back empty — the store "
+                "sells nothing and the base itself never shows as active."
+            )
+        if not self.BILLING_SERVICE_URL or not self.BILLING_PLANS_PATH \
+                or not self.BILLING_SUBSCRIBE_PATH or not self.BILLING_SUBSCRIPTIONS_PATH:
+            raise ValueError(
+                "BILLING_PLANS_DRIVER is 'http' but one of BILLING_SERVICE_URL/"
+                "BILLING_PLANS_PATH/BILLING_SUBSCRIBE_PATH/BILLING_SUBSCRIPTIONS_PATH is empty — "
+                "the driver is configured and inert."
+            )
+
     def assert_seed_config_ok(self) -> None:
         """Boot guard. Refuse production with no message library.
 

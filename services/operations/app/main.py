@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     settings.assert_search_config_ok()
     settings.assert_seed_config_ok()
     settings.assert_apps_config_ok()
+    settings.assert_billing_plans_config_ok()
     settings.assert_onboarding_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")

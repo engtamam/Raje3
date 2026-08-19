@@ -59,6 +59,8 @@ APPS: tuple[dict[str, Any], ...] = (
      "what": "نقاطٌ على كل زيارة، ومكافآت يستبدلها العميل من صفحته أو عند الصندوق."},
     {"key": "feature.insights.engine", "name": "فرصي", "screen": "local",
      "what": "يقول لك أين الفرصة: أي خدمتين تُطلبان معاً، ومن كان سيشتري أكثر، وأثر رسائلك."},
+    {"key": "feature.bookings", "name": "الحجوزات", "screen": "bookings",
+     "what": "حجزٌ بالوقت لكل عميلة، لموظفةٍ بعينها — وحضورها يفتح زيارتها تلقائياً."},
 )
 
 KEYS: tuple[str, ...] = tuple(a["key"] for a in APPS)
