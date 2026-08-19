@@ -17,9 +17,10 @@ import { Field, Input } from '@base-ui/design-system/Field';
 import { Modal } from '@base-ui/design-system/Modal';
 import {
   ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
-  type CustomerHit, customerByPhone, earnSettings, type EarnSettings, ensureCustomer,
-  type FieldOffer, type FieldOperator, nearestSlot, type NoShowRisk, noShowRisk, offerFor,
-  pointsByService, sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix,
+  type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
+  editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator, nearestSlot,
+  type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking, sentenceFor,
+  setServiceDuration, setServicePrice, suggestByPrefix,
 } from '../api';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
@@ -45,6 +46,13 @@ export interface BookingDialogProps {
   staff: FieldOperator[];
   onClose: () => void;
   onCreated: (booking: Booking) => void;
+  /** Set when opened from an existing card's action sheet ("تعديل") rather than an empty cell —
+   *  the customer is already fixed (no PATCH route changes who a booking is for), so that whole
+   *  step is skipped; services, operator, time and note stay editable and are written back with
+   *  the same PATCH acts the grid's own drag-and-drop and «خدماتي ومنتجاتي» already use, never a
+   *  second booking created beside the first. */
+  editingBooking?: Booking;
+  editingCustomerLabel?: string;
 }
 
 function timeOfEpoch(epoch: number): string {
@@ -52,19 +60,28 @@ function timeOfEpoch(epoch: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function dayOfEpoch(epoch: number): string {
+  const d = new Date(epoch * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function BookingDialog(
   { session, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
-   initialServiceIds, services, staff, onClose, onCreated }: BookingDialogProps,
+   initialServiceIds, services, staff, onClose, onCreated,
+   editingBooking, editingCustomerLabel }: BookingDialogProps,
 ) {
+  const editing = editingBooking ?? null;
   const [phone, setPhone] = useState(initialCustomer?.phone ?? '');
   const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [customer, setCustomer] = useState<CustomerHit | null>(initialCustomer ?? null);
   const [name, setName] = useState(initialCustomer?.name ?? '');
-  const [chosen, setChosen] = useState<string[]>(initialServiceIds ?? []);
-  const [operatorId, setOperatorId] = useState(initialOperatorId ?? '');
-  const [day, setDay] = useState(date);
-  const [time, setTime] = useState(initialStartsAt ? timeOfEpoch(initialStartsAt) : '');
-  const [note, setNote] = useState('');
+  const [chosen, setChosen] = useState<string[]>(editing?.service_ids ?? initialServiceIds ?? []);
+  const [operatorId, setOperatorId] = useState(editing?.operator_id ?? initialOperatorId ?? '');
+  const [day, setDay] = useState(editing ? dayOfEpoch(editing.starts_at) : date);
+  const [time, setTime] = useState(
+    editing ? timeOfEpoch(editing.starts_at) : (initialStartsAt ? timeOfEpoch(initialStartsAt) : ''),
+  );
+  const [note, setNote] = useState(editing?.note ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [risk, setRisk] = useState<NoShowRisk | null>(null);
@@ -174,7 +191,7 @@ export function BookingDialog(
     return Number.isNaN(at) ? 0 : Math.floor(at / 1000);
   })();
 
-  const ready = Boolean((customer || phone.trim().length >= 3) && chosen.length > 0
+  const ready = Boolean((editing || customer || phone.trim().length >= 3) && chosen.length > 0
     && !missingDuration && operatorId && starts_at > 0);
 
   // "أقرب فتحة" (§6.2) — the same availability derivation the grid's own conflict lock rests
@@ -208,8 +225,34 @@ export function BookingDialog(
     }
   };
 
+  // AN EDIT IS THREE INDEPENDENT PATCHES, NOT A NEW BOOKING — services, the slot (operator+time
+  // together, since reschedule is the one act that moves both), and the note, each sent only
+  // when it actually changed. A partial failure still leaves the earlier PATCHes standing rather
+  // than rolling back, exactly like every other multi-step save in this app.
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSaving(true);
+    setError('');
+    try {
+      let booking = editing;
+      const servicesChanged = chosen.length !== editing.service_ids.length
+        || chosen.some((id) => !editing.service_ids.includes(id));
+      if (servicesChanged) booking = await editBookingServices(session, editing.id, chosen);
+      if (operatorId !== editing.operator_id || starts_at !== editing.starts_at) {
+        booking = await rescheduleBooking(session, editing.id, starts_at, operatorId);
+      }
+      if (note !== (editing.note ?? '')) booking = await editBookingNote(session, editing.id, note);
+      onCreated(booking);
+    } catch (e) {
+      setError(sentenceFor(e, 'تعذّر حفظ التعديل.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const save = async () => {
     if (!ready || saving) return;
+    if (editing) { await saveEdit(); return; }
     setSaving(true);
     setError('');
     try {
@@ -252,10 +295,15 @@ export function BookingDialog(
   };
 
   return (
-    <Modal open onClose={onClose} size="lg" title="حجز جديد"
+    <Modal open onClose={onClose} size="lg" title={editing ? 'تعديل الحجز' : 'حجز جديد'}
           subtitle={`فرعك، ${date === day ? 'اليوم' : day}`}>
       <div className="flex flex-col gap-4">
-        {/* ── العميل ───────────────────────────────────────────────────────────────────── */}
+        {/* ── العميل — ثابتٌ في التعديل، لا PATCH يغيّره ─────────────────────────────────── */}
+        {editing ? (
+          <p className="text-sm text-text-secondary">
+            العميل: <span className="font-semibold text-text-primary">{editingCustomerLabel || '—'}</span>
+          </p>
+        ) : (
         <Field label="جوّال العميل" required htmlFor="bkg-phone">
           <Input
             id="bkg-phone"
@@ -269,7 +317,8 @@ export function BookingDialog(
             }}
           />
         </Field>
-        {(matches ?? []).length > 0 && !customer ? (
+        )}
+        {!editing && (matches ?? []).length > 0 && !customer ? (
           <div className="flex flex-col gap-1">
             {(matches ?? []).slice(0, 4).map((m) => (
               <button
@@ -333,7 +382,8 @@ export function BookingDialog(
         </div>
 
         {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً (Tamam, 2026-08-19) ───────────── */}
-        {chosen.length > 0 ? (
+        {/* لا PATCH يكتب السعر بعد الحجز — يبقى كما كان، يُضبط من جديد فقط. */}
+        {!editing && chosen.length > 0 ? (
           <Field label="السعر (اختياري، ريال)" htmlFor="bkg-price">
             <Input
               id="bkg-price"
@@ -392,7 +442,7 @@ export function BookingDialog(
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
           <Button variant="ghost" onClick={onClose}>إلغاء</Button>
           <Button disabled={!ready || saving} onClick={save}>
-            {saving ? 'جارٍ الحجز…' : 'احجز'}
+            {saving ? 'جارٍ الحفظ…' : editing ? 'حفظ التعديل' : 'احجز'}
           </Button>
         </div>
       </div>

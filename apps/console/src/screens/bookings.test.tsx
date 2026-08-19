@@ -153,20 +153,11 @@ describe('the grid', () => {
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
   });
 
-  it('finds a customer\'s own booking by his phone number', async () => {
-    open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => card());
-    // The inline row's own field — jsdom renders it regardless of the `sm:` breakpoint.
-    const [field] = screen.getAllByPlaceholderText('جوّال العميل');
-    fireEvent.change(field, { target: { value: '9665012' } });
-    await waitFor(() => expect(asked.some((a) => a.fn === 'suggestByPrefix')).toBe(true));
-    await waitFor(() => screen.getByText('محمد'));
-    screen.getByText('محمد').click();
-    // BOOKING.customer_id is 'c1', the same id the mock suggestion carries — his own card stays,
-    // matched by identity rather than merely by a name that happens to appear on screen.
-    expect(card()).toBeTruthy();
-    expect(screen.getAllByText('محمد').length).toBeGreaterThan(0);
-  });
+  // "finds a customer's own booking by his phone number" removed with the phone-lookup filter —
+  // `suggestByPrefix` never answers a real caller (search-service's public route requires a user
+  // Bearer token, and `operations` sends the wrong credential for it), so the field only ever
+  // showed a box that could never return a match. Pulled from the UI until the platform fix
+  // (drafted, committed in `platform/`, awaiting Tamam's own release) actually ships.
 });
 
 describe('حجز جديد', () => {

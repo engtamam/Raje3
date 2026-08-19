@@ -615,6 +615,14 @@ export function rescheduleBooking(
   });
 }
 
+export function editBookingServices(
+  session: Session, id: string, serviceIds: string[],
+): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/services`, {
+    method: 'PATCH', body: JSON.stringify({ service_ids: serviceIds }),
+  });
+}
+
 export function editBookingNote(session: Session, id: string, note: string): Promise<Booking> {
   return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/note`, {
     method: 'PATCH', body: JSON.stringify({ note }),

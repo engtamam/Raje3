@@ -12,14 +12,12 @@
  * with one tap on the destination cell.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Filter, GripVertical, Phone, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, GripVertical, Plus, X } from 'lucide-react';
 import {
   attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
   fetchCatalogue, type FieldOperator, listBookings, listBookingStaff, noShowBooking,
-  rescheduleBooking, sentenceFor, suggestByPrefix,
+  rescheduleBooking, sentenceFor,
 } from '../api';
-import { asLocal } from '../phone';
-import { digitsOnly } from '../digits';
 import type { ScopeBranch } from '../branch-scope';
 import type { Session } from '../session';
 import { BookingDialog } from './BookingDialog';
@@ -28,7 +26,7 @@ import { BookingDialog } from './BookingDialog';
 const WINDOW_START = 8 * 60;    // 08:00 — a fixed, reasonable display window; real business
 const WINDOW_END = 22 * 60;     // 22:00    hours are wired in later
 const WINDOW_LEN = WINDOW_END - WINDOW_START;
-const PX_PER_MIN = 1.15;
+const PX_PER_MIN = 1.6;
 const SNAP_MINUTES = 15;        // same grain as the conflict lock (Tamam's decision, 2026-08-19)
 
 function todayLocal(): string {
@@ -144,25 +142,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [filterService, setFilterService] = useState('');   // '' = every service
   const [filterDeposit, setFilterDeposit] = useState<'any' | 'yes' | 'no'>('any');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // THE ONE EXCEPTION TO "NO SEARCH BOX" — a customer standing at the counter asking about his
-  // OWN appointment is not the same act as browsing the grid for a service. He gives a phone
-  // number, not a query; the answer is one card, not a filtered list of many.
-  const [phoneQuery, setPhoneQuery] = useState('');
-  const [phoneMatches, setPhoneMatches] = useState<CustomerHit[] | null>([]);
-  const [filterCustomer, setFilterCustomer] = useState<CustomerHit | null>(null);
-
-  useEffect(() => {
-    if (filterCustomer || phoneQuery.length < 3) { setPhoneMatches([]); return; }
-    let stale = false;
-    const id = window.setTimeout(() => {
-      suggestByPrefix(session, phoneQuery).then((rows) => { if (!stale) setPhoneMatches(rows); })
-        .catch(() => { if (!stale) setPhoneMatches(null); });
-    }, 180);
-    return () => { stale = true; window.clearTimeout(id); };
-  }, [phoneQuery, filterCustomer, session]);
+  // "البحث بالجوال" كان هنا — عُطِّل مؤقتاً (لا يعمل: مساره في search-service لم يُبنَ بعد،
+  // مُشخَّصٌ ومُصحَّحٌ في platform/ بانتظار إصدارٍ حقيقي منك). يعود حين يعمل فعلاً.
 
   const [dialog, setDialog] = useState<{
     operatorId?: string; startsAt?: number; customer?: CustomerHit; serviceIds?: string[];
+    /** Set from "تعديل" on an existing card — the same dialog, in edit mode. */
+    editing?: Booking; editingLabel?: string;
   } | 'closed'>('closed');
   const [openBooking, setOpenBooking] = useState<Booking | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -225,13 +211,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       if (filterService && !b.service_ids.includes(filterService)) return false;
       if (filterDeposit === 'yes' && !b.deposit_taken) return false;
       if (filterDeposit === 'no' && b.deposit_taken) return false;
-      if (filterCustomer && b.customer_id !== filterCustomer.id) return false;
       return true;
     });
-  }, [rows, filterService, filterDeposit, filterCustomer]);
+  }, [rows, filterService, filterDeposit]);
 
-  const activeFilterCount =
-    (filterService ? 1 : 0) + (filterDeposit !== 'any' ? 1 : 0) + (filterCustomer ? 1 : 0);
+  const activeFilterCount = (filterService ? 1 : 0) + (filterDeposit !== 'any' ? 1 : 0);
 
   // ── columns: staff in day view, days in week view ───────────────────────────────────────────
   const columns = view === 'day'
@@ -452,10 +436,10 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 on the day filtering actually touches. On anything wider there is room to just
                 SHOW the two controls inline, which is the one-tap version this was always meant
                 to be; the chip below only exists for the width that cannot afford it. */}
+            {/* البحث بالجوال مُعطَّل مؤقتاً — الاقتراح يتكئ على search-service، ومساره الداخلي
+                لهذا الاستدعاء بالذات لم يُبنَ بعد (مُشخَّصٌ ومُصحَّحٌ في platform/، بانتظار
+                إصدارٍ حقيقي منك قبل أن يعمل). عرضه هنا كان يريه حقلاً لا يجيب أبداً. */}
             <div className="hidden items-center gap-2 sm:flex">
-              <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
-                          phoneMatches={phoneMatches} filterCustomer={filterCustomer}
-                          setFilterCustomer={setFilterCustomer} />
               <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
                      className="h-9 rounded-full px-3 text-xs font-medium shadow-sm outline-none"
                      style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}>
@@ -474,7 +458,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 ))}
               </div>
               {activeFilterCount ? (
-                <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); setFilterCustomer(null); setPhoneQuery(''); }}
+                <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); }}
                        aria-label="إزالة كل الفلاتر"
                        className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
                        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
@@ -509,12 +493,6 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 <div className="absolute inset-inline-end-0 top-11 z-20 flex w-64 flex-col gap-3 rounded-2xl p-4 shadow-lg"
                     style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>جوّال العميل</span>
-                    <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
-                                phoneMatches={phoneMatches} filterCustomer={filterCustomer}
-                                setFilterCustomer={setFilterCustomer} full />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الخدمة</span>
                     <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
                            className="h-9 rounded-xl px-2 text-sm outline-none"
@@ -539,7 +517,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                     </div>
                   </div>
                   {activeFilterCount ? (
-                    <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); setFilterCustomer(null); setPhoneQuery(''); }}
+                    <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); }}
                            className="text-xs font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
                       إزالة كل الفلاتر
                     </button>
@@ -675,15 +653,31 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           }} />
                     ))}
 
-                    {/* drop preview — valid or refused, coloured BEFORE the drop itself (§6.1.1) */}
+                    {/* THE PREVIEW SAYS WHERE IT WILL LAND, NOT JUST THAT IT MOVED — a dashed box
+                        with no time on it left him guessing whether the snap actually caught the
+                        quarter-hour line it looked close to. A solid top edge marks the exact
+                        head of the block (the moment it starts, which is the one edge dragging
+                        actually decides — the tail just follows from the service's own duration),
+                        and the time itself sits pinned to that edge, updating on every snap tick
+                        rather than only once the card is dropped. */}
                     {isDragTarget && drag ? (
-                      <div className="pointer-events-none absolute inset-inline-2 rounded-xl border-2 border-dashed"
+                      <div className="pointer-events-none absolute inset-inline-2 overflow-visible rounded-xl border-2 border-dashed transition-[top] duration-100"
                           style={{
                             top: (dragOver.minutes - WINDOW_START) * PX_PER_MIN,
                             height: drag.booking.duration_minutes * PX_PER_MIN,
                             background: dragOver.valid ? 'var(--rj-valid-soft)' : 'var(--rj-invalid-soft)',
                             borderColor: dragOver.valid ? 'var(--rj-valid)' : 'var(--rj-invalid)',
-                          }} />
+                            borderTopWidth: 3, borderTopStyle: 'solid',
+                          }}>
+                        <span
+                          className="absolute inset-inline-start-1 -top-2.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
+                          style={{
+                            background: dragOver.valid ? 'var(--rj-valid)' : 'var(--rj-invalid)',
+                            color: 'var(--rj-bg)',
+                          }}>
+                          {timeLabel(dragOver.minutes)}
+                        </span>
+                      </div>
                     ) : null}
 
                     {cards.map((b) => {
@@ -711,9 +705,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           onClick={(e) => { e.stopPropagation(); if (!moving) setOpenBooking(b); }}
                           className={`rj-card-settle absolute cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start shadow-sm transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
                           style={{
-                            top, height,
-                            insetInlineStart: `calc(${lane * laneWidth}% + ${lane ? 2 : 4}px)`,
-                            width: `calc(${laneWidth}% - ${lanes > 1 ? 4 : 8}px)`,
+                            top: top + 1, height: Math.max(26, height - 2),
+                            insetInlineStart: `calc(${lane * laneWidth}% + ${lane ? 3 : 4}px)`,
+                            width: `calc(${laneWidth}% - ${lanes > 1 ? 6 : 8}px)`,
                             background: tone.bg, color: tone.fg,
                             opacity: drag?.booking.id === b.id ? 0.4 : 1,
                             zIndex: lane + 1,
@@ -815,11 +809,16 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           initialServiceIds={dialog.serviceIds}
           services={services ?? []}
           staff={staffHere}
+          editingBooking={dialog.editing}
+          editingCustomerLabel={dialog.editingLabel}
           onClose={() => setDialog('closed')}
           onCreated={(b) => {
+            const wasEditing = Boolean(dialog.editing);
             setDialog('closed');
-            setRows((cur) => [...(cur ?? []), b]);
-            say('تم الحجز ✓');
+            setRows((cur) => (wasEditing
+              ? (cur ?? []).map((x) => (x.id === b.id ? b : x))
+              : [...(cur ?? []), b]));
+            say(wasEditing ? 'حُفظ التعديل ✓' : 'تم الحجز ✓');
           }}
         />
       ) : null}
@@ -850,6 +849,10 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               serviceIds: b.service_ids,
             });
           }}
+          onEdit={(b) => {
+            setOpenBooking(null);
+            setDialog({ editing: b, editingLabel: serviceNameOf(b.service_ids) });
+          }}
           session={session}
           say={say}
         />
@@ -858,77 +861,16 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   );
 }
 
-/** THE COUNTER'S OWN QUESTION, ANSWERED IN ONE FIELD. A customer standing there and asking about
- *  his own appointment gives a phone number, not a query — so this narrows the grid to exactly
- *  his card(s) rather than filtering a list he was never browsing. Once matched, the customer's
- *  own name (and visit count, when the read carries one) shows beside the field, because the
- *  phone number alone does not answer "who is this" the way his name does. */
-function PhoneLookup({
-  phoneQuery, setPhoneQuery, phoneMatches, filterCustomer, setFilterCustomer, full,
-}: {
-  phoneQuery: string;
-  setPhoneQuery: (v: string) => void;
-  phoneMatches: CustomerHit[] | null;
-  filterCustomer: CustomerHit | null;
-  setFilterCustomer: (c: CustomerHit | null) => void;
-  /** The popover's own column layout needs the full width; the inline header row keeps it compact. */
-  full?: boolean;
-}) {
-  if (filterCustomer) {
-    return (
-      <div className="flex h-9 items-center gap-1.5 rounded-full ps-3 pe-1 text-xs font-medium shadow-sm"
-          style={{ background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }}>
-        <Phone size={12} aria-hidden />
-        <span className="truncate">{filterCustomer.name || asLocal(filterCustomer.phone)}</span>
-        {typeof filterCustomer.visits === 'number' ? (
-          <span className="opacity-70">· {filterCustomer.visits} زيارة</span>
-        ) : null}
-        <button type="button" aria-label="إلغاء" onClick={() => { setFilterCustomer(null); setPhoneQuery(''); }}
-               className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
-               style={{ color: 'var(--rj-gold-deep)' }}>
-          <X size={12} aria-hidden />
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className={`relative ${full ? '' : 'w-40'}`}>
-      <Phone size={13} aria-hidden
-            className="pointer-events-none absolute inset-inline-start-3 top-1/2 -translate-y-1/2"
-            style={{ color: 'var(--rj-ink-soft)' }} />
-      <input
-        value={phoneQuery}
-        onChange={(e) => setPhoneQuery(digitsOnly(e.target.value).slice(0, 10))}
-        placeholder="جوّال العميل"
-        aria-label="ابحث عن حجز عميل بجواله"
-        className="h-9 w-full rounded-full py-1.5 ps-9 pe-3 text-xs font-medium shadow-sm outline-none"
-        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}
-      />
-      {(phoneMatches ?? []).length > 0 ? (
-        <div className="absolute inset-inline-start-0 top-11 z-30 flex w-56 flex-col gap-1 rounded-2xl p-2 shadow-lg"
-            style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
-          {(phoneMatches ?? []).slice(0, 5).map((c) => (
-            <button key={c.id} type="button" onClick={() => setFilterCustomer(c)}
-                   className="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-start text-sm hover:opacity-80">
-              <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
-              <span className="truncate ps-2 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{c.name || ''}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 /** A small action sheet opened by tapping a card — attend / no-show / cancel, in the grid's own
  *  visual identity. Closing a booking as attended offers "احجزي الجلسة القادمة" (§2.7) when the
  *  service has a real cycle — the sleeping field `cycle_days` already in the catalogue, used for
  *  its own purpose rather than reinvented. */
 function BookingActions({ booking, customerLabel, operatorLabel, services, onClose, onChanged,
-                         onBookNext, session, say }: {
+                         onBookNext, onEdit, session, say }: {
   booking: Booking; customerLabel: string; operatorLabel: string; services: CatalogueService[];
   onClose: () => void; onChanged: (b: Booking) => void; onBookNext: (b: Booking) => void;
-  session: Session; say: (t: string) => void;
+  onEdit: (b: Booking) => void; session: Session; say: (t: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [attended, setAttended] = useState<Booking | null>(null);
@@ -990,6 +932,11 @@ function BookingActions({ booking, customerLabel, operatorLabel, services, onClo
         </div>
         {booking.status === 'booked' ? (
           <div className="flex flex-col gap-2">
+            <button type="button" onClick={() => onEdit(booking)}
+                   className="rounded-2xl py-3 text-sm font-semibold"
+                   style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
+              تعديل الحجز — الخدمات، الموعد، الملاحظة
+            </button>
             <button type="button" disabled={busy} onClick={() => act(attendBooking, 'سُجّل الحضور ✓')}
                    className="rounded-2xl py-3 text-sm font-semibold"
                    style={{ background: 'var(--rj-attended-soft)', color: 'var(--rj-attended)' }}>
