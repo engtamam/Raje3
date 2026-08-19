@@ -496,7 +496,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 <ChevronLeft size={16} aria-hidden />
               </button>
             </div>
+          </div>
 
+          {/* اليوم/الأسبوع وزر الإعدادات على نفس خط الفلاتر (Tamam, 2026-08-19) — صف تحكّم
+              واحد بدل صفّين، بدل ما يتفرّق التحكّم بالعرض عن التحكّم بالمحتوى. */}
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
               {(['day', 'week'] as const).map((v) => (
                 <button key={v} type="button" onClick={() => setView(v)}
@@ -515,9 +519,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                    style={{ background: 'var(--rj-surface)' }}>
               <Settings size={16} aria-hidden />
             </button>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
             {branches.length > 1 ? (
               <div className="flex flex-wrap items-center gap-1.5">
                 {branches.map((b) => (
