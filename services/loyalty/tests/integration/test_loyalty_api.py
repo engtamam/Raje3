@@ -322,6 +322,39 @@ def test_erasure_removes_the_balance_and_is_idempotent(client, owner, operator):
     assert second.status_code == 200 and second.json()["already_absent"] is True
 
 
+def test_erasure_keeps_the_redemption_receipt_pseudonymous_not_deleted(client, owner, operator):
+    # Tamam, 2026-08-19: a redemption is a receipt (reward, cost, branch, when) — deleting it on
+    # an erasure request leaves the shop with no defence if the customer later disputes what he
+    # was given, and breaks /report's own aggregate, which reads these rows directly.
+    rid = _reward(client, owner, name="غسلة مجانية", cost=20)
+    _earn(client, points=100, visit="v-receipt", subject="ref_erasereceipt001")
+    client.post("/api/v1/loyalty/redeem",
+               json={"subject_ref": "ref_erasereceipt001", "reward_id": rid,
+                     "idempotency_key": "k-receipt"}, headers=operator)
+
+    # THE SHARED TENANT ("shop") CARRIES OTHER TESTS' OWN REDEMPTIONS TOO — this asserts the
+    # DELTA this one redemption made, not an absolute count.
+    before = client.get("/api/v1/loyalty/report", headers=owner).json()
+    before_count = before["redemptions"]
+    before_reward = dict(before["top_rewards"]).get("غسلة مجانية", 0)
+
+    r = client.post("/internal/privacy/erase",
+                    json={"tenant": TENANT, "subject": "ref_erasereceipt001"}, headers=INTERNAL)
+    assert r.status_code == 200, r.text
+    assert any("redemptions" in x["what"] for x in r.json()["retained"])
+
+    # THE RECEIPT SURVIVES — /report's aggregate is unchanged by the erasure, proving the row is
+    # still there (not just claimed as "retained" in the ack while actually gone).
+    after = client.get("/api/v1/loyalty/report", headers=owner).json()
+    assert after["redemptions"] == before_count
+    assert dict(after["top_rewards"]).get("غسلة مجانية", 0) == before_reward
+
+    # AND THE CUSTOMER IS UNREACHABLE — his balance answers empty, the pseudonym no longer
+    # resolves to him.
+    assert client.get("/api/v1/loyalty/balance/ref_erasereceipt001",
+                      headers=operator).json()["points"] == 0
+
+
 # ── isolation ──────────────────────────────────────────────────────────────────────────────────
 def test_another_establishment_sees_none_of_this(client, owner):
     _reward(client, owner, name="سرّي", cost=10)
