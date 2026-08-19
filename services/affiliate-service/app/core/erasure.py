@@ -1,78 +1,117 @@
-"""Erasure — the contract every service in this platform answers.
+"""Erasing a marketer — spec §9: "طلب حذف البيانات لا يعني ضياع الحق ولا ضياع الدليل".
 
-A new service is born connected to the DSAR fan-out because this file exists. Fill in the two
-methods and it is done; delete this file and the service silently becomes a place personal data
-goes to hide.
+WHAT GOES, AND WHAT DOES NOT — the same split as operations' own Customer/Visit and loyalty's own
+Balance/Redemption, chosen the same way:
 
-WRITE THIS FILE HONESTLY. It is the one piece of code a regulator would read line by line, and the
-three rules below are what separate a compliant answer from a plausible one:
+  Application  phone and name are BLANKED. The row itself — status, decision, WHO decided and
+               when — is kept: an applicant who was rejected and disputes it later, or one whose
+               application became the paper trail for a later legal claim (spec §9's own scenario:
+               "a marketer works for a while, asks to be erased, then sues"), needs that history to
+               still be answerable. The decision is our own record of our own act, not his personal
+               data to take with him.
 
-  1. **Never report success for work that did not happen.** If you cannot reach the rows, cannot
-     identify the subject, or must keep the data, say so. A false "she was erased" is the worst
-     thing this platform can say. `already_absent` means you LOOKED and found nothing — it is not
-     a default.
+  Affiliate    phone and name are BLANKED. role, parent_id, status and every later slice's data
+               that hangs off `id` (commission earned, payouts made) are financial/commercial
+               record and are RETAINED — same basis billing-service and loyalty already use: the
+               identifier is removed, the transaction history is not the customer's (here: the
+               marketer's) personal data to erase once the identifier naming him is gone.
 
-  2. **Say what you KEPT, and why, with a basis.** "We kept it" is always an answer with a reason
-     attached, never a silence. A tax invoice, an audit chain, a legal hold, a consent proof —
-     these survive erasure, and the person is entitled to be told which law keeps them.
+Both are found by `subject_ref`, computed once at write time (onboarding.py) rather than
+re-derived here from a phone number this very function may have already blanked on an earlier,
+truncated run — see core/pii.py for why re-hashing an already-blank value would silently match
+nothing and report a false `already_absent`.
 
-  3. **Decide delete vs pseudonymise vs redact deliberately.** Look at how the platform's other
-     services chose, because the same walker leads to different answers:
-        billing   pseudonymises — the invoice must survive, the buyer's name must not
-        zatca     retains everything — a signed, hash-chained invoice cannot even be altered
-        webhook   redacts and keeps the row — the delivery history is operational record
-        connector deletes the row — a DLQ entry gets RETRIED, so a redacted one corrupts a CRM
-        job       redacts AND cancels — pending work would still contact the erased person
-        stream    refuses without identification — guessing would delete other people's video
-
-  4. **Be idempotent.** A DSAR retries. Erasing an already-erased subject is a no-op that still
-     returns a receipt; it must never fail the second time.
-
-See docs/contracts/privacy-erase.schema.json for the wire format and
-docs/contracts/privacy-erase-guide.md for the three steps to connect a service.
+IDEMPOTENT: an already-erased row's phone/name are already blank, so a second pass touches nothing
+further and still returns a receipt rather than failing.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from app.core.pii import subject_ref
+from app.core.models import AFFILIATES, APPLICATIONS
+from app.core.pii import is_subject_ref, subject_ref
+
+_REDACTED = "[erased]"
 
 
-class TemplateErasure:
-    # Both appear in the DSAR's target list, so they must match the data-map row registered for
-    # this service. A mismatch means the DSAR waits for an ack that never arrives.
-    service = "CHANGE-ME-service"
-    category = "CHANGE-ME"
+class AffiliateErasure:
+    # Both strings must match the data-map row registered for this service in compliance-service.
+    # A mismatch means a DSAR waits for an ack that never arrives.
+    service = "affiliate-service"
+    category = "affiliate_identity"
 
     def __init__(self, *, store, pii_salt: str, max_scan: int = 100_000) -> None:
         self._store = store
         self._salt = pii_salt
-        self._max = max_scan          # a DSAR is rare, but must never be an unbounded read
+        self._max = max_scan
 
     async def erase(self, tenant: str, subject: str) -> dict[str, Any]:
-        ref = subject_ref(self._salt, tenant, subject)
+        # THE CALLER MAY HOLD EITHER, same reasoning as operations' own erasure.py: our own path
+        # (were we ever to build one) would pass the phone; compliance-service passes the
+        # pseudonym it already holds for every other service. Hashing a pseudonym a second time
+        # matches no row and would report a false `already_absent`.
+        ref = subject if is_subject_ref(subject) else subject_ref(self._salt, tenant, subject)
 
-        # ── TODO: erase this service's subject data ──────────────────────────
-        # Scope EVERY query to `tenant`: one customer's DSAR must never touch another's rows.
-        # Page with a cursor and stop at `self._max` rather than reading an unbounded set.
         erased: list[str] = []
         retained: list[dict[str, str]] = []
+        truncated = False
 
-        # Example of a retention that is legally required — copy the SHAPE, not the words:
-        # retained.append({
-        #     "what": "invoices:12",
-        #     "basis": "tax_retention",
-        #     "why": "a tax invoice must survive ~10 years by law; the buyer's name is "
-        #            "pseudonymised and the financial record is untouched",
-        # })
+        n_apps, cut = await self._blank(APPLICATIONS, ref)
+        truncated = truncated or cut
+        if n_apps:
+            erased.append(f"{APPLICATIONS}:{n_apps}")
+            retained.append({
+                "what": f"{APPLICATIONS} decision record",
+                "basis": "operational_record",
+                "why": "who applied, who decided, when and why (approved/rejected) is our own "
+                       "record of our own act — the identifying phone/name is removed, the "
+                       "decision trail is not the applicant's personal data to take with him",
+            })
+
+        n_aff, cut = await self._blank(AFFILIATES, ref)
+        truncated = truncated or cut
+        if n_aff:
+            erased.append(f"{AFFILIATES}:{n_aff}")
+            retained.append({
+                "what": f"{AFFILIATES} record",
+                "basis": "financial_record",
+                "why": "role, referral tree and any commission already earned are our commercial "
+                       "and financial record — the identifier naming him is removed; the "
+                       "transaction history behind it is retained the same way billing-service "
+                       "retains a pseudonymised invoice",
+            })
 
         return {
             "service": self.service,
             "category": self.category,
-            "subject_ref": ref,          # the pseudonym — never echo the raw subject back
+            "subject_ref": ref,
             "erased": erased,
             "retained": retained,
-            # Only true when you looked and there was nothing. Never a default, and never a way to
-            # avoid admitting that a lookup failed.
             "already_absent": not erased and not retained,
+            "truncated": truncated,
         }
+
+    async def _blank(self, collection: str, ref: str) -> tuple[int, bool]:
+        touched = 0
+        scanned = 0
+        truncated = False
+        while True:
+            rows, _ = await self._store.find(collection, {"subject_ref": ref}, limit=200,
+                                             sort=("created_at", "asc"))
+            rows = list(rows or [])
+            if not rows:
+                break
+            for row in rows:
+                if row.get("phone") == _REDACTED and row.get("name") == _REDACTED:
+                    continue   # already processed by an earlier, truncated run
+                row["phone"] = _REDACTED
+                row["name"] = _REDACTED
+                await self._store.put(collection, row["id"], row)
+                touched += 1
+            scanned += len(rows)
+            if scanned >= self._max:
+                truncated = True
+                break
+            if len(rows) < 200:
+                break
+        return touched, truncated

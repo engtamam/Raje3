@@ -124,6 +124,17 @@ class Settings(BaseSettings):
     PII_SALT: str = ""
     ERASURE_MAX_SCAN: int = 100_000   # a DSAR is rare, but must never be an unbounded read
 
+    # ── onboarding («بوابة القبول», spec §2) ───────────────────────────────────
+    # identity-service is generic (confirmed by reading its own auth_service.py) — no change was
+    # needed there. Every marketer becomes a MEMBER of this one tenant; there is no tenant per
+    # marketer, because the hierarchy (manager -> promoter) is ours to keep, not identity's.
+    IDENTITY_SERVICE_URL: str = ""              # e.g. http://identity-service:8000
+    AFFILIATE_TENANT: str = ""                  # the one shared tenant id — REQUIRED in production
+    AFFILIATE_MANAGER_ROLE: str = "affiliate_manager"
+    AFFILIATE_PROMOTER_ROLE: str = "affiliate_promoter"
+    AFFILIATE_PHONE_DEFAULT_CC: str = "966"
+    ONBOARDING_TIMEOUT_SECONDS: int = 10
+
     # ── audit trail (Phase 38) — where privileged actions are witnessed ───────
     # `null` records NOTHING and says so; the boot guard below refuses it in production, because a
     # service that cannot witness its own privileged actions has no audit trail at all — and an
@@ -381,6 +392,28 @@ class Settings(BaseSettings):
                 and not self.COMPLIANCE_SERVICE_URL.startswith(("http://", "https://"))):
             raise ValueError(
                 f"COMPLIANCE_SERVICE_URL {self.COMPLIANCE_SERVICE_URL!r} must start with "
+                f"http:// or https://"
+            )
+
+    def assert_onboarding_config_ok(self) -> None:
+        """Boot guard. Without these two, every /apply and every /admin/applications/*/approve
+        would fail at the FIRST identity call — but only once a real applicant hits it, minutes
+        or days after deploy, never at boot where the mistake is cheap to see."""
+        if not self.is_production:
+            return
+        if not self.AFFILIATE_TENANT:
+            raise ValueError(
+                "AFFILIATE_TENANT is empty in production: there would be no tenant to mint "
+                "marketer memberships into, and every approval would fail."
+            )
+        if not self.IDENTITY_SERVICE_URL:
+            raise ValueError(
+                "IDENTITY_SERVICE_URL is empty in production: onboarding cannot reach identity "
+                "at all, so no applicant could ever sign in even once approved."
+            )
+        if not self.IDENTITY_SERVICE_URL.startswith(("http://", "https://")):
+            raise ValueError(
+                f"IDENTITY_SERVICE_URL {self.IDENTITY_SERVICE_URL!r} must start with "
                 f"http:// or https://"
             )
 

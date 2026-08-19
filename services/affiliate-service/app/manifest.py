@@ -60,7 +60,7 @@ def build_manifest(
         # someone remembers to advertise them. ADD this service's domain capabilities alongside them
         # (e.g. "files.upload", "files.read"); remove one only if you also remove the route that
         # enforces it. An advertised capability is what the admin panel and onboarding grant against.
-        "capabilities": ["platform.secrets", "platform.config"],
+        "capabilities": ["platform.secrets", "platform.config", "affiliates.manage"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -78,6 +78,13 @@ def build_manifest(
              "erasure_category": "subject"},
             {"path": "/api/v1/admin/ping", "tier": "user", "method": "GET"},
             {"path": "/api/v1/whoami", "tier": "user", "method": "GET"},
+            # «بوابة القبول» (spec §2) — no token yet, same tier as operations' own /signup.
+            {"path": "/api/v1/affiliates/apply", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/affiliates/signin", "tier": "public", "method": "POST"},
+            # The admin's queue over that gate.
+            {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/admin/affiliates/{}/reject", "tier": "user", "method": "POST"},
             # The operator surface: credentials and policy an operator changes after launch.
             # Declared like anything else — a route table built from manifests that omits the
             # place credentials are set is a route table that hides the highest-privilege

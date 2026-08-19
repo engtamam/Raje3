@@ -29,4 +29,38 @@ from __future__ import annotations
 from typing import Any
 
 
-ADMIN_ACTIONS: list[dict[str, Any]] = []
+ADMIN_ACTIONS: list[dict[str, Any]] = [
+    {
+        "id": "affiliates.list_pending",
+        "label": "طلبات التسويق المعلّقة",
+        "method": "GET",
+        "path": "/api/v1/admin/affiliates",
+        "capability": "affiliates.manage",
+        "params": [],
+        "confirm": False,
+        "danger": False,
+        "group": "Affiliates",
+    },
+    {
+        "id": "affiliates.approve_application",
+        "label": "قبول طلب مسوّق",
+        "method": "POST",
+        "path": "/api/v1/admin/affiliates/{application_id}/approve",
+        "capability": "affiliates.manage",
+        "params": [{"name": "application_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True,
+        "danger": False,
+        "group": "Affiliates",
+    },
+    {
+        "id": "affiliates.reject_application",
+        "label": "رفض طلب مسوّق",
+        "method": "POST",
+        "path": "/api/v1/admin/affiliates/{application_id}/reject",
+        "capability": "affiliates.manage",
+        "params": [{"name": "application_id", "in": "path", "type": "string", "required": True}],
+        "confirm": True,
+        "danger": True,
+        "group": "Affiliates",
+    },
+]

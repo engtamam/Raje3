@@ -142,26 +142,22 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "started refusing — and that history is unavailable anywhere else. Not critical: "
                "refusing to change a retention period because the log is down protects nothing",
     },
-    # ── Delete these examples and declare your own ────────────────────────────
     {
-        "action": "example.thing_created",
-        "source": "user",
-        "critical": False,
-        "resource": "thing",
-    },
-    {
-        "action": "example.permission_granted",
+        "action": "affiliate.application_approved",
         "source": "admin",
         "critical": True,
-        "resource": "grant",
-        "why": "an unattributable permission grant is indistinguishable from an attacker's",
+        "resource": "application",
+        "why": "approval mints a real identity membership — a channel that can message our "
+               "customers and later earn commission. An unattributable approval is "
+               "indistinguishable from an attacker minting himself a marketer account",
     },
     {
-        "action": "example.subject_erased",
-        "source": "internal",
-        "critical": True,
-        "resource": "subject",
-        "why": "erasure is irreversible; without a record we cannot prove we honoured the DSAR, "
-               "and the data itself is gone so nothing else can show it",
+        "action": "affiliate.application_rejected",
+        "source": "admin",
+        "critical": False,
+        "resource": "application",
+        "why": "a rejection explains later why a phone number could re-apply, or why an applicant "
+               "who disputes the refusal was told what he was told — not critical, since refusing "
+               "an application while the log is down protects nothing that approving does not",
     },
 ]

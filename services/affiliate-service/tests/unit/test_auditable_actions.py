@@ -44,10 +44,15 @@ def test_the_shipped_examples_are_valid():
     validate(AUDITABLE_ACTIONS, "affiliate-service")
 
 
-def test_the_template_shows_the_most_missed_source():
-    """internal actions are the category people forget — "this service erased a person's data
-    because a DSAR told it to" appears in no panel and no catalog. The example must show one."""
-    assert any(a["source"] == "internal" for a in AUDITABLE_ACTIONS)
+def test_this_service_declares_both_admin_decisions_on_the_applicant_gate():
+    """Slice 2 has exactly two real actions so far — approving and rejecting an applicant, both
+    admin-source (see api/v1/admin.py). No internal-source action exists YET: /internal/privacy/
+    erase (core/erasure.py) does not emit one, and a future slice (payout, suspension) is where
+    the "most-missed" internal category actually belongs — this test names what is true today
+    rather than keeping the template's placeholder assertion around unexamined."""
+    actions = {a["action"] for a in AUDITABLE_ACTIONS}
+    assert {"affiliate.application_approved", "affiliate.application_rejected"} <= actions
+    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin"}
 
 
 def test_the_template_shows_both_criticalities():

@@ -21,7 +21,9 @@ from app.api import health, internal, metrics
 from app.api.errors import register_error_handlers
 from app.api.health import register_readiness_check
 from app.api.v1 import router as v1_router
+from app.api.v1.admin import router as affiliates_admin_router
 from app.api.v1.operator import router as operator_router
+from app.api.v1.public import router as affiliates_public_router
 from app.config import get_settings
 from app.core.audit import build_auditor
 from app.container import build_container
@@ -45,6 +47,7 @@ def create_app() -> FastAPI:
     settings.assert_audit_config_ok()
     settings.assert_pii_config_ok()
     settings.assert_cors_config_ok()
+    settings.assert_onboarding_config_ok()
     configure_logging(settings.SERVICE_NAME, settings.ENV, settings.LOG_LEVEL)
     logger = get_logger("app.main")
 
@@ -128,6 +131,8 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router)
     app.include_router(internal.router)
     app.include_router(v1_router)
+    app.include_router(affiliates_public_router)
+    app.include_router(affiliates_admin_router)
     # Operator controls: credentials and policy an operator changes after launch.
     app.include_router(operator_router)
 

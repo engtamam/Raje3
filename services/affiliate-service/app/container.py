@@ -163,6 +163,8 @@ class Container:
     telemetry: Telemetry
     audit_sink: Any = None
     consent_gate: Any = None
+    # The domain. Built after the ports above, so it is never handed a half-built container.
+    onboarding: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -217,7 +219,7 @@ def _build_audit_sink(settings: Settings, event_bus) -> Any:
 def build_container(settings: Settings) -> Container:
     """Resolve every port from config. Fail-fast on any unknown driver."""
     event_bus = _pick(_EVENTBUS, settings.EVENTBUS_DRIVER, "event_bus", settings)
-    return Container(
+    container = Container(
         datastore=_pick(_DATASTORE, settings.DATASTORE_DRIVER, "datastore", settings),
         cache=_pick(_CACHE, settings.CACHE_DRIVER, "cache", settings),
         event_bus=event_bus,
@@ -230,3 +232,19 @@ def build_container(settings: Settings) -> Container:
         audit_sink=_build_audit_sink(settings, event_bus),
         consent_gate=_pick(_CONSENT_GATE, settings.CONSENT_GATE_DRIVER, "consent_gate", settings),
     )
+    # Domain wiring — the applicant's door (spec §2). Kept out of the dataclass defaults so every
+    # port above is resolved first; onboarding is never handed a half-built container.
+    from app.core.onboarding import Http, OnboardingService
+
+    container.onboarding = OnboardingService(
+        store=container.datastore,
+        http=Http(timeout=settings.ONBOARDING_TIMEOUT_SECONDS,
+                  internal_token=settings.INTERNAL_SERVICE_TOKEN),
+        identity_url=settings.IDENTITY_SERVICE_URL,
+        tenant=settings.AFFILIATE_TENANT,
+        manager_role=settings.AFFILIATE_MANAGER_ROLE,
+        promoter_role=settings.AFFILIATE_PROMOTER_ROLE,
+        default_cc=settings.AFFILIATE_PHONE_DEFAULT_CC,
+        pii_salt=settings.PII_SALT,
+    )
+    return container
