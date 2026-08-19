@@ -224,13 +224,19 @@ export function BookingDialog(
   const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
     && !operatorMissing && !timeMissing && !depositAmountMissing);
 
-  // "أقرب فتحة" (§6.2) — the same availability derivation the grid's own conflict lock rests
+  // "أقرب موعد" (§6.2) — the same availability derivation the grid's own conflict lock rests
   // on, from the moment a service and (optionally) an operator are chosen.
   const findNearest = async () => {
     if (chosen.length === 0 || missingDuration || finding) return;
     setFinding(true);
     setError('');
-    const after = starts_at > 0 ? starts_at : Math.floor(Date.now() / 1000);
+    // NEVER BEFORE NOW (Tamam, 2026-08-19) — a day/time already typed can sit in the past (the
+    // date default is today, and an empty time field reads as 00:00 the moment ANY digit lands
+    // in it before the rest is typed), and searching from there could hand back a slot that has
+    // already passed. `now` always wins over an earlier `starts_at`; a LATER one he already
+    // chose is respected exactly as before.
+    const now = Math.floor(Date.now() / 1000);
+    const after = starts_at > now ? starts_at : now;
     try {
       const staffToTry = operatorId ? [operatorId] : staff.map((o) => o.id);
       // THE EARLIEST SLOT, AND WHO OWNS IT — a search across several staff must know which one
@@ -522,10 +528,10 @@ export function BookingDialog(
                   onChange={(e) => setTime(e.target.value)} />
           </Field>
         </div>
-        {/* "أقرب فتحة" (§6.2) — the same availability derivation the grid's own lock rests on. */}
+        {/* "أقرب موعد" (§6.2) — the same availability derivation the grid's own lock rests on. */}
         <Button variant="ghost" disabled={chosen.length === 0 || missingDuration || finding}
                onClick={findNearest}>
-          {finding ? 'يبحث…' : 'أقرب فتحة'}
+          {finding ? 'يبحث…' : 'أقرب موعد'}
         </Button>
 
         <Field label="ملاحظة (اختياري)" htmlFor="bkg-note">

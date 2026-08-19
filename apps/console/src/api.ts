@@ -696,7 +696,7 @@ export function noShowRisk(session: Session, customerId: string): Promise<NoShow
   return call(session, `/api/v1/bookings/risk?${q.toString()}`);
 }
 
-/** The "أقرب فتحة" button (§6.2) — `null` when nothing is free in the search window. */
+/** The "أقرب موعد" button (§6.2) — `null` when nothing is free in the search window. */
 export function nearestSlot(
   session: Session, branchId: string, operatorId: string, serviceIds: string[], after: number,
 ): Promise<{ starts_at: number | null }> {

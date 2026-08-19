@@ -142,7 +142,7 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  *
  *     A HAIRLINE BORDER ALONE WAS NOT ENOUGH (Tamam, 2026-08-19, second report of the same
  *     screenshot) — `--border-subtle` is faint by design, and `disabled:opacity-50` halves it
- *     again, so a disabled ghost button (the common case: «أقرب فتحة» before a service is picked)
+ *     again, so a disabled ghost button (the common case: «أقرب موعد» before a service is picked)
  *     washed back out to plain text exactly where a border-only fix could not reach. A real
  *     resting fill, the same one hover already used, cannot wash out the same way — it is a
  *     shape at 100% opacity before disabled ever dims it, and dimmed a shape stays legible as a

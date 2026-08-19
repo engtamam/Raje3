@@ -321,10 +321,10 @@ describe('booking dialog — Stage 8', () => {
     expect(screen.queryByText(/غاب عن/)).toBeNull();
   });
 
-  it('offers "أقرب فتحة" once the dialog is open', async () => {
+  it('offers "أقرب موعد" once the dialog is open', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => screen.getByLabelText('حجز جديد'));
     screen.getByLabelText('حجز جديد').click();
-    await waitFor(() => expect(screen.getByText('أقرب فتحة')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('أقرب موعد')).toBeTruthy());
   });
 });
