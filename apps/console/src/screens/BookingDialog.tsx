@@ -16,9 +16,10 @@ import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Modal } from '@base-ui/design-system/Modal';
 import {
-  ApiError, type Booking, type CatalogueService, createBooking, type CustomerHit,
-  ensureCustomer, type FieldOperator, nearestSlot, type NoShowRisk, noShowRisk, sentenceFor,
-  setServiceDuration, setServicePrice, suggestByPrefix,
+  ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
+  type CustomerHit, customerByPhone, earnSettings, type EarnSettings, ensureCustomer,
+  type FieldOffer, type FieldOperator, nearestSlot, type NoShowRisk, noShowRisk, offerFor,
+  pointsByService, sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix,
 } from '../api';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
@@ -91,6 +92,36 @@ export function BookingDialog(
     if (!customer) { setRisk(null); return; }
     let stale = false;
     noShowRisk(session, customer.id).then((r) => { if (!stale) setRisk(r); }).catch(() => {});
+    return () => { stale = true; };
+  }, [customer, session]);
+
+  // THE SAME GRID VISIT.TSX DRAWS, NOT A PLAINER ONE (Tamam, 2026-08-19) — «ServiceGrid» always
+  // took `offered`/`redeemable`/`points`, and this dialog never passed them, so a customer with a
+  // live offer or a redeemable reward saw neither of those things while booking his OWN next visit
+  // — only while being checked in for the one he was already standing at the counter for. Same
+  // resolution path Visit.tsx uses: the phone answers a `subject_ref`, and that pseudonym is what
+  // offers and balances are actually keyed on (operations never learns a name from either read).
+  const [earn, setEarn] = useState<EarnSettings | null>(null);
+  const [offer, setOffer] = useState<FieldOffer | null>(null);
+  const [balance, setBalance] = useState<Balance | null>(null);
+
+  useEffect(() => {
+    earnSettings(session).then(setEarn).catch(() => setEarn(null));
+  }, [session]);
+
+  useEffect(() => {
+    if (!customer) { setOffer(null); setBalance(null); return; }
+    let stale = false;
+    customerByPhone(session, customer.phone)
+      .then(async (r) => {
+        const ref = r.customer?.subject_ref ?? '';
+        if (stale || !ref) return;
+        const [o, b] = await Promise.allSettled([offerFor(session, ref), balanceFor(session, ref)]);
+        if (stale) return;
+        setOffer(o.status === 'fulfilled' ? o.value : null);
+        setBalance(b.status === 'fulfilled' ? b.value : null);
+      })
+      .catch(() => { if (!stale) { setOffer(null); setBalance(null); } });
     return () => { stale = true; };
   }, [customer, session]);
 
@@ -276,7 +307,12 @@ export function BookingDialog(
           <h3 className="mb-2 text-sm text-text-secondary">الخدمات</h3>
           <ServiceGrid services={services} selected={chosen}
                       onToggle={(id) => setChosen((cur) => (
-                        cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))} />
+                        cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))}
+                      offered={new Set(offer?.service_ids ?? [])}
+                      redeemable={new Set(
+                        (balance?.rewards ?? []).map((r) => r.service_id ?? '').filter(Boolean),
+                      )}
+                      points={pointsByService(earn, services.map((s) => s.id))} />
           {chosen.length > 0 ? (
             missingDuration ? (
               <div className="mt-1 flex flex-col gap-1.5">
