@@ -135,6 +135,8 @@ class CreateIn(BaseModel):
     series_id: str | None = None
     series_seq: int | None = None
     deposit_taken: bool = False
+    # THIS BOOKING ONLY — never the catalogue. See models.py's own note on the field.
+    price_override_minor: int | None = Field(default=None, ge=0)
 
 
 @router.post("", dependencies=[Depends(_WRITE), Depends(rate_limit)])
@@ -149,7 +151,7 @@ async def create_booking(request: Request, body: CreateIn,
             customer_id=body.customer_id, service_ids=body.service_ids,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             created_by=principal.subject, series_id=body.series_id, series_seq=body.series_seq,
-            deposit_taken=body.deposit_taken)
+            deposit_taken=body.deposit_taken, price_override_minor=body.price_override_minor)
     except (OperationError, SlotClaimBusy, LicenceError) as exc:
         return _handle(exc)
     return _public(booking)

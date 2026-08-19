@@ -28,9 +28,16 @@ vi.mock('../api', async (importOriginal) => {
       return { bookings: [BOOKING] };
     },
     fetchCatalogue: async () => ({
-      services: [{ id: 'svc1', name: 'قص شعر', duration_minutes: 30, cycle_days: 21 }],
+      services: [
+        { id: 'svc1', name: 'قص شعر', duration_minutes: 30, cycle_days: 21 },
+        { id: 'svc2', name: 'تلميع', duration_minutes: 0, cycle_days: 0 },
+      ],
       tracks_vehicle: false, fields: [],
     }),
+    setServiceDuration: async (...args: unknown[]) => {
+      asked.push({ fn: 'setServiceDuration', args });
+      return {};
+    },
     noShowRisk: async (...args: unknown[]) => {
       asked.push({ fn: 'noShowRisk', args });
       return { considered: 4, no_shows: 3, risky: true };
@@ -177,6 +184,32 @@ describe('حجز جديد', () => {
     const column = container.querySelectorAll('.border-s')[1];
     fireEvent.click(column);
     await waitFor(() => expect(screen.getByText(/جوّال العميل/)).toBeTruthy());
+  });
+
+  it('fixes a missing duration from inside the dialog, never sends him away', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = () => within(screen.getByRole('dialog'));
+    await waitFor(() => dialog().getByText('تلميع'));
+    // svc2 ('تلميع') carries duration_minutes: 0 in the mock catalogue — picking it is what
+    // triggers the fix row, the same refusal the server itself would make on save. Scoped to the
+    // dialog: the filter row's own service <select> carries the same name as an <option>.
+    dialog().getByText('تلميع').click();
+    await waitFor(() => screen.getByText(/تلميع — بلا مدة مضبوطة/));
+
+    fireEvent.change(screen.getByLabelText('مدة تلميع بالدقائق'), { target: { value: '20' } });
+    screen.getByText('حفظ').click();
+
+    await waitFor(() => expect(asked.some((a) => a.fn === 'setServiceDuration')).toBe(true));
+    const call = asked.find((a) => a.fn === 'setServiceDuration');
+    expect(call?.args[1]).toBe('svc2');
+    expect(call?.args[2]).toBe(20);
+    // The refusal is gone and the total now counts what was just saved — no refetch of the
+    // whole catalogue needed for the dialog to reflect its own write.
+    await waitFor(() => expect(screen.queryByText(/بلا مدة مضبوطة/)).toBeNull());
+    expect(screen.getByText(/المدة الإجمالية: 20 دقيقة/)).toBeTruthy();
   });
 });
 

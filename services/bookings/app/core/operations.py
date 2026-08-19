@@ -107,7 +107,8 @@ class BookingOperations:
                      service_ids: list[str], starts_at: int, note: str = "",
                      idempotency_key: str = "", created_by: str = "",
                      series_id: str | None = None, series_seq: int | None = None,
-                     deposit_taken: bool = False) -> Booking:
+                     deposit_taken: bool = False,
+                     price_override_minor: int | None = None) -> Booking:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
         if not branch_id or not operator_id or not customer_id:
@@ -151,6 +152,7 @@ class BookingOperations:
             customer_id=customer_id, subject_ref=subject_ref, service_ids=tuple(service_ids),
             starts_at=int(starts_at), duration_minutes=duration, status=STATUS_BOOKED,
             series_id=series_id, series_seq=series_seq, deposit_taken=deposit_taken,
+            price_override_minor=price_override_minor,
             note=note.strip()[:500], idempotency_key=idempotency_key, created=int(now),
             created_by=created_by, updated=int(now))
         saved = await self._claim_and_save(booking, now=now)

@@ -18,9 +18,10 @@ import { Modal } from '@base-ui/design-system/Modal';
 import {
   ApiError, type Booking, type CatalogueService, createBooking, type CustomerHit,
   ensureCustomer, type FieldOperator, nearestSlot, type NoShowRisk, noShowRisk, sentenceFor,
-  suggestByPrefix,
+  setServiceDuration, setServicePrice, suggestByPrefix,
 } from '../api';
 import { asLocal } from '../phone';
+import { halalas, riyals } from '../money';
 import { digitsOnly } from '../digits';
 import { newIdempotencyKey } from '../queue';
 import { ServiceGrid } from '../ServiceGrid';
@@ -93,16 +94,48 @@ export function BookingDialog(
     return () => { stale = true; };
   }, [customer, session]);
 
-  const durationTotal = useMemo(() => {
-    const byId = new Map(services.map((s) => [s.id, s.duration_minutes ?? 0]));
-    return chosen.reduce((sum, id) => sum + (byId.get(id) ?? 0), 0);
-  }, [chosen, services]);
+  // FIXED FROM HERE, NOT SENT AWAY (Tamam, 2026-08-19) — "اضبطها من «خدماتي ومنتجاتي»" sent him
+  // to a whole other screen to answer a question this one already had open. A patch made from
+  // here updates the SAME `operations.update_service` row Services.tsx's own edit row writes; this
+  // overlay is only local memory of what was just saved, so the dialog reflects it without a
+  // refetch of the whole catalogue.
+  const [localDurations, setLocalDurations] = useState<Record<string, number>>({});
+  const durationOf = (id: string): number =>
+    localDurations[id] ?? services.find((s) => s.id === id)?.duration_minutes ?? 0;
+
+  const durationTotal = useMemo(
+    () => chosen.reduce((sum, id) => sum + durationOf(id), 0),
+    [chosen, services, localDurations],
+  );
   // A SELECTED SERVICE WITH NO DURATION SET REFUSES THE SAVE, NEVER GUESSES — the same rule the
   // server itself enforces; said here too so he learns it before the round trip, not after.
-  const missingDuration = chosen.some((id) => {
-    const s = services.find((x) => x.id === id);
-    return s && !s.duration_minutes;
-  });
+  const missingIds = chosen.filter((id) => !durationOf(id));
+  const missingDuration = missingIds.length > 0;
+
+  // THE BOOKING'S OWN PRICE, NOT THE CATALOGUE'S (Tamam, 2026-08-19) — some appointments are
+  // negotiated at the counter, and that number must never leak onto every future booking of the
+  // same service. Suggested from the catalogue's own sum, freely editable, saved back to the
+  // catalogue ONLY when he explicitly ticks the box below — two different acts, never implied by
+  // each other.
+  const catalogPriceMinor = useMemo(
+    () => chosen.reduce((sum, id) => sum + (services.find((s) => s.id === id)?.price_minor ?? 0), 0),
+    [chosen, services],
+  );
+  const [priceText, setPriceText] = useState('');
+  const [priceTouched, setPriceTouched] = useState(false);
+  const [saveToCatalog, setSaveToCatalog] = useState(false);
+  const priceMinor = priceText.trim() ? halalas(priceText) : (catalogPriceMinor || null);
+  // ONLY WHEN ONE SERVICE IS CHOSEN — a total across several services has no single catalogue row
+  // to write back to, so the checkbox that would do it is not offered at all rather than guessing
+  // which service the negotiated price was actually for.
+  const singleServiceId = chosen.length === 1 ? chosen[0] : null;
+
+  // SUGGESTS, NEVER OVERWRITES. The moment he types his own number the catalogue's total stops
+  // following his selection — the same "his edit wins" rule the rest of this dialog already
+  // follows for name/time/operator.
+  useEffect(() => {
+    if (!priceTouched) setPriceText(catalogPriceMinor ? riyals(catalogPriceMinor) : '');
+  }, [catalogPriceMinor, priceTouched]);
 
   const starts_at = (() => {
     if (!day || !time) return 0;
@@ -163,7 +196,19 @@ export function BookingDialog(
       const booking = await createBooking(session, {
         branch_id: branchId, operator_id: operatorId, customer_id: c.id, service_ids: chosen,
         starts_at, note: note.trim() || undefined, idempotency_key: idempotencyKey,
+        // undefined WHEN IT MATCHES THE CATALOGUE — a booking at the ordinary price carries no
+        // override at all, rather than a redundant copy of a number that can change under it.
+        price_override_minor: priceMinor !== null && priceMinor !== catalogPriceMinor
+          ? priceMinor : undefined,
       });
+      // A SEPARATE WRITE, AFTER THE BOOKING ITSELF SUCCEEDED — ticking the box changes what every
+      // FUTURE booking of this service defaults to; it must never block or unwind the one he is
+      // making right now. Silent on failure, like every other secondary save in this dialog: the
+      // booking is real either way, and he can fix the catalogue price from «خدماتي ومنتجاتي» if
+      // this one quietly did not take.
+      if (saveToCatalog && singleServiceId && priceMinor !== null) {
+        setServicePrice(session, singleServiceId, priceMinor).catch(() => {});
+      }
       onCreated(booking);
     } catch (e) {
       const status = e instanceof ApiError ? e.status : (e as { status?: number })?.status;
@@ -234,14 +279,43 @@ export function BookingDialog(
                         cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))} />
           {chosen.length > 0 ? (
             missingDuration ? (
-              <p className="mt-1 text-sm text-danger">
-                إحدى الخدمات المختارة بلا مدة مضبوطة — اضبطها من «خدماتي ومنتجاتي».
-              </p>
+              <div className="mt-1 flex flex-col gap-1.5">
+                {missingIds.map((id) => (
+                  <MissingDurationFix
+                    key={id}
+                    session={session}
+                    serviceId={id}
+                    serviceName={services.find((s) => s.id === id)?.name ?? id}
+                    onSet={(minutes) => setLocalDurations((cur) => ({ ...cur, [id]: minutes }))}
+                  />
+                ))}
+              </div>
             ) : (
               <p className="mt-1 text-sm text-text-secondary">المدة الإجمالية: {durationTotal} دقيقة</p>
             )
           ) : null}
         </div>
+
+        {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً (Tamam, 2026-08-19) ───────────── */}
+        {chosen.length > 0 ? (
+          <Field label="السعر (اختياري، ريال)" htmlFor="bkg-price">
+            <Input
+              id="bkg-price"
+              value={priceText}
+              dir="ltr"
+              inputMode="decimal"
+              placeholder="—"
+              onChange={(e) => { setPriceText(e.target.value); setPriceTouched(true); }}
+            />
+            {singleServiceId ? (
+              <label className="mt-1.5 flex items-center gap-2 text-sm text-text-secondary">
+                <input type="checkbox" checked={saveToCatalog}
+                       onChange={(e) => setSaveToCatalog(e.target.checked)} />
+                احفظه كسعر ثابت لهذه الخدمة (لكل الحجوزات القادمة)
+              </label>
+            ) : null}
+          </Field>
+        ) : null}
 
         {/* ── الموظف ───────────────────────────────────────────────────────────────────── */}
         <Field label="الموظف" required htmlFor="bkg-op">
@@ -287,5 +361,57 @@ export function BookingDialog(
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** ONE ROW, THE SAME ACT «خدماتي ومنتجاتي» OFFERS — a number and a save, right where the refusal
+ *  was noticed, so fixing it costs one tap and a keystroke instead of a whole other screen. */
+function MissingDurationFix({
+  session, serviceId, serviceName, onSet,
+}: {
+  session: Session;
+  serviceId: string;
+  serviceName: string;
+  onSet: (minutes: number) => void;
+}) {
+  const [minutes, setMinutes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    const n = Number(minutes);
+    if (!minutes.trim() || !Number.isFinite(n) || n <= 0) {
+      setError('اكتب رقماً أكبر من صفر.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await setServiceDuration(session, serviceId, n);
+      onSet(n);
+    } catch (e) {
+      setError(sentenceFor(e, 'تعذّر الحفظ.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-danger/5 p-2">
+      <span className="flex-1 truncate text-sm text-danger">{serviceName} — بلا مدة مضبوطة</span>
+      <Input
+        value={minutes}
+        onChange={(e) => setMinutes(e.target.value.replace(/[^\d]/g, ''))}
+        dir="ltr"
+        inputMode="numeric"
+        placeholder="15"
+        aria-label={`مدة ${serviceName} بالدقائق`}
+        className="w-16 text-center"
+      />
+      <Button type="button" disabled={saving} onClick={save}>
+        {saving ? '...' : 'حفظ'}
+      </Button>
+      {error ? <span className="text-xs text-danger">{error}</span> : null}
+    </div>
   );
 }

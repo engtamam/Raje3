@@ -112,6 +112,9 @@ export interface CatalogueService {
   /** Minutes this service takes, for the booking dialog's own duration snapshot
    *  (docs/خطة-تنفيذ-الحجوزات.md §2/§4). 0 or absent means NOT CONFIGURED — never a guess. */
   duration_minutes?: number;
+  /** Halalas. 0 or absent means no catalogue price is set — the booking dialog's own total then
+   *  has nothing to suggest, which is an honest state and not an error. */
+  price_minor?: number;
 }
 
 /** An extra input the visit sheet renders — the full descriptor, so this app never carries its
@@ -138,6 +141,36 @@ export function fetchCatalogue(
   session: Session,
 ): Promise<{ services: CatalogueService[]; tracks_vehicle: boolean; fields: VisitField[] }> {
   return call(session, '/api/v1/field/catalogue');
+}
+
+/**
+ * FIXES THE ONE THING A BOOKING ACTUALLY REFUSES WITHOUT, FROM WHERE THE REFUSAL HAPPENED.
+ *
+ * The booking dialog used to send him away — "اضبطها من «خدماتي ومنتجاتي»" — to fix exactly the
+ * duration this same screen already knows is missing, on the same service it is already showing
+ * him. Same route Services.tsx's own edit row calls (`operations.update_service`); called by path
+ * here because the dialog holds no `catalog` to resolve an action id from.
+ */
+export function setServiceDuration(
+  session: Session, serviceId: string, minutes: number,
+): Promise<unknown> {
+  return call(session, `/api/v1/staff/services/${serviceId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ duration_minutes: minutes }),
+  });
+}
+
+/** THE CATALOGUE'S OWN PRICE — explicit, and only ever called when he actually ticks "احفظ كسعر
+ *  الخدمة". A booking's own `price_override_minor` (createBooking's draft) is a completely
+ *  separate write; this one is the one that changes what every FUTURE booking of this service
+ *  defaults to. */
+export function setServicePrice(
+  session: Session, serviceId: string, minor: number,
+): Promise<unknown> {
+  return call(session, `/api/v1/staff/services/${serviceId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ price_minor: minor }),
+  });
 }
 
 // ── the customer ───────────────────────────────────────────────────────────────────────────────
@@ -534,6 +567,9 @@ export interface Booking {
   series_seq: number | null;
   visit_id: string | null;
   deposit_taken: boolean;
+  /** THIS booking's own price, when it was negotiated away from the catalogue's — never a write
+   *  to the service itself. `null` means "whatever the catalogue says". */
+  price_override_minor: number | null;
   note: string;
   reason_no_show: string | null;
   created: number;
@@ -561,6 +597,8 @@ export interface CreateBookingDraft {
   starts_at: number;
   note?: string;
   idempotency_key?: string;
+  /** THIS booking only — see Booking.price_override_minor. */
+  price_override_minor?: number;
 }
 
 export function createBooking(session: Session, draft: CreateBookingDraft): Promise<Booking> {

@@ -46,6 +46,12 @@ class Booking:
     series_seq: int | None = None
     visit_id: str | None = None          # set once, on attendance — the one link booking->visit
     deposit_taken: bool = False
+    # THE ONE PRICE THAT NEVER TOUCHES THE CATALOGUE (Tamam, 2026-08-19). Some bookings are
+    # negotiated at the counter — a returning customer, a bundle, a courtesy — and that number
+    # belongs to THIS booking alone. `None` means "whatever the catalogue says"; a real value here
+    # overrides it for this one appointment only. Writing it back to Service.price_minor is a
+    # SEPARATE, explicit act (operations' own update_service), never implied by setting this.
+    price_override_minor: int | None = None
     note: str = ""
     reason_no_show: str | None = None
     idempotency_key: str = ""
