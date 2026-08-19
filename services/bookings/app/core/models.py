@@ -14,6 +14,9 @@ from typing import Any
 
 BOOKINGS = "bookings"
 BOOKING_SLOTS = "booking_slots"
+# ONE DOCUMENT PER TENANT, NOT PER BRANCH (Tamam, 2026-08-19: "كل الفروع تاخذ نفس النظام") — a
+# shop's working hours are one policy, not a per-branch setting; see WorkingHoursStore.
+WORKING_HOURS = "working_hours"
 
 # Three states, one field — "how much of this booking's price is actually in hand", never two
 # booleans that can silently disagree (Tamam, 2026-08-19: "بدون عربون بعربون او مدفوع"). Chosen at

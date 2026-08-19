@@ -32,6 +32,13 @@ router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
 
 _READ = require_capability("bookings.read")
 _WRITE = require_capability("bookings.write")
+# A THIRD CAPABILITY, NOT bookings.write (Tamam, 2026-08-19: "مو اي موظف يقدر يعدل لازم صلاحيات
+# معينة") — working hours are a POLICY every branch and every operator's own schedule reads from,
+# the same distance `operations.manage` keeps from `operations.record`: an operator who may take
+# a booking must not thereby be able to redefine when the shop is open. Owner and manager hold it
+# by default (deploy/seed/roles.json), supervisor and operator do not — same split as
+# operations.manage/operations.record already draws for the catalogue and the team.
+_MANAGE = require_capability("bookings.manage")
 
 
 def _refuse(reason: str, status_code: int = status.HTTP_400_BAD_REQUEST) -> JSONResponse:
@@ -116,6 +123,42 @@ async def bookings_for_customer(request: Request, customer_id: str,
     c = request.app.state.container
     rows = await c.booking_ops.bookings_for_customer(tenant, customer_id)
     return {"bookings": [_public(b) for b in rows]}
+
+
+@router.get("/working-hours", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def read_working_hours(request: Request,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """The shop's own weekly policy — every branch shares it (Tamam, 2026-08-19). Anyone who can
+    read the grid may read this; only `bookings.manage` may change it (see `_MANAGE` above)."""
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    return {"weekly": await c.booking_ops.working_hours(tenant)}
+
+
+class DayHoursIn(BaseModel):
+    closed: bool = False
+    start_minute: int = Field(default=0, ge=0, le=24 * 60)
+    end_minute: int = Field(default=0, ge=0, le=24 * 60)
+
+
+class WorkingHoursIn(BaseModel):
+    # KEYED BY STRING, NOT INT — JSON object keys are always strings on the wire; Pydantic would
+    # coerce int keys back on the way in, but the console sends "0".."6" and this names that
+    # explicitly rather than relying on coercion nobody reading this route would expect.
+    weekly: dict[str, DayHoursIn]
+
+
+@router.patch("/working-hours", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def write_working_hours(request: Request, body: WorkingHoursIn,
+                              principal: Principal = Depends(require_user)) -> dict:
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    try:
+        weekly = await c.booking_ops.set_working_hours(
+            tenant, {k: v.model_dump() for k, v in body.weekly.items()})
+    except OperationError as exc:
+        return _handle(exc)
+    return {"weekly": weekly}
 
 
 @router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])

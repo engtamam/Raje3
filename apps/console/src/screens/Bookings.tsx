@@ -14,12 +14,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, Pencil, Phone, Plus,
-  Trash2, User, X,
+  Settings, Trash2, User, X,
 } from 'lucide-react';
 import {
   attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
-  fetchCatalogue, type FieldOperator, listBookings, listBookingStaff, noShowBooking,
-  rescheduleBooking, sentenceFor, suggestByPrefix,
+  type DayHours, fetchCatalogue, type FieldOperator, listBookings, listBookingStaff,
+  noShowBooking, rescheduleBooking, sentenceFor, suggestByPrefix, type WeeklyHours, workingHours,
 } from '../api';
 import { asLocal } from '../phone';
 import { digitsOnly } from '../digits';
@@ -28,13 +28,23 @@ import { riyals } from '../money';
 import { PAYMENT_COLOR, PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
 import type { Session } from '../session';
 import { BookingDialog } from './BookingDialog';
+import { WorkingHoursDialog } from './WorkingHoursDialog';
 
 // ── display window and snap ─────────────────────────────────────────────────────────────────
-const WINDOW_START = 8 * 60;    // 08:00 — a fixed, reasonable display window; real business
-const WINDOW_END = 22 * 60;     // 22:00    hours are wired in later
-const WINDOW_LEN = WINDOW_END - WINDOW_START;
-const PX_PER_MIN = 1.6;
+// WINDOW_START/WINDOW_END are no longer fixed constants — computed below from the shop's own
+// real working hours (Tamam, 2026-08-19). The honest default while they load, or for a shop
+// that never configured them, stays 08:00–22:00 — the exact fixed window this used to be.
+const DEFAULT_WINDOW_START = 8 * 60;
+const DEFAULT_WINDOW_END = 22 * 60;
+const PX_PER_MIN = 1.85;
 const SNAP_MINUTES = 15;        // same grain as the conflict lock (Tamam's decision, 2026-08-19)
+
+/** `date.weekday()`'s own numbering (0=Monday..6=Sunday) — the same one the server's
+ *  `availability.Schedule` uses, from a `YYYY-MM-DD` string with no timezone ambiguity. */
+function pyWeekday(dateStr: string): number {
+  const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay();   // 0=Sunday..6=Saturday
+  return (jsDay + 6) % 7;
+}
 
 function todayLocal(): string {
   const now = new Date();
@@ -142,6 +152,18 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // «لا موظفون نشِطون», which reads as a fact about the shop instead of a fact about the network.
   const [services, setServices] = useState<CatalogueService[] | null | undefined>(undefined);
   const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
+  // أوقات الدوام — سياسة واحدة للمنشأة كلها (Tamam, 2026-08-19). `undefined` = لسه ما وصلت، تُعامل
+  // كنافذة ٨-٢٢ الافتراضية القديمة ريثما تصل، عشان الشبكة ما تومض فاضية أول ما تُفتح الشاشة.
+  const [weekly, setWeekly] = useState<WeeklyHours | undefined>(undefined);
+  const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
+  useEffect(() => {
+    workingHours(session).then((r) => setWeekly(r.weekly)).catch(() => setWeekly(undefined));
+  }, [session]);
+  /** ذاك اليوم بالضبط — مفتوح بوقته المضبوط، أو الافتراضي ريثما تصل الإعدادات. */
+  const dayEntry = (dateStr: string): DayHours => {
+    const entry = weekly?.[String(pyWeekday(dateStr))];
+    return entry ?? { closed: false, start_minute: DEFAULT_WINDOW_START, end_minute: DEFAULT_WINDOW_END };
+  };
   const [note, setNote] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState | null>(null);
   // A CARD GROWS LOUDER, NOTHING EVER POPS UP (Tamam, 2026-08-19: "نضمن انه يقفلها... ما
@@ -287,6 +309,28 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     // narrow columns was what forced "الأحد 16 أغسط…" to truncate before the day number even
     // finished rendering — the one number the column actually needs to say.
     : daysToLoad.map((d) => ({ key: d, label: `${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.split('-')[2])}`, date: d }));
+
+  // النافذة الرأسية — يوم واحد: دوامه هو بالضبط. أسبوع: محور مشترك واحد (أوسع دوام بين كل أيامه)،
+  // لأن مقياساً مختلفاً لكل عمود يخلي نفس الموضع الرأسي يعني وقتاً مختلفاً من عمود لعمود، وهذا
+  // تشويش أسوأ من الحل نفسه (Tamam, 2026-08-19). الأيام المغلقة داخل هذا المحور المشترك تُعتَّم
+  // بصرياً بدل ما تُقصَّر — أضيق نافذة ممكنة أعوج من قراءة صحيحة.
+  const isDayClosed = view === 'day' && dayEntry(date).closed;
+  const { WINDOW_START, WINDOW_END } = useMemo(() => {
+    if (view === 'day') {
+      const e = dayEntry(date);
+      return e.closed
+        ? { WINDOW_START: DEFAULT_WINDOW_START, WINDOW_END: DEFAULT_WINDOW_END }
+        : { WINDOW_START: e.start_minute, WINDOW_END: e.end_minute };
+    }
+    const open = daysToLoad.map(dayEntry).filter((e) => !e.closed);
+    if (open.length === 0) return { WINDOW_START: DEFAULT_WINDOW_START, WINDOW_END: DEFAULT_WINDOW_END };
+    return {
+      WINDOW_START: Math.min(...open.map((e) => e.start_minute)),
+      WINDOW_END: Math.max(...open.map((e) => e.end_minute)),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, date, daysToLoad, weekly]);
+  const WINDOW_LEN = WINDOW_END - WINDOW_START;
 
   const cardsByColumn = useMemo(() => {
     const map = new Map<string, Booking[]>();
@@ -464,6 +508,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </button>
               ))}
             </div>
+
+            <button type="button" onClick={() => setHoursDialogOpen(true)}
+                   aria-label="أوقات الدوام" title="أوقات الدوام"
+                   className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
+                   style={{ background: 'var(--rj-surface)' }}>
+              <Settings size={16} aria-hidden />
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -670,6 +721,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
             لا موظفون نشِطون في هذا الفرع بعد.
           </div>
+        ) : isDayClosed ? (
+          <div className="grid place-items-center gap-2 py-24 text-center text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+            <p className="text-base font-semibold" style={{ color: 'var(--rj-ink)' }}>المحل مغلق هذا اليوم</p>
+            <p>يمكنك ضبط أوقات الدوام من الزر أعلى الشاشة.</p>
+          </div>
         ) : (
           <div data-testid="rj-grid"
               className={view === 'week' ? 'rounded-[28px] p-2 shadow-sm' : 'overflow-x-auto rounded-[28px] p-2 shadow-sm'}
@@ -749,6 +805,31 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                  startsAt: epochAt(col.date, snapped) });
                     }}
                   >
+                    {/* أيام مغلقة أو خارج دوامها ضمن المحور المشترك — تُعتَّم لا تُقصَّر، عشان
+                        نفس الموضع الرأسي يبقى يعني نفس الوقت في كل الأعمدة (Tamam, 2026-08-19). */}
+                    {view === 'week' ? (() => {
+                      const e = dayEntry(col.date);
+                      if (e.closed) {
+                        return (
+                          <div className="pointer-events-none absolute inset-0"
+                              style={{ background: 'rgba(32,26,21,0.06)' }} />
+                        );
+                      }
+                      return (
+                        <>
+                          {e.start_minute > WINDOW_START ? (
+                            <div className="pointer-events-none absolute inset-x-0 top-0"
+                                style={{ height: (e.start_minute - WINDOW_START) * PX_PER_MIN,
+                                        background: 'rgba(32,26,21,0.06)' }} />
+                          ) : null}
+                          {e.end_minute < WINDOW_END ? (
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0"
+                                style={{ height: (WINDOW_END - e.end_minute) * PX_PER_MIN,
+                                        background: 'rgba(32,26,21,0.06)' }} />
+                          ) : null}
+                        </>
+                      );
+                    })() : null}
                     {/* QUARTER-HOUR LINES, FAINTER THAN THE HOUR — every cell is already
                         clickable at 15-minute precision (SNAP_MINUTES), this is what makes that
                         structure visible instead of guessed. Four real sections per hour, each
@@ -819,7 +900,10 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           onClick={(e) => { e.stopPropagation(); if (!moving) setOpenBooking(b); }}
                           className={`rj-card-settle absolute cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start shadow-sm transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
                           style={{
-                            top: top + 1, height: Math.max(26, height - 2),
+                            // A REAL GAP, NOT A HAIRLINE — 1-2px read as touching (Tamam,
+                            // 2026-08-19, a screenshot of stacked cards with no visible margin
+                            // between them). 4px top and bottom is a real breath between cards.
+                            top: top + 4, height: Math.max(26, height - 8),
                             insetInlineStart: `calc(${lane * laneWidth}% + ${lane ? 3 : 4}px)`,
                             width: `calc(${laneWidth}% - ${lanes > 1 ? 6 : 8}px)`,
                             background: tone.bg, color: tone.fg,
@@ -990,6 +1074,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       >
         <Plus size={24} aria-hidden />
       </button>
+
+      {hoursDialogOpen ? (
+        <WorkingHoursDialog
+          session={session}
+          weekly={weekly ?? {}}
+          onClose={() => setHoursDialogOpen(false)}
+          onSaved={setWeekly}
+        />
+      ) : null}
 
       {dialog !== 'closed' ? (
         <BookingDialog

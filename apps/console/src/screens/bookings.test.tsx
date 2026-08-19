@@ -22,6 +22,9 @@ const BOOKING = {
 // A SINGLE OVERRIDABLE ROW — most tests want the plain default; the payment-pill test below
 // swaps this for one carrying a real deposit before rendering, and restores it in `afterEach`.
 let bookingsOverride: typeof BOOKING[] = [BOOKING];
+// 0=Monday..6=Sunday, all open 08:00-22:00 by default — most tests never touch working hours.
+let weeklyOverride: Record<string, { closed: boolean; start_minute: number; end_minute: number }> =
+  Object.fromEntries(Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));
 
 vi.mock('../api', async (importOriginal) => {
   const real = await importOriginal<typeof import('../api')>();
@@ -71,10 +74,24 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'rescheduleBooking', args });
       return { ...BOOKING, starts_at: (args[1] as number) };
     },
+    workingHours: async (...args: unknown[]) => {
+      asked.push({ fn: 'workingHours', args });
+      return { weekly: weeklyOverride };
+    },
+    setWorkingHours: async (...args: unknown[]) => {
+      asked.push({ fn: 'setWorkingHours', args });
+      return { weekly: args[1] };
+    },
   };
 });
 
-afterEach(() => { asked.length = 0; bookingsOverride = [BOOKING]; cleanup(); });
+afterEach(() => {
+  asked.length = 0;
+  bookingsOverride = [BOOKING];
+  weeklyOverride = Object.fromEntries(
+    Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));
+  cleanup();
+});
 
 const { BookingsScreen } = await import('./Bookings');
 
@@ -98,13 +115,14 @@ describe('branch selection', () => {
     open({ branches: [{ id: 'b1', name: 'فرع الرياض' }, { id: 'b2', name: 'فرع جدة' }] });
     expect(screen.getByText('فرع الرياض')).toBeTruthy();
     expect(screen.getByText('فرع جدة')).toBeTruthy();
-    expect(asked).toHaveLength(0);
+    // لا قراءة حجوزات بلا فرع مختار — أوقات الدوام سياسة عامة، تُقرأ بغض النظر عن الفرع.
+    expect(asked.some((a) => a.fn === 'listBookings')).toBe(false);
   });
 
   it('picks the one branch silently — no choice to make', async () => {
     open({ branches: [{ id: 'b1', name: 'فرع الرياض' }] });
     await waitFor(() => expect(asked.some((a) => a.fn === 'listBookings')).toBe(true));
-    expect(asked[0].args[1]).toBe('b1');
+    expect(asked.find((a) => a.fn === 'listBookings')?.args[1]).toBe('b1');
   });
 });
 
@@ -355,5 +373,35 @@ describe('booking dialog — Stage 8', () => {
     await waitFor(() => screen.getByLabelText('حجز جديد'));
     screen.getByLabelText('حجز جديد').click();
     await waitFor(() => expect(screen.getByText('أقرب موعد')).toBeTruthy());
+  });
+});
+
+describe('أوقات الدوام', () => {
+  // نفس ترقيم weekday() اللي يستخدمه الإنتاج — 0=الاثنين..6=الأحد.
+  const todayPyWeekday = (new Date().getDay() + 6) % 7;
+
+  it('renders the grid normally on an open day', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    expect(screen.queryByText('المحل مغلق هذا اليوم')).toBeNull();
+  });
+
+  it('shows a clear closed message instead of an empty grid, on a closed day', async () => {
+    weeklyOverride = {
+      ...weeklyOverride,
+      [String(todayPyWeekday)]: { closed: true, start_minute: 0, end_minute: 0 },
+    };
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('المحل مغلق هذا اليوم'));
+    expect(screen.queryByTestId('rj-grid')).toBeNull();
+  });
+
+  it('opens the settings dialog and saves a new week', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('أوقات الدوام'));
+    screen.getByLabelText('أوقات الدوام').click();
+    await waitFor(() => screen.getByText('حفظ'));
+    screen.getByText('حفظ').click();
+    await waitFor(() => expect(asked.some((a) => a.fn === 'setWorkingHours')).toBe(true));
   });
 });

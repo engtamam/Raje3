@@ -15,7 +15,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from app.core.models import BOOKING_SLOTS, BOOKINGS, Booking
+from app.core.models import BOOKING_SLOTS, BOOKINGS, WORKING_HOURS, Booking
 from app.core.riyadh import local
 
 
@@ -49,6 +49,24 @@ class ConcurrentEditError(Exception):
     resource with no lock" — the second scenario: two edits to the SAME booking, which the
     per-operator/time-bucket claim lane does not protect, since that lane exists to serialise
     DIFFERENT bookings for one operator, not two writers of one row)."""
+
+
+class WorkingHoursStore:
+    """One row per tenant — the establishment's own weekly policy (Tamam, 2026-08-19), not the
+    branch's. Raw dict in, raw dict out: `core/operations.py` owns the shape and its defaults,
+    this only persists whatever it is handed."""
+    collection = WORKING_HOURS
+
+    def __init__(self, store) -> None:
+        self._s = store
+
+    async def get(self, tenant: str) -> dict[str, Any] | None:
+        if not tenant:
+            return None
+        return await self._s.get(self.collection, tenant)
+
+    async def save(self, tenant: str, weekly: dict[str, Any]) -> None:
+        await self._s.put(self.collection, tenant, weekly)
 
 
 class BookingStore:

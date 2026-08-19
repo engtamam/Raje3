@@ -65,7 +65,7 @@ def env_guard():
 def _stub_ops(client) -> None:
     """A fixed duration + visit gateway + subject_ref, so create() succeeds without a real peer."""
     from app.core.operations import BookingEvents, BookingOperations, DurationLookup, SubjectRefLookup, VisitGateway
-    from app.core.stores import BookingStore
+    from app.core.stores import BookingStore, WorkingHoursStore
     from app.core.licence import NullLicence
 
     c = client.app.state.container
@@ -80,11 +80,12 @@ def _stub_ops(client) -> None:
         return "sub_" + customer_id
 
     c.bookings = BookingStore(c.datastore)
+    c.working_hours = WorkingHoursStore(c.datastore)
     c.booking_ops = BookingOperations(
         datastore=c.datastore, bookings=c.bookings,
         durations=DurationLookup(lookup=duration), licence=NullLicence(),
         visits=VisitGateway(create=visit), subject_refs=SubjectRefLookup(lookup=subject_ref),
-        events=BookingEvents(publish=None))
+        events=BookingEvents(publish=None), working_hours=c.working_hours)
     c.branch_scope = None   # no scope resolver wired — the lenient local/dev default
 
 
@@ -149,6 +150,48 @@ def test_no_show_risk_is_reachable_and_answers_honestly_for_a_new_customer(env_g
     r = client.get("/api/v1/bookings/risk", params={"customer_id": "cus_new"}, headers=auth)
     assert r.status_code == 200, r.text
     assert r.json() == {"considered": 0, "no_shows": 0, "risky": False, "threshold_percent": 60}
+
+
+def test_working_hours_default_to_8_22_every_day_unconfigured(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.get("/api/v1/bookings/working-hours", headers=_auth("bookings.read"))
+    assert r.status_code == 200, r.text
+    weekly = r.json()["weekly"]
+    assert len(weekly) == 7
+    assert weekly["0"] == {"closed": False, "start_minute": 480, "end_minute": 1320}
+
+
+def test_bookings_write_alone_cannot_change_working_hours(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    r = client.patch("/api/v1/bookings/working-hours",
+                     json={"weekly": {"0": {"closed": True, "start_minute": 0, "end_minute": 0}}},
+                     headers=_auth("bookings.read", "bookings.write"))
+    assert r.status_code == 403
+
+
+def test_bookings_manage_can_set_and_read_back_working_hours(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    weekly = {str(d): {"closed": d == 4, "start_minute": 600, "end_minute": 1200} for d in range(7)}
+    w = client.patch("/api/v1/bookings/working-hours", json={"weekly": weekly},
+                     headers=_auth("bookings.manage"))
+    assert w.status_code == 200, w.text
+    assert w.json()["weekly"]["4"]["closed"] is True
+    r = client.get("/api/v1/bookings/working-hours", headers=_auth("bookings.read"))
+    assert r.json()["weekly"]["0"] == {"closed": False, "start_minute": 600, "end_minute": 1200}
+    assert r.json()["weekly"]["4"]["closed"] is True
+
+
+def test_an_open_day_with_start_not_before_end_is_refused(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    weekly = {str(d): {"closed": False, "start_minute": 600, "end_minute": 600} for d in range(7)}
+    r = client.patch("/api/v1/bookings/working-hours", json={"weekly": weekly},
+                     headers=_auth("bookings.manage"))
+    assert r.status_code == 400
+    assert "غير صحيح" in r.json()["reason"]
 
 
 def test_bookings_for_customer_is_reachable_and_newest_first(env_guard):

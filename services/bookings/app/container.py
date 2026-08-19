@@ -241,8 +241,9 @@ def build_container(settings: Settings) -> Container:
     # customer's pseudonym), the confirmation event, and the operations that use all of them.
     from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
                                      RewardGateway, SubjectRefLookup, VisitGateway)
-    from app.core.stores import BookingStore
+    from app.core.stores import BookingStore, WorkingHoursStore
     container.bookings = BookingStore(container.datastore)
+    container.working_hours = WorkingHoursStore(container.datastore)
     container.durations = _build_duration_lookup(settings)
     container.visit_gateway = _build_visit_gateway(settings)
     container.subject_ref_lookup = _build_subject_ref_lookup(settings)
@@ -257,7 +258,8 @@ def build_container(settings: Settings) -> Container:
         events=BookingEvents(publish=container.event_bus.publish),
         rewards=RewardGateway(redeem=container.reward_gateway),
         risk_window=settings.NO_SHOW_RISK_WINDOW,
-        risk_threshold_percent=settings.NO_SHOW_RISK_THRESHOLD_PERCENT)
+        risk_threshold_percent=settings.NO_SHOW_RISK_THRESHOLD_PERCENT,
+        working_hours=container.working_hours)
     return container
 
 

@@ -26,7 +26,7 @@ async def _no_visits(**kw):
     return {"visit_id": "vis_1"}
 
 
-def _ops(*, risk_window=5, risk_threshold_percent=60) -> BookingOperations:
+def _ops(*, risk_window=5, risk_threshold_percent=60, working_hours=None) -> BookingOperations:
     store = MemoryDataStore()
     return BookingOperations(
         datastore=store, bookings=BookingStore(store),
@@ -34,7 +34,8 @@ def _ops(*, risk_window=5, risk_threshold_percent=60) -> BookingOperations:
         visits=VisitGateway(create=_no_visits),
         subject_refs=SubjectRefLookup(lookup=_subject_ref),
         events=BookingEvents(publish=None),
-        risk_window=risk_window, risk_threshold_percent=risk_threshold_percent)
+        risk_window=risk_window, risk_threshold_percent=risk_threshold_percent,
+        working_hours=working_hours)
 
 
 def _run(c):
@@ -195,6 +196,38 @@ def test_nearest_slot_finds_the_first_real_opening():
 
     starts_at = _run(run())
     assert starts_at == 1786860000
+
+
+def test_nearest_slot_respects_the_shops_own_real_working_hours():
+    # 1786860000 is Sunday 09:00 Riyadh (weekday()==6). Close Sunday entirely, open Monday
+    # (weekday()==0) 10:00-18:00 — the search must skip past Sunday and land Monday at 10:00,
+    # not offer 09:00 on a day the shop is closed.
+    from app.adapters.datastore.memory import MemoryDataStore
+    from app.core.stores import WorkingHoursStore
+
+    ds = MemoryDataStore()
+    whs = WorkingHoursStore(ds)
+
+    async def seed():
+        weekly = {str(d): {"closed": True, "start_minute": 0, "end_minute": 0} for d in range(7)}
+        weekly["6"] = {"closed": True, "start_minute": 0, "end_minute": 0}
+        weekly["0"] = {"closed": False, "start_minute": 600, "end_minute": 1080}
+        await whs.save(TENANT, {"weekly": weekly})
+
+    _run(seed())
+    ops = _ops(working_hours=whs)
+
+    async def run():
+        return await ops.nearest_slot(
+            tenant=TENANT, branch_id="b1", operator_id="op1", service_ids=["svc1"],
+            after=1786860000)
+
+    starts_at = _run(run())
+    import datetime as _dt
+    from app.core.riyadh import RIYADH
+    when = _dt.datetime.fromtimestamp(starts_at, tz=RIYADH)
+    assert when.weekday() == 0   # Monday
+    assert (when.hour, when.minute) == (10, 0)
 
 
 def test_nearest_slot_skips_a_conflict():

@@ -51,6 +51,7 @@
         "loyalty.manage",
         "bookings.read",
         "bookings.write",
+        "bookings.manage",
         "billing.read",
         "billing.manage",
         "billing.self",
@@ -102,6 +103,7 @@
         "loyalty.manage",
         "bookings.read",
         "bookings.write",
+        "bookings.manage",
         "insights.read",
         "compliance.self",
         "compliance.manage"

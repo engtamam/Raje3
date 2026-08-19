@@ -591,6 +591,31 @@ export interface Booking {
   rev: number;
 }
 
+/** One weekday's own policy. `0`=Monday..`6`=Sunday — `date.weekday()`'s own numbering, the same
+ *  one the server's `availability.Schedule` already uses, so no translation happens at the wire. */
+export interface DayHours {
+  closed: boolean;
+  start_minute: number;
+  end_minute: number;
+}
+export type WeeklyHours = Record<string, DayHours>;
+
+/** The shop's own weekly policy — ONE per tenant, every branch shares it (Tamam, 2026-08-19).
+ *  Unconfigured reads as 08:00-22:00 every day, the same honest default the server always used. */
+export function workingHours(session: Session): Promise<{ weekly: WeeklyHours }> {
+  return call(session, '/api/v1/bookings/working-hours');
+}
+
+/** `bookings.manage` only — a 403 here is expected for most staff and the caller shows it as a
+ *  sentence, not a crash. */
+export function setWorkingHours(
+  session: Session, weekly: WeeklyHours,
+): Promise<{ weekly: WeeklyHours }> {
+  return call(session, '/api/v1/bookings/working-hours', {
+    method: 'PATCH', body: JSON.stringify({ weekly }),
+  });
+}
+
 /** The grid's own read — every booking for one branch, one business day. `date` is `YYYY-MM-DD`,
  *  the shop's own business day, exactly as `day_bucket()` computes it server-side. */
 export function listBookings(

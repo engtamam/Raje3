@@ -25,6 +25,9 @@ from app.core.models import (PAYMENT_DEPOSIT, PAYMENT_NONE, PAYMENT_STATES, STAT
 from app.core.stores import BookingStore, day_bucket, new_id
 
 
+WEEKDAY_NAMES = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+
+
 class OperationError(Exception):
     """A refusal an operator can act on, carrying its own Arabic sentence."""
 
@@ -109,7 +112,8 @@ class BookingOperations:
     def __init__(self, *, datastore: Any, bookings: BookingStore, durations: DurationLookup,
                 licence: Any, visits: VisitGateway, subject_refs: SubjectRefLookup,
                 events: BookingEvents, rewards: RewardGateway | None = None,
-                risk_window: int = 5, risk_threshold_percent: int = 60) -> None:
+                risk_window: int = 5, risk_threshold_percent: int = 60,
+                working_hours: Any = None) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
@@ -125,6 +129,9 @@ class BookingOperations:
         # `no_show_risk`'s own docstring below.
         self._risk_window = risk_window
         self._risk_threshold_percent = risk_threshold_percent
+        # OPTIONAL, LIKE `rewards` ABOVE — `working_hours()` below falls back to the honest
+        # 08:00-22:00 default when this is `None`, never crashes a read over it.
+        self._working_hours = working_hours
 
     async def create(self, *, tenant: str, branch_id: str, operator_id: str, customer_id: str,
                      service_ids: list[str], starts_at: int, note: str = "",
@@ -394,6 +401,51 @@ class BookingOperations:
         return {"considered": considered, "no_shows": no_shows, "risky": risky,
                "threshold_percent": self._risk_threshold_percent}
 
+    # ── working hours (docs/وصف-تطبيق-الحجوزات.md §4: "working hours… a real, still-missing
+    # input", Tamam, 2026-08-19) — ONE policy per tenant, every branch shares it. ────────────────
+
+    async def working_hours(self, tenant: str) -> dict[str, dict[str, int | bool]]:
+        """The shop's own weekly policy, always all 7 days (0=Monday..6=Sunday, `date.weekday()`'s
+        own numbering — the same one `availability.Schedule` already uses, so this needs no
+        translation at the one call site that turns it into a real `Schedule`).
+
+        A TENANT THAT NEVER CONFIGURED THIS reads 08:00-22:00 every day — the exact honest
+        stand-in `nearest_slot` used before this store existed, so nothing that worked before this
+        shipped breaks the day it does. Never raises: a read that cannot reach the store answers
+        the same default rather than an error a grid has no way to draw.
+        """
+        raw = await self._working_hours.get(tenant) if self._working_hours else None
+        weekly = (raw or {}).get("weekly") or {}
+        out: dict[str, dict[str, int | bool]] = {}
+        for d in range(7):
+            entry = weekly.get(str(d)) or {}
+            out[str(d)] = {
+                "closed": bool(entry.get("closed", False)),
+                "start_minute": int(entry.get("start_minute", 8 * 60)),
+                "end_minute": int(entry.get("end_minute", 22 * 60)),
+            }
+        return out
+
+    async def set_working_hours(
+        self, tenant: str, weekly: dict[str, dict[str, Any]],
+    ) -> dict[str, dict[str, int | bool]]:
+        """Every one of the 7 days, always — a PARTIAL save is ambiguous (day 3 sent, day 5 not:
+        keep its old value, or default it?), so the whole week is validated and written as one
+        document, never merged with what was there."""
+        if self._working_hours is None:
+            raise OperationError("تخزين أوقات الدوام غير متاح الآن")
+        out: dict[str, dict[str, int | bool]] = {}
+        for d in range(7):
+            entry = weekly.get(str(d)) or {}
+            closed = bool(entry.get("closed", False))
+            start = int(entry.get("start_minute", 0) or 0)
+            end = int(entry.get("end_minute", 0) or 0)
+            if not closed and not (0 <= start < end <= 24 * 60):
+                raise OperationError(f"وقت دوام يوم {WEEKDAY_NAMES[d]} غير صحيح")
+            out[str(d)] = {"closed": closed, "start_minute": start, "end_minute": end}
+        await self._working_hours.save(tenant, {"weekly": out})
+        return out
+
     async def bookings_for_customer(self, tenant: str, customer_id: str, limit: int = 50) -> list[Booking]:
         """His own history, newest first — the customer page's own section (docs/وصف-تطبيق-
         الحجوزات.md §3: "مواعيده القادمة والسابقة"), the same store read `no_show_risk` above
@@ -405,14 +457,11 @@ class BookingOperations:
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
                            search_days: int = 14) -> int | None:
-        """The "أقرب فتحة" button (§6.2) — the same pure derivation
-        (app/core/availability.py), fed busy intervals from the operator's OWN real bookings.
-
-        NO WORKING-HOURS STORE YET (§4 names working hours as a real, still-missing input) — the
-        schedule used here is the grid's own fixed display window (08:00–22:00 Riyadh, every day),
-        the same simplification Bookings.tsx's grid already renders against. This is an honest
-        stand-in, not a silent guess: the day a real working-hours store exists, only THIS
-        function's `schedule` changes, not its callers.
+        """The "أقرب موعد" button (§6.2) — the same pure derivation (app/core/availability.py),
+        fed busy intervals from the operator's OWN real bookings, and now the SHOP'S OWN real
+        working hours (Tamam, 2026-08-19) — `working_hours()` above, translated into a real
+        `Schedule` here rather than the fixed 08:00-22:00 stand-in this used before that store
+        existed.
         """
         duration = await self._durations.minutes(tenant, tuple(service_ids))
         if not duration:
@@ -420,8 +469,12 @@ class BookingOperations:
 
         from app.core.availability import Schedule, Window, Busy, nearest_slot as _nearest
 
-        FULL_WINDOW = (Window(8 * 60, 22 * 60),)
-        schedule = Schedule(weekly={d: FULL_WINDOW for d in range(7)}, exceptions={})
+        hours = await self.working_hours(tenant)
+        weekly: dict[int, tuple] = {}
+        for d in range(7):
+            entry = hours[str(d)]
+            weekly[d] = () if entry["closed"] else (Window(entry["start_minute"], entry["end_minute"]),)
+        schedule = Schedule(weekly=weekly, exceptions={})
 
         bucket = day_bucket(after)
         end_bucket = day_bucket(after + search_days * 86400)
