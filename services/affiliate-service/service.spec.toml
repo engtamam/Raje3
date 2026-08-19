@@ -1,0 +1,6 @@
+# service.spec.toml — the record of how this service was generated.
+name = "affiliate-service"
+description = "Affiliate/referral marketer commission and payout portal"
+port = 8024
+
+[drivers]
