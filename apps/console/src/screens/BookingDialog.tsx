@@ -18,7 +18,7 @@ import { Modal } from '@base-ui/design-system/Modal';
 import {
   ApiError, balanceFor, type Balance, type Booking, type CatalogueService, createBooking,
   type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
-  editBookingPayment, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
+  editBookingPayment, editBookingReward, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
   nearestSlot, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
   sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix,
 } from '../api';
@@ -195,6 +195,9 @@ export function BookingDialog(
   const depositAmountMinor = depositAmountText.trim() ? halalas(depositAmountText) : null;
   const depositAmountMissing = paymentStatus === 'deposit'
     && (depositAmountMinor === null || depositAmountMinor <= 0);
+  // نيّة استبدال، لا استبدال فوري (Tamam, 2026-08-19) — يُختار هنا، يُصرف فعلياً فقط عند
+  // «حضر» (attend()), أبداً عند الحجز نفسه: نقاطه ما تُخصم لزيارة لسه ما صارت.
+  const [intendedRewardId, setIntendedRewardId] = useState(editing?.intended_reward_id ?? '');
   const priceMinor = priceText.trim() ? halalas(priceText) : (catalogPriceMinor || null);
   // ONLY WHEN ONE SERVICE IS CHOSEN — a total across several services has no single catalogue row
   // to write back to, so the checkbox that would do it is not offered at all rather than guessing
@@ -274,6 +277,9 @@ export function BookingDialog(
         booking = await editBookingPayment(
           session, editing.id, paymentStatus, depositAmountMinor ?? undefined);
       }
+      if ((intendedRewardId || null) !== editing.intended_reward_id) {
+        booking = await editBookingReward(session, editing.id, intendedRewardId || null);
+      }
       onCreated(booking);
     } catch (e) {
       setError(sentenceFor(e, 'تعذّر حفظ التعديل.'));
@@ -309,6 +315,7 @@ export function BookingDialog(
           ? priceMinor : undefined,
         payment_status: paymentStatus,
         deposit_amount_minor: paymentStatus === 'deposit' ? depositAmountMinor ?? undefined : undefined,
+        intended_reward_id: intendedRewardId || undefined,
       });
       // A SEPARATE WRITE, AFTER THE BOOKING ITSELF SUCCEEDED — ticking the box changes what every
       // FUTURE booking of this service defaults to; it must never block or unwind the one he is
@@ -466,6 +473,26 @@ export function BookingDialog(
               placeholder="0"
               onChange={(e) => setDepositAmountText(e.target.value)}
             />
+          </Field>
+        ) : null}
+
+        {/* ── نيّة استبدال — تُختار الآن، تُصرف عند «حضر» فقط (Tamam, 2026-08-19) ──────────── */}
+        {(balance?.rewards ?? []).length > 0 ? (
+          <Field label="جائزة يريد استبدالها (اختياري)" htmlFor="bkg-reward"
+                hint="لا تُخصم نقاطه الآن — تُصرف تلقائياً عند تسجيل حضوره.">
+            <select
+              id="bkg-reward"
+              value={intendedRewardId}
+              onChange={(e) => setIntendedRewardId(e.target.value)}
+              className="h-11 w-full rounded-xl bg-surface-1 px-3 shadow-sm"
+            >
+              <option value="">بدون</option>
+              {(balance?.rewards ?? []).map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.cost}){r.needs_approval ? ' — تحتاج موافقة مشرف' : ''}
+                </option>
+              ))}
+            </select>
           </Field>
         ) : null}
 

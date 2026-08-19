@@ -140,6 +140,9 @@ class CreateIn(BaseModel):
     deposit_amount_minor: int | None = Field(default=None, ge=0)
     # THIS BOOKING ONLY — never the catalogue. See models.py's own note on the field.
     price_override_minor: int | None = Field(default=None, ge=0)
+    # INTENT ONLY — never spent here. See models.py's own note on the field and RewardGateway's
+    # in core/operations.py for why the actual redeem waits for attend().
+    intended_reward_id: str | None = Field(default=None, max_length=128)
 
 
 @router.post("", dependencies=[Depends(_WRITE), Depends(rate_limit)])
@@ -155,7 +158,8 @@ async def create_booking(request: Request, body: CreateIn,
             starts_at=body.starts_at, note=body.note, idempotency_key=body.idempotency_key,
             created_by=principal.subject, series_id=body.series_id, series_seq=body.series_seq,
             payment_status=body.payment_status, deposit_amount_minor=body.deposit_amount_minor,
-            price_override_minor=body.price_override_minor)
+            price_override_minor=body.price_override_minor,
+            intended_reward_id=body.intended_reward_id)
     except (OperationError, SlotClaimBusy, LicenceError) as exc:
         return _handle(exc)
     return _public(booking)
@@ -241,6 +245,23 @@ async def edit_booking_payment(request: Request, booking_id: str, body: PaymentI
     try:
         booking = await c.booking_ops.set_payment_status(
             tenant, booking_id, body.payment_status, deposit_amount_minor=body.deposit_amount_minor)
+    except (OperationError, ConcurrentEditError) as exc:
+        return _handle(exc)
+    return _public(booking)
+
+
+class RewardIn(BaseModel):
+    reward_id: str | None = Field(default=None, max_length=128)
+
+
+@router.patch("/{booking_id}/reward", dependencies=[Depends(_WRITE), Depends(rate_limit)])
+async def edit_booking_reward(request: Request, booking_id: str, body: RewardIn,
+                              principal: Principal = Depends(require_user)) -> dict:
+    tenant = _tenant(principal)
+    await _get_own(request, principal, booking_id)
+    c = request.app.state.container
+    try:
+        booking = await c.booking_ops.set_intended_reward(tenant, booking_id, body.reward_id)
     except (OperationError, ConcurrentEditError) as exc:
         return _handle(exc)
     return _public(booking)

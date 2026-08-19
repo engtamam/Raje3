@@ -66,6 +66,15 @@ class Booking:
     # overrides it for this one appointment only. Writing it back to Service.price_minor is a
     # SEPARATE, explicit act (operations' own update_service), never implied by setting this.
     price_override_minor: int | None = None
+    # A NIGHT SPENT AT THE TAP, NOT ON THE ROAD (Tamam, 2026-08-19: "نية استبدال, لا استبدال
+    # فوري"). Redeeming the moment a reward is CHOSEN — days before the appointment — would spend
+    # a customer's points for a visit that has not happened yet; a cancelled or no-show booking
+    # would then owe him points back, silently, forever. So this is only INTENT: the actual spend
+    # (loyalty's own redeem()) fires in operations.py's `attend()`, the one moment the visit is
+    # real. STAYS SET if that spend failed (unreachable peer, or a reward needing an approval no
+    # automated attend() can give) — its continued presence on an ATTENDED booking is itself the
+    # signal "still owed, redeem him by hand from the visit screen"; cleared only on success.
+    intended_reward_id: str | None = None
     note: str = ""
     reason_no_show: str | None = None
     idempotency_key: str = ""

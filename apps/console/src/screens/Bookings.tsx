@@ -752,6 +752,18 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                  className="absolute inset-inline-end-1.5 top-1.5 h-2 w-2 rounded-full"
                                  style={{ background: PAYMENT_COLOR[b.payment_status ?? 'none'].fg }} />
                           ) : null}
+                          {/* A STAR BESIDE THE DOT — a customer waiting on a reward is a different
+                              fact from a customer who paid a deposit, and a shop that sells both
+                              needs to tell them apart at a glance, not just know "something's
+                              flagged". Still present on an attended booking means the spend
+                              failed or needed an approval attend() could not give (see the
+                              field's own note) — the same glance now reads "still owed". */}
+                          {b.intended_reward_id ? (
+                            <span aria-hidden title="جائزة بانتظار الاستبدال عند الحضور"
+                                 className="absolute inset-inline-end-4 top-1 text-[10px] leading-none">
+                              ⭐
+                            </span>
+                          ) : null}
                           {height < 30 ? (
                             // A very short card (a quick service) has no room for two lines — one
                             // combined line beats a time with no service name at all.

@@ -51,6 +51,20 @@ class VisitGateway:
 
 
 @dataclass
+class RewardGateway:
+    """The loyalty spend `attend()` fires — and ONLY `attend()`, never `create()` or
+    `set_intended_reward()` (§ intent, not spend, at booking time; see models.py's own note on
+    `Booking.intended_reward_id`). Same shape as `VisitGateway`: a peer call into operations' own
+    loyalty desk. `None` means "could not redeem" — unreachable peer, loyalty refused it, or the
+    reward needs a manager's approval no unattended `attend()` call can give — and `attend()`
+    leaves `intended_reward_id` set when that happens rather than crashing attendance over it."""
+    redeem: Any   # async (**kwargs) -> dict | None
+
+    async def spend(self, **kwargs: Any) -> dict | None:
+        return await self.redeem(**kwargs)
+
+
+@dataclass
 class SubjectRefLookup:
     """The customer's pseudonym (§5, §6.5) — the THIRD, and last, question this module asks
     `operations`. `None` means "could not ask", never "no pseudonym" — see
@@ -94,7 +108,7 @@ class BookingEvents:
 class BookingOperations:
     def __init__(self, *, datastore: Any, bookings: BookingStore, durations: DurationLookup,
                 licence: Any, visits: VisitGateway, subject_refs: SubjectRefLookup,
-                events: BookingEvents) -> None:
+                events: BookingEvents, rewards: RewardGateway | None = None) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
@@ -102,13 +116,17 @@ class BookingOperations:
         self._visits = visits
         self._subject_refs = subject_refs
         self._events = events
+        # OPTIONAL, LIKE `events.publish` ABOVE — a test or a local run with no loyalty desk wired
+        # simply never redeems; `attend()` below treats a missing gateway the same as a failed one.
+        self._rewards = rewards
 
     async def create(self, *, tenant: str, branch_id: str, operator_id: str, customer_id: str,
                      service_ids: list[str], starts_at: int, note: str = "",
                      idempotency_key: str = "", created_by: str = "",
                      series_id: str | None = None, series_seq: int | None = None,
                      payment_status: str = PAYMENT_NONE, deposit_amount_minor: int | None = None,
-                     price_override_minor: int | None = None) -> Booking:
+                     price_override_minor: int | None = None,
+                     intended_reward_id: str | None = None) -> Booking:
         if not tenant:
             raise OperationError("لا توجد منشأة على الطلب — سجّل الدخول من جديد")
         if not branch_id or not operator_id or not customer_id:
@@ -163,6 +181,7 @@ class BookingOperations:
             starts_at=int(starts_at), duration_minutes=duration, status=STATUS_BOOKED,
             series_id=series_id, series_seq=series_seq, payment_status=payment_status,
             deposit_amount_minor=deposit_amount_minor,
+            intended_reward_id=(intended_reward_id or "").strip()[:128] or None,
             price_override_minor=price_override_minor,
             note=note.strip()[:500], idempotency_key=idempotency_key, created=int(now),
             created_by=created_by, updated=int(now))
@@ -237,6 +256,20 @@ class BookingOperations:
         booking.updated = int(time.time())
         return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
 
+    async def set_intended_reward(
+        self, tenant: str, booking_id: str, reward_id: str | None,
+    ) -> Booking:
+        """INTENT only — the actual spend happens in `attend()` below, never here. Refuses on a
+        terminal booking (via `_require`, unlike `set_payment_status` above): once attended, the
+        redemption has already been attempted one way or the other, and changing which reward was
+        "intended" after the fact would not do anything — it would just misdescribe what already
+        happened."""
+        booking = await self._require(tenant, booking_id)
+        expected = booking.rev
+        booking.intended_reward_id = (reward_id or "").strip()[:128] or None
+        booking.updated = int(time.time())
+        return await self._bookings.save_if_unchanged(booking, expected_rev=expected)
+
     async def cancel(self, tenant: str, booking_id: str, reason: str = "") -> Booking:
         # NOT `_require`: that refuses every TERMINAL status uniformly, and CANCELLED is one of
         # them — a cancel of an already-cancelled booking would be told "أُغلِق ولا يمكن تعديله",
@@ -293,6 +326,19 @@ class BookingOperations:
         expected = booking.rev
         booking.status = STATUS_ATTENDED
         booking.visit_id = str(result["visit_id"])
+        # THE SPEND, NOW — THE ONE MOMENT THE VISIT IS REAL (Tamam, 2026-08-19: "نية استبدال, لا
+        # استبدال فوري"). `intended_reward_id` only ever meant "he asked for this at booking
+        # time" — a customer's points were never touched until this exact line. Best-effort, like
+        # every other secondary write hung off an attend: a failed redemption must not undo an
+        # attendance that already succeeded, so it is never raised, only left un-cleared as its
+        # own "still owed" signal (see the field's own note in models.py).
+        if booking.intended_reward_id and self._rewards is not None:
+            spent = await self._rewards.spend(
+                tenant=tenant, subject_ref=booking.subject_ref,
+                reward_id=booking.intended_reward_id, idempotency_key=f"bkg-reward:{booking.id}",
+                branch_id=booking.branch_id, actor=f"booking:{booking.id}")
+            if spent is not None and spent.get("ok", True):
+                booking.intended_reward_id = None
         booking.updated = int(time.time())
         saved = await self._bookings.save_if_unchanged(booking, expected_rev=expected)
         await self._events.emit(kind="attended", booking=saved)

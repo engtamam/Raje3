@@ -240,12 +240,13 @@ def build_container(settings: Settings) -> Container:
     # this service asks `operations` (a service's duration, the booking->visit gateway, and the
     # customer's pseudonym), the confirmation event, and the operations that use all of them.
     from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
-                                     SubjectRefLookup, VisitGateway)
+                                     RewardGateway, SubjectRefLookup, VisitGateway)
     from app.core.stores import BookingStore
     container.bookings = BookingStore(container.datastore)
     container.durations = _build_duration_lookup(settings)
     container.visit_gateway = _build_visit_gateway(settings)
     container.subject_ref_lookup = _build_subject_ref_lookup(settings)
+    container.reward_gateway = _build_reward_gateway(settings)
     from app.adapters.branch_scope import build as build_branch_scope
     container.branch_scope = build_branch_scope(settings)
     container.booking_ops = BookingOperations(
@@ -253,7 +254,8 @@ def build_container(settings: Settings) -> Container:
         durations=DurationLookup(lookup=container.durations), licence=container.licence,
         visits=VisitGateway(create=container.visit_gateway),
         subject_refs=SubjectRefLookup(lookup=container.subject_ref_lookup),
-        events=BookingEvents(publish=container.event_bus.publish))
+        events=BookingEvents(publish=container.event_bus.publish),
+        rewards=RewardGateway(redeem=container.reward_gateway))
     return container
 
 
@@ -301,3 +303,22 @@ def _build_visit_gateway(settings: Settings):
         path=settings.OPERATIONS_VISIT_FROM_CUSTOMER_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
     return gateway.create
+
+
+def _build_reward_gateway(settings: Settings):
+    """`http` when `operations` is wired, or a call that always answers `None` otherwise — an
+    unconfigured reward path simply means an intended reward is never auto-redeemed; unlike the
+    other three peer questions, this one is never fail-closed, because a customer's points not
+    being spent automatically is not a defect the way a phantom Visit or a guessed duration
+    would be — worst case, the shop redeems him by hand, same as it always did."""
+    from app.adapters.reward_gateway.http import HttpRewardGateway
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_REWARD_REDEEM_PATH:
+        async def _never_redeems(**kwargs) -> dict | None:
+            return None
+        return _never_redeems
+    gateway = HttpRewardGateway(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_REWARD_REDEEM_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+    return gateway.redeem

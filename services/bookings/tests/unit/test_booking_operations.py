@@ -13,7 +13,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.licence import LicenceError, NullLicence
 from app.core.models import STATUS_CANCELLED
 from app.core.operations import (BookingEvents, BookingOperations, DurationLookup, OperationError,
-                                 SubjectRefLookup, VisitGateway)
+                                 RewardGateway, SubjectRefLookup, VisitGateway)
 from app.core.stores import BookingStore, ConcurrentEditError
 
 TENANT = "t1"
@@ -56,11 +56,28 @@ class _FixedVisits:
         return self._answer
 
 
+class _FixedRewards:
+    """A stand-in for `operations`' loyalty desk. `answer=None` means the peer refused or was
+    unreachable — the same shape a missing gateway (`rewards=None`) produces, exercised by the
+    tests that pass neither."""
+    def __init__(self, *, answer=None, boom: bool = False) -> None:
+        self._answer = answer
+        self._boom = boom
+        self.calls: list[dict] = []
+
+    async def __call__(self, **kwargs) -> dict | None:
+        self.calls.append(kwargs)
+        if self._boom:
+            raise RuntimeError("operations is restarting")
+        return self._answer
+
+
 async def _subject_ref(tenant: str, customer_id: str) -> str:
     return "sub_" + customer_id
 
 
-def _ops(*, licence=None, minutes=None, visits=None, subject_ref_lookup=None) -> BookingOperations:
+def _ops(*, licence=None, minutes=None, visits=None, subject_ref_lookup=None,
+         rewards=None) -> BookingOperations:
     store = MemoryDataStore()
     return BookingOperations(
         datastore=store, bookings=BookingStore(store),
@@ -68,7 +85,8 @@ def _ops(*, licence=None, minutes=None, visits=None, subject_ref_lookup=None) ->
         licence=licence or NullLicence(),
         visits=VisitGateway(create=visits or _FixedVisits(answer={"visit_id": "vis_1"})),
         subject_refs=SubjectRefLookup(lookup=subject_ref_lookup or _subject_ref),
-        events=BookingEvents(publish=None))
+        events=BookingEvents(publish=None),
+        rewards=RewardGateway(redeem=rewards) if rewards is not None else None)
 
 
 def _run(coro):
@@ -480,5 +498,121 @@ def test_an_unknown_payment_state_refuses_the_edit_too():
                                    customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
         with pytest.raises(OperationError, match="دفع"):
             await ops.set_payment_status(TENANT, booking.id, "half")
+
+    _run(run())
+
+
+def test_an_intended_reward_is_never_spent_at_booking_time():
+    rewards = _FixedRewards(answer={"ok": True})
+    ops = _ops(rewards=rewards)
+
+    async def run():
+        return await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                intended_reward_id="rwd_1")
+
+    booking = _run(run())
+    assert booking.intended_reward_id == "rwd_1"
+    assert rewards.calls == [], "create() must never call the reward gateway — only attend() may"
+
+
+def test_attending_spends_the_intended_reward_and_clears_it():
+    rewards = _FixedRewards(answer={"ok": True})
+    ops = _ops(rewards=rewards)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   intended_reward_id="rwd_1")
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.intended_reward_id is None
+    assert rewards.calls[0]["reward_id"] == "rwd_1"
+    assert rewards.calls[0]["subject_ref"] == "sub_c1"
+
+
+def test_a_refused_redemption_leaves_the_intent_set_but_still_attends():
+    rewards = _FixedRewards(answer={"ok": False, "reason": "REFUSED"})
+    ops = _ops(rewards=rewards)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   intended_reward_id="rwd_1")
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.status == "attended", "a refused redemption must never block attendance itself"
+    assert attended.intended_reward_id == "rwd_1", "left set — the visit screen's own signal to redeem him by hand"
+
+
+def test_an_unreachable_reward_gateway_leaves_the_intent_set_too():
+    ops = _ops(rewards=_FixedRewards(answer=None))
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   intended_reward_id="rwd_1")
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.status == "attended"
+    assert attended.intended_reward_id == "rwd_1"
+
+
+def test_no_reward_gateway_wired_at_all_still_attends_cleanly():
+    # `rewards=None` (the default) — a local/test run with nothing configured must behave exactly
+    # like every other optional peer in this file: silently absent, never a crash.
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000,
+                                   intended_reward_id="rwd_1")
+        return await ops.attend(TENANT, booking.id)
+
+    attended = _run(run())
+    assert attended.status == "attended"
+    assert attended.intended_reward_id == "rwd_1"
+
+
+def test_no_intended_reward_never_calls_the_gateway_at_attend_either():
+    rewards = _FixedRewards(answer={"ok": True})
+    ops = _ops(rewards=rewards)
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        return await ops.attend(TENANT, booking.id)
+
+    _run(run())
+    assert rewards.calls == []
+
+
+def test_set_intended_reward_is_editable_before_attendance():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        changed = await ops.set_intended_reward(TENANT, booking.id, "rwd_2")
+        cleared = await ops.set_intended_reward(TENANT, changed.id, None)
+        return changed, cleared
+
+    changed, cleared = _run(run())
+    assert changed.intended_reward_id == "rwd_2"
+    assert cleared.intended_reward_id is None
+
+
+def test_set_intended_reward_refuses_on_a_terminal_booking():
+    ops = _ops()
+
+    async def run():
+        booking = await ops.create(tenant=TENANT, branch_id="b1", operator_id="op1",
+                                   customer_id="c1", service_ids=["svc1"], starts_at=1786860000)
+        await ops.cancel(TENANT, booking.id)
+        with pytest.raises(OperationError, match="أُغلِق"):
+            await ops.set_intended_reward(TENANT, booking.id, "rwd_1")
 
     _run(run())

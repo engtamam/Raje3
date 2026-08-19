@@ -715,6 +715,51 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
            "duplicate": recorded.duplicate}
 
 
+class BookingRewardRedeemIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    subject_ref: str = Field(min_length=1, max_length=200)
+    reward_id: str = Field(min_length=1, max_length=128)
+    idempotency_key: str = Field(min_length=1, max_length=128)
+    branch_id: str = Field(default="", max_length=64)
+    actor: str = Field(default="", max_length=64)
+
+
+@router.post("/operations/bookings/redeem", dependencies=[Depends(require_internal_token)])
+async def internal_booking_redeem(request: Request, body: BookingRewardRedeemIn) -> dict:
+    """`bookings`' one call into the loyalty desk — fired from `attend()`, and ONLY `attend()`,
+    for a reward flagged as INTENT at booking time (docs: `Booking.intended_reward_id`'s own
+    note). Never at booking time itself: a booking made days ahead has not happened yet, and
+    spending points for a visit that might still be cancelled would owe them back silently.
+
+    SAME ENGINE `till.redeem_at_the_counter` USES, same wrapping — `{"ok": bool, ...}` — so the
+    caller (an automated `attend()`, nobody at a screen to read a raw ledger refusal) can act on
+    one boolean rather than parse `_status`/`_reason` itself. `subject_ref` arrives directly:
+    `bookings` already stamped it on the booking at creation (§6.5), so this needs no customer
+    lookup of its own — unlike the till route, which starts from a phone or a plate.
+
+    NO `approved_by` — there is nobody here to give one. A reward above the shop's manager
+    threshold is correctly refused by loyalty and stays REFUSED here too; the caller
+    (`attend()`) leaves `intended_reward_id` set on that refusal, which is its own signal to
+    redeem him by hand from the visit screen instead.
+    """
+    desk = getattr(request.app.state.container, "loyalty_desk", None)
+    if desk is None or not desk.configured:
+        return {"ok": False, "reason": "UNAVAILABLE"}
+    c = request.app.state.container
+    branch_id = await c.operations.resolve_branch(body.tenant, body.branch_id) if body.branch_id else ""
+    await request.app.state.auditor.record(
+        "loyalty.redeemed", actor=f"bookings:{body.actor or 'unknown'}", tenant=body.tenant,
+        resource="redemption", ip=request.client.host if request.client else "")
+    out = await desk.redeem(tenant=body.tenant, subject_ref=body.subject_ref,
+                            reward_id=body.reward_id, idempotency_key=body.idempotency_key,
+                            actor=body.actor or "bookings", approved_by="", branch_id=branch_id)
+    if out is None:
+        return {"ok": False, "reason": "UNAVAILABLE"}
+    if "_status" in out:
+        return {"ok": False, "reason": "REFUSED", "message": out.get("_reason") or "تعذّر الاستبدال."}
+    return {"ok": True, **out}
+
+
 class CustomerSubjectRefIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
     customer_id: str = Field(min_length=1, max_length=64)

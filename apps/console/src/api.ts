@@ -576,6 +576,11 @@ export interface Booking {
   /** THIS booking's own price, when it was negotiated away from the catalogue's — never a write
    *  to the service itself. `null` means "whatever the catalogue says". */
   price_override_minor: number | null;
+  /** A reward he asked for AT BOOKING TIME, spent only at attend() — never here (Tamam,
+   *  2026-08-19: "نية استبدال, لا استبدال فوري"). Still set on an ATTENDED booking means the
+   *  spend failed or needed an approval nobody automated could give — redeem him by hand from
+   *  the visit screen. `null` means either "never asked" or "already spent". */
+  intended_reward_id: string | null;
   note: string;
   reason_no_show: string | null;
   created: number;
@@ -607,6 +612,7 @@ export interface CreateBookingDraft {
   deposit_amount_minor?: number;
   /** THIS booking only — see Booking.price_override_minor. */
   price_override_minor?: number;
+  intended_reward_id?: string;
 }
 
 export function createBooking(session: Session, draft: CreateBookingDraft): Promise<Booking> {
@@ -641,6 +647,14 @@ export function editBookingPayment(
       payment_status: paymentStatus,
       deposit_amount_minor: depositAmountMinor ?? undefined,
     }),
+  });
+}
+
+export function editBookingReward(
+  session: Session, id: string, rewardId: string | null,
+): Promise<Booking> {
+  return call(session, `/api/v1/bookings/${encodeURIComponent(id)}/reward`, {
+    method: 'PATCH', body: JSON.stringify({ reward_id: rewardId }),
   });
 }
 
