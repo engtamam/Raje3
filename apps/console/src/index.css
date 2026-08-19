@@ -114,6 +114,23 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  */
 .rounded-card {
   border: 1px solid var(--border-subtle);
+  /* THE KIT'S OWN SHADOW SCALE ALREADY CARRIES THE PREMIUM FEEL — its author's own comment says
+   * so ("big blur at low opacity") — but every card on every screen was drawn with `shadow-sm`,
+   * the scale's flattest, least-blurred step (2px spread, 0.10 opacity). `shadow-md` is the same
+   * tinted-navy family, just the depth the token was actually designed to read at. */
+  box-shadow: var(--shadow-md);
+}
+
+/* A REAL GLASS SURFACE, WHERE ONE ACTUALLY BELONGS — an element floating OVER content (a modal,
+ * a popover, a dropdown), never a card sitting flush in the page flow next to its siblings.
+ * `backdrop-filter` is a plain CSS feature independent of the shared kit, so this needed no
+ * override elsewhere: translucency plus blur so what is behind the panel still reads through it,
+ * which is the whole visual claim "glass" is making — an opaque card with a blur filter is not
+ * glass, it is a card that wasted a filter. */
+[role="dialog"], [data-radix-popper-content-wrapper] {
+  background-color: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
 }
 
 /* 2 · A "GHOST" BUTTON IS `bg-transparent` AT REST AND GAINS A BACKGROUND ONLY ON `:hover` — on
