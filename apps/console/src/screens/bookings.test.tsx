@@ -44,7 +44,7 @@ vi.mock('../api', async (importOriginal) => {
     },
     noShowRisk: async (...args: unknown[]) => {
       asked.push({ fn: 'noShowRisk', args });
-      return { considered: 4, no_shows: 3, risky: true };
+      return { considered: 4, no_shows: 3, risky: true, threshold_percent: 60 };
     },
     nearestSlot: async (...args: unknown[]) => {
       asked.push({ fn: 'nearestSlot', args });
@@ -309,6 +309,22 @@ describe('احجز الجلسة القادمة', () => {
     await waitFor(() => screen.getByText(/احجز الجلسة القادمة/));
     screen.getByText(/احجز الجلسة القادمة/).click();
     await waitFor(() => expect(screen.getByText(/عميل معروف/)).toBeTruthy());
+  });
+
+  it('a risky customer gets a clear percentage and a one-tap deposit suggestion', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    card().click();
+    await waitFor(() => screen.getByLabelText('حضر'));
+    screen.getByLabelText('حضر').click();
+    await waitFor(() => screen.getByText(/احجز الجلسة القادمة/));
+    screen.getByText(/احجز الجلسة القادمة/).click();
+    // The mock answers considered:4, no_shows:3 -> 75%, threshold 60% — both numbers on screen,
+    // not just a badge (Tamam, 2026-08-19: "مو بس شارة ما يعرف معناها").
+    await waitFor(() => screen.getByText(/75٪/));
+    expect(screen.getByText(/الحد 60٪/)).toBeTruthy();
+    screen.getByText('فعّل العربون الآن').click();
+    await waitFor(() => expect(screen.getByLabelText(/مبلغ العربون/)).toBeTruthy());
   });
 });
 

@@ -148,7 +148,7 @@ def test_no_show_risk_is_reachable_and_answers_honestly_for_a_new_customer(env_g
     auth = _auth("bookings.read")
     r = client.get("/api/v1/bookings/risk", params={"customer_id": "cus_new"}, headers=auth)
     assert r.status_code == 200, r.text
-    assert r.json() == {"considered": 0, "no_shows": 0, "risky": False}
+    assert r.json() == {"considered": 0, "no_shows": 0, "risky": False, "threshold_percent": 60}
 
 
 def test_nearest_slot_is_reachable(env_guard):

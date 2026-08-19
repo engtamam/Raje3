@@ -690,6 +690,9 @@ export interface NoShowRisk {
   considered: number;
   no_shows: number;
   risky: boolean;
+  /** The shop's own configured cutoff (config, not a constant — Tamam, 2026-08-19), so the
+   *  screen can say the actual percentage rather than a bare "خطر" nobody can act on. */
+  threshold_percent: number;
 }
 export function noShowRisk(session: Session, customerId: string): Promise<NoShowRisk> {
   const q = new URLSearchParams({ customer_id: customerId });

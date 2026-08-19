@@ -26,14 +26,15 @@ async def _no_visits(**kw):
     return {"visit_id": "vis_1"}
 
 
-def _ops() -> BookingOperations:
+def _ops(*, risk_window=5, risk_threshold_percent=60) -> BookingOperations:
     store = MemoryDataStore()
     return BookingOperations(
         datastore=store, bookings=BookingStore(store),
         durations=DurationLookup(lookup=_duration), licence=NullLicence(),
         visits=VisitGateway(create=_no_visits),
         subject_refs=SubjectRefLookup(lookup=_subject_ref),
-        events=BookingEvents(publish=None))
+        events=BookingEvents(publish=None),
+        risk_window=risk_window, risk_threshold_percent=risk_threshold_percent)
 
 
 def _run(c):
@@ -54,7 +55,7 @@ def test_a_customer_with_no_closed_appointments_is_not_risky():
         return await ops.no_show_risk(TENANT, "cus_new")
 
     risk = _run(run())
-    assert risk == {"considered": 0, "no_shows": 0, "risky": False}
+    assert risk == {"considered": 0, "no_shows": 0, "risky": False, "threshold_percent": 60}
 
 
 def test_three_no_shows_of_the_last_five_marks_her_risky():
@@ -128,6 +129,57 @@ def test_only_the_last_five_closed_appointments_count():
     # two most recent no-shows — the oldest two no-shows fall outside the window.
     assert risk["no_shows"] == 2
     assert risk["risky"] is False
+
+
+def test_a_stricter_threshold_flags_her_from_fewer_no_shows():
+    # 40% of a window of 5 -> a minimum sample of 2 (ceil(0.4*5)), not the default 3.
+    ops = _ops(risk_threshold_percent=40)
+
+    async def run():
+        for i in range(5):
+            b = await _mk(ops, starts_at=1786860000 + i * 86400)
+            if i < 2:
+                await ops.no_show(TENANT, b.id)
+            else:
+                await ops.attend(TENANT, b.id)
+        return await ops.no_show_risk(TENANT, "c1")
+
+    risk = _run(run())
+    assert risk["considered"] == 5
+    assert risk["no_shows"] == 2
+    assert risk["risky"] is True
+    assert risk["threshold_percent"] == 40
+
+
+def test_a_single_no_show_is_never_risky_even_at_100_percent():
+    # 100% of one closed appointment is not a pattern — the minimum-sample floor (ceil(1.0*5)=5)
+    # refuses to call it risky no matter how strict the percentage is.
+    ops = _ops(risk_threshold_percent=100)
+
+    async def run():
+        b = await _mk(ops, starts_at=1786860000)
+        await ops.no_show(TENANT, b.id)
+        return await ops.no_show_risk(TENANT, "c1")
+
+    risk = _run(run())
+    assert risk["considered"] == 1
+    assert risk["no_shows"] == 1
+    assert risk["risky"] is False
+
+
+def test_a_smaller_window_judges_her_on_less_history():
+    ops = _ops(risk_window=2, risk_threshold_percent=60)
+
+    async def run():
+        for i in range(2):
+            b = await _mk(ops, starts_at=1786860000 + i * 86400)
+            await ops.no_show(TENANT, b.id)
+        return await ops.no_show_risk(TENANT, "c1")
+
+    risk = _run(run())
+    assert risk["considered"] == 2
+    assert risk["no_shows"] == 2
+    assert risk["risky"] is True
 
 
 # ── §6.2: "أقرب فتحة" ─────────────────────────────────────────────────────────────────────────

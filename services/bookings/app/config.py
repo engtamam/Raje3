@@ -181,6 +181,12 @@ class Settings(BaseSettings):
     BILLING_CHECK_PATH: str = "/internal/billing/entitlements/check"
     PEER_TIMEOUT_SECONDS: int = 8
 
+    # ── no-show risk (§2.6/§6.2): a number beside her name, never a verdict — configured, not
+    # hardcoded (Tamam, 2026-08-19), so a shop that finds these too strict or too loose changes
+    # one number here, not a release. See core/operations.py::no_show_risk.
+    NO_SHOW_RISK_WINDOW: int = 5           # of her last N closed appointments…
+    NO_SHOW_RISK_THRESHOLD_PERCENT: int = 60  # …this % or more missed marks her "risky"
+
     # ── the one question asked of `operations` (§3): what a set of service_ids costs in minutes.
     # Empty means creating a booking always refuses — never a guessed duration (see
     # app/core/operations.py::DurationLookup, app/adapters/duration_lookup/http.py).

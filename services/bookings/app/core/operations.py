@@ -108,7 +108,8 @@ class BookingEvents:
 class BookingOperations:
     def __init__(self, *, datastore: Any, bookings: BookingStore, durations: DurationLookup,
                 licence: Any, visits: VisitGateway, subject_refs: SubjectRefLookup,
-                events: BookingEvents, rewards: RewardGateway | None = None) -> None:
+                events: BookingEvents, rewards: RewardGateway | None = None,
+                risk_window: int = 5, risk_threshold_percent: int = 60) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
@@ -119,6 +120,11 @@ class BookingOperations:
         # OPTIONAL, LIKE `events.publish` ABOVE — a test or a local run with no loyalty desk wired
         # simply never redeems; `attend()` below treats a missing gateway the same as a failed one.
         self._rewards = rewards
+        # CONFIG, NOT A CONSTANT (Tamam, 2026-08-19) — of the last `risk_window` CLOSED
+        # appointments, `risk_threshold_percent` or more missed marks her "risky". See
+        # `no_show_risk`'s own docstring below.
+        self._risk_window = risk_window
+        self._risk_threshold_percent = risk_threshold_percent
 
     async def create(self, *, tenant: str, branch_id: str, operator_id: str, customer_id: str,
                      service_ids: list[str], starts_at: int, note: str = "",
@@ -363,23 +369,30 @@ class BookingOperations:
 
     # ── Stage 8 (docs/وصف-تطبيق-الحجوزات.md §2.6/§6.2): read at the moment it is useful ────────
 
-    RISK_WINDOW = 5     # of the last five COMPLETED appointments…
-    RISK_THRESHOLD = 3  # …three or more no-shows is worth a number beside her name, not a verdict
-
     async def no_show_risk(self, tenant: str, customer_id: str) -> dict[str, int | bool]:
-        """A number, never a judgement (§2.6): how many of her last five CLOSED appointments she
-        did not attend. `booked` (still pending) and `cancelled` (never happened) are excluded —
-        neither is an attendance outcome. The staff member decides what to do with the number;
-        this never refuses or requires anything on its own.
+        """A number, never a judgement (§2.6): how many of her last N CLOSED appointments she did
+        not attend, N and the risky-percentage both configured (Tamam, 2026-08-19: "خليه config
+        ما ابغ هاردكود") rather than fixed in code — a shop that finds 60% too strict or too loose
+        changes ONE number, not a release. `booked` (still pending) and `cancelled` (never
+        happened) are excluded — neither is an attendance outcome. The staff member decides what
+        to do with the number; this never refuses or requires anything on its own.
         """
         rows = await self._bookings.for_customer(tenant, customer_id, limit=200)
         closed = sorted(
             (b for b in rows if b.status in (STATUS_ATTENDED, STATUS_NO_SHOW)),
             key=lambda b: b.starts_at, reverse=True,
-        )[: self.RISK_WINDOW]
+        )[: self._risk_window]
         no_shows = sum(1 for b in closed if b.status == STATUS_NO_SHOW)
-        return {"considered": len(closed), "no_shows": no_shows,
-               "risky": len(closed) > 0 and no_shows >= self.RISK_THRESHOLD}
+        considered = len(closed)
+        # A MINIMUM SAMPLE, DERIVED FROM THE SAME CONFIG — not a second hardcoded number. One
+        # no-show out of one closed appointment is 100%, and is not a pattern; the absolute count
+        # needed to REACH the threshold across a full window is exactly the honest floor (window=5,
+        # threshold=60% -> 3, the same absolute count this used to be fixed at).
+        min_sample = -(-(self._risk_threshold_percent * self._risk_window) // 100)   # ceil div
+        risky = (considered >= min_sample
+                and (no_shows * 100) >= self._risk_threshold_percent * considered)
+        return {"considered": considered, "no_shows": no_shows, "risky": risky,
+               "threshold_percent": self._risk_threshold_percent}
 
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,

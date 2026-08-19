@@ -255,7 +255,9 @@ def build_container(settings: Settings) -> Container:
         visits=VisitGateway(create=container.visit_gateway),
         subject_refs=SubjectRefLookup(lookup=container.subject_ref_lookup),
         events=BookingEvents(publish=container.event_bus.publish),
-        rewards=RewardGateway(redeem=container.reward_gateway))
+        rewards=RewardGateway(redeem=container.reward_gateway),
+        risk_window=settings.NO_SHOW_RISK_WINDOW,
+        risk_threshold_percent=settings.NO_SHOW_RISK_THRESHOLD_PERCENT)
     return container
 
 

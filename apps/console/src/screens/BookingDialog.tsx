@@ -386,12 +386,28 @@ export function BookingDialog(
           <div className="flex flex-col gap-1">
             <p className="text-sm text-success">✓ عميل معروف{customer.name ? ` — ${customer.name}` : ''}</p>
             {/* A NUMBER, NEVER A VERDICT (§2.6) — the staff member reads it and decides: confirm
-                twice, ask for a recorded deposit, or book as usual. Nothing here refuses anything. */}
+                twice, ask for a recorded deposit, or book as usual. Nothing here refuses anything.
+                MADE TO BE UNDERSTOOD, NOT JUST NOTICED (Tamam, 2026-08-19: "الشاشة تكون واضحة...
+                مو بس شارة ما يعرف معناها") — the sentence names the actual percentage against
+                the shop's own configured cutoff, and offers the one action §5.3 names for this
+                exact number: "قرار طلب العربون ممن تكرّر منه", one tap away instead of a
+                separate trip to the payment section below. */}
             {risk?.risky ? (
-              <p className="rounded-lg px-2.5 py-1.5 text-xs font-medium"
-                style={{ background: '#FBEBE1', color: '#B15A2E' }}>
-                غاب عن {risk.no_shows} من آخر {risk.considered} مواعيد
-              </p>
+              <div className="flex flex-col gap-1.5 rounded-xl bg-warning-soft p-3">
+                <p className="text-sm font-semibold text-warning-on-soft">
+                  ⚠️ نسبة عدم حضوره مرتفعة: غاب عن {risk.no_shows} من آخر {risk.considered} موعداً
+                  ({Math.round((risk.no_shows / risk.considered) * 100)}٪، والحد {risk.threshold_percent}٪)
+                </p>
+                <p className="text-xs text-warning-on-soft">
+                  يُنصح بطلب عربون لتأكيد هذا الحجز — القرار لك، والنظام لا يفرضه.
+                </p>
+                {paymentStatus !== 'deposit' ? (
+                  <button type="button" onClick={() => setPaymentStatus('deposit')}
+                         className="self-start rounded-full bg-warning px-3 py-1 text-xs font-bold text-white">
+                    فعّل العربون الآن
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : phone.length >= 3 ? (
