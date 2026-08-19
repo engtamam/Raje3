@@ -305,6 +305,13 @@ class Settings(BaseSettings):
     # Empty means a shop starts with no rewards — a missing table rather than a failed signup,
     # which is the right trade for a peer that may not be deployed.
     LOYALTY_SERVICE_URL: str = ""            # e.g. http://loyalty:8000
+    # WHO BROUGHT THIS SHOP — the affiliate portal's own attribution, deliberately separate from
+    # PartnerRegistry/partner_key just above: a marketer earns a flat amount on an identity-
+    # authenticated account, a till partner earns a percentage on a bearer key. See
+    # affiliate-service/app/core/referrals.py for the whole reasoning. Optional, like LOYALTY_
+    # SERVICE_URL above it: a signup with no affiliate_ref never calls this at all, and a
+    # deployment without the affiliate portal simply never sets it.
+    AFFILIATE_SERVICE_URL: str = ""          # e.g. http://affiliate-service:8000
     # SHIPPED IN THE IMAGE, like the template seed, so a signup at three in the
     # morning needs nobody present. Read once per signup; after that authz owns the roles and the
     # owner edits them from the console.

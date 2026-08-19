@@ -43,11 +43,16 @@ ROLES = [{"name": "owner", "capabilities": ["operations.record"], "description":
          {"name": "manager", "capabilities": ["operations.read"], "description": ""}]
 
 
-def build(http, store=None, roles=ROLES):
+def build(http, store=None, roles=ROLES, affiliate_url=""):
     return SignupService(
         store=store or FakeStore(), http=http,
         identity_url="http://identity:8000", tenants_url="http://tenants:8000",
-        authz_url="http://authz:8000", roles=roles)
+        authz_url="http://authz:8000", roles=roles, affiliate_url=affiliate_url)
+
+
+_HAPPY_PATH = [("/internal/tenants", (201, {"id": "t-1"})),
+              ("/seed-owner", (201, {"person_id": "p1"})),
+              ("/bootstrap", (200, {}))]
 
 
 @pytest.mark.parametrize("written", ["0501234567", "+966501234567", "966501234567",
@@ -87,6 +92,61 @@ async def test_a_seeding_failure_does_not_destroy_a_working_account():
     assert out["tenant"] == "t-1"
     assert out["services"] == 0
     assert not any(m == "DELETE" for m, _ in http.calls)
+
+
+# ── the affiliate stamp — who brought this shop (affiliate-service, not PartnerRegistry) ────────
+@pytest.mark.anyio
+async def test_no_affiliate_url_configured_means_no_call_at_all():
+    """A deployment with no affiliate portal must not fail every signup trying to reach one."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    out = await build(http, affiliate_url="").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert out["affiliate_stamp_error"] == ""
+    assert not any(u.endswith("/referrals/stamp") for _, u in http.calls)
+
+
+@pytest.mark.anyio
+async def test_no_affiliate_ref_on_the_shop_means_no_call_either():
+    """Most shops sign up with no marketer link at all — that must not be a wasted round trip."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    out = await build(http, affiliate_url="http://affiliate:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["affiliate_stamp_error"] == ""
+    assert not any(u.endswith("/referrals/stamp") for _, u in http.calls)
+
+
+@pytest.mark.anyio
+async def test_an_affiliate_link_stamps_the_new_tenant():
+    http = FakeHttp(list(_HAPPY_PATH) + [("/referrals/stamp", (200, {"affiliate_id": "aff-1"}))])
+    out = await build(http, affiliate_url="http://affiliate:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert out["affiliate_stamp_error"] == ""
+    call = next(c for c in http.calls if c[1].endswith("/referrals/stamp"))
+    assert call == ("POST", "http://affiliate:8000/internal/referrals/stamp")
+
+
+@pytest.mark.anyio
+async def test_a_bad_affiliate_id_is_reported_but_does_not_cost_the_owner_his_shop():
+    """Same trade as a mistyped partner key (ك-4): he did not type the id, cannot fix it, and
+    must not lose his shop over our own attribution bookkeeping."""
+    http = FakeHttp(list(_HAPPY_PATH)
+                    + [("/referrals/stamp", (400, {"detail": "unknown or inactive affiliate"}))])
+    out = await build(http, affiliate_url="http://affiliate:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="does-not-exist"))
+    assert out["tenant"] == "t-1"                    # the shop still opened
+    assert "affiliate" in out["affiliate_stamp_error"].lower()
+
+
+@pytest.mark.anyio
+async def test_the_affiliate_stamp_error_is_never_forwarded_to_the_owner():
+    """The route (api/v1/signup.py::open_shop) pops it — this test guards the CONTRACT the route
+    relies on: the field must exist under a name the route actually pops, or the pop is a no-op
+    and the sentence reaches the owner regardless."""
+    http = FakeHttp(list(_HAPPY_PATH)
+                    + [("/referrals/stamp", (400, {"detail": "unknown or inactive affiliate"}))])
+    out = await build(http, affiliate_url="http://affiliate:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="does-not-exist"))
+    assert "affiliate_stamp_error" in out
 
 
 @pytest.mark.anyio

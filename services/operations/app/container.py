@@ -309,6 +309,7 @@ def build_container(settings: Settings) -> Container:
         authz_url=settings.AUTHZ_SERVICE_URL,
         loyalty_url=settings.LOYALTY_SERVICE_URL,
         compliance_url=settings.COMPLIANCE_SERVICE_URL,
+        affiliate_url=settings.AFFILIATE_SERVICE_URL,
         data_map=[e for e in (settings.TENANT_DATA_MAP or "").split(",") if e.strip()],
         roles=_roles,
         # ATTRIBUTION AT CREATION, before the first invoice — and stamped once, so a till company

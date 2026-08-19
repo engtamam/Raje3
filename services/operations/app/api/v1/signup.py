@@ -31,6 +31,9 @@ class OpenShopIn(BaseModel):
     phone: str = Field(min_length=6, max_length=32)
     password: str = Field(min_length=1, max_length=256)
     shop_name: str = Field(min_length=1, max_length=200)
+    # Optional, read from the console's own `?aff=` link parameter — see core/signup.py's own
+    # NewShop.affiliate_ref note for why this is never partner_key/partner_id.
+    affiliate_ref: str = Field(default="", max_length=64)
 
 
 class CodeIn(BaseModel):
@@ -84,18 +87,19 @@ async def open_shop(request: Request, body: OpenShopIn) -> Any:
     try:
         out = await _svc(request).open_shop(NewShop(
             phone=body.phone, password=body.password,
-            shop_name=body.shop_name))
+            shop_name=body.shop_name, affiliate_ref=body.affiliate_ref))
     except SignupRefused as exc:
         return _refused(exc)
     # NO TOKEN IN THIS RESPONSE. The account exists; the console signs in with it immediately,
     # through the same door every later sign-in uses. Minting here would be a second mint path to
     # keep correct for ever, and the first one is one call away.
     #
-    # `stamp_error` IS DROPPED HERE, NEVER FORWARDED (ك-4). It is an English sentence about a
-    # partner company's key — a mistake the owner did not make and cannot fix — and `open_shop`
-    # already told telemetry so an operator can. An owner shown it learns nothing actionable and a
-    # partner shown nothing learns even less; the fix is that somebody who CAN act, does.
+    # `stamp_error`/`affiliate_stamp_error` ARE DROPPED HERE, NEVER FORWARDED (ك-4). Each is an
+    # English sentence about somebody else's key/link — a mistake the owner did not make and
+    # cannot fix — and `open_shop` already told telemetry so an operator can. An owner shown it
+    # learns nothing actionable; the fix is that somebody who CAN act, does.
     out.pop("stamp_error", None)
+    out.pop("affiliate_stamp_error", None)
     return {"ok": True, **out}
 
 
@@ -137,6 +141,7 @@ async def claim(request: Request, body: ClaimIn) -> Any:
     # mistyped partner key actually reaches, since a till-company invitation is the one path that
     # carries one at all. See `open_shop` above for why the owner never sees it.
     out.pop("stamp_error", None)
+    out.pop("affiliate_stamp_error", None)
     return out
 
 

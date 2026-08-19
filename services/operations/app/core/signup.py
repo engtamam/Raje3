@@ -137,6 +137,12 @@ class NewShop:
     partner_id: str = ""
     # The till sends this shop's catalogue, so its services arrive from its own invoices (§4.2).
     integrated: bool = False
+    # WHO BROUGHT IT, the affiliate portal's own attribution — an affiliate id read from the
+    # console's own `?aff=` link parameter, never a partner_key/partner_id (see this class'
+    # own note on those two fields: this is a SEPARATE relationship, stamped at a separate
+    # service). Empty means no affiliate link was used; that is not an error, most shops sign up
+    # with no link at all.
+    affiliate_ref: str = ""
 
 
 class Http:
@@ -175,6 +181,7 @@ class Http:
 class SignupService:
     def __init__(self, *, store, http: Http, identity_url: str, tenants_url: str,
                  authz_url: str = "", loyalty_url: str = "", compliance_url: str = "",
+                 affiliate_url: str = "",
                  data_map: list[str] | None = None,
                  roles: list[dict[str, Any]] | None = None,
                  partners=None,
@@ -189,6 +196,9 @@ class SignupService:
         # Optional on purpose: a deployment without loyalty seeds a catalogue and no rewards, which
         # is a shop missing a table rather than a signup that fails.
         self._loyalty = loyalty_url.rstrip("/")
+        # Optional too: a shop signing up with no `?aff=` link never calls this at all, and a
+        # deployment with no affiliate portal simply never sets it.
+        self._affiliate = affiliate_url.rstrip("/")
         # WHERE THIS SHOP'S DATA WILL LIVE, declared as configuration rather than written here.
         # Every entry is "service:category", and the set is a property of what we have deployed —
         # a service added next month must not need a release of this file.
@@ -380,8 +390,29 @@ class SignupService:
                     except Exception:                                          # noqa: BLE001
                         pass    # a telemetry failure must not fail a signup
 
+        # THE AFFILIATE STAMP — same trade as the partner stamp two paragraphs up, for the same
+        # reason: an owner who followed a marketer's link did not type an affiliate id, cannot fix
+        # a stale or mistyped one, and must not lose his shop over our own attribution bookkeeping.
+        # `affiliate-service` decides everything about whether the id is real and still active
+        # (core/referrals.py) — this call only hands over the raw fact, once, best-effort.
+        affiliate_error = ""
+        if self._affiliate and shop.affiliate_ref:
+            status, body = self._http.call(
+                f"{self._affiliate}/internal/referrals/stamp", method="POST", internal=True,
+                body={"tenant": tenant, "affiliate_id": shop.affiliate_ref,
+                      "shop_name": shop.shop_name})
+            if status not in (200, 201):
+                affiliate_error = str((body or {}).get("detail") or f"status {status}")[:200]
+                if self._telemetry is not None:
+                    try:
+                        self._telemetry.event("affiliate_stamp_failed", tenant=tenant,
+                                              reason=affiliate_error)
+                    except Exception:                                          # noqa: BLE001
+                        pass    # a telemetry failure must not fail a signup
+
         return {"tenant": tenant, "phone": phone, "services": seeded,
-                "stamp_error": stamp_error, "data_map_error": map_error}
+                "stamp_error": stamp_error, "data_map_error": map_error,
+                "affiliate_stamp_error": affiliate_error}
 
     async def reassert_data_map(self, tenant: str) -> str:
         """Re-register this tenant's data map, and say what could not be registered.
