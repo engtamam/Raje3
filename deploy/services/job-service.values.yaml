@@ -15,7 +15,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/job-service
-  digest: "sha256:222f740f25dc342054bedad538c40a7bf4a5e1dca1e9303c02ce17ccab70fc3d"   # v0.16.22
+  digest: "sha256:bd9318af965aa401429221a72d017f33d07107b7dea7a1d53e5ffcb9ecfbf198"   # v0.16.23
 
 replicas: 1
 
