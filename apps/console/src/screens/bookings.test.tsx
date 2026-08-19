@@ -148,7 +148,7 @@ describe('حجز جديد', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => screen.getByText('حجز جديد'));
     screen.getByText('حجز جديد').click();
-    await waitFor(() => expect(screen.getByText(/جوّال العميلة/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/جوّال العميل/)).toBeTruthy());
   });
 
   it('opens the same dialog from an empty cell click — no separate flow', async () => {
@@ -157,7 +157,7 @@ describe('حجز جديد', () => {
     // The column background itself, not a card — clicking a card opens the action sheet instead.
     const column = container.querySelectorAll('.border-s')[1];
     fireEvent.click(column);
-    await waitFor(() => expect(screen.getByText(/جوّال العميلة/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/جوّال العميل/)).toBeTruthy());
   });
 });
 
@@ -184,14 +184,14 @@ describe('السحب والإفلات', () => {
   });
 });
 
-describe('احجزي الجلسة القادمة', () => {
+describe('احجز الجلسة القادمة', () => {
   it('offers the next session after marking attendance, when the service has a real cycle', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
     await waitFor(() => screen.getByText('حضرت'));
     screen.getByText('حضرت').click();
-    await waitFor(() => expect(screen.getByText(/احجزي الجلسة القادمة/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/احجز الجلسة القادمة/)).toBeTruthy());
   });
 
   it('opens the booking dialog with the customer already known — no phone search needed', async () => {
@@ -200,9 +200,9 @@ describe('احجزي الجلسة القادمة', () => {
     card().click();
     await waitFor(() => screen.getByText('حضرت'));
     screen.getByText('حضرت').click();
-    await waitFor(() => screen.getByText(/احجزي الجلسة القادمة/));
-    screen.getByText(/احجزي الجلسة القادمة/).click();
-    await waitFor(() => expect(screen.getByText(/عميلة معروفة/)).toBeTruthy());
+    await waitFor(() => screen.getByText(/احجز الجلسة القادمة/));
+    screen.getByText(/احجز الجلسة القادمة/).click();
+    await waitFor(() => expect(screen.getByText(/عميل معروف/)).toBeTruthy());
   });
 });
 
@@ -211,8 +211,8 @@ describe('booking dialog — Stage 8', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => screen.getByText('حجز جديد'));
     screen.getByText('حجز جديد').click();
-    await waitFor(() => screen.getByText(/جوّال العميلة/));
-    expect(screen.queryByText(/غابت عن/)).toBeNull();
+    await waitFor(() => screen.getByText(/جوّال العميل/));
+    expect(screen.queryByText(/غاب عن/)).toBeNull();
   });
 
   it('offers "أقرب فتحة" once the dialog is open', async () => {

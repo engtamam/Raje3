@@ -132,7 +132,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // written below was unreachable.
   const [rows, setRows] = useState<Booking[] | null | undefined>(undefined);
   // null = «the read failed», not «this shop has none» — a failed staff read must not render as
-  // «لا موظفاتٌ نشِطاتٌ», which reads as a fact about the shop instead of a fact about the network.
+  // «لا موظفون نشِطون», which reads as a fact about the shop instead of a fact about the network.
   const [services, setServices] = useState<CatalogueService[] | null | undefined>(undefined);
   const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
   const [note, setNote] = useState<string | null>(null);
@@ -298,7 +298,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     return (
       <div className="rj-grid flex min-h-dvh flex-col items-center justify-center gap-4 p-6">
         <p className="text-lg font-medium">
-          {branches.length === 0 ? 'لا فروع بعد' : 'اختاري فرعاً لعرض جدوله'}
+          {branches.length === 0 ? 'لا فروع بعد' : 'اختر فرعاً لعرض جدوله'}
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2">
           {branches.map((b) => (
@@ -512,7 +512,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           </div>
         ) : columns.length === 0 ? (
           <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-            لا موظفاتٌ نشِطاتٌ في هذا الفرع بعد.
+            لا موظفون نشِطون في هذا الفرع بعد.
           </div>
         ) : (
           <div data-testid="rj-grid"
@@ -798,7 +798,7 @@ function BookingActions({ booking, customerLabel, operatorLabel, services, onClo
             <button type="button" onClick={() => onBookNext(attended)}
                    className="w-full rounded-2xl py-3 text-sm font-semibold"
                    style={{ background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }}>
-              احجزي الجلسة القادمة — بعد {cycleDays} يوماً
+              احجز الجلسة القادمة — بعد {cycleDays} يوماً
             </button>
           ) : null}
           <button type="button" onClick={onClose}

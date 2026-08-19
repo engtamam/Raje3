@@ -179,8 +179,8 @@ export function BookingDialog(
     <Modal open onClose={onClose} size="lg" title="حجز جديد"
           subtitle={`فرعك، ${date === day ? 'اليوم' : day}`}>
       <div className="flex flex-col gap-4">
-        {/* ── العميلة ─────────────────────────────────────────────────────────────────── */}
-        <Field label="جوّال العميلة" required htmlFor="bkg-phone">
+        {/* ── العميل ───────────────────────────────────────────────────────────────────── */}
+        <Field label="جوّال العميل" required htmlFor="bkg-phone">
           <Input
             id="bkg-phone"
             value={phone}
@@ -210,13 +210,13 @@ export function BookingDialog(
         ) : null}
         {customer ? (
           <div className="flex flex-col gap-1">
-            <p className="text-sm text-success">✓ عميلة معروفة{customer.name ? ` — ${customer.name}` : ''}</p>
+            <p className="text-sm text-success">✓ عميل معروف{customer.name ? ` — ${customer.name}` : ''}</p>
             {/* A NUMBER, NEVER A VERDICT (§2.6) — the staff member reads it and decides: confirm
                 twice, ask for a recorded deposit, or book as usual. Nothing here refuses anything. */}
             {risk?.risky ? (
               <p className="rounded-lg px-2.5 py-1.5 text-xs font-medium"
                 style={{ background: '#FBEBE1', color: '#B15A2E' }}>
-                غابت عن {risk.no_shows} من آخر {risk.considered} مواعيد
+                غاب عن {risk.no_shows} من آخر {risk.considered} مواعيد
               </p>
             ) : null}
           </div>
@@ -243,15 +243,15 @@ export function BookingDialog(
           ) : null}
         </div>
 
-        {/* ── الموظفة ─────────────────────────────────────────────────────────────────── */}
-        <Field label="الموظفة" required htmlFor="bkg-op">
+        {/* ── الموظف ───────────────────────────────────────────────────────────────────── */}
+        <Field label="الموظف" required htmlFor="bkg-op">
           <select
             id="bkg-op"
             value={operatorId}
             onChange={(e) => setOperatorId(e.target.value)}
             className="h-11 w-full rounded-xl bg-surface-1 px-3 shadow-sm"
           >
-            <option value="">اختاري…</option>
+            <option value="">اختر…</option>
             {staff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         </Field>
@@ -282,7 +282,7 @@ export function BookingDialog(
         <div className="flex items-center justify-end gap-2 border-t border-border-subtle pt-3">
           <Button variant="ghost" onClick={onClose}>إلغاء</Button>
           <Button disabled={!ready || saving} onClick={save}>
-            {saving ? 'جارٍ الحجز…' : 'احجزي'}
+            {saving ? 'جارٍ الحجز…' : 'احجز'}
           </Button>
         </div>
       </div>
