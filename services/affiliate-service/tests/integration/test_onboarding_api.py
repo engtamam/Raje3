@@ -124,3 +124,26 @@ def test_approving_an_unknown_application_id_is_a_clean_400(client):
                     headers={"Authorization": f"Bearer {_token(caps=['affiliates.manage'])}"})
     assert r.status_code == 400
     assert r.json()["reason"] == "not_found"
+
+
+def test_invite_needs_a_token_but_no_capability(client):
+    # NO capability required — see api/v1/affiliate_self.py's own note: eligibility is a DATA
+    # check (is this caller an active manager affiliate), not an RBAC check. A bare valid token
+    # with NO caps at all still reaches the service layer, which is what actually refuses it.
+    r = client.post("/api/v1/affiliates/me/invite",
+                    json={"phone": "0501234599", "name": "مدعو"},
+                    headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+    assert r.json()["reason"] == "not_an_active_affiliate"
+
+
+def test_invite_refuses_with_no_token_at_all(client):
+    r = client.post("/api/v1/affiliates/me/invite", json={"phone": "0501234599", "name": "مدعو"})
+    assert r.status_code == 401
+
+
+def test_accept_invite_with_an_unknown_token_is_a_clean_400(client):
+    r = client.post("/api/v1/affiliates/accept-invite",
+                    json={"token": "never-issued", "password": "hunter2hunter2"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "invalid_invite"

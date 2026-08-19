@@ -81,6 +81,9 @@ def build_manifest(
             # «بوابة القبول» (spec §2) — no token yet, same tier as operations' own /signup.
             {"path": "/api/v1/affiliates/apply", "tier": "public", "method": "POST"},
             {"path": "/api/v1/affiliates/signin", "tier": "public", "method": "POST"},
+            {"path": "/api/v1/affiliates/accept-invite", "tier": "public", "method": "POST"},
+            # A manager naming somebody for his own team — still gated by the admin queue below.
+            {"path": "/api/v1/affiliates/me/invite", "tier": "user", "method": "POST"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},

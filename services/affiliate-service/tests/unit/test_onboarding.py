@@ -32,6 +32,26 @@ class FakeHttp:
         return 500, {}
 
 
+class ByIdentifierHttp:
+    """Same idiom, but the /members answer depends on WHICH phone is being minted — needed once a
+    test mints more than one real person (a manager, then someone he invites) and each must get
+    identity's OWN distinct person_id/invite_token rather than replaying the first response."""
+
+    def __init__(self, by_identifier: dict[str, tuple[int, dict]],
+                claim_answer: tuple[int, dict] = (200, {})) -> None:
+        self._by_identifier = by_identifier
+        self._claim_answer = claim_answer
+        self.calls: list[tuple[str, str]] = []
+
+    def call(self, url, *, method, body=None, internal=False):
+        self.calls.append((method, url))
+        if url.endswith("/members"):
+            return self._by_identifier[(body or {})["identifier"]]
+        if url.endswith("/person/claim"):
+            return self._claim_answer
+        return 500, {}
+
+
 def build(http=None, salt="s" * 16) -> OnboardingService:
     return OnboardingService(
         store=MemoryDataStore(), http=http or FakeHttp([]),
@@ -189,6 +209,91 @@ async def test_an_already_affiliate_phone_cannot_apply_again():
     with pytest.raises(OnboardingRefused) as exc:
         await svc.apply(phone="0501234567", name="سالم", password="anotherOne123!")
     assert exc.value.reason == "already_affiliate"
+
+
+# ── a manager inviting somebody directly ─────────────────────────────────────────────────────
+def _invite_http() -> ByIdentifierHttp:
+    """A manager minted first (self-apply, password mode), a promoter minted second (invite
+    mode) — two DIFFERENT identity people, so each phone must get its own person_id/invite_token
+    rather than replaying whichever answer a plain FakeHttp saw first."""
+    return ByIdentifierHttp({
+        "+966501110000": (201, {"person_id": "p-manager"}),
+        "+966502223333": (201, {"person_id": "p-promoter", "invite_token": "tok-1"}),
+    })
+
+
+async def _make_active_manager(svc) -> str:
+    """Returns the manager's person_id (also his identity `sub`, so it doubles as the token
+    subject a real invite() call would authenticate with)."""
+    out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    return saved["person_id"]
+
+
+@pytest.mark.anyio
+async def test_a_manager_invites_and_no_password_is_asked_of_him():
+    svc = build(_invite_http())
+    manager_person_id = await _make_active_manager(svc)
+
+    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
+                           name="مسوّق مدعو")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    assert approved["status"] == "invited"
+
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["invite_token"] == "tok-1"
+    assert saved["role"] == PROMOTER
+
+
+@pytest.mark.anyio
+async def test_a_promoter_cannot_invite():
+    svc = build(_invite_http())
+    manager_person_id = await _make_active_manager(svc)
+
+    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
+                           name="مسوّق مدعو")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    accepted = await svc.accept_invite(token="tok-1", password="hunter2hunter2")
+    promoter_person_id = (await svc._store.get(AFFILIATES, accepted["affiliate_id"]))["person_id"]
+
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.invite(inviter_person_id=promoter_person_id, phone="0509998888",
+                         name="محاولة")
+    assert exc.value.reason == "managers_only"
+    assert approved["affiliate_id"] != ""   # sanity: the setup above actually worked
+
+
+@pytest.mark.anyio
+async def test_accepting_an_invite_activates_the_account_with_the_persons_own_password():
+    svc = build(_invite_http())
+    manager_person_id = await _make_active_manager(svc)
+
+    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
+                           name="مسوّق مدعو")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    accepted = await svc.accept_invite(token="tok-1", password="somePassword123!")
+    saved = await svc._store.get(AFFILIATES, accepted["affiliate_id"])
+    assert saved["status"] == "active"
+    assert saved["invite_token"] == ""   # spent
+    assert accepted["affiliate_id"] == approved["affiliate_id"]
+
+
+@pytest.mark.anyio
+async def test_a_spent_or_unknown_invite_token_is_refused_the_same_way():
+    svc = build()
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.accept_invite(token="never-issued", password="hunter2hunter2")
+    assert exc.value.reason == "invalid_invite"
+
+
+@pytest.mark.anyio
+async def test_an_inactive_affiliate_cannot_invite():
+    svc = build()
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.invite(inviter_person_id="nobody", phone="0501234567", name="أحد")
+    assert exc.value.reason == "not_an_active_affiliate"
 
 
 def test_http_client_sends_the_internal_token_header():

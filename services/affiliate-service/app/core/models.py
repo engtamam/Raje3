@@ -45,7 +45,13 @@ SUSPENDED = "suspended"
 #: A promoter/manager who left — kept, never deleted, so a commission already earned still has
 #: someone real behind it. Mirrors operations' own staff model (revoked, not erased).
 DEPARTED = "departed"
-AFFILIATE_STATUSES = (ACTIVE, SUSPENDED, DEPARTED)
+#: A manager-invited row between identity minting the membership and the invited person setting
+#: their OWN password — see onboarding.py::invite/accept_invite. Never reachable from self-apply:
+#: there the applicant's own chosen password is redeemed server-side at approval, so the row goes
+#: straight to ACTIVE (spec §2's admin gate already vouches for the applicant either way — this
+#: status is about WHO holds the credential, not about whether anyone approved the account).
+INVITED = "invited"
+AFFILIATE_STATUSES = (ACTIVE, SUSPENDED, DEPARTED, INVITED)
 
 
 @dataclass
@@ -67,6 +73,14 @@ class Application:
     #: number finds the row without operations/erasure.py having to re-derive it from a phone it
     #: may itself have already blanked. See erasure.py.
     subject_ref: str = ""
+    #: The INVITING affiliate's own id — set ONLY when a manager sent this invitation (see
+    #: onboarding.py::invite), blank for a self-submitted application. Deliberately a SEPARATE
+    #: field from `parent_id`, even though both currently hold the same value: `parent_id` is a
+    #: referral fact (who gets credit), `invited_by` is a PROVENANCE fact that decides which
+    #: branch approve() takes (redeem a chosen password vs. mint an invite the person claims
+    #: themself) — collapsing them would make a future self-apply-with-referral-code request
+    #: silently take the no-password invite branch it was never meant to.
+    invited_by: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -74,7 +88,7 @@ class Application:
             "parent_id": self.parent_id, "status": self.status,
             "created_at": self.created_at, "decided_at": self.decided_at,
             "decided_by": self.decided_by, "reason": self.reason,
-            "subject_ref": self.subject_ref,
+            "subject_ref": self.subject_ref, "invited_by": self.invited_by,
         }
 
     @classmethod
@@ -85,6 +99,7 @@ class Application:
             status=str(d.get("status", PENDING)), created_at=int(d.get("created_at", 0)),
             decided_at=int(d.get("decided_at", 0)), decided_by=str(d.get("decided_by", "")),
             reason=str(d.get("reason", "")), subject_ref=str(d.get("subject_ref", "")),
+            invited_by=str(d.get("invited_by", "")),
         )
 
 
@@ -105,6 +120,10 @@ class Affiliate:
     created_at: int = 0
     #: Same derivation as Application.subject_ref — see erasure.py.
     subject_ref: str = ""
+    #: identity-service's one-time invite_token, held ONLY while status == INVITED — see
+    #: onboarding.py::accept_invite. Blank the moment it is redeemed, same reasoning as
+    #: `_PENDING_SECRET`: a credential-adjacent value outlives its purpose by exactly zero calls.
+    invite_token: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -112,6 +131,7 @@ class Affiliate:
             "name": self.name, "role": self.role, "parent_id": self.parent_id,
             "status": self.status, "application_id": self.application_id,
             "created_at": self.created_at, "subject_ref": self.subject_ref,
+            "invite_token": self.invite_token,
         }
 
     @classmethod
@@ -122,4 +142,5 @@ class Affiliate:
             role=str(d.get("role", PROMOTER)), parent_id=str(d.get("parent_id", "")),
             status=str(d.get("status", ACTIVE)), application_id=str(d.get("application_id", "")),
             created_at=int(d.get("created_at", 0)), subject_ref=str(d.get("subject_ref", "")),
+            invite_token=str(d.get("invite_token", "")),
         )

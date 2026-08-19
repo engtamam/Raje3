@@ -45,6 +45,11 @@ class SignInIn(BaseModel):
     code: str = Field(default="", max_length=16)
 
 
+class AcceptInviteIn(BaseModel):
+    token: str = Field(min_length=1, max_length=512)
+    password: str = Field(min_length=1, max_length=256)
+
+
 def _svc(request: Request):
     return request.app.state.container.onboarding
 
@@ -73,3 +78,15 @@ async def sign_in(request: Request, body: SignInIn) -> Any:
         return await _svc(request).sign_in(body.phone, body.password, body.code)
     except OnboardingRefused as exc:
         return _refused(exc)
+
+
+@router.post("/accept-invite", dependencies=[Depends(rate_limit)])
+async def accept_invite(request: Request, body: AcceptInviteIn) -> Any:
+    """The other half of a manager's invite() — no token yet, same reason /apply has none: the
+    invited person holds nothing identity or we would authenticate with until this call sets his
+    own password."""
+    try:
+        out = await _svc(request).accept_invite(token=body.token, password=body.password)
+    except OnboardingRefused as exc:
+        return _refused(exc)
+    return {"ok": True, **out}

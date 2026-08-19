@@ -33,6 +33,7 @@ from app.core.models import (
     AFFILIATES,
     APPLICATIONS,
     APPROVED,
+    INVITED,
     MANAGER,
     PENDING,
     PROMOTER,
@@ -161,6 +162,58 @@ class OnboardingService:
                               {"id": app_row.id, "password": password})
         return {"application_id": app_row.id, "status": PENDING}
 
+    # ── a manager inviting somebody directly ────────────────────────────────────────────────
+    async def invite(self, *, inviter_person_id: str, phone: str, name: str) -> dict[str, Any]:
+        """A manager names somebody he wants on his team. STILL a row for an admin to decide —
+        the admin gate (spec §2) is about the RISK a new marketer account carries, which does
+        not shrink because a manager vouches for him first; it only removes the friction of a
+        referral code the manager would otherwise have to hand over out-of-band.
+
+        NO PASSWORD IS ASKED HERE, and that is the one real difference from apply(): the manager
+        does not know what password the invited person will want, and asking him to invent one on
+        somebody else's behalf is exactly the T2 mistake identity-service itself refuses (an
+        existing person's credential is never set by an admin). See approve()'s invite branch and
+        accept_invite() for how the invited person ends up choosing his own.
+        """
+        canonical = canonical_phone(phone, default_cc=self._cc)
+        if not canonical:
+            raise OnboardingRefused("أدخل رقم جوال صحيح.")
+        if not name.strip():
+            raise OnboardingRefused("أدخل اسم المدعو.")
+
+        inviter = await self._affiliate_by_person(inviter_person_id)
+        if inviter is None or inviter.status != ACTIVE:
+            raise OnboardingRefused("حسابك غير مفعّل للدعوة.", reason="not_an_active_affiliate")
+        if inviter.role != self._manager_role:
+            # PROMOTERS DO NOT INVITE. Spec §1's tree grows from a manager down; a promoter's
+            # own referral code (self-apply's `referral_code`) is the mechanism the person he
+            # brings in is expected to use — a distinct, lower-trust door on purpose.
+            raise OnboardingRefused("دعوة المسوّقين مقصورة على المدير.", reason="managers_only")
+
+        existing = await self._find_application_by_phone(canonical)
+        if existing is not None and existing.status == PENDING:
+            raise OnboardingRefused(
+                "هناك طلب سابق لهذا الرقم قيد المراجعة.", reason="already_pending")
+        if await self._affiliate_by_phone(canonical) is not None:
+            raise OnboardingRefused("لهذا الرقم حساب مسوّق بالفعل.", reason="already_affiliate")
+
+        app_row = Application(
+            id=new_id(), phone=canonical, name=name.strip(), parent_id=inviter.id,
+            invited_by=inviter.id, status=PENDING, created_at=int(time.time()),
+            subject_ref=self._ref(canonical),
+        )
+        await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
+        # NO `_PENDING_SECRET` ROW — deliberately. Its absence is exactly what approve() reads
+        # to tell an invitation from a self-application; writing one here (even empty) would
+        # blur that signal for the one check that must never be ambiguous.
+        return {"application_id": app_row.id, "status": PENDING}
+
+    async def _affiliate_by_person(self, person_id: str) -> Affiliate | None:
+        if not person_id:
+            return None
+        rows, _ = await self._store.find(AFFILIATES, {"person_id": person_id}, limit=1)
+        return Affiliate.from_dict(rows[0]) if rows else None
+
     async def _find_application_by_phone(self, phone: str) -> Application | None:
         rows, _ = await self._store.find(APPLICATIONS, {"phone": phone}, limit=1,
                                          sort=("created_at", "desc"))
@@ -192,7 +245,31 @@ class OnboardingService:
         if app_row.status == REJECTED:
             raise OnboardingRefused("هذا الطلب مرفوض بالفعل.", reason="already_rejected")
 
-        secret = await self._store.get(_PENDING_SECRET, application_id)
+        role = self._promoter_role if app_row.parent_id else self._manager_role
+
+        if app_row.invited_by:
+            # THE MANAGER-INVITE BRANCH — no password anywhere in this process yet. See
+            # invite()'s own docstring for why one was never asked for.
+            affiliate = await self._mint_invited(app_row, role=role)
+        else:
+            affiliate = await self._mint_self_applied(app_row, role=role)
+
+        app_row.status = APPROVED
+        app_row.decided_at = int(time.time())
+        app_row.decided_by = decided_by
+        await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
+        # THE PASSWORD IS GONE THE MOMENT IT HAS DONE ITS ONE JOB — minting the membership above.
+        # Keeping it a second longer than approval takes is PII with no purpose left to serve.
+        await self._store.delete(_PENDING_SECRET, application_id)
+
+        return {"affiliate_id": affiliate.id, "role": role, "already_approved": False,
+               "status": affiliate.status}
+
+    async def _mint_self_applied(self, app_row: Application, *, role: str) -> Affiliate:
+        """apply()'s own applicant already chose a password (in `_PENDING_SECRET`) — redeem it
+        server-side, exactly as before this branch existed. The account is ACTIVE the moment
+        approval finishes; there is nobody else who needs to do anything."""
+        secret = await self._store.get(_PENDING_SECRET, app_row.id)
         password = str((secret or {}).get("password") or "")
         if not password:
             # THE SECRET ROW IS GONE OR WAS NEVER WRITTEN. Minting a membership with no password
@@ -200,7 +277,6 @@ class OnboardingService:
             # than half-done, same principle as operations' own hire().
             raise OnboardingRefused("تعذّرت الموافقة — أعد الطلب.", reason="secret_missing")
 
-        role = self._promoter_role if app_row.parent_id else self._manager_role
         status, body = self._http.call(
             f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
             body={"tenant": self._tenant, "identifier": app_row.phone, "roles": [role],
@@ -227,16 +303,61 @@ class OnboardingService:
             subject_ref=app_row.subject_ref or self._ref(app_row.phone),
         )
         await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
+        return affiliate
 
-        app_row.status = APPROVED
-        app_row.decided_at = int(time.time())
-        app_row.decided_by = decided_by
-        await self._store.put(APPLICATIONS, app_row.id, app_row.to_dict())
-        # THE PASSWORD IS GONE THE MOMENT IT HAS DONE ITS ONE JOB — minting the membership above.
-        # Keeping it a second longer than approval takes is PII with no purpose left to serve.
-        await self._store.delete(_PENDING_SECRET, application_id)
+    async def _mint_invited(self, app_row: Application, *, role: str) -> Affiliate:
+        """No password exists anywhere yet. identity mints the membership in its own INVITE mode
+        (Settings.IDENTITY_MEMBER_ADD_MODE — the default across this platform) and hands back a
+        one-time token; we hold onto it ourselves rather than leaving it only at identity, so our
+        OWN accept_invite() can flip this row to ACTIVE the moment it is redeemed rather than the
+        console having to ask identity separately whether it was."""
+        status, body = self._http.call(
+            f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
+            body={"tenant": self._tenant, "identifier": app_row.phone, "roles": [role]})
+        if status not in (200, 201):
+            raise OnboardingRefused(_member_error(status, body))
 
-        return {"affiliate_id": affiliate.id, "role": role, "already_approved": False}
+        person_id = str(body.get("person_id") or "")
+        invite = str(body.get("invite_token") or "")
+        if not invite:
+            # IDENTITY_MEMBER_ADD_MODE=password on this deployment — there is no invite to hand
+            # the invited person and no password to give him either, since invite() never asked
+            # a manager to invent one on somebody else's behalf. A real configuration mismatch,
+            # surfaced rather than silently minting an account nobody can sign into.
+            raise OnboardingRefused(
+                "الدعوات غير مُفعّلة على هذا الإعداد — تواصل مع الدعم الفني.",
+                reason="invite_mode_disabled")
+
+        affiliate = Affiliate(
+            id=new_id(), person_id=person_id, phone=app_row.phone, name=app_row.name,
+            role=role, parent_id=app_row.parent_id, status=INVITED,
+            application_id=app_row.id, created_at=int(time.time()),
+            subject_ref=app_row.subject_ref or self._ref(app_row.phone),
+            invite_token=invite,
+        )
+        await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
+        return affiliate
+
+    # ── the invited person choosing their own password ──────────────────────────────────────
+    async def accept_invite(self, *, token: str, password: str) -> dict[str, Any]:
+        rows, _ = await self._store.find(AFFILIATES, {"invite_token": token}, limit=1)
+        affiliate = Affiliate.from_dict(rows[0]) if rows else None
+        if affiliate is None or affiliate.status != INVITED:
+            # ONE SENTENCE for "no such token", "already used" and "expired" alike — same
+            # enumeration-oracle reasoning as every other refusal in this file: a caller must not
+            # be able to tell which of the three is true one request at a time.
+            raise OnboardingRefused("الدعوة غير صالحة أو منتهية.", reason="invalid_invite")
+
+        status, _ = self._http.call(
+            f"{self._identity}/api/v1/auth/person/claim", method="POST",
+            body={"token": token, "password": password})
+        if status != 200:
+            raise OnboardingRefused("تعذّر قبول الدعوة. حاول مرة أخرى.", reason="claim_failed")
+
+        affiliate.status = ACTIVE
+        affiliate.invite_token = ""     # spent — see the field's own note in models.py
+        await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
+        return {"affiliate_id": affiliate.id}
 
     async def reject(self, application_id: str, *, decided_by: str, reason: str = "") -> dict:
         row = await self._store.get(APPLICATIONS, application_id)
