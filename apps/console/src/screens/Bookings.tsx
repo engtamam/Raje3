@@ -12,7 +12,7 @@
  * with one tap on the destination cell.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, GripVertical, Plus, X } from 'lucide-react';
 import {
   attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
   fetchCatalogue, type FieldOperator, listBookings, listBookingStaff, noShowBooking,
@@ -137,7 +137,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
   const [note, setNote] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState | null>(null);
-  const [search, setSearch] = useState('');
+  // FILTERS, NOT SEARCH — a shop reads this grid a hundred times a day; typing a name is a
+  // request nobody asked to make when the same narrowing is three taps away as a chip.
+  const [filterService, setFilterService] = useState('');   // '' = every service
+  const [filterDeposit, setFilterDeposit] = useState<'any' | 'yes' | 'no'>('any');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [dialog, setDialog] = useState<{
     operatorId?: string; startsAt?: number; customer?: CustomerHit; serviceIds?: string[];
@@ -195,17 +199,25 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   }, [services]);
 
   const visible = useMemo(() => {
-    const q = search.trim();
-    if (!q) return rows ?? [];
-    return (rows ?? []).filter((b) =>
-      serviceNameOf(b.service_ids).includes(q) || nameOf(b.operator_id).includes(q)
-      || b.note.includes(q));
-  }, [rows, search, serviceNameOf, nameOf]);
+    return (rows ?? []).filter((b) => {
+      if (filterService && !b.service_ids.includes(filterService)) return false;
+      if (filterDeposit === 'yes' && !b.deposit_taken) return false;
+      if (filterDeposit === 'no' && b.deposit_taken) return false;
+      return true;
+    });
+  }, [rows, filterService, filterDeposit]);
+
+  const activeFilterCount =
+    (filterService ? 1 : 0) + (filterDeposit !== 'any' ? 1 : 0);
 
   // ── columns: staff in day view, days in week view ───────────────────────────────────────────
   const columns = view === 'day'
     ? staffHere.map((o) => ({ key: o.id, label: o.name, date }))
-    : daysToLoad.map((d) => ({ key: d, label: `${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${shortDate(d)}`, date: d }));
+    // DAY NUMBER ONLY, NO MONTH — a week column is a fraction of the grid's own width, and the
+    // range header above already states the month ("16 أغسطس – 22 أغسطس"). Repeating it in seven
+    // narrow columns was what forced "الأحد 16 أغسط…" to truncate before the day number even
+    // finished rendering — the one number the column actually needs to say.
+    : daysToLoad.map((d) => ({ key: d, label: `${WEEKDAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.split('-')[2])}`, date: d }));
 
   const cardsByColumn = useMemo(() => {
     const map = new Map<string, Booking[]>();
@@ -371,19 +383,66 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               </select>
             ) : null}
 
-            {/* Near-zero-friction search — filters the cards already on screen, no new request. */}
-            <div className="relative flex-1 sm:max-w-[220px]">
-              <Search size={14} aria-hidden
-                     className="pointer-events-none absolute inset-inline-start-3 top-1/2 -translate-y-1/2"
-                     style={{ color: 'var(--rj-ink-soft)' }} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="بحثٌ سريع: خدمة، موظفة، ملاحظة…"
-                aria-label="بحث في الحجوزات"
-                className="h-9 w-full rounded-full py-1.5 ps-9 pe-3 text-sm shadow-sm outline-none"
-                style={{ background: 'var(--rj-surface)' }}
-              />
+            {/* FILTERS, NOT A SEARCH BOX — narrowing the grid is a tap on what it already shows
+                (a service, a deposit state), never typing a query for something read a hundred
+                times a day. */}
+            <div className="relative">
+              <button type="button" onClick={() => setFiltersOpen((v) => !v)}
+                     aria-expanded={filtersOpen}
+                     className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium shadow-sm"
+                     style={{
+                       background: activeFilterCount ? 'var(--rj-gold-soft)' : 'var(--rj-surface)',
+                       color: activeFilterCount ? 'var(--rj-gold-deep)' : 'var(--rj-ink)',
+                     }}>
+                <Filter size={14} aria-hidden />
+                فلاتر
+                {activeFilterCount ? (
+                  <span className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold"
+                       style={{ background: 'var(--rj-gold)', color: 'var(--rj-ink)' }}>
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {filtersOpen ? (
+                <>
+                <button type="button" aria-label="إغلاق الفلاتر" onClick={() => setFiltersOpen(false)}
+                       className="fixed inset-0 z-10 cursor-default" />
+                <div className="absolute inset-inline-end-0 top-11 z-20 flex w-64 flex-col gap-3 rounded-2xl p-4 shadow-lg"
+                    style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الخدمة</span>
+                    <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
+                           className="h-9 rounded-xl px-2 text-sm outline-none"
+                           style={{ background: 'var(--rj-bg)', border: '1px solid var(--rj-line)' }}>
+                      <option value="">كل الخدمات</option>
+                      {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>العربون</span>
+                    <div className="flex gap-1.5">
+                      {([['any', 'الكل'], ['yes', 'بعربون'], ['no', 'بدون']] as const).map(([v, label]) => (
+                        <button key={v} type="button" onClick={() => setFilterDeposit(v)}
+                               className="flex-1 rounded-full py-1.5 text-xs font-medium"
+                               style={v === filterDeposit
+                                 ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
+                                 : { background: 'var(--rj-bg)', color: 'var(--rj-ink-soft)',
+                                    border: '1px solid var(--rj-line)' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {activeFilterCount ? (
+                    <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); }}
+                           className="text-xs font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
+                      إزالة كل الفلاتر
+                    </button>
+                  ) : null}
+                </div>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -421,8 +480,16 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             لا موظفاتٌ نشِطاتٌ في هذا الفرع بعد.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-[28px] shadow-sm" style={{ background: 'var(--rj-surface)' }}>
-            <div className="grid" style={{ gridTemplateColumns: `56px repeat(${columns.length}, minmax(168px, 1fr))` }}>
+          <div className={view === 'week' ? 'rounded-[28px] shadow-sm' : 'overflow-x-auto rounded-[28px] shadow-sm'}
+              style={{ background: 'var(--rj-surface)' }}>
+            {/* WEEK NEVER SCROLLS TO BE SEEN WHOLE — its seven columns are the fixed, known set the
+                view exists to show side by side, so they take `1fr` each and share the container's
+                own width exactly, however wide that is. DAY KEEPS A FLOOR — one column per staff
+                member, whose names must stay readable, and a branch with many of them is the one
+                case scrolling is the honest answer rather than crushed, truncated columns. */}
+            <div className="grid" style={{ gridTemplateColumns: view === 'week'
+              ? `52px repeat(${columns.length}, 1fr)`
+              : `56px repeat(${columns.length}, minmax(140px, 1fr))` }}>
               <div className="sticky top-0 z-10" style={{ background: 'var(--rj-surface)' }} />
               {columns.map((col) => (
                 <div key={col.key}
@@ -434,12 +501,20 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
               {/* time axis */}
               <div className="relative" style={{ height: WINDOW_LEN * PX_PER_MIN }}>
-                {Array.from({ length: WINDOW_LEN / 60 + 1 }, (_, i) => WINDOW_START + i * 60).map((m) => (
-                  <div key={m} className="absolute inset-inline-end-2 -translate-y-1/2 text-[11px] font-medium tabular-nums"
-                      style={{ top: (m - WINDOW_START) * PX_PER_MIN, color: 'var(--rj-ink-soft)' }}>
-                    {timeLabel(m)}
-                  </div>
-                ))}
+                {Array.from({ length: WINDOW_LEN / 60 + 1 }, (_, i) => WINDOW_START + i * 60).map((m) => {
+                  // THE FIRST TICK SITS AT top:0 — centering it (`-translate-y-1/2`, every other
+                  // tick's own rule) pushes half its height ABOVE the grid's own top edge, straight
+                  // under the sticky column headers, where it was clipped and unreadable. Only this
+                  // one tick anchors to its top edge instead; the rest still centre on their line.
+                  const isFirst = m === WINDOW_START;
+                  return (
+                    <div key={m}
+                        className={`absolute inset-inline-end-1.5 whitespace-nowrap text-[11px] font-bold tabular-nums ${isFirst ? '' : '-translate-y-1/2'}`}
+                        style={{ top: (m - WINDOW_START) * PX_PER_MIN, color: 'var(--rj-ink)' }}>
+                      {timeLabel(m)}
+                    </div>
+                  );
+                })}
               </div>
 
               {columns.map((col) => {
@@ -526,21 +601,29 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             ...(isBeingMoved ? { '--tw-ring-color': 'var(--rj-gold)' } as React.CSSProperties : {}),
                           }}
                         >
+                          {/* THE ONLY VISIBLE SIGN A CARD DRAGS AT ALL, otherwise the sole cue was
+                              a cursor style — invisible on touch and easy to miss with a mouse
+                              that never happened to hover. Booked-only, matching `draggable`
+                              itself: a card that cannot be dragged must not offer a handle for it. */}
+                          {b.status === 'booked' ? (
+                            <GripVertical size={11} aria-hidden
+                                         className="absolute inset-inline-start-1 top-1/2 -translate-y-1/2 opacity-40" />
+                          ) : null}
                           {height < 30 ? (
                             // A very short card (a quick service) has no room for two lines — one
                             // combined line beats a time with no service name at all.
-                            <div className="truncate text-[11px] font-semibold leading-tight">
+                            <div className={`truncate text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
                               {timeLabel(minutesOf(b.starts_at))} · {serviceNameOf(b.service_ids) || '—'}
                             </div>
                           ) : (
-                            <>
+                            <div className={b.status === 'booked' ? 'ps-3' : ''}>
                               <div className="truncate text-xs font-semibold leading-tight">
                                 {timeLabel(minutesOf(b.starts_at))}
                               </div>
                               <div className="truncate text-[11px] leading-tight opacity-80">
                                 {serviceNameOf(b.service_ids) || '—'}
                               </div>
-                            </>
+                            </div>
                           )}
                         </div>
                       );

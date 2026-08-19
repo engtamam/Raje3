@@ -120,12 +120,18 @@ describe('the grid', () => {
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
   });
 
-  it('filters visible cards by the quick search, with no new request', async () => {
+  it('filters visible cards by chip, with no new request', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => screen.getByText(/قص شعر/));
     const before = asked.filter((a) => a.fn === 'listBookings').length;
-    const search = screen.getByPlaceholderText(/بحثٌ سريع/);
-    fireEvent.change(search, { target: { value: 'لا يوجد' } });
+    screen.getByText('فلاتر').click();
+    await waitFor(() => screen.getByText('بعربون'));
+    // BOOKING.deposit_taken is false, so "بعربون" excludes the one card on screen — the same
+    // outcome the old search-by-text test proved, now over a chip instead of a query.
+    fireEvent.click(screen.getByText('بعربون'));
+    // Closed rather than left open — the service <option> inside the still-open popover also
+    // reads "قص شعر", which would make the very filter under test look like it changed nothing.
+    fireEvent.click(screen.getByLabelText('إغلاق الفلاتر'));
     await waitFor(() => expect(screen.queryByText(/قص شعر/)).toBeNull());
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
   });
