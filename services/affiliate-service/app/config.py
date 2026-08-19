@@ -134,6 +134,14 @@ class Settings(BaseSettings):
     AFFILIATE_PROMOTER_ROLE: str = "affiliate_promoter"
     AFFILIATE_PHONE_DEFAULT_CC: str = "966"
     ONBOARDING_TIMEOUT_SECONDS: int = 10
+    # THE VERSION OF THE TERMS AN APPLICANT IS AGREEING TO — spec §2's own "قبول الشروط إجباري
+    # قبل التفعيل". NOT a full compliance-service integration (the version-pinned, re-prompt-on-
+    # publish machinery Door.tsx's own LegalGate drives for shops) — that is a real future
+    # upgrade, tracked as such rather than pretended away. This is the honest minimum until then:
+    # apply() refuses without agreement, and WHICH version he agreed to is recorded, so a later
+    # dispute has an answer ("he agreed to v1 on this date") rather than nothing at all. A config
+    # value, never hardcoded, so a real wording change is a value bump an admin makes on purpose.
+    AFFILIATE_TERMS_VERSION: str = "v1"
 
     # ── referral commission (spec §4 — a FLAT amount, not a percentage) ────────────────────────
     # Halalas, never riyals-as-float: money as a float is how "40.10" becomes "40.099999999999994"

@@ -22,12 +22,12 @@
 from __future__ import annotations
 
 import json
-import re
 import time
 import urllib.error
 import urllib.request
 from typing import Any
 
+from app.core.phone import canonical_phone
 from app.core.models import (
     ACTIVE,
     AFFILIATES,
@@ -38,6 +38,7 @@ from app.core.models import (
     PENDING,
     PROMOTER,
     REJECTED,
+    SUSPENDED,
     Affiliate,
     Application,
     new_id,
@@ -55,21 +56,6 @@ class OnboardingRefused(Exception):
     def __init__(self, message: str, reason: str = "") -> None:
         super().__init__(message)
         self.reason = reason
-
-
-def canonical_phone(raw: str, *, default_cc: str) -> str:
-    """Same fold as operations' own — see that module for why one human must never become two
-    accounts because of how he typed his number."""
-    digits = re.sub(r"\D", "", raw or "")
-    if not digits:
-        return ""
-    if digits.startswith("00"):
-        digits = digits[2:]
-    if digits.startswith("0"):
-        digits = default_cc + digits[1:]
-    elif not digits.startswith(default_cc):
-        digits = default_cc + digits
-    return "+" + digits
 
 
 class Http:
@@ -104,7 +90,8 @@ class Http:
 class OnboardingService:
     def __init__(self, *, store, http: Http, identity_url: str, tenant: str,
                  manager_role: str = MANAGER, promoter_role: str = PROMOTER,
-                 default_cc: str = "966", pii_salt: str = "") -> None:
+                 default_cc: str = "966", pii_salt: str = "",
+                 terms_version: str = "v1") -> None:
         self._store = store
         self._http = http
         self._identity = identity_url.rstrip("/")
@@ -113,6 +100,7 @@ class OnboardingService:
         self._promoter_role = promoter_role
         self._cc = default_cc
         self._salt = pii_salt
+        self._terms_version = terms_version
 
     def _ref(self, phone: str) -> str:
         """"" when PII_SALT is unset (local/dev) — erasure.py then simply finds nothing rather
@@ -121,12 +109,18 @@ class OnboardingService:
 
     # ── applying ─────────────────────────────────────────────────────────────────────────────
     async def apply(self, *, phone: str, name: str, password: str,
-                    referral_code: str = "") -> dict[str, Any]:
+                    referral_code: str = "", agreed: bool = False) -> dict[str, Any]:
         canonical = canonical_phone(phone, default_cc=self._cc)
         if not canonical:
             raise OnboardingRefused("أدخل رقم جوال صحيح.")
         if not name.strip():
             raise OnboardingRefused("أدخل اسمك.")
+        # spec §2: "قبول الشروط إجباري قبل التفعيل". Checked BEFORE the duplicate/referral
+        # lookups below — an applicant who never agreed should not learn anything about whether
+        # his number is already taken or his referral code is valid; there is nothing for him to
+        # act on here besides ticking the box.
+        if not agreed:
+            raise OnboardingRefused("وافق على الشروط وسياسة الخصوصية للمتابعة.", reason="must_agree")
 
         # ONE ATTEMPT AT A TIME PER NUMBER. A second apply while the first is still pending is not
         # a new person — refusing it here is what stops an admin's inbox from filling with
@@ -146,9 +140,11 @@ class OnboardingService:
                 raise OnboardingRefused("كود الإحالة غير صحيح.", reason="bad_referral")
             parent_id = str(parent["id"])
 
+        now = int(time.time())
         app_row = Application(
             id=new_id(), phone=canonical, name=name.strip(), parent_id=parent_id,
-            status=PENDING, created_at=int(time.time()), subject_ref=self._ref(canonical),
+            status=PENDING, created_at=now, subject_ref=self._ref(canonical),
+            agreed_terms_version=self._terms_version, agreed_at=now,
         )
         # THE PASSWORD IS NOT STORED HERE. Only identity ever holds a credential — this row is a
         # request to be judged, and a plaintext password sitting in a pending-applications table
@@ -321,6 +317,10 @@ class OnboardingService:
             role=role, parent_id=app_row.parent_id, status=ACTIVE,
             application_id=app_row.id, created_at=int(time.time()),
             subject_ref=app_row.subject_ref or self._ref(app_row.phone),
+            # HE ALREADY AGREED, AT apply() TIME — copied here so the Affiliate row (the one
+            # every later slice reads) carries its own answer to "did this person ever consent"
+            # without a join back to a possibly-erased Application row.
+            agreed_terms_version=app_row.agreed_terms_version, agreed_at=app_row.agreed_at,
         )
         await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
         return affiliate
@@ -359,7 +359,7 @@ class OnboardingService:
         return affiliate
 
     # ── the invited person choosing their own password ──────────────────────────────────────
-    async def accept_invite(self, *, token: str, password: str) -> dict[str, Any]:
+    async def accept_invite(self, *, token: str, password: str, agreed: bool = False) -> dict[str, Any]:
         rows, _ = await self._store.find(AFFILIATES, {"invite_token": token}, limit=1)
         affiliate = Affiliate.from_dict(rows[0]) if rows else None
         if affiliate is None or affiliate.status != INVITED:
@@ -367,6 +367,11 @@ class OnboardingService:
             # enumeration-oracle reasoning as every other refusal in this file: a caller must not
             # be able to tell which of the three is true one request at a time.
             raise OnboardingRefused("الدعوة غير صالحة أو منتهية.", reason="invalid_invite")
+        # spec §2 — HIS agreement, not the manager who invited him. Checked before the identity
+        # call so a refusal here never burns the one-time claim on a person who has not actually
+        # agreed to anything yet.
+        if not agreed:
+            raise OnboardingRefused("وافق على الشروط وسياسة الخصوصية للمتابعة.", reason="must_agree")
 
         status, _ = self._http.call(
             f"{self._identity}/api/v1/auth/person/claim", method="POST",
@@ -376,6 +381,8 @@ class OnboardingService:
 
         affiliate.status = ACTIVE
         affiliate.invite_token = ""     # spent — see the field's own note in models.py
+        affiliate.agreed_terms_version = self._terms_version
+        affiliate.agreed_at = int(time.time())
         await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
         return {"affiliate_id": affiliate.id}
 
@@ -398,6 +405,60 @@ class OnboardingService:
         # secret row, which never needed to exist past this decision either way.
         await self._store.delete(_PENDING_SECRET, application_id)
         return {"already_rejected": False}
+
+    # ── suspending / reactivating an existing affiliate ──────────────────────────────────────
+    async def suspend(self, affiliate_id: str, *, decided_by: str) -> dict[str, Any]:
+        """spec §10: «تعليق لا حذف» — the row and every Referral he ever earned stay exactly as
+        they are (ReferralRegistry.stamp() already refuses any NEW one for him from this moment
+        — see that module). What changes here is that he can no longer SIGN IN: a "suspended"
+        marketer who can still open the portal and message customers is not actually suspended,
+        whatever the database says.
+
+        IDEMPOTENT. Suspending an already-suspended affiliate is a no-op success, not a second
+        decision — same reasoning as approve()/reject() elsewhere in this file."""
+        affiliate = await self._affiliate_by_id(affiliate_id)
+        if affiliate is None:
+            raise OnboardingRefused("المسوّق غير موجود.", reason="not_found")
+        if affiliate.status == SUSPENDED:
+            return {"already_suspended": True}
+
+        status, _ = self._http.call(
+            f"{self._identity}/internal/tenancy/membership/{self._tenant}::{affiliate.person_id}",
+            method="DELETE", internal=True)
+        if status not in (200, 204, 404):
+            # REFUSED, NOT WARNED — same principle operations' own core/signup.py::revoke states
+            # for exactly this call: the caller must not be told somebody was suspended while his
+            # login still works.
+            raise OnboardingRefused("تعذّر إيقاف الحساب. حاول بعد قليل.", reason="revoke_failed")
+
+        affiliate.status = SUSPENDED
+        await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
+        return {"already_suspended": False}
+
+    async def reactivate(self, affiliate_id: str, *, decided_by: str) -> dict[str, Any]:
+        """The membership is re-granted with NO password and NO caps — identity's own add_member
+        refuses to touch an existing person's credential (T2) and simply grants a membership when
+        the person already exists, so his old password keeps working exactly as it did before the
+        suspension. Idempotent, same shape as suspend()."""
+        affiliate = await self._affiliate_by_id(affiliate_id)
+        if affiliate is None:
+            raise OnboardingRefused("المسوّق غير موجود.", reason="not_found")
+        if affiliate.status == ACTIVE:
+            return {"already_active": True}
+
+        status, body = self._http.call(
+            f"{self._identity}/internal/tenancy/members", method="POST", internal=True,
+            body={"tenant": self._tenant, "identifier": affiliate.phone, "roles": [affiliate.role]})
+        if status not in (200, 201):
+            raise OnboardingRefused(_member_error(status, body), reason="grant_failed")
+
+        affiliate.status = ACTIVE
+        await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
+        return {"already_active": False}
+
+    async def _affiliate_by_id(self, affiliate_id: str) -> Affiliate | None:
+        row = await self._store.get(AFFILIATES, affiliate_id)
+        return Affiliate.from_dict(row) if row else None
 
     # ── getting back in ─────────────────────────────────────────────────────────────────────
     async def sign_in(self, phone: str, password: str, code: str = "") -> dict[str, Any]:

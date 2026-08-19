@@ -400,7 +400,10 @@ class SignupService:
             status, body = self._http.call(
                 f"{self._affiliate}/internal/referrals/stamp", method="POST", internal=True,
                 body={"tenant": tenant, "affiliate_id": shop.affiliate_ref,
-                      "shop_name": shop.shop_name})
+                      "shop_name": shop.shop_name,
+                      # spec §2's anti-self-referral check needs this to compare against; see
+                      # affiliate-service's own core/referrals.py::stamp for the actual rule.
+                      "shop_owner_phone": phone})
             if status not in (200, 201):
                 affiliate_error = str((body or {}).get("detail") or f"status {status}")[:200]
                 if self._telemetry is not None:

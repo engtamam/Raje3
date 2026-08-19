@@ -68,15 +68,23 @@ def _token(caps=None, **over) -> str:
 
 def test_apply_needs_no_token(client):
     r = client.post("/api/v1/affiliates/apply",
-                    json={"phone": "0501234501", "name": "سالم", "password": "hunter2hunter2"})
+                    json={"phone": "0501234501", "name": "سالم", "password": "hunter2hunter2",
+                         "agreed": True})
     assert r.status_code == 200, r.text
     assert r.json()["ok"] is True
     assert r.json()["status"] == "pending"
 
 
+def test_apply_without_agreeing_to_the_terms_is_refused(client):
+    r = client.post("/api/v1/affiliates/apply",
+                    json={"phone": "0501234598", "name": "سالم", "password": "hunter2hunter2"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "must_agree"
+
+
 def test_apply_with_a_short_password_is_a_clean_400_not_a_500(client):
     r = client.post("/api/v1/affiliates/apply",
-                    json={"phone": "0501234502", "name": "سالم", "password": "x"})
+                    json={"phone": "0501234502", "name": "سالم", "password": "x", "agreed": True})
     # WeakPassword only surfaces once identity is actually called (at approve, not apply) — this
     # service's own apply() has no minimum-length rule of its own, so a short password is
     # accepted here and would be refused later by identity. Documented by asserting what
@@ -86,9 +94,11 @@ def test_apply_with_a_short_password_is_a_clean_400_not_a_500(client):
 
 def test_a_second_apply_on_the_same_number_is_refused_with_a_reason(client):
     client.post("/api/v1/affiliates/apply",
-                json={"phone": "0501234503", "name": "أ", "password": "hunter2hunter2"})
+                json={"phone": "0501234503", "name": "أ", "password": "hunter2hunter2",
+                     "agreed": True})
     r = client.post("/api/v1/affiliates/apply",
-                    json={"phone": "0501234503", "name": "أ", "password": "hunter2hunter2"})
+                    json={"phone": "0501234503", "name": "أ", "password": "hunter2hunter2",
+                         "agreed": True})
     assert r.status_code == 400
     assert r.json()["reason"] == "already_pending"
 
@@ -105,12 +115,32 @@ def test_admin_queue_refuses_with_no_token_at_all(client):
 
 def test_admin_queue_lists_a_pending_application_with_the_capability(client):
     client.post("/api/v1/affiliates/apply",
-               json={"phone": "0501234504", "name": "قائمة الانتظار", "password": "hunter2hunter2"})
+               json={"phone": "0501234504", "name": "قائمة الانتظار", "password": "hunter2hunter2",
+                    "agreed": True})
     r = client.get("/api/v1/admin/affiliates",
                    headers={"Authorization": f"Bearer {_token(caps=['affiliates.manage'])}"})
     assert r.status_code == 200, r.text
     phones = [a["phone"] for a in r.json()["applications"]]
     assert "+966501234504" in phones
+
+
+def test_suspend_refuses_without_the_capability(client):
+    r = client.post("/api/v1/admin/affiliates/does-not-exist/suspend",
+                    headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+
+
+def test_suspending_an_unknown_affiliate_is_a_clean_400(client):
+    r = client.post("/api/v1/admin/affiliates/does-not-exist/suspend",
+                    headers={"Authorization": f"Bearer {_token(caps=['affiliates.manage'])}"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "not_found"
+
+
+def test_reactivate_refuses_without_the_capability(client):
+    r = client.post("/api/v1/admin/affiliates/does-not-exist/reactivate",
+                    headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
 
 
 def test_approve_refuses_without_the_capability(client):

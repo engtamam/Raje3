@@ -68,7 +68,7 @@ def test_one_human_however_the_number_is_written(written):
 async def test_a_manager_applies_with_no_referral_and_becomes_a_manager():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     approved = await svc.approve(out["application_id"], decided_by="admin1")
     assert approved["role"] == MANAGER
 
@@ -77,11 +77,11 @@ async def test_a_manager_applies_with_no_referral_and_becomes_a_manager():
 async def test_a_promoter_is_linked_to_the_manager_who_referred_him():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
-    m = await svc.apply(phone="0501111111", name="المدير", password="hunter2hunter2")
+    m = await svc.apply(phone="0501111111", name="المدير", password="hunter2hunter2", agreed=True)
     mgr = await svc.approve(m["application_id"], decided_by="admin1")
 
     p = await svc.apply(phone="0502222222", name="مسوّق", password="hunter2hunter2",
-                        referral_code=mgr["affiliate_id"])
+                        referral_code=mgr["affiliate_id"], agreed=True)
     approved = await svc.approve(p["application_id"], decided_by="admin1")
     assert approved["role"] == PROMOTER
 
@@ -94,7 +94,7 @@ async def test_an_unknown_referral_code_is_refused_before_anything_is_created():
     svc = build()
     with pytest.raises(OnboardingRefused) as exc:
         await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2",
-                        referral_code="not-a-real-affiliate")
+                        referral_code="not-a-real-affiliate", agreed=True)
     assert exc.value.reason == "bad_referral"
 
 
@@ -112,7 +112,7 @@ async def test_approve_redeems_the_invite_identitys_default_mode_actually_return
         ("/person/claim", (200, {"person": {"id": "p1"}})),
     ])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     approved = await svc.approve(out["application_id"], decided_by="admin1")
 
     assert approved["already_approved"] is False
@@ -130,7 +130,7 @@ async def test_a_failed_invite_redemption_refuses_approval_rather_than_a_half_ac
         ("/person/claim", (400, {"detail": "INVALID_INVITE"})),
     ])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     with pytest.raises(OnboardingRefused) as exc:
         await svc.approve(out["application_id"], decided_by="admin1")
     assert exc.value.reason == "claim_failed"
@@ -140,7 +140,7 @@ async def test_a_failed_invite_redemption_refuses_approval_rather_than_a_half_ac
 async def test_approving_twice_mints_exactly_one_identity_membership():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
 
     first = await svc.approve(out["application_id"], decided_by="admin1")
     second = await svc.approve(out["application_id"], decided_by="admin2")
@@ -158,7 +158,7 @@ async def test_approving_twice_mints_exactly_one_identity_membership():
 @pytest.mark.anyio
 async def test_a_rejected_application_cannot_later_be_approved():
     svc = build()
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     await svc.reject(out["application_id"], decided_by="admin1", reason="مكرر")
 
     with pytest.raises(OnboardingRefused) as exc:
@@ -169,7 +169,7 @@ async def test_a_rejected_application_cannot_later_be_approved():
 @pytest.mark.anyio
 async def test_rejecting_twice_is_a_harmless_retry_not_a_second_decision():
     svc = build()
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     first = await svc.reject(out["application_id"], decided_by="admin1")
     second = await svc.reject(out["application_id"], decided_by="admin1")
     assert first["already_rejected"] is False
@@ -179,9 +179,9 @@ async def test_rejecting_twice_is_a_harmless_retry_not_a_second_decision():
 @pytest.mark.anyio
 async def test_a_second_apply_while_the_first_is_still_pending_is_refused():
     svc = build()
-    await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     with pytest.raises(OnboardingRefused) as exc:
-        await svc.apply(phone="0501234567", name="سالم مرة أخرى", password="hunter2hunter2x")
+        await svc.apply(phone="0501234567", name="سالم مرة أخرى", password="hunter2hunter2x", agreed=True)
     assert exc.value.reason == "already_pending"
 
 
@@ -192,7 +192,7 @@ async def test_the_chosen_password_does_not_outlive_the_decision():
 
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     assert await svc._store.get(_PENDING_SECRET, out["application_id"]) is not None
 
     await svc.approve(out["application_id"], decided_by="admin1")
@@ -203,11 +203,11 @@ async def test_the_chosen_password_does_not_outlive_the_decision():
 async def test_an_already_affiliate_phone_cannot_apply_again():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     await svc.approve(out["application_id"], decided_by="admin1")
 
     with pytest.raises(OnboardingRefused) as exc:
-        await svc.apply(phone="0501234567", name="سالم", password="anotherOne123!")
+        await svc.apply(phone="0501234567", name="سالم", password="anotherOne123!", agreed=True)
     assert exc.value.reason == "already_affiliate"
 
 
@@ -225,7 +225,7 @@ def _invite_http() -> ByIdentifierHttp:
 async def _make_active_manager(svc) -> str:
     """Returns the manager's person_id (also his identity `sub`, so it doubles as the token
     subject a real invite() call would authenticate with)."""
-    out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2")
+    out = await svc.apply(phone="0501110000", name="مدير", password="hunter2hunter2", agreed=True)
     approved = await svc.approve(out["application_id"], decided_by="admin1")
     saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
     return saved["person_id"]
@@ -254,7 +254,7 @@ async def test_a_promoter_cannot_invite():
     out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333",
                            name="مسوّق مدعو")
     approved = await svc.approve(out["application_id"], decided_by="admin1")
-    accepted = await svc.accept_invite(token="tok-1", password="hunter2hunter2")
+    accepted = await svc.accept_invite(token="tok-1", password="hunter2hunter2", agreed=True)
     promoter_person_id = (await svc._store.get(AFFILIATES, accepted["affiliate_id"]))["person_id"]
 
     with pytest.raises(OnboardingRefused) as exc:
@@ -273,7 +273,7 @@ async def test_accepting_an_invite_activates_the_account_with_the_persons_own_pa
                            name="مسوّق مدعو")
     approved = await svc.approve(out["application_id"], decided_by="admin1")
 
-    accepted = await svc.accept_invite(token="tok-1", password="somePassword123!")
+    accepted = await svc.accept_invite(token="tok-1", password="somePassword123!", agreed=True)
     saved = await svc._store.get(AFFILIATES, accepted["affiliate_id"])
     assert saved["status"] == "active"
     assert saved["invite_token"] == ""   # spent
@@ -284,7 +284,7 @@ async def test_accepting_an_invite_activates_the_account_with_the_persons_own_pa
 async def test_a_spent_or_unknown_invite_token_is_refused_the_same_way():
     svc = build()
     with pytest.raises(OnboardingRefused) as exc:
-        await svc.accept_invite(token="never-issued", password="hunter2hunter2")
+        await svc.accept_invite(token="never-issued", password="hunter2hunter2", agreed=True)
     assert exc.value.reason == "invalid_invite"
 
 
@@ -301,7 +301,7 @@ async def test_an_inactive_affiliate_cannot_invite():
 async def test_me_returns_his_own_id_as_the_referral_code_never_the_invite_token():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
-    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
     approved = await svc.approve(out["application_id"], decided_by="admin1")
 
     me = await svc.me("p1")
@@ -347,3 +347,126 @@ def test_http_client_sends_the_internal_token_header():
     finally:
         urllib.request.urlopen = real
     assert called["header"] == "secret-token"
+
+
+# ── consent (spec §2) ─────────────────────────────────────────────────────────────────────────
+@pytest.mark.anyio
+async def test_apply_without_agreeing_is_refused_before_any_lookup():
+    svc = build()
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=False)
+    assert exc.value.reason == "must_agree"
+
+
+@pytest.mark.anyio
+async def test_a_self_applicant_carries_his_agreement_onto_the_affiliate_row():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["agreed_terms_version"] == "v1"
+    assert saved["agreed_at"] > 0
+
+
+@pytest.mark.anyio
+async def test_an_invited_affiliate_has_no_agreement_until_he_accepts_it_himself():
+    """The manager's OWN agreement (made when he applied) must never stand in for the person he
+    invites — nobody but that person can consent on his behalf."""
+    svc = build(_invite_http())
+    manager_person_id = await _make_active_manager(svc)
+    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333", name="مسوّق مدعو")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["agreed_terms_version"] == ""
+    assert saved["agreed_at"] == 0
+
+
+@pytest.mark.anyio
+async def test_accepting_an_invite_without_agreeing_is_refused():
+    svc = build(_invite_http())
+    manager_person_id = await _make_active_manager(svc)
+    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333", name="مسوّق مدعو")
+    await svc.approve(out["application_id"], decided_by="admin1")
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.accept_invite(token="tok-1", password="hunter2hunter2", agreed=False)
+    assert exc.value.reason == "must_agree"
+
+
+@pytest.mark.anyio
+async def test_accepting_an_invite_records_his_own_agreement():
+    svc = build(_invite_http())
+    manager_person_id = await _make_active_manager(svc)
+    out = await svc.invite(inviter_person_id=manager_person_id, phone="0502223333", name="مسوّق مدعو")
+    await svc.approve(out["application_id"], decided_by="admin1")
+    accepted = await svc.accept_invite(token="tok-1", password="hunter2hunter2", agreed=True)
+    saved = await svc._store.get(AFFILIATES, accepted["affiliate_id"])
+    assert saved["agreed_terms_version"] == "v1"
+    assert saved["agreed_at"] > 0
+
+
+# ── suspend / reactivate (spec §10: «تعليق لا حذف») ──────────────────────────────────────────
+@pytest.mark.anyio
+async def test_suspending_revokes_identity_access_and_flips_the_status():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"})),
+                     (f"/tenancy/membership/{TENANT}::p1", (200, {}))])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    result = await svc.suspend(approved["affiliate_id"], decided_by="admin1")
+    assert result["already_suspended"] is False
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["status"] == "suspended"
+    assert any(m == "DELETE" for m, _ in http.calls)
+
+
+@pytest.mark.anyio
+async def test_suspending_twice_is_idempotent():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"})),
+                     (f"/tenancy/membership/{TENANT}::p1", (200, {}))])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    await svc.suspend(approved["affiliate_id"], decided_by="admin1")
+    second = await svc.suspend(approved["affiliate_id"], decided_by="admin1")
+    assert second["already_suspended"] is True
+
+
+@pytest.mark.anyio
+async def test_a_failed_revoke_refuses_the_suspension_rather_than_lying_about_it():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"})),
+                     (f"/tenancy/membership/{TENANT}::p1", (500, {}))])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.suspend(approved["affiliate_id"], decided_by="admin1")
+    assert exc.value.reason == "revoke_failed"
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["status"] == "active"   # NOT suspended — the lie this test guards against
+
+
+@pytest.mark.anyio
+async def test_reactivating_re_grants_membership_with_no_password_sent():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"})),
+                     (f"/tenancy/membership/{TENANT}::p1", (200, {}))])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    await svc.suspend(approved["affiliate_id"], decided_by="admin1")
+
+    result = await svc.reactivate(approved["affiliate_id"], decided_by="admin1")
+    assert result["already_active"] is False
+    saved = await svc._store.get(AFFILIATES, approved["affiliate_id"])
+    assert saved["status"] == "active"
+
+
+@pytest.mark.anyio
+async def test_suspending_an_unknown_affiliate_is_a_clean_refusal():
+    svc = build()
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.suspend("no-such-affiliate", decided_by="admin1")
+    assert exc.value.reason == "not_found"

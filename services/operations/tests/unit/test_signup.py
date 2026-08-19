@@ -138,6 +138,27 @@ async def test_a_bad_affiliate_id_is_reported_but_does_not_cost_the_owner_his_sh
 
 
 @pytest.mark.anyio
+async def test_the_shop_owners_own_phone_rides_along_for_the_self_referral_check():
+    """affiliate-service's own core/referrals.py refuses a marketer referring his own
+    establishment, but only if it can compare phones — this is the call that gives it one."""
+    class BodyCapturingHttp(FakeHttp):
+        def __init__(self, answers):
+            super().__init__(answers)
+            self.bodies: list[dict] = []
+
+        def call(self, url, *, method, body=None, internal=False):
+            if url.endswith("/referrals/stamp"):
+                self.bodies.append(body or {})
+            return super().call(url, method=method, body=body, internal=internal)
+
+    http = BodyCapturingHttp(list(_HAPPY_PATH)
+                             + [("/referrals/stamp", (200, {"affiliate_id": "aff-1"}))])
+    await build(http, affiliate_url="http://affiliate:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert http.bodies[0]["shop_owner_phone"] == "+966501234567"
+
+
+@pytest.mark.anyio
 async def test_the_affiliate_stamp_error_is_never_forwarded_to_the_owner():
     """The route (api/v1/signup.py::open_shop) pops it — this test guards the CONTRACT the route
     relies on: the field must exist under a name the route actually pops, or the pop is a no-op

@@ -74,6 +74,11 @@ class Application:
     #: number finds the row without operations/erasure.py having to re-derive it from a phone it
     #: may itself have already blanked. See erasure.py.
     subject_ref: str = ""
+    #: spec §2: "قبول الشروط إجباري قبل التفعيل" — WHICH version he agreed to and WHEN, so a
+    #: later dispute has an answer. Never blank on a real row: apply() refuses to write one
+    #: without both. See Settings.AFFILIATE_TERMS_VERSION.
+    agreed_terms_version: str = ""
+    agreed_at: int = 0
     #: The INVITING affiliate's own id — set ONLY when a manager sent this invitation (see
     #: onboarding.py::invite), blank for a self-submitted application. Deliberately a SEPARATE
     #: field from `parent_id`, even though both currently hold the same value: `parent_id` is a
@@ -90,6 +95,7 @@ class Application:
             "created_at": self.created_at, "decided_at": self.decided_at,
             "decided_by": self.decided_by, "reason": self.reason,
             "subject_ref": self.subject_ref, "invited_by": self.invited_by,
+            "agreed_terms_version": self.agreed_terms_version, "agreed_at": self.agreed_at,
         }
 
     @classmethod
@@ -101,6 +107,8 @@ class Application:
             decided_at=int(d.get("decided_at", 0)), decided_by=str(d.get("decided_by", "")),
             reason=str(d.get("reason", "")), subject_ref=str(d.get("subject_ref", "")),
             invited_by=str(d.get("invited_by", "")),
+            agreed_terms_version=str(d.get("agreed_terms_version", "")),
+            agreed_at=int(d.get("agreed_at", 0)),
         )
 
 
@@ -125,6 +133,13 @@ class Affiliate:
     #: onboarding.py::accept_invite. Blank the moment it is redeemed, same reasoning as
     #: `_PENDING_SECRET`: a credential-adjacent value outlives its purpose by exactly zero calls.
     invite_token: str = ""
+    #: spec §2's consent, on the row that actually earns commission — copied from the
+    #: Application at approval for a self-applicant (he already agreed at apply() time), or set
+    #: directly at accept_invite() for a manager-invited one (HE never agreed to anything until
+    #: that moment; a manager's own agreement cannot stand in for his). Blank means "not yet
+    #: agreed" — true only for an INVITED row still waiting on its own person.
+    agreed_terms_version: str = ""
+    agreed_at: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -133,6 +148,7 @@ class Affiliate:
             "status": self.status, "application_id": self.application_id,
             "created_at": self.created_at, "subject_ref": self.subject_ref,
             "invite_token": self.invite_token,
+            "agreed_terms_version": self.agreed_terms_version, "agreed_at": self.agreed_at,
         }
 
     @classmethod
@@ -144,6 +160,8 @@ class Affiliate:
             status=str(d.get("status", ACTIVE)), application_id=str(d.get("application_id", "")),
             created_at=int(d.get("created_at", 0)), subject_ref=str(d.get("subject_ref", "")),
             invite_token=str(d.get("invite_token", "")),
+            agreed_terms_version=str(d.get("agreed_terms_version", "")),
+            agreed_at=int(d.get("agreed_at", 0)),
         )
 
 

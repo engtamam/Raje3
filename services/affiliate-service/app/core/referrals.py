@@ -23,6 +23,7 @@ import time
 from typing import Any
 
 from app.core.models import ACTIVE, AFFILIATES, LAPSED, REFERRALS, REFERRED, Affiliate, Referral
+from app.core.phone import canonical_phone
 
 
 class ReferralError(Exception):
@@ -36,12 +37,14 @@ _DAY = 24 * 60 * 60
 
 class ReferralRegistry:
     def __init__(self, *, store, commission_amount_halalas: int = 0,
-                 conversion_window_days: int = 90) -> None:
+                 conversion_window_days: int = 90, default_cc: str = "966") -> None:
         self._s = store
         self._amount = commission_amount_halalas
         self._window = conversion_window_days
+        self._cc = default_cc
 
-    async def stamp(self, *, tenant: str, affiliate_id: str, shop_name: str = "") -> dict[str, Any]:
+    async def stamp(self, *, tenant: str, affiliate_id: str, shop_name: str = "",
+                    shop_owner_phone: str = "") -> dict[str, Any]:
         if not tenant:
             raise ReferralError("cannot stamp without a tenant")
         if not affiliate_id:
@@ -62,6 +65,18 @@ class ReferralRegistry:
             # must be visible as a fault, not swallowed into a shop that looks directly-acquired
             # when someone genuinely tried to refer it.
             raise ReferralError(f"unknown or inactive affiliate: {affiliate_id}")
+
+        # SELF-REFERRAL, spec §2: "يُتحقق أن رقم جوال صاحب المحل ≠ رقم جوال المسوّق نفسه" — a
+        # marketer opening a shop on his own number and crediting himself is a fabricated
+        # commission, not a real referral. Both numbers folded the SAME way (app/core/phone.py)
+        # before comparing, or two spellings of one number pass this check by accident. An empty
+        # `shop_owner_phone` (an old caller that predates this field) is NOT a match — it cannot
+        # prove self-referral, so it must not manufacture a false refusal either.
+        if shop_owner_phone:
+            owner = canonical_phone(shop_owner_phone, default_cc=self._cc)
+            marketer = canonical_phone(affiliate.phone, default_cc=self._cc)
+            if owner and marketer and owner == marketer:
+                raise ReferralError("an affiliate cannot refer their own establishment")
 
         now = int(time.time())
         referral = Referral(

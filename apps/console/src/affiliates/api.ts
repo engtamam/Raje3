@@ -52,11 +52,11 @@ export interface AffiliateSession {
 /** «سجّل كمسوّق» — writes a ROW an admin has to look at first. No account, no token comes back;
  *  see services/affiliate-service/app/core/onboarding.py::apply for the whole reasoning. */
 export async function apply(input: {
-  phone: string; name: string; password: string; referralCode?: string;
+  phone: string; name: string; password: string; referralCode?: string; agreed: boolean;
 }): Promise<{ application_id: string; status: string }> {
   return req('/api/v1/affiliates/apply', 'POST', {
     phone: input.phone, name: input.name, password: input.password,
-    referral_code: input.referralCode || '',
+    referral_code: input.referralCode || '', agreed: input.agreed,
   });
 }
 
@@ -65,8 +65,9 @@ export async function signIn(phone: string, password: string): Promise<Affiliate
 }
 
 /** The other half of a manager's invite — no token yet, same reason `apply` has none. */
-export async function acceptInvite(token: string, password: string): Promise<{ affiliate_id: string }> {
-  return req('/api/v1/affiliates/accept-invite', 'POST', { token, password });
+export async function acceptInvite(token: string, password: string, agreed: boolean):
+    Promise<{ affiliate_id: string }> {
+  return req('/api/v1/affiliates/accept-invite', 'POST', { token, password, agreed });
 }
 
 /** A manager naming somebody for his own team. Needs a signed-in manager's own token; the server

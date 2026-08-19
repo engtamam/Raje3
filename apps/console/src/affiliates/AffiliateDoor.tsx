@@ -188,7 +188,7 @@ function ApplyPane() {
     setBusy(true);
     setError('');
     try {
-      await apply({ phone: v.phone, name: v.name, password: v.password, referralCode });
+      await apply({ phone: v.phone, name: v.name, password: v.password, referralCode, agreed });
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof AffiliateRefused ? err.message : 'تعذّر إرسال الطلب.');
@@ -241,23 +241,7 @@ function ApplyPane() {
                onChange={(e) => setReferralCode(e.target.value.trim())} dir="ltr" />
       </Field>
 
-      <label className="flex items-start gap-2 text-sm text-text-secondary">
-        <input type="checkbox" className="mt-1" checked={agree}
-               onChange={(e) => setAgree(e.target.checked)} />
-        <span>
-          أوافق على{' '}
-          <a href={`${(import.meta.env.VITE_AFFILIATE_LEGAL_BASE ?? 'https://raje3.sa/legal/affiliates').replace(/\/$/, '')}/terms`}
-             target="_blank" rel="noreferrer" className="text-accent underline">
-            شروط برنامج المسوّقين
-          </a>{' '}
-          و{' '}
-          <a href={`${(import.meta.env.VITE_AFFILIATE_LEGAL_BASE ?? 'https://raje3.sa/legal/affiliates').replace(/\/$/, '')}/privacy`}
-             target="_blank" rel="noreferrer" className="text-accent underline">
-            سياسة الخصوصية
-          </a>
-          .
-        </span>
-      </label>
+      <AffiliateTerms agree={agree} onChange={setAgree} />
 
       {error ? <p role="alert" className="text-danger">{error}</p> : null}
 
@@ -271,6 +255,7 @@ function ApplyPane() {
 function AcceptInvitePane({ token, onActivated }: { token: string; onActivated: () => void }) {
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState(false);
+  const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [activated, setActivated] = useState(false);
@@ -285,10 +270,11 @@ function AcceptInvitePane({ token, onActivated }: { token: string; onActivated: 
     e.preventDefault();
     setTouched(true);
     if (err) return;
+    if (!agree) { setError('وافق على الشروط وسياسة الخصوصية للمتابعة.'); return; }
     setBusy(true);
     setError('');
     try {
-      await acceptInvite(token, password);
+      await acceptInvite(token, password, agree);
       // NO TOKEN COMES BACK FROM ACCEPTING — identity's own claim step returns the PERSON, not a
       // session (see identity-service's own /person/claim). Same shape as openShop in Door.tsx:
       // the account exists now, and the ordinary sign-in pane this hands him to is one call away
@@ -327,11 +313,42 @@ function AcceptInvitePane({ token, onActivated }: { token: string; onActivated: 
                onBlur={() => setTouched(true)} type="password" autoComplete="new-password" />
       </Field>
 
+      {/* spec §2 — HIS agreement, not the manager who invited him. A manager's own consent when
+          HE applied cannot stand in for the person he invited; see onboarding.py::accept_invite
+          for the server-side half of this same rule. */}
+      <AffiliateTerms agree={agree} onChange={setAgree} />
+
       {error ? <p role="alert" className="text-danger">{error}</p> : null}
 
       <Button type="submit" disabled={busy || !token}>
         {busy ? 'جارٍ التفعيل…' : 'تفعيل الحساب'}
       </Button>
     </form>
+  );
+}
+
+/** The consent line — shared by ApplyPane and AcceptInvitePane, since both are moments a NEW
+ *  person is agreeing for the first time (Door.tsx's own Terms component is the shop's
+ *  equivalent, and points at a different set of documents entirely — see this module's own
+ *  header note on why this is not that component reused). */
+function AffiliateTerms({ agree, onChange }: { agree: boolean; onChange: (v: boolean) => void }) {
+  const base = (import.meta.env.VITE_AFFILIATE_LEGAL_BASE ?? 'https://raje3.sa/legal/affiliates')
+    .replace(/\/$/, '');
+  return (
+    <label className="flex items-start gap-2 text-sm text-text-secondary">
+      <input type="checkbox" className="mt-1" checked={agree}
+             onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        أوافق على{' '}
+        <a href={`${base}/terms`} target="_blank" rel="noreferrer" className="text-accent underline">
+          شروط برنامج المسوّقين
+        </a>{' '}
+        و{' '}
+        <a href={`${base}/privacy`} target="_blank" rel="noreferrer" className="text-accent underline">
+          سياسة الخصوصية
+        </a>
+        .
+      </span>
+    </label>
   );
 }

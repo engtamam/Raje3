@@ -160,4 +160,22 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "who disputes the refusal was told what he was told — not critical, since refusing "
                "an application while the log is down protects nothing that approving does not",
     },
+    {
+        "action": "affiliate.suspended",
+        "source": "admin",
+        "critical": True,
+        "resource": "affiliate",
+        "why": "an unattributable suspension is indistinguishable from an attacker revoking a "
+               "competitor's — or, the more likely dispute, a suspended marketer claiming nobody "
+               "at the platform actually decided to suspend him",
+    },
+    {
+        "action": "affiliate.reactivated",
+        "source": "admin",
+        "critical": False,
+        "resource": "affiliate",
+        "why": "explains later why a suspended marketer's login started working again — not "
+               "critical, since refusing a reactivation while the log is down costs the marketer "
+               "a delay, not evidence",
+    },
 ]

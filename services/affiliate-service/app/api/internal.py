@@ -86,6 +86,11 @@ class ReferralStampIn(BaseModel):
     tenant: str
     affiliate_id: str
     shop_name: str = ""
+    #: The shop owner's own phone — spec §2's anti-self-referral check ("رقم جوال صاحب المحل ≠
+    #: رقم جوال المسوّق نفسه"). Optional only for backward compatibility with a caller that
+    #: predates this field; core/referrals.py treats an empty value as "cannot check" and stamps
+    #: anyway rather than refusing a legitimate referral over a caller that has not been updated.
+    shop_owner_phone: str = ""
 
 
 @router.post("/referrals/stamp", dependencies=[Depends(require_internal_token)])
@@ -99,7 +104,8 @@ async def stamp_referral(request: Request, body: ReferralStampIn) -> dict:
     c = request.app.state.container
     try:
         return await c.referrals.stamp(
-            tenant=body.tenant, affiliate_id=body.affiliate_id, shop_name=body.shop_name)
+            tenant=body.tenant, affiliate_id=body.affiliate_id, shop_name=body.shop_name,
+            shop_owner_phone=body.shop_owner_phone)
     except ReferralError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 

@@ -37,6 +37,9 @@ class ApplyIn(BaseModel):
     #: (or another promoter's, per spec §1's tree). Never trusted as a role claim by itself; see
     #: onboarding.apply() for the lookup that actually decides the role.
     referral_code: str = Field(default="", max_length=64)
+    #: spec §2 — required True or the application is refused. A checkbox the console renders,
+    #: never assumed on the applicant's behalf.
+    agreed: bool = False
 
 
 class SignInIn(BaseModel):
@@ -48,6 +51,7 @@ class SignInIn(BaseModel):
 class AcceptInviteIn(BaseModel):
     token: str = Field(min_length=1, max_length=512)
     password: str = Field(min_length=1, max_length=256)
+    agreed: bool = False
 
 
 def _svc(request: Request):
@@ -66,7 +70,7 @@ async def apply(request: Request, body: ApplyIn) -> Any:
     try:
         out = await _svc(request).apply(
             phone=body.phone, name=body.name, password=body.password,
-            referral_code=body.referral_code)
+            referral_code=body.referral_code, agreed=body.agreed)
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
@@ -86,7 +90,8 @@ async def accept_invite(request: Request, body: AcceptInviteIn) -> Any:
     invited person holds nothing identity or we would authenticate with until this call sets his
     own password."""
     try:
-        out = await _svc(request).accept_invite(token=body.token, password=body.password)
+        out = await _svc(request).accept_invite(
+            token=body.token, password=body.password, agreed=body.agreed)
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}

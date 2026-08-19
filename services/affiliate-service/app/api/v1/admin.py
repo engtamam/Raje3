@@ -91,3 +91,32 @@ async def reject(request: Request, application_id: str, body: RejectIn,
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
+
+
+# ── suspending / reactivating an EXISTING affiliate (spec §10: «تعليق لا حذف») ────────────────
+@router.post("/{affiliate_id}/suspend", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def suspend(request: Request, affiliate_id: str,
+                  principal: Principal = Depends(require_user)) -> Any:
+    await request.app.state.auditor.record(
+        "affiliate.suspended", actor=_actor(principal), tenant="",
+        resource=f"affiliate:{affiliate_id}",
+        ip=request.client.host if request.client else "")
+    try:
+        out = await _svc(request).suspend(affiliate_id, decided_by=_actor(principal))
+    except OnboardingRefused as exc:
+        return _refused(exc)
+    return {"ok": True, **out}
+
+
+@router.post("/{affiliate_id}/reactivate", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def reactivate(request: Request, affiliate_id: str,
+                     principal: Principal = Depends(require_user)) -> Any:
+    await request.app.state.auditor.record(
+        "affiliate.reactivated", actor=_actor(principal), tenant="",
+        resource=f"affiliate:{affiliate_id}",
+        ip=request.client.host if request.client else "")
+    try:
+        out = await _svc(request).reactivate(affiliate_id, decided_by=_actor(principal))
+    except OnboardingRefused as exc:
+        return _refused(exc)
+    return {"ok": True, **out}

@@ -129,3 +129,40 @@ async def test_of_affiliate_lists_every_establishment_that_affiliate_brought():
     await reg.stamp(tenant="t-2", affiliate_id="aff-1", shop_name="ب")
     rows = await reg.of_affiliate("aff-1")
     assert {r.tenant for r in rows} == {"t-1", "t-2"}
+
+
+# ── self-referral (spec §2) ───────────────────────────────────────────────────────────────────
+@pytest.mark.anyio
+async def test_an_affiliate_cannot_refer_his_own_establishment():
+    reg, store = build()
+    row = Affiliate(id="aff-1", person_id="p1", phone="+966501234567", name="مسوّق", role="affiliate_manager", status=ACTIVE)
+    await store.put(AFFILIATES, "aff-1", row.to_dict())
+    with pytest.raises(ReferralError):
+        await reg.stamp(tenant="t-1", affiliate_id="aff-1", shop_owner_phone="0501234567")
+
+
+@pytest.mark.anyio
+async def test_the_same_number_written_differently_is_still_caught():
+    reg, store = build()
+    row = Affiliate(id="aff-1", person_id="p1", phone="0501234567", name="مسوّق", role="affiliate_manager", status=ACTIVE)
+    await store.put(AFFILIATES, "aff-1", row.to_dict())
+    with pytest.raises(ReferralError):
+        await reg.stamp(tenant="t-1", affiliate_id="aff-1", shop_owner_phone="+966501234567")
+
+
+@pytest.mark.anyio
+async def test_a_different_owner_is_a_real_referral_not_blocked():
+    reg, store = build()
+    await _seed_affiliate(store)
+    out = await reg.stamp(tenant="t-1", affiliate_id="aff-1", shop_owner_phone="0509999999")
+    assert out["affiliate_id"] == "aff-1"
+
+
+@pytest.mark.anyio
+async def test_an_empty_owner_phone_does_not_block_a_legitimate_referral():
+    """An old caller that predates this field (or a stamp made before operations was updated to
+    send it) must not have every referral refused over data that simply is not there yet."""
+    reg, store = build()
+    await _seed_affiliate(store)
+    out = await reg.stamp(tenant="t-1", affiliate_id="aff-1", shop_owner_phone="")
+    assert out["affiliate_id"] == "aff-1"

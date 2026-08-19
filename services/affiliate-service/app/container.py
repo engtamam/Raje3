@@ -247,6 +247,7 @@ def build_container(settings: Settings) -> Container:
         promoter_role=settings.AFFILIATE_PROMOTER_ROLE,
         default_cc=settings.AFFILIATE_PHONE_DEFAULT_CC,
         pii_salt=settings.PII_SALT,
+        terms_version=settings.AFFILIATE_TERMS_VERSION,
     )
     # Which establishment this affiliate brought (spec §4) — see core/referrals.py for why this
     # is not operations' own partners.py reused.
@@ -256,5 +257,6 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore,
         commission_amount_halalas=settings.AFFILIATE_COMMISSION_AMOUNT_HALALAS,
         conversion_window_days=settings.AFFILIATE_CONVERSION_WINDOW_DAYS,
+        default_cc=settings.AFFILIATE_PHONE_DEFAULT_CC,
     )
     return container
