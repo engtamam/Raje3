@@ -13,14 +13,16 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, Pencil, Plus, Trash2,
-  User, X,
+  Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, Pencil, Phone, Plus,
+  Trash2, User, X,
 } from 'lucide-react';
 import {
   attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
   fetchCatalogue, type FieldOperator, listBookings, listBookingStaff, noShowBooking,
-  rescheduleBooking, sentenceFor,
+  rescheduleBooking, sentenceFor, suggestByPrefix,
 } from '../api';
+import { asLocal } from '../phone';
+import { digitsOnly } from '../digits';
 import type { ScopeBranch } from '../branch-scope';
 import { riyals } from '../money';
 import { PAYMENT_COLOR, PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
@@ -161,8 +163,21 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [filterService, setFilterService] = useState('');   // '' = every service
   const [filterPayment, setFilterPayment] = useState<'any' | PaymentStatus>('any');
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // "البحث بالجوال" كان هنا — عُطِّل مؤقتاً (لا يعمل: مساره في search-service لم يُبنَ بعد،
-  // مُشخَّصٌ ومُصحَّحٌ في platform/ بانتظار إصدارٍ حقيقي منك). يعود حين يعمل فعلاً.
+  // البحث بالبادئة — عاد بعد إصدار المنصة v0.16.24 (2026-08-19)، الذي حمل المسار الداخلي
+  // /internal/search/suggest الذي كان ناقصاً منذ يوم بُنيت هذه الميزة.
+  const [phoneQuery, setPhoneQuery] = useState('');
+  const [phoneMatches, setPhoneMatches] = useState<CustomerHit[] | null>([]);
+  const [filterCustomer, setFilterCustomer] = useState<CustomerHit | null>(null);
+
+  useEffect(() => {
+    if (filterCustomer || phoneQuery.length < 3) { setPhoneMatches([]); return; }
+    let stale = false;
+    const id = window.setTimeout(() => {
+      suggestByPrefix(session, phoneQuery).then((rows) => { if (!stale) setPhoneMatches(rows); })
+        .catch(() => { if (!stale) setPhoneMatches(null); });
+    }, 180);
+    return () => { stale = true; window.clearTimeout(id); };
+  }, [phoneQuery, filterCustomer, session]);
 
   const [dialog, setDialog] = useState<{
     operatorId?: string; startsAt?: number; customer?: CustomerHit; serviceIds?: string[];
@@ -243,11 +258,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     return (rows ?? []).filter((b) => {
       if (filterService && !b.service_ids.includes(filterService)) return false;
       if (filterPayment !== 'any' && b.payment_status !== filterPayment) return false;
+      if (filterCustomer && b.customer_id !== filterCustomer.id) return false;
       return true;
     });
-  }, [rows, filterService, filterPayment]);
+  }, [rows, filterService, filterPayment, filterCustomer]);
 
-  const activeFilterCount = (filterService ? 1 : 0) + (filterPayment !== 'any' ? 1 : 0);
+  const activeFilterCount =
+    (filterService ? 1 : 0) + (filterPayment !== 'any' ? 1 : 0) + (filterCustomer ? 1 : 0);
 
   // MINUTES PAST THE WHOLE APPOINTMENT WINDOW, NOT PAST ITS START — a booking still inside its
   // own duration is simply happening, not overdue. 0 (or negative) means "not overdue yet".
@@ -481,10 +498,10 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 on the day filtering actually touches. On anything wider there is room to just
                 SHOW the two controls inline, which is the one-tap version this was always meant
                 to be; the chip below only exists for the width that cannot afford it. */}
-            {/* البحث بالجوال مُعطَّل مؤقتاً — الاقتراح يتكئ على search-service، ومساره الداخلي
-                لهذا الاستدعاء بالذات لم يُبنَ بعد (مُشخَّصٌ ومُصحَّحٌ في platform/، بانتظار
-                إصدارٍ حقيقي منك قبل أن يعمل). عرضه هنا كان يريه حقلاً لا يجيب أبداً. */}
             <div className="hidden items-center gap-2 sm:flex">
+              <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
+                          phoneMatches={phoneMatches} filterCustomer={filterCustomer}
+                          setFilterCustomer={setFilterCustomer} />
               <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
                      className="h-9 rounded-full px-3 text-xs font-medium shadow-sm outline-none"
                      style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}>
@@ -510,7 +527,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 ))}
               </div>
               {activeFilterCount ? (
-                <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); }}
+                <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
                        aria-label="إزالة كل الفلاتر"
                        className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
                        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
@@ -545,6 +562,12 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 <div className="absolute inset-inline-end-0 top-11 z-20 flex w-64 flex-col gap-3 rounded-2xl p-4 shadow-lg"
                     style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
                   <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>جوّال العميل</span>
+                    <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
+                                phoneMatches={phoneMatches} filterCustomer={filterCustomer}
+                                setFilterCustomer={setFilterCustomer} full />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الخدمة</span>
                     <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
                            className="h-9 rounded-xl px-2 text-sm outline-none"
@@ -576,7 +599,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                     </div>
                   </div>
                   {activeFilterCount ? (
-                    <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); }}
+                    <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
                            className="text-xs font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
                       إزالة كل الفلاتر
                     </button>
@@ -1018,6 +1041,68 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   );
 }
 
+
+/** THE COUNTER'S OWN QUESTION, ANSWERED IN ONE FIELD. A customer standing there and asking about
+ *  his own appointment gives a phone number, not a query — so this narrows the grid to exactly
+ *  his card(s) rather than filtering a list he was never browsing. Once matched, the customer's
+ *  own name (and visit count, when the read carries one) shows beside the field, because the
+ *  phone number alone does not answer "who is this" the way his name does. */
+function PhoneLookup({
+  phoneQuery, setPhoneQuery, phoneMatches, filterCustomer, setFilterCustomer, full,
+}: {
+  phoneQuery: string;
+  setPhoneQuery: (v: string) => void;
+  phoneMatches: CustomerHit[] | null;
+  filterCustomer: CustomerHit | null;
+  setFilterCustomer: (c: CustomerHit | null) => void;
+  /** The popover's own column layout needs the full width; the inline header row keeps it compact. */
+  full?: boolean;
+}) {
+  if (filterCustomer) {
+    return (
+      <div className="flex h-9 items-center gap-1.5 rounded-full ps-3 pe-1 text-xs font-medium shadow-sm"
+          style={{ background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }}>
+        <Phone size={12} aria-hidden />
+        <span className="truncate">{filterCustomer.name || asLocal(filterCustomer.phone)}</span>
+        {typeof filterCustomer.visits === 'number' ? (
+          <span className="opacity-70">· {filterCustomer.visits} زيارة</span>
+        ) : null}
+        <button type="button" aria-label="إلغاء" onClick={() => { setFilterCustomer(null); setPhoneQuery(''); }}
+               className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
+               style={{ color: 'var(--rj-gold-deep)' }}>
+          <X size={12} aria-hidden />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className={`relative ${full ? '' : 'w-40'}`}>
+      <Phone size={13} aria-hidden
+            className="pointer-events-none absolute inset-inline-start-3 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--rj-ink-soft)' }} />
+      <input
+        value={phoneQuery}
+        onChange={(e) => setPhoneQuery(digitsOnly(e.target.value).slice(0, 10))}
+        placeholder="جوّال العميل"
+        aria-label="ابحث عن حجز عميل بجواله"
+        className="h-9 w-full rounded-full py-1.5 ps-9 pe-3 text-xs font-medium shadow-sm outline-none"
+        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}
+      />
+      {(phoneMatches ?? []).length > 0 ? (
+        <div className="absolute inset-inline-start-0 top-11 z-30 flex w-56 flex-col gap-1 rounded-2xl p-2 shadow-lg"
+            style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
+          {(phoneMatches ?? []).slice(0, 5).map((c) => (
+            <button key={c.id} type="button" onClick={() => setFilterCustomer(c)}
+                   className="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-start text-sm hover:opacity-80">
+              <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
+              <span className="truncate ps-2 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{c.name || ''}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /** A small action sheet opened by tapping a card — attend / no-show / cancel, in the grid's own
  *  visual identity. Closing a booking as attended offers "احجزي الجلسة القادمة" (§2.7) when the
