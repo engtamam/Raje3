@@ -516,7 +516,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           </div>
         ) : (
           <div data-testid="rj-grid"
-              className={view === 'week' ? 'rounded-[28px] shadow-sm' : 'overflow-x-auto rounded-[28px] shadow-sm'}
+              className={view === 'week' ? 'rounded-[28px] p-2 shadow-sm' : 'overflow-x-auto rounded-[28px] p-2 shadow-sm'}
               style={{ background: 'var(--rj-surface)' }}>
             {/* WEEK NEVER SCROLLS TO BE SEEN WHOLE — its seven columns are the fixed, known set the
                 view exists to show side by side, so they take `1fr` each and share the container's
