@@ -1,10 +1,10 @@
 # bookings — deployment values.
 #
-# STAGE 1 ONLY (docs/خطة-تنفيذ-الحجوزات.md): the platform-tax skeleton and the licence gate. No
-# domain routes exist yet, so no peer URLs are declared here — REMINDERS_SERVICE_URL,
-# OPERATIONS_SERVICE_URL and the rest arrive with the stages that actually call them (3-5). A URL
-# declared before anything reads it is "configured and inert"
-# (docs/PLATFORM-PLAYBOOK.md §4.2) — a setting that promises a behaviour the code does not have.
+# ALL TEN STAGES (docs/خطة-تنفيذ-الحجوزات.md) are built and shipped. OPERATIONS_SERVICE_URL below
+# was the one peer URL still missing after Stages 3-5 landed the code that calls it — this file's
+# own comment said it would "arrive with the stages that actually call them" and then did not,
+# which is exactly "configured and inert" run backwards: code that calls a peer with nothing here
+# to reach it, refusing every booking with "مدة غير مضبوطة" (`assert_operations_peer_config_ok`).
 #
 # Defaults are SAFE, not scalable: one replica, in-memory drivers. To scale out, move every
 # stateful port to a shared driver below; the chart REFUSES to render replicas>1 otherwise.
@@ -18,7 +18,7 @@ image:
   # create_service.py's own convention: "CI rewrites this at publish; never a :latest tag").
   # ship.sh / publish-images.sh must run and overwrite this before any rollout is attempted;
   # a rollout against this digest fails at image pull, which is the correct, loud failure.
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  digest: "sha256:6c1d810fe9682c7ff5d5b4d2d4a045fa10a169a1d677d2a8379443acde93ae87"   # 65031c3, published by publish-images.sh
 
 replicas: 1
 
@@ -72,6 +72,14 @@ env:
   BILLING_SERVICE_URL: "http://billing-service:8000"
   BILLING_CHECK_PATH: "/internal/billing/entitlements/check"
   PEER_TIMEOUT_SECONDS: "8"
+
+  # ── operations, the peer every booking act actually calls (app/config.py's own defaults name
+  # the paths; only the URL has none, since it is the one value this chart alone can know) ──────
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  OPERATIONS_DURATIONS_PATH: "/internal/operations/service-durations"
+  OPERATIONS_VISIT_FROM_CUSTOMER_PATH: "/internal/operations/visits/from-customer"
+  OPERATIONS_SUBJECT_REF_PATH: "/internal/operations/customers/subject-ref"
+  OPERATIONS_SCOPE_PATH: "/internal/operations/branch-scope"
 
   AUDIT_SINK_DRIVER: "http"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
