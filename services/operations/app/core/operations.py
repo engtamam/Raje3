@@ -406,8 +406,8 @@ class Operations:
         reason it exists rather than being reimplemented at a second call site. `bookings`' console
         dialog needs "resolve or create a customer for this phone" without a visit attached to it
         (docs/خطة-تنفيذ-الحجوزات.md §6.2: "نفس الفعل الخلفي الذي يستعمله VisitIn, لا إعادة
-        تنفيذ"), and duplicating this logic for that path is exactly the drift the platform's own
-        SHARED COPY convention exists to prevent one layer up.
+        تنفيذ"), and duplicating this logic for that path is exactly the kind of copy-and-drift
+        this file itself is the one place meant to prevent.
 
         NOT SAVED HERE. The caller decides when: `record_visit` saves once, at the end, together
         with the visit-count update; `ensure_customer` below saves immediately because there is no
