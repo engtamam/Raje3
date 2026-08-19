@@ -65,25 +65,6 @@
       ]
     },
     {
-      "name": "svc_booking_confirmation",
-      "deferral": "drop",
-      "title": "تأكيد الحجز",
-      "cls": "service",
-      "category": "UTILITY",
-      "header": "",
-      "tones": {
-        "brief": "أهلاً {{1}}، تأكّد حجزك لدى {{2}} يوم {{3}}. {{4}} 🎁",
-        "warm": "يا هلا {{1}}، حجزنا لك موعدك في {{2}} يوم {{3}}، بانتظارك. {{4}} 🎁",
-        "formal": "عزيزنا {{1}}، نفيدكم بتأكيد حجزكم لدى {{2}} يوم {{3}}. {{4}} 🎁"
-      },
-      "fills": [
-        "system",
-        "system",
-        "system",
-        "invite"
-      ]
-    },
-    {
       "name": "svc_visit_redeemed",
       "deferral": "drop",
       "title": "تأكيد الزيارة ومعه الاستبدال",
@@ -98,6 +79,25 @@
       "fills": [
         "system",
         "system",
+        "system",
+        "system",
+        "system",
+        "invite"
+      ]
+    },
+    {
+      "name": "svc_booking_confirmation",
+      "deferral": "drop",
+      "title": "تأكيد الحجز",
+      "cls": "service",
+      "category": "UTILITY",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، تأكّد حجزك لدى {{2}} يوم {{3}}. {{4}} 🎁",
+        "warm": "يا هلا {{1}}، حجزنا لك موعدك في {{2}} يوم {{3}}، بانتظارك. {{4}} 🎁",
+        "formal": "عزيزنا {{1}}، نفيدكم بتأكيد حجزكم لدى {{2}} يوم {{3}}. {{4}} 🎁"
+      },
+      "fills": [
         "system",
         "system",
         "system",
@@ -223,25 +223,6 @@
       ]
     },
     {
-      "name": "awr_seasonal_care",
-      "deferral": "defer",
-      "title": "نصيحة موسمية",
-      "cls": "awareness",
-      "category": "UTILITY",
-      "header": "",
-      "tones": {
-        "brief": "مرحباً {{1}}، من {{2}}: {{3}}. {{4}} 🎁",
-        "warm": "هلا {{1}}، من {{2}} نصيحة تنفعك: {{3}}. {{4}} 🎁",
-        "formal": "عزيزنا {{1}}، يسرّ {{2}} تذكيركم: {{3}}. {{4}} 🎁"
-      },
-      "fills": [
-        "system",
-        "system",
-        "owner",
-        "invite"
-      ]
-    },
-    {
       "name": "awr_care_tip",
       "deferral": "defer",
       "title": "إرشاد يخصّ ما يملكه",
@@ -363,6 +344,67 @@
       ]
     },
     {
+      "name": "mkt_cross_sell",
+      "deferral": "defer",
+      "title": "خدمة مكمّلة",
+      "cls": "marketing",
+      "category": "MARKETING",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، مع {{3}} قد يناسبك {{4}} في {{2}}. لإيقاف العروض: {{5}} ✋",
+        "warm": "هلا {{1}}، بما إنك مهتم بـ{{3}}، كثير من عملاء {{2}} يضيفون معها {{4}}. لإيقاف العروض: {{5}} ✋",
+        "formal": "عزيزنا {{1}}، نوصي بإضافة {{4}} إلى {{3}} لدى {{2}} لضمان أفضل النتائج. لإيقاف العروض: {{5}} ✋"
+      },
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "catalogue",
+        "stop_link"
+      ]
+    },
+    {
+      "name": "mkt_package",
+      "deferral": "defer",
+      "title": "باقة أو اشتراك",
+      "cls": "marketing",
+      "category": "MARKETING",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، باقة {{3}} من {{2}} بـ{{4}}. ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
+        "warm": "هلا {{1}}، وفّر أكثر مع باقة {{3}} من {{2}} بـ{{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
+        "formal": "عزيزنا {{1}}، يقدم {{2}} باقة {{3}} بقيمة {{4}} حتى تاريخ {{5}}. لإيقاف العروض: {{6}} ✋"
+      },
+      "fills": [
+        "system",
+        "system",
+        "catalogue",
+        "amount",
+        "date",
+        "stop_link"
+      ]
+    },
+    {
+      "name": "mkt_referral",
+      "deferral": "defer",
+      "title": "إحالة صديق",
+      "cls": "marketing",
+      "category": "MARKETING",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، رشّح {{2}} لصديقك، ولكما خصم {{3}}. ساري حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+        "warm": "هلا {{1}}، إذا عجبتك خدمتنا في {{2}} رشّحنا لصاحبك — لك وله خصم {{3}} حتى {{4}}. لإيقاف العروض: {{5}} ✋",
+        "formal": "عزيزنا {{1}}، بترشيح {{2}} لأصدقائكم تحصلون أنتم وهم على خصم {{3}} حتى تاريخ {{4}}. لإيقاف العروض: {{5}} ✋"
+      },
+      "fills": [
+        "system",
+        "system",
+        "amount",
+        "date",
+        "stop_link"
+      ]
+    },
+    {
       "name": "mkt_announcement",
       "deferral": "defer",
       "title": "جديد",
@@ -398,6 +440,27 @@
         "system",
         "amount",
         "code",
+        "date",
+        "stop_link"
+      ]
+    },
+    {
+      "name": "mkt_seasonal",
+      "deferral": "defer",
+      "title": "مناسبة عامة",
+      "cls": "marketing",
+      "category": "MARKETING",
+      "header": "",
+      "tones": {
+        "brief": "أهلاً {{1}}، بمناسبة {{3}} من {{2}} لك خصم {{4}}. ساري حتى {{5}}. لإيقاف العروض: {{6}} ✋",
+        "warm": "كل عام وأنت بخير {{1}}، بمناسبة {{3}} جهزنا لك في {{2}} خصم {{4}} — ساري لين {{5}}. لإيقاف العروض: {{6}} ✋",
+        "formal": "عزيزنا {{1}}، بمناسبة {{3}} يقدم {{2}} لكم خصم {{4}} حتى تاريخ {{5}}. لإيقاف العروض: {{6}} ✋"
+      },
+      "fills": [
+        "system",
+        "system",
+        "owner",
+        "amount",
         "date",
         "stop_link"
       ]
