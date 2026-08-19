@@ -27,6 +27,9 @@ import { proof } from '../operator';
 import { WhoIsSaving } from '../WhoIsSaving';
 import { isSignedIn, useSession } from '../session';
 import { digitsOnly, western } from '../digits';
+import { TodayBookingsStrip } from '../TodayBookingsStrip';
+import type { ShellContext } from '../shell-context';
+import { useOutletContext } from 'react-router-dom';
 
 /**
  * One box, and the separator appears inside it.
@@ -73,6 +76,12 @@ const MIN_PREFIX = 3;
 
 export function Visit() {
   const { session } = useSession();
+  // ONE BRANCH ONLY, THE SAME RULE THE GRID ITSELF FOLLOWS — today's bookings strip needs a
+  // single branch to ask about; a single-branch shop resolves it silently, a multi-branch one
+  // not yet narrowed simply shows no strip rather than guessing which branch's bookings to show.
+  const outlet = useOutletContext<ShellContext | undefined>();
+  const branchScopeId = outlet?.branch
+    || (outlet?.branches?.length === 1 ? outlet.branches[0].id : '');
   const [services, setServices] = useState<CatalogueService[] | null>([]);
   const [fields, setFields] = useState<VisitField[]>([]);
   // NO `recent` HERE. It was fetched on every entry to this screen and never rendered once — the
@@ -950,7 +959,15 @@ export function Visit() {
             The premise was that the same car returns an hour later. It does not: the customer
             drives away and comes back in weeks. So the strip spent its height — the height the
             journey needs — on a shortcut nobody reaches for, on the screen that can least afford
-            it. Recent customers live in «عملائي», where looking someone up is the point. */}
+            it. Recent customers live in «عملائي», where looking someone up is the point.
+
+            THE STRIP BELOW IS A DIFFERENT THING ENTIRELY (§6.3, docs/وصف-تطبيق-الحجوزات.md,
+            Stage 9): today's BOOKINGS, not recent customers — a person the operator ALREADY
+            knows is coming, at a time she already knows. One tap opens the visit outright rather
+            than shortcutting a lookup, which is why the reasoning above does not apply to it. */}
+        {branchScopeId ? (
+          <TodayBookingsStrip session={session} branchId={branchScopeId} services={services ?? []} />
+        ) : null}
 
         {/* ── THE JOURNEY ───────────────────────────────────────────────────────────────────
             One question per screen, moved by a thumb. In a shop that works on cars the plate comes first
