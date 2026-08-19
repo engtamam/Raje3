@@ -40,7 +40,9 @@ import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
-import { openShop, requestCode, signIn, verifyCode, AGREED_KEY, Refused } from '../auth';
+import {
+  openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, Refused,
+} from '../auth';
 import { sentenceFor } from '../api';
 import type { Session } from '../session';
 import { western } from '../digits';
@@ -364,6 +366,9 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // can change the day his work changes.
       await openShop({
         phone: filled.phone, password: filled.password, shopName: filled.shopName,
+        // WHICH MARKETER'S LINK HE ARRIVED ON, IF ANY — read once, silently, from `?aff=`; see
+        // auth.ts's own note on why this is never a field he fills in himself.
+        affiliateRef: affiliateRefFromUrl(),
       });
       // HE AGREED HERE, against links to the documents. The legal gate records the version-pinned
       // acceptance the moment he is inside; this marker is what stops it asking the same question

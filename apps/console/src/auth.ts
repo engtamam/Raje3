@@ -17,11 +17,31 @@ import type { Session } from './session';
 const BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
 
 /** The four values that open a shop. Every one of them is on the list for a reason — see
- *  core/signup.py; the register, the address and the VAT number are all asked later. */
+ *  core/signup.py; the register, the address and the VAT number are all asked later.
+ *
+ *  `affiliateRef` IS NOT ONE OF THE FOUR — it never came from the owner typing anything.
+ *  See `affiliateRefFromUrl()` below for where it actually comes from. */
 export interface NewShop {
   phone: string;
   password: string;
   shopName: string;
+  affiliateRef?: string;
+}
+
+/**
+ * WHICH MARKETER'S LINK THIS OWNER ARRIVED ON, if any — read from `?aff=`, never typed.
+ *
+ * A BODY THAT COULD NAME ITS OWN AFFILIATE ID WOULD BE A BODY THAT COULD REDIRECT SOMEBODY
+ * ELSE'S COMMISSION — same reasoning core/signup.py already applies to a partner key on a
+ * till-company claim. The owner never sees or edits this value; it rides along silently from
+ * the URL he happened to open, exactly once, at the one form that can still use it.
+ */
+export function affiliateRefFromUrl(): string {
+  try {
+    return new URLSearchParams(window.location.search).get('aff') ?? '';
+  } catch {
+    return '';
+  }
 }
 
 interface Minted {
@@ -97,6 +117,7 @@ export async function openShop(shop: NewShop): Promise<Session> {
     phone: shop.phone,
     password: shop.password,
     shop_name: shop.shopName,
+    affiliate_ref: shop.affiliateRef || '',
   });
   const session = await signIn(shop.phone, shop.password);
 
