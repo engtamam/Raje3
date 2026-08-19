@@ -861,19 +861,6 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                 {payLabel}
                               </span>
                             ) : null;
-                            // THE NARROW-COLUMN VERSION — week view's columns are a third the
-                            // width of a day column, and a fixed-width pill beside a flex-1 time
-                            // string there squeezed the time down to nothing and left an ellipsis
-                            // fragment sitting next to a pill that read as a stray, disconnected
-                            // label (Tamam, 2026-08-19, a screenshot of exactly that). `shrink`
-                            // and a cap let the pill give ground too, instead of always winning.
-                            const payPillCompact = payLabel ? (
-                              <span
-                                className="shrink truncate rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
-                                style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg, maxWidth: '55%' }}>
-                                {payLabel}
-                              </span>
-                            ) : null;
                             // A STAR BESIDE THE PILL — a customer waiting on a reward is a
                             // different fact from one who paid a deposit. Still present on an
                             // attended booking means the spend failed or needed an approval
@@ -883,6 +870,30 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                               <span aria-hidden title="جائزة بانتظار الاستبدال عند الحضور"
                                    className="text-[10px] leading-none">⭐</span>
                             ) : null;
+                            // THE NUMBER ALONE, NOT THE LABEL — a week column is narrow at every
+                            // lane count, and truncating "عربون 50" left "عربون…" with the
+                            // amount itself cut off, which read as broken rather than merely
+                            // compact (Tamam, 2026-08-19, a second screenshot). The colour
+                            // already carries "عربون vs مدفوع" (same PAYMENT_COLOR the filter
+                            // chips use); the digits are the one fact a dot's tooltip could never
+                            // show on a touch device, so they are what survives the squeeze.
+                            const payShort = pay === 'deposit' && b.deposit_amount_minor
+                              ? riyals(b.deposit_amount_minor)
+                              : pay === 'paid' && price !== null ? riyals(price)
+                              : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                            // FULL LABEL WHEN THERE IS ROOM, THE NUMBER ALONE WHEN THERE IS NOT
+                            // — a single-lane day-view card has plenty of width even at this
+                            // height (a quick 15-minute service); only week view or a shared
+                            // lane is actually this tight.
+                            const cramped = view === 'week' || lanes > 1;
+                            const payPillShort = (cramped ? payShort : payLabel) ? (
+                              <span
+                                className="shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
+                                style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}
+                                title={cramped ? (payLabel ?? undefined) : undefined}>
+                                {cramped ? payShort : payLabel}
+                              </span>
+                            ) : null;
 
                             if (height < 30) {
                               // A very short card (a quick service) has no room for a whole pill
@@ -891,15 +902,16 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                               // — a narrow week column used to squeeze "10:00" itself down to a
                               // stray "…00" beside a pill that then read as disconnected from
                               // anything (Tamam, 2026-08-19, a screenshot of exactly that). The
-                              // service name is what gives way now, and the pill shrinks too
-                              // (`payPillCompact`) rather than always claiming its full width.
+                              // service name is what gives way now, and the pill shows the
+                              // number ALONE (`payPillShort`) rather than a label that truncates
+                              // mid-word.
                               return (
                                 <div className={`flex items-center gap-1 text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
                                   <span className="shrink-0">{timeLabel(minutesOf(b.starts_at))}</span>
                                   <span className="min-w-0 flex-1 truncate">
                                     · {serviceNameOf(b.service_ids) || '—'}
                                   </span>
-                                  {payPillCompact}
+                                  {payPillShort}
                                   {rewardPill}
                                 </div>
                               );

@@ -184,6 +184,19 @@ describe('the grid', () => {
     await waitFor(() => screen.getByText('عربون 50'));
   });
 
+  it('shows the amount alone, not a truncated label, on a short card in week view', async () => {
+    // Same short-card row, but in the narrow week-view column — the label used to truncate
+    // mid-word ("عربون…" with the amount itself cut off, Tamam's second screenshot).
+    bookingsOverride = [{
+      ...BOOKING, duration_minutes: 15, payment_status: 'deposit', deposit_amount_minor: 5000,
+    }];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('الأسبوع'));
+    screen.getByText('الأسبوع').click();
+    await waitFor(() => expect(screen.getByText('50')).toBeTruthy());
+    expect(screen.queryByText('عربون 50')).toBeNull();
+  });
+
   it('finds a customer\'s own booking by his phone number', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
