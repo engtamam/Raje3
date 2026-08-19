@@ -34,7 +34,9 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { Check } from 'lucide-react';
+import {
+  CalendarClock, Check, Gift, Layers, Megaphone, Sparkles, type LucideIcon,
+} from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import { isReady, type Loading } from '../loading';
 import { APP_ROWS, owns, type Owned } from '../apps';
@@ -54,6 +56,17 @@ const SECTION_LABEL: Record<string, string> = {
   team: 'فريقي',
   account: 'حسابي',
   shop: 'محلّي',
+};
+
+/** One face per app, by its `apps.ts` id — the same registry the card's copy already reads, so a
+ *  new app gets a sentence AND an icon from one place rather than two. `base` gets no card of its
+ *  own icon treatment; every card falls back to `Layers` if its id is not listed here yet. */
+const APP_ICON: Record<string, LucideIcon> = {
+  base: Layers,
+  campaigns: Megaphone,
+  loyalty: Gift,
+  bookings: CalendarClock,
+  insights: Sparkles,
 };
 
 interface Price { type?: string; currency?: string; interval?: string; amount_minor?: number; includes_tax?: boolean }
@@ -273,6 +286,7 @@ function PlanCard({
     ? APP_ROWS.find((a) => a.id === 'base')
     : APP_ROWS.find((a) => a.key === appKey(plan));
   const has = owned === true;
+  const Icon = APP_ICON[app?.id ?? ''] ?? Layers;
   return (
     <article
       className={[
@@ -290,7 +304,21 @@ function PlanCard({
       {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent" /> : null}
 
       <header className="flex items-start justify-between gap-2">
-        <h3 className="text-base font-medium leading-tight">{plan.name}</h3>
+        <div className="flex items-center gap-2.5">
+          {/* THE FACE OF THE APP, NOT DECORATION FOR ITS OWN SAKE — the same icon this app wears
+              in the rail once he owns it, so the card that sells «الحجوزات» and the row it lands
+              on afterward are visibly the same thing. */}
+          <span
+            aria-hidden
+            className={[
+              'grid h-9 w-9 shrink-0 place-items-center rounded-full',
+              has ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
+            ].join(' ')}
+          >
+            <Icon size={17} />
+          </span>
+          <h3 className="text-base font-medium leading-tight">{plan.name}</h3>
+        </div>
         {has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
       </header>
 
@@ -586,99 +614,95 @@ export function PlansPane({
           AND IT IS WHAT MAKES THE NEXT APP CHEAP TO ADD. Invoicing and CRM arrive as rows in the
           price list; this screen groups by what a row GRANTS, so neither needs a line here. */}
 
-      {/* ── THE THREE OF THEM IN ONE LOOK ──────────────────────────────────────────────────
-          ONE DECISION, NOT THREE PAGES. Stacked full-width, «السعة» sat below two other sections
-          and an owner who wanted a second branch had to scroll past everything he already had to
-          learn a second branch was for sale. Two columns on a wide screen: what he pays for and
-          what he can add to it on one side, the apps that plug into it on the other. Below `lg`
-          it falls back to the same stack, because on a phone there is no beside. */}
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        <div className="flex flex-col gap-4">
-        {/* ── 1 · the base ─────────────────────────────────────────────────────────────────── */}
-        {bases.length ? (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
-            {/* HALF THE WIDTH, ON THE SAME GRID AS THE APPS BELOW IT. Full-bleed, the base card alone
-                was taller than the fold and pushed «السعة» off the screen entirely — he had to scroll
-                to learn that a second branch is for sale. The three sections are one decision. */}
-            <ul className="grid gap-3 md:grid-cols-2">
-              {bases.map((p) => (
-                <li key={p.id}>
-                  <PlanCard
-                    plan={p}
-                    owned={hasBase}
-                    busy={busy}
-                    sellable={Boolean(canSubscribe && pay?.enabled)}
-                    onBuy={() => choose(p)}
-                    unreadNote={unreadNote}
-                    ownedLabel="اشتراكك"
-                    buyLabel="فعّل الأساس"
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+      {/* ── THE BASE, WIDE, WITH ITS CAPACITY BESIDE IT ────────────────────────────────────
+          ONE ROW, NOT A STACK BELOW A STACK. The base is what he already pays for; «السعة» is
+          what he adds to THAT subscription — a second branch, more seats. They are one decision,
+          so they share a row: the base takes the wide two-thirds a real card needs to breathe,
+          capacity the narrow third beside it. Below `lg` both fall back to one column, because on
+          a phone there is no beside. */}
+      {bases.length || capacity.length ? (
+        <div className="grid gap-4 lg:grid-cols-[2fr_1fr] lg:items-start">
+          {bases.length ? (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
+              <ul className="grid gap-3">
+                {bases.map((p) => (
+                  <li key={p.id}>
+                    <PlanCard
+                      plan={p}
+                      owned={hasBase}
+                      busy={busy}
+                      sellable={Boolean(canSubscribe && pay?.enabled)}
+                      onBuy={() => choose(p)}
+                      unreadNote={unreadNote}
+                      ownedLabel="اشتراكك"
+                      buyLabel="فعّل الأساس"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-        {/* ── 3 · capacity ────────────────────────────────────────────────────────────────────
-            THE TWO ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a
-            two-branch shop that wanted nothing else had to buy a whole tier for the second branch.
-            They are bought AGAIN rather than owned: each purchase adds to what he has. */}
-        {capacity.length ? (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm text-text-secondary">السعة</h2>
-            {/* THREE UP, BECAUSE THERE IS ALMOST NOTHING TO READ. A capacity row carries one feature
-                line — «فروع: 1» — so a half-width card is mostly empty space, and empty space here
-                costs the height that «السعة» needs to be visible at all. */}
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {capacity.map((p) => (
-                <li key={p.id}>
-                  <PlanCard
-                    plan={p}
-                    owned={false}
-                    busy={busy}
-                    sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
-                    onBuy={() => choose(p)}
-                    unreadNote={unreadNote}
-                    ownedLabel=""
-                    buyLabel="أضِف"
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+          {/* THE ROWS THE LADDER HID. Seats and branches came bundled with a tier, so a two-branch
+              shop that wanted nothing else had to buy a whole tier for the second branch. They are
+              bought AGAIN rather than owned: each purchase adds to what he has. */}
+          {capacity.length ? (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-sm text-text-secondary">السعة</h2>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {capacity.map((p) => (
+                  <li key={p.id}>
+                    <PlanCard
+                      plan={p}
+                      owned={false}
+                      busy={busy}
+                      sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                      onBuy={() => choose(p)}
+                      unreadNote={unreadNote}
+                      ownedLabel=""
+                      buyLabel="أضِف"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
-        {/* ── 2 · the apps ─────────────────────────────────────────────────────────────────── */}
-        {apps.length ? (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-sm text-text-secondary">التطبيقات</h2>
-            {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
-                after he presses. operations refuses the pair regardless; this is so he never meets
-                that refusal. */}
-            {hasBase === false ? (
-              <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
-            ) : null}
-            <ul className="grid gap-3 md:grid-cols-2">
-              {apps.map((p) => (
-                <li key={p.id}>
-                  <PlanCard
-                    plan={p}
-                    owned={owns(owned ?? null, appKey(p))}
-                    busy={busy}
-                    sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
-                    onBuy={() => choose(p)}
-                    unreadNote={unreadNote}
-                    ownedLabel="مفعّل"
-                    buyLabel="أضِفه"
-                    renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-      </div>
+      ) : null}
+
+      {/* ── THE APPS, BELOW BOTH, FULL WIDTH ───────────────────────────────────────────────
+          A SHELF, NOT A HALF-COLUMN. These are what he is actually choosing between, so they get
+          the screen's full width to lay out three and four across instead of competing for a
+          half-width column beside the base. */}
+      {apps.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm text-text-secondary">التطبيقات</h2>
+          {/* AN APP NEEDS THE BASE UNDER IT — said once, here, rather than discovered as a refusal
+              after he presses. operations refuses the pair regardless; this is so he never meets
+              that refusal. */}
+          {hasBase === false ? (
+            <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
+          ) : null}
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {apps.map((p) => (
+              <li key={p.id}>
+                <PlanCard
+                  plan={p}
+                  owned={owns(owned ?? null, appKey(p))}
+                  busy={busy}
+                  sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                  onBuy={() => choose(p)}
+                  unreadNote={unreadNote}
+                  ownedLabel="مفعّل"
+                  buyLabel="أضِفه"
+                  renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
     </div>
   );
