@@ -55,7 +55,7 @@ export function BookingDialog(
    initialServiceIds, services, staff, onClose, onCreated }: BookingDialogProps,
 ) {
   const [phone, setPhone] = useState(initialCustomer?.phone ?? '');
-  const [matches, setMatches] = useState<CustomerHit[]>([]);
+  const [matches, setMatches] = useState<CustomerHit[] | null>([]);
   const [customer, setCustomer] = useState<CustomerHit | null>(initialCustomer ?? null);
   const [name, setName] = useState(initialCustomer?.name ?? '');
   const [chosen, setChosen] = useState<string[]>(initialServiceIds ?? []);
@@ -78,7 +78,7 @@ export function BookingDialog(
     const id = window.setTimeout(() => {
       suggestByPrefix(session, phone)
         .then((rows) => { if (!stale) setMatches(rows); })
-        .catch(() => { if (!stale) setMatches([]); });
+        .catch(() => { if (!stale) setMatches(null); });
     }, 180);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phone, session]);
@@ -151,7 +151,15 @@ export function BookingDialog(
     try {
       // THE CUSTOMER, RESOLVED-OR-CREATED HERE, AT THE MOMENT HE COMMITS — not while he types,
       // which would create a row for every phone he tries and abandons.
-      const c = customer ?? (await ensureCustomer(session, phone, name)).customer;
+      let c = customer;
+      if (!c) {
+        const ensured = await ensureCustomer(session, phone, name);
+        // A REFUSAL RETURNED, NOT THROWN — the route answers 200 with `customer: null` on
+        // failure (`reason` is author-written, safe to show), so this is checked explicitly
+        // rather than relying on the catch block below to ever see it.
+        if (!ensured.customer) { setError(ensured.reason || 'تعذّر الحجز.'); return; }
+        c = ensured.customer;
+      }
       const booking = await createBooking(session, {
         branch_id: branchId, operator_id: operatorId, customer_id: c.id, service_ids: chosen,
         starts_at, note: note.trim() || undefined, idempotency_key: idempotencyKey,
@@ -185,9 +193,9 @@ export function BookingDialog(
             }}
           />
         </Field>
-        {matches.length > 0 && !customer ? (
+        {(matches ?? []).length > 0 && !customer ? (
           <div className="flex flex-col gap-1">
-            {matches.slice(0, 4).map((m) => (
+            {(matches ?? []).slice(0, 4).map((m) => (
               <button
                 key={m.id}
                 type="button"
@@ -227,7 +235,7 @@ export function BookingDialog(
           {chosen.length > 0 ? (
             missingDuration ? (
               <p className="mt-1 text-sm text-danger">
-                إحدى الخدمات المختارة بلا مدة مضبوطة — اضبطها من «خدماتي».
+                إحدى الخدمات المختارة بلا مدة مضبوطة — اضبطها من «خدماتي ومنتجاتي».
               </p>
             ) : (
               <p className="mt-1 text-sm text-text-secondary">المدة الإجمالية: {durationTotal} دقيقة</p>

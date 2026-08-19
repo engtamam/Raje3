@@ -216,7 +216,7 @@ export function customerByPhone(
  */
 export function ensureCustomer(
   session: Session, phone: string, name?: string,
-): Promise<{ customer: CustomerHit & { subject_ref?: string } }> {
+): Promise<{ customer: (CustomerHit & { subject_ref?: string }) | null; reason?: string }> {
   return call(session, '/api/v1/field/customers/ensure', {
     method: 'POST',
     body: JSON.stringify({ phone, name: name || undefined }),

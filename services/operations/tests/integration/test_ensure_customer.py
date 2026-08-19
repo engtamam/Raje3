@@ -92,5 +92,11 @@ def test_an_empty_phone_is_refused(client):
 
 
 def test_a_phone_with_no_usable_digits_is_refused_by_the_handler(client):
+    # RETURNED, NOT RAISED — same rule as `record_visit`'s own refusal: the platform strips
+    # HTTPException detail on the way out, so this answers 200 with `customer: null` and the
+    # actual reason, the same shape the console dialog checks explicitly for.
     r = client.post(PATH, json={"phone": "---"}, headers=_auth())
-    assert r.status_code == 400
+    assert r.status_code == 200
+    body = r.json()
+    assert body["customer"] is None
+    assert body["reason"]

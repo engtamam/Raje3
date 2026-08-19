@@ -263,7 +263,7 @@ class EnsureCustomerIn(BaseModel):
     name: str = Field(default="", max_length=128)
 
 
-@router.post("/customers/ensure", dependencies=[Depends(rate_limit)])
+@router.post("/customers/ensure", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def ensure_customer(request: Request, body: EnsureCustomerIn,
                           principal: Principal = Depends(_RECORD)) -> dict:
     """Resolve or create a customer by phone, with no visit attached — `bookings`' console dialog
@@ -279,7 +279,10 @@ async def ensure_customer(request: Request, body: EnsureCustomerIn,
     try:
         c = await _svc(request).ensure_customer(_tenant(principal), body.phone, body.name)
     except OperationError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        # RETURNED, NOT RAISED — same rule as `record_visit` above: the platform strips
+        # HTTPException detail on the way out (CWE-209 by design), and the console dialog calling
+        # this needs the actual reason to show the operator, not a bare `{"error": "BAD_REQUEST"}`.
+        return {"customer": None, "reason": str(exc)}
     return {"customer": {**c.public(), "subject_ref": c.subject_ref}}
 
 
