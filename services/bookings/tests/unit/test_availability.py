@@ -37,7 +37,7 @@ def test_no_duration_configured_refuses_not_guesses():
 
 
 def test_a_closed_day_offers_nothing():
-    monday = _dt.date(2026, 8, 17)  # not in `weekly` at all -> closed
+    # 2026-08-17 is a Monday — not in `weekly` at all, so the whole day is closed.
     slots = free_slots(BASIC, [], duration_minutes=30,
                        window_start=_riyadh_epoch(2026, 8, 17),
                        window_end=_riyadh_epoch(2026, 8, 18))

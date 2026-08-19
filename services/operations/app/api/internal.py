@@ -703,6 +703,14 @@ async def internal_visit_from_customer(request: Request, body: VisitFromCustomer
             idempotency_key=body.idempotency_key, occurred_at=body.occurred_at)
     except OperationError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    # THE SEAMS RUN HERE TOO (ز-7) — same guard as the interactive path: a retry that lands on an
+    # already-seamed visit (`seamed_at` set) must not skip them a second time, and a pod evicted
+    # between saving and seaming must not leave them undone forever. Inline, not backgrounded: this
+    # is one service calling another, not an operator's screen, so there is no five-second budget
+    # to protect — and the caller (bookings, marking a booking attended) should see the reminder
+    # cycle actually restarted before it reports success.
+    if not recorded.visit.seamed_at:
+        await c.seams.after_visit(recorded)
     return {"visit_id": recorded.visit.id, "customer_id": recorded.customer.id,
            "duplicate": recorded.duplicate}
 
