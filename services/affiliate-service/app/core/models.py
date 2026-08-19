@@ -229,3 +229,67 @@ class Referral:
             commission_amount_halalas=int(d.get("commission_amount_halalas", 0)),
             stamped_at=int(d.get("stamped_at", 0)), expires_at=int(d.get("expires_at", 0)),
         )
+
+
+# ── what a real payment actually earned — spec §4's two commission types ───────────────────────
+COMMISSIONS = "affiliate_commissions"
+
+CONVERSION = "conversion"     # the FIRST paid invoice — billing's own paid_sequence == 1
+RENEWAL = "renewal"           # the configured Nth renewal — billing's subscription_paid_sequence
+COMMISSION_KINDS = (CONVERSION, RENEWAL)
+
+#: "مُستحقة" ليست "مؤكدة" — spec §4's own freeze. A commission is real the moment the invoice it
+#: is keyed on is paid; it is not WITHDRAWABLE until Settings.AFFILIATE_COMMISSION_HOLD_DAYS has
+#: passed from that same paid_at, in case the payment is refunded within it.
+#: Reuses Application's own `PENDING` ("pending") rather than a second constant with the same
+#: value — two names for one string is how a future `d.get("status") == PENDING` compares against
+#: the wrong PENDING by accident.
+CONFIRMED = "confirmed"
+#: The invoice it was keyed on was refunded (in full or in part) before or during the hold — spec
+#: §4 gives no commission on money that was given back. KEPT, not deleted: same reasoning as
+#: Referral's own LAPSED/REVOKED — a voided commission is still a decision with a reason,
+#: answerable to a marketer who disputes it later.
+VOIDED = "voided"
+COMMISSION_STATUSES = (PENDING, CONFIRMED, VOIDED)
+
+
+@dataclass
+class Commission:
+    #: THE INVOICE'S OWN id — the natural idempotency key. billing-service's paid-invoice history
+    #: is the durable read this is synced from (never the at-most-once event bus; see
+    #: core/commission.py's own module docstring), and a sync that runs twice over the same
+    #: history must produce the same one row, not two.
+    id: str
+    tenant: str
+    affiliate_id: str
+    kind: str
+    #: Copied from Referral.commission_amount_halalas (conversion) or
+    #: Settings.AFFILIATE_RENEWAL_COMMISSION_HALALAS (renewal) AT THE MOMENT this row is created —
+    #: same "locked, never re-read from config later" rule as the Referral row itself.
+    amount_halalas: int
+    status: str = PENDING
+    #: billing's own `paid_at` for the invoice this was earned on — ISO 8601, billing's format,
+    #: never re-derived. The hold is computed FROM this, not from when our sync happened to run.
+    earned_at: str = ""
+    #: earned_at + Settings.AFFILIATE_COMMISSION_HOLD_DAYS, computed once at creation — see the
+    #: field's twin on Referral (expires_at) for why this is never re-derived from config later.
+    confirms_at: int = 0
+    created_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "tenant": self.tenant, "affiliate_id": self.affiliate_id,
+            "kind": self.kind, "amount_halalas": self.amount_halalas, "status": self.status,
+            "earned_at": self.earned_at, "confirms_at": self.confirms_at,
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Commission":
+        return cls(
+            id=str(d.get("id", "")), tenant=str(d.get("tenant", "")),
+            affiliate_id=str(d.get("affiliate_id", "")), kind=str(d.get("kind", CONVERSION)),
+            amount_halalas=int(d.get("amount_halalas", 0)), status=str(d.get("status", PENDING)),
+            earned_at=str(d.get("earned_at", "")), confirms_at=int(d.get("confirms_at", 0)),
+            created_at=int(d.get("created_at", 0)),
+        )

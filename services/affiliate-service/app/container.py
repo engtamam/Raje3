@@ -166,6 +166,7 @@ class Container:
     # The domain. Built after the ports above, so it is never handed a half-built container.
     onboarding: Any = None
     referrals: Any = None
+    commissions: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -258,5 +259,19 @@ def build_container(settings: Settings) -> Container:
         commission_amount_halalas=settings.AFFILIATE_COMMISSION_AMOUNT_HALALAS,
         conversion_window_days=settings.AFFILIATE_CONVERSION_WINDOW_DAYS,
         default_cc=settings.AFFILIATE_PHONE_DEFAULT_CC,
+    )
+    # Turning a REAL payment (billing's own durable invoice history, never the at-most-once event
+    # bus) into a commission — see core/commission.py's own module docstring.
+    from app.core.commission import CommissionEngine
+
+    container.commissions = CommissionEngine(
+        store=container.datastore,
+        http=Http(timeout=settings.ONBOARDING_TIMEOUT_SECONDS,
+                  internal_token=settings.INTERNAL_SERVICE_TOKEN),
+        billing_url=settings.BILLING_SERVICE_URL,
+        referrals=container.referrals,
+        hold_days=settings.AFFILIATE_COMMISSION_HOLD_DAYS,
+        renewal_at_nth=settings.AFFILIATE_RENEWAL_AT_NTH,
+        renewal_amount_halalas=settings.AFFILIATE_RENEWAL_COMMISSION_HALALAS,
     )
     return container

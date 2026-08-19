@@ -158,6 +158,19 @@ class Settings(BaseSettings):
     # anchor event. See core/models.py's own LAPSED status.
     AFFILIATE_CONVERSION_WINDOW_DAYS: int = 90
 
+    # ── the commission engine itself (spec §4, "٥/٦/٧" of the slice table) ────────────────────
+    # billing-service v0.16.26+ — GET /internal/billing/invoices, the durable read this engine
+    # keys money on rather than the at-most-once event bus (billing's own events.py contract).
+    BILLING_SERVICE_URL: str = ""
+    # "مُستحقة" ليست "مؤكدة" — a commission holds this many days from the invoice's own paid_at
+    # before it is withdrawable, in case that payment is refunded within the window.
+    AFFILIATE_COMMISSION_HOLD_DAYS: int = 7
+    # Which renewal earns a second commission — billing's own subscription_paid_sequence, so "the
+    # 12th renewal" is subscription_paid_sequence == 13 (1 is the conversion itself). 0 disables
+    # renewal commissions entirely rather than accidentally paying every renewal.
+    AFFILIATE_RENEWAL_AT_NTH: int = 0
+    AFFILIATE_RENEWAL_COMMISSION_HALALAS: int = 0
+
     # ── audit trail (Phase 38) — where privileged actions are witnessed ───────
     # `null` records NOTHING and says so; the boot guard below refuses it in production, because a
     # service that cannot witness its own privileged actions has no audit trail at all — and an

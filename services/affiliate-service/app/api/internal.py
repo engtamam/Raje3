@@ -110,6 +110,30 @@ async def stamp_referral(request: Request, body: ReferralStampIn) -> dict:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
+class CommissionSyncIn(BaseModel):
+    tenant: str
+
+
+@router.post("/commissions/sync", dependencies=[Depends(require_internal_token)])
+async def sync_commissions(request: Request, body: CommissionSyncIn) -> dict:
+    """Reconcile one tenant's commissions against billing's own paid-invoice history.
+
+    NOT WIRED TO ANY TRIGGER YET — this route exists and is fully tested (core/commission.py),
+    but nothing calls it automatically today. The natural next increment (see that module's own
+    TODO) is a webhook off billing's payment.succeeded/invoice.paid; until that exists, this is
+    reachable only by hand (an admin action, ops using the internal token directly) or a future
+    scheduled sweep. Documented here rather than left to be discovered by someone waiting for a
+    commission that will never appear on its own."""
+    c = request.app.state.container
+    out = await c.commissions.sync(body.tenant)
+    await request.app.state.auditor.record(
+        "affiliate.commissions_synced", actor="", tenant=body.tenant, resource="tenant",
+        ip=request.client.host if request.client else "",
+        metadata={"created": len(out.get("created") or []), "voided": len(out.get("voided") or [])}
+        if out.get("synced") else {"reason": out.get("reason", "")})
+    return out
+
+
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
     tenant: str = ""

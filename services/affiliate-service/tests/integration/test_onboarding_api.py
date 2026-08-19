@@ -183,6 +183,19 @@ def test_me_is_404_for_a_token_with_no_matching_affiliate_row(client):
     assert r.status_code == 404
 
 
+def test_my_commissions_refuses_with_no_token(client):
+    r = client.get("/api/v1/affiliates/me/commissions")
+    assert r.status_code == 401
+
+
+def test_my_commissions_is_404_for_a_token_with_no_matching_affiliate_row(client):
+    r = client.get("/api/v1/affiliates/me/commissions",
+                   headers={"Authorization": f"Bearer {_token(sub='nobody')}"})
+    assert r.status_code == 404
+
+
+
+
 def test_accept_invite_with_an_unknown_token_is_a_clean_400(client):
     r = client.post("/api/v1/affiliates/accept-invite",
                     json={"token": "never-issued", "password": "hunter2hunter2"})

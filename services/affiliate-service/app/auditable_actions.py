@@ -170,6 +170,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "at the platform actually decided to suspend him",
     },
     {
+        "action": "affiliate.commissions_synced",
+        "source": "internal",
+        "critical": False,
+        "resource": "tenant",
+        "why": "explains which commissions were created/voided and when, for a marketer who "
+               "disputes a payout later — not critical: sync() is idempotent and safely re-run "
+               "against billing's own durable history, so refusing a sync while the log is down "
+               "loses nothing that a retry cannot recover",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

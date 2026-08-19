@@ -71,6 +71,7 @@ def build_manifest(
             {"path": "/internal/backup/import", "tier": "internal", "method": "POST"},
             {"path": "/internal/backup/verify", "tier": "internal", "method": "POST"},
             {"path": "/internal/referrals/stamp", "tier": "internal", "method": "POST"},
+            {"path": "/internal/commissions/sync", "tier": "internal", "method": "POST"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # DECLARED, because a data map built from manifests is how a DSAR fan-out
              # finds who holds a person. An undeclared holder is never asked, never acks,
@@ -87,6 +88,7 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me", "tier": "user", "method": "GET"},
             # A manager naming somebody for his own team — still gated by the admin queue below.
             {"path": "/api/v1/affiliates/me/invite", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/me/commissions", "tier": "user", "method": "GET"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},

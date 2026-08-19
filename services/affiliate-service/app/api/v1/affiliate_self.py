@@ -65,3 +65,20 @@ async def invite(request: Request, body: InviteIn,
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
+
+
+@router.get("/commissions", dependencies=[Depends(rate_limit)])
+async def commissions(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    """His own commissions — conversion and renewal alike (core/commission.py). The read ITSELF
+    advances any commission whose hold has lapsed from pending to confirmed
+    (CommissionEngine.confirm_if_due, same lazy-check shape as everywhere else in this service) —
+    so a marketer looking at his own dashboard is exactly the moment that matters, never a sweep
+    running on nobody's clock."""
+    onboarding = _svc(request)
+    affiliate = await onboarding.me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    engine = request.app.state.container.commissions
+    rows = await engine.of_affiliate(affiliate["id"])
+    confirmed = [await engine.confirm_if_due(r.id) for r in rows]
+    return {"commissions": [c.to_dict() for c in confirmed if c is not None]}

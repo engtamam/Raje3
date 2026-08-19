@@ -44,15 +44,15 @@ def test_the_shipped_examples_are_valid():
     validate(AUDITABLE_ACTIONS, "affiliate-service")
 
 
-def test_this_service_declares_both_admin_decisions_on_the_applicant_gate():
-    """Slice 2 has exactly two real actions so far — approving and rejecting an applicant, both
-    admin-source (see api/v1/admin.py). No internal-source action exists YET: /internal/privacy/
-    erase (core/erasure.py) does not emit one, and a future slice (payout, suspension) is where
-    the "most-missed" internal category actually belongs — this test names what is true today
-    rather than keeping the template's placeholder assertion around unexamined."""
+def test_this_service_declares_its_real_actions_across_admin_and_internal():
+    """Names what is true today rather than keeping a stale assertion around unexamined — see
+    this test's own earlier version's note on why that matters. The internal-source action
+    (affiliate.commissions_synced) is the "most-missed" category the template's own docstring
+    warns about, and it earned its place here the moment a real /internal/* route needed one."""
     actions = {a["action"] for a in AUDITABLE_ACTIONS}
-    assert {"affiliate.application_approved", "affiliate.application_rejected"} <= actions
-    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin"}
+    assert {"affiliate.application_approved", "affiliate.application_rejected",
+           "affiliate.commissions_synced"} <= actions
+    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin", "internal"}
 
 
 def test_the_template_shows_both_criticalities():
