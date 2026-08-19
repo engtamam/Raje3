@@ -261,7 +261,7 @@ function renewalDay(epoch: number | null | undefined): string {
 
 
 function PlanCard({
-  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote,
+  plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
 }: {
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
@@ -276,6 +276,9 @@ function PlanCard({
   /** The server's own sentence when billing was ASKED and could not answer. Empty while the read
    *  is still in flight — the two are different states and the card must not merge them. */
   unreadNote?: string;
+  /** CAPACITY ROWS ONLY. One feature line and a price is the whole card — the base's own padding
+   *  and icon size read as empty space around that little, not as room to breathe. */
+  compact?: boolean;
 }) {
   const price = monthly(plan);
   const lines = planLines(plan);
@@ -290,7 +293,8 @@ function PlanCard({
   return (
     <article
       className={[
-        'group relative flex h-full flex-col gap-3 overflow-hidden rounded-card p-5',
+        'group relative flex h-full flex-col overflow-hidden rounded-card',
+        compact ? 'gap-2 p-3' : 'gap-3 p-5',
         'transition-shadow duration-200',
         has
           // OWNED READS AS SETTLED, NOT AS SOLD. A ring rather than a fill: a card he already owns
@@ -304,20 +308,26 @@ function PlanCard({
       {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent" /> : null}
 
       <header className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5">
+        <div className={compact ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
           {/* THE FACE OF THE APP, NOT DECORATION FOR ITS OWN SAKE — the same icon this app wears
               in the rail once he owns it, so the card that sells «الحجوزات» and the row it lands
-              on afterward are visibly the same thing. */}
-          <span
-            aria-hidden
-            className={[
-              'grid h-9 w-9 shrink-0 place-items-center rounded-full',
-              has ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
-            ].join(' ')}
-          >
-            <Icon size={17} />
-          </span>
-          <h3 className="text-base font-medium leading-tight">{plan.name}</h3>
+              on afterward are visibly the same thing. Capacity rows carry no app icon of their
+              own (they grant seats or branches, not a feature), so this is skipped there —
+              a generic Layers badge beside «10 مقاعد إضافية» would say nothing true. */}
+          {compact ? null : (
+            <span
+              aria-hidden
+              className={[
+                'grid h-9 w-9 shrink-0 place-items-center rounded-full',
+                has ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
+              ].join(' ')}
+            >
+              <Icon size={17} />
+            </span>
+          )}
+          <h3 className={compact ? 'text-sm font-medium leading-tight' : 'text-base font-medium leading-tight'}>
+            {plan.name}
+          </h3>
         </div>
         {has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
       </header>
@@ -335,23 +345,28 @@ function PlanCard({
 
       {price?.amount_minor ? (
         <div className="flex items-baseline gap-1.5">
-          <span className="text-3xl font-semibold tabular-nums leading-none">
+          <span className={compact
+            ? 'text-xl font-semibold tabular-nums leading-none'
+            : 'text-3xl font-semibold tabular-nums leading-none'}>
             {riyals(price.amount_minor)}
           </span>
           <span className="text-sm text-text-secondary">ريال / شهر</span>
         </div>
       ) : null}
       {/* SAID, NOT ASSUMED — the server's own flag. A shop owner reading a price without it
-          budgets the wrong number. */}
-      {price?.includes_tax ? (
+          budgets the wrong number. Skipped in the compact card: a capacity row's tax note would
+          be the longest line on a card whose whole point is to stay short. */}
+      {price?.includes_tax && !compact ? (
         <span className="-mt-2 text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
       ) : null}
 
       {lines.length ? (
-        <ul className="flex flex-col gap-1 border-t border-border-subtle pt-3 text-sm">
+        <ul className={compact
+          ? 'flex flex-col gap-1 border-t border-border-subtle pt-2 text-xs'
+          : 'flex flex-col gap-1 border-t border-border-subtle pt-3 text-sm'}>
           {lines.map((line) => (
             <li key={line} className="flex items-start gap-2 text-text-secondary">
-              <Check size={15} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+              <Check size={compact ? 12 : 15} className="mt-0.5 shrink-0 text-accent" aria-hidden />
               <span>{line}</span>
             </li>
           ))}
@@ -650,7 +665,7 @@ export function PlansPane({
           {capacity.length ? (
             <section className="flex flex-col gap-2">
               <h2 className="text-sm text-text-secondary">السعة</h2>
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <ul className="grid gap-3 grid-cols-2">
                 {capacity.map((p) => (
                   <li key={p.id}>
                     <PlanCard
@@ -662,6 +677,7 @@ export function PlansPane({
                       unreadNote={unreadNote}
                       ownedLabel=""
                       buyLabel="أضِف"
+                      compact
                     />
                   </li>
                 ))}
