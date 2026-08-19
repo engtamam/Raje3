@@ -110,6 +110,17 @@ describe('the grid', () => {
     await waitFor(() => expect(card()).toBeTruthy());
   });
 
+  it('bannerless when nothing is overdue, banner-and-jump when something is', async () => {
+    // BOOKING.starts_at (1786860000) is well in the past by the time this suite runs — a fixed
+    // past epoch, not `Date.now()`, so this test needs nothing more than the default mock to
+    // exercise the overdue path. "افتح الأقدم" opens the same action sheet a tap on the card would.
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('افتح الأقدم'));
+    expect(screen.getByText('حجزٌ واحد فات وقته ولم يُغلق بعد.')).toBeTruthy();
+    screen.getByText('افتح الأقدم').click();
+    await waitFor(() => expect(screen.getByText('حضر')).toBeTruthy());
+  });
+
   it('opens an action sheet when a card is tapped', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());

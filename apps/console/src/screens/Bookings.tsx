@@ -139,6 +139,20 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
   const [note, setNote] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState | null>(null);
+  // A CARD GROWS LOUDER, NOTHING EVER POPS UP (Tamam, 2026-08-19: "نضمن انه يقفلها... ما
+  // نزعجه"). `now` ticks once a minute — a card whose whole appointment window has already
+  // passed and is still «booked» is unclosed, and it reads that way from a glance the moment
+  // this re-renders, with no polling loop or alert of its own.
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  // A COUNT, NOT A BOOLEAN — dismissing hides the banner only until a genuinely NEW overdue
+  // booking appears (the count grows past what he last dismissed); a booking closing and
+  // another going overdue later at the same total count stays quiet, same as any dismissal.
+  const [overdueDismissedAt, setOverdueDismissedAt] = useState(0);
+  useEffect(() => { setOverdueDismissedAt(0); }, [date]);
   // FILTERS, NOT SEARCH — a shop reads this grid a hundred times a day; typing a name is a
   // request nobody asked to make when the same narrowing is three taps away as a chip.
   const [filterService, setFilterService] = useState('');   // '' = every service
@@ -217,6 +231,19 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   }, [rows, filterService, filterPayment]);
 
   const activeFilterCount = (filterService ? 1 : 0) + (filterPayment !== 'any' ? 1 : 0);
+
+  // MINUTES PAST THE WHOLE APPOINTMENT WINDOW, NOT PAST ITS START — a booking still inside its
+  // own duration is simply happening, not overdue. 0 (or negative) means "not overdue yet".
+  const overdueMinutes = (b: Booking): number => {
+    if (b.status !== 'booked') return 0;
+    const pastBy = now - (b.starts_at + b.duration_minutes * 60);
+    return pastBy > 0 ? Math.floor(pastBy / 60) : 0;
+  };
+  const overdueBookings = useMemo(
+    () => (rows ?? []).filter((b) => overdueMinutes(b) > 0)
+      .sort((a, b2) => a.starts_at - b2.starts_at),
+    [rows, now],
+  );
 
   // ── columns: staff in day view, days in week view ───────────────────────────────────────────
   const columns = view === 'day'
@@ -552,6 +579,33 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         </div>
       ) : null}
 
+      {/* ONE BANNER, ONCE — never a popup, never repeats itself while he keeps this screen open.
+          A tap either opens the earliest overdue card directly or folds the banner away; either
+          way it does not reappear this session unless the list of overdue bookings actually
+          changes (a fresh minute tick that finds a NEW one un-dismisses it, since that is a
+          genuinely new fact, not the same nag repeating). */}
+      {overdueBookings.length > overdueDismissedAt ? (
+        <div className="mx-auto flex max-w-[1400px] items-center gap-3 px-4 pt-3 sm:px-6">
+          <div className="flex flex-1 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium shadow-sm"
+              style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
+            <span className="flex-1">
+              {overdueBookings.length === 1
+                ? 'حجزٌ واحد فات وقته ولم يُغلق بعد.'
+                : `${overdueBookings.length} حجوزات فات وقتها ولم تُغلق بعد.`}
+            </span>
+            <button type="button" onClick={() => setOpenBooking(overdueBookings[0])}
+                   className="rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
+                   style={{ background: 'var(--rj-noshow)', color: 'var(--rj-bg)' }}>
+              افتح الأقدم
+            </button>
+            <button type="button" aria-label="إخفاء" onClick={() => setOverdueDismissedAt(overdueBookings.length)}
+                   className="grid h-6 w-6 shrink-0 place-items-center rounded-full">
+              <X size={13} aria-hidden />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── body ───────────────────────────────────────────────────────────────────────────── */}
       <div className="mx-auto max-w-[1400px] px-4 pb-28 pt-4 sm:px-6">
         {rows === undefined ? (
@@ -705,6 +759,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       // column, exactly as before.
                       const { lane, lanes } = overlapLayout.get(b.id) ?? { lane: 0, lanes: 1 };
                       const laneWidth = 100 / lanes;
+                      // LOUDER THE LONGER IT WAITS, NEVER A POPUP — a hairline past the window,
+                      // a solid ring past the half-hour, matching the no-show colour on purpose:
+                      // an unclosed card is exactly the outcome that colour already means.
+                      const overdue = overdueMinutes(b);
+                      const overdueRing = overdue > 60 ? '3px' : overdue > 30 ? '2px' : overdue > 0 ? '1px' : '0px';
                       return (
                         <div
                           key={b.id}
@@ -726,6 +785,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             background: tone.bg, color: tone.fg,
                             opacity: drag?.booking.id === b.id ? 0.4 : 1,
                             zIndex: lane + 1,
+                            boxShadow: overdue > 0
+                              ? `0 0 0 ${overdueRing} var(--rj-noshow)` : undefined,
                             ...(isBeingMoved ? { '--tw-ring-color': 'var(--rj-gold)' } as React.CSSProperties : {}),
                           }}
                         >
