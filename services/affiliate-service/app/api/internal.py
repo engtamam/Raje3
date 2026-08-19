@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import AffiliateErasure
+from app.core.referrals import ReferralError
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -79,6 +80,28 @@ async def erase_subject(request: Request, body: EraseIn) -> dict:
     eraser = AffiliateErasure(store=c.datastore, pii_salt=s.PII_SALT,
                              max_scan=s.ERASURE_MAX_SCAN)
     return await eraser.erase(body.tenant, body.subject)
+
+
+class ReferralStampIn(BaseModel):
+    tenant: str
+    affiliate_id: str
+    shop_name: str = ""
+
+
+@router.post("/referrals/stamp", dependencies=[Depends(require_internal_token)])
+async def stamp_referral(request: Request, body: ReferralStampIn) -> dict:
+    """Called by operations, once, right after a shop it just created finishes signing up —
+    the same moment its own core/partners.py stamps a till-company partner. See
+    core/referrals.py for why this is a SEPARATE mechanism from that one rather than a shared
+    call, and why a bad affiliate id is a 400 the CALLER decides what to do with (operations
+    reports it and never fails the owner's own signup over it — the same trade-off it already
+    makes for a mistyped partner key)."""
+    c = request.app.state.container
+    try:
+        return await c.referrals.stamp(
+            tenant=body.tenant, affiliate_id=body.affiliate_id, shop_name=body.shop_name)
+    except ReferralError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
 class BackupExportIn(BaseModel):

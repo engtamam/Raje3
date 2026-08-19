@@ -30,6 +30,7 @@ def new_id() -> str:
 
 APPLICATIONS = "affiliate_applications"
 AFFILIATES = "affiliates"
+REFERRALS = "affiliate_referrals"
 
 PENDING = "pending"
 APPROVED = "approved"
@@ -143,4 +144,70 @@ class Affiliate:
             status=str(d.get("status", ACTIVE)), application_id=str(d.get("application_id", "")),
             created_at=int(d.get("created_at", 0)), subject_ref=str(d.get("subject_ref", "")),
             invite_token=str(d.get("invite_token", "")),
+        )
+
+
+# ── who brought this establishment — the fact commission is paid on ────────────────────────────
+#: A referred shop that later cancels or never pays is still a real referral — the establishment
+#: was brought, whatever it does afterward. "Did it actually pay" is billing's own fact, read at
+#: PAYOUT time (a later slice), never baked into this row: recomputing eligibility here would be
+#: a second, driftable copy of what billing already knows.
+REFERRED = "referred"
+#: A referral an admin reversed — fraud, a duplicate stamp support corrected by hand, or a shop
+#: that was never real. KEPT, not deleted: the same "retain, don't erase the fact" principle as
+#: everything else in this file — a reversed commission is still a decision that happened.
+REVOKED = "revoked"
+#: The shop registered through this affiliate but never converted to a paid subscription within
+#: the CONVERSION WINDOW (Settings.AFFILIATE_CONVERSION_WINDOW_DAYS from `stamped_at` — Tamam,
+#: 2026-08-19: bounding this is what stops "a marketer we haven't heard from in two years shows
+#: up demanding commission on a shop that just converted" from being an open-ended, undocumented
+#: argument instead of a written rule). NOT revoked — nobody did anything wrong, the window
+#: simply lapsed. The row (who referred whom, when) stays exactly as true as it always was; only
+#: the money stops being possible. Set by whichever code path first checks eligibility after
+#: `expires_at` has passed — see core/referrals.py::lapse_if_expired, called at commission-compute
+#: time (a later slice) rather than by a sweep, since nothing needs to know until that moment.
+LAPSED = "lapsed"
+REFERRAL_STATUSES = (REFERRED, REVOKED, LAPSED)
+
+
+@dataclass
+class Referral:
+    """One establishment, one affiliate, forever — see the module note on partners.py's own
+    identical rule (operations/core/partners.py): the FIRST stamp wins and is never rewritten,
+    or a shop that changes which marketer it heard from last would silently redirect commission
+    away from whoever actually brought it."""
+
+    id: str                 # == tenant. One row per establishment — see _stamp's own guard.
+    tenant: str
+    affiliate_id: str
+    shop_name: str = ""
+    status: str = REFERRED
+    #: LOCKED AT SIGNUP (spec §4) — a flat amount in halalas (integer, never a float; see
+    #: core/onboarding.py's own int-timestamp convention for why this codebase avoids float
+    #: money). Copied from Settings.AFFILIATE_COMMISSION_AMOUNT_HALALAS at stamp time and never
+    #: re-read from config afterward: a rate change next quarter must not silently rewrite what
+    #: this specific referral was promised the day it was brought in.
+    commission_amount_halalas: int = 0
+    stamped_at: int = 0
+    #: stamped_at + Settings.AFFILIATE_CONVERSION_WINDOW_DAYS, computed ONCE at stamp time —
+    #: never re-derived from a config value that might change later, same "locked, not
+    #: recalculated" reasoning as `commission_amount_halalas` right above it.
+    expires_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "tenant": self.tenant, "affiliate_id": self.affiliate_id,
+            "shop_name": self.shop_name, "status": self.status,
+            "commission_amount_halalas": self.commission_amount_halalas,
+            "stamped_at": self.stamped_at, "expires_at": self.expires_at,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Referral":
+        return cls(
+            id=str(d.get("id", "")), tenant=str(d.get("tenant", "")),
+            affiliate_id=str(d.get("affiliate_id", "")), shop_name=str(d.get("shop_name", "")),
+            status=str(d.get("status", REFERRED)),
+            commission_amount_halalas=int(d.get("commission_amount_halalas", 0)),
+            stamped_at=int(d.get("stamped_at", 0)), expires_at=int(d.get("expires_at", 0)),
         )

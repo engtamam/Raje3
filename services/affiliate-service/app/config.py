@@ -135,6 +135,21 @@ class Settings(BaseSettings):
     AFFILIATE_PHONE_DEFAULT_CC: str = "966"
     ONBOARDING_TIMEOUT_SECONDS: int = 10
 
+    # ── referral commission (spec §4 — a FLAT amount, not a percentage) ────────────────────────
+    # Halalas, never riyals-as-float: money as a float is how "40.10" becomes "40.099999999999994"
+    # three additions later. 4000 halalas = 40.00 SAR. LOCKED onto each Referral row at stamp
+    # time (see core/referrals.py) — changing this later reprices only referrals stamped after
+    # the change, never ones already promised a rate.
+    AFFILIATE_COMMISSION_AMOUNT_HALALAS: int = 0
+
+    # THE CONVERSION WINDOW — Tamam, 2026-08-19: bounds our liability to a written, known
+    # duration rather than an open-ended one. A shop can register through an affiliate's link
+    # today and subscribe two years from now; without a limit that is still a live, disputable
+    # claim two years later. From `stamped_at`, NOT from any click — this product has no click
+    # tracking and does not need one (SaaS, not a product-marketing funnel): registration is the
+    # anchor event. See core/models.py's own LAPSED status.
+    AFFILIATE_CONVERSION_WINDOW_DAYS: int = 90
+
     # ── audit trail (Phase 38) — where privileged actions are witnessed ───────
     # `null` records NOTHING and says so; the boot guard below refuses it in production, because a
     # service that cannot witness its own privileged actions has no audit trail at all — and an

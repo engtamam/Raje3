@@ -165,6 +165,7 @@ class Container:
     consent_gate: Any = None
     # The domain. Built after the ports above, so it is never handed a half-built container.
     onboarding: Any = None
+    referrals: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -246,5 +247,14 @@ def build_container(settings: Settings) -> Container:
         promoter_role=settings.AFFILIATE_PROMOTER_ROLE,
         default_cc=settings.AFFILIATE_PHONE_DEFAULT_CC,
         pii_salt=settings.PII_SALT,
+    )
+    # Which establishment this affiliate brought (spec §4) — see core/referrals.py for why this
+    # is not operations' own partners.py reused.
+    from app.core.referrals import ReferralRegistry
+
+    container.referrals = ReferralRegistry(
+        store=container.datastore,
+        commission_amount_halalas=settings.AFFILIATE_COMMISSION_AMOUNT_HALALAS,
+        conversion_window_days=settings.AFFILIATE_CONVERSION_WINDOW_DAYS,
     )
     return container
