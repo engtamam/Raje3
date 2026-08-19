@@ -151,6 +151,23 @@ def test_no_show_risk_is_reachable_and_answers_honestly_for_a_new_customer(env_g
     assert r.json() == {"considered": 0, "no_shows": 0, "risky": False, "threshold_percent": 60}
 
 
+def test_bookings_for_customer_is_reachable_and_newest_first(env_guard):
+    client = _make_app()
+    _stub_ops(client)
+    auth = _auth("bookings.read", "bookings.write")
+    for i in range(3):
+        client.post("/api/v1/bookings", json={
+            "branch_id": "b1", "operator_id": "op1", "customer_id": "cus_hist",
+            "service_ids": ["svc1"], "starts_at": 1786860000 + i * 86400,
+        }, headers=auth)
+    r = client.get("/api/v1/bookings/for-customer", params={"customer_id": "cus_hist"},
+                   headers=_auth("bookings.read"))
+    assert r.status_code == 200, r.text
+    rows = r.json()["bookings"]
+    assert len(rows) == 3
+    assert [b["starts_at"] for b in rows] == sorted((b["starts_at"] for b in rows), reverse=True)
+
+
 def test_nearest_slot_is_reachable(env_guard):
     client = _make_app()
     _stub_ops(client)

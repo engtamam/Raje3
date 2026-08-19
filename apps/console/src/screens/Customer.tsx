@@ -18,6 +18,7 @@
  * are fetched by the `subject_ref` that arrives with this one record and with no list.
  */
 import { asLocal } from '../phone';
+import { CustomerBookingHistory } from '../CustomerBookingHistory';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -329,6 +330,9 @@ export function CustomerScreen({ session, catalog }: { session: Session; catalog
 
       {tab === 'overview' ? (
         <>
+      {record?.customer?.id ? (
+        <CustomerBookingHistory session={session} customerId={record.customer.id} />
+      ) : null}
       <section className="rounded-card bg-surface-1 p-4 shadow-sm">
         <h2 className="mb-3 text-sm text-text-secondary">عروضه</h2>
         {isLoading(offers) ? (

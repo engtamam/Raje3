@@ -600,6 +600,16 @@ export function listBookings(
   return call(session, `/api/v1/bookings?${q.toString()}`);
 }
 
+/** His own history, newest first — the customer page's own section (docs/وصف-تطبيق-الحجوزات.md
+ *  §3: "مواعيده القادمة والسابقة، ونسبة حضوره"). Not branch-scoped: his history is his across
+ *  every branch he was ever served at. */
+export function bookingsForCustomer(
+  session: Session, customerId: string,
+): Promise<{ bookings: Booking[] }> {
+  const q = new URLSearchParams({ customer_id: customerId });
+  return call(session, `/api/v1/bookings/for-customer?${q.toString()}`);
+}
+
 export interface CreateBookingDraft {
   branch_id: string;
   operator_id: string;

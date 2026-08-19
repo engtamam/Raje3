@@ -105,6 +105,19 @@ async def no_show_risk(request: Request, customer_id: str,
     return await c.booking_ops.no_show_risk(tenant, customer_id)
 
 
+@router.get("/for-customer", dependencies=[Depends(_READ), Depends(rate_limit)])
+async def bookings_for_customer(request: Request, customer_id: str,
+                                principal: Principal = Depends(require_user)) -> dict:
+    """His own booking history — the customer page's own section (docs/وصف-تطبيق-الحجوزات.md
+    §3: "مواعيده القادمة والسابقة، ونسبة حضوره"). Not branch-scoped: a customer's OWN history is
+    his across every branch he was ever served at, the same reasoning `no_show_risk` above
+    already applies."""
+    tenant = _tenant(principal)
+    c = request.app.state.container
+    rows = await c.booking_ops.bookings_for_customer(tenant, customer_id)
+    return {"bookings": [_public(b) for b in rows]}
+
+
 @router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def nearest_slot(request: Request, branch_id: str, operator_id: str,
                        service_ids: str, after: int,

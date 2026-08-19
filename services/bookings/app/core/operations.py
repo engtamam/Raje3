@@ -394,6 +394,14 @@ class BookingOperations:
         return {"considered": considered, "no_shows": no_shows, "risky": risky,
                "threshold_percent": self._risk_threshold_percent}
 
+    async def bookings_for_customer(self, tenant: str, customer_id: str, limit: int = 50) -> list[Booking]:
+        """His own history, newest first — the customer page's own section (docs/وصف-تطبيق-
+        الحجوزات.md §3: "مواعيده القادمة والسابقة"), the same store read `no_show_risk` above
+        already makes, just unfiltered by status and ordered for a person to read rather than a
+        percentage to compute."""
+        rows = await self._bookings.for_customer(tenant, customer_id, limit=limit)
+        return sorted(rows, key=lambda b: b.starts_at, reverse=True)
+
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
                            search_days: int = 14) -> int | None:
