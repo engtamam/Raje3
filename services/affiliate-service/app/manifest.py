@@ -60,7 +60,7 @@ def build_manifest(
         # someone remembers to advertise them. ADD this service's domain capabilities alongside them
         # (e.g. "files.upload", "files.read"); remove one only if you also remove the route that
         # enforces it. An advertised capability is what the admin panel and onboarding grant against.
-        "capabilities": ["platform.secrets", "platform.config", "affiliates.manage"],
+        "capabilities": ["platform.secrets", "platform.config", "platform.affiliates"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},

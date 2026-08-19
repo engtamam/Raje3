@@ -249,6 +249,8 @@ def build_container(settings: Settings) -> Container:
         default_cc=settings.AFFILIATE_PHONE_DEFAULT_CC,
         pii_salt=settings.PII_SALT,
         terms_version=settings.AFFILIATE_TERMS_VERSION,
+        tenants_url=settings.TENANT_SERVICE_URL,
+        authz_url=settings.AUTHZ_SERVICE_URL,
     )
     # Which establishment this affiliate brought (spec §4) — see core/referrals.py for why this
     # is not operations' own partners.py reused.

@@ -57,6 +57,10 @@ env:
   # at authz. Provisioning that — once, before this ever goes live — is tracked as a real,
   # outstanding gap; see the commit that added this line for the full explanation.
   AFFILIATE_TENANT: "raje3-affiliates"
+  # THE FIX for the gap flagged above — provisioned lazily and idempotently the first time an
+  # approval actually needs it (onboarding.py::_ensure_tenant_ready), never a manual step.
+  TENANT_SERVICE_URL: "http://tenant-service:8000"
+  AUTHZ_SERVICE_URL: "http://authz-service:8000"
   # The durable read the commission engine keys money on — never the event bus alone. See
   # app/core/commission.py's own module docstring and this session's escalation that led to
   # billing-service v0.16.26 (GET /internal/billing/invoices).

@@ -130,6 +130,12 @@ class Settings(BaseSettings):
     # marketer, because the hierarchy (manager -> promoter) is ours to keep, not identity's.
     IDENTITY_SERVICE_URL: str = ""              # e.g. http://identity-service:8000
     AFFILIATE_TENANT: str = ""                  # the one shared tenant id — REQUIRED in production
+    # THE TENANT'S OWN PROVISIONING (onboarding.py::_ensure_tenant_ready). Both optional: empty
+    # means "assume AFFILIATE_TENANT already exists and is bootstrapped", which is what keeps a
+    # local/test run working exactly as before this existed. Set both in production, or the
+    # first-ever approval mints a membership into a tenant no role was ever declared for.
+    TENANT_SERVICE_URL: str = ""
+    AUTHZ_SERVICE_URL: str = ""
     AFFILIATE_MANAGER_ROLE: str = "affiliate_manager"
     AFFILIATE_PROMOTER_ROLE: str = "affiliate_promoter"
     AFFILIATE_PHONE_DEFAULT_CC: str = "966"

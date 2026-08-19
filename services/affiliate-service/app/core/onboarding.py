@@ -91,7 +91,8 @@ class OnboardingService:
     def __init__(self, *, store, http: Http, identity_url: str, tenant: str,
                  manager_role: str = MANAGER, promoter_role: str = PROMOTER,
                  default_cc: str = "966", pii_salt: str = "",
-                 terms_version: str = "v1") -> None:
+                 terms_version: str = "v1",
+                 tenants_url: str = "", authz_url: str = "") -> None:
         self._store = store
         self._http = http
         self._identity = identity_url.rstrip("/")
@@ -101,6 +102,55 @@ class OnboardingService:
         self._cc = default_cc
         self._salt = pii_salt
         self._terms_version = terms_version
+        # THE SHARED AFFILIATE TENANT'S OWN PROVISIONING (spec §1/§12) — see _ensure_tenant_ready
+        # for the whole reasoning. Optional: empty means "assume it already exists", which keeps
+        # a test/local run that never set these working exactly as it did before this existed.
+        self._tenants = tenants_url.rstrip("/")
+        self._authz = authz_url.rstrip("/")
+        self._tenant_ready = False   # per-process cache — see _ensure_tenant_ready's own note
+
+    # ── the shared affiliate tenant's own provisioning, lazily and idempotently ──────────────
+    async def _ensure_tenant_ready(self, *, first_subject: str, first_role: str) -> None:
+        """Self-healing, not a script somebody has to remember to run once. Checked at the one
+        moment it actually matters — the FIRST time this process is about to mint a membership
+        into Settings.AFFILIATE_TENANT — never at boot (a tenant-service/authz hiccup at startup
+        must not stop this service from serving every OTHER route) and never by a human-run
+        script (exactly the class of gap this session already found twice: a step that has to be
+        remembered is a step that gets forgotten).
+
+        `self._tenant_ready` IS ONLY A PER-PROCESS OPTIMISATION, never the correctness guarantee
+        — both calls below are themselves idempotent (a 409 on an existing tenant, a bootstrap
+        that "corrects drift" per its own docstring), so a cold pod that has forgotten the flag
+        still converges safely; the flag only saves a redundant round trip on every later call.
+        """
+        if self._tenant_ready or not self._tenants:
+            return
+        status, _ = self._http.call(
+            f"{self._tenants}/internal/tenants/{self._tenant}", method="GET", internal=True)
+        if status != 200:
+            status, body = self._http.call(
+                f"{self._tenants}/internal/tenants", method="POST", internal=True,
+                body={"slug": self._tenant, "name": "برنامج المسوّقين بالعمولة"})
+            # 409 = another approval won this exact race a moment ago — not a failure.
+            if status not in (201, 409):
+                raise OnboardingRefused(
+                    "تعذّرت الموافقة — تهيئة النظام غير مكتملة.", reason="tenant_provision_failed")
+
+        if self._authz:
+            status, _ = self._http.call(
+                f"{self._authz}/internal/authz/tenants/{self._tenant}/bootstrap", method="POST",
+                internal=True,
+                body={"roles": [
+                    {"name": self._manager_role, "capabilities": [],
+                     "description": "مدير تسويق — بوابة المسوّقين بالعمولة"},
+                    {"name": self._promoter_role, "capabilities": [],
+                     "description": "مسوّق بالعمولة — بوابة المسوّقين بالعمولة"},
+                ], "subject": first_subject, "assign": [first_role]})
+            if status not in (200, 201):
+                raise OnboardingRefused(
+                    "تعذّرت الموافقة — تهيئة النظام غير مكتملة.", reason="role_bootstrap_failed")
+
+        self._tenant_ready = True
 
     def _ref(self, phone: str) -> str:
         """"" when PII_SALT is unset (local/dev) — erasure.py then simply finds nothing rather
@@ -301,6 +351,7 @@ class OnboardingService:
             raise OnboardingRefused(_member_error(status, body))
 
         person_id = str(body.get("person_id") or "")
+        await self._ensure_tenant_ready(first_subject=person_id, first_role=role)
         invite = str(body.get("invite_token") or "")
         if invite:
             # SAME REDEMPTION AS operations.hire() — an admin approving is vouching for this
@@ -338,6 +389,7 @@ class OnboardingService:
             raise OnboardingRefused(_member_error(status, body))
 
         person_id = str(body.get("person_id") or "")
+        await self._ensure_tenant_ready(first_subject=person_id, first_role=role)
         invite = str(body.get("invite_token") or "")
         if not invite:
             # IDENTITY_MEMBER_ADD_MODE=password on this deployment — there is no invite to hand

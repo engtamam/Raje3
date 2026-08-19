@@ -1,7 +1,7 @@
 # =============================================================================
 # affiliate-service — the admin's queue («بوابة القبول», spec §2)
 # -----------------------------------------------------------------------------
-# `affiliates.manage` IS ITS OWN CAPABILITY, not folded into a generic "admin" — approving an
+# `platform.affiliates` IS ITS OWN CAPABILITY, not folded into a generic "admin" — approving an
 # applicant mints a real identity membership and, from that moment, a channel that can message
 # our customers in the platform's name. That is a narrower and more consequential act than most
 # things an "admin" role bundles, and it deserves its own line in roles.json rather than riding
@@ -30,7 +30,7 @@ from app.core.pii import subject_ref
 
 router = APIRouter(prefix="/api/v1/admin/affiliates", tags=["affiliates-admin"])
 
-_MANAGE = require_capability("affiliates.manage")
+_MANAGE = require_capability("platform.affiliates")
 
 
 class RejectIn(BaseModel):

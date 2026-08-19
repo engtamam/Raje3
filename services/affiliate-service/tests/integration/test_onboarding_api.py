@@ -2,7 +2,7 @@
 
 Mirrors tests/integration/test_auth_rbac.py's own app-building idiom (real HS256 tokens, a real
 FastAPI app) rather than mocking the router layer — the thing worth proving here is that the ROUTE
-enforces `affiliates.manage`, and a route-layer mock cannot prove that.
+enforces `platform.affiliates`, and a route-layer mock cannot prove that.
 """
 from __future__ import annotations
 
@@ -118,7 +118,7 @@ def test_admin_queue_lists_a_pending_application_with_the_capability(client):
                json={"phone": "0501234504", "name": "قائمة الانتظار", "password": "hunter2hunter2",
                     "agreed": True})
     r = client.get("/api/v1/admin/affiliates",
-                   headers={"Authorization": f"Bearer {_token(caps=['affiliates.manage'])}"})
+                   headers={"Authorization": f"Bearer {_token(caps=['platform.affiliates'])}"})
     assert r.status_code == 200, r.text
     phones = [a["phone"] for a in r.json()["applications"]]
     assert "+966501234504" in phones
@@ -132,7 +132,7 @@ def test_suspend_refuses_without_the_capability(client):
 
 def test_suspending_an_unknown_affiliate_is_a_clean_400(client):
     r = client.post("/api/v1/admin/affiliates/does-not-exist/suspend",
-                    headers={"Authorization": f"Bearer {_token(caps=['affiliates.manage'])}"})
+                    headers={"Authorization": f"Bearer {_token(caps=['platform.affiliates'])}"})
     assert r.status_code == 400
     assert r.json()["reason"] == "not_found"
 
@@ -151,7 +151,7 @@ def test_approve_refuses_without_the_capability(client):
 
 def test_approving_an_unknown_application_id_is_a_clean_400(client):
     r = client.post("/api/v1/admin/affiliates/does-not-exist/approve",
-                    headers={"Authorization": f"Bearer {_token(caps=['affiliates.manage'])}"})
+                    headers={"Authorization": f"Bearer {_token(caps=['platform.affiliates'])}"})
     assert r.status_code == 400
     assert r.json()["reason"] == "not_found"
 

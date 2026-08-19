@@ -52,10 +52,11 @@ class ByIdentifierHttp:
         return 500, {}
 
 
-def build(http=None, salt="s" * 16) -> OnboardingService:
+def build(http=None, salt="s" * 16, tenants_url="", authz_url="") -> OnboardingService:
     return OnboardingService(
         store=MemoryDataStore(), http=http or FakeHttp([]),
-        identity_url="http://identity:8000", tenant=TENANT, pii_salt=salt)
+        identity_url="http://identity:8000", tenant=TENANT, pii_salt=salt,
+        tenants_url=tenants_url, authz_url=authz_url)
 
 
 @pytest.mark.parametrize("written", ["0501234567", "+966501234567", "966501234567",
@@ -470,3 +471,96 @@ async def test_suspending_an_unknown_affiliate_is_a_clean_refusal():
     with pytest.raises(OnboardingRefused) as exc:
         await svc.suspend("no-such-affiliate", decided_by="admin1")
     assert exc.value.reason == "not_found"
+
+
+# ── the shared tenant's own provisioning (lazy, idempotent, self-healing) ───────────────────────
+@pytest.mark.anyio
+async def test_provisioning_is_a_no_op_when_no_tenants_url_is_configured():
+    """The default in every test above this one — proves that default stays inert."""
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http)   # tenants_url="" by default
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    await svc.approve(out["application_id"], decided_by="admin1")
+    assert not any("/internal/tenants" in u or "/bootstrap" in u for _, u in http.calls)
+
+
+@pytest.mark.anyio
+async def test_a_missing_tenant_is_created_then_roles_are_bootstrapped():
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1"})),
+        (f"/internal/tenants/{TENANT}", (404, {})),
+        ("/internal/tenants", (201, {"id": TENANT})),
+        (f"/authz/tenants/{TENANT}/bootstrap", (200, {})),
+    ])
+    svc = build(http, tenants_url="http://tenants:8000", authz_url="http://authz:8000")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    await svc.approve(out["application_id"], decided_by="admin1")
+
+    methods_and_urls = http.calls
+    assert ("GET", f"http://tenants:8000/internal/tenants/{TENANT}") in methods_and_urls
+    assert ("POST", "http://tenants:8000/internal/tenants") in methods_and_urls
+    assert ("POST", f"http://authz:8000/internal/authz/tenants/{TENANT}/bootstrap") in methods_and_urls
+
+
+@pytest.mark.anyio
+async def test_an_already_existing_tenant_skips_creation_but_still_bootstraps():
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1"})),
+        (f"/internal/tenants/{TENANT}", (200, {"id": TENANT})),
+        (f"/authz/tenants/{TENANT}/bootstrap", (200, {})),
+    ])
+    svc = build(http, tenants_url="http://tenants:8000", authz_url="http://authz:8000")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    await svc.approve(out["application_id"], decided_by="admin1")
+    assert not any(m == "POST" and u.endswith("/internal/tenants") for m, u in http.calls)
+
+
+@pytest.mark.anyio
+async def test_a_409_on_create_is_treated_as_already_provisioned_not_a_failure():
+    """Two approvals racing each other — the second's create loses the race, and that must not
+    refuse an otherwise-correct approval."""
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1"})),
+        (f"/internal/tenants/{TENANT}", (404, {})),
+        ("/internal/tenants", (409, {})),
+        (f"/authz/tenants/{TENANT}/bootstrap", (200, {})),
+    ])
+    svc = build(http, tenants_url="http://tenants:8000", authz_url="http://authz:8000")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+    assert approved["already_approved"] is False
+
+
+@pytest.mark.anyio
+async def test_a_bootstrap_failure_refuses_the_approval():
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1"})),
+        (f"/internal/tenants/{TENANT}", (200, {"id": TENANT})),
+        (f"/authz/tenants/{TENANT}/bootstrap", (500, {})),
+    ])
+    svc = build(http, tenants_url="http://tenants:8000", authz_url="http://authz:8000")
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2", agreed=True)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.approve(out["application_id"], decided_by="admin1")
+    assert exc.value.reason == "role_bootstrap_failed"
+
+
+@pytest.mark.anyio
+async def test_provisioning_only_happens_once_per_process_even_across_two_approvals():
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1"})),
+        (f"/internal/tenants/{TENANT}", (200, {"id": TENANT})),
+        (f"/authz/tenants/{TENANT}/bootstrap", (200, {})),
+    ])
+    svc = build(http, tenants_url="http://tenants:8000", authz_url="http://authz:8000")
+
+    first = await svc.apply(phone="0501234567", name="الأول", password="hunter2hunter2", agreed=True)
+    await svc.approve(first["application_id"], decided_by="admin1")
+    calls_after_first = len(http.calls)
+
+    second = await svc.apply(phone="0509998888", name="الثاني", password="hunter2hunter2", agreed=True)
+    await svc.approve(second["application_id"], decided_by="admin1")
+
+    # ONE more call for the second approval's own /members mint — NOT two more for a repeated
+    # tenant GET + bootstrap POST. The per-process cache is what saves those.
+    assert len(http.calls) == calls_after_first + 1
