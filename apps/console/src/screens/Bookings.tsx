@@ -12,7 +12,10 @@
  * with one tap on the destination cell.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Filter, GripVertical, Plus, X } from 'lucide-react';
+import {
+  Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, Pencil, Plus, Trash2,
+  User, X,
+} from 'lucide-react';
 import {
   attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
   fetchCatalogue, type FieldOperator, listBookings, listBookingStaff, noShowBooking,
@@ -981,7 +984,6 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       {openBooking ? (
         <BookingActions
           booking={openBooking}
-          customerLabel={serviceNameOf(openBooking.service_ids)}
           operatorLabel={nameOf(openBooking.operator_id)}
           services={services ?? []}
           onClose={() => setOpenBooking(null)}
@@ -1021,9 +1023,9 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
  *  visual identity. Closing a booking as attended offers "احجزي الجلسة القادمة" (§2.7) when the
  *  service has a real cycle — the sleeping field `cycle_days` already in the catalogue, used for
  *  its own purpose rather than reinvented. */
-function BookingActions({ booking, customerLabel, operatorLabel, services, onClose, onChanged,
+function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
                          onBookNext, onEdit, session, say }: {
-  booking: Booking; customerLabel: string; operatorLabel: string; services: CatalogueService[];
+  booking: Booking; operatorLabel: string; services: CatalogueService[];
   onClose: () => void; onChanged: (b: Booking) => void; onBookNext: (b: Booking) => void;
   onEdit: (b: Booking) => void; session: Session; say: (t: string) => void;
 }) {
@@ -1044,6 +1046,15 @@ function BookingActions({ booking, customerLabel, operatorLabel, services, onClo
   };
   const cycleDays = Math.max(
     0, ...booking.service_ids.map((id) => services.find((s) => s.id === id)?.cycle_days ?? 0));
+  // THE SAME NUMBER THE CARD AND THE DIALOG ITSELF SHOW — the booking's own override when it
+  // was negotiated, otherwise the catalogue's sum for whatever services it holds.
+  const priceMinor = booking.price_override_minor ?? (() => {
+    const sum = booking.service_ids.reduce(
+      (total, id) => total + (services.find((s) => s.id === id)?.price_minor ?? 0), 0);
+    return sum > 0 ? sum : null;
+  })();
+  const pay = booking.payment_status ?? 'none';
+  const serviceNames = booking.service_ids.map((id) => services.find((s) => s.id === id)?.name ?? id);
 
   if (attended) {
     return (
@@ -1077,37 +1088,85 @@ function BookingActions({ booking, customerLabel, operatorLabel, services, onClo
       <div onClick={(e) => e.stopPropagation()}
           className="relative w-full max-w-sm rounded-t-[28px] p-5 shadow-lg sm:rounded-[28px]"
           style={{ background: 'var(--rj-surface)' }}>
+        {/* التفاصيل أولاً — كل ما يحتاجه قبل يقرر، لا بعد ما يضغط (Tamam, 2026-08-19: "نعرض
+            الخدمات والوقت وغيرها من التفاصيل"). */}
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-base font-semibold">{customerLabel || 'حجز'}</p>
-            <p className="text-sm" style={{ color: 'var(--rj-ink-soft)' }}>{operatorLabel}</p>
-            {booking.note ? <p className="mt-1 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{booking.note}</p> : null}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-1">
+              {serviceNames.map((name, i) => (
+                <span key={`${name}-${i}`}
+                     className="truncate rounded-full px-2 py-0.5 text-xs font-semibold"
+                     style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
+                  {name}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+              <span className="flex items-center gap-1">
+                <Calendar size={13} aria-hidden />
+                {humanDate(dateKeyOf(booking.starts_at))}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock size={13} aria-hidden />
+                {timeLabel(minutesOf(booking.starts_at))} · {booking.duration_minutes} د
+              </span>
+              <span className="flex items-center gap-1">
+                <User size={13} aria-hidden />
+                {operatorLabel}
+              </span>
+            </div>
+            {pay !== 'none' || priceMinor !== null || booking.intended_reward_id ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {pay !== 'none' ? (
+                  <span className="rounded-full px-2 py-0.5 text-xs font-bold"
+                       style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
+                    {pay === 'deposit' && booking.deposit_amount_minor
+                      ? `عربون ${riyals(booking.deposit_amount_minor)} ريال`
+                      : PAYMENT_LABEL[pay]}
+                  </span>
+                ) : null}
+                {priceMinor !== null ? (
+                  <span className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                       style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
+                    السعر: {riyals(priceMinor)} ريال
+                  </span>
+                ) : null}
+                {booking.intended_reward_id ? (
+                  <span className="text-sm" title="جائزة بانتظار الاستبدال عند الحضور">⭐</span>
+                ) : null}
+              </div>
+            ) : null}
+            {booking.note ? <p className="text-xs" style={{ color: 'var(--rj-ink-soft)' }}>{booking.note}</p> : null}
           </div>
-          <button type="button" onClick={onClose} aria-label="إغلاق"><X size={18} aria-hidden /></button>
+          <button type="button" onClick={onClose} aria-label="إغلاق" className="shrink-0"><X size={18} aria-hidden /></button>
         </div>
         {booking.status === 'booked' ? (
-          <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => onEdit(booking)}
-                   className="rounded-2xl py-3 text-sm font-semibold"
+          // أيقونات فقط، صف واحد — التفاصيل أعلاه هي ما يقرأه، هذا فقط ما يضغطه.
+          <div className="flex items-center justify-center gap-3">
+            <button type="button" onClick={() => onEdit(booking)} aria-label="تعديل الحجز" title="تعديل الحجز"
+                   className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-line)', color: 'var(--rj-ink)' }}>
-              تعديل الحجز — الخدمات، الموعد، الملاحظة
+              <Pencil size={18} aria-hidden />
             </button>
             <button type="button" disabled={busy} onClick={() => act(attendBooking, 'سُجّل الحضور ✓')}
-                   className="rounded-2xl py-3 text-sm font-semibold"
+                   aria-label="حضر" title="حضر"
+                   className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-attended-soft)', color: 'var(--rj-attended)' }}>
-              حضر
+              <Check size={20} aria-hidden />
             </button>
             <button type="button" disabled={busy}
                    onClick={() => act((s, id) => noShowBooking(s, id), 'سُجّل عدم الحضور')}
-                   className="rounded-2xl py-3 text-sm font-semibold"
+                   aria-label="لم يحضر" title="لم يحضر"
+                   className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-noshow-soft)', color: 'var(--rj-noshow)' }}>
-              لم يحضر
+              <X size={20} aria-hidden />
             </button>
             <button type="button" disabled={busy}
                    onClick={() => act((s, id) => cancelBooking(s, id), 'أُلغي الحجز')}
-                   className="rounded-2xl py-3 text-sm font-semibold"
+                   aria-label="إلغاء الحجز" title="إلغاء الحجز"
+                   className="grid h-12 w-12 place-items-center rounded-full"
                    style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-cancelled)' }}>
-              إلغاء الحجز
+              <Trash2 size={18} aria-hidden />
             </button>
           </div>
         ) : (

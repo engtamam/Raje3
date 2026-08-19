@@ -122,24 +122,24 @@ describe('the grid', () => {
     await waitFor(() => screen.getByText('افتح الأقدم'));
     expect(screen.getByText('حجزٌ واحد فات وقته ولم يُغلق بعد.')).toBeTruthy();
     screen.getByText('افتح الأقدم').click();
-    await waitFor(() => expect(screen.getByText('حضر')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('حضر')).toBeTruthy());
   });
 
   it('opens an action sheet when a card is tapped', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => expect(screen.getByText('حضر')).toBeTruthy());
-    expect(screen.getByText('لم يحضر')).toBeTruthy();
-    expect(screen.getByText('إلغاء الحجز')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('حضر')).toBeTruthy());
+    expect(screen.getByLabelText('لم يحضر')).toBeTruthy();
+    expect(screen.getByLabelText('إلغاء الحجز')).toBeTruthy();
   });
 
   it('marks attendance from the action sheet', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('حضر'));
-    screen.getByText('حضر').click();
+    await waitFor(() => screen.getByLabelText('حضر'));
+    screen.getByLabelText('حضر').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'attendBooking')).toBe(true));
     expect(asked.find((a) => a.fn === 'attendBooking')?.args[1]).toBe('bkg_1');
   });
@@ -148,8 +148,8 @@ describe('the grid', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('إلغاء الحجز'));
-    screen.getByText('إلغاء الحجز').click();
+    await waitFor(() => screen.getByLabelText('إلغاء الحجز'));
+    screen.getByLabelText('إلغاء الحجز').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
   });
 
@@ -273,8 +273,8 @@ describe('السحب والإفلات', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('إلغاء الحجز'));
-    screen.getByText('إلغاء الحجز').click();
+    await waitFor(() => screen.getByLabelText('إلغاء الحجز'));
+    screen.getByLabelText('إلغاء الحجز').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
     // A cancelled booking is filtered out of the grid entirely (§7) — nothing left to drag.
     expect(queryCard()).toBeNull();
@@ -286,8 +286,8 @@ describe('احجز الجلسة القادمة', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('حضر'));
-    screen.getByText('حضر').click();
+    await waitFor(() => screen.getByLabelText('حضر'));
+    screen.getByLabelText('حضر').click();
     await waitFor(() => expect(screen.getByText(/احجز الجلسة القادمة/)).toBeTruthy());
   });
 
@@ -295,8 +295,8 @@ describe('احجز الجلسة القادمة', () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
     card().click();
-    await waitFor(() => screen.getByText('حضر'));
-    screen.getByText('حضر').click();
+    await waitFor(() => screen.getByLabelText('حضر'));
+    screen.getByLabelText('حضر').click();
     await waitFor(() => screen.getByText(/احجز الجلسة القادمة/));
     screen.getByText(/احجز الجلسة القادمة/).click();
     await waitFor(() => expect(screen.getByText(/عميل معروف/)).toBeTruthy());
