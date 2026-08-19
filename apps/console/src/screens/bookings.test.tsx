@@ -165,8 +165,8 @@ describe('the grid', () => {
 describe('حجز جديد', () => {
   it('opens the booking dialog', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText('حجز جديد'));
-    screen.getByText('حجز جديد').click();
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
     await waitFor(() => expect(screen.getByText(/جوّال العميل/)).toBeTruthy());
   });
 
@@ -228,16 +228,16 @@ describe('احجز الجلسة القادمة', () => {
 describe('booking dialog — Stage 8', () => {
   it('shows the no-show risk note once a known customer is picked, never before', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText('حجز جديد'));
-    screen.getByText('حجز جديد').click();
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
     await waitFor(() => screen.getByText(/جوّال العميل/));
     expect(screen.queryByText(/غاب عن/)).toBeNull();
   });
 
   it('offers "أقرب فتحة" once the dialog is open', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText('حجز جديد'));
-    screen.getByText('حجز جديد').click();
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
     await waitFor(() => expect(screen.getByText('أقرب فتحة')).toBeTruthy());
   });
 });

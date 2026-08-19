@@ -329,7 +329,8 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    */
   const addService = async (
     name: string,
-    opts: { cycleDays: number; durationMinutes: number; followUpDays: number; points: number | null; group: string },
+    opts: { cycleDays: number; durationMinutes: number; priceMinor: number | null; followUpDays: number;
+            points: number | null; group: string },
   ) => {
     const a = action(catalog, 'operations.create_service');
     if (!a || !name.trim()) return;
@@ -337,7 +338,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     setError('');
     try {
       const created = await call<{ id?: string }>(
-        session, a, { name: name.trim(), cycle_days: opts.cycleDays, duration_minutes: opts.durationMinutes });
+        session, a, {
+          name: name.trim(), cycle_days: opts.cycleDays, duration_minutes: opts.durationMinutes,
+          // OPTIONAL, NOT ZERO (Tamam, 2026-08-19). `price_minor` defaults to 0 on the server when
+          // omitted — the same "0 = not configured" reading duration already uses — so a blank box
+          // sends nothing at all rather than sending a real 0 (which would read as "free").
+          ...(opts.priceMinor !== null ? { price_minor: opts.priceMinor } : {}),
+        });
       const id = created?.id ?? '';
 
       if (id) {
@@ -769,9 +776,11 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
                   const pts = String(f.get('points') || '').trim();
+                  const priceText = String(f.get('price') || '').trim();
                   addService(String(f.get('name') || ''), {
                     cycleDays: Number(f.get('cycle_days') || 0),
                     durationMinutes: Number(f.get('duration_minutes') || 0),
+                    priceMinor: priceText === '' ? null : halalas(priceText),
                     followUpDays: Number(f.get('follow_up_days') || 0),
                     // AN EMPTY BOX IS NOT A ZERO HERE. Blank means "whatever the shop's general
                     // rule is"; a typed 0 means "this one earns nothing", and they are different
@@ -804,6 +813,12 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 <Row label="المدة (بالدقائق)"
                      hint="كم تستغرق هذه الخدمة عادةً؟ الحجوزات تحتاجها لحساب الفتحات — بلا مدة، لا يمكن حجزها.">
                   <input name="duration_minutes" type="number" min={0} max={720} defaultValue={15} dir="ltr"
+                         className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
+                </Row>
+
+                {/* السعر اختياري (Tamam, 2026-08-19) — فارغ يبقى فارغاً، لا صفر مفروض. */}
+                <Row label="السعر" hint="بالريال. اتركه فارغاً إن كان لا يُسعَّر من هنا.">
+                  <input name="price" type="text" inputMode="decimal" dir="ltr" placeholder="—"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 

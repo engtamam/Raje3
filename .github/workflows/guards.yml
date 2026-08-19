@@ -428,6 +428,15 @@ jobs:
       - name: a pseudonym is never hashed twice
         run: python3 ci/check_a_pseudonym_is_never_hashed_twice.py
 
+      # v0.16.23's own escalation, closed twice already: bookings shipped with
+      # OPERATIONS_SERVICE_URL unset (every booking refused with "مدة غير مضبوطة"), and operations
+      # shipped with BILLING_PLANS_DRIVER unset (no plan could be listed, and every shop's own
+      # subscription read back `base: null`, forever). Both are guarded IN THE CODE — this runs
+      # every service's own boot guards against the values file it is ACTUALLY deployed with,
+      # rather than trusting that somebody remembered to.
+      - name: a deployed config boots its own service
+        run: python3 ci/check_a_deployed_config_boots_its_own_service.py
+
       # ح-9 و ح-10 · THREE SCREENS, EACH WRITTEN BY SOMEONE WHO KNEW THE RULE. A plan at 9950 was
       # advertised as «100 ريال»; an issued invoice of 26950 read «270 ريال» while 269.50 left the
       # card; and a reward priced at 2.30 was stored as 229 halalas, because `2.3 * 100` is

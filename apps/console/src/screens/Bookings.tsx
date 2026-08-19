@@ -148,7 +148,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // OWN appointment is not the same act as browsing the grid for a service. He gives a phone
   // number, not a query; the answer is one card, not a filtered list of many.
   const [phoneQuery, setPhoneQuery] = useState('');
-  const [phoneMatches, setPhoneMatches] = useState<CustomerHit[]>([]);
+  const [phoneMatches, setPhoneMatches] = useState<CustomerHit[] | null>([]);
   const [filterCustomer, setFilterCustomer] = useState<CustomerHit | null>(null);
 
   useEffect(() => {
@@ -156,7 +156,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     let stale = false;
     const id = window.setTimeout(() => {
       suggestByPrefix(session, phoneQuery).then((rows) => { if (!stale) setPhoneMatches(rows); })
-        .catch(() => { if (!stale) setPhoneMatches([]); });
+        .catch(() => { if (!stale) setPhoneMatches(null); });
     }, 180);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phoneQuery, filterCustomer, session]);
@@ -719,14 +719,19 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         </div>
       ) : null}
 
+      {/* AN ICON ALONE, NOT A LABELLED PILL — the wide "حجز جديد" button sat over the grid's own
+          content, on the one screen where every extra pixel is a slot he could otherwise see.
+          `+` reads the same act at a fifth of the width; `aria-label` carries the words a sighted
+          tap never needed. */}
       <button
         type="button"
         onClick={() => setDialog({})}
-        className="fixed bottom-6 inset-inline-end-6 z-20 flex h-14 items-center gap-2 rounded-full px-5 text-base font-semibold shadow-lg transition-transform active:scale-95"
+        aria-label="حجز جديد"
+        title="حجز جديد"
+        className="fixed bottom-6 inset-inline-end-6 z-20 grid h-14 w-14 place-items-center rounded-full shadow-lg transition-transform active:scale-95"
         style={{ background: 'var(--rj-gold)', color: 'var(--rj-ink)' }}
       >
-        <Plus size={20} aria-hidden />
-        حجز جديد
+        <Plus size={24} aria-hidden />
       </button>
 
       {dialog !== 'closed' ? (
@@ -793,7 +798,7 @@ function PhoneLookup({
 }: {
   phoneQuery: string;
   setPhoneQuery: (v: string) => void;
-  phoneMatches: CustomerHit[];
+  phoneMatches: CustomerHit[] | null;
   filterCustomer: CustomerHit | null;
   setFilterCustomer: (c: CustomerHit | null) => void;
   /** The popover's own column layout needs the full width; the inline header row keeps it compact. */
@@ -818,7 +823,7 @@ function PhoneLookup({
   }
   return (
     <div className={`relative ${full ? '' : 'w-40'}`}>
-      <Phone size={12} aria-hidden
+      <Phone size={13} aria-hidden
             className="pointer-events-none absolute inset-inline-start-3 top-1/2 -translate-y-1/2"
             style={{ color: 'var(--rj-ink-soft)' }} />
       <input
@@ -826,13 +831,13 @@ function PhoneLookup({
         onChange={(e) => setPhoneQuery(digitsOnly(e.target.value).slice(0, 10))}
         placeholder="جوّال العميل"
         aria-label="ابحث عن حجز عميل بجواله"
-        className="h-9 w-full rounded-full py-1.5 ps-8 pe-3 text-xs font-medium shadow-sm outline-none"
+        className="h-9 w-full rounded-full py-1.5 ps-9 pe-3 text-xs font-medium shadow-sm outline-none"
         style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}
       />
-      {phoneMatches.length > 0 ? (
+      {(phoneMatches ?? []).length > 0 ? (
         <div className="absolute inset-inline-start-0 top-11 z-30 flex w-56 flex-col gap-1 rounded-2xl p-2 shadow-lg"
             style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
-          {phoneMatches.slice(0, 5).map((c) => (
+          {(phoneMatches ?? []).slice(0, 5).map((c) => (
             <button key={c.id} type="button" onClick={() => setFilterCustomer(c)}
                    className="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-start text-sm hover:opacity-80">
               <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
