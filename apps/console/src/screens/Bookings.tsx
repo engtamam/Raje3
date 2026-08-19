@@ -211,10 +211,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     const m = new Map(staffHere.map((o) => [o.id, o.name]));
     return (id: string) => m.get(id) || id;
   }, [staffHere]);
-  const serviceNameOf = useMemo(() => {
+  const serviceNamesOf = useMemo(() => {
     const m = new Map((services ?? []).map((s) => [s.id, s.name]));
-    return (ids: string[]) => ids.map((id) => m.get(id) || id).join('، ');
+    return (ids: string[]) => ids.map((id) => m.get(id) || id);
   }, [services]);
+  const serviceNameOf = useMemo(
+    () => (ids: string[]) => serviceNamesOf(ids).join('، '),
+    [serviceNamesOf],
+  );
 
   const visible = useMemo(() => {
     return (rows ?? []).filter((b) => {
@@ -249,6 +253,43 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     }
     return map;
   }, [visible, view, weekStaffId]);
+
+  // ── OVERLAPPING CARDS SIT SIDE BY SIDE, NEVER STACKED — one operator double-booked (or two
+  // appointments fifteen minutes apart) used to render as two cards at the SAME left/right edges,
+  // one hiding the other completely with no sign a second booking existed at all. Classic
+  // interval-graph colouring, per column: sweep bookings in start order, group into clusters that
+  // actually overlap in time, and within a cluster assign each card the first lane whose previous
+  // occupant has already ended — the same layout a real calendar draws.
+  const overlapLayout = useMemo(() => {
+    const layout = new Map<string, { lane: number; lanes: number }>();
+    for (const cards of cardsByColumn.values()) {
+      const sorted = [...cards].sort((a, b) => a.starts_at - b.starts_at);
+      let cluster: Booking[] = [];
+      let clusterEnd = -Infinity;
+      const flush = () => {
+        if (cluster.length === 0) return;
+        const laneEnds: number[] = [];
+        for (const b of cluster) {
+          const start = minutesOf(b.starts_at);
+          const end = start + b.duration_minutes;
+          let lane = laneEnds.findIndex((t) => t <= start);
+          if (lane === -1) { lane = laneEnds.length; laneEnds.push(end); }
+          else laneEnds[lane] = end;
+          layout.set(b.id, { lane, lanes: 0 });   // lanes filled in once the cluster is known
+        }
+        for (const b of cluster) layout.get(b.id)!.lanes = laneEnds.length;
+        cluster = [];
+      };
+      for (const b of sorted) {
+        const start = minutesOf(b.starts_at);
+        if (start >= clusterEnd) flush();
+        cluster.push(b);
+        clusterEnd = Math.max(clusterEnd, start + b.duration_minutes);
+      }
+      flush();
+    }
+    return layout;
+  }, [cardsByColumn]);
 
   // ── local conflict check — for the drag colour ONLY; the real check always lives in the
   // backend claim lane, never here.
@@ -621,10 +662,17 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                  startsAt: epochAt(col.date, snapped) });
                     }}
                   >
-                    {/* hour lines — for reading the grid, not decoration */}
-                    {Array.from({ length: WINDOW_LEN / 60 }, (_, i) => WINDOW_START + i * 60).map((m) => (
+                    {/* QUARTER-HOUR LINES, FAINTER THAN THE HOUR — every cell is already
+                        clickable at 15-minute precision (SNAP_MINUTES), this is what makes that
+                        structure visible instead of guessed. Four real sections per hour, each
+                        its own tap target, matching the grain the click math already snaps to. */}
+                    {Array.from({ length: WINDOW_LEN / 15 }, (_, i) => WINDOW_START + i * 15).map((m) => (
                       <div key={m} className="absolute inset-x-0 border-t"
-                          style={{ top: (m - WINDOW_START) * PX_PER_MIN, borderColor: 'var(--rj-line)' }} />
+                          style={{
+                            top: (m - WINDOW_START) * PX_PER_MIN,
+                            borderColor: m % 60 === 0 ? 'var(--rj-line)' : 'var(--rj-line)',
+                            opacity: m % 60 === 0 ? 1 : 0.4,
+                          }} />
                     ))}
 
                     {/* drop preview — valid or refused, coloured BEFORE the drop itself (§6.1.1) */}
@@ -643,6 +691,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       const height = Math.max(28, b.duration_minutes * PX_PER_MIN);
                       const isBeingMoved = moving?.booking.id === b.id;
                       const tone = STATUS_VARS[b.status];
+                      // ONE OF SEVERAL OVERLAPPING CARDS SHRINKS TO ITS OWN LANE, WITH A HAIRLINE
+                      // GAP FROM ITS NEIGHBOURS — a card alone in its slot still takes the full
+                      // column, exactly as before.
+                      const { lane, lanes } = overlapLayout.get(b.id) ?? { lane: 0, lanes: 1 };
+                      const laneWidth = 100 / lanes;
                       return (
                         <div
                           key={b.id}
@@ -656,10 +709,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           onPointerUp={cancelLongPress}
                           onPointerLeave={cancelLongPress}
                           onClick={(e) => { e.stopPropagation(); if (!moving) setOpenBooking(b); }}
-                          className={`rj-card-settle absolute inset-inline-1 cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start shadow-sm transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
+                          className={`rj-card-settle absolute cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start shadow-sm transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
                           style={{
-                            top, height, background: tone.bg, color: tone.fg,
+                            top, height,
+                            insetInlineStart: `calc(${lane * laneWidth}% + ${lane ? 2 : 4}px)`,
+                            width: `calc(${laneWidth}% - ${lanes > 1 ? 4 : 8}px)`,
+                            background: tone.bg, color: tone.fg,
                             opacity: drag?.booking.id === b.id ? 0.4 : 1,
+                            zIndex: lane + 1,
                             ...(isBeingMoved ? { '--tw-ring-color': 'var(--rj-gold)' } as React.CSSProperties : {}),
                           }}
                         >
@@ -682,8 +739,21 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                               <div className="truncate text-xs font-semibold leading-tight">
                                 {timeLabel(minutesOf(b.starts_at))}
                               </div>
-                              <div className="truncate text-[11px] leading-tight opacity-80">
-                                {serviceNameOf(b.service_ids) || '—'}
+                              {/* TAGS, NOT A SENTENCE — a comma-joined line read as a description
+                                  of the appointment; each service is its own fact, and a shop
+                                  reading the grid needs to pick them out at a glance, not parse a
+                                  clause. Wraps onto a second line inside the card rather than
+                                  truncating the services that did not fit the first one. */}
+                              <div className="mt-0.5 flex flex-wrap gap-1 overflow-hidden" style={{ maxHeight: height - 20 }}>
+                                {serviceNamesOf(b.service_ids).length > 0
+                                  ? serviceNamesOf(b.service_ids).map((name) => (
+                                      <span key={name}
+                                           className="truncate rounded-full px-1.5 py-px text-[10px] leading-tight"
+                                           style={{ background: 'rgb(0 0 0 / 0.08)', maxWidth: '100%' }}>
+                                        {name}
+                                      </span>
+                                    ))
+                                  : <span className="text-[11px] opacity-80">—</span>}
                               </div>
                             </div>
                           )}
