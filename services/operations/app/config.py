@@ -161,8 +161,16 @@ class Settings(BaseSettings):
     SEARCH_INDEX_NAME: str = "customers"
     # The READING half, and it is two paths because the peer answers two different questions:
     # a prefix returns TERMS and a whole token returns PEOPLE (ط-3).
-    SEARCH_SUGGEST_PATH: str = "/api/v1/search/suggest"
-    SEARCH_QUERY_PATH: str = "/api/v1/search"
+    #
+    # INTERNAL, NOT THE PUBLIC ROUTE — the public one demands a signed Bearer token, and this
+    # service holds no signing key to make one (that key stays with identity-service alone). Every
+    # call through the old /api/v1/search/... defaults answered 401, silently, for as long as this
+    # config existed: the keypad showed nothing typed past three digits, and nothing here failed
+    # loudly enough to say why. search-service now carries an internal twin of both routes for
+    # exactly this (platform/, escalated and fixed 2026-08-19 — repin once the next platform
+    # release tags it).
+    SEARCH_SUGGEST_PATH: str = "/internal/search/suggest"
+    SEARCH_QUERY_PATH: str = "/internal/search/query"
     # Short, and it runs after the response anyway — a slow index must never hold a worker.
     SEARCH_TIMEOUT_SECONDS: int = 5
 
