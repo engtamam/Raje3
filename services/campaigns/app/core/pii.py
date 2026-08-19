@@ -56,12 +56,12 @@ def subject_ref(salt: str, tenant: str, subject: str) -> str:
     # request closes COMPLETED. The person is told their data is gone while every field of it sits
     # untouched, on a legal deadline, with nothing in any log to contradict the claim.
     #
-    # `operations` lost exactly this and the guard existed in this file, unused, the whole time.
-    # It belongs HERE rather than at a call site: that is the difference between fixing a defect
-    # and removing its shape, and it needs no list of exceptions to stay true.
+    # IDEMPOTENT, NOT REFUSED (v0.16.23). An already-wrapped ref handed back in folds to itself —
+    # a caller that already has a subject_ref and passes it along one more time is the common case,
+    # not the bug; the bug was ever hashing it a second time. Refusing that call outright just moved
+    # the failure from "wrong pseudonym, silently" to "erasure crashes on the ordinary case."
     if is_subject_ref(subject):
-        raise ValueError("subject is already a pseudonym — hashing it again produces a ref that "
-                         "matches no row, and an erasure that finds nothing reports success")
+        return subject
     mac = hmac.new(salt.encode("utf-8"),
                    f"{tenant}|{subject}".encode("utf-8"),
                    hashlib.sha256)

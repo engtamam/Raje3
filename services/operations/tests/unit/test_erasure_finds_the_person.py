@@ -17,8 +17,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.erasure import OperationsErasure
 from app.core.models import Customer, Visit
@@ -75,16 +73,14 @@ def test_an_erasure_by_phone_still_works():
     assert left.phone == "" and left.name == ""
 
 
-def test_hashing_a_pseudonym_is_refused_at_the_source():
-    """THE SHAPE IS REMOVED, NOT ONLY THE INSTANCE. A caller that hands `subject_ref` something
-    that is already a pseudonym now fails loudly — there is no second site to remember, and no
-    list of exceptions to keep."""
+def test_hashing_a_pseudonym_folds_to_itself():
+    """THE SHAPE IS REMOVED, NOT ONLY THE INSTANCE (v0.16.23: idempotent, not refused). A caller
+    that hands `subject_ref` something that is already a pseudonym gets that same pseudonym back
+    — the ordinary case (a caller reusing a ref it already holds) keeps working, and the ref of a
+    ref that broke the erasure above can no longer be produced at all."""
     ref = subject_ref(SALT, TENANT, PHONE)
 
-    with pytest.raises(ValueError) as caught:
-        subject_ref(SALT, TENANT, ref)
-
-    assert "already a pseudonym" in str(caught.value)
+    assert subject_ref(SALT, TENANT, ref) == ref
 
 
 def test_an_ordinary_identifier_is_still_hashed():

@@ -1,4 +1,4 @@
-"""Every `subject_ref()` in this fleet must refuse a subject that is already a pseudonym.
+"""Every `subject_ref()` in this fleet must fold an already-wrapped pseudonym to itself.
 
 WHAT IT COST (د-2). `compliance` fans an erasure out by the PSEUDONYM, because that is the only
 identifier every service holds. `operations` holds the phone number too, so its erasure hashed
@@ -8,10 +8,17 @@ closed the request COMPLETED. The name, the number, the plate and the notes stay
 they were, in the ONE service holding the real identifier, and the person was told their data was
 erased — on a legal deadline, with nothing in any log that disagreed.
 
-THE GUARD EXISTED THE WHOLE TIME AND HAD NO CALLER. `is_subject_ref()` sits in all six copies of
+THE GUARD EXISTED THE WHOLE TIME AND HAD NO CALLER. `is_subject_ref()` sits in all seven copies of
 `pii.py`; not one of them used it. That is the part worth a standing check: the defect was not a
 missing idea, it was an idea nobody wired up, and it survived a review that read the file it was
 written in.
+
+IDEMPOTENT, NOT REFUSED (v0.16.23). The first fix raised on a double-wrap. That closed د-2 but
+opened a smaller one: a caller that already holds a subject_ref and passes it back in — the
+ORDINARY case, not the mistake — now crashed instead. The platform's own `_template` settled on
+folding an already-wrapped ref to itself, which keeps د-2 impossible (the ref of a ref can no
+longer be produced at all, wrapped or raised) without breaking routine reuse. This gate now checks
+that fold, not the raise.
 
 WHY THE FUNCTION AND NOT THE CALL SITE. Guarding the one erasure that lost this would fix the
 defect and leave its shape: the next caller to hand a ref to a hasher gets the same silence. In
@@ -72,22 +79,26 @@ def main() -> int:
         try:
             again = mod.subject_ref(SALT, TENANT, ref)
         except ValueError:
-            continue                                                      # refused, as required
-        hits.append(f"{rel}: {service}.subject_ref() hashed a pseudonym again and returned "
-                    f"{again[:12]}… instead of refusing")
+            hits.append(f"{rel}: {service}.subject_ref() raises on an already-wrapped ref instead "
+                        f"of folding it to itself — the ordinary caller that reuses a ref it "
+                        f"already holds now crashes")
+            continue
+        if again != ref:
+            hits.append(f"{rel}: {service}.subject_ref() hashed a pseudonym again and returned "
+                        f"{again[:12]}… instead of the same ref back")
 
     if hits:
-        print(f"{len(hits)} of {len(files)} pseudonym function(s) will hash a ref a second time:")
+        print(f"{len(hits)} of {len(files)} pseudonym function(s) do not fold a ref to itself:")
         for h in hits:
             print("  " + h)
         print("\nThe ref of a ref matches no row anywhere. The caller doing it is an erasure, so")
         print("the scan finds nothing, answers `already_absent` with 200, and the request closes")
         print("COMPLETED — the person is told their data is gone while all of it remains.")
-        print("\nRaise ValueError when `is_subject_ref(subject)`. The helper is already in the")
-        print("file; d-2 happened because nothing called it.")
+        print("\n`return subject` when `is_subject_ref(subject)`. The helper is already in the")
+        print("file; د-2 happened because nothing called it.")
         return 1
 
-    print(f"{len(files)} pseudonym function(s): every one refuses to hash a ref a second time")
+    print(f"{len(files)} pseudonym function(s): every one folds a re-hashed ref to itself")
     return 0
 
 

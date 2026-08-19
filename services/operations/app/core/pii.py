@@ -50,22 +50,22 @@ def subject_ref(salt: str, tenant: str, subject: str) -> str:
                          "every email address, which is not a pseudonym at all")
     if not subject:
         raise ValueError("subject must not be empty")
-    # ALREADY A PSEUDONYM — REFUSED, NEVER WRAPPED AGAIN (د-2).
+    # ALREADY A PSEUDONYM (د-2).
     #
     # `compliance` fans an erasure out by the pseudonym, because that is the only identifier every
-    # other service holds. This one holds the phone number too, and hashed what it was handed: the
-    # ref of a ref matches no row anywhere, so the scan found nothing, answered `already_absent`
-    # with 200, and the request closed COMPLETED. The name, the number, the plate and the notes
-    # stayed exactly where they were — in the ONE service that holds the real identifier — and the
-    # customer was told his data was gone, on a legal deadline, with nothing in any log.
+    # other service holds. This one holds the phone number too, and used to hash what it was
+    # handed: the ref of a ref matched no row anywhere, so the scan found nothing, answered
+    # `already_absent` with 200, and the request closed COMPLETED. The name, the number, the plate
+    # and the notes stayed exactly where they were — in the ONE service that holds the real
+    # identifier — and the customer was told his data was gone, on a legal deadline, with nothing
+    # in any log.
     #
-    # The guard for this existed in this file from the start and had no production caller. Putting
-    # it HERE rather than at the one call site is the difference between fixing a defect and
-    # removing its shape: a caller that hands this function a ref now fails loudly, and there is no
-    # list of exceptions to keep.
+    # IDEMPOTENT, NOT REFUSED (v0.16.23). A caller that already holds a subject_ref and passes it
+    # back in is the ordinary case, not the bug — the bug was ever hashing it a second time.
+    # Folding it to itself here fixes the same defect without turning that ordinary call into a
+    # crash.
     if is_subject_ref(subject):
-        raise ValueError("subject is already a pseudonym — hashing it again produces a ref that "
-                         "matches no row, and an erasure that finds nothing reports success")
+        return subject
     mac = hmac.new(salt.encode("utf-8"),
                    f"{tenant}|{subject}".encode("utf-8"),
                    hashlib.sha256)
