@@ -296,6 +296,26 @@ async def test_an_inactive_affiliate_cannot_invite():
     assert exc.value.reason == "not_an_active_affiliate"
 
 
+# ── who am I ──────────────────────────────────────────────────────────────────────────────────
+@pytest.mark.anyio
+async def test_me_returns_his_own_id_as_the_referral_code_never_the_invite_token():
+    http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    me = await svc.me("p1")
+    assert me["id"] == approved["affiliate_id"]
+    assert me["role"] == MANAGER
+    assert "invite_token" not in me
+
+
+@pytest.mark.anyio
+async def test_me_is_none_for_a_person_with_no_affiliate_row():
+    svc = build()
+    assert await svc.me("nobody") is None
+
+
 def test_http_client_sends_the_internal_token_header():
     # A thin smoke test for the one thing FakeHttp cannot stand in for: the real client must
     # actually attach X-Internal-Token, or every /internal/* call at identity is silently refused.

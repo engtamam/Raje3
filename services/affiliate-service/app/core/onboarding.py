@@ -208,6 +208,26 @@ class OnboardingService:
         # blur that signal for the one check that must never be ambiguous.
         return {"application_id": app_row.id, "status": PENDING}
 
+    # ── who am I ─────────────────────────────────────────────────────────────────────────────
+    async def me(self, person_id: str) -> dict[str, Any] | None:
+        """What the signed-in affiliate needs to see his OWN referral link — his own `id` IS his
+        referral code (spec §1: `?aff=<id>` for a shop, `?ref=<id>` for another marketer applying
+        under him), so there is no separate code to mint or keep in step with this row.
+
+        None when `person_id` matches no Affiliate row at all — a token minted for a tenant this
+        service does not own, or a race between claiming an invite and this being called. Never
+        raises; the route turns None into 404.
+
+        NOT `affiliate.to_dict()` — that carries `invite_token`, which has no business leaving
+        this service even blank: a response shape that CAN carry a credential-adjacent field is
+        one keystroke away from doing it by accident on some future edit. Named fields only, same
+        discipline operator.py's own `list_secrets` already follows for hints vs. values."""
+        affiliate = await self._affiliate_by_person(person_id)
+        if affiliate is None:
+            return None
+        return {"id": affiliate.id, "role": affiliate.role, "name": affiliate.name,
+               "parent_id": affiliate.parent_id, "status": affiliate.status}
+
     async def _affiliate_by_person(self, person_id: str) -> Affiliate | None:
         if not person_id:
             return None

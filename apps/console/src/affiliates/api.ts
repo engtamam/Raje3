@@ -75,3 +75,13 @@ export async function invite(session: AffiliateSession, phone: string, name: str
     Promise<{ application_id: string; status: string }> {
   return req('/api/v1/affiliates/me/invite', 'POST', { phone, name }, session.access_token);
 }
+
+export interface Me {
+  id: string; role: string; name: string; parent_id: string; status: string;
+}
+
+/** Who I am — and his own `id` doubles as his referral code (spec §1): `?aff=<id>` for a shop,
+ *  `?ref=<id>` for another marketer applying under him. */
+export async function me(session: AffiliateSession): Promise<Me> {
+  return req('/api/v1/affiliates/me', 'GET', undefined, session.access_token);
+}

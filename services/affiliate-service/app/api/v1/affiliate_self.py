@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -39,6 +39,17 @@ def _refused(exc: OnboardingRefused) -> JSONResponse:
         body["reason"] = exc.reason
     status_code = 403 if exc.reason in ("not_an_active_affiliate", "managers_only") else 400
     return JSONResponse(status_code=status_code, content=body)
+
+
+@router.get("", dependencies=[Depends(rate_limit)])
+async def me(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    """Who I am, and — since his own `id` IS his referral code (spec §1) — everything the console
+    needs to show him his own link: `?aff=<id>` for a shop, `?ref=<id>` for another marketer
+    applying under him."""
+    out = await _svc(request).me(principal.subject)
+    if out is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    return out
 
 
 @router.post("/invite", dependencies=[Depends(rate_limit)])

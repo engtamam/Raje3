@@ -83,6 +83,8 @@ def build_manifest(
             {"path": "/api/v1/affiliates/apply", "tier": "public", "method": "POST"},
             {"path": "/api/v1/affiliates/signin", "tier": "public", "method": "POST"},
             {"path": "/api/v1/affiliates/accept-invite", "tier": "public", "method": "POST"},
+            # Who I am — his own id doubles as his referral code (spec §1).
+            {"path": "/api/v1/affiliates/me", "tier": "user", "method": "GET"},
             # A manager naming somebody for his own team — still gated by the admin queue below.
             {"path": "/api/v1/affiliates/me/invite", "tier": "user", "method": "POST"},
             # The admin's queue over that gate.

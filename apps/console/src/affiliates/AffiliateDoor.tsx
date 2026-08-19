@@ -49,9 +49,13 @@ const PW_MIN_HINT = 8;
 export function AffiliateDoor(
   { onSignedIn }: { onSignedIn: (session: AffiliateSession) => void },
 ) {
-  const inviteToken = useMemo(
-    () => new URLSearchParams(window.location.search).get('invite') ?? '', []);
-  const [mode, setMode] = useState<Mode>(inviteToken ? 'invite' : 'in');
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const inviteToken = params.get('invite') ?? '';
+  // A `?ref=` LINK IS A REFERRAL, NOT A LOGIN — a manager sharing AffiliateHome's own "لدعوة
+  // مسوّق تحتك" link means "apply", and landing whoever clicks it on the sign-in pane (which
+  // has nowhere to even show the referral code) would bury the one thing the link was for.
+  const [mode, setMode] = useState<Mode>(
+    inviteToken ? 'invite' : params.get('ref') ? 'new' : 'in');
 
   return (
     <DoorLayout

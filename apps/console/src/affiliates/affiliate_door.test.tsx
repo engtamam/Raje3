@@ -21,6 +21,12 @@ describe('AffiliateDoor', () => {
     expect(screen.getByText('عمولتك تكبر وأنت نائم.')).toBeTruthy();
   });
 
+  it('opens on «تقديم طلب» when the link carries ?ref= — a referral link means apply, not log in', () => {
+    setSearch('?ref=aff-1');
+    render(<AffiliateDoor onSignedIn={() => {}} />);
+    expect(screen.getByText('انضم كمسوّق')).toBeTruthy();
+  });
+
   it('opens straight on «قبول دعوة» when the link carries ?invite=, no segmented control shown', () => {
     setSearch('?invite=tok-abc');
     render(<AffiliateDoor onSignedIn={() => {}} />);

@@ -15,15 +15,25 @@
  * `unverified`. A capability-driven show/hide is a real improvement for later, not a gate this
  * screen may invent on its own guess.
  */
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { western } from '../digits';
-import { AffiliateRefused, invite, type AffiliateSession } from './api';
+import { AffiliateRefused, invite, me, type AffiliateSession, type Me } from './api';
 
 export function AffiliateHome({ session, onSignOut }: {
   session: AffiliateSession; onSignOut: () => void;
 }) {
+  const [self, setSelf] = useState<Me | 'loading' | 'failed'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    me(session)
+      .then((m) => { if (!cancelled) setSelf(m); })
+      .catch(() => { if (!cancelled) setSelf('failed'); });
+    return () => { cancelled = true; };
+  }, [session]);
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-8 p-6">
       <div className="flex items-center justify-between">
@@ -31,7 +41,73 @@ export function AffiliateHome({ session, onSignOut }: {
         <Button type="button" onClick={onSignOut} className="opacity-70">تسجيل الخروج</Button>
       </div>
 
-      <InviteCard session={session} />
+      <ReferralLinkCard self={self} />
+
+      {/* ONLY A MANAGER CAN INVITE (services/affiliate-service's own onboarding.invite() enforces
+          this — see InviteCard's own note on why this screen shows the form anyway rather than
+          hiding it by a role guess of its own), so this waits for `self` to know that. */}
+      {self !== 'loading' && self !== 'failed' && self.role === 'affiliate_manager'
+        ? <InviteCard session={session} /> : null}
+    </div>
+  );
+}
+
+/**
+ * HIS OWN ID IS HIS REFERRAL CODE (spec §1) — no separate code to mint, copy, or keep in step
+ * with the affiliate row. Two links shown for the two doors that read `?aff=`/`?ref=`: a shop
+ * owner's own signup (auth.ts::affiliateRefFromUrl) and another marketer applying under him
+ * (AffiliateDoor.tsx's own `ref` prefill) — a promoter gets the second only implicitly (nothing
+ * stops him sharing it; onboarding.py's own apply() decides what a referral code sitting on a
+ * promoter's row actually means when read back).
+ */
+function ReferralLinkCard({ self }: { self: Me | 'loading' | 'failed' }) {
+  const [copied, setCopied] = useState<'shop' | 'affiliate' | null>(null);
+
+  if (self === 'loading') {
+    return <div className="h-24 animate-pulse rounded-card bg-surface-1" />;
+  }
+  if (self === 'failed') {
+    return <p role="alert" className="text-danger">تعذّر تحميل بيانات حسابك.</p>;
+  }
+
+  const base = window.location.origin;
+  const shopLink = `${base}/?aff=${self.id}`;
+  const affiliateLink = `${base}/affiliates?ref=${self.id}`;
+
+  const copy = (which: 'shop' | 'affiliate', link: string) => {
+    navigator.clipboard?.writeText(link).then(() => {
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-5 shadow-sm">
+      <h2 className="text-lg">رابطك</h2>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-label font-medium text-text-secondary">لدعوة صاحب محل</span>
+        <div className="flex gap-2">
+          <input readOnly dir="ltr" value={shopLink}
+                 className="w-full rounded-md border border-border-strong bg-surface-0 px-3 py-2 text-sm text-text-primary" />
+          <Button type="button" onClick={() => copy('shop', shopLink)}>
+            {copied === 'shop' ? 'تم النسخ' : 'نسخ'}
+          </Button>
+        </div>
+      </div>
+
+      {self.role === 'affiliate_manager' ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-label font-medium text-text-secondary">لدعوة مسوّق تحتك</span>
+          <div className="flex gap-2">
+            <input readOnly dir="ltr" value={affiliateLink}
+                   className="w-full rounded-md border border-border-strong bg-surface-0 px-3 py-2 text-sm text-text-primary" />
+            <Button type="button" onClick={() => copy('affiliate', affiliateLink)}>
+              {copied === 'affiliate' ? 'تم النسخ' : 'نسخ'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
