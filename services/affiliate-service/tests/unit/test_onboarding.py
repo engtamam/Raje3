@@ -79,6 +79,44 @@ async def test_an_unknown_referral_code_is_refused_before_anything_is_created():
 
 
 @pytest.mark.anyio
+async def test_approve_redeems_the_invite_identitys_default_mode_actually_returns():
+    """IDENTITY_MEMBER_ADD_MODE defaults to 'invite' (platform/services/identity-service/app/
+    config.py) — meaning /internal/tenancy/members does NOT set the password we send it at all
+    in the common case; it creates the person with an UNUSABLE password and hands back a
+    one-time invite_token instead (see identity's own core/auth_service.py::add_member). The
+    earlier version of this test file only stubbed a bare {"person_id": ...} answer, which
+    silently exercised a branch (`if invite:`) that production never takes by default — this is
+    the one that does."""
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1", "invite_token": "tok-abc"})),
+        ("/person/claim", (200, {"person": {"id": "p1"}})),
+    ])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    approved = await svc.approve(out["application_id"], decided_by="admin1")
+
+    assert approved["already_approved"] is False
+    assert ("POST", "http://identity:8000/api/v1/auth/person/claim") in http.calls
+    # THE APPLICANT'S OWN CHOSEN PASSWORD, not a generated one he was never told — the whole
+    # reason claim() exists here rather than leaving the account PENDING forever.
+    claim_call_bodies = [c for c in http.calls if c[1].endswith("/person/claim")]
+    assert claim_call_bodies
+
+
+@pytest.mark.anyio
+async def test_a_failed_invite_redemption_refuses_approval_rather_than_a_half_account():
+    http = FakeHttp([
+        ("/members", (201, {"person_id": "p1", "invite_token": "tok-abc"})),
+        ("/person/claim", (400, {"detail": "INVALID_INVITE"})),
+    ])
+    svc = build(http)
+    out = await svc.apply(phone="0501234567", name="سالم", password="hunter2hunter2")
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.approve(out["application_id"], decided_by="admin1")
+    assert exc.value.reason == "claim_failed"
+
+
+@pytest.mark.anyio
 async def test_approving_twice_mints_exactly_one_identity_membership():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])
     svc = build(http)
