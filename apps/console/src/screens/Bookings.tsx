@@ -221,6 +221,20 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     () => (ids: string[]) => serviceNamesOf(ids).join('، '),
     [serviceNamesOf],
   );
+  // THE SAME NUMBER THE DIALOG ITSELF SHOWS — the booking's own override when it was negotiated,
+  // otherwise the catalogue's sum for whatever services it holds. `null` when neither says
+  // anything (no override, and no service on the card carries a price) — the card then shows no
+  // number rather than a confident-looking "0".
+  const priceMinorOf = useMemo(() => {
+    const m = new Map((services ?? []).map((s) => [s.id, s.price_minor ?? 0]));
+    return (b: Booking): number | null => {
+      if (b.price_override_minor !== null && b.price_override_minor !== undefined) {
+        return b.price_override_minor;
+      }
+      const sum = b.service_ids.reduce((total, id) => total + (m.get(id) ?? 0), 0);
+      return sum > 0 ? sum : null;
+    };
+  }, [services]);
 
   const visible = useMemo(() => {
     return (rows ?? []).filter((b) => {
@@ -798,62 +812,79 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             <GripVertical size={11} aria-hidden
                                          className="absolute inset-inline-start-1 top-1/2 -translate-y-1/2 opacity-40" />
                           ) : null}
-                          {/* A DOT, NOT A CHIP — one glance at the grid should tell "عربون" from
-                              "مدفوع" without opening the card; a full badge would fight the
-                              service tags for the same few pixels a short card has. */}
-                          {/* `?? 'none'` — a rolling deploy can serve this exact response from an
-                              older bookings pod that predates payment_status entirely; reading a
-                              missing key as "بدون عربون" is the right default and never crashes
-                              the whole grid over one field one pod has not caught up on yet. */}
-                          {(b.payment_status ?? 'none') !== 'none' ? (
-                            <span aria-hidden
-                                 title={b.payment_status === 'deposit' && b.deposit_amount_minor
-                                   ? `${PAYMENT_LABEL.deposit} — ${riyals(b.deposit_amount_minor)} ريال`
-                                   : PAYMENT_LABEL[b.payment_status ?? 'none']}
-                                 className="absolute inset-inline-end-1.5 top-1.5 h-2 w-2 rounded-full"
-                                 style={{ background: PAYMENT_COLOR[b.payment_status ?? 'none'].fg }} />
-                          ) : null}
-                          {/* A STAR BESIDE THE DOT — a customer waiting on a reward is a different
-                              fact from a customer who paid a deposit, and a shop that sells both
-                              needs to tell them apart at a glance, not just know "something's
-                              flagged". Still present on an attended booking means the spend
-                              failed or needed an approval attend() could not give (see the
-                              field's own note) — the same glance now reads "still owed". */}
-                          {b.intended_reward_id ? (
-                            <span aria-hidden title="جائزة بانتظار الاستبدال عند الحضور"
-                                 className="absolute inset-inline-end-4 top-1 text-[10px] leading-none">
-                              ⭐
-                            </span>
-                          ) : null}
-                          {height < 30 ? (
-                            // A very short card (a quick service) has no room for two lines — one
-                            // combined line beats a time with no service name at all.
-                            <div className={`truncate text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
-                              {timeLabel(minutesOf(b.starts_at))} · {serviceNameOf(b.service_ids) || '—'}
-                            </div>
-                          ) : (
-                            <div className={b.status === 'booked' ? 'ps-3' : ''}>
-                              <div className="truncate text-xs font-semibold leading-tight">
-                                {timeLabel(minutesOf(b.starts_at))}
+                          {(() => {
+                            // `?? 'none'` — a rolling deploy can serve this exact response from an
+                            // older bookings pod that predates payment_status entirely; reading a
+                            // missing key as "بدون عربون" is the right default and never crashes
+                            // the whole grid over one field one pod has not caught up on yet.
+                            const pay = b.payment_status ?? 'none';
+                            const price = priceMinorOf(b);
+                            // THE NUMBER ITSELF, NOT JUST A DOT'S COLOUR — a tooltip on a 2px dot
+                            // never shows on a touch device at all (Tamam, 2026-08-19: "الرقم
+                            // محطوط عشان يكون واضح"). عربون shows what was actually taken;
+                            // مدفوع shows the booking's own price, when there is one to show.
+                            const payLabel = pay === 'deposit' && b.deposit_amount_minor
+                              ? `عربون ${riyals(b.deposit_amount_minor)}`
+                              : pay === 'paid' && price !== null
+                                ? `مدفوع ${riyals(price)}`
+                                : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                            const payPill = payLabel ? (
+                              <span
+                                className="truncate rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
+                                style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
+                                {payLabel}
+                              </span>
+                            ) : null;
+                            // A STAR BESIDE THE PILL — a customer waiting on a reward is a
+                            // different fact from one who paid a deposit. Still present on an
+                            // attended booking means the spend failed or needed an approval
+                            // attend() could not give (see the field's own note) — the same
+                            // glance now reads "still owed".
+                            const rewardPill = b.intended_reward_id ? (
+                              <span aria-hidden title="جائزة بانتظار الاستبدال عند الحضور"
+                                   className="text-[10px] leading-none">⭐</span>
+                            ) : null;
+
+                            if (height < 30) {
+                              // A very short card (a quick service) has no room for a pill row —
+                              // one combined line beats a time with no service name at all.
+                              return (
+                                <div className={`flex items-center gap-1 truncate text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
+                                  <span className="truncate">
+                                    {timeLabel(minutesOf(b.starts_at))} · {serviceNameOf(b.service_ids) || '—'}
+                                  </span>
+                                  {rewardPill}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className={b.status === 'booked' ? 'ps-3' : ''}>
+                                <div className="truncate text-xs font-semibold leading-tight">
+                                  {timeLabel(minutesOf(b.starts_at))}
+                                </div>
+                                {/* TAGS, NOT A SENTENCE — a comma-joined line read as a
+                                    description of the appointment; each service is its own fact,
+                                    and a shop reading the grid needs to pick them out at a
+                                    glance, not parse a clause. The payment pill and the reward
+                                    star ride the SAME wrapping row, at its end — one place the
+                                    eye already goes for every fact about this card, not a
+                                    separate corner badge nobody was told to look at. */}
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1 overflow-hidden" style={{ maxHeight: height - 20 }}>
+                                  {serviceNamesOf(b.service_ids).length > 0
+                                    ? serviceNamesOf(b.service_ids).map((name) => (
+                                        <span key={name}
+                                             className="truncate rounded-full px-1.5 py-px text-[10px] leading-tight"
+                                             style={{ background: 'rgb(0 0 0 / 0.08)', maxWidth: '100%' }}>
+                                          {name}
+                                        </span>
+                                      ))
+                                    : <span className="text-[11px] opacity-80">—</span>}
+                                  {payPill}
+                                  {rewardPill}
+                                </div>
                               </div>
-                              {/* TAGS, NOT A SENTENCE — a comma-joined line read as a description
-                                  of the appointment; each service is its own fact, and a shop
-                                  reading the grid needs to pick them out at a glance, not parse a
-                                  clause. Wraps onto a second line inside the card rather than
-                                  truncating the services that did not fit the first one. */}
-                              <div className="mt-0.5 flex flex-wrap gap-1 overflow-hidden" style={{ maxHeight: height - 20 }}>
-                                {serviceNamesOf(b.service_ids).length > 0
-                                  ? serviceNamesOf(b.service_ids).map((name) => (
-                                      <span key={name}
-                                           className="truncate rounded-full px-1.5 py-px text-[10px] leading-tight"
-                                           style={{ background: 'rgb(0 0 0 / 0.08)', maxWidth: '100%' }}>
-                                        {name}
-                                      </span>
-                                    ))
-                                  : <span className="text-[11px] opacity-80">—</span>}
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       );
                     })}

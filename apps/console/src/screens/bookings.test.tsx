@@ -19,13 +19,17 @@ const BOOKING = {
   updated: 1, cancelled_reason: null, thumb_up: null, rev: 1,
 } as const;
 
+// A SINGLE OVERRIDABLE ROW — most tests want the plain default; the payment-pill test below
+// swaps this for one carrying a real deposit before rendering, and restores it in `afterEach`.
+let bookingsOverride: typeof BOOKING[] = [BOOKING];
+
 vi.mock('../api', async (importOriginal) => {
   const real = await importOriginal<typeof import('../api')>();
   return {
     ...real,
     listBookings: async (...args: unknown[]) => {
       asked.push({ fn: 'listBookings', args });
-      return { bookings: [BOOKING] };
+      return { bookings: bookingsOverride };
     },
     fetchCatalogue: async () => ({
       services: [
@@ -70,7 +74,7 @@ vi.mock('../api', async (importOriginal) => {
   };
 });
 
-afterEach(() => { asked.length = 0; cleanup(); });
+afterEach(() => { asked.length = 0; bookingsOverride = [BOOKING]; cleanup(); });
 
 const { BookingsScreen } = await import('./Bookings');
 
@@ -162,6 +166,12 @@ describe('the grid', () => {
     fireEvent.click(screen.getAllByText('عربون')[0]);
     await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(1));
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
+  });
+
+  it('shows the deposit amount right on the card, not just a coloured dot', async () => {
+    bookingsOverride = [{ ...BOOKING, payment_status: 'deposit', deposit_amount_minor: 5000 }];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('عربون 50'));
   });
 
   // "finds a customer's own booking by his phone number" removed with the phone-lookup filter —
