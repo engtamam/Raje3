@@ -740,13 +740,17 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           {/* A DOT, NOT A CHIP — one glance at the grid should tell "عربون" from
                               "مدفوع" without opening the card; a full badge would fight the
                               service tags for the same few pixels a short card has. */}
-                          {b.payment_status !== 'none' ? (
+                          {/* `?? 'none'` — a rolling deploy can serve this exact response from an
+                              older bookings pod that predates payment_status entirely; reading a
+                              missing key as "بدون عربون" is the right default and never crashes
+                              the whole grid over one field one pod has not caught up on yet. */}
+                          {(b.payment_status ?? 'none') !== 'none' ? (
                             <span aria-hidden
                                  title={b.payment_status === 'deposit' && b.deposit_amount_minor
                                    ? `${PAYMENT_LABEL.deposit} — ${riyals(b.deposit_amount_minor)} ريال`
-                                   : PAYMENT_LABEL[b.payment_status]}
+                                   : PAYMENT_LABEL[b.payment_status ?? 'none']}
                                  className="absolute inset-inline-end-1.5 top-1.5 h-2 w-2 rounded-full"
-                                 style={{ background: PAYMENT_COLOR[b.payment_status].fg }} />
+                                 style={{ background: PAYMENT_COLOR[b.payment_status ?? 'none'].fg }} />
                           ) : null}
                           {height < 30 ? (
                             // A very short card (a quick service) has no room for two lines — one
