@@ -35,7 +35,14 @@ const HERO: React.CSSProperties = {
     + 'linear-gradient(160deg, #101828, #151d33)',
 };
 
-export function DoorLayout({ children }: { children: ReactNode }) {
+export function DoorLayout({ children, title, subtitle }: {
+  children: ReactNode;
+  /** Overridable so a SECOND product on this canvas (the affiliate portal — a different
+      audience, same visual language) is not stuck advertising «عملاؤك يرجعون» to a marketer
+      who has no shop. Defaults to the shop's own copy so Door.tsx needs no change. */
+  title?: ReactNode;
+  subtitle?: ReactNode;
+}) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       <aside
@@ -57,11 +64,13 @@ export function DoorLayout({ children }: { children: ReactNode }) {
           {/* ONE SENTENCE, AND IT IS THE PRODUCT. Not a feature list — a person deciding whether to
               sign up is deciding whether the idea is worth ten minutes, not comparing specs. */}
           <h1 className="text-4xl leading-tight tracking-tight text-[#f4efe2]">
-            عملاؤك يرجعون، من نفسهم.
+            {title ?? 'عملاؤك يرجعون، من نفسهم.'}
           </h1>
           <p className="mt-4 text-[15px] leading-relaxed text-[#c9c2b3]">
-            راجِع يتذكّر متى يحتاج كل عميل خدمته القادمة، ويذكّره على واتساب باسم محلك — بلا أن
-            تفتح التطبيق.
+            {subtitle ?? (
+              'راجِع يتذكّر متى يحتاج كل عميل خدمته القادمة، ويذكّره على واتساب باسم محلك — بلا أن '
+              + 'تفتح التطبيق.'
+            )}
           </p>
         </div>
 

@@ -14,6 +14,7 @@ import { Team } from './screens/TeamRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
 import { Store } from './screens/StoreRoute';
+import { AffiliatePortal } from './affiliates/AffiliatePortal';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
 import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
 import { ImtithalakUiProvider } from '@base-ui/design-system/shell';
@@ -52,6 +53,15 @@ const router = createBrowserRouter([
       // answers, for every link already sent.
       { path: 'store', element: <Store /> },
     ],
+  },
+  // OUTSIDE <App/> ON PURPOSE. A marketer has no shop, no branch, no operator PIN and no action
+  // catalogue — everything <App/> fetches on mount for the shop's own audience. A route nested
+  // under it would either fetch that catalogue anyway (a 401 for an audience that never has a
+  // shop token) or need <App/> itself to grow a "which product is this" branch. Its own tree,
+  // its own session store (affiliates/session.ts) — see AffiliatePortal.tsx for why.
+  {
+    path: 'affiliates/*',
+    element: <AffiliatePortal />,
   },
 ], {
   // AND THE ROUTER TOO — from the same value, never a second literal. The app is mounted under a
