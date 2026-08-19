@@ -6,7 +6,7 @@
  * (the same convention Visit.tsx uses), so that is the seam a test has to watch.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createElement } from 'react';
 
 const asked: { fn: string; args: unknown[] }[] = [];
@@ -71,6 +71,13 @@ function open(props: Partial<Parameters<typeof BookingsScreen>[0]> = {}) {
   }));
 }
 
+// SCOPED TO THE GRID ONLY. The filter row's own service <select> carries the same service names
+// as every card on it — real and correct in production, but it means an unscoped
+// `card()` matches the <option> too the moment more than one card exists.
+const grid = () => screen.getByTestId('rj-grid');
+const card = () => within(grid()).getByText(/قص شعر/);
+const queryCard = () => within(grid()).queryByText(/قص شعر/);
+
 describe('branch selection', () => {
   it('offers a chooser when more than one branch and none is scoped', () => {
     open({ branches: [{ id: 'b1', name: 'فرع الرياض' }, { id: 'b2', name: 'فرع جدة' }] });
@@ -89,13 +96,13 @@ describe('branch selection', () => {
 describe('the grid', () => {
   it('reads the selected branch\'s bookings and places them on the grid', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => expect(screen.getByText(/قص شعر/)).toBeTruthy());
+    await waitFor(() => expect(card()).toBeTruthy());
   });
 
   it('opens an action sheet when a card is tapped', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    screen.getByText(/قص شعر/).click();
+    await waitFor(() => card());
+    card().click();
     await waitFor(() => expect(screen.getByText('حضرت')).toBeTruthy());
     expect(screen.getByText('لم تحضر')).toBeTruthy();
     expect(screen.getByText('إلغاء الحجز')).toBeTruthy();
@@ -103,8 +110,8 @@ describe('the grid', () => {
 
   it('marks attendance from the action sheet', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    screen.getByText(/قص شعر/).click();
+    await waitFor(() => card());
+    card().click();
     await waitFor(() => screen.getByText('حضرت'));
     screen.getByText('حضرت').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'attendBooking')).toBe(true));
@@ -113,8 +120,8 @@ describe('the grid', () => {
 
   it('cancels from the action sheet', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    screen.getByText(/قص شعر/).click();
+    await waitFor(() => card());
+    card().click();
     await waitFor(() => screen.getByText('إلغاء الحجز'));
     screen.getByText('إلغاء الحجز').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
@@ -122,17 +129,16 @@ describe('the grid', () => {
 
   it('filters visible cards by chip, with no new request', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
+    // TWO MATCHES BEFORE FILTERING: the booking card itself, and the same name as a <option> in
+    // the filter row's own service select (always in the DOM — jsdom does not apply the `sm:`
+    // breakpoint that picks inline-row-vs-mobile-chip at a real viewport width). Filtering the
+    // card away leaves exactly the option.
+    await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(2));
     const before = asked.filter((a) => a.fn === 'listBookings').length;
-    screen.getByText('فلاتر').click();
-    await waitFor(() => screen.getByText('بعربون'));
     // BOOKING.deposit_taken is false, so "بعربون" excludes the one card on screen — the same
     // outcome the old search-by-text test proved, now over a chip instead of a query.
-    fireEvent.click(screen.getByText('بعربون'));
-    // Closed rather than left open — the service <option> inside the still-open popover also
-    // reads "قص شعر", which would make the very filter under test look like it changed nothing.
-    fireEvent.click(screen.getByLabelText('إغلاق الفلاتر'));
-    await waitFor(() => expect(screen.queryByText(/قص شعر/)).toBeNull());
+    fireEvent.click(screen.getAllByText('بعربون')[0]);
+    await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(1));
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
   });
 });
@@ -147,7 +153,7 @@ describe('حجز جديد', () => {
 
   it('opens the same dialog from an empty cell click — no separate flow', async () => {
     const { container } = open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
+    await waitFor(() => card());
     // The column background itself, not a card — clicking a card opens the action sheet instead.
     const column = container.querySelectorAll('.border-s')[1];
     fireEvent.click(column);
@@ -158,31 +164,31 @@ describe('حجز جديد', () => {
 describe('السحب والإفلات', () => {
   it('marks the card as being dragged the moment a drag starts', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    const card = screen.getByText(/قص شعر/).closest('[draggable="true"]') as HTMLElement;
-    expect(card.getAttribute('draggable')).toBe('true');
+    await waitFor(() => card());
+    const cardEl = card().closest('[draggable="true"]') as HTMLElement;
+    expect(cardEl.getAttribute('draggable')).toBe('true');
 
-    fireEvent.dragStart(card);
-    await waitFor(() => expect(card.className).toContain('rj-card-dragging'));
+    fireEvent.dragStart(cardEl);
+    await waitFor(() => expect(cardEl.className).toContain('rj-card-dragging'));
   });
 
   it('cards for a cancelled or closed booking are never draggable', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    screen.getByText(/قص شعر/).click();
+    await waitFor(() => card());
+    card().click();
     await waitFor(() => screen.getByText('إلغاء الحجز'));
     screen.getByText('إلغاء الحجز').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'cancelBooking')).toBe(true));
     // A cancelled booking is filtered out of the grid entirely (§7) — nothing left to drag.
-    expect(screen.queryByText(/قص شعر/)).toBeNull();
+    expect(queryCard()).toBeNull();
   });
 });
 
 describe('احجزي الجلسة القادمة', () => {
   it('offers the next session after marking attendance, when the service has a real cycle', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    screen.getByText(/قص شعر/).click();
+    await waitFor(() => card());
+    card().click();
     await waitFor(() => screen.getByText('حضرت'));
     screen.getByText('حضرت').click();
     await waitFor(() => expect(screen.getByText(/احجزي الجلسة القادمة/)).toBeTruthy());
@@ -190,8 +196,8 @@ describe('احجزي الجلسة القادمة', () => {
 
   it('opens the booking dialog with the customer already known — no phone search needed', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    await waitFor(() => screen.getByText(/قص شعر/));
-    screen.getByText(/قص شعر/).click();
+    await waitFor(() => card());
+    card().click();
     await waitFor(() => screen.getByText('حضرت'));
     screen.getByText('حضرت').click();
     await waitFor(() => screen.getByText(/احجزي الجلسة القادمة/));

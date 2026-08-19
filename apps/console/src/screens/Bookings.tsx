@@ -385,8 +385,43 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
             {/* FILTERS, NOT A SEARCH BOX — narrowing the grid is a tap on what it already shows
                 (a service, a deposit state), never typing a query for something read a hundred
-                times a day. */}
-            <div className="relative">
+                times a day.
+
+                TWO LAYOUTS, ONE STATE. On a phone the header is already three rows deep before
+                the grid starts, so the controls fold into one chip — a tap most of the time, two
+                on the day filtering actually touches. On anything wider there is room to just
+                SHOW the two controls inline, which is the one-tap version this was always meant
+                to be; the chip below only exists for the width that cannot afford it. */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
+                     className="h-9 rounded-full px-3 text-xs font-medium shadow-sm outline-none"
+                     style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}>
+                <option value="">كل الخدمات</option>
+                {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <div className="flex overflow-hidden rounded-full shadow-sm" style={{ border: '1px solid var(--rj-line)' }}>
+                {([['any', 'الكل'], ['yes', 'بعربون'], ['no', 'بدون عربون']] as const).map(([v, label]) => (
+                  <button key={v} type="button" onClick={() => setFilterDeposit(v)}
+                         className="h-9 px-3 text-xs font-medium"
+                         style={v === filterDeposit
+                           ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
+                           : { background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {activeFilterCount ? (
+                <button type="button" onClick={() => { setFilterService(''); setFilterDeposit('any'); }}
+                       aria-label="إزالة كل الفلاتر"
+                       className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
+                       style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
+                  <X size={14} aria-hidden />
+                </button>
+              ) : null}
+            </div>
+
+            {/* THE MOBILE-ONLY FALLBACK — same state, folded behind one chip. */}
+            <div className="relative sm:hidden">
               <button type="button" onClick={() => setFiltersOpen((v) => !v)}
                      aria-expanded={filtersOpen}
                      className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium shadow-sm"
@@ -480,7 +515,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             لا موظفاتٌ نشِطاتٌ في هذا الفرع بعد.
           </div>
         ) : (
-          <div className={view === 'week' ? 'rounded-[28px] shadow-sm' : 'overflow-x-auto rounded-[28px] shadow-sm'}
+          <div data-testid="rj-grid"
+              className={view === 'week' ? 'rounded-[28px] shadow-sm' : 'overflow-x-auto rounded-[28px] shadow-sm'}
               style={{ background: 'var(--rj-surface)' }}>
             {/* WEEK NEVER SCROLLS TO BE SEEN WHOLE — its seven columns are the fixed, known set the
                 view exists to show side by side, so they take `1fr` each and share the container's
@@ -488,8 +524,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 member, whose names must stay readable, and a branch with many of them is the one
                 case scrolling is the honest answer rather than crushed, truncated columns. */}
             <div className="grid" style={{ gridTemplateColumns: view === 'week'
-              ? `52px repeat(${columns.length}, 1fr)`
-              : `56px repeat(${columns.length}, minmax(140px, 1fr))` }}>
+              ? `58px repeat(${columns.length}, 1fr)`
+              : `64px repeat(${columns.length}, minmax(140px, 1fr))` }}>
               <div className="sticky top-0 z-10" style={{ background: 'var(--rj-surface)' }} />
               {columns.map((col) => (
                 <div key={col.key}
@@ -509,7 +545,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   const isFirst = m === WINDOW_START;
                   return (
                     <div key={m}
-                        className={`absolute inset-inline-end-1.5 whitespace-nowrap text-[11px] font-bold tabular-nums ${isFirst ? '' : '-translate-y-1/2'}`}
+                        className={`absolute inset-inline-end-2.5 whitespace-nowrap text-xs font-bold tabular-nums ${isFirst ? '' : '-translate-y-1/2'}`}
                         style={{ top: (m - WINDOW_START) * PX_PER_MIN, color: 'var(--rj-ink)' }}>
                       {timeLabel(m)}
                     </div>
