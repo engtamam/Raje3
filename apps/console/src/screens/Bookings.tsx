@@ -846,13 +846,17 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             ) : null;
 
                             if (height < 30) {
-                              // A very short card (a quick service) has no room for a pill row —
-                              // one combined line beats a time with no service name at all.
+                              // A very short card (a quick service) has no room for a whole pill
+                              // ROW, but the payment fact still belongs on it — `min-w-0` lets
+                              // the text truncate so the pills themselves are never the thing
+                              // that gets clipped (Tamam, 2026-08-19: "مافي شي على البطاقة",
+                              // reporting the pills missing entirely on exactly this branch).
                               return (
-                                <div className={`flex items-center gap-1 truncate text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
-                                  <span className="truncate">
+                                <div className={`flex items-center gap-1 text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
+                                  <span className="min-w-0 flex-1 truncate">
                                     {timeLabel(minutesOf(b.starts_at))} · {serviceNameOf(b.service_ids) || '—'}
                                   </span>
+                                  {payPill}
                                   {rewardPill}
                                 </div>
                               );

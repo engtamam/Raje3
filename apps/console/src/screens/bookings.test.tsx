@@ -174,6 +174,16 @@ describe('the grid', () => {
     await waitFor(() => screen.getByText('عربون 50'));
   });
 
+  it('shows the payment pill on a short card too, not only the tall-card layout', async () => {
+    // duration_minutes: 15 at PX_PER_MIN 1.6 -> height 24, the height < 30 combined-line branch —
+    // exactly the layout Tamam's screenshot showed with no payment fact on it at all.
+    bookingsOverride = [{
+      ...BOOKING, duration_minutes: 15, payment_status: 'deposit', deposit_amount_minor: 5000,
+    }];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByText('عربون 50'));
+  });
+
   // "finds a customer's own booking by his phone number" removed with the phone-lookup filter —
   // `suggestByPrefix` never answers a real caller (search-service's public route requires a user
   // Bearer token, and `operations` sends the wrong credential for it), so the field only ever
