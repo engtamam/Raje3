@@ -830,8 +830,21 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                 : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
                             const payPill = payLabel ? (
                               <span
-                                className="truncate rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
+                                className="shrink-0 truncate rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
                                 style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
+                                {payLabel}
+                              </span>
+                            ) : null;
+                            // THE NARROW-COLUMN VERSION — week view's columns are a third the
+                            // width of a day column, and a fixed-width pill beside a flex-1 time
+                            // string there squeezed the time down to nothing and left an ellipsis
+                            // fragment sitting next to a pill that read as a stray, disconnected
+                            // label (Tamam, 2026-08-19, a screenshot of exactly that). `shrink`
+                            // and a cap let the pill give ground too, instead of always winning.
+                            const payPillCompact = payLabel ? (
+                              <span
+                                className="shrink truncate rounded-full px-1.5 py-px text-[10px] font-bold leading-tight"
+                                style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg, maxWidth: '55%' }}>
                                 {payLabel}
                               </span>
                             ) : null;
@@ -847,16 +860,20 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
                             if (height < 30) {
                               // A very short card (a quick service) has no room for a whole pill
-                              // ROW, but the payment fact still belongs on it — `min-w-0` lets
-                              // the text truncate so the pills themselves are never the thing
-                              // that gets clipped (Tamam, 2026-08-19: "مافي شي على البطاقة",
-                              // reporting the pills missing entirely on exactly this branch).
+                              // ROW, but the payment fact still belongs on it. THE TIME NEVER
+                              // TRUNCATES (`shrink-0` of its own, split out of the service name)
+                              // — a narrow week column used to squeeze "10:00" itself down to a
+                              // stray "…00" beside a pill that then read as disconnected from
+                              // anything (Tamam, 2026-08-19, a screenshot of exactly that). The
+                              // service name is what gives way now, and the pill shrinks too
+                              // (`payPillCompact`) rather than always claiming its full width.
                               return (
                                 <div className={`flex items-center gap-1 text-[11px] font-semibold leading-tight ${b.status === 'booked' ? 'ps-3' : ''}`}>
+                                  <span className="shrink-0">{timeLabel(minutesOf(b.starts_at))}</span>
                                   <span className="min-w-0 flex-1 truncate">
-                                    {timeLabel(minutesOf(b.starts_at))} · {serviceNameOf(b.service_ids) || '—'}
+                                    · {serviceNameOf(b.service_ids) || '—'}
                                   </span>
-                                  {payPill}
+                                  {payPillCompact}
                                   {rewardPill}
                                 </div>
                               );
