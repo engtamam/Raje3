@@ -85,6 +85,14 @@ _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "boo
 # branch list used to fail for. `list_operators` already narrows by `branch_scope`/`SCOPE.visible`
 # on its own — the gate was the only thing standing between a field operator and his own team.
 _READ_OPERATORS_FOR_BOOKINGS = require_any_capability("operations.read", "bookings.read", "bookings.write")
+# STALE AS OF THE SAME DAY (Tamam, 2026-08-20, same conversation, later): the seeded "operator"
+# role above no longer HOLDS `bookings.read`/`bookings.write` at all — two operators sharing one
+# schedule could edit or cancel each other's booking, and the fix was to take booking away from
+# the role entirely (roles.seed.json / deploy/seed/roles.json), not to keep narrowing who can read
+# around it. `_READ_BRANCHES` and `_READ_OPERATORS_FOR_BOOKINGS` stay — they are still the correct
+# door for any principal who legitimately holds `bookings.*` without `operations.read` (a
+# supervisor already carries both; a future or shop-defined role might not) — but neither one
+# grants a plain field operator anything any more, because he does not reach this gate at all.
 
 
 def _tenant(p: Principal) -> str:
