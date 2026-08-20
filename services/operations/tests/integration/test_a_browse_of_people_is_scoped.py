@@ -172,3 +172,34 @@ def test_an_unbranched_colleague_stays_visible_to_everybody(client):
     got = client.get("/api/v1/staff/operators", headers=_headers("u_jeddah")).json()["operators"]
 
     assert "بلا فرع" in {o["name"] for o in got}
+
+
+def test_a_field_operator_with_only_bookings_caps_can_read_his_own_team(client):
+    """Tamam, 2026-08-20: the Bookings screen calls `/staff/operators` unconditionally on mount to
+    attribute a booking and draw the staff picker. A plain field operator holds `bookings.read`/
+    `bookings.write` but never `operations.read`, so this exact route answered him 403 — the
+    console read that as «تعذّرت قراءة فريق العمل», an outage, when he simply held neither
+    capability the route required.
+    `_READ_OPERATORS_FOR_BOOKINGS` (staff.py) reopens this one self-narrowing read to bookings
+    holders too, without touching `list_operators`'s narrowing (`branch_scope`) at all — he still
+    sees only his own branch's team."""
+    _shop(client)
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": "u_jeddah", "iss": ISS, "aud": AUD,
+                      "caps": ["operations.record", "bookings.read", "bookings.write"],
+                      "tenant": TENANT, "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     SECRET, algorithm="HS256")
+
+    r = client.get("/api/v1/staff/operators", headers={"Authorization": f"Bearer {tok}"})
+
+    assert r.status_code == 200, r.text
+    names = {o["name"] for o in r.json()["operators"]}
+    assert "مدير جدة" in names
+    assert "موظف الرياض" not in names
+
+    # AND operations.record ALONE (no bookings.* either) IS STILL REFUSED.
+    tok2 = jwt.encode({"sub": "u_jeddah2", "iss": ISS, "aud": AUD, "caps": ["operations.record"],
+                       "tenant": TENANT, "exp": now + dt.timedelta(minutes=5), "iat": now},
+                      SECRET, algorithm="HS256")
+    assert client.get("/api/v1/staff/operators",
+                      headers={"Authorization": f"Bearer {tok2}"}).status_code == 403

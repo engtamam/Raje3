@@ -71,12 +71,20 @@ _MANAGE_SERVICES = require_capability("operations.manage_services")
 #
 # `require_any_capability`, not a role change: this narrowly reopens ONE already-self-narrowing
 # read to whoever needs a branch to work with bookings, without touching `_READ`'s other routes
-# (list_operators, mode, vehicles — none of which a field operator needs). Declared TWICE in
-# user_actions.py under two ids/capabilities so BOTH audiences see it in their own catalogue; the
-# route accepts either, which is why this binds `require_any_capability` and is deliberately
-# outside ci/check_capability_truth.py's single-capability check (see that gate's own docstring —
-# it only tracks bare `require_capability`).
+# (mode, vehicles — neither of which a field operator needs). Declared TWICE in user_actions.py
+# under two ids/capabilities so BOTH audiences see it in their own catalogue; the route accepts
+# either, which is why this binds `require_any_capability` and is deliberately outside
+# ci/check_capability_truth.py's single-capability check (see that gate's own docstring — it only
+# tracks bare `require_capability`).
 _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "bookings.write")
+# THE SAME BUG, ONE ROUTE OVER (Tamam, 2026-08-20): the Bookings screen's day view needs the
+# BRANCH'S TEAM to attribute a booking and to draw the week-view staff picker — it calls
+# `/staff/operators` unconditionally on mount, same as it does `/staff/branches`. This comment
+# above claimed "none of which a field operator needs" the day it was written; it was wrong about
+# this one route, and a field operator saw «تعذّرت قراءة فريق العمل» for the same 403 reason his
+# branch list used to fail for. `list_operators` already narrows by `branch_scope`/`SCOPE.visible`
+# on its own — the gate was the only thing standing between a field operator and his own team.
+_READ_OPERATORS_FOR_BOOKINGS = require_any_capability("operations.read", "bookings.read", "bookings.write")
 
 
 def _tenant(p: Principal) -> str:
@@ -411,7 +419,7 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
 
 
 @router.get("/operators", dependencies=[Depends(rate_limit)])
-async def list_operators(request: Request, principal: Principal = Depends(_READ)) -> dict:
+async def list_operators(request: Request, principal: Principal = Depends(_READ_OPERATORS_FOR_BOOKINGS)) -> dict:
     """«فريقي» — and HIS branch's team, not the chain's.
 
     FOUND BY THE GATE, not by the audit. `Operator.public()` carries the name, the role and the

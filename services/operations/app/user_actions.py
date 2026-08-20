@@ -279,6 +279,14 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
     },
     {
+        # SAME ROUTE, A SECOND DOOR (Tamam, 2026-08-20) — same shape as list_branches_for_bookings
+        # right above: the Bookings screen calls `/staff/operators` unconditionally on mount to
+        # attribute a booking and draw the staff picker, and a field operator holds `bookings.read`
+        # but not `operations.read`. See staff.py::_READ_OPERATORS_FOR_BOOKINGS's own note.
+        "id": "operations.list_operators_for_bookings", "label": "العاملون", "method": "GET",
+        "path": "/api/v1/staff/operators", "capability": "bookings.read", "group": "الفريق",
+    },
+    {
         "id": "operations.create_operator", "label": "إضافة عامل", "method": "POST",
         "path": "/api/v1/staff/operators", "capability": "operations.manage", "group": "الفريق",
         "help": "الرمز نسبة لا تسجيل دخول: يُسأل عند الحفظ لينسب العمل لصاحبه.",
