@@ -312,6 +312,20 @@ class Settings(BaseSettings):
     # SERVICE_URL above it: a signup with no affiliate_ref never calls this at all, and a
     # deployment without the affiliate portal simply never sets it.
     AFFILIATE_SERVICE_URL: str = ""          # e.g. http://affiliate-service:8000
+    # WHO BROUGHT THIS SHOP MAY ALSO SEE ITS SUPPORT PERFORMANCE — spec §13's own consent: at
+    # signup, a shop that came through a marketer's link grants that SAME marketer a scoped,
+    # revocable read (and, once ticket-service ships write access, reply) over its tickets —
+    # ticket-service's own ShareGrant (v0.16.27+), never a blanket cross-tenant capability.
+    # Blank means "not wired" — TICKET_SERVICE_URL empty is a silent no-op, same trade as
+    # LOYALTY_SERVICE_URL/AFFILIATE_SERVICE_URL above it.
+    TICKET_SERVICE_URL: str = ""             # e.g. http://ticket-service:8000
+    # WHICH TICKET TYPES a referring marketer's grant covers — spec §13's own reasoning: a
+    # marketer pulling from the same pool as trained technical support staff would get authority
+    # to resolve tickets he has no training for. Comma-separated ticket `type` values; BLANK
+    # means no restriction (every type) — a deployment should set this explicitly to exclude
+    # technical/complex categories before relying on it; the empty default is honest about "not
+    # yet decided", never a silent safe assumption.
+    AFFILIATE_TICKET_SCOPE_TYPES: str = ""
     # SHIPPED IN THE IMAGE, like the template seed, so a signup at three in the
     # morning needs nobody present. Read once per signup; after that authz owns the roles and the
     # owner edits them from the console.

@@ -69,6 +69,10 @@ env:
   # app/core/commission.py's own module docstring and this session's escalation that led to
   # billing-service v0.16.26 (GET /internal/billing/invoices).
   BILLING_SERVICE_URL: "http://billing-service:8000"
+  # spec §13 — real support KPIs (first-response speed, escalation, resolution) for
+  # WafaService.performance_for, read through ticket-service's own consent-scoped ShareGrant
+  # (v0.16.27+). Optional: blank degrades support_kpis to available:False, never a boot failure.
+  TICKET_SERVICE_URL: "http://ticket-service:8000"
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:

@@ -33,11 +33,11 @@ async def _stamp_n_shops(referrals: ReferralRegistry, affiliate_id: str, n: int,
 
 
 def build(store, *, tier_shops=50, tier_amount=50000, cooldown_days=30,
-         retention_min=0.70, refund_max=0.15) -> tuple[WafaService, ReferralRegistry]:
+         retention_min=0.70, refund_max=0.15, tickets=None) -> tuple[WafaService, ReferralRegistry]:
     referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
     wafa = WafaService(store=store, referrals=referrals, tier_shops=tier_shops,
                        tier_amount_halalas=tier_amount, cooldown_days=cooldown_days,
-                       retention_min=retention_min, refund_max=refund_max)
+                       retention_min=retention_min, refund_max=refund_max, tickets=tickets)
     return wafa, referrals
 
 
@@ -225,4 +225,50 @@ async def test_performance_for_reports_full_retention_and_zero_refund_with_no_hi
     await _seed_manager(store)
     wafa, _referrals = build(store)
     out = await wafa.performance_for("mgr-1")
-    assert out == {"active_shops": 0, "retention_rate": 1.0, "refund_rate": 0.0}
+    assert out == {"active_shops": 0, "retention_rate": 1.0, "refund_rate": 0.0,
+                   "support_kpis": {"available": False, "reason": "tickets_not_configured"}}
+
+
+# ── §١٣: real support KPIs, additive and best-effort ────────────────────────────────────────────
+
+class FakeTickets:
+    """Answers by tenant — same "scripted by key" idiom as the platform's other fakes."""
+
+    def __init__(self, by_tenant: dict) -> None:
+        self._by_tenant = by_tenant
+
+    async def support_kpis(self, *, tenant: str, grantee: str) -> dict:
+        return self._by_tenant.get(tenant, {"available": False, "reason": "no_active_grant"})
+
+
+@pytest.mark.anyio
+async def test_support_kpis_average_across_every_shop_that_actually_shared():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
+    await _stamp_n_shops(referrals, "mgr-1", 2)   # tenants t-0, t-1
+    tickets = FakeTickets({
+        "t-0": {"available": True, "ticket_count": 4, "avg_first_response_seconds": 100.0,
+               "avg_resolution_seconds": 1000.0, "escalation_rate": 0.5},
+        "t-1": {"available": False, "reason": "no_active_grant"},   # shop never consented
+    })
+    wafa = WafaService(store=store, referrals=referrals, tickets=tickets)
+    out = await wafa.performance_for("mgr-1")
+    support = out["support_kpis"]
+    assert support["available"] is True
+    assert support["shops_with_shared_tickets"] == 1   # only t-0 counted, t-1 skipped honestly
+    assert support["ticket_count"] == 4
+    assert support["avg_first_response_seconds"] == 100.0
+    assert support["escalation_rate"] == 0.5
+
+
+@pytest.mark.anyio
+async def test_support_kpis_reports_unavailable_when_no_shop_ever_shared():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
+    await _stamp_n_shops(referrals, "mgr-1", 1)
+    tickets = FakeTickets({})   # every tenant falls through to no_active_grant
+    wafa = WafaService(store=store, referrals=referrals, tickets=tickets)
+    out = await wafa.performance_for("mgr-1")
+    assert out["support_kpis"] == {"available": False, "reason": "no_shared_tickets"}

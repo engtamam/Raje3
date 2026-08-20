@@ -202,6 +202,12 @@ class Settings(BaseSettings):
     # this on a schedule; a full search is hours (places_scraper_v2.py's own estimate), so this
     # is what turns "hours" into "many small, resumable calls" rather than one long request.
     LEADS_TICK_UNITS: int = 20
+
+    # ── §١٣ Ticket integration — see core/tickets.py's own module docstring.
+    # ticket-service v0.16.27+ — GET /internal/tickets(+/{id}), consent-scoped via ShareGrant.
+    # Blank means "not wired yet" — WafaService.performance_for degrades support_kpis to
+    # available:False rather than failing.
+    TICKET_SERVICE_URL: str = ""
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a

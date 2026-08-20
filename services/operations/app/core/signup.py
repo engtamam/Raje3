@@ -181,7 +181,8 @@ class Http:
 class SignupService:
     def __init__(self, *, store, http: Http, identity_url: str, tenants_url: str,
                  authz_url: str = "", loyalty_url: str = "", compliance_url: str = "",
-                 affiliate_url: str = "",
+                 affiliate_url: str = "", ticket_url: str = "",
+                 affiliate_ticket_scope_types: str = "",
                  data_map: list[str] | None = None,
                  roles: list[dict[str, Any]] | None = None,
                  partners=None,
@@ -199,6 +200,12 @@ class SignupService:
         # Optional too: a shop signing up with no `?aff=` link never calls this at all, and a
         # deployment with no affiliate portal simply never sets it.
         self._affiliate = affiliate_url.rstrip("/")
+        # spec §13's consent grant — same optional trade as `_affiliate` just above. A shop with
+        # no affiliate_ref, or a deployment with no ticket-service/no affiliate portal, never
+        # calls this at all.
+        self._tickets = ticket_url.rstrip("/")
+        self._affiliate_ticket_scope_types = [
+            t.strip() for t in affiliate_ticket_scope_types.split(",") if t.strip()]
         # WHERE THIS SHOP'S DATA WILL LIVE, declared as configuration rather than written here.
         # Every entry is "service:category", and the set is a property of what we have deployed —
         # a service added next month must not need a release of this file.
@@ -410,6 +417,27 @@ class SignupService:
                     try:
                         self._telemetry.event("affiliate_stamp_failed", tenant=tenant,
                                               reason=affiliate_error)
+                    except Exception:                                          # noqa: BLE001
+                        pass    # a telemetry failure must not fail a signup
+            elif self._tickets:
+                # spec §13: THE SHOP'S OWN CONSENT, given at the moment it signs up through a
+                # marketer's link — not asked for separately later. `granted_by=phone` is the
+                # shop owner's own number, the same fact `shop_owner_phone` above already
+                # asserts; ticket-service stores it only as a per-tenant pseudonym (its own
+                # core/share.py). Best-effort, same "our own attribution bookkeeping must never
+                # cost an owner his shop" reasoning as the stamp call itself two lines up — a
+                # ticket-service hiccup here is a missing convenience, never a failed signup.
+                scope = ({"type": self._affiliate_ticket_scope_types}
+                        if self._affiliate_ticket_scope_types else {})
+                s2, b2 = self._http.call(
+                    f"{self._tickets}/internal/tickets/shares", method="POST", internal=True,
+                    body={"tenant": tenant, "grantee": shop.affiliate_ref,
+                         "granted_by": phone, "scope": scope})
+                if s2 not in (200, 201) and self._telemetry is not None:
+                    try:
+                        self._telemetry.event(
+                            "affiliate_ticket_share_failed", tenant=tenant,
+                            reason=str((b2 or {}).get("detail") or f"status {s2}")[:200])
                     except Exception:                                          # noqa: BLE001
                         pass    # a telemetry failure must not fail a signup
 

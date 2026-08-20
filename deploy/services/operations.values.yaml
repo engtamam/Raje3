@@ -240,6 +240,14 @@ env:
   # `?aff=` link never calls this at all, and the stamp is best-effort either way (a bad/unknown
   # affiliate id is reported to telemetry, never costs the owner his shop).
   AFFILIATE_SERVICE_URL: "http://affiliate-service:8000"
+  # spec §13's own consent grant, given at the moment a shop signs up through a marketer's link
+  # (core/signup.py — same optionality as AFFILIATE_SERVICE_URL above it). Reads ticket-service's
+  # own ShareGrant (v0.16.27+).
+  TICKET_SERVICE_URL: "http://ticket-service:8000"
+  # Excludes technical support from a marketer's grant (spec §13's own reasoning: a marketer
+  # pulling from the same queue as trained technical staff gets authority he has no training
+  # for). Adjust to match this deployment's real ticket `type` taxonomy.
+  AFFILIATE_TICKET_SCOPE_TYPES: "عام,مالي"
   SIGNUP_ROLES_FILE: "/app/data/roles.seed.json"
   SIGNUP_OWNER_ROLE: "owner"
 

@@ -43,11 +43,13 @@ ROLES = [{"name": "owner", "capabilities": ["operations.record"], "description":
          {"name": "manager", "capabilities": ["operations.read"], "description": ""}]
 
 
-def build(http, store=None, roles=ROLES, affiliate_url=""):
+def build(http, store=None, roles=ROLES, affiliate_url="", ticket_url="",
+         affiliate_ticket_scope_types=""):
     return SignupService(
         store=store or FakeStore(), http=http,
         identity_url="http://identity:8000", tenants_url="http://tenants:8000",
-        authz_url="http://authz:8000", roles=roles, affiliate_url=affiliate_url)
+        authz_url="http://authz:8000", roles=roles, affiliate_url=affiliate_url,
+        ticket_url=ticket_url, affiliate_ticket_scope_types=affiliate_ticket_scope_types)
 
 
 _HAPPY_PATH = [("/internal/tenants", (201, {"id": "t-1"})),
@@ -168,6 +170,79 @@ async def test_the_affiliate_stamp_error_is_never_forwarded_to_the_owner():
     out = await build(http, affiliate_url="http://affiliate:8000").open_shop(
         NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="does-not-exist"))
     assert "affiliate_stamp_error" in out
+
+
+# ── the ticket share grant — spec §13's own consent, given at signup ─────────────────────────────
+
+@pytest.mark.anyio
+async def test_no_ticket_url_configured_means_no_share_call_at_all():
+    http = FakeHttp(list(_HAPPY_PATH) + [("/referrals/stamp", (200, {"affiliate_id": "aff-1"}))])
+    await build(http, affiliate_url="http://affiliate:8000", ticket_url="").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert not any(u.endswith("/tickets/shares") for _, u in http.calls)
+
+
+@pytest.mark.anyio
+async def test_a_failed_affiliate_stamp_never_grants_a_ticket_share():
+    """A share for a marketer affiliate-service itself just refused (unknown/inactive id) would
+    hand ticket visibility to an id nobody vouched for."""
+    http = FakeHttp(list(_HAPPY_PATH)
+                    + [("/referrals/stamp", (400, {"detail": "unknown or inactive affiliate"}))])
+    await build(http, affiliate_url="http://affiliate:8000",
+               ticket_url="http://tickets:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="does-not-exist"))
+    assert not any(u.endswith("/tickets/shares") for _, u in http.calls)
+
+
+@pytest.mark.anyio
+async def test_a_successful_stamp_grants_a_scoped_share_to_the_same_affiliate():
+    class BodyCapturingHttp(FakeHttp):
+        def __init__(self, answers):
+            super().__init__(answers)
+            self.bodies: list[dict] = []
+
+        def call(self, url, *, method, body=None, internal=False):
+            if url.endswith("/tickets/shares"):
+                self.bodies.append(body or {})
+            return super().call(url, method=method, body=body, internal=internal)
+
+    http = BodyCapturingHttp(list(_HAPPY_PATH)
+                             + [("/referrals/stamp", (200, {"affiliate_id": "aff-1"})),
+                                ("/tickets/shares", (200, {"granted": True}))])
+    out = await build(http, affiliate_url="http://affiliate:8000",
+                      ticket_url="http://tickets:8000",
+                      affiliate_ticket_scope_types="عام,مالي").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert out["tenant"] == "t-1"                     # never blocks the signup either way
+    call = next(c for c in http.calls if c[1].endswith("/tickets/shares"))
+    assert call == ("POST", "http://tickets:8000/internal/tickets/shares")
+    assert http.bodies[0]["tenant"] == "t-1"
+    assert http.bodies[0]["grantee"] == "aff-1"
+    assert http.bodies[0]["granted_by"] == "+966501234567"
+    assert http.bodies[0]["scope"] == {"type": ["عام", "مالي"]}
+
+
+@pytest.mark.anyio
+async def test_no_scope_types_configured_means_an_unrestricted_grant():
+    http = FakeHttp(list(_HAPPY_PATH)
+                    + [("/referrals/stamp", (200, {"affiliate_id": "aff-1"})),
+                       ("/tickets/shares", (200, {"granted": True}))])
+    out = await build(http, affiliate_url="http://affiliate:8000",
+                      ticket_url="http://tickets:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert out["tenant"] == "t-1"
+
+
+@pytest.mark.anyio
+async def test_a_failed_share_grant_is_never_forwarded_to_the_owner():
+    """Same trade as the affiliate stamp itself — our own bookkeeping must not cost him his shop."""
+    http = FakeHttp(list(_HAPPY_PATH)
+                    + [("/referrals/stamp", (200, {"affiliate_id": "aff-1"})),
+                       ("/tickets/shares", (500, {}))])
+    out = await build(http, affiliate_url="http://affiliate:8000",
+                      ticket_url="http://tickets:8000").open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور", affiliate_ref="aff-1"))
+    assert out["tenant"] == "t-1"
 
 
 @pytest.mark.anyio

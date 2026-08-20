@@ -284,6 +284,17 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore,
         min_withdrawal_halalas=settings.AFFILIATE_WITHDRAWAL_MIN_HALALAS,
     )
+    # §١٣ real support KPIs (spec §13) — optional, see core/tickets.py's own module docstring.
+    tickets_reader = None
+    if settings.TICKET_SERVICE_URL:
+        from app.core.tickets import TicketReader
+
+        tickets_reader = TicketReader(
+            http=Http(timeout=settings.ONBOARDING_TIMEOUT_SECONDS,
+                     internal_token=settings.INTERNAL_SERVICE_TOKEN),
+            ticket_service_url=settings.TICKET_SERVICE_URL,
+        )
+
     # «برنامج دعم الوفاء» (spec §8) — see core/wafa.py's own module docstring.
     from app.core.wafa import WafaService
 
@@ -295,6 +306,7 @@ def build_container(settings: Settings) -> Container:
         cooldown_days=settings.WAFA_COOLDOWN_DAYS,
         retention_min=settings.WAFA_RETENTION_MIN,
         refund_max=settings.WAFA_REFUND_MAX,
+        tickets=tickets_reader,
     )
     # «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
     from app.core.employment import EmploymentService

@@ -63,7 +63,7 @@ class WafaError(Exception):
 class WafaService:
     def __init__(self, *, store, referrals, tier_shops: int = 50,
                  tier_amount_halalas: int = 50000, cooldown_days: int = 30,
-                 retention_min: float = 0.70, refund_max: float = 0.15) -> None:
+                 retention_min: float = 0.70, refund_max: float = 0.15, tickets=None) -> None:
         self._s = store
         self._referrals = referrals
         self._tier_shops = tier_shops
@@ -71,14 +71,21 @@ class WafaService:
         self._cooldown_days = cooldown_days
         self._retention_min = retention_min
         self._refund_max = refund_max
+        #: core/tickets.py's TicketReader, or None (spec §13, Tamam 2026-08-20). Optional and
+        #: additive on purpose — see performance_for's own note on why it never changes
+        #: `_recommend`'s formula yet.
+        self._tickets = tickets
 
     # ── the measurable performance behind every recommendation ──────────────────────────────
     async def performance_for(self, affiliate_id: str) -> dict[str, Any]:
         """The exact metrics both the manager's own eyes (GET /me/team) and the system's own
         recommendation are built from — one computation, never two driftable copies. All
-        measurable TODAY from data this service already owns; spec §13 (ticket integration, not
-        built yet) will add richer ones later (first-response speed, correct escalation) without
-        replacing these."""
+        measurable from data this service already owns; `support_kpis` (spec §13) is real
+        support performance read from ticket-service's own consent-scoped share — additive and
+        best-effort (a shop with no consent grant yet, or a ticket-service hiccup, degrades to
+        `available: False`, never hides the rest of this dict). Deliberately NOT folded into
+        `_recommend`'s own threshold yet — changing what decides a real payment is a separate
+        policy call, not a side effect of adding a new read."""
         referrals = await self._referrals.of_affiliate(affiliate_id, limit=2000)
         active = sum(1 for r in referrals if r.status == REFERRED)
         ended = sum(1 for r in referrals if r.status in (LAPSED, REVOKED))
@@ -92,8 +99,37 @@ class WafaService:
         earned = sum(1 for c in commissions if c.status in (CONFIRMED, PENDING, VOIDED))
         refund_rate = (voided / earned) if earned else 0.0
 
+        support = await self._aggregate_support_kpis(affiliate_id, referrals)
         return {"active_shops": active, "retention_rate": round(retention_rate, 4),
-               "refund_rate": round(refund_rate, 4)}
+               "refund_rate": round(refund_rate, 4), "support_kpis": support}
+
+    async def _aggregate_support_kpis(self, affiliate_id: str, referrals: list) -> dict[str, Any]:
+        if self._tickets is None:
+            return {"available": False, "reason": "tickets_not_configured"}
+        per_shop = []
+        for ref in referrals:
+            out = await self._tickets.support_kpis(tenant=ref.tenant, grantee=affiliate_id)
+            if out.get("available"):
+                per_shop.append(out)
+        if not per_shop:
+            return {"available": False, "reason": "no_shared_tickets"}
+        response_times = [s["avg_first_response_seconds"] for s in per_shop
+                          if s.get("avg_first_response_seconds") is not None]
+        resolution_times = [s["avg_resolution_seconds"] for s in per_shop
+                            if s.get("avg_resolution_seconds") is not None]
+        total_tickets = sum(s.get("ticket_count", 0) for s in per_shop)
+        escalated_weighted = sum(s.get("escalation_rate", 0.0) * s.get("ticket_count", 0)
+                                 for s in per_shop)
+        return {
+            "available": True,
+            "shops_with_shared_tickets": len(per_shop),
+            "ticket_count": total_tickets,
+            "avg_first_response_seconds": (
+                round(sum(response_times) / len(response_times), 1) if response_times else None),
+            "avg_resolution_seconds": (
+                round(sum(resolution_times) / len(resolution_times), 1) if resolution_times else None),
+            "escalation_rate": round(escalated_weighted / total_tickets, 4) if total_tickets else 0.0,
+        }
 
     def tier_amount(self, active_shops: int) -> int:
         return (active_shops // self._tier_shops) * self._tier_amount
