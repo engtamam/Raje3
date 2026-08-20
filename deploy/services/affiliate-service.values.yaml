@@ -95,3 +95,11 @@ cronJobs:
   - name: leads-tick
     schedule: "* * * * *"
     path: /internal/leads/tick
+  # §١٣'s auto-escalation (Tamam, 2026-08-20) — no response within
+  # AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's
+  # own open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h
+  # SLA measured in whole-hour increments is still honest at this granularity, and a suspended
+  # marketer's tickets should not sit for up to an hour before moving.
+  - name: tickets-escalation-sweep
+    schedule: "*/15 * * * *"
+    path: /internal/tickets/escalation-sweep

@@ -284,6 +284,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "the durable record; this entry explains WHO on our side chose to open it",
     },
     {
+        "action": "affiliate.tickets_escalation_swept",
+        "source": "system",
+        "critical": False,
+        "resource": "sweep",
+        "why": "scheduled work with no human actor still needs a record — how many referrals "
+               "were checked, how many tickets moved — so a marketer disputing why his ticket "
+               "was taken from him has an answer, and a sweep that stops escalating anything is "
+               "discoverable from the log rather than only from a manager noticing overdue "
+               "tickets never arrive",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

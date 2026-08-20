@@ -151,3 +151,41 @@ class TicketReader:
         if status not in (200, 201):
             raise TicketError("تعذّر فتح التذكرة.", reason=f"unreachable:{status}")
         return resp or {}
+
+    async def escalate(self, *, tenant: str, grantee: str, ticket_id: str, assignee: str = "",
+                       level: str = "", reason: str = "") -> dict[str, Any]:
+        """§١٣'s auto-escalation primitive (v0.16.29+) — records the escalation, and when
+        `assignee` is given, moves the ticket to that handle (the shop's marketing manager).
+        ticket-service knows nothing about WHY (a timeout, a suspended account) — that policy is
+        entirely core/escalation.py's own, driven by the KPIs this module already reads."""
+        if not self._base:
+            raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
+        status, resp = self._http.call(
+            f"{self._base}/internal/tickets/{ticket_id}/escalate", method="POST", internal=True,
+            body={"tenant": tenant, "grantee": grantee, "assignee": assignee, "level": level,
+                 "reason": reason})
+        if status == 409:
+            raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
+        if status == 403:
+            raise TicketError("المحل لم يمنحك صلاحية التصعيد.", reason="write_not_granted")
+        if status == 404:
+            raise TicketError("التذكرة غير موجودة.", reason="not_found")
+        if status not in (200, 201):
+            raise TicketError("تعذّر تصعيد التذكرة.", reason=f"unreachable:{status}")
+        return resp or {}
+
+    # ── provisioning a grant for a NEW party — used to give a manager his own read/write share
+    # over a ticket his own team escalated to him, since ShareGrant is per-grantee, not inherited.
+    async def grant_share(self, *, tenant: str, grantee: str, granted_by: str,
+                          scope: dict[str, Any] | None = None,
+                          write: bool = True) -> dict[str, Any]:
+        if not self._base:
+            raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
+        permissions = ["read", "write"] if write else ["read"]
+        status, resp = self._http.call(
+            f"{self._base}/internal/tickets/shares", method="POST", internal=True,
+            body={"tenant": tenant, "grantee": grantee, "granted_by": granted_by,
+                 "scope": dict(scope or {}), "permissions": permissions})
+        if status not in (200, 201):
+            raise TicketError("تعذّر منح الصلاحية.", reason=f"unreachable:{status}")
+        return resp or {}

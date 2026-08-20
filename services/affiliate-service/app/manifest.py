@@ -127,6 +127,7 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/leads", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/leads/{}/assign", "tier": "user", "method": "POST"},
             {"path": "/internal/leads/tick", "tier": "internal", "method": "POST"},
+            {"path": "/internal/tickets/escalation-sweep", "tier": "internal", "method": "POST"},
             # §١٣ — a shop's tickets, consent-scoped to the marketer who referred it.
             {"path": "/api/v1/affiliates/me/shops/{}/tickets", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/shops/{}/tickets", "tier": "user", "method": "POST"},

@@ -208,6 +208,12 @@ class Settings(BaseSettings):
     # Blank means "not wired yet" — WafaService.performance_for degrades support_kpis to
     # available:False rather than failing.
     TICKET_SERVICE_URL: str = ""
+    # §١٣'s auto-escalation (Tamam, 2026-08-20) — see core/escalation.py's own module docstring.
+    # No response within this many hours -> escalated to the promoter's own manager. Config, not
+    # a hardcoded 24 — a deployment may want a different SLA.
+    AFFILIATE_TICKET_ESCALATION_HOURS: int = 24
+    # Same "capped, records where it stopped" bound as AFFILIATE_SWEEP_MAX.
+    AFFILIATE_TICKET_ESCALATION_SWEEP_MAX: int = 200
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a

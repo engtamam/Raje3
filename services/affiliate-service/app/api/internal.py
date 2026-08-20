@@ -207,6 +207,19 @@ async def tick_leads(request: Request, settings: Settings = Depends(get_settings
     return {"ticked": True, "job_id": job_id, "units": units}
 
 
+@router.post("/tickets/escalation-sweep", dependencies=[Depends(require_internal_token)])
+async def sweep_ticket_escalations(request: Request) -> dict:
+    """§١٣'s auto-escalation (core/escalation.py's own module docstring) — a no-response timeout
+    or a suspended marketer moves a shop's ticket to his manager automatically. Meant for a k3s
+    CronJob (see the deploy values' cronJobs), same bounded shape as commissions/sweep."""
+    out = await request.app.state.container.escalation.sweep()
+    if out.get("swept") and out.get("tickets_escalated"):
+        await request.app.state.auditor.record(
+            "affiliate.tickets_escalation_swept", actor="", tenant="", resource="sweep",
+            ip=request.client.host if request.client else "", metadata=out)
+    return out
+
+
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.
     tenant: str = ""

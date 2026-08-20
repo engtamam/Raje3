@@ -171,6 +171,7 @@ class Container:
     wafa: Any = None
     employment: Any = None
     tickets: Any = None
+    escalation: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -317,5 +318,15 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore,
         commissions=container.commissions,
         threshold_customers=settings.AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS,
+    )
+    # §١٣'s auto-escalation — see core/escalation.py's own module docstring.
+    from app.core.escalation import TicketEscalationService
+
+    container.escalation = TicketEscalationService(
+        store=container.datastore,
+        referrals=container.referrals,
+        tickets=tickets_reader,
+        timeout_hours=settings.AFFILIATE_TICKET_ESCALATION_HOURS,
+        sweep_max=settings.AFFILIATE_TICKET_ESCALATION_SWEEP_MAX,
     )
     return container
