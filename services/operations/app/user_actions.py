@@ -321,6 +321,17 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
     },
     {
+        # SAME ROUTE, A SECOND DOOR (Tamam, 2026-08-20) — a field operator holds `bookings.read`
+        # but not `operations.read`, and the Bookings screen genuinely needs his own branch to
+        # even ask the server for a day's schedule (see staff.py::_READ_BRANCHES's own note on
+        # why this is a real bug, not a missing feature). The gateway's own catalogue filter is a
+        # single-capability membership test per entry, so a caller who needs the SAME read for a
+        # DIFFERENT reason gets a second, separately-declared id rather than one entry two
+        # audiences must each half-satisfy.
+        "id": "operations.list_branches_for_bookings", "label": "الفروع", "method": "GET",
+        "path": "/api/v1/staff/branches", "capability": "bookings.read", "group": "الفروع",
+    },
+    {
         "id": "operations.create_branch", "label": "إضافة فرع", "method": "POST",
         "path": "/api/v1/staff/branches", "capability": "operations.manage", "group": "الفروع",
     },

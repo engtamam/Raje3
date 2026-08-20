@@ -624,6 +624,45 @@ def test_a_supervisor_is_offered_only_the_branches_he_may_read(client):
     assert {b["id"] for b in client.get(BRANCHES, headers=owner).json()["branches"]} == ids
 
 
+def test_a_field_operator_with_only_bookings_caps_can_now_read_his_own_branch(client):
+    """Tamam, 2026-08-20: a plain field operator holds `bookings.read`/`bookings.write` but
+    never `operations.read` — so this exact route used to answer him 403, and the console read
+    that as «لا فروع بعد» (no branches EXIST), which was false. He simply held neither
+    capability the route required. `_READ_BRANCHES` (staff.py) reopens this one self-narrowing
+    read to bookings holders too, without touching any other `_READ`-gated route."""
+    import asyncio
+
+    from app.core.models import Operator
+    from app.core.stores import OperatorStore
+
+    tenant = "tnt_field_op"
+    owner = _headers(tenant)
+    assert client.post(BRANCHES, json={"name": "جدة"}, headers=owner).status_code in (200, 201)
+
+    store = client.app.state.container.datastore
+    asyncio.run(OperatorStore(store).save(Operator(
+        id="opr_field", tenant=tenant, name="عامل ميداني", role="operator",
+        branch_id="brn-main", person_id="u_field", active=True)))
+
+    now = dt.datetime.now(dt.timezone.utc)
+    tok = jwt.encode({"sub": "u_field", "iss": ISS, "aud": AUD,
+                      "caps": ["operations.record", "bookings.read", "bookings.write"],
+                      "tenant": tenant, "exp": now + dt.timedelta(minutes=5), "iat": now},
+                     SECRET, algorithm="HS256")
+    r = client.get(BRANCHES, headers={"Authorization": f"Bearer {tok}"})
+    assert r.status_code == 200, r.text
+    # NARROWED, NOT JUST REACHABLE — his own branch only, same §12.4 promise as the manager/
+    # supervisor cases above.
+    assert [b["id"] for b in r.json()["branches"]] == ["brn-main"]
+
+    # AND operations.record ALONE (no bookings.* either) IS STILL REFUSED — this did not become
+    # a blanket door for anyone signed in.
+    tok2 = jwt.encode({"sub": "u_field2", "iss": ISS, "aud": AUD, "caps": ["operations.record"],
+                       "tenant": tenant, "exp": now + dt.timedelta(minutes=5), "iat": now},
+                      SECRET, algorithm="HS256")
+    assert client.get(BRANCHES, headers={"Authorization": f"Bearer {tok2}"}).status_code == 403
+
+
 def test_the_plan_limit_is_the_shops_own_even_for_a_narrowed_person(client):
     """The ceiling is a fact about the ESTABLISHMENT's plan, never about this caller's view.
 

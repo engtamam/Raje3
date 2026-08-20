@@ -90,11 +90,18 @@ export function App() {
 
   useEffect(() => {
     if (!catalog) return;
-    const a = action(catalog, 'operations.list_branches');
-    // NOT HIS TO SEE IS ITS OWN ANSWER (م · النمط 2). An operator's catalogue carries no such
-    // action, and writing `[]` here would say «this shop has no branches» about a chain of five.
-    // Both states happen to render the same nothing today — but they are different facts, and the
-    // day one of them wants a sentence, the code already knows which one it is holding.
+    // TWO IDS, ONE ROUTE (Tamam, 2026-08-20) — an owner/manager/marketer reaches it via
+    // `operations.list_branches` (operations.read); a field operator, who never holds that but
+    // genuinely needs his own branch for Bookings, reaches the SAME read via
+    // `operations.list_branches_for_bookings` (bookings.read). See services/operations/app/api/
+    // v1/staff.py::_READ_BRANCHES for the full reasoning — this used to read a plain operator as
+    // «no branches exist», which was false; he simply held neither id.
+    const a = action(catalog, 'operations.list_branches')
+      || action(catalog, 'operations.list_branches_for_bookings');
+    // NOT HIS TO SEE IS ITS OWN ANSWER (م · النمط 2). Neither id in his catalogue and writing
+    // `[]` here would say «this shop has no branches» about a chain of five. Both states happen
+    // to render the same nothing today — but they are different facts, and the day one of them
+    // wants a sentence, the code already knows which one it is holding.
     if (!a) { setScopeBranches(DENIED); return; }
     call<{ branches?: ScopeBranch[] }>(session, a)
       .then((x) => setScopeBranches(x.branches ?? []))

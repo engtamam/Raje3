@@ -117,6 +117,24 @@ export function AccountScreen(
 ) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null | undefined>(undefined);
+  // WHICH BRANCH IS HIS — Tamam, 2026-08-20: a field operator landing here saw a page that never
+  // said who he is or where he works, because every tab that WOULD have said so («منشأتي») is
+  // gated on capabilities his role does not hold. This reads independently of any tab, off the
+  // SAME two-id read App.tsx's own branch switcher uses (staff.py::_READ_BRANCHES) — an owner/
+  // manager/marketer via `operations.list_branches`, a field operator via
+  // `operations.list_branches_for_bookings`. Only rendered when it resolves to exactly ONE
+  // branch: a multi-branch owner already has the switcher for this, and naming several here would
+  // just repeat it worse.
+  const [myBranch, setMyBranch] = useState<{ id: string; name?: string } | null>(null);
+
+  useEffect(() => {
+    const b = action(catalog, 'operations.list_branches')
+      || action(catalog, 'operations.list_branches_for_bookings');
+    if (!b) { setMyBranch(null); return; }
+    call<{ branches?: { id: string; name?: string }[] }>(session, b)
+      .then((x) => setMyBranch((x.branches?.length ?? 0) === 1 ? x.branches![0] : null))
+      .catch(() => setMyBranch(null));
+  }, [session, catalog]);
 
   useEffect(() => {
     const a = action(catalog, 'billing.my_subscriptions');
@@ -168,6 +186,20 @@ export function AccountScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      {/* ── who he is, and where he works — the two facts every screenshot of «حسابي» was missing
+          for anyone but an owner. Always shown, unlike the tabs below: it does not depend on a
+          single capability, only on `session.operatorName` (never absent — the door would not
+          have let him in) and the branch read above (silently absent when it cannot resolve to
+          exactly one, never a broken line). */}
+      <div className="flex flex-col gap-0.5 rounded-card bg-surface-1 p-4 shadow-sm">
+        <span className="text-lg font-semibold">{session.operatorName || session.operator}</span>
+        {myBranch ? (
+          <span className="text-sm text-text-secondary">
+            {myBranch.name || myBranch.id}
+          </span>
+        ) : null}
+      </div>
+
       {/* ── the two lines that answer the page's question without a tap ── */}
       <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
         {sub === undefined ? (

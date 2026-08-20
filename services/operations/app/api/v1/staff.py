@@ -35,7 +35,7 @@ from typing import Any
 from starlette.concurrency import run_in_threadpool
 
 from app.api.auth import Principal
-from app.api.authz import require_capability
+from app.api.authz import require_any_capability, require_capability
 from app.api.ratelimit import rate_limit
 from app.api.scope import branch_scope
 from app.api import scope as SCOPE
@@ -62,6 +62,21 @@ _READ = require_capability("operations.read")
 # route, so owner/manager hold `operations.manage_services` explicitly too (roles.json), same
 # shape as `bookings.manage` sitting beside `bookings.write`.
 _MANAGE_SERVICES = require_capability("operations.manage_services")
+# Tamam, 2026-08-20: a plain field operator ("الموظف الميداني") holds `bookings.read`/
+# `bookings.write` but not `operations.read` — so /staff/branches (this route's OWN body already
+# narrows by branch_scope, exactly like every other scoped read) answered him 403, and the
+# console's Bookings screen — which genuinely needs a branch_id, the server refuses `list_bookings`
+# without one — could not learn even his own single branch. It read to him as «لا فروع بعد» (no
+# branches EXIST), which was false: he simply could not list them.
+#
+# `require_any_capability`, not a role change: this narrowly reopens ONE already-self-narrowing
+# read to whoever needs a branch to work with bookings, without touching `_READ`'s other routes
+# (list_operators, mode, vehicles — none of which a field operator needs). Declared TWICE in
+# user_actions.py under two ids/capabilities so BOTH audiences see it in their own catalogue; the
+# route accepts either, which is why this binds `require_any_capability` and is deliberately
+# outside ci/check_capability_truth.py's single-capability check (see that gate's own docstring —
+# it only tracks bare `require_capability`).
+_READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "bookings.write")
 
 
 def _tenant(p: Principal) -> str:
@@ -749,7 +764,7 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
 
 
 @router.get("/branches", dependencies=[Depends(rate_limit)])
-async def list_branches(request: Request, principal: Principal = Depends(_READ)) -> dict:
+async def list_branches(request: Request, principal: Principal = Depends(_READ_BRANCHES)) -> dict:
     """His places — and the main one is created here if it is somehow missing.
 
     A WRITE ON A READ, AND IT EARNS ITS PLACE. Signup creates the main branch (core/signup.py),
