@@ -180,6 +180,24 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "loses nothing that a retry cannot recover",
     },
     {
+        "action": "affiliate.withdrawal_completed",
+        "source": "admin",
+        "critical": True,
+        "resource": "withdrawal",
+        "why": "money actually left the platform on this action — an unattributable completion "
+               "is indistinguishable from an attacker marking their own request paid, and the "
+               "receipt_reference it carries is the compliance proof spec §5 exists for",
+    },
+    {
+        "action": "affiliate.withdrawal_rejected",
+        "source": "admin",
+        "critical": False,
+        "resource": "withdrawal",
+        "why": "explains later why a marketer's requested amount changed (the locked commissions "
+               "released back to available balance) — not critical: refusing a rejection while "
+               "the log is down costs a delay, never a real loss",
+    },
+    {
         "action": "affiliate.commissions_swept",
         "source": "system",
         "critical": False,

@@ -22,6 +22,7 @@ from app.api.errors import register_error_handlers
 from app.api.health import register_readiness_check
 from app.api.v1 import router as v1_router
 from app.api.v1.admin import router as affiliates_admin_router
+from app.api.v1.admin_payouts import router as affiliates_admin_payouts_router
 from app.api.v1.affiliate_self import router as affiliates_self_router
 from app.api.v1.operator import router as operator_router
 from app.api.v1.public import router as affiliates_public_router
@@ -162,6 +163,7 @@ def create_app() -> FastAPI:
     app.include_router(affiliates_public_router)
     app.include_router(affiliates_self_router)
     app.include_router(affiliates_admin_router)
+    app.include_router(affiliates_admin_payouts_router)
     # Operator controls: credentials and policy an operator changes after launch.
     app.include_router(operator_router)
 

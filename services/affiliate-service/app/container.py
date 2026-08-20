@@ -167,6 +167,7 @@ class Container:
     onboarding: Any = None
     referrals: Any = None
     commissions: Any = None
+    payouts: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -275,5 +276,12 @@ def build_container(settings: Settings) -> Container:
         hold_days=settings.AFFILIATE_COMMISSION_HOLD_DAYS,
         renewal_at_nth=settings.AFFILIATE_RENEWAL_AT_NTH,
         renewal_amount_halalas=settings.AFFILIATE_RENEWAL_COMMISSION_HALALAS,
+    )
+    # The withdrawal itself (spec §5) — see core/payouts.py for the two-channel design.
+    from app.core.payouts import PayoutService
+
+    container.payouts = PayoutService(
+        store=container.datastore,
+        min_withdrawal_halalas=settings.AFFILIATE_WITHDRAWAL_MIN_HALALAS,
     )
     return container

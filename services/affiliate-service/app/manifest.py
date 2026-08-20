@@ -60,7 +60,8 @@ def build_manifest(
         # someone remembers to advertise them. ADD this service's domain capabilities alongside them
         # (e.g. "files.upload", "files.read"); remove one only if you also remove the route that
         # enforces it. An advertised capability is what the admin panel and onboarding grant against.
-        "capabilities": ["platform.secrets", "platform.config", "platform.affiliates"],
+        "capabilities": ["platform.secrets", "platform.config", "platform.affiliates",
+                        "platform.affiliates_payouts"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},
@@ -90,6 +91,13 @@ def build_manifest(
             # A manager naming somebody for his own team — still gated by the admin queue below.
             {"path": "/api/v1/affiliates/me/invite", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/commissions", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/payout-method", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/affiliates/me/balance", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/withdrawals", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/withdrawals", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/admin/withdrawals", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/withdrawals/{}/complete", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/admin/withdrawals/{}/reject", "tier": "user", "method": "POST"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},

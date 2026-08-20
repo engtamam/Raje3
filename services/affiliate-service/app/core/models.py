@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -140,6 +140,16 @@ class Affiliate:
     #: agreed" — true only for an INVITED row still waiting on its own person.
     agreed_terms_version: str = ""
     agreed_at: int = 0
+    #: HOW HE WANTS TO BE PAID — spec §5, extended (Tamam, 2026-08-20) to accept an intermediary
+    #: payment platform (e.g. بحر) as a real alternative to a bank IBAN, not just a fallback.
+    #: `payout_channel` is "bank_iban" | "intermediary"; `payout_channel_name` is free text for
+    #: the intermediary case (never hardcoded to one provider — a new one tomorrow needs no code
+    #: change); `payout_account_ref` is the IBAN or the marketer's account identifier on that
+    #: platform. This is the CURRENT method — a WithdrawalRequest copies it at request time (spec
+    #: §4's own "locked, not re-read later" principle, applied here to where the money goes).
+    payout_channel: str = ""
+    payout_channel_name: str = ""
+    payout_account_ref: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -149,6 +159,9 @@ class Affiliate:
             "created_at": self.created_at, "subject_ref": self.subject_ref,
             "invite_token": self.invite_token,
             "agreed_terms_version": self.agreed_terms_version, "agreed_at": self.agreed_at,
+            "payout_channel": self.payout_channel,
+            "payout_channel_name": self.payout_channel_name,
+            "payout_account_ref": self.payout_account_ref,
         }
 
     @classmethod
@@ -162,6 +175,9 @@ class Affiliate:
             invite_token=str(d.get("invite_token", "")),
             agreed_terms_version=str(d.get("agreed_terms_version", "")),
             agreed_at=int(d.get("agreed_at", 0)),
+            payout_channel=str(d.get("payout_channel", "")),
+            payout_channel_name=str(d.get("payout_channel_name", "")),
+            payout_account_ref=str(d.get("payout_account_ref", "")),
         )
 
 
@@ -275,13 +291,18 @@ class Commission:
     #: field's twin on Referral (expires_at) for why this is never re-derived from config later.
     confirms_at: int = 0
     created_at: int = 0
+    #: Empty means "available" — the one flag a withdrawal request needs to claim a confirmed
+    #: commission without double-counting it into a second request. Set ONCE, when a request
+    #: locks it in (core/payouts.py); cleared if that request is rejected, so a rejected request
+    #: returns the money to the available balance rather than losing it in limbo.
+    withdrawal_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id, "tenant": self.tenant, "affiliate_id": self.affiliate_id,
             "kind": self.kind, "amount_halalas": self.amount_halalas, "status": self.status,
             "earned_at": self.earned_at, "confirms_at": self.confirms_at,
-            "created_at": self.created_at,
+            "created_at": self.created_at, "withdrawal_id": self.withdrawal_id,
         }
 
     @classmethod
@@ -292,4 +313,71 @@ class Commission:
             amount_halalas=int(d.get("amount_halalas", 0)), status=str(d.get("status", PENDING)),
             earned_at=str(d.get("earned_at", "")), confirms_at=int(d.get("confirms_at", 0)),
             created_at=int(d.get("created_at", 0)),
+            withdrawal_id=str(d.get("withdrawal_id", "")),
+        )
+
+
+# ── the withdrawal itself — spec §5 ─────────────────────────────────────────────────────────────
+WITHDRAWALS = "affiliate_withdrawals"
+
+REQUESTED = "requested"
+COMPLETED = "completed"
+#: A request an admin refused — a bad IBAN, a suspicious pattern, whatever the reason. The
+#: commissions it had locked are RELEASED back to available balance (core/payouts.py::reject) —
+#: a rejected request must never strand real money in limbo.
+WITHDRAWAL_REJECTED = "rejected"
+WITHDRAWAL_STATUSES = (REQUESTED, COMPLETED, WITHDRAWAL_REJECTED)
+
+
+@dataclass
+class WithdrawalRequest:
+    id: str
+    affiliate_id: str
+    amount_halalas: int
+    #: THE COMMISSIONS THIS REQUEST CLAIMS — never re-derived from a live "confirmed balance"
+    #: query later, because that balance moves (more commissions confirm every day). Locked at
+    #: request time so this row always answers "which specific commissions paid for this
+    #: transfer", the same audit trail spec §5's own "لا نزاع ما استلمت" protection depends on.
+    commission_ids: list[str] = field(default_factory=list)
+    status: str = REQUESTED
+    #: Copied from the Affiliate's CURRENT payout method at request time — see that field's own
+    #: note on why this is locked rather than re-read from a method he might change afterward.
+    payout_channel: str = ""
+    payout_channel_name: str = ""
+    payout_account_ref: str = ""
+    requested_at: int = 0
+    decided_at: int = 0
+    decided_by: str = ""
+    #: A receipt/confirmation-screenshot REFERENCE (a URL, or an object-store key — never the
+    #: file itself in this row), attached the moment an admin marks a request completed. Spec
+    #: §5: "يبقى محفوظاً كإثبات امتثال، يقدر المسوّق يعرضه لاحقاً".
+    receipt_reference: str = ""
+    reason: str = ""   # why rejected, if it was
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "affiliate_id": self.affiliate_id,
+            "amount_halalas": self.amount_halalas, "commission_ids": list(self.commission_ids),
+            "status": self.status, "payout_channel": self.payout_channel,
+            "payout_channel_name": self.payout_channel_name,
+            "payout_account_ref": self.payout_account_ref,
+            "requested_at": self.requested_at, "decided_at": self.decided_at,
+            "decided_by": self.decided_by, "receipt_reference": self.receipt_reference,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "WithdrawalRequest":
+        return cls(
+            id=str(d.get("id", "")), affiliate_id=str(d.get("affiliate_id", "")),
+            amount_halalas=int(d.get("amount_halalas", 0)),
+            commission_ids=[str(c) for c in (d.get("commission_ids") or [])],
+            status=str(d.get("status", REQUESTED)),
+            payout_channel=str(d.get("payout_channel", "")),
+            payout_channel_name=str(d.get("payout_channel_name", "")),
+            payout_account_ref=str(d.get("payout_account_ref", "")),
+            requested_at=int(d.get("requested_at", 0)), decided_at=int(d.get("decided_at", 0)),
+            decided_by=str(d.get("decided_by", "")),
+            receipt_reference=str(d.get("receipt_reference", "")),
+            reason=str(d.get("reason", "")),
         )

@@ -188,6 +188,11 @@ class Settings(BaseSettings):
     # a real paged sweep, not a bigger number silently hiding the day it happens.
     AFFILIATE_SWEEP_MAX: int = 500
 
+    # ── withdrawal (spec §5) ────────────────────────────────────────────────────────────────
+    # 0 disables the floor (any confirmed balance may be withdrawn) — an explicit choice, not a
+    # missing config: a deployment that wants no minimum should not have to fake one.
+    AFFILIATE_WITHDRAWAL_MIN_HALALAS: int = 0
+
     @property
     def affiliate_commission_sync_topics(self) -> list[str]:
         return [t.strip() for t in self.AFFILIATE_COMMISSION_SYNC_TOPICS.split(",") if t.strip()]
