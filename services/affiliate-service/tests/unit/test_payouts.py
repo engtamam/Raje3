@@ -257,3 +257,62 @@ async def test_balance_splits_pending_confirmed_and_withdrawn():
     balance = await svc.balance(AFF)
     assert balance == {"pending_halalas": 1000, "confirmed_available_halalas": 2000,
                        "withdrawn_halalas": 3000}
+
+
+# ── receipt upload marker (core/payouts.py::save_receipt_upload) ────────────────────────────────
+from app.core.payouts import is_uploaded_receipt, receipt_key, receipt_object_key
+
+
+def test_receipt_key_is_deterministic_per_withdrawal():
+    assert receipt_key("wd-1") == "withdrawals/wd-1/receipt"
+    assert receipt_key("wd-1") == receipt_key("wd-1")
+
+
+def test_is_uploaded_receipt_distinguishes_object_from_url():
+    assert is_uploaded_receipt("object:withdrawals/wd-1/receipt") is True
+    assert is_uploaded_receipt("https://example.com/r.pdf") is False
+
+
+def test_receipt_object_key_strips_the_marker():
+    assert receipt_object_key("object:withdrawals/wd-1/receipt") == "withdrawals/wd-1/receipt"
+
+
+@pytest.mark.anyio
+async def test_save_receipt_upload_sets_the_reference_and_content_type():
+    svc, store = build()
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await _seed_commission(store, id="c1", amount=4000)
+    out = await svc.request_withdrawal(AFF)
+
+    updated = await svc.save_receipt_upload(out["id"], content_type="image/png")
+    assert updated.receipt_reference == f"object:{receipt_key(out['id'])}"
+    assert updated.receipt_content_type == "image/png"
+
+
+@pytest.mark.anyio
+async def test_save_receipt_upload_refuses_for_an_unknown_withdrawal():
+    svc, _store = build()
+    with pytest.raises(PayoutError) as exc:
+        await svc.save_receipt_upload("no-such-id", content_type="image/png")
+    assert exc.value.reason == "not_found"
+
+
+@pytest.mark.anyio
+async def test_save_receipt_upload_refuses_once_the_request_is_no_longer_pending():
+    svc, store = build()
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA00")
+    await _seed_commission(store, id="c1", amount=4000)
+    out = await svc.request_withdrawal(AFF)
+    await svc.complete(out["id"], decided_by="admin1", receipt_reference="https://x")
+
+    with pytest.raises(PayoutError) as exc:
+        await svc.save_receipt_upload(out["id"], content_type="image/png")
+    assert exc.value.reason == "not_pending"
+
+
+@pytest.mark.anyio
+async def test_get_returns_none_for_an_unknown_withdrawal():
+    svc, _store = build()
+    assert await svc.get("no-such-id") is None

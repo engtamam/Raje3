@@ -352,6 +352,11 @@ class WithdrawalRequest:
     #: file itself in this row), attached the moment an admin marks a request completed. Spec
     #: §5: "يبقى محفوظاً كإثبات امتثال، يقدر المسوّق يعرضه لاحقاً".
     receipt_reference: str = ""
+    #: Set ONLY when receipt_reference is an uploaded object (never for a pasted URL — nothing
+    #: to serve back with a content-type for a link the admin already controls). Kept because
+    #: the object store's own `get()` returns bytes alone; without this, serving the file back
+    #: would have to guess its type from the key.
+    receipt_content_type: str = ""
     reason: str = ""   # why rejected, if it was
 
     def to_dict(self) -> dict[str, Any]:
@@ -363,7 +368,7 @@ class WithdrawalRequest:
             "payout_account_ref": self.payout_account_ref,
             "requested_at": self.requested_at, "decided_at": self.decided_at,
             "decided_by": self.decided_by, "receipt_reference": self.receipt_reference,
-            "reason": self.reason,
+            "receipt_content_type": self.receipt_content_type, "reason": self.reason,
         }
 
     @classmethod
@@ -379,5 +384,6 @@ class WithdrawalRequest:
             requested_at=int(d.get("requested_at", 0)), decided_at=int(d.get("decided_at", 0)),
             decided_by=str(d.get("decided_by", "")),
             receipt_reference=str(d.get("receipt_reference", "")),
+            receipt_content_type=str(d.get("receipt_content_type", "")),
             reason=str(d.get("reason", "")),
         )

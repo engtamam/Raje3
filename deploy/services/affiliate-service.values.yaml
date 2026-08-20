@@ -9,8 +9,8 @@ service:
   port: 8000
 
 image:
-  repository: ghcr.io/base-services/affiliate-service
-  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"   # CI rewrites this at publish; never a :latest tag
+  repository: ghcr.io/engtamam/raje3/affiliate-service
+  digest: "sha256:9af84c3188af672b7952cb3c67e4d790445ea2f55a9bb94084dde3615680af40"   # 892642b, published by publish-images.sh
 
 replicas: 1
 
@@ -49,6 +49,10 @@ metrics:
 env:
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_SINK_DRIVER: "http"
+  # A REAL PHONE-CAMERA RECEIPT PHOTO NEEDS MORE THAN THE TEMPLATE'S 1 MiB DEFAULT — raised
+  # together, deliberately (assert_receipt_config_ok refuses to boot if these ever disagree).
+  BODY_LIMIT_BYTES: "6000000"
+  AFFILIATE_RECEIPT_MAX_BYTES: "5000000"
   IDENTITY_SERVICE_URL: "http://identity-service:8000"
   # THE ONE SHARED TENANT (spec §1/§12) every marketer becomes a member of. REQUIRED in
   # production (Settings.assert_onboarding_config_ok refuses to boot without it) — but setting

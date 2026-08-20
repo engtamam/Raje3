@@ -180,6 +180,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "loses nothing that a retry cannot recover",
     },
     {
+        "action": "affiliate.withdrawal_receipt_uploaded",
+        "source": "admin",
+        "critical": False,
+        "resource": "withdrawal",
+        "why": "explains who attached which proof and when — not critical itself (the money "
+               "has not moved yet at this point; affiliate.withdrawal_completed is what is "
+               "critical), but useful if an upload is later disputed as the wrong file",
+    },
+    {
         "action": "affiliate.withdrawal_completed",
         "source": "admin",
         "critical": True,

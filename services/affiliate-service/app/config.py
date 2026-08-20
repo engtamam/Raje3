@@ -192,6 +192,22 @@ class Settings(BaseSettings):
     # 0 disables the floor (any confirmed balance may be withdrawn) — an explicit choice, not a
     # missing config: a deployment that wants no minimum should not have to fake one.
     AFFILIATE_WITHDRAWAL_MIN_HALALAS: int = 0
+    # THE RECEIPT ITSELF (Tamam, 2026-08-20: "كل الطرق ممكنة" — an admin may either upload the
+    # actual file or just paste a link; both write to the SAME `receipt_reference` field, so
+    # completing a withdrawal never has to know which one happened). Bounded well under
+    # BODY_LIMIT_BYTES's own default (1 MiB) is wrong for a real photo of a transfer
+    # confirmation, so raise BOTH together — this alone being generous does nothing if the
+    # request never gets past BodyLimitMiddleware first.
+    # UNDER the template's own BODY_LIMIT_BYTES default (1 MiB) ON PURPOSE — see
+    # assert_receipt_config_ok below for why a bigger default here would fail every upload near
+    # it rather than actually allow one. A deployment that wants real phone-camera photos raises
+    # BOTH this and BODY_LIMIT_BYTES together, deliberately.
+    AFFILIATE_RECEIPT_MAX_BYTES: int = 1_000_000
+    AFFILIATE_RECEIPT_CONTENT_TYPES: str = "image/jpeg,image/png,image/webp,application/pdf"
+
+    @property
+    def affiliate_receipt_content_types(self) -> list[str]:
+        return [t.strip() for t in self.AFFILIATE_RECEIPT_CONTENT_TYPES.split(",") if t.strip()]
 
     @property
     def affiliate_commission_sync_topics(self) -> list[str]:
@@ -477,6 +493,26 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"IDENTITY_SERVICE_URL {self.IDENTITY_SERVICE_URL!r} must start with "
                 f"http:// or https://"
+            )
+
+    def assert_receipt_config_ok(self) -> None:
+        """Boot guard. BODY_LIMIT_BYTES applies to EVERY request, including a receipt upload — a
+        generous AFFILIATE_RECEIPT_MAX_BYTES does nothing if BodyLimitMiddleware rejects the
+        request before the route ever sees it. Silent otherwise: every upload past the real
+        (smaller) ceiling would 413, and the error would look like a bug in the receipt route
+        rather than the two limits disagreeing.
+
+        Production-only, same as the platform's other deployment-readiness guards — a local/test
+        run tightens BODY_LIMIT_BYTES for its own unrelated reasons (see tests/conftest.py) and
+        must not be made to also reason about receipt sizing to boot at all."""
+        if not self.is_production:
+            return
+        if self.AFFILIATE_RECEIPT_MAX_BYTES > self.BODY_LIMIT_BYTES:
+            raise ValueError(
+                f"AFFILIATE_RECEIPT_MAX_BYTES ({self.AFFILIATE_RECEIPT_MAX_BYTES}) exceeds "
+                f"BODY_LIMIT_BYTES ({self.BODY_LIMIT_BYTES}) — every receipt upload near the "
+                f"declared max would be rejected by BodyLimitMiddleware first. Raise "
+                f"BODY_LIMIT_BYTES to at least match."
             )
 
     @field_validator("INTERNAL_SERVICE_TOKEN")

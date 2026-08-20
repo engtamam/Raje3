@@ -8,6 +8,13 @@
 # RECEIPT an admin attaches once the transfer actually happened. The channel is metadata riding
 # along on the same request, never a second withdrawal flow.
 #
+# THE RECEIPT ITSELF, EITHER WAY (Tamam, 2026-08-20: "كل الطرق ممكنة"). An admin may paste a
+# link OR upload the actual file — both write the SAME `receipt_reference` field
+# (`WithdrawalRequest`'s own note explains why), so `complete()` never has to know which
+# happened. An uploaded file is stored under `receipt_key()` and referenced as
+# `"object:<key>"`; a pasted URL is stored exactly as typed. `is_uploaded_receipt()` is the one
+# place that tells them apart, so that distinction is never duplicated at each call site.
+#
 # A REQUEST LOCKS SPECIFIC COMMISSIONS, NEVER A "CURRENT BALANCE". Confirmed commissions keep
 # arriving every day; if a request only remembered an amount, a second request racing the first
 # could double-claim the same money, and neither row would say which commissions actually paid
@@ -44,6 +51,26 @@ class PayoutError(Exception):
     def __init__(self, message: str, reason: str = "") -> None:
         super().__init__(message)
         self.reason = reason
+
+
+_OBJECT_PREFIX = "object:"
+
+
+def receipt_key(withdrawal_id: str) -> str:
+    """One deterministic key per withdrawal — re-uploading overwrites rather than accumulating,
+    which is exactly right before completion (an admin fixing a wrong photo) and irrelevant
+    after (nothing re-uploads a completed request)."""
+    return f"withdrawals/{withdrawal_id}/receipt"
+
+
+def is_uploaded_receipt(reference: str) -> bool:
+    return reference.startswith(_OBJECT_PREFIX)
+
+
+def receipt_object_key(reference: str) -> str:
+    """The object-store key inside an `"object:<key>"` reference — call only after
+    `is_uploaded_receipt` confirms it is one."""
+    return reference[len(_OBJECT_PREFIX):]
 
 
 class PayoutService:
@@ -135,6 +162,26 @@ class PayoutService:
         rows, _ = await self._s.find(WITHDRAWALS, {"affiliate_id": affiliate_id}, limit=limit,
                                      sort=("requested_at", "desc"))
         return [WithdrawalRequest.from_dict(r) for r in rows]
+
+    async def get(self, withdrawal_id: str) -> WithdrawalRequest | None:
+        row = await self._s.get(WITHDRAWALS, withdrawal_id)
+        return WithdrawalRequest.from_dict(row) if row else None
+
+    async def save_receipt_upload(self, withdrawal_id: str, *, content_type: str) -> WithdrawalRequest:
+        """Records that a FILE was uploaded for this withdrawal — writing the actual bytes to
+        the object store is the caller's job (it holds the container's object_store, which this
+        service-layer class deliberately does not reach into itself; see admin_payouts.py).
+        Never changes status: uploading a receipt is a step BEFORE completing, not completion
+        itself — an admin may upload, look at it, and only then call complete()."""
+        request = await self.get(withdrawal_id)
+        if request is None:
+            raise PayoutError("طلب السحب غير موجود.", reason="not_found")
+        if request.status != REQUESTED:
+            raise PayoutError("لا يمكن إرفاق إيصال لطلب غير معلّق.", reason="not_pending")
+        request.receipt_reference = f"{_OBJECT_PREFIX}{receipt_key(withdrawal_id)}"
+        request.receipt_content_type = content_type
+        await self._s.put(WITHDRAWALS, request.id, request.to_dict())
+        return request
 
     # ── the admin's side ─────────────────────────────────────────────────────────────────────
     async def list_pending(self, *, limit: int = 200) -> list[WithdrawalRequest]:

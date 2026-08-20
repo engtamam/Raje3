@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
@@ -149,3 +149,17 @@ async def my_withdrawals(request: Request,
     affiliate_id = await _my_affiliate_id(request, principal)
     rows = await request.app.state.container.payouts.of_affiliate(affiliate_id)
     return {"withdrawals": [r.to_dict() for r in rows]}
+
+
+@router.get("/withdrawals/{withdrawal_id}/receipt", dependencies=[Depends(rate_limit)])
+async def my_withdrawal_receipt(request: Request, withdrawal_id: str,
+                                principal: Principal = Depends(require_user)) -> Response:
+    """spec §5: "يقدر المسوّق يعرضه لاحقاً" — his own proof of payment, not just the admin's.
+    Ownership checked HERE, before touching the shared serving logic — a marketer must never
+    reach another marketer's receipt by guessing an id."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    wd = await request.app.state.container.payouts.get(withdrawal_id)
+    if wd is None or wd.affiliate_id != affiliate_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    from app.api.v1.admin_payouts import _serve_receipt
+    return await _serve_receipt(request, withdrawal_id)

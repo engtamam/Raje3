@@ -96,8 +96,11 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/withdrawals", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/withdrawals", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/withdrawals", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/withdrawals/{}/receipt", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/admin/withdrawals/{}/receipt", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/withdrawals/{}/complete", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/withdrawals/{}/reject", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/me/withdrawals/{}/receipt", "tier": "user", "method": "GET"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},
