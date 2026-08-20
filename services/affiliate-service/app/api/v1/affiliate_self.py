@@ -94,7 +94,8 @@ async def invite(request: Request, body: InviteIn,
 
 @router.get("/commissions", dependencies=[Depends(rate_limit)])
 async def commissions(request: Request, principal: Principal = Depends(require_user)) -> dict:
-    """His own commissions — conversion and renewal alike (core/commission.py). The read ITSELF
+    """His own commissions (core/commission.py — conversion only; renewal commissions retired
+    2026-08-20). The read ITSELF
     advances any commission whose hold has lapsed from pending to confirmed
     (CommissionEngine.confirm_if_due, same lazy-check shape as everywhere else in this service) —
     so a marketer looking at his own dashboard is exactly the moment that matters, never a sweep
@@ -128,12 +129,22 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
     empty = {"confirmed_halalas": 0, "pending_halalas": 0, "commission_count": 0,
             "shops": [], "total_net_revenue_minor": 0, "revenue_partial": False}
     merged = [{**m, **by_id.get(m["id"], empty)} for m in members]
-    return {"my_shops": my_own["shops"], "my_net_revenue_minor": my_own["total_net_revenue_minor"],
-            "my_revenue_partial": my_own["revenue_partial"],
-            "members": merged, "team_confirmed_halalas": summary["team_confirmed_halalas"],
-            "team_pending_halalas": summary["team_pending_halalas"],
-            "team_net_revenue_minor": summary["team_net_revenue_minor"],
-            "team_revenue_partial": summary["team_revenue_partial"]}
+    out = {"my_shops": my_own["shops"], "my_net_revenue_minor": my_own["total_net_revenue_minor"],
+          "my_revenue_partial": my_own["revenue_partial"],
+          "members": merged, "team_confirmed_halalas": summary["team_confirmed_halalas"],
+          "team_pending_halalas": summary["team_pending_halalas"],
+          "team_net_revenue_minor": summary["team_net_revenue_minor"],
+          "team_revenue_partial": summary["team_revenue_partial"],
+          "platform_revenue_enabled": affiliate["sees_platform_revenue"]}
+    # spec §10's OPTIONAL whole-platform view (Tamam, 2026-08-20) — an admin-only per-manager
+    # grant (Affiliate.sees_platform_revenue), OFF by default. The read itself is not free (it
+    # walks every referral ever stamped, platform-wide), so it only happens for the handful of
+    # managers this is actually turned on for — never computed and then hidden client-side.
+    if affiliate["sees_platform_revenue"]:
+        platform = await engine.platform_revenue()
+        out["platform_net_revenue_minor"] = platform["total_net_revenue_minor"]
+        out["platform_revenue_partial"] = platform["revenue_partial"]
+    return out
 
 
 @router.put("/payout-method", dependencies=[Depends(rate_limit)])

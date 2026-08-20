@@ -217,6 +217,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "commission weeks later",
     },
     {
+        "action": "affiliate.platform_revenue_visibility_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "affiliate",
+        "why": "explains later why a manager's dashboard started (or stopped) showing whole-"
+               "platform revenue rather than just his own tree — not critical: this is a READ "
+               "grant, not money movement or a credential, so refusing the change while the log "
+               "is down protects nothing that granting it does not",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

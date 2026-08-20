@@ -16,14 +16,15 @@
 # never two. This is what makes sync() safe to call on a schedule, on a retry, or twice by
 # accident, all at once.
 #
-# TWO KINDS, ONE ROW SHAPE (spec §4):
+# ONE KIND, ONE ROW SHAPE (spec §4):
 #   CONVERSION   billing's paid_sequence == 1 — the tenant's first-ever paid invoice. Eligible
 #                only while the Referral it is keyed on is still within its conversion window
 #                (ReferralRegistry.expires_at) — see _sync_conversion for the lapse check.
-#   RENEWAL      billing's subscription_paid_sequence == Settings.AFFILIATE_RENEWAL_AT_NTH + 1
-#                (renewal number N is the (N+1)th payment on that subscription). Disabled when
-#                AFFILIATE_RENEWAL_AT_NTH is 0 — a silently-configured "renewal 0" would pay
-#                every single renewal, which is not a policy anyone chose.
+#
+# RENEWAL retired (Tamam, 2026-08-20): a flat commission on every Nth renewal paid indefinitely
+# for revenue nobody was servicing. Real, ongoing team involvement now belongs to a separate
+# program (a shop-count threshold + actual support work, its own KPI) rather than a recurring cut
+# baked into this engine. See app/core/models.py's own note on COMMISSION_KINDS.
 # =============================================================================
 from __future__ import annotations
 
@@ -36,7 +37,6 @@ from app.core.models import (
     COMMISSIONS,
     LAPSED,
     PENDING,
-    RENEWAL,
     REFERRED,
     REVOKED,
     VOIDED,
@@ -47,15 +47,12 @@ from app.core.onboarding import Http
 
 class CommissionEngine:
     def __init__(self, *, store, http: Http, billing_url: str, referrals,
-                 hold_days: int = 7, renewal_at_nth: int = 0,
-                 renewal_amount_halalas: int = 0) -> None:
+                 hold_days: int = 7) -> None:
         self._store = store
         self._http = http
         self._billing = billing_url.rstrip("/")
         self._referrals = referrals
         self._hold_days = hold_days
-        self._renewal_at_nth = renewal_at_nth
-        self._renewal_amount = renewal_amount_halalas
 
     async def sync(self, tenant: str) -> dict[str, Any]:
         """Reconcile ONE tenant's commissions against billing's own paid-invoice history. Safe to
@@ -87,9 +84,6 @@ class CommissionEngine:
         for inv in invoices:
             if int(inv.get("paid_sequence", 0)) == 1:
                 out = await self._sync_conversion(tenant, referral, inv)
-            elif (self._renewal_at_nth > 0
-                  and int(inv.get("subscription_paid_sequence", 0)) == self._renewal_at_nth + 1):
-                out = await self._sync_renewal(tenant, referral, inv)
             else:
                 continue
             if out == "created":
@@ -123,25 +117,6 @@ class CommissionEngine:
         await self._create(tenant=tenant, affiliate_id=referral.affiliate_id, kind=CONVERSION,
                            amount_halalas=referral.commission_amount_halalas,
                            invoice_id=str(inv.get("id", "")), paid_at=paid_at)
-        return "created"
-
-    async def _sync_renewal(self, tenant: str, referral, inv: dict) -> str:
-        if self._renewal_amount <= 0:
-            # A renewal NUMBER configured with no AMOUNT is not a policy anyone chose either —
-            # same "both halves or neither" reasoning as AFFILIATE_RENEWAL_AT_NTH being 0 alone.
-            return "skipped"
-        existing = await self._store.get(COMMISSIONS, str(inv.get("id", "")))
-        if existing is not None:
-            return await self._reconcile_refund(Commission.from_dict(existing), inv)
-        if referral.status == REVOKED:
-            return "skipped"
-
-        if int(inv.get("refunded_minor", 0)) >= int(inv.get("amount_minor", 0)) and inv.get("amount_minor"):
-            return "skipped"
-
-        await self._create(tenant=tenant, affiliate_id=referral.affiliate_id, kind=RENEWAL,
-                           amount_halalas=self._renewal_amount,
-                           invoice_id=str(inv.get("id", "")), paid_at=str(inv.get("paid_at") or ""))
         return "created"
 
     async def _reconcile_refund(self, commission: Commission, inv: dict) -> str:
@@ -238,6 +213,20 @@ class CommissionEngine:
         shop's own revenue as unknown (`None`) rather than failing the whole read — one shop's
         billing hiccup must not hide a manager's entire team from him."""
         referrals = await self._referrals.of_affiliate(affiliate_id)
+        return await self._net_revenue(referrals)
+
+    async def platform_revenue(self) -> dict[str, Any]:
+        """Tamam, 2026-08-20: an OPT-IN, per-manager view (Affiliate.sees_platform_revenue,
+        default False, admin-granted only) — what the AFFILIATE CHANNEL AS A WHOLE has brought
+        the platform, every referral ever stamped regardless of status or whose tree it is in
+        (ReferralRegistry.all_ever — a lapsed/revoked referral still made real money, it just
+        earns no commission). NOT the platform's total revenue: shops that signed up with no
+        affiliate at all are invisible to this service entirely, and reading that figure belongs
+        to billing-service's/an operator dashboard's own scope, not a marketer-facing route."""
+        referrals = await self._referrals.all_ever()
+        return await self._net_revenue(referrals)
+
+    async def _net_revenue(self, referrals: list) -> dict[str, Any]:
         shops = []
         total = 0
         partial = False

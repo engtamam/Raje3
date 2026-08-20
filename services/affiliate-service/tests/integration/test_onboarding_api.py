@@ -261,4 +261,41 @@ def test_my_team_is_empty_for_a_promoter_with_nobody_under_him(client):
     assert r.status_code == 200, r.text
     assert r.json() == {"my_shops": [], "my_net_revenue_minor": 0, "my_revenue_partial": False,
                         "members": [], "team_confirmed_halalas": 0, "team_pending_halalas": 0,
-                        "team_net_revenue_minor": 0, "team_revenue_partial": False}
+                        "team_net_revenue_minor": 0, "team_revenue_partial": False,
+                        "platform_revenue_enabled": False}
+
+
+def test_platform_revenue_toggle_refuses_without_the_capability(client):
+    r = client.post("/api/v1/admin/affiliates/does-not-exist/platform-revenue",
+                    json={"enabled": True},
+                    headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+
+
+def test_platform_revenue_toggle_is_off_by_default_then_flips_the_team_route(client):
+    import asyncio
+
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+
+    async def seed():
+        c = client.app.state.container
+        mgr = Affiliate(id="mgr-prv-api-1", person_id="p-mgr-prv-api-1", phone="+966505550010",
+                        name="مدير", role="affiliate_manager", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, mgr.id, mgr.to_dict())
+
+    asyncio.run(seed())
+    headers = {"Authorization": f"Bearer {_token(sub='p-mgr-prv-api-1')}"}
+
+    before = client.get("/api/v1/affiliates/me/team", headers=headers)
+    assert before.json()["platform_revenue_enabled"] is False
+    assert "platform_net_revenue_minor" not in before.json()
+
+    admin = client.post("/api/v1/admin/affiliates/mgr-prv-api-1/platform-revenue",
+                        json={"enabled": True},
+                        headers={"Authorization": f"Bearer {_token(caps=['platform.affiliates'])}"})
+    assert admin.status_code == 200, admin.text
+    assert admin.json() == {"ok": True, "changed": True, "sees_platform_revenue": True}
+
+    after = client.get("/api/v1/affiliates/me/team", headers=headers)
+    assert after.json()["platform_revenue_enabled"] is True
+    assert "platform_net_revenue_minor" in after.json()

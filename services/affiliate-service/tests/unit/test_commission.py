@@ -15,7 +15,7 @@ import pytest
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.commission import CommissionEngine
 from app.core.models import (
-    ACTIVE, AFFILIATES, CONFIRMED, CONVERSION, LAPSED, PENDING, RENEWAL, REFERRED, VOIDED, Affiliate,
+    ACTIVE, AFFILIATES, CONFIRMED, CONVERSION, LAPSED, PENDING, REFERRED, VOIDED, Affiliate,
 )
 from app.core.referrals import ReferralRegistry
 
@@ -54,12 +54,11 @@ async def _seed(store, *, affiliate_id="aff-1", commission_amount=4000, window_d
     return referrals
 
 
-def build(invoices, *, referrals, hold_days=7, renewal_at_nth=0, renewal_amount=0,
+def build(invoices, *, referrals, hold_days=7,
          billing_url="http://billing:8000", status=200) -> CommissionEngine:
     return CommissionEngine(
         store=referrals._s, http=FakeBillingHttp(invoices, status=status),
-        billing_url=billing_url, referrals=referrals, hold_days=hold_days,
-        renewal_at_nth=renewal_at_nth, renewal_amount_halalas=renewal_amount)
+        billing_url=billing_url, referrals=referrals, hold_days=hold_days)
 
 
 @pytest.mark.anyio
@@ -215,11 +214,10 @@ async def test_confirming_twice_is_idempotent():
 
 
 @pytest.mark.anyio
-async def test_renewal_commission_fires_at_the_configured_nth_and_only_then():
+async def test_renewals_earn_nothing_retired_2026_08_20():
     store = MemoryDataStore()
     referrals = await _seed(store)
     now = int(time.time())
-    # renewal number 2 -> subscription_paid_sequence 3 (1 = conversion, +2 renewals)
     invoices = [
         {"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
          "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
@@ -231,31 +229,9 @@ async def test_renewal_commission_fires_at_the_configured_nth_and_only_then():
          "subscription_paid_sequence": 3, "amount_minor": 9900, "refunded_minor": 0,
          "paid_at": _iso(now + 60 * DAY)},
     ]
-    engine = build(invoices, referrals=referrals, renewal_at_nth=2, renewal_amount=1000)
+    engine = build(invoices, referrals=referrals)
     out = await engine.sync(TENANT)
-    assert set(out["created"]) == {"inv-1", "inv-3"}   # conversion + renewal 2, NOT the renewal in between
-
-    rows = {r.id: r for r in await engine.of_affiliate("aff-1")}
-    assert rows["inv-3"].kind == RENEWAL
-    assert rows["inv-3"].amount_halalas == 1000
-
-
-@pytest.mark.anyio
-async def test_renewal_disabled_by_default_pays_nothing_even_at_a_matching_sequence():
-    store = MemoryDataStore()
-    referrals = await _seed(store)
-    now = int(time.time())
-    invoices = [
-        {"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
-         "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
-         "paid_at": _iso(now)},
-        {"id": "inv-2", "subscription_id": "sub-a", "paid_sequence": 2,
-         "subscription_paid_sequence": 2, "amount_minor": 9900, "refunded_minor": 0,
-         "paid_at": _iso(now + 30 * DAY)},
-    ]
-    engine = build(invoices, referrals=referrals)   # renewal_at_nth=0 (default): disabled
-    out = await engine.sync(TENANT)
-    assert out["created"] == ["inv-1"]               # only the conversion
+    assert out["created"] == ["inv-1"]   # only the conversion — no renewal ever fires anymore
 
 
 @pytest.mark.anyio
@@ -317,6 +293,35 @@ async def test_revenue_for_reports_partial_rather_than_hiding_the_whole_team_on_
     assert out["shops"] == [{"tenant": TENANT, "shop_name": "", "net_revenue_minor": None}]
     assert out["total_net_revenue_minor"] == 0
     assert out["revenue_partial"] is True
+
+
+@pytest.mark.anyio
+async def test_platform_revenue_sums_every_referral_ever_regardless_of_status_or_tree():
+    store = MemoryDataStore()
+    referrals = await _seed(store, affiliate_id="aff-1")   # stamps TENANT ("t-1") -> aff-1
+    # A SECOND, unrelated affiliate + referral, no relation to aff-1's tree.
+    other = Affiliate(id="aff-other", person_id="p2", phone="+966509999999", name="آخر",
+                      role="affiliate_manager", status=ACTIVE)
+    await store.put(AFFILIATES, "aff-other", other.to_dict())
+    await referrals.stamp(tenant="t-2", affiliate_id="aff-other")
+    # Revoke the second one — platform_revenue must still count its real revenue.
+    row = await store.get("affiliate_referrals", "t-2")
+    row["status"] = "revoked"
+    await store.put("affiliate_referrals", "t-2", row)
+
+    class TwoTenantHttp:
+        def call(self, url, *, method, body=None, internal=False):
+            if "tenant=t-1" in url:
+                return 200, {"invoices": [{"amount_minor": 9900, "refunded_minor": 0}]}
+            if "tenant=t-2" in url:
+                return 200, {"invoices": [{"amount_minor": 5000, "refunded_minor": 0}]}
+            return 500, {}
+
+    engine = CommissionEngine(store=store, http=TwoTenantHttp(), billing_url="http://billing:8000",
+                              referrals=referrals)
+    out = await engine.platform_revenue()
+    assert out["total_net_revenue_minor"] == 14900
+    assert {s["tenant"] for s in out["shops"]} == {"t-1", "t-2"}
 
 
 @pytest.mark.anyio

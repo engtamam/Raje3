@@ -171,11 +171,10 @@ class Settings(BaseSettings):
     # "مُستحقة" ليست "مؤكدة" — a commission holds this many days from the invoice's own paid_at
     # before it is withdrawable, in case that payment is refunded within the window.
     AFFILIATE_COMMISSION_HOLD_DAYS: int = 7
-    # Which renewal earns a second commission — billing's own subscription_paid_sequence, so "the
-    # 12th renewal" is subscription_paid_sequence == 13 (1 is the conversion itself). 0 disables
-    # renewal commissions entirely rather than accidentally paying every renewal.
-    AFFILIATE_RENEWAL_AT_NTH: int = 0
-    AFFILIATE_RENEWAL_COMMISSION_HALALAS: int = 0
+    # RENEWAL COMMISSIONS RETIRED (Tamam, 2026-08-20): a flat cut on every Nth renewal paid
+    # indefinitely for revenue nobody was servicing — see core/models.py's own note on
+    # COMMISSION_KINDS. Real ongoing team involvement belongs to a separate program (a shop-count
+    # threshold + actual support work, its own KPI), not a recurring commission here.
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a

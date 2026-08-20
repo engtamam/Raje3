@@ -37,6 +37,10 @@ class RejectIn(BaseModel):
     reason: str = Field(default="", max_length=500)
 
 
+class PlatformRevenueIn(BaseModel):
+    enabled: bool
+
+
 def _svc(request: Request):
     return request.app.state.container.onboarding
 
@@ -117,6 +121,22 @@ async def reactivate(request: Request, affiliate_id: str,
         ip=request.client.host if request.client else "")
     try:
         out = await _svc(request).reactivate(affiliate_id, decided_by=_actor(principal))
+    except OnboardingRefused as exc:
+        return _refused(exc)
+    return {"ok": True, **out}
+
+
+# ── spec §10's optional whole-platform revenue view — OFF by default, admin-granted only ───────
+@router.post("/{affiliate_id}/platform-revenue", dependencies=[Depends(_MANAGE), Depends(rate_limit)])
+async def set_platform_revenue(request: Request, affiliate_id: str, body: PlatformRevenueIn,
+                               principal: Principal = Depends(require_user)) -> Any:
+    await request.app.state.auditor.record(
+        "affiliate.platform_revenue_visibility_changed", actor=_actor(principal), tenant="",
+        resource=f"affiliate:{affiliate_id}",
+        ip=request.client.host if request.client else "",
+        metadata={"enabled": body.enabled})
+    try:
+        out = await _svc(request).set_platform_revenue_visibility(affiliate_id, enabled=body.enabled)
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}

@@ -150,6 +150,14 @@ class Affiliate:
     payout_channel: str = ""
     payout_channel_name: str = ""
     payout_account_ref: str = ""
+    #: spec §10's optional whole-platform revenue view (Tamam, 2026-08-20) — OFF by default for
+    #: every manager. An admin-only grant (see api/v1/admin.py), never self-service: seeing what
+    #: the affiliate channel earns platform-wide is a broader window than "my own tree", and
+    #: nobody grants that to himself. The moment it is set True, /me/team simply starts returning
+    #: the platform figure — no separate rollout step, no code change, matches the standing
+    #: infra-first / activate-from-the-UI-later pattern already used for the console feature
+    #: itself.
+    sees_platform_revenue: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -162,6 +170,7 @@ class Affiliate:
             "payout_channel": self.payout_channel,
             "payout_channel_name": self.payout_channel_name,
             "payout_account_ref": self.payout_account_ref,
+            "sees_platform_revenue": self.sees_platform_revenue,
         }
 
     @classmethod
@@ -178,6 +187,7 @@ class Affiliate:
             payout_channel=str(d.get("payout_channel", "")),
             payout_channel_name=str(d.get("payout_channel_name", "")),
             payout_account_ref=str(d.get("payout_account_ref", "")),
+            sees_platform_revenue=bool(d.get("sees_platform_revenue", False)),
         )
 
 
@@ -251,8 +261,13 @@ class Referral:
 COMMISSIONS = "affiliate_commissions"
 
 CONVERSION = "conversion"     # the FIRST paid invoice — billing's own paid_sequence == 1
-RENEWAL = "renewal"           # the configured Nth renewal — billing's subscription_paid_sequence
-COMMISSION_KINDS = (CONVERSION, RENEWAL)
+#: RENEWAL retired (Tamam, 2026-08-20): paying a marketer on every Nth renewal was one flat
+#: commission for indefinite, un-serviced revenue — replaced by a separate program (a threshold
+#: of shops brought + real support/ticket work, its own KPI) rather than a recurring cut here.
+#: `COMMISSION_KINDS` keeps only what this engine still creates; a "renewal" string can still
+#: exist on a historical row (never rewritten — see Commission's own retain-don't-erase rule) and
+#: simply is not a kind anything here produces or checks for anymore.
+COMMISSION_KINDS = (CONVERSION,)
 
 #: "مُستحقة" ليست "مؤكدة" — spec §4's own freeze. A commission is real the moment the invoice it
 #: is keyed on is paid; it is not WITHDRAWABLE until Settings.AFFILIATE_COMMISSION_HOLD_DAYS has
@@ -279,9 +294,8 @@ class Commission:
     tenant: str
     affiliate_id: str
     kind: str
-    #: Copied from Referral.commission_amount_halalas (conversion) or
-    #: Settings.AFFILIATE_RENEWAL_COMMISSION_HALALAS (renewal) AT THE MOMENT this row is created —
-    #: same "locked, never re-read from config later" rule as the Referral row itself.
+    #: Copied from Referral.commission_amount_halalas AT THE MOMENT this row is created — same
+    #: "locked, never re-read from config later" rule as the Referral row itself.
     amount_halalas: int
     status: str = PENDING
     #: billing's own `paid_at` for the invoice this was earned on — ISO 8601, billing's format,

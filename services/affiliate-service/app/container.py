@@ -274,8 +274,6 @@ def build_container(settings: Settings) -> Container:
         billing_url=settings.BILLING_SERVICE_URL,
         referrals=container.referrals,
         hold_days=settings.AFFILIATE_COMMISSION_HOLD_DAYS,
-        renewal_at_nth=settings.AFFILIATE_RENEWAL_AT_NTH,
-        renewal_amount_halalas=settings.AFFILIATE_RENEWAL_COMMISSION_HALALAS,
     )
     # The withdrawal itself (spec §5) — see core/payouts.py for the two-channel design.
     from app.core.payouts import PayoutService

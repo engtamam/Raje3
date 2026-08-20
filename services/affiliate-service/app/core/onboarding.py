@@ -272,7 +272,8 @@ class OnboardingService:
         if affiliate is None:
             return None
         return {"id": affiliate.id, "role": affiliate.role, "name": affiliate.name,
-               "parent_id": affiliate.parent_id, "status": affiliate.status}
+               "parent_id": affiliate.parent_id, "status": affiliate.status,
+               "sees_platform_revenue": affiliate.sees_platform_revenue}
 
     async def team(self, manager_affiliate_id: str) -> list[dict[str, Any]]:
         """The promoters a manager brought on — spec §10's own "شفافية الإيراد الفعلي للمدير":
@@ -520,6 +521,22 @@ class OnboardingService:
         affiliate.status = ACTIVE
         await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
         return {"already_active": False}
+
+    async def set_platform_revenue_visibility(self, affiliate_id: str, *, enabled: bool) -> dict[str, Any]:
+        """spec §10's optional whole-platform view (Tamam, 2026-08-20) — admin-only, OFF by
+        default (Affiliate.sees_platform_revenue). No identity call here at all: this changes
+        what a route READS, not who can sign in or what he can do — the same reasoning
+        set_payout_method draws between "what he wants" and "who he is". The moment this flips
+        True, /me/team simply starts returning the platform figure — no separate rollout, no
+        code path only reachable through an admin UI that does not exist yet."""
+        affiliate = await self._affiliate_by_id(affiliate_id)
+        if affiliate is None:
+            raise OnboardingRefused("المسوّق غير موجود.", reason="not_found")
+        if affiliate.sees_platform_revenue == enabled:
+            return {"changed": False, "sees_platform_revenue": enabled}
+        affiliate.sees_platform_revenue = enabled
+        await self._store.put(AFFILIATES, affiliate.id, affiliate.to_dict())
+        return {"changed": True, "sees_platform_revenue": enabled}
 
     async def _affiliate_by_id(self, affiliate_id: str) -> Affiliate | None:
         row = await self._store.get(AFFILIATES, affiliate_id)

@@ -593,3 +593,35 @@ async def test_team_lists_only_direct_children_of_the_given_manager():
 async def test_team_is_empty_for_a_manager_with_nobody_under_him():
     svc = build()
     assert await svc.team("mgr-with-no-one") == []
+
+
+# ── spec §10's optional whole-platform revenue view — admin-only, off by default ────────────────
+
+@pytest.mark.anyio
+async def test_platform_revenue_visibility_is_off_by_default_and_admin_toggleable():
+    from app.core.models import ACTIVE, Affiliate
+
+    svc = build()
+    mgr = Affiliate(id="mgr-prv-1", person_id="p-mgr-prv-1", phone="+966505550009",
+                    name="مدير", role=MANAGER, status=ACTIVE)
+    await svc._store.put(AFFILIATES, mgr.id, mgr.to_dict())
+
+    me = await svc.me("p-mgr-prv-1")
+    assert me["sees_platform_revenue"] is False
+
+    out = await svc.set_platform_revenue_visibility("mgr-prv-1", enabled=True)
+    assert out == {"changed": True, "sees_platform_revenue": True}
+    me = await svc.me("p-mgr-prv-1")
+    assert me["sees_platform_revenue"] is True
+
+    # idempotent: setting the same value again reports no change
+    out = await svc.set_platform_revenue_visibility("mgr-prv-1", enabled=True)
+    assert out == {"changed": False, "sees_platform_revenue": True}
+
+
+@pytest.mark.anyio
+async def test_platform_revenue_visibility_refuses_for_an_unknown_affiliate():
+    svc = build()
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.set_platform_revenue_visibility("no-such-affiliate", enabled=True)
+    assert exc.value.reason == "not_found"

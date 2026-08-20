@@ -119,6 +119,17 @@ class ReferralRegistry:
                                      sort=("stamped_at", "asc"))
         return [Referral.from_dict(r) for r in rows]
 
+    async def all_ever(self, *, limit: int = 2000) -> list[Referral]:
+        """EVERY referral ever stamped, any status — spec §10's optional whole-platform revenue
+        view (Tamam, 2026-08-20: a manager's own flag, default off — see
+        Affiliate.sees_platform_revenue). Deliberately not `all_referred()`'s eligible-only
+        worklist: a shop that lapsed or was revoked still generated real subscription revenue for
+        the platform through the affiliate channel, and that is exactly the number this view
+        answers — "what did the affiliate channel bring in", never a money-computing path
+        (nothing here creates or touches a Commission). NEVER used by sync()/the sweep."""
+        rows = await self._s.scan_all(REFERRALS, limit)
+        return [Referral.from_dict(r) for r in rows]
+
     async def of_affiliate(self, affiliate_id: str, *, limit: int = 200) -> list[Referral]:
         """Every establishment THIS affiliate brought — the input to a dashboard/statement (a
         later slice). Scoped by `affiliate_id`, never by tenant: unlike a shop's own data, a
