@@ -108,8 +108,11 @@ class Card:
     # How it behaves, as a sentence rather than a type. "Runs every day" is a fact they can hold;
     # "standing" is a word they would have to learn.
     behaviour: str = ""
-    # For a template type the tenant has not enabled — the one-tap fix, in place, rather than a
-    # trip to the settings screen and back.
+    # KEPT SO THE CONSOLE CAN STYLE THE BADGE — but it names no action any more. It used to promise
+    # «اضغط للتفعيل» on a card the same code marked `disabled`, which was never true: an owner never
+    # sees the words «قالب» or «اعتماد» (Messages.tsx's own rule, §10.8), so there is no screen a tap
+    # could open, and the button underneath the badge could not be pressed either way. What he
+    # actually needs is WHY, in `unavailable_reason` below — reminders' own sentence, not a guess.
     needs_enabling: bool = False
     # Whether this goal PROMISES something — a discount, a reward, a reason to come back. Those
     # carry a mandatory end date (§10.9.1: «ينتهي — لا افتراض له»), and the screen has to know
@@ -130,12 +133,15 @@ class Card:
 
 
 def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks: dict[str, int] | None = None,
-          enabled_types: set[str] | None = None) -> list[Card]:
+          enabled_types: set[str] | None = None, blocked_reasons: dict[str, str] | None = None) -> list[Card]:
     """The five cards, in the order an owner should see them.
 
-    `locks` maps goal → locked_until. `enabled_types` is which template types the tenant has
-    switched on (spec §10.8); a goal whose type is off is shown WITH a way to enable it rather than
-    hidden — hiding it means an owner who wants it cannot find out it exists.
+    `locks` maps goal → locked_until. `enabled_types` is which template types this tenant can
+    actually send right now (spec §10.8); a goal whose type is not in it is shown, never hidden —
+    hiding it means an owner who wants it cannot find out it exists — but locked, WITH THE REAL
+    REASON reminders computed (`blocked_reasons`, keyed by template type): under review at Meta, or
+    never seeded. Guessing a reason here would be a second, possibly wrong, version of a fact one
+    call away.
     """
     locks = locks or {}
     out: list[Card] = []
@@ -160,9 +166,13 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
         if enabled_types is not None and tmpl_type not in enabled_types:
             card.needs_enabling = True
             card.available = False
-            # THE FIX IS OFFERED IN PLACE. Sending them to the settings screen and back is where
-            # people stop — not because the task is hard, but because they lost their place.
-            card.unavailable_reason = "غير مفعّل — اضغط للتفعيل"
+            # REMINDERS' OWN SENTENCE, NOT OURS. It already tells the two truths apart — «قوالب …
+            # قيد مراجعة واتساب» resolves itself in hours and needs nothing from him; «لا يوجد قالب
+            # فعّال» is ours to fix, not his. The one line this used to hardcode («غير مفعّل — اضغط
+            # للتفعيل») was wrong on both counts: nothing here is a switch he owns, and the card is
+            # `disabled` below regardless, so the tap it promised never did anything.
+            reason = (blocked_reasons or {}).get(tmpl_type, "")
+            card.unavailable_reason = reason or "هذا الهدف غير متاح حالياً — نعمل على تفعيله."
 
         out.append(card)
     return out

@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Segmented } from '@base-ui/design-system/Segmented';
-import { Badge } from '@base-ui/design-system/Badge';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -557,10 +556,16 @@ export function Launch({ session, catalog, onDone }:
             {/* LOCKED, AND THE REASON IS ON THE CARD — never in a tooltip and never in a dialog
                 after he presses. A card that looks pressable and then refuses is worse than one
                 that says so before he reaches for it. */}
+            {/* ONE REASON, NOT TWO. This used to print `unavailable_reason` here AND a fixed
+                badge — «يحتاج تفعيل قالبه» — right under it for the same card, and the badge was
+                the one that lied: nothing on this screen is a switch he owns (Messages.tsx's own
+                rule, §10.8), so there was never a tap the badge's wording could point to. The
+                server's own sentence above already says whether this resolves itself (Meta's
+                review) or is ours to fix — a second, generic label under a true sentence only
+                asks «which of these do I believe». */}
             {g.available === false && g.unavailable_reason ? (
               <span className="mt-1 text-xs text-text-secondary">{g.unavailable_reason}</span>
             ) : null}
-            {g.needs_enabling ? <Badge tone="warning">يحتاج تفعيل قالبه</Badge> : null}
           </span>
         </button>
       ))}

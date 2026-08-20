@@ -103,6 +103,10 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
     c = request.app.state.container
     locks = await _locks(c, _tenant(principal))
     enabled = await c.templates.enabled_types(_tenant(principal))
+    # reminders' OWN reason a type is not sendable — «قيد مراجعة واتساب» is patience, «لا يوجد
+    # قالب فعّال» is ours to fix — never guessed here, and never the one hardcoded sentence that
+    # used to stand in for both.
+    blocked = await c.templates.blocked_reasons(_tenant(principal))
     # AND WHAT EACH GOAL WILL ASK HIM TO FILL (ط-4). Read from the template this shop would
     # actually send — including one he rewrote himself — so the screen draws the blanks that
     # exist rather than one free box for every goal, four of which had nowhere to put it.
@@ -113,7 +117,7 @@ async def list_goals(request: Request, principal: Principal = Depends(_READ)) ->
             fills[template_type] = list(row.get("fills") or [])
     return {"goals": [vars(card) for card in
                       cards(now=_now(), fills_by_type=fills, locks=locks,
-                            enabled_types=enabled)]}
+                            enabled_types=enabled, blocked_reasons=blocked)]}
 
 
 @router.post("/preview", dependencies=[Depends(rate_limit)])

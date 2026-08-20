@@ -54,6 +54,9 @@ class NullTemplates:
     async def enabled_types(self, tenant: str) -> set[str]:
         return {t.get("type", "") for t in self._lib}
 
+    async def blocked_reasons(self, tenant: str) -> dict[str, str]:
+        return {}
+
 
 class HttpTemplates:
     """What THIS shop can actually send — asked of reminders, per tenant.
@@ -83,7 +86,17 @@ class HttpTemplates:
         self._ttl = ttl_seconds
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
-    def _resolved(self, tenant: str) -> dict[str, Any]:
+    def _raw(self, tenant: str) -> dict[str, Any]:
+        """The FULL answer — `templates` and `blocked` together, cached as one unit.
+
+        THEY USED TO BE CACHED APART: this method kept only `rows`, so `blocked` — reminders' own
+        per-type reason a goal is not sendable, «قيد مراجعة واتساب» vs «لا يوجد قالب فعّال» — was
+        fetched and thrown away on every call. The goal card then had nothing to say but a single
+        hardcoded «غير مفعّل — اضغط للتفعيل», WRONG in both halves: nothing is «مفعّل» for the owner
+        to toggle (§10.8's own Messages.tsx docstring: the words «قالب» و«اعتماد» never reach him),
+        and there is no press that does anything — the card is `disabled` the moment it needs
+        enabling, so the very sentence promising a tap was never true.
+        """
         import time
         now = time.time()
         hit = self._cache.get(tenant)
@@ -91,19 +104,22 @@ class HttpTemplates:
             return hit[1]
         q = urllib.parse.urlencode({"tenant": tenant})
         data = _get(f"{self._url}?{q}", self._token, self._timeout)
-        rows = dict(data.get("templates") or {})
-        self._cache[tenant] = (now, rows)
-        return rows
+        self._cache[tenant] = (now, data)
+        return data
 
     async def pick(self, tenant: str, template_type: str) -> dict[str, Any] | None:
         """The row this shop would send for this type, or None.
 
         None is what makes «لا يوجد قالب مفعّل لهذا الهدف» true rather than decorative.
         """
-        return self._resolved(tenant).get(template_type)
+        return dict(self._raw(tenant).get("templates") or {}).get(template_type)
 
     async def enabled_types(self, tenant: str) -> set[str]:
-        return set(self._resolved(tenant))
+        return set(dict(self._raw(tenant).get("templates") or {}))
+
+    async def blocked_reasons(self, tenant: str) -> dict[str, str]:
+        """reminders' OWN sentence for why a type is not sendable — never guessed here."""
+        return dict(self._raw(tenant).get("blocked") or {})
 
 
 # ── the audience: built from operations' customers and reminders' learned intervals ────────────

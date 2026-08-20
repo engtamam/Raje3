@@ -63,14 +63,28 @@ def test_only_awareness_locks_and_only_when_something_was_sent():
     assert lock_after_send("announce", now=NOW, sent=3) == 0
 
 
-# ── a template type the tenant has not enabled ─────────────────────────────────────────────────
-def test_a_disabled_type_is_shown_with_the_fix_rather_than_hidden():
-    """Hiding it means an owner who wants it cannot find out it exists — and sending them to the
-    settings screen and back is where people stop, because they lost their place."""
-    got = by_goal(cards(now=NOW, enabled_types={"mkt_winback"}))
+# ── a template type that is not sendable yet ────────────────────────────────────────────────────
+def test_a_blocked_type_is_shown_with_the_real_reason_rather_than_hidden():
+    """Hiding it means an owner who wants it cannot find out it exists. The reason on the card is
+    reminders' OWN sentence — never a guess, and never a promise that pressing does anything: an
+    owner never sees the words «قالب» or «اعتماد» (Messages.tsx's own rule), so there is no switch
+    here for him to press."""
+    got = by_goal(cards(now=NOW, enabled_types={"mkt_winback"},
+                        blocked_reasons={"mkt_announcement": "قوالب mkt_announcement ما زالت قيد "
+                                                              "مراجعة واتساب — سترسل تلقائياً عند "
+                                                              "اعتمادها."}))
     assert got["win_back"].available
     assert got["announce"].needs_enabling and not got["announce"].available
-    assert "اضغط للتفعيل" in got["announce"].unavailable_reason
+    assert "قيد مراجعة واتساب" in got["announce"].unavailable_reason
+
+
+def test_a_blocked_type_with_no_known_reason_still_says_something_honest():
+    """`blocked_reasons` can be silent for a type reminders never explained (an older peer, a
+    partial response) — the card must still read as a real state, not a blank."""
+    got = by_goal(cards(now=NOW, enabled_types={"mkt_winback"}))
+    assert got["announce"].needs_enabling and not got["announce"].available
+    assert got["announce"].unavailable_reason
+    assert "اضغط للتفعيل" not in got["announce"].unavailable_reason
 
 
 def test_no_filter_means_everything_is_available():
