@@ -266,6 +266,24 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "fallback (or refuses it outright) — a behaviour change nobody would otherwise see",
     },
     {
+        "action": "affiliate.shop_ticket_replied",
+        "source": "user",
+        "critical": False,
+        "resource": "ticket",
+        "why": "explains later who actually engaged a shop's customer on its behalf — not "
+               "critical: ticket-service itself is the durable record of the reply (its own "
+               "append-only log), so refusing to log it here while the audit sink is down costs "
+               "nothing the reply's own existence there does not already prove",
+    },
+    {
+        "action": "affiliate.shop_ticket_opened",
+        "source": "user",
+        "critical": False,
+        "resource": "ticket",
+        "why": "same reasoning as affiliate.shop_ticket_replied — ticket-service's own log is "
+               "the durable record; this entry explains WHO on our side chose to open it",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

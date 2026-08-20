@@ -170,6 +170,7 @@ class Container:
     payouts: Any = None
     wafa: Any = None
     employment: Any = None
+    tickets: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -308,6 +309,7 @@ def build_container(settings: Settings) -> Container:
         refund_max=settings.WAFA_REFUND_MAX,
         tickets=tickets_reader,
     )
+    container.tickets = tickets_reader
     # «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
     from app.core.employment import EmploymentService
 

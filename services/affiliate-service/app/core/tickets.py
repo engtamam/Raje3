@@ -1,19 +1,24 @@
 # =============================================================================
-# affiliate-service — reading a shop's ticket support performance (spec §13), consent-scoped
+# affiliate-service — a shop's tickets, consent-scoped (spec §13)
 # -----------------------------------------------------------------------------
-# Reads ticket-service's own v0.16.27 scoped-visibility primitive (ShareGrant) — never a shop's
-# tickets directly, only what that shop's OWN consent grant to THIS marketer (grantee=
-# affiliate_id) actually covers. A durable read, same "peer reads a durable fact, never an event
-# alone" contract as CommissionEngine's own billing read.
+# Reads AND writes ticket-service's own scoped-visibility primitive (ShareGrant, v0.16.27+ reads,
+# v0.16.28+ writes) — never a shop's tickets directly, only what that shop's OWN consent grant to
+# THIS marketer (grantee= affiliate_id) actually covers, and only what it PERMITS ("read" always;
+# "write" only if operations-service asked for it at signup — see core/signup.py in operations).
+# A durable call either way, same "peer acts on a durable fact, never an event alone" contract as
+# CommissionEngine's own billing read.
 #
-# STRUCTURE + PERFORMANCE ONLY. ticket-service's own projection already strips subject/body/meta
-# (the shop's customer PII, not this service's — or a marketer's — to read); this module never
-# asks for more than that.
+# READS ARE STRUCTURE + PERFORMANCE ONLY. ticket-service's own projection already strips
+# subject/body/meta (the shop's customer PII, not this service's — or a marketer's — to read
+# wholesale); this module never asks for more than that on a READ. A WRITE necessarily carries
+# real text (the marketer's own reply) — that is the one place free text crosses this boundary,
+# and it is exactly the text the marketer typed himself, attributed to HIM (ticket-service's own
+# grantee pseudonym, never the shop's raiser_ref) in the append-only log.
 #
-# BEST-EFFORT, PER TENANT. One shop's ticket-service hiccup — or simply NO_ACTIVE_GRANT, the
-# honest common case before operations-service wires the share at signup — must not hide a
-# marketer's whole team's KPIs. Same reasoning as CommissionEngine.revenue_for's own per-shop
-# best-effort loop.
+# BEST-EFFORT, PER TENANT, ON READS. One shop's ticket-service hiccup — or simply NO_ACTIVE_GRANT,
+# the honest common case before operations-service has wired a share for this pair — must not hide
+# a marketer's whole team's KPIs (see support_kpis). WRITES are never silently swallowed this way:
+# a marketer who tries to reply and gets refused needs to SEE that, not have it vanish.
 # =============================================================================
 from __future__ import annotations
 
@@ -21,6 +26,12 @@ import urllib.parse
 from typing import Any
 
 from app.core.onboarding import Http
+
+
+class TicketError(Exception):
+    def __init__(self, message: str, reason: str = "") -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 class TicketReader:
@@ -75,3 +86,68 @@ class TicketReader:
                 round(sum(resolution_times) / len(resolution_times), 1) if resolution_times else None),
             "escalation_rate": round(escalated / len(tickets), 4) if tickets else 0.0,
         }
+
+    # ── the marketer's own reads over one shop (not an aggregate) ────────────────────────────
+    async def list_tickets(self, *, tenant: str, grantee: str) -> list[dict[str, Any]]:
+        """Every ticket this grant covers, structure only — the marketer's own inbox for one
+        shop. Raises TicketError rather than degrading silently: a marketer opening his own
+        ticket list needs to SEE "no consent yet" or "unreachable", not an empty list that reads
+        as "no tickets"."""
+        if not self._base:
+            raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
+        q = urllib.parse.urlencode({"tenant": tenant, "grantee": grantee})
+        status, body = self._http.call(f"{self._base}/internal/tickets?{q}",
+                                       method="GET", internal=True)
+        if status == 409:
+            raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
+        if status != 200:
+            raise TicketError("تعذّر الوصول لخدمة التذاكر.", reason=f"unreachable:{status}")
+        return list((body or {}).get("tickets") or [])
+
+    async def get_ticket(self, *, tenant: str, grantee: str, ticket_id: str) -> dict[str, Any]:
+        if not self._base:
+            raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
+        q = urllib.parse.urlencode({"tenant": tenant, "grantee": grantee})
+        status, body = self._http.call(f"{self._base}/internal/tickets/{ticket_id}?{q}",
+                                       method="GET", internal=True)
+        if status == 409:
+            raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
+        if status == 404:
+            raise TicketError("التذكرة غير موجودة.", reason="not_found")
+        if status != 200:
+            raise TicketError("تعذّر الوصول لخدمة التذاكر.", reason=f"unreachable:{status}")
+        return body or {}
+
+    # ── writing on the shop's behalf — ONLY when the grant carries "write" (v0.16.28+) ────────
+    async def reply(self, *, tenant: str, grantee: str, ticket_id: str, body: str) -> dict[str, Any]:
+        if not self._base:
+            raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
+        status, resp = self._http.call(
+            f"{self._base}/internal/tickets/{ticket_id}/replies", method="POST", internal=True,
+            body={"tenant": tenant, "grantee": grantee, "body": body})
+        if status == 409:
+            raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
+        if status == 403:
+            raise TicketError("المحل لم يمنحك صلاحية الرد، فقط المشاهدة.", reason="write_not_granted")
+        if status == 404:
+            raise TicketError("التذكرة غير موجودة.", reason="not_found")
+        if status not in (200, 201):
+            raise TicketError("تعذّر إرسال الرد.", reason=f"unreachable:{status}")
+        return resp or {}
+
+    async def open_ticket(self, *, tenant: str, grantee: str, type: str, subject: str = "",
+                          body: str = "", priority: str = "normal") -> dict[str, Any]:
+        if not self._base:
+            raise TicketError("خدمة التذاكر غير مُهيّأة.", reason="ticket_service_not_configured")
+        status, resp = self._http.call(
+            f"{self._base}/internal/tickets", method="POST", internal=True,
+            body={"tenant": tenant, "grantee": grantee, "type": type, "subject": subject,
+                 "body": body, "priority": priority})
+        if status == 409:
+            raise TicketError("لا توجد موافقة فعّالة من هذا المحل.", reason="no_active_grant")
+        if status == 403:
+            raise TicketError("المحل لم يمنحك صلاحية فتح تذاكر، فقط المشاهدة.",
+                              reason="write_not_granted")
+        if status not in (200, 201):
+            raise TicketError("تعذّر فتح التذكرة.", reason=f"unreachable:{status}")
+        return resp or {}

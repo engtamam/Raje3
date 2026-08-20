@@ -429,10 +429,15 @@ class SignupService:
                 # ticket-service hiccup here is a missing convenience, never a failed signup.
                 scope = ({"type": self._affiliate_ticket_scope_types}
                         if self._affiliate_ticket_scope_types else {})
+                # WRITE, not just read (ticket-service v0.16.28+): spec §13's own point is that a
+                # marketer REPLIES to his shop's tickets and actually engages, not just watches a
+                # KPI number. `permissions` is ticket-service's own vocabulary (ShareGrant) — read
+                # is always implied, write is the explicit extra consent this signup grants.
                 s2, b2 = self._http.call(
                     f"{self._tickets}/internal/tickets/shares", method="POST", internal=True,
                     body={"tenant": tenant, "grantee": shop.affiliate_ref,
-                         "granted_by": phone, "scope": scope})
+                         "granted_by": phone, "scope": scope,
+                         "permissions": ["read", "write"]})
                 if s2 not in (200, 201) and self._telemetry is not None:
                     try:
                         self._telemetry.event(

@@ -26,6 +26,7 @@ from app.core.leads import LeadSourcingKeys
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
 from app.core.secret_store import SecretError, SecretStore
+from app.core.tickets import TicketError
 from app.core.wafa import WafaError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-self"])
@@ -497,3 +498,102 @@ async def assign_lead(request: Request, lead_id: str, body: AssignIn,
     except LeadError as exc:
         return _lead_refused(exc)
     return {"ok": True, **out.to_dict()}
+
+
+# ── §١٣: a shop's tickets, consent-scoped to the marketer who referred it ──────────────────────
+
+class ReplyIn(BaseModel):
+    body: str = Field(min_length=1, max_length=20_000)
+
+
+class OpenTicketIn(BaseModel):
+    type: str = Field(min_length=1, max_length=64)
+    subject: str = Field(default="", max_length=512)
+    body: str = Field(default="", max_length=20_000)
+    priority: str = Field(default="normal", max_length=16)
+
+
+def _ticket_refused(exc: TicketError) -> JSONResponse:
+    body: dict[str, Any] = {"ok": False, "message": str(exc)}
+    if getattr(exc, "reason", ""):
+        body["reason"] = exc.reason
+    status_code = 404 if exc.reason == "not_found" else 400
+    return JSONResponse(status_code=status_code, content=body)
+
+
+async def _my_shop_grant(request: Request, principal: Principal, tenant: str) -> str:
+    """spec §13: a marketer reaches only a shop THAT REFERRED THROUGH HIM — ownership, checked
+    against ReferralRegistry's own record, never a capability. Returns his own affiliate id (the
+    grantee ticket-service already knows). A tenant he did not bring is 404, same shape as the
+    lead/wafa ownership checks elsewhere in this file."""
+    affiliate = await _svc(request).me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    referral = await request.app.state.container.referrals.of_tenant(tenant)
+    if referral is None or referral.affiliate_id != affiliate["id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return affiliate["id"]
+
+
+def _ticket_reader(request: Request):
+    reader = request.app.state.container.tickets
+    if reader is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "TICKETS_UNAVAILABLE")
+    return reader
+
+
+@router.get("/shops/{tenant}/tickets", dependencies=[Depends(rate_limit)])
+async def shop_tickets(request: Request, tenant: str,
+                       principal: Principal = Depends(require_user)) -> Any:
+    grantee = await _my_shop_grant(request, principal, tenant)
+    try:
+        tickets = await _ticket_reader(request).list_tickets(tenant=tenant, grantee=grantee)
+    except TicketError as exc:
+        return _ticket_refused(exc)
+    return {"tickets": tickets}
+
+
+@router.get("/shops/{tenant}/tickets/{ticket_id}", dependencies=[Depends(rate_limit)])
+async def shop_ticket(request: Request, tenant: str, ticket_id: str,
+                      principal: Principal = Depends(require_user)) -> Any:
+    grantee = await _my_shop_grant(request, principal, tenant)
+    try:
+        out = await _ticket_reader(request).get_ticket(
+            tenant=tenant, grantee=grantee, ticket_id=ticket_id)
+    except TicketError as exc:
+        return _ticket_refused(exc)
+    return out
+
+
+@router.post("/shops/{tenant}/tickets", status_code=201, dependencies=[Depends(rate_limit)])
+async def open_shop_ticket(request: Request, tenant: str, body: OpenTicketIn,
+                           principal: Principal = Depends(require_user)) -> Any:
+    grantee = await _my_shop_grant(request, principal, tenant)
+    try:
+        out = await _ticket_reader(request).open_ticket(
+            tenant=tenant, grantee=grantee, type=body.type, subject=body.subject,
+            body=body.body, priority=body.priority)
+    except TicketError as exc:
+        return _ticket_refused(exc)
+    await request.app.state.auditor.record(
+        "affiliate.shop_ticket_opened", actor=grantee, tenant=tenant,
+        resource=f"ticket:{out.get('id', '')}", ip=request.client.host if request.client else "")
+    return out
+
+
+@router.post("/shops/{tenant}/tickets/{ticket_id}/replies", status_code=201,
+             dependencies=[Depends(rate_limit)])
+async def reply_shop_ticket(request: Request, tenant: str, ticket_id: str, body: ReplyIn,
+                            principal: Principal = Depends(require_user)) -> Any:
+    """spec §13's own point: a shop raises a problem, the marketer who brought it replies and
+    actually engages — not just watches a KPI number."""
+    grantee = await _my_shop_grant(request, principal, tenant)
+    try:
+        out = await _ticket_reader(request).reply(
+            tenant=tenant, grantee=grantee, ticket_id=ticket_id, body=body.body)
+    except TicketError as exc:
+        return _ticket_refused(exc)
+    await request.app.state.auditor.record(
+        "affiliate.shop_ticket_replied", actor=grantee, tenant=tenant,
+        resource=f"ticket:{ticket_id}", ip=request.client.host if request.client else "")
+    return out

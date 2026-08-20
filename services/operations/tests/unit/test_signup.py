@@ -220,6 +220,7 @@ async def test_a_successful_stamp_grants_a_scoped_share_to_the_same_affiliate():
     assert http.bodies[0]["grantee"] == "aff-1"
     assert http.bodies[0]["granted_by"] == "+966501234567"
     assert http.bodies[0]["scope"] == {"type": ["عام", "مالي"]}
+    assert http.bodies[0]["permissions"] == ["read", "write"]
 
 
 @pytest.mark.anyio
