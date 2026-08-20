@@ -168,6 +168,7 @@ class Container:
     referrals: Any = None
     commissions: Any = None
     payouts: Any = None
+    wafa: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -281,5 +282,17 @@ def build_container(settings: Settings) -> Container:
     container.payouts = PayoutService(
         store=container.datastore,
         min_withdrawal_halalas=settings.AFFILIATE_WITHDRAWAL_MIN_HALALAS,
+    )
+    # «برنامج دعم الوفاء» (spec §8) — see core/wafa.py's own module docstring.
+    from app.core.wafa import WafaService
+
+    container.wafa = WafaService(
+        store=container.datastore,
+        referrals=container.referrals,
+        tier_shops=settings.WAFA_TIER_SHOPS,
+        tier_amount_halalas=settings.WAFA_TIER_AMOUNT_HALALAS,
+        cooldown_days=settings.WAFA_COOLDOWN_DAYS,
+        retention_min=settings.WAFA_RETENTION_MIN,
+        refund_max=settings.WAFA_REFUND_MAX,
     )
     return container

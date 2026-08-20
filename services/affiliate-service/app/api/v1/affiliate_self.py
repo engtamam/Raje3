@@ -21,6 +21,7 @@ from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
+from app.core.wafa import WafaError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-self"])
 
@@ -49,6 +50,13 @@ def _refused(exc: OnboardingRefused) -> JSONResponse:
 
 
 def _payout_refused(exc: PayoutError) -> JSONResponse:
+    body: dict[str, Any] = {"ok": False, "message": str(exc)}
+    if getattr(exc, "reason", ""):
+        body["reason"] = exc.reason
+    return JSONResponse(status_code=400, content=body)
+
+
+def _wafa_refused(exc: WafaError) -> JSONResponse:
     body: dict[str, Any] = {"ok": False, "message": str(exc)}
     if getattr(exc, "reason", ""):
         body["reason"] = exc.reason
@@ -122,13 +130,18 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
     members = await onboarding.team(affiliate["id"])
     engine = request.app.state.container.commissions
+    wafa = request.app.state.container.wafa
     my_own = await engine.revenue_for(affiliate["id"])   # his OWN direct referrals — spec §10's
                                                           # "مبيعاته المباشرة", not just his team's
     summary = await engine.team_summary([m["id"] for m in members])
     by_id = {m["affiliate_id"]: m for m in summary["members"]}
     empty = {"confirmed_halalas": 0, "pending_halalas": 0, "commission_count": 0,
             "shops": [], "total_net_revenue_minor": 0, "revenue_partial": False}
-    merged = [{**m, **by_id.get(m["id"], empty)} for m in members]
+    # spec §8's own ask (Tamam, 2026-08-20): a manager backs a «دعم الوفاء» decision with the SAME
+    # measurable numbers the system's own recommendation uses (WafaService.performance_for) —
+    # never a second, driftable copy of that math.
+    perf = {m["id"]: await wafa.performance_for(m["id"]) for m in members}
+    merged = [{**m, **by_id.get(m["id"], empty), **perf[m["id"]]} for m in members]
     out = {"my_shops": my_own["shops"], "my_net_revenue_minor": my_own["total_net_revenue_minor"],
           "my_revenue_partial": my_own["revenue_partial"],
           "members": merged, "team_confirmed_halalas": summary["team_confirmed_halalas"],
@@ -201,3 +214,71 @@ async def my_withdrawal_receipt(request: Request, withdrawal_id: str,
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
     from app.api.v1.admin_payouts import _serve_receipt
     return await _serve_receipt(request, withdrawal_id)
+
+
+# ── «برنامج دعم الوفاء» (spec §8) — the marketer's own side ─────────────────────────────────────
+
+class WafaManagerDecisionIn(BaseModel):
+    decision: str = Field(min_length=1, max_length=16)
+    reason: str = Field(default="", max_length=500)
+
+
+@router.post("/wafa-requests", dependencies=[Depends(rate_limit)])
+async def request_wafa(request: Request,
+                       principal: Principal = Depends(require_user)) -> Any:
+    affiliate_id = await _my_affiliate_id(request, principal)
+    try:
+        out = await request.app.state.container.wafa.request(affiliate_id)
+    except WafaError as exc:
+        return _wafa_refused(exc)
+    return {"ok": True, **out}
+
+
+@router.get("/wafa-requests", dependencies=[Depends(rate_limit)])
+async def my_wafa_requests(request: Request,
+                           principal: Principal = Depends(require_user)) -> dict:
+    affiliate_id = await _my_affiliate_id(request, principal)
+    rows = await request.app.state.container.wafa.of_affiliate(affiliate_id)
+    return {"wafa_requests": [r.to_dict() for r in rows]}
+
+
+@router.get("/team/wafa-requests", dependencies=[Depends(rate_limit)])
+async def team_wafa_requests(request: Request,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """A manager's own review queue — every PENDING request from someone directly on his team
+    (spec §8: he sees the performance and gives an advisory call before the platform's own
+    binding one). Scoped by `parent_id`, same ownership boundary as GET /me/team."""
+    onboarding = _svc(request)
+    affiliate = await onboarding.me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    members = await onboarding.team(affiliate["id"])
+    member_ids = {m["id"] for m in members}
+    wafa = request.app.state.container.wafa
+    pending = await wafa.list_pending(limit=500)
+    mine = [r for r in pending if r.affiliate_id in member_ids]
+    return {"wafa_requests": [r.to_dict() for r in mine]}
+
+
+@router.post("/team/wafa-requests/{wafa_id}/decision", dependencies=[Depends(rate_limit)])
+async def decide_team_wafa_request(request: Request, wafa_id: str, body: WafaManagerDecisionIn,
+                                   principal: Principal = Depends(require_user)) -> Any:
+    """The manager's ADVISORY call (spec §8) — never binding; see core/wafa.py's own module
+    docstring on why the platform keeps the final word regardless of what he says here."""
+    onboarding = _svc(request)
+    affiliate = await onboarding.me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    wafa = request.app.state.container.wafa
+    target = await wafa.get(wafa_id)
+    members = await onboarding.team(affiliate["id"])
+    if target is None or target.affiliate_id not in {m["id"] for m in members}:
+        # Same ownership shape as my_withdrawal_receipt: a manager must never reach another
+        # manager's team member's request by guessing an id.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    try:
+        out = await wafa.manager_decide(
+            wafa_id, decision=body.decision, decided_by=affiliate["id"], reason=body.reason)
+    except WafaError as exc:
+        return _wafa_refused(exc)
+    return {"ok": True, **out.to_dict()}

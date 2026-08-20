@@ -227,6 +227,17 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "is down protects nothing that granting it does not",
     },
     {
+        "action": "affiliate.wafa_decided",
+        "source": "admin",
+        "critical": True,
+        "resource": "wafa",
+        "why": "the platform's own BINDING call on a recurring monthly stipend (spec §8) — may "
+               "override a manager's own advisory decision either way. An unattributable grant "
+               "is indistinguishable from an attacker minting himself a monthly payment; an "
+               "unattributable refusal leaves a marketer with no record of why he was denied "
+               "a stipend the shop-count threshold said he qualified for",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

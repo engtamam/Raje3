@@ -401,3 +401,89 @@ class WithdrawalRequest:
             receipt_content_type=str(d.get("receipt_content_type", "")),
             reason=str(d.get("reason", "")),
         )
+
+
+# ── «برنامج دعم الوفاء» — spec §8's optional monthly stipend (Tamam, 2026-08-20) ────────────────
+#: NOT a commission — RENEWAL was retired for exactly this reason (see commission.py's own note).
+#: A recurring monthly amount for a marketer who keeps SERVICING the shops he brought, gated by a
+#: real measurable performance check, never by shop count alone.
+WAFA_REQUESTS = "affiliate_wafa_requests"
+
+WAFA_REQUESTED = "requested"
+WAFA_GRANTED = "granted"
+WAFA_REJECTED = "rejected"
+WAFA_STATUSES = (WAFA_REQUESTED, WAFA_GRANTED, WAFA_REJECTED)
+
+WAFA_APPROVE = "approve"
+WAFA_REJECT = "reject"
+WAFA_DECISIONS = (WAFA_APPROVE, WAFA_REJECT)
+
+
+@dataclass
+class WafaRequest:
+    id: str
+    affiliate_id: str
+    #: The shop count AT REQUEST TIME — locked, same "never re-read from a moving number later"
+    #: rule as everywhere else in this service. tier_amount_halalas is derived from this and
+    #: equally locked: a config change next month must not silently rewrite what this request
+    #: asked for.
+    active_shops: int = 0
+    tier_amount_halalas: int = 0
+    status: str = WAFA_REQUESTED
+    requested_at: int = 0
+    #: THE SYSTEM'S OWN RECOMMENDATION, computed once from real measurable data (WafaService.
+    #: performance_for) at the moment of request — never re-derived later, same locked-snapshot
+    #: reasoning as active_shops. Shown to BOTH the manager and the admin so neither decides
+    #: blind; binds neither.
+    system_recommendation: str = ""
+    system_retention_rate: float = 0.0
+    system_refund_rate: float = 0.0
+    #: THE MANAGER'S OWN CALL — advisory, never binding (see core/wafa.py's module docstring on
+    #: why the platform keeps the final word). Blank means "not yet reviewed".
+    manager_decision: str = ""
+    manager_decided_by: str = ""
+    manager_decided_at: int = 0
+    manager_reason: str = ""
+    #: THE PLATFORM'S BINDING DECISION.
+    decided_by: str = ""
+    decided_at: int = 0
+    reason: str = ""
+    #: Set ONLY on a GRANTED decision, and to `requested_at` — NEVER `now` (core/wafa.py's own
+    #: module docstring: the admin's review speed must have zero effect on the marketer's next
+    #: eligible date, or a slow review compounds into an ever-later cycle instead of a stable
+    #: monthly one).
+    granted_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "affiliate_id": self.affiliate_id, "active_shops": self.active_shops,
+            "tier_amount_halalas": self.tier_amount_halalas, "status": self.status,
+            "requested_at": self.requested_at,
+            "system_recommendation": self.system_recommendation,
+            "system_retention_rate": self.system_retention_rate,
+            "system_refund_rate": self.system_refund_rate,
+            "manager_decision": self.manager_decision,
+            "manager_decided_by": self.manager_decided_by,
+            "manager_decided_at": self.manager_decided_at,
+            "manager_reason": self.manager_reason,
+            "decided_by": self.decided_by, "decided_at": self.decided_at, "reason": self.reason,
+            "granted_at": self.granted_at,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "WafaRequest":
+        return cls(
+            id=str(d.get("id", "")), affiliate_id=str(d.get("affiliate_id", "")),
+            active_shops=int(d.get("active_shops", 0)),
+            tier_amount_halalas=int(d.get("tier_amount_halalas", 0)),
+            status=str(d.get("status", WAFA_REQUESTED)), requested_at=int(d.get("requested_at", 0)),
+            system_recommendation=str(d.get("system_recommendation", "")),
+            system_retention_rate=float(d.get("system_retention_rate", 0.0)),
+            system_refund_rate=float(d.get("system_refund_rate", 0.0)),
+            manager_decision=str(d.get("manager_decision", "")),
+            manager_decided_by=str(d.get("manager_decided_by", "")),
+            manager_decided_at=int(d.get("manager_decided_at", 0)),
+            manager_reason=str(d.get("manager_reason", "")),
+            decided_by=str(d.get("decided_by", "")), decided_at=int(d.get("decided_at", 0)),
+            reason=str(d.get("reason", "")), granted_at=int(d.get("granted_at", 0)),
+        )

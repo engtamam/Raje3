@@ -175,6 +175,19 @@ class Settings(BaseSettings):
     # indefinitely for revenue nobody was servicing — see core/models.py's own note on
     # COMMISSION_KINDS. Real ongoing team involvement belongs to a separate program (a shop-count
     # threshold + actual support work, its own KPI), not a recurring commission here.
+
+    # ── «برنامج دعم الوفاء» (spec §8, Tamam, 2026-08-20) — see core/wafa.py's own module docstring
+    # for the full reasoning behind every one of these.
+    # floor(active_shops / WAFA_TIER_SHOPS) * WAFA_TIER_AMOUNT_HALALAS — 50 shops = 500 SAR.
+    WAFA_TIER_SHOPS: int = 50
+    WAFA_TIER_AMOUNT_HALALAS: int = 50000
+    # Anchored to the REQUEST, never the decision — see core/wafa.py.
+    WAFA_COOLDOWN_DAYS: int = 30
+    # The system's own recommendation threshold — retention_rate at/above this AND refund_rate
+    # at/below the other one both required, or the system recommends REJECT. Advisory only: an
+    # admin may still grant against it (see WafaService.admin_decide).
+    WAFA_RETENTION_MIN: float = 0.70
+    WAFA_REFUND_MAX: float = 0.15
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a
