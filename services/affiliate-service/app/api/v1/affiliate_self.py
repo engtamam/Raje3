@@ -401,6 +401,11 @@ class CityIn(BaseModel):
 
 class SearchIn(BaseModel):
     place_type: str = Field(default="", max_length=100)
+    #: Synonyms searched TOGETHER in one job (places_scraper_v2.py's own multi-keyword loop —
+    #: "صالون نسائي"/"مركز تجميل نسائي"/... found the same businesses under different listings).
+    #: The API's own ceiling stays generous (20); Tamam, 2026-08-20: the CONSOLE limits its own
+    #: form to 6 fields (each extra keyword multiplies the grid's own request count by one more
+    #: full pass) — a UI/UX guard, not a hard API limit a future caller might need past.
     keywords: list[str] = Field(min_length=1, max_length=20)
     radius_km: float = Field(default=5.0, gt=0, le=50)
     cities: list[CityIn] = Field(min_length=1, max_length=30)
