@@ -274,6 +274,19 @@ class OnboardingService:
         return {"id": affiliate.id, "role": affiliate.role, "name": affiliate.name,
                "parent_id": affiliate.parent_id, "status": affiliate.status}
 
+    async def team(self, manager_affiliate_id: str) -> list[dict[str, Any]]:
+        """The promoters a manager brought on — spec §10's own "شفافية الإيراد الفعلي للمدير":
+        WHO they are, not what they earned (core/commission.py owns the money side; a manager's
+        own dashboard route joins the two, same separation as everywhere else in this service —
+        onboarding never reads a Commission and commission.py never reads an Affiliate). Only
+        DIRECT children: spec §1's tree is manager→promoter, one level, so there is no deeper
+        chain to walk."""
+        rows, _ = await self._store.find(
+            AFFILIATES, {"parent_id": manager_affiliate_id}, limit=200,
+            sort=("created_at", "asc"))
+        return [{"id": a["id"], "name": a["name"], "status": a["status"]}
+                for a in rows]
+
     async def _affiliate_by_person(self, person_id: str) -> Affiliate | None:
         if not person_id:
             return None

@@ -274,3 +274,67 @@ async def test_a_revoked_referral_earns_nothing_even_with_real_payments():
                      "paid_at": _iso(int(time.time()))}], referrals=referrals)
     out = await engine.sync(TENANT)
     assert out == {"synced": False, "reason": "referral_revoked"}
+
+
+# ── spec §10: a manager's real revenue transparency ────────────────────────────────────────────
+
+@pytest.mark.anyio
+async def test_totals_for_splits_confirmed_from_pending_and_never_touches_the_hold():
+    store = MemoryDataStore()
+    referrals = await _seed(store, commission_amount=4000)
+    now = int(time.time())
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
+                     "paid_at": _iso(now)}], referrals=referrals, hold_days=7)
+    await engine.sync(TENANT)
+
+    totals = await engine.totals_for("aff-1")
+    assert totals == {"confirmed_halalas": 0, "pending_halalas": 4000, "commission_count": 1}
+    # totals_for must not itself confirm a due commission — of_affiliate() (the promoter's own
+    # dashboard read) is the one place a hold advances.
+    rows = await engine.of_affiliate("aff-1")
+    assert rows[0].status == PENDING
+
+
+@pytest.mark.anyio
+async def test_revenue_for_reads_billings_own_net_paid_history_per_referred_shop():
+    store = MemoryDataStore()
+    referrals = await _seed(store)   # stamps ONE referral: TENANT -> aff-1
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 1900,
+                     "paid_at": _iso(int(time.time()))}], referrals=referrals)
+    out = await engine.revenue_for("aff-1")
+    assert out == {"shops": [{"tenant": TENANT, "shop_name": "", "net_revenue_minor": 8000}],
+                   "total_net_revenue_minor": 8000, "revenue_partial": False}
+
+
+@pytest.mark.anyio
+async def test_revenue_for_reports_partial_rather_than_hiding_the_whole_team_on_one_billing_hiccup():
+    store = MemoryDataStore()
+    referrals = await _seed(store)
+    engine = build([], referrals=referrals, status=503)   # billing unreachable
+    out = await engine.revenue_for("aff-1")
+    assert out["shops"] == [{"tenant": TENANT, "shop_name": "", "net_revenue_minor": None}]
+    assert out["total_net_revenue_minor"] == 0
+    assert out["revenue_partial"] is True
+
+
+@pytest.mark.anyio
+async def test_team_summary_sums_across_members_and_never_counts_the_manager_himself():
+    store = MemoryDataStore()
+    referrals = await _seed(store, affiliate_id="aff-promoter-1", commission_amount=4000)
+    now = int(time.time())
+    engine = build([{"id": "inv-1", "subscription_id": "sub-a", "paid_sequence": 1,
+                     "subscription_paid_sequence": 1, "amount_minor": 9900, "refunded_minor": 0,
+                     "paid_at": _iso(now)}], referrals=referrals, hold_days=0)
+    await engine.sync(TENANT)
+    await engine.confirm_if_due("inv-1")
+
+    summary = await engine.team_summary(["aff-promoter-1", "aff-promoter-2"])
+    assert summary["team_confirmed_halalas"] == 4000
+    assert summary["team_pending_halalas"] == 0
+    assert {m["affiliate_id"] for m in summary["members"]} == {"aff-promoter-1", "aff-promoter-2"}
+    empty = next(m for m in summary["members"] if m["affiliate_id"] == "aff-promoter-2")
+    assert empty == {"affiliate_id": "aff-promoter-2", "confirmed_halalas": 0,
+                     "pending_halalas": 0, "commission_count": 0, "shops": [],
+                     "total_net_revenue_minor": 0, "revenue_partial": False}

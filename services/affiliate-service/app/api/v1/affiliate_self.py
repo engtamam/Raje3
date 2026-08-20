@@ -109,6 +109,33 @@ async def commissions(request: Request, principal: Principal = Depends(require_u
     return {"commissions": [c.to_dict() for c in confirmed if c is not None]}
 
 
+@router.get("/team", dependencies=[Depends(rate_limit)])
+async def team(request: Request, principal: Principal = Depends(require_user)) -> Any:
+    """spec §10: a manager's real revenue transparency — who is on his team AND what each of them
+    actually earned, not just the roster invite() already let him build. A promoter calling this
+    is not a manager: he simply has no children (parent_id never points AT him), so this answers
+    an honest empty team rather than needing a role check to refuse anything."""
+    onboarding = _svc(request)
+    affiliate = await onboarding.me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    members = await onboarding.team(affiliate["id"])
+    engine = request.app.state.container.commissions
+    my_own = await engine.revenue_for(affiliate["id"])   # his OWN direct referrals — spec §10's
+                                                          # "مبيعاته المباشرة", not just his team's
+    summary = await engine.team_summary([m["id"] for m in members])
+    by_id = {m["affiliate_id"]: m for m in summary["members"]}
+    empty = {"confirmed_halalas": 0, "pending_halalas": 0, "commission_count": 0,
+            "shops": [], "total_net_revenue_minor": 0, "revenue_partial": False}
+    merged = [{**m, **by_id.get(m["id"], empty)} for m in members]
+    return {"my_shops": my_own["shops"], "my_net_revenue_minor": my_own["total_net_revenue_minor"],
+            "my_revenue_partial": my_own["revenue_partial"],
+            "members": merged, "team_confirmed_halalas": summary["team_confirmed_halalas"],
+            "team_pending_halalas": summary["team_pending_halalas"],
+            "team_net_revenue_minor": summary["team_net_revenue_minor"],
+            "team_revenue_partial": summary["team_revenue_partial"]}
+
+
 @router.put("/payout-method", dependencies=[Depends(rate_limit)])
 async def set_payout_method(request: Request, body: PayoutMethodIn,
                             principal: Principal = Depends(require_user)) -> Any:

@@ -564,3 +564,32 @@ async def test_provisioning_only_happens_once_per_process_even_across_two_approv
     # ONE more call for the second approval's own /members mint — NOT two more for a repeated
     # tenant GET + bootstrap POST. The per-process cache is what saves those.
     assert len(http.calls) == calls_after_first + 1
+
+
+# ── spec §10: a manager's own team roster ───────────────────────────────────────────────────────
+
+@pytest.mark.anyio
+async def test_team_lists_only_direct_children_of_the_given_manager():
+    from app.core.models import ACTIVE, Affiliate
+
+    svc = build()
+    manager = Affiliate(id="mgr-1", person_id="p-mgr", phone="+966501111111", name="المدير",
+                        role=MANAGER, status=ACTIVE)
+    child_a = Affiliate(id="prm-1", person_id="p-a", phone="+966502222222", name="أ",
+                        role=PROMOTER, parent_id="mgr-1", status=ACTIVE)
+    child_b = Affiliate(id="prm-2", person_id="p-b", phone="+966503333333", name="ب",
+                        role=PROMOTER, parent_id="mgr-1", status=ACTIVE)
+    other = Affiliate(id="prm-3", person_id="p-c", phone="+966504444444", name="ج",
+                      role=PROMOTER, parent_id="some-other-manager", status=ACTIVE)
+    for a in (manager, child_a, child_b, other):
+        await svc._store.put(AFFILIATES, a.id, a.to_dict())
+
+    team = await svc.team("mgr-1")
+    assert {m["id"] for m in team} == {"prm-1", "prm-2"}
+    assert all("phone" not in m for m in team)   # names + status only, never PII the caller has no reason to see here
+
+
+@pytest.mark.anyio
+async def test_team_is_empty_for_a_manager_with_nobody_under_him():
+    svc = build()
+    assert await svc.team("mgr-with-no-one") == []

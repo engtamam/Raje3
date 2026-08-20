@@ -190,6 +190,75 @@ class CommissionEngine:
                                          sort=("created_at", "asc"))
         return [Commission.from_dict(r) for r in rows]
 
+    async def totals_for(self, affiliate_id: str) -> dict[str, int]:
+        """One affiliate's own earnings, split by what a manager actually needs to answer "هل
+        فريقي شغّال؟": CONFIRMED (withdrawable), PENDING still on hold, and how many referrals
+        ever converted. `confirm_if_due` is deliberately NOT called here — a manager viewing his
+        team is not "the moment somebody is about to act on a commission" (see confirm_if_due's
+        own docstring); the promoter's own `/me/commissions` read remains the one place a hold
+        actually advances, so a manager glancing at his team never silently flips a promoter's
+        commission state from under him."""
+        rows = await self.of_affiliate(affiliate_id)
+        confirmed = sum(r.amount_halalas for r in rows if r.status == CONFIRMED)
+        pending = sum(r.amount_halalas for r in rows if r.status == PENDING)
+        return {"confirmed_halalas": confirmed, "pending_halalas": pending,
+                "commission_count": len(rows)}
+
+    async def team_summary(self, member_ids: list[str]) -> dict[str, Any]:
+        """spec §10: a manager's real revenue transparency — per-promoter totals, the shops each
+        of them actually brought and what those shops actually PAID (`revenue_for`), and the team
+        sum of both. Reads each member's own commissions/revenue the same way his own dashboard
+        would; nothing here is a second, driftable copy of that math."""
+        members = []
+        team_confirmed = 0
+        team_pending = 0
+        team_revenue = 0
+        team_revenue_partial = False
+        for member_id in member_ids:
+            totals = await self.totals_for(member_id)
+            revenue = await self.revenue_for(member_id)
+            members.append({"affiliate_id": member_id, **totals, **revenue})
+            team_confirmed += totals["confirmed_halalas"]
+            team_pending += totals["pending_halalas"]
+            team_revenue += revenue["total_net_revenue_minor"]
+            team_revenue_partial = team_revenue_partial or revenue["revenue_partial"]
+        return {"members": members, "team_confirmed_halalas": team_confirmed,
+                "team_pending_halalas": team_pending,
+                "team_net_revenue_minor": team_revenue,
+                "team_revenue_partial": team_revenue_partial}
+
+    async def revenue_for(self, affiliate_id: str) -> dict[str, Any]:
+        """spec §10's own words: "الإيراد الحقيقي... قيمة الاشتراك الفعلية اللي دفعتها، لا رقماً
+        مجرداً" — a manager checking his own math needs to see what the shop actually PAID, not
+        just what we owe him for it. Reads billing's own durable paid-invoice history per referred
+        shop, net of refunds — the SAME read sync() uses, so this can never drift from what
+        actually decided a commission; it is simply never turned into money here.
+
+        Best-effort per shop: an unreachable billing (or no integration configured) reports that
+        shop's own revenue as unknown (`None`) rather than failing the whole read — one shop's
+        billing hiccup must not hide a manager's entire team from him."""
+        referrals = await self._referrals.of_affiliate(affiliate_id)
+        shops = []
+        total = 0
+        partial = False
+        for ref in referrals:
+            net = None
+            if self._billing:
+                status, body = self._http.call(
+                    f"{self._billing}/internal/billing/invoices?tenant={ref.tenant}&status=paid",
+                    method="GET", internal=True)
+                if status == 200:
+                    invoices = list((body or {}).get("invoices") or [])
+                    net = sum(int(inv.get("amount_minor", 0)) - int(inv.get("refunded_minor", 0))
+                             for inv in invoices)
+            shops.append({"tenant": ref.tenant, "shop_name": ref.shop_name,
+                         "net_revenue_minor": net})
+            if net is None:
+                partial = True     # one shop's billing hiccup must not hide the rest of the sum
+            else:
+                total += net
+        return {"shops": shops, "total_net_revenue_minor": total, "revenue_partial": partial}
+
 
 def _parse_iso(value: str) -> int | None:
     """billing's own paid_at, folded to epoch seconds — or None for a blank/malformed one, which
