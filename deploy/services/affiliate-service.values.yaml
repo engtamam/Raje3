@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/affiliate-service
-  digest: "sha256:9af84c3188af672b7952cb3c67e4d790445ea2f55a9bb94084dde3615680af40"   # 892642b, published by publish-images.sh
+  digest: "sha256:fb9f5d3b25d3f5153211050e98cbccb45e5e69c3b7c9a86fc7b2c6652dbdbc2f"   # 8136472, published by publish-images.sh
 
 replicas: 1
 
@@ -42,7 +42,10 @@ networkPolicy:
     internet: false
 
 metrics:
-  serviceMonitor: true
+  serviceMonitor: false   # flipped on with the rest of the fleet — the cluster has no
+                          # monitoring.coreos.com/v1 CRDs yet; `true` here made helm refuse the
+                          # whole release ("no matches for kind ServiceMonitor"), which is what
+                          # actually sat behind every prior "no ready pod after 10 minutes"
 
 # From config/product.json — regenerate with scripts/gen_deploy_values.py.
 # Do not hand-edit: `identifiers` are frozen and guarded by safety:product.

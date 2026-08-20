@@ -333,6 +333,18 @@ step "secrets"
 python3 "$ROOT/platform/deploy/server/gen-secrets.py"
 ok "secrets minted (shared values identical across services)"
 
+# OUR OWN first-party services (services/* at the repo root — affiliate-service, operations,
+# campaigns, bookings, loyalty, insights, portal, reminders) live outside the platform submodule,
+# so the call above never sees them; it only scans platform/services. deploy/gen-secrets.py is a
+# close mirror of it scoped to our own services/ tree, and it REUSES the shared values just minted
+# above rather than minting its own — see its own module docstring for why a second, independent
+# PII_SALT would be a real data-integrity bug, not a style choice. Without this step, every one of
+# our own services needed its k3s secret created by hand the first time it went live; this closes
+# that gap for good, on any server, on a first install.
+step "secrets (first-party)"
+python3 "$ROOT/deploy/gen-secrets.py"
+ok "first-party secrets minted (reused shared values, no drift from the platform's own)"
+
 # ── 4a ────────────────────────────────────────────────────────────────────────────────────────
 # AND ONLY NOW CAN POSTGRES START, which is why the wait moved here from the datastores step.
 #
