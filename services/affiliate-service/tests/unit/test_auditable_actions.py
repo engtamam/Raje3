@@ -44,15 +44,19 @@ def test_the_shipped_examples_are_valid():
     validate(AUDITABLE_ACTIONS, "affiliate-service")
 
 
-def test_this_service_declares_its_real_actions_across_admin_internal_and_system():
+def test_this_service_declares_its_real_actions_across_admin_internal_system_and_user():
     """Names what is true today rather than keeping a stale assertion around unexamined — see
     this test's own earlier version's note on why that matters. affiliate.commissions_swept is
-    this service's first system-source action (scheduled work, no human actor) — the template's
-    own docstring calls internal the most-missed category, but system is easy to forget too."""
+    this service's first system-source action (scheduled work, no human actor);
+    affiliate.places_api_key_set is its first user-source one (a manager acting on his OWN
+    account, §٦'s BYOK Google Places key — not a platform-operator action, so it does not belong
+    in admin) — the template's own docstring calls internal the most-missed category, but system
+    and user are easy to forget too."""
     actions = {a["action"] for a in AUDITABLE_ACTIONS}
     assert {"affiliate.application_approved", "affiliate.application_rejected",
-           "affiliate.commissions_synced", "affiliate.commissions_swept"} <= actions
-    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin", "internal", "system"}
+           "affiliate.commissions_synced", "affiliate.commissions_swept",
+           "affiliate.places_api_key_set"} <= actions
+    assert {a["source"] for a in AUDITABLE_ACTIONS} == {"admin", "internal", "system", "user"}
 
 
 def test_the_template_shows_both_criticalities():

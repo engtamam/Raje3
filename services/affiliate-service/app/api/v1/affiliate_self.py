@@ -19,9 +19,12 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
+from app.config import get_settings
 from app.core.employment import EmploymentError
+from app.core.leads import LeadSourcingKeys
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
+from app.core.secret_store import SecretError, SecretStore
 from app.core.wafa import WafaError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-self"])
@@ -311,3 +314,74 @@ async def my_employment_requests(request: Request,
     affiliate_id = await _my_affiliate_id(request, principal)
     rows = await request.app.state.container.employment.of_affiliate(affiliate_id)
     return {"employment_requests": [r.to_dict() for r in rows]}
+
+
+# ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK, Tamam 2026-08-20) ──────────
+
+class PlacesApiKeyIn(BaseModel):
+    api_key: str = Field(min_length=1, max_length=512)
+
+
+def _leads_keys(request: Request) -> LeadSourcingKeys:
+    s = get_settings()
+    if not s.SECRETS_KEK:
+        # Same refusal shape as operator.py's own _secret_store — no KEK, nothing to seal with,
+        # storing the key anyway is the one outcome that must never happen.
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "SECRETS_UNAVAILABLE")
+    store = SecretStore(request.app.state.container.datastore, s.SECRETS_KEK,
+                        rotation_window_s=s.SECRETS_ROTATION_WINDOW_SECONDS)
+    return LeadSourcingKeys(secret_store=store, fallback_api_key=s.LEADS_PLACES_API_KEY_FALLBACK)
+
+
+async def _my_manager_affiliate(request: Request, principal: Principal) -> dict[str, Any]:
+    """§٦: "للمدير فقط" — lead sourcing (and the API key that powers it) is not a promoter's
+    concern. A data check on the caller's own role, same shape as invite()'s own
+    `managers_only` — never a capability, since the question is "is the caller himself a
+    manager", not "may managers in general do this"."""
+    affiliate = await _svc(request).me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    if affiliate["role"] != get_settings().AFFILIATE_MANAGER_ROLE:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "MANAGERS_ONLY")
+    return affiliate
+
+
+@router.put("/places-api-key", dependencies=[Depends(rate_limit)])
+async def set_places_api_key(request: Request, body: PlacesApiKeyIn,
+                             principal: Principal = Depends(require_user)) -> Any:
+    affiliate = await _my_manager_affiliate(request, principal)
+    # AUDITED BEFORE THE WRITE (operator.py's own convention for exactly this family): the old
+    # key is overwritten by the action itself, so an unrecorded rotation is unreconstructable.
+    await request.app.state.auditor.record(
+        "affiliate.places_api_key_set", actor=affiliate["id"], tenant="",
+        resource=f"affiliate:{affiliate['id']}",
+        ip=request.client.host if request.client else "")
+    try:
+        info = await _leads_keys(request).set_key(
+            affiliate["id"], value=body.api_key, actor_ref=affiliate["id"])
+    except SecretError as exc:
+        return JSONResponse(status_code=400, content={"ok": False, "message": str(exc)})
+    return {"ok": True, "hint": info.hint, "set_at": info.set_at}
+
+
+@router.get("/places-api-key", dependencies=[Depends(rate_limit)])
+async def get_places_api_key(request: Request,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """A hint only — same write-only guarantee as operator.py's own secrets. Never the value."""
+    affiliate = await _my_manager_affiliate(request, principal)
+    info = await _leads_keys(request).info(affiliate["id"])
+    if info is None:
+        return {"set": False}
+    return {"set": True, "hint": info.hint, "set_at": info.set_at}
+
+
+@router.delete("/places-api-key", dependencies=[Depends(rate_limit)])
+async def clear_places_api_key(request: Request,
+                               principal: Principal = Depends(require_user)) -> dict:
+    affiliate = await _my_manager_affiliate(request, principal)
+    await request.app.state.auditor.record(
+        "affiliate.places_api_key_cleared", actor=affiliate["id"], tenant="",
+        resource=f"affiliate:{affiliate['id']}",
+        ip=request.client.host if request.client else "")
+    cleared = await _leads_keys(request).clear_key(affiliate["id"])
+    return {"ok": True, "cleared": cleared}

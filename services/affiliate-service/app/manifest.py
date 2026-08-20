@@ -116,6 +116,10 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/employment-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/employment-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/employment-requests/{}/decision", "tier": "user", "method": "POST"},
+            # §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK).
+            {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "DELETE"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},

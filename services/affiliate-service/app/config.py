@@ -191,6 +191,12 @@ class Settings(BaseSettings):
 
     # ── «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
     AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS: int = 500
+
+    # ── §٦ Lead Sourcing — see core/leads.py's own module docstring on BYOK.
+    # A platform-wide LAST-RESORT default, only reached when a manager has set no key of his own
+    # AND no admin has set a tenant="" default via SecretStore either. Blank means "refused" —
+    # see the routes in api/v1/affiliate_self.py.
+    LEADS_PLACES_API_KEY_FALLBACK: str = ""
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a

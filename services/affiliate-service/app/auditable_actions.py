@@ -248,6 +248,24 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "denied after meeting the platform's own published threshold",
     },
     {
+        "action": "affiliate.places_api_key_set",
+        "source": "user",
+        "critical": True,
+        "resource": "secret",
+        "why": "a credential change is the action that most needs attribution — the previous "
+               "value is gone the moment it happens, so an unrecorded change cannot be "
+               "reconstructed, and an unattributable one is indistinguishable from an attacker "
+               "swapping a manager's own Google API key for one that bills him",
+    },
+    {
+        "action": "affiliate.places_api_key_cleared",
+        "source": "user",
+        "critical": True,
+        "resource": "secret",
+        "why": "clearing his own key silently drops lead-sourcing back to the platform's own "
+               "fallback (or refuses it outright) — a behaviour change nobody would otherwise see",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,
