@@ -487,3 +487,49 @@ class WafaRequest:
             decided_by=str(d.get("decided_by", "")), decided_at=int(d.get("decided_at", 0)),
             reason=str(d.get("reason", "")), granted_at=int(d.get("granted_at", 0)),
         )
+
+
+# ── «رشّح نفسك لوظيفة» — spec §8's other promotion path ─────────────────────────────────────────
+#: A ONE-TIME career milestone, not a recurring payment — no tier math, no cooldown (a rejected
+#: marketer may simply try again once he genuinely has more converted customers; nothing here
+#: punishes that). Separate from WafaRequest on purpose: "قابل للتوظيف" and "يستحق دخلاً شهرياً"
+#: are two different questions with two different thresholds and two different decision-makers.
+EMPLOYMENT_REQUESTS = "affiliate_employment_requests"
+
+EMPLOYMENT_REQUESTED = "requested"
+EMPLOYMENT_APPROVED = "approved"
+EMPLOYMENT_REJECTED = "rejected"
+EMPLOYMENT_STATUSES = (EMPLOYMENT_REQUESTED, EMPLOYMENT_APPROVED, EMPLOYMENT_REJECTED)
+
+
+@dataclass
+class EmploymentRequest:
+    id: str
+    affiliate_id: str
+    #: How many of his referrals had ever actually converted (a real CONVERSION commission
+    #: exists) AT REQUEST TIME — locked, same "never re-read from a moving number later" rule as
+    #: WafaRequest.active_shops.
+    converted_customers: int = 0
+    status: str = EMPLOYMENT_REQUESTED
+    requested_at: int = 0
+    decided_by: str = ""
+    decided_at: int = 0
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "affiliate_id": self.affiliate_id,
+            "converted_customers": self.converted_customers, "status": self.status,
+            "requested_at": self.requested_at, "decided_by": self.decided_by,
+            "decided_at": self.decided_at, "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "EmploymentRequest":
+        return cls(
+            id=str(d.get("id", "")), affiliate_id=str(d.get("affiliate_id", "")),
+            converted_customers=int(d.get("converted_customers", 0)),
+            status=str(d.get("status", EMPLOYMENT_REQUESTED)),
+            requested_at=int(d.get("requested_at", 0)), decided_by=str(d.get("decided_by", "")),
+            decided_at=int(d.get("decided_at", 0)), reason=str(d.get("reason", "")),
+        )

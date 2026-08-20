@@ -238,6 +238,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "a stipend the shop-count threshold said he qualified for",
     },
     {
+        "action": "affiliate.employment_decided",
+        "source": "admin",
+        "critical": True,
+        "resource": "employment_request",
+        "why": "an HR-family decision on real staff status (spec §8) — an unattributable "
+               "approval is indistinguishable from an attacker minting himself official employee "
+               "status; an unattributable refusal leaves a marketer with no record of why he was "
+               "denied after meeting the platform's own published threshold",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

@@ -188,6 +188,9 @@ class Settings(BaseSettings):
     # admin may still grant against it (see WafaService.admin_decide).
     WAFA_RETENTION_MIN: float = 0.70
     WAFA_REFUND_MAX: float = 0.15
+
+    # ── «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
+    AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS: int = 500
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a

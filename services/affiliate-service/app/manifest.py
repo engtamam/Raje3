@@ -111,6 +111,11 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/team/wafa-requests/{}/decision", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/wafa-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/wafa-requests/{}/decision", "tier": "user", "method": "POST"},
+            # «رشّح نفسك لوظيفة» (spec §8).
+            {"path": "/api/v1/affiliates/me/employment-requests", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/me/employment-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/employment-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/employment-requests/{}/decision", "tier": "user", "method": "POST"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},

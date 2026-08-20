@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
+from app.core.employment import EmploymentError
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
 from app.core.wafa import WafaError
@@ -57,6 +58,13 @@ def _payout_refused(exc: PayoutError) -> JSONResponse:
 
 
 def _wafa_refused(exc: WafaError) -> JSONResponse:
+    body: dict[str, Any] = {"ok": False, "message": str(exc)}
+    if getattr(exc, "reason", ""):
+        body["reason"] = exc.reason
+    return JSONResponse(status_code=400, content=body)
+
+
+def _employment_refused(exc: EmploymentError) -> JSONResponse:
     body: dict[str, Any] = {"ok": False, "message": str(exc)}
     if getattr(exc, "reason", ""):
         body["reason"] = exc.reason
@@ -282,3 +290,24 @@ async def decide_team_wafa_request(request: Request, wafa_id: str, body: WafaMan
     except WafaError as exc:
         return _wafa_refused(exc)
     return {"ok": True, **out.to_dict()}
+
+
+# ── «رشّح نفسك لوظيفة» (spec §8) — the marketer's own side ─────────────────────────────────────
+
+@router.post("/employment-requests", dependencies=[Depends(rate_limit)])
+async def request_employment(request: Request,
+                             principal: Principal = Depends(require_user)) -> Any:
+    affiliate_id = await _my_affiliate_id(request, principal)
+    try:
+        out = await request.app.state.container.employment.request(affiliate_id)
+    except EmploymentError as exc:
+        return _employment_refused(exc)
+    return {"ok": True, **out}
+
+
+@router.get("/employment-requests", dependencies=[Depends(rate_limit)])
+async def my_employment_requests(request: Request,
+                                 principal: Principal = Depends(require_user)) -> dict:
+    affiliate_id = await _my_affiliate_id(request, principal)
+    rows = await request.app.state.container.employment.of_affiliate(affiliate_id)
+    return {"employment_requests": [r.to_dict() for r in rows]}

@@ -169,6 +169,7 @@ class Container:
     commissions: Any = None
     payouts: Any = None
     wafa: Any = None
+    employment: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -294,5 +295,13 @@ def build_container(settings: Settings) -> Container:
         cooldown_days=settings.WAFA_COOLDOWN_DAYS,
         retention_min=settings.WAFA_RETENTION_MIN,
         refund_max=settings.WAFA_REFUND_MAX,
+    )
+    # «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
+    from app.core.employment import EmploymentService
+
+    container.employment = EmploymentService(
+        store=container.datastore,
+        commissions=container.commissions,
+        threshold_customers=settings.AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS,
     )
     return container
