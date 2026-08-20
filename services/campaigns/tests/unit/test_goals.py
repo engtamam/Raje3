@@ -76,6 +76,10 @@ def test_a_blocked_type_is_shown_with_the_real_reason_rather_than_hidden():
     assert got["win_back"].available
     assert got["announce"].needs_enabling and not got["announce"].available
     assert "قيد مراجعة واتساب" in got["announce"].unavailable_reason
+    # THE INTERNAL NAME NEVER REACHES HIM. It came in embedded in reminders' own sentence and must
+    # be swapped for the card's own title before it is ever shown.
+    assert "mkt_announcement" not in got["announce"].unavailable_reason
+    assert "أعلن جديدك" in got["announce"].unavailable_reason
 
 
 def test_a_blocked_type_with_no_known_reason_still_says_something_honest():

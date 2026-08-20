@@ -166,12 +166,20 @@ def cards(*, now: int, fills_by_type: dict[str, list[str]] | None = None, locks:
         if enabled_types is not None and tmpl_type not in enabled_types:
             card.needs_enabling = True
             card.available = False
-            # REMINDERS' OWN SENTENCE, NOT OURS. It already tells the two truths apart — «قوالب …
+            # REMINDERS' OWN SENTENCE — BUT NEVER ITS OWN WORDS FOR THE TEMPLATE. It already tells
+            # the two truths apart — «قوالب …
             # قيد مراجعة واتساب» resolves itself in hours and needs nothing from him; «لا يوجد قالب
             # فعّال» is ours to fix, not his. The one line this used to hardcode («غير مفعّل — اضغط
             # للتفعيل») was wrong on both counts: nothing here is a switch he owns, and the card is
             # `disabled` below regardless, so the tap it promised never did anything.
             reason = (blocked_reasons or {}).get(tmpl_type, "")
+            # `tmpl_type` ITSELF NEVER REACHES THE CARD. reminders' sentence is written for its own
+            # logs and names the internal template type verbatim ("قوالب mkt_winback ما زالت قيد
+            # مراجعة واتساب") — an internal identifier, not a word an owner has ever been shown
+            # anywhere else in the product. Swapped for the card's own title, which already IS the
+            # owner-facing name for exactly this goal.
+            if reason and tmpl_type:
+                reason = reason.replace(tmpl_type, card.title)
             card.unavailable_reason = reason or "هذا الهدف غير متاح حالياً — نعمل على تفعيله."
 
         out.append(card)
