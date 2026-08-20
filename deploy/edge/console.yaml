@@ -32,7 +32,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: console
-          image: ghcr.io/engtamam/raje3/console@sha256:3cd83caecc469a99419922b5d0e5a7ed4c06e276c253cf9ec9fe3d18f472d4cd   # 8136472, published by publish-images.sh
+          image: ghcr.io/engtamam/raje3/console@sha256:9899b2e9232af1f70e6703e9410861ab8a4fb65ce48b772e5dea7fe50d976e3a   # fbedae1, published by publish-images.sh
           ports:
             - { containerPort: 8080 }
           securityContext:
