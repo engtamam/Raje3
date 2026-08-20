@@ -25,6 +25,9 @@
  * rewritten in a browser, and a form asking him to write a message would be a form he abandons.
  */
 import { useEffect, useState } from 'react';
+import {
+  AlertTriangle, Cake, Gift, Info, Megaphone, RotateCcw, Tag, type LucideIcon,
+} from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -33,6 +36,24 @@ import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { western } from '../digits';
+
+/**
+ * `campaigns-service` (app/core/goals.py) sends a NAME, never an emoji — "return", "gift",
+ * "megaphone"... the same identifier scheme `nav.ts` already uses for the rail. Rendering it as
+ * literal text (which this screen did, Tamam 2026-08-20 — screenshot: an Arabic title with the
+ * English word "return" printed right beside it) is what a caller does with a name it never
+ * mapped. An unknown name falls back to `Tag` rather than rendering nothing — a wrong icon is a
+ * smaller fault than a blank one, and both are more honest than the raw string.
+ */
+const GOAL_ICONS: Record<string, LucideIcon> = {
+  return: RotateCcw,
+  gift: Gift,
+  megaphone: Megaphone,
+  cake: Cake,
+  info: Info,
+  alert: AlertTriangle,
+  tag: Tag,
+};
 
 interface Goal {
   goal: string;
@@ -526,7 +547,10 @@ export function Launch({ session, catalog, onDone }:
           onClick={() => setPicked(g)}
           className="flex items-start gap-3 rounded-card bg-surface-1 p-4 text-start shadow-sm disabled:opacity-60"
         >
-          {g.icon ? <span className="text-xl leading-none">{g.icon}</span> : null}
+          {g.icon ? (() => {
+            const Icon = GOAL_ICONS[g.icon!] ?? Tag;
+            return <Icon size={20} className="shrink-0" aria-hidden />;
+          })() : null}
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="font-medium">{g.title}</span>
             <span className="text-sm text-text-secondary">{g.line}</span>

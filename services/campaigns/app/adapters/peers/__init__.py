@@ -428,7 +428,8 @@ def build_peers(settings) -> dict[str, Any]:
     return {
         "templates": HttpTemplates(url=settings.REMINDERS_SERVICE_URL,
                                    path=settings.REMINDERS_SENDABLE_PATH,
-                                   token=settings.INTERNAL_SERVICE_TOKEN, timeout=t),
+                                   token=settings.INTERNAL_SERVICE_TOKEN, timeout=t,
+                                   ttl_seconds=settings.TEMPLATES_CACHE_TTL_SECONDS),
         "audience": HttpAudience(operations_url=settings.OPERATIONS_SERVICE_URL,
                                  customers_path=settings.CUSTOMERS_PATH,
                                  reminders_url=settings.REMINDERS_SERVICE_URL,

@@ -277,6 +277,7 @@ def test_the_peer_builder_answers_every_key_the_container_reads():
         TENANT_READ_PATH = "/internal/tenants/{id}"
         SEND_WINDOW_START_HOUR = 9
         SEND_WINDOW_END_HOUR = 21
+        TEMPLATES_CACHE_TTL_SECONDS = 15
 
     built = set(build_peers(S()))
     src = Path(__file__).resolve().parents[2].joinpath("app", "container.py").read_text(
@@ -413,6 +414,85 @@ def test_the_template_peer_asks_about_THIS_shop_and_caches_per_tenant():
         asyncio.run(c.pick("t-quiet", "mkt_winback"))
         assert len(asked) == before, "a second read for a tenant already cached"
         assert sorted({u.split("tenant=", 1)[1] for u in asked}) == ["t-loud", "t-new", "t-quiet"]
+    finally:
+        P._get = original
+
+
+def test_the_template_cache_ttl_is_configured_not_a_fixed_five_minutes():
+    """Tamam, 2026-08-20: an owner enabled a template in reminders' own screen and the goal card
+    still read «غير مفعّل» — `build_peers` never passed `ttl_seconds` through at all, so every
+    deployment silently ran `HttpTemplates`' own 300-second class default with no way to shorten
+    it short of a code change. `TEMPLATES_CACHE_TTL_SECONDS` closes that: settings decide it now,
+    not the class body."""
+    from app.adapters.peers import HttpTemplates, build_peers
+
+    class S:
+        PEERS_DRIVER = "http"
+        PEER_TIMEOUT_SECONDS = 8
+        INTERNAL_SERVICE_TOKEN = "t" * 40
+        OPERATIONS_SERVICE_URL = "http://operations:8000"
+        REMINDERS_SERVICE_URL = "http://reminders:8000"
+        TENANT_SERVICE_URL = "http://tenant-service:8000"
+        INSIGHTS_SERVICE_URL = "http://insights:8000"
+        CUSTOMERS_PATH = "/internal/operations/customers"
+        OFFERS_REDEEMED_PATH = "/internal/operations/offers-redeemed"
+        ELIGIBILITY_PATH = "/internal/reminders/eligibility"
+        SEND_PATH = "/internal/reminders/send"
+        REMINDERS_ROOM_PATH = "/internal/reminders/room"
+        REMINDERS_SENDABLE_PATH = "/internal/reminders/sendable"
+        REMINDERS_RHYTHMS_PATH = "/internal/reminders/rhythms"
+        INSIGHTS_RESERVE_PATH = "/internal/insights/engine-reserve"
+        TENANT_READ_PATH = "/internal/tenants/{id}"
+        SEND_WINDOW_START_HOUR = 9
+        SEND_WINDOW_END_HOUR = 21
+        TEMPLATES_CACHE_TTL_SECONDS = 42
+
+    templates = build_peers(S())["templates"]
+    assert isinstance(templates, HttpTemplates)
+    assert templates._ttl == 42                                          # noqa: SLF001
+
+
+def test_a_stale_template_answer_refreshes_once_the_ttl_elapses():
+    """A short TTL is what makes «فعّلتها ومع ذلك باقي نفس الشي» self-heal within seconds instead
+    of the old five-minute wait — this is the behaviour that setting actually buys, not just a
+    number stored on the object."""
+    import asyncio
+    import json
+
+    from app.adapters import peers as P
+
+    calls = {"n": 0}
+    answer = {"templates": {}}                      # nothing enabled yet
+
+    def fake_get(url, token, timeout):
+        calls["n"] += 1
+        return json.loads(json.dumps(answer))
+
+    original, P._get = P._get, fake_get
+    try:
+        clock = {"t": 1000.0}
+        c = P.HttpTemplates(url="http://reminders:8000", path="/internal/reminders/sendable",
+                            token="t" * 40, ttl_seconds=15)
+        import time as _time
+        real_time = _time.time
+        _time.time = lambda: clock["t"]
+        try:
+            assert asyncio.run(c.enabled_types("t-1")) == set()
+            assert calls["n"] == 1
+
+            # STILL INSIDE THE WINDOW — the cached (stale, in real life) answer, no new call.
+            clock["t"] += 10
+            assert asyncio.run(c.enabled_types("t-1")) == set()
+            assert calls["n"] == 1
+
+            # THE OWNER ENABLED IT IN REMINDERS' OWN SCREEN, out of band — this client cannot
+            # know that happened, only that its own window has now elapsed.
+            answer["templates"] = {"mkt_winback": {"name": "wb"}}
+            clock["t"] += 10          # 20s since the first read — past the 15s TTL
+            assert asyncio.run(c.enabled_types("t-1")) == {"mkt_winback"}
+            assert calls["n"] == 2
+        finally:
+            _time.time = real_time
     finally:
         P._get = original
 

@@ -198,6 +198,15 @@ class Settings(BaseSettings):
     TENANT_SERVICE_URL: str = ""
     TENANT_READ_PATH: str = "/internal/tenants/{id}"
     PEER_TIMEOUT_SECONDS: int = 8
+    # Tamam, 2026-08-20: an owner enabled a template type in reminders' own screen and the goal
+    # card still read «غير مفعّل» — HttpTemplates' own per-tenant cache (adapters/peers) held the
+    # PREVIOUS answer, and `build_peers` never passed this through, so every deployment ran the
+    # class default (300s) with no way to shorten it short of a code change. This service owns no
+    # write path into reminders' template library, so it cannot invalidate the cache the moment
+    # it changes — only bound how long a stale answer survives. Short enough that "I just enabled
+    # it" stops being a real complaint; long enough that opening the campaigns screen twice in a
+    # row does not hit reminders on every load.
+    TEMPLATES_CACHE_TTL_SECONDS: int = 15
 
     # ── what the shop actually bought ─────────────────────────────────────────
     # THIS SERVICE HAD NO BILLING SETTINGS AT ALL, and `feature.campaigns` is the line between
