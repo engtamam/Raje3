@@ -31,6 +31,8 @@ from app.core.models import (
     JOB_QUEUED,
     JOB_RUNNING,
     LEAD_ASSIGNED,
+    LEAD_MANUAL_STATUSES,
+    LEAD_REGISTERED,
     LEAD_SEARCH_JOBS,
     LEADS,
     Affiliate,
@@ -51,21 +53,29 @@ class LeadError(Exception):
 
 
 class LeadSourcingService:
-    def __init__(self, *, store, keys, onboarding, default_delay_seconds: float = 0.0) -> None:
+    def __init__(self, *, store, keys, onboarding, sectors=None,
+                default_delay_seconds: float = 0.0) -> None:
         self._s = store
         self._keys = keys              # LeadSourcingKeys — resolve() gives the manager's own key
         self._onboarding = onboarding  # OnboardingService — team() for the assignment ownership check
+        self._sectors = sectors        # SectorService — validates sector_code at request time
         self._delay = default_delay_seconds
 
     # ── starting a search ─────────────────────────────────────────────────────────────────────
-    async def start_job(self, affiliate_id: str, *, place_type: str, keywords: list[str],
-                        radius_km: float, cities: list[dict[str, Any]],
+    async def start_job(self, affiliate_id: str, *, place_type: str, sector_code: str,
+                        keywords: list[str], radius_km: float, cities: list[dict[str, Any]],
                         apply_filter: bool = False,
                         filter_indicators: list[str] | None = None) -> dict[str, Any]:
         row = await self._s.get(AFFILIATES, affiliate_id)
         affiliate = Affiliate.from_dict(row) if row else None
         if affiliate is None:
             raise LeadError("المسوّق غير موجود.", reason="not_found")
+        if not sector_code:
+            raise LeadError("اختر قطاعًا للبحث.", reason="no_sector")
+        if self._sectors is not None:
+            sector = await self._sectors.get(sector_code)
+            if sector is None or not sector.active:
+                raise LeadError("القطاع غير معروف أو غير مفعّل.", reason="unknown_sector")
         if not keywords:
             raise LeadError("أدخل كلمة بحث واحدة على الأقل.", reason="no_keywords")
         if not cities:
@@ -77,8 +87,9 @@ class LeadSourcingService:
 
         job = LeadSearchJob(
             id=new_id(), affiliate_id=affiliate_id, place_type=place_type,
-            keywords=list(keywords), radius_km=radius_km, cities=list(cities),
-            apply_filter=apply_filter, filter_indicators=list(filter_indicators or []),
+            sector_code=sector_code, keywords=list(keywords), radius_km=radius_km,
+            cities=list(cities), apply_filter=apply_filter,
+            filter_indicators=list(filter_indicators or []),
             status=JOB_QUEUED, created_at=int(time.time()),
         )
         await self._s.put(LEAD_SEARCH_JOBS, job.id, job.to_dict())
@@ -226,7 +237,8 @@ class LeadSourcingService:
         lead = Lead(
             id=place_id, place_id=place_id, phone=phone,
             name=details.get("name") or place.get("name", ""),
-            place_type=job.place_type, city=city.get("name", ""), region=city.get("region", ""),
+            place_type=job.place_type, sector_code=job.sector_code,
+            city=city.get("name", ""), region=city.get("region", ""),
             address=details.get("formatted_address") or place.get("vicinity", ""),
             maps_url=details.get("url") or
                     f"https://www.google.com/maps/place/?q=place_id:{place_id}",
@@ -254,6 +266,14 @@ class LeadSourcingService:
                                      sort=("found_at", "desc"))
         return [Lead.from_dict(r) for r in rows]
 
+    def _note(self, lead: Lead, *, by: str, text: str = "", status_from: str = "",
+             status_to: str = "") -> None:
+        """APPEND-ONLY (Tamam, 2026-08-20: "خانة ملاحظات عشان ما ينسى وش سار") — every status
+        change and every reassignment writes its own entry automatically; a free-text note is
+        just one more entry in the SAME log, never a second, separate history to keep in sync."""
+        lead.notes.append({"at": int(time.time()), "by": by, "text": text,
+                           "status_from": status_from, "status_to": status_to})
+
     async def assign(self, lead_id: str, *, manager_id: str, promoter_id: str) -> Lead:
         lead_row = await self._s.get(LEADS, lead_id)
         lead = Lead.from_dict(lead_row) if lead_row else None
@@ -268,7 +288,96 @@ class LeadSourcingService:
         if promoter_id not in {m["id"] for m in members}:
             raise LeadError("هذا المسوّق ليس ضمن فريقك.", reason="not_on_your_team")
 
+        previous = lead.assigned_to
+        self._note(lead, by=manager_id,
+                  text=(f"أُعيد الإسناد من {previous} إلى {promoter_id}" if previous
+                       else f"أُسنِد إلى {promoter_id}"),
+                  status_from=lead.status, status_to=LEAD_ASSIGNED)
         lead.assigned_to = promoter_id
         lead.status = LEAD_ASSIGNED
         await self._s.put(LEADS, lead.id, lead.to_dict())
         return lead
+
+    # ── the follow-up pipeline — spec's own point: a marketer must be able to track it ──────────
+    async def set_status(self, lead_id: str, *, affiliate_id: str, new_status: str,
+                         text: str = "") -> Lead:
+        """Only the assigned promoter, or his OWN manager, may move a lead through the pipeline —
+        ownership, never a capability, same shape as everything else in this file.
+        LEAD_NEW/LEAD_ASSIGNED/LEAD_REGISTERED are never reachable here (see LEAD_MANUAL_STATUSES'
+        own note) — a promoter cannot fake "registered" without actually calling
+        link_registration() against a real referral."""
+        if new_status not in LEAD_MANUAL_STATUSES:
+            raise LeadError("حالة غير معروفة.", reason="bad_status")
+        lead_row = await self._s.get(LEADS, lead_id)
+        lead = Lead.from_dict(lead_row) if lead_row else None
+        if lead is None:
+            raise LeadError("العميل المحتمل غير موجود.", reason="not_found")
+
+        allowed = affiliate_id == lead.assigned_to
+        if not allowed and lead.assigned_to:
+            assignee_row = await self._s.get(AFFILIATES, lead.assigned_to)
+            assignee = Affiliate.from_dict(assignee_row) if assignee_row else None
+            allowed = assignee is not None and assignee.parent_id == affiliate_id
+        if not allowed:
+            raise LeadError("ما تقدر تعدّل حالة عميل محتمل مو مُسنَد لك أو لأحد بفريقك.",
+                            reason="not_yours")
+
+        self._note(lead, by=affiliate_id, text=text, status_from=lead.status,
+                  status_to=new_status)
+        lead.status = new_status
+        await self._s.put(LEADS, lead.id, lead.to_dict())
+        return lead
+
+    # ── linking a lead to the real shop it became — spec's own "ربط بسيط", by hand only ────────
+    async def link_registration(self, lead_id: str, *, affiliate_id: str, tenant: str,
+                                referrals) -> Lead:
+        """Tamam, 2026-08-20: a shop sometimes signs up with a DIFFERENT phone than the one
+        Google has — the automatic place_id/phone dedup can never catch that. A marketer who
+        recognises "this lead is the shop I just referred" says so HIMSELF; nothing here
+        attempts to guess it from a name or address. `referrals` is the ReferralRegistry — the
+        SAME source of truth GET /me/team's ownership checks already use, never a second,
+        driftable notion of "his shop"."""
+        lead_row = await self._s.get(LEADS, lead_id)
+        lead = Lead.from_dict(lead_row) if lead_row else None
+        if lead is None:
+            raise LeadError("العميل المحتمل غير موجود.", reason="not_found")
+        # His own lead — either he found it (manager) or it was assigned to him (promoter).
+        if lead.source_manager_id != affiliate_id and lead.assigned_to != affiliate_id:
+            raise LeadError("هذا العميل المحتمل ليس ضمن قائمتك.", reason="not_yours")
+
+        referral = await referrals.of_tenant(tenant)
+        if referral is None or referral.affiliate_id != affiliate_id:
+            # The SAME ownership boundary as the ticket routes: he only links a shop that
+            # actually referred THROUGH HIM, never any tenant in the system.
+            raise LeadError("هذا المحل ليس ضمن إحالاتك.", reason="not_your_referral")
+
+        self._note(lead, by=affiliate_id, text=f"سُجِّل كمحل حقيقي: {tenant}",
+                  status_from=lead.status, status_to=LEAD_REGISTERED)
+        lead.converted_tenant = tenant
+        lead.status = LEAD_REGISTERED
+        await self._s.put(LEADS, lead.id, lead.to_dict())
+        return lead
+
+    # ── §٦'s own point: sector/city analytics for a data-driven dashboard ────────────────────────
+    async def sector_stats(self, *, affiliate_id: str = "", limit: int = 5000) -> list[dict[str, Any]]:
+        """Counts grouped by (sector_code, city), WITH a full status breakdown per group (Tamam,
+        2026-08-20: "تنضاف هذه على الداشبورد الشاملة حقت المدير") — `affiliate_id` scopes to one
+        manager's own finds (his team dashboard); blank scans the whole table (the platform-wide
+        admin view). A bounded scan over a config-sized collection, same idiom as
+        SectorService.list — never the shape of a request-path read."""
+        if affiliate_id:
+            rows, _ = await self._s.find(LEADS, {"source_manager_id": affiliate_id}, limit=limit)
+        else:
+            rows = await self._s.scan_all(LEADS, limit)
+        counts: dict[tuple[str, str], int] = {}
+        by_status: dict[tuple[str, str], dict[str, int]] = {}
+        for r in rows:
+            key = (r.get("sector_code", ""), r.get("city", ""))
+            counts[key] = counts.get(key, 0) + 1
+            bucket = by_status.setdefault(key, {})
+            st = r.get("status", "")
+            bucket[st] = bucket.get(st, 0) + 1
+        return [{"sector_code": k[0], "city": k[1], "lead_count": v,
+                "by_status": by_status.get(k, {}),
+                "registered_count": by_status.get(k, {}).get(LEAD_REGISTERED, 0)}
+               for k, v in sorted(counts.items())]

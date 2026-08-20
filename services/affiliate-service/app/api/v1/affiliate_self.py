@@ -402,6 +402,9 @@ class CityIn(BaseModel):
 
 class SearchIn(BaseModel):
     place_type: str = Field(default="", max_length=100)
+    #: Sector.code, from the managed taxonomy (GET /me/sectors) — Tamam, 2026-08-20: "قطاعات...
+    #: ما لها دخل بالمرادفات". The analytics column; never typed free, always picked.
+    sector_code: str = Field(min_length=1, max_length=64)
     #: Synonyms searched TOGETHER in one job (places_scraper_v2.py's own multi-keyword loop —
     #: "صالون نسائي"/"مركز تجميل نسائي"/... found the same businesses under different listings).
     #: The API's own ceiling stays generous (20); Tamam, 2026-08-20: the CONSOLE limits its own
@@ -424,7 +427,8 @@ def _lead_sourcing(request: Request) -> LeadSourcingService:
     is reached only from POST /internal/leads/tick). Requiring SECRETS_KEK here would 503 a
     promoter's own GET /me/leads for a reason that has nothing to do with him."""
     return LeadSourcingService(store=request.app.state.container.datastore, keys=None,
-                               onboarding=_svc(request))
+                               onboarding=_svc(request),
+                               sectors=request.app.state.container.sectors)
 
 
 def _lead_refused(exc: LeadError) -> JSONResponse:
@@ -443,8 +447,9 @@ async def start_lead_search(request: Request, body: SearchIn,
     affiliate = await _my_manager_affiliate(request, principal)
     try:
         out = await _lead_sourcing(request).start_job(
-            affiliate["id"], place_type=body.place_type, keywords=body.keywords,
-            radius_km=body.radius_km, cities=[c.model_dump() for c in body.cities],
+            affiliate["id"], place_type=body.place_type, sector_code=body.sector_code,
+            keywords=body.keywords, radius_km=body.radius_km,
+            cities=[c.model_dump() for c in body.cities],
             apply_filter=body.apply_filter, filter_indicators=body.filter_indicators)
     except LeadError as exc:
         return _lead_refused(exc)
@@ -498,6 +503,70 @@ async def assign_lead(request: Request, lead_id: str, body: AssignIn,
     except LeadError as exc:
         return _lead_refused(exc)
     return {"ok": True, **out.to_dict()}
+
+
+class SetLeadStatusIn(BaseModel):
+    status: str = Field(min_length=1, max_length=32)
+    text: str = Field(default="", max_length=1000)
+
+
+@router.post("/leads/{lead_id}/status", dependencies=[Depends(rate_limit)])
+async def set_lead_status(request: Request, lead_id: str, body: SetLeadStatusIn,
+                          principal: Principal = Depends(require_user)) -> Any:
+    """Tamam, 2026-08-20: a real follow-up pipeline, so the marketing team actually tracks who
+    they contacted and how it went — see core/lead_sourcing.py::set_status for the exact
+    ownership rule (the assigned promoter, or his own manager, never anyone else)."""
+    affiliate = await _svc(request).me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    try:
+        out = await _lead_sourcing(request).set_status(
+            lead_id, affiliate_id=affiliate["id"], new_status=body.status, text=body.text)
+    except LeadError as exc:
+        return _lead_refused(exc)
+    return {"ok": True, **out.to_dict()}
+
+
+class LinkRegistrationIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+
+
+@router.post("/leads/{lead_id}/link-registration", dependencies=[Depends(rate_limit)])
+async def link_lead_registration(request: Request, lead_id: str, body: LinkRegistrationIn,
+                                 principal: Principal = Depends(require_user)) -> Any:
+    """Tamam, 2026-08-20: a shop sometimes signs up with a phone Google never had — the marketer
+    himself says "this lead became THIS real shop", by hand, from HIS OWN referrals only. See
+    core/lead_sourcing.py::link_registration for why nothing here is inferred automatically."""
+    affiliate = await _svc(request).me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    try:
+        out = await _lead_sourcing(request).link_registration(
+            lead_id, affiliate_id=affiliate["id"], tenant=body.tenant,
+            referrals=request.app.state.container.referrals)
+    except LeadError as exc:
+        return _lead_refused(exc)
+    return {"ok": True, **out.to_dict()}
+
+
+@router.get("/leads/sector-stats", dependencies=[Depends(rate_limit)])
+async def my_lead_sector_stats(request: Request,
+                               principal: Principal = Depends(require_user)) -> dict:
+    """§٦'s own point: sector × city counts for a data-driven dashboard — a manager's own finds
+    only (spec §9's own scoping)."""
+    affiliate = await _my_manager_affiliate(request, principal)
+    stats = await _lead_sourcing(request).sector_stats(affiliate_id=affiliate["id"])
+    return {"stats": stats}
+
+
+@router.get("/sectors", dependencies=[Depends(rate_limit)])
+async def list_active_sectors(request: Request,
+                              principal: Principal = Depends(require_user)) -> dict:
+    """The managed taxonomy — read-only here, for the search form's own picker. Any signed-in
+    affiliate may read it (it names no one, it is not sensitive); only an admin may change it
+    (see api/v1/admin.py)."""
+    sectors = await request.app.state.container.sectors.list(active_only=True)
+    return {"sectors": [s.to_dict() for s in sectors]}
 
 
 # ── §١٣: a shop's tickets, consent-scoped to the marketer who referred it ──────────────────────

@@ -174,7 +174,8 @@ def _lead_sourcing(request: Request, settings: Settings) -> LeadSourcingService 
                                rotation_window_s=settings.SECRETS_ROTATION_WINDOW_SECONDS)
     keys = LeadSourcingKeys(secret_store=secret_store,
                             fallback_api_key=settings.LEADS_PLACES_API_KEY_FALLBACK)
-    return LeadSourcingService(store=c.datastore, keys=keys, onboarding=c.onboarding)
+    return LeadSourcingService(store=c.datastore, keys=keys, onboarding=c.onboarding,
+                               sectors=c.sectors)
 
 
 @router.post("/leads/tick", dependencies=[Depends(require_internal_token)])

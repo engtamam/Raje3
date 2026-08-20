@@ -539,16 +539,60 @@ class EmploymentRequest:
 # that writes straight to this table (Tamam's own conversion plan) ─────────────────────────────
 LEADS = "affiliate_leads"
 LEAD_SEARCH_JOBS = "affiliate_lead_search_jobs"
+SECTORS = "affiliate_sectors"
 
 LEAD_NEW = "new"
 LEAD_ASSIGNED = "assigned"
-LEAD_STATUSES = (LEAD_NEW, LEAD_ASSIGNED)
+#: Tamam, 2026-08-20: "المهم عشان يعرفون يتبعون المحلات ويتواصلون معاهم" — a real follow-up
+#: pipeline, not just found/assigned/registered. Only the assigned promoter or his own manager
+#: may move a lead through these (core/lead_sourcing.py::set_status) — never a capability, same
+#: ownership shape as assign()/link_registration().
+LEAD_CONTACTED = "contacted"
+LEAD_INTERESTED = "interested"
+LEAD_NOT_INTERESTED = "not_interested"
+LEAD_FOLLOW_UP = "follow_up"
+#: Tamam, 2026-08-20: a shop sometimes signs up with a DIFFERENT phone than the one Google has —
+#: the automatic place_id/phone dedup can never catch that, so a marketer links it BY HAND to one
+#: of his own real referrals (core/lead_sourcing.py::link_registration). A fact he asserts, not
+#: one the system infers.
+LEAD_REGISTERED = "registered"
+LEAD_STATUSES = (LEAD_NEW, LEAD_ASSIGNED, LEAD_CONTACTED, LEAD_INTERESTED, LEAD_NOT_INTERESTED,
+                 LEAD_FOLLOW_UP, LEAD_REGISTERED)
+#: Statuses a person may set BY HAND (set_status) — LEAD_NEW/LEAD_ASSIGNED/LEAD_REGISTERED each
+#: have their own dedicated mechanism (ingestion, assign(), link_registration()) and are never
+#: reachable through the free-form status route, so a promoter cannot fake "registered" without
+#: actually linking a real referral.
+LEAD_MANUAL_STATUSES = (LEAD_CONTACTED, LEAD_INTERESTED, LEAD_NOT_INTERESTED, LEAD_FOLLOW_UP)
 
 JOB_QUEUED = "queued"
 JOB_RUNNING = "running"
 JOB_COMPLETED = "completed"
 JOB_FAILED = "failed"
 JOB_STATUSES = (JOB_QUEUED, JOB_RUNNING, JOB_COMPLETED, JOB_FAILED)
+
+
+@dataclass
+class Sector:
+    """A MANAGED taxonomy, spec's own point (Tamam, 2026-08-20): "قطاعات... ما لها دخل
+    بالمرادفات" — deliberately separate from LeadSearchJob.keywords. Keywords are search-coverage
+    plumbing chosen fresh per search (today's synonyms, radius, cities); a sector is a stable
+    label an admin defines ONCE so every Lead ever found under it stays comparable across
+    searches, months, and managers — the column an analytics dashboard groups by. Never deleted,
+    only deactivated: a sector used by a thousand historical leads must stay a legible label on
+    every one of them forever."""
+    code: str
+    name: str
+    active: bool = True
+    created_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"code": self.code, "name": self.name, "active": self.active,
+               "created_at": self.created_at}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Sector":
+        return cls(code=str(d.get("code", "")), name=str(d.get("name", "")),
+                   active=bool(d.get("active", True)), created_at=int(d.get("created_at", 0)))
 
 
 @dataclass
@@ -561,6 +605,11 @@ class Lead:
     phone: str = ""
     name: str = ""
     place_type: str = ""
+    #: THE MANAGED TAXONOMY (Sector.code) — copied from the search job at ingest time, LOCKED
+    #: (never re-read from the Sector row later, same "never re-derive from a moving reference"
+    #: rule as everywhere else in this service). This is the analytics column; `place_type` stays
+    #: the free-text label a search job carried, unrelated to it.
+    sector_code: str = ""
     city: str = ""
     region: str = ""
     address: str = ""
@@ -582,18 +631,30 @@ class Lead:
     #: Blank means unassigned; only the finding manager may assign (see core/lead_sourcing.py).
     assigned_to: str = ""
     status: str = LEAD_NEW
+    #: THE REAL SHOP TENANT this lead became — set ONLY by a human (link_registration), never
+    #: inferred. See LEAD_REGISTERED's own note: the phone on a real signup often differs from
+    #: what Google has, so no automatic match is possible or attempted.
+    converted_tenant: str = ""
+    #: APPEND-ONLY — Tamam, 2026-08-20: "خانة ملاحظات عشان ما ينسى وش سار أو لو تم تعديل
+    #: الإسناد". Every status change AND every reassignment writes its own entry here
+    #: automatically (see core/lead_sourcing.py); a promoter's own free-text note is just one
+    #: more entry in the same log. Never a single field that overwrites — the history itself is
+    #: the point, same "retain, don't erase" discipline as every status field in this service.
+    #: Each: {"at": epoch, "by": affiliate_id, "text": str, "status_from": str, "status_to": str}.
+    notes: list[dict[str, Any]] = field(default_factory=list)
     found_at: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id, "place_id": self.place_id, "phone": self.phone, "name": self.name,
-            "place_type": self.place_type, "city": self.city, "region": self.region,
-            "address": self.address, "neighborhood": self.neighborhood, "maps_url": self.maps_url,
-            "rating": self.rating, "ratings_count": self.ratings_count,
+            "place_type": self.place_type, "sector_code": self.sector_code, "city": self.city,
+            "region": self.region, "address": self.address, "neighborhood": self.neighborhood,
+            "maps_url": self.maps_url, "rating": self.rating, "ratings_count": self.ratings_count,
             "opening_hours": self.opening_hours, "website": self.website,
             "lat": self.lat, "lng": self.lng, "extra_place_ids": list(self.extra_place_ids),
             "source_manager_id": self.source_manager_id, "assigned_to": self.assigned_to,
-            "status": self.status, "found_at": self.found_at,
+            "status": self.status, "converted_tenant": self.converted_tenant,
+            "notes": list(self.notes), "found_at": self.found_at,
         }
 
     @classmethod
@@ -601,7 +662,8 @@ class Lead:
         return cls(
             id=str(d.get("id", "")), place_id=str(d.get("place_id", "")),
             phone=str(d.get("phone", "")), name=str(d.get("name", "")),
-            place_type=str(d.get("place_type", "")), city=str(d.get("city", "")),
+            place_type=str(d.get("place_type", "")), sector_code=str(d.get("sector_code", "")),
+            city=str(d.get("city", "")),
             region=str(d.get("region", "")), address=str(d.get("address", "")),
             neighborhood=str(d.get("neighborhood", "")), maps_url=str(d.get("maps_url", "")),
             rating=float(d.get("rating", 0.0) or 0.0),
@@ -611,7 +673,10 @@ class Lead:
             extra_place_ids=[str(p) for p in (d.get("extra_place_ids") or [])],
             source_manager_id=str(d.get("source_manager_id", "")),
             assigned_to=str(d.get("assigned_to", "")),
-            status=str(d.get("status", LEAD_NEW)), found_at=int(d.get("found_at", 0)),
+            status=str(d.get("status", LEAD_NEW)),
+            converted_tenant=str(d.get("converted_tenant", "")),
+            notes=[dict(n) for n in (d.get("notes") or [])],
+            found_at=int(d.get("found_at", 0)),
         )
 
 
@@ -624,6 +689,10 @@ class LeadSearchJob:
     id: str
     affiliate_id: str
     place_type: str = ""
+    #: THE MANAGED TAXONOMY (Sector.code) driving this search — validated active at request time
+    #: (core/lead_sourcing.py::start_job), then LOCKED: a sector later deactivated must not
+    #: retroactively invalidate a job or the leads it already found.
+    sector_code: str = ""
     keywords: list[str] = field(default_factory=list)
     radius_km: float = 5.0
     #: Locked geo inputs — spec §12: the service stays generic, so a fixed Saudi-city table lives
@@ -646,6 +715,7 @@ class LeadSearchJob:
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id, "affiliate_id": self.affiliate_id, "place_type": self.place_type,
+            "sector_code": self.sector_code,
             "keywords": list(self.keywords), "radius_km": self.radius_km,
             "cities": list(self.cities), "apply_filter": self.apply_filter,
             "filter_indicators": list(self.filter_indicators), "status": self.status,
@@ -658,7 +728,7 @@ class LeadSearchJob:
     def from_dict(cls, d: dict[str, Any]) -> "LeadSearchJob":
         return cls(
             id=str(d.get("id", "")), affiliate_id=str(d.get("affiliate_id", "")),
-            place_type=str(d.get("place_type", "")),
+            place_type=str(d.get("place_type", "")), sector_code=str(d.get("sector_code", "")),
             keywords=[str(k) for k in (d.get("keywords") or [])],
             radius_km=float(d.get("radius_km", 5.0) or 5.0),
             cities=list(d.get("cities") or []), apply_filter=bool(d.get("apply_filter", False)),

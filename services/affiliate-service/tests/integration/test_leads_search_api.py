@@ -93,23 +93,28 @@ def _seed_promoter(client: TestClient, affiliate_id: str, person_id: str) -> Non
 
 def test_start_search_refuses_with_no_token(client):
     r = client.post("/api/v1/affiliates/me/leads/search",
-                    json={"keywords": ["صالون"], "cities": [RIYADH]})
+                    json={"sector_code": "sec-1", "keywords": ["صالون"], "cities": [RIYADH]})
     assert r.status_code == 401
 
 
 def test_a_promoter_cannot_start_a_search(client):
     _seed_promoter(client, "aff-s1", "p-s1")
     r = client.post("/api/v1/affiliates/me/leads/search",
-                    json={"keywords": ["صالون"], "cities": [RIYADH]},
+                    json={"sector_code": "sec-1", "keywords": ["صالون"], "cities": [RIYADH]},
                     headers={"Authorization": f"Bearer {_token(sub='p-s1')}"})
     assert r.status_code == 403
 
 
+def _seed_sector(client: TestClient, code: str = "sec-1") -> None:
+    asyncio.run(client.app.state.container.sectors.create(code=code, name="صالونات نسائية"))
+
+
 def test_a_manager_starts_a_search_and_polls_its_status(client):
     _seed_manager(client, "aff-s2", "p-s2")
+    _seed_sector(client)
     headers = {"Authorization": f"Bearer {_token(sub='p-s2')}"}
     started = client.post("/api/v1/affiliates/me/leads/search",
-                          json={"place_type": "صالون", "keywords": ["صالون"], "cities": [RIYADH]},
+                          json={"place_type": "صالون", "sector_code": "sec-1", "keywords": ["صالون"], "cities": [RIYADH]},
                           headers=headers)
     assert started.status_code == 200, started.text
     job_id = started.json()["id"]
@@ -126,8 +131,9 @@ def test_a_manager_starts_a_search_and_polls_its_status(client):
 def test_a_manager_cannot_see_another_managers_job_status(client):
     _seed_manager(client, "aff-s3", "p-s3")
     _seed_manager(client, "aff-s4", "p-s4")
+    _seed_sector(client)
     started = client.post("/api/v1/affiliates/me/leads/search",
-                          json={"keywords": ["صالون"], "cities": [RIYADH]},
+                          json={"sector_code": "sec-1", "keywords": ["صالون"], "cities": [RIYADH]},
                           headers={"Authorization": f"Bearer {_token(sub='p-s3')}"})
     job_id = started.json()["id"]
 

@@ -13,7 +13,11 @@ import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
 from app.core.lead_sourcing import LeadError, LeadSourcingService
-from app.core.models import ACTIVE, AFFILIATES, JOB_COMPLETED, JOB_FAILED, JOB_RUNNING, Affiliate
+from app.core.models import (
+    ACTIVE, AFFILIATES, JOB_COMPLETED, JOB_FAILED, JOB_RUNNING, LEAD_ASSIGNED, LEAD_INTERESTED,
+    LEAD_NEW, LEAD_REGISTERED, LEADS, Affiliate, Lead,
+)
+from app.core.referrals import ReferralRegistry
 
 RIYADH = {"name": "الرياض", "region": "منطقة الرياض", "lat": 24.7136, "lng": 46.6753,
          "w_km": 2, "h_km": 2}
@@ -88,7 +92,7 @@ async def test_start_job_refuses_with_no_keywords():
     await _seed_manager(store)
     svc = build(store)
     with pytest.raises(LeadError) as exc:
-        await svc.start_job("mgr-1", place_type="صالون", keywords=[], radius_km=5,
+        await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=[], radius_km=5,
                             cities=[RIYADH])
     assert exc.value.reason == "no_keywords"
 
@@ -99,7 +103,7 @@ async def test_start_job_refuses_with_a_bad_city():
     await _seed_manager(store)
     svc = build(store)
     with pytest.raises(LeadError) as exc:
-        await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون"], radius_km=5,
+        await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون"], radius_km=5,
                             cities=[{"name": "ناقصة"}])
     assert exc.value.reason == "bad_city"
 
@@ -109,7 +113,7 @@ async def test_step_with_no_api_key_fails_the_job_cleanly():
     store = MemoryDataStore()
     await _seed_manager(store)
     svc = build(store, keys=FakeKeys(key=""))
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون"], radius_km=5,
                               cities=[RIYADH])
     out = await svc.step(job["id"])
     assert out["done"] is True
@@ -124,7 +128,7 @@ async def test_a_new_place_creates_a_lead_and_advances_the_cursor():
     FakePlacesClient.details_by_id = {"place-1": {"name": "صالون الرياض",
                                                   "formatted_phone_number": "+966501112222"}}
     svc = build(store)
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون"], radius_km=5,
                               cities=[RIYADH])
     out = await svc.step(job["id"])
     assert out["done"] is False
@@ -146,7 +150,7 @@ async def test_the_same_place_id_again_is_a_duplicate_not_a_second_lead():
     await _seed_manager(store)
     FakePlacesClient.details_by_id = {"place-1": {"name": "صالون", "formatted_phone_number": "+9665"}}
     svc = build(store)
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون", "salon"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون", "salon"], radius_km=5,
                               cities=[RIYADH])
     FakePlacesClient.search_results = [_place("place-1")]
     await svc.step(job["id"])                      # first keyword — creates the lead
@@ -164,7 +168,7 @@ async def test_a_different_place_id_with_the_same_phone_merges_as_a_branch():
     store = MemoryDataStore()
     await _seed_manager(store)
     svc = build(store)
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون", "salon"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون", "salon"], radius_km=5,
                               cities=[RIYADH])
 
     FakePlacesClient.details_by_id = {"place-1": {"name": "فرع 1", "formatted_phone_number": "+9665551"}}
@@ -188,7 +192,7 @@ async def test_cursor_rolls_keyword_then_point_then_city_and_the_job_completes()
     tiny_city = {"name": "بلدة صغيرة", "region": "ر", "lat": 24.7136, "lng": 46.6753,
                 "w_km": 0.001, "h_km": 0.001}   # a single grid point
     svc = build(store)
-    job = await svc.start_job("mgr-1", place_type="محل", keywords=["أ", "ب"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="محل", sector_code="sec-1", keywords=["أ", "ب"], radius_km=5,
                               cities=[tiny_city])
 
     out1 = await svc.step(job["id"])   # point 0, keyword "أ"
@@ -209,7 +213,7 @@ async def test_stepping_a_completed_job_is_a_clean_no_op():
     tiny_city = {"name": "بلدة", "region": "ر", "lat": 24.7136, "lng": 46.6753,
                 "w_km": 0.001, "h_km": 0.001}
     svc = build(store)
-    job = await svc.start_job("mgr-1", place_type="محل", keywords=["أ"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="محل", sector_code="sec-1", keywords=["أ"], radius_km=5,
                               cities=[tiny_city])
     await svc.step(job["id"])   # the one point
     await svc.step(job["id"])   # advance past the city
@@ -236,7 +240,7 @@ async def test_a_manager_assigns_his_own_lead_to_his_own_team_member():
     await _seed_manager(store)
     onboarding = FakeOnboarding({"mgr-1": ["prm-1"]})
     svc = build(store, onboarding=onboarding)
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون"], radius_km=5,
                               cities=[RIYADH])
     FakePlacesClient.details_by_id = {"place-1": {"name": "صالون", "formatted_phone_number": "+9665"}}
     FakePlacesClient.search_results = [_place("place-1")]
@@ -258,7 +262,7 @@ async def test_a_manager_cannot_assign_a_lead_another_managers_search_found():
     await _seed_manager(store, "mgr-2")
     onboarding = FakeOnboarding({"mgr-2": ["prm-2"]})
     svc = build(store, onboarding=onboarding)
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون"], radius_km=5,
                               cities=[RIYADH])
     FakePlacesClient.details_by_id = {"place-1": {"name": "صالون", "formatted_phone_number": "+9665"}}
     FakePlacesClient.search_results = [_place("place-1")]
@@ -276,7 +280,7 @@ async def test_a_manager_cannot_assign_to_someone_outside_his_team():
     await _seed_manager(store)
     onboarding = FakeOnboarding({"mgr-1": ["prm-1"]})
     svc = build(store, onboarding=onboarding)
-    job = await svc.start_job("mgr-1", place_type="صالون", keywords=["صالون"], radius_km=5,
+    job = await svc.start_job("mgr-1", place_type="صالون", sector_code="sec-1", keywords=["صالون"], radius_km=5,
                               cities=[RIYADH])
     FakePlacesClient.details_by_id = {"place-1": {"name": "صالون", "formatted_phone_number": "+9665"}}
     FakePlacesClient.search_results = [_place("place-1")]
@@ -286,3 +290,144 @@ async def test_a_manager_cannot_assign_to_someone_outside_his_team():
     with pytest.raises(LeadError) as exc:
         await svc.assign(lead.id, manager_id="mgr-1", promoter_id="not-on-team")
     assert exc.value.reason == "not_on_your_team"
+
+
+# ── the follow-up pipeline (set_status) — ownership: assigned promoter or his own manager ───────
+
+async def _seed_lead(store, *, lead_id="lead-1", source_manager_id="mgr-1",
+                     assigned_to="") -> Lead:
+    lead = Lead(id=lead_id, place_id=lead_id, source_manager_id=source_manager_id,
+               assigned_to=assigned_to, status=LEAD_ASSIGNED if assigned_to else LEAD_NEW)
+    await store.put(LEADS, lead.id, lead.to_dict())
+    return lead
+
+
+@pytest.mark.anyio
+async def test_the_assigned_promoter_can_set_a_manual_status():
+    store = MemoryDataStore()
+    await _seed_lead(store, assigned_to="prm-1")
+    svc = build(store)
+    out = await svc.set_status("lead-1", affiliate_id="prm-1", new_status=LEAD_INTERESTED,
+                               text="اتصلت فيه، مهتم")
+    assert out.status == LEAD_INTERESTED
+    assert out.notes[-1]["text"] == "اتصلت فيه، مهتم"
+    assert out.notes[-1]["by"] == "prm-1"
+    assert out.notes[-1]["status_from"] == LEAD_ASSIGNED
+    assert out.notes[-1]["status_to"] == LEAD_INTERESTED
+
+
+@pytest.mark.anyio
+async def test_the_promoters_own_manager_can_also_set_status():
+    store = MemoryDataStore()
+    await _seed_manager(store, "mgr-1")
+    promoter = Affiliate(id="prm-1", person_id="p-prm-1", phone="+966501112222", name="مسوّق",
+                         role="affiliate_promoter", parent_id="mgr-1", status=ACTIVE)
+    await store.put(AFFILIATES, "prm-1", promoter.to_dict())
+    await _seed_lead(store, assigned_to="prm-1")
+    svc = build(store)
+    out = await svc.set_status("lead-1", affiliate_id="mgr-1", new_status=LEAD_INTERESTED)
+    assert out.status == LEAD_INTERESTED
+
+
+@pytest.mark.anyio
+async def test_an_unrelated_affiliate_cannot_set_status():
+    store = MemoryDataStore()
+    await _seed_lead(store, assigned_to="prm-1")
+    svc = build(store)
+    with pytest.raises(LeadError) as exc:
+        await svc.set_status("lead-1", affiliate_id="someone-else", new_status=LEAD_INTERESTED)
+    assert exc.value.reason == "not_yours"
+
+
+@pytest.mark.anyio
+async def test_set_status_refuses_a_reserved_status():
+    store = MemoryDataStore()
+    await _seed_lead(store, assigned_to="prm-1")
+    svc = build(store)
+    with pytest.raises(LeadError) as exc:
+        await svc.set_status("lead-1", affiliate_id="prm-1", new_status=LEAD_REGISTERED)
+    assert exc.value.reason == "bad_status"
+
+
+@pytest.mark.anyio
+async def test_assigning_a_lead_notes_the_reassignment():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    onboarding = FakeOnboarding({"mgr-1": ["prm-1", "prm-2"]})
+    svc = build(store, onboarding=onboarding)
+    await _seed_lead(store, source_manager_id="mgr-1")
+
+    await svc.assign("lead-1", manager_id="mgr-1", promoter_id="prm-1")
+    out = await svc.assign("lead-1", manager_id="mgr-1", promoter_id="prm-2")
+    assert "أُعيد الإسناد من prm-1 إلى prm-2" in out.notes[-1]["text"]
+
+
+# ── link_registration — a manual, per-affiliate link, never an automatic phone/name match ───────
+
+@pytest.mark.anyio
+async def test_link_registration_by_the_finding_manager():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
+    await referrals.stamp(tenant="t-1", affiliate_id="mgr-1")
+    await _seed_lead(store, source_manager_id="mgr-1")
+    svc = build(store)
+
+    out = await svc.link_registration("lead-1", affiliate_id="mgr-1", tenant="t-1",
+                                      referrals=referrals)
+    assert out.status == LEAD_REGISTERED
+    assert out.converted_tenant == "t-1"
+    assert "سُجِّل كمحل حقيقي" in out.notes[-1]["text"]
+
+
+@pytest.mark.anyio
+async def test_link_registration_refuses_a_tenant_that_did_not_refer_through_him():
+    store = MemoryDataStore()
+    await _seed_manager(store, "mgr-1")
+    await _seed_manager(store, "mgr-2")
+    referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
+    await referrals.stamp(tenant="t-1", affiliate_id="mgr-2")   # referred through SOMEONE ELSE
+    await _seed_lead(store, source_manager_id="mgr-1")
+    svc = build(store)
+
+    with pytest.raises(LeadError) as exc:
+        await svc.link_registration("lead-1", affiliate_id="mgr-1", tenant="t-1",
+                                    referrals=referrals)
+    assert exc.value.reason == "not_your_referral"
+
+
+@pytest.mark.anyio
+async def test_link_registration_refuses_a_lead_that_is_not_his():
+    store = MemoryDataStore()
+    await _seed_manager(store, "mgr-1")
+    referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
+    await referrals.stamp(tenant="t-1", affiliate_id="mgr-1")
+    await _seed_lead(store, source_manager_id="someone-else")
+    svc = build(store)
+
+    with pytest.raises(LeadError) as exc:
+        await svc.link_registration("lead-1", affiliate_id="mgr-1", tenant="t-1",
+                                    referrals=referrals)
+    assert exc.value.reason == "not_yours"
+
+
+# ── sector_stats — the manager dashboard's own data source ───────────────────────────────────────
+
+@pytest.mark.anyio
+async def test_sector_stats_groups_by_sector_and_city_with_a_status_breakdown():
+    store = MemoryDataStore()
+    await store.put(LEADS, "l1", Lead(id="l1", place_id="l1", sector_code="salons", city="الرياض",
+                                      source_manager_id="mgr-1", status=LEAD_NEW).to_dict())
+    await store.put(LEADS, "l2", Lead(id="l2", place_id="l2", sector_code="salons", city="الرياض",
+                                      source_manager_id="mgr-1",
+                                      status=LEAD_REGISTERED).to_dict())
+    await store.put(LEADS, "l3", Lead(id="l3", place_id="l3", sector_code="carwash", city="جدة",
+                                      source_manager_id="mgr-1", status=LEAD_NEW).to_dict())
+    svc = build(store)
+
+    stats = await svc.sector_stats(affiliate_id="mgr-1")
+    by_key = {(s["sector_code"], s["city"]): s for s in stats}
+    assert by_key[("salons", "الرياض")]["lead_count"] == 2
+    assert by_key[("salons", "الرياض")]["registered_count"] == 1
+    assert by_key[("salons", "الرياض")]["by_status"] == {LEAD_NEW: 1, LEAD_REGISTERED: 1}
+    assert by_key[("carwash", "جدة")]["lead_count"] == 1

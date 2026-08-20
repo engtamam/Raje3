@@ -295,6 +295,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "tickets never arrive",
     },
     {
+        "action": "affiliate.sector_changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "sector",
+        "why": "explains later why a lead search form's own picker changed, or why a code "
+               "stopped being offered — not critical: a mislabelled sector costs nothing an "
+               "admin cannot fix by calling this again while the log is down",
+    },
+    {
         "action": "affiliate.reactivated",
         "source": "admin",
         "critical": False,

@@ -172,6 +172,7 @@ class Container:
     employment: Any = None
     tickets: Any = None
     escalation: Any = None
+    sectors: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -329,4 +330,8 @@ def build_container(settings: Settings) -> Container:
         timeout_hours=settings.AFFILIATE_TICKET_ESCALATION_HOURS,
         sweep_max=settings.AFFILIATE_TICKET_ESCALATION_SWEEP_MAX,
     )
+    # §٦'s managed sector taxonomy — see core/sectors.py's own module docstring.
+    from app.core.sectors import SectorService
+
+    container.sectors = SectorService(store=container.datastore)
     return container
