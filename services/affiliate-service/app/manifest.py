@@ -120,6 +120,13 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/places-api-key", "tier": "user", "method": "DELETE"},
+            # §٦ Lead Sourcing — the search itself + assignment.
+            {"path": "/api/v1/affiliates/me/leads/search", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/me/leads/search", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/leads/search/{}", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/leads", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/leads/{}/assign", "tier": "user", "method": "POST"},
+            {"path": "/internal/leads/tick", "tier": "internal", "method": "POST"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},

@@ -21,6 +21,7 @@ from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.employment import EmploymentError
+from app.core.lead_sourcing import LeadError, LeadSourcingService
 from app.core.leads import LeadSourcingKeys
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
@@ -385,3 +386,109 @@ async def clear_places_api_key(request: Request,
         ip=request.client.host if request.client else "")
     cleared = await _leads_keys(request).clear_key(affiliate["id"])
     return {"ok": True, "cleared": cleared}
+
+
+# ── §٦ Lead Sourcing — the search itself + assignment ───────────────────────────────────────────
+
+class CityIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    region: str = Field(default="", max_length=100)
+    lat: float
+    lng: float
+    w_km: float = Field(gt=0, le=500)
+    h_km: float = Field(gt=0, le=500)
+
+
+class SearchIn(BaseModel):
+    place_type: str = Field(default="", max_length=100)
+    keywords: list[str] = Field(min_length=1, max_length=20)
+    radius_km: float = Field(default=5.0, gt=0, le=50)
+    cities: list[CityIn] = Field(min_length=1, max_length=30)
+    apply_filter: bool = False
+    filter_indicators: list[str] = Field(default_factory=list)
+
+
+class AssignIn(BaseModel):
+    promoter_id: str = Field(min_length=1, max_length=100)
+
+
+def _lead_sourcing(request: Request) -> LeadSourcingService:
+    """`keys=None` is deliberate and safe: every route in this file starts/reads/assigns a job
+    but never advances one (LeadSourcingService.step, the only method that resolves an API key,
+    is reached only from POST /internal/leads/tick). Requiring SECRETS_KEK here would 503 a
+    promoter's own GET /me/leads for a reason that has nothing to do with him."""
+    return LeadSourcingService(store=request.app.state.container.datastore, keys=None,
+                               onboarding=_svc(request))
+
+
+def _lead_refused(exc: LeadError) -> JSONResponse:
+    body: dict[str, Any] = {"ok": False, "message": str(exc)}
+    if getattr(exc, "reason", ""):
+        body["reason"] = exc.reason
+    return JSONResponse(status_code=400, content=body)
+
+
+@router.post("/leads/search", dependencies=[Depends(rate_limit)])
+async def start_lead_search(request: Request, body: SearchIn,
+                            principal: Principal = Depends(require_user)) -> Any:
+    """§٦: a manager starts a grid search — real runtime is HOURS (places_scraper_v2.py's own
+    estimate), so this returns a job id immediately; POST /internal/leads/tick advances it on a
+    schedule. See core/lead_sourcing.py's own module docstring."""
+    affiliate = await _my_manager_affiliate(request, principal)
+    try:
+        out = await _lead_sourcing(request).start_job(
+            affiliate["id"], place_type=body.place_type, keywords=body.keywords,
+            radius_km=body.radius_km, cities=[c.model_dump() for c in body.cities],
+            apply_filter=body.apply_filter, filter_indicators=body.filter_indicators)
+    except LeadError as exc:
+        return _lead_refused(exc)
+    return {"ok": True, **out}
+
+
+@router.get("/leads/search", dependencies=[Depends(rate_limit)])
+async def my_lead_searches(request: Request,
+                           principal: Principal = Depends(require_user)) -> dict:
+    affiliate = await _my_manager_affiliate(request, principal)
+    jobs = await _lead_sourcing(request).jobs_of(affiliate["id"])
+    return {"jobs": [j.to_dict() for j in jobs]}
+
+
+@router.get("/leads/search/{job_id}", dependencies=[Depends(rate_limit)])
+async def lead_search_status(request: Request, job_id: str,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """§٦: "المدير يشوف تقدّم البحث بالخلفية، لا ينتظره" — polled from here."""
+    affiliate = await _my_manager_affiliate(request, principal)
+    job = await _lead_sourcing(request).get_job(job_id)
+    if job is None or job.affiliate_id != affiliate["id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    return job.to_dict()
+
+
+@router.get("/leads", dependencies=[Depends(rate_limit)])
+async def my_leads(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    """spec §٩: "كل مسوّق يشوف فقط العملاء المحتملين المُسنَدين له، لا القائمة الكاملة" — a
+    promoter sees what was ASSIGNED to him; a manager sees what HIS OWN search found (still
+    pending assignment or already handed out), never each other's. One route, branched on the
+    caller's own role — the same "is the caller himself an X" data check as everywhere else in
+    this file, never a capability."""
+    affiliate = await _svc(request).me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    svc = _lead_sourcing(request)
+    if affiliate["role"] == get_settings().AFFILIATE_MANAGER_ROLE:
+        leads = await svc.leads_of_manager(affiliate["id"])
+    else:
+        leads = await svc.leads_assigned_to(affiliate["id"])
+    return {"leads": [l.to_dict() for l in leads]}
+
+
+@router.post("/leads/{lead_id}/assign", dependencies=[Depends(rate_limit)])
+async def assign_lead(request: Request, lead_id: str, body: AssignIn,
+                      principal: Principal = Depends(require_user)) -> Any:
+    affiliate = await _my_manager_affiliate(request, principal)
+    try:
+        out = await _lead_sourcing(request).assign(
+            lead_id, manager_id=affiliate["id"], promoter_id=body.promoter_id)
+    except LeadError as exc:
+        return _lead_refused(exc)
+    return {"ok": True, **out.to_dict()}

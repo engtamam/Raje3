@@ -533,3 +533,139 @@ class EmploymentRequest:
             requested_at=int(d.get("requested_at", 0)), decided_by=str(d.get("decided_by", "")),
             decided_at=int(d.get("decided_at", 0)), reason=str(d.get("reason", "")),
         )
+
+
+# ── §٦ Lead Sourcing — ported from places_scraper_v2.py, CLI→CSV turned into a resumable job
+# that writes straight to this table (Tamam's own conversion plan) ─────────────────────────────
+LEADS = "affiliate_leads"
+LEAD_SEARCH_JOBS = "affiliate_lead_search_jobs"
+
+LEAD_NEW = "new"
+LEAD_ASSIGNED = "assigned"
+LEAD_STATUSES = (LEAD_NEW, LEAD_ASSIGNED)
+
+JOB_QUEUED = "queued"
+JOB_RUNNING = "running"
+JOB_COMPLETED = "completed"
+JOB_FAILED = "failed"
+JOB_STATUSES = (JOB_QUEUED, JOB_RUNNING, JOB_COMPLETED, JOB_FAILED)
+
+
+@dataclass
+class Lead:
+    #: The FIRST place_id found for this business — the record's own primary key. A dedup match
+    #: on PHONE (not place_id) appends the new place_id to `extra_place_ids` instead of a second
+    #: row — spec §6: "فرعان لنفس المحل... يُربط كفرع إضافي لنفس السجل، لا يُتجاهل بالكامل".
+    id: str
+    place_id: str
+    phone: str = ""
+    name: str = ""
+    place_type: str = ""
+    city: str = ""
+    region: str = ""
+    address: str = ""
+    neighborhood: str = ""
+    maps_url: str = ""
+    rating: float = 0.0
+    ratings_count: int = 0
+    opening_hours: str = ""
+    website: str = ""
+    lat: float = 0.0
+    lng: float = 0.0
+    #: Additional Google place_ids that share this SAME phone number — other branches of the
+    #: same business, not separate leads. See the `id` field's own note.
+    extra_place_ids: list[str] = field(default_factory=list)
+    #: WHO found it — the manager whose search (and whose own Google API key/quota) surfaced
+    #: this lead first. Never rewritten by a later manager's duplicate search.
+    source_manager_id: str = ""
+    #: WHO it is handed to — a promoter on the finding manager's own team (spec §6's own "الإسناد").
+    #: Blank means unassigned; only the finding manager may assign (see core/lead_sourcing.py).
+    assigned_to: str = ""
+    status: str = LEAD_NEW
+    found_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "place_id": self.place_id, "phone": self.phone, "name": self.name,
+            "place_type": self.place_type, "city": self.city, "region": self.region,
+            "address": self.address, "neighborhood": self.neighborhood, "maps_url": self.maps_url,
+            "rating": self.rating, "ratings_count": self.ratings_count,
+            "opening_hours": self.opening_hours, "website": self.website,
+            "lat": self.lat, "lng": self.lng, "extra_place_ids": list(self.extra_place_ids),
+            "source_manager_id": self.source_manager_id, "assigned_to": self.assigned_to,
+            "status": self.status, "found_at": self.found_at,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Lead":
+        return cls(
+            id=str(d.get("id", "")), place_id=str(d.get("place_id", "")),
+            phone=str(d.get("phone", "")), name=str(d.get("name", "")),
+            place_type=str(d.get("place_type", "")), city=str(d.get("city", "")),
+            region=str(d.get("region", "")), address=str(d.get("address", "")),
+            neighborhood=str(d.get("neighborhood", "")), maps_url=str(d.get("maps_url", "")),
+            rating=float(d.get("rating", 0.0) or 0.0),
+            ratings_count=int(d.get("ratings_count", 0) or 0),
+            opening_hours=str(d.get("opening_hours", "")), website=str(d.get("website", "")),
+            lat=float(d.get("lat", 0.0) or 0.0), lng=float(d.get("lng", 0.0) or 0.0),
+            extra_place_ids=[str(p) for p in (d.get("extra_place_ids") or [])],
+            source_manager_id=str(d.get("source_manager_id", "")),
+            assigned_to=str(d.get("assigned_to", "")),
+            status=str(d.get("status", LEAD_NEW)), found_at=int(d.get("found_at", 0)),
+        )
+
+
+@dataclass
+class LeadSearchJob:
+    """A whole grid×keyword search, real-world runtime measured in HOURS (places_scraper_v2.py's
+    own cost estimate: 3–5h for 10 cities) — never one request/response. `cursor` is where a
+    bounded internal tick (POST /internal/leads/tick) resumes, same "capped sweep records where
+    it stopped" shape as commissions/sweep."""
+    id: str
+    affiliate_id: str
+    place_type: str = ""
+    keywords: list[str] = field(default_factory=list)
+    radius_km: float = 5.0
+    #: Locked geo inputs — spec §12: the service stays generic, so a fixed Saudi-city table lives
+    #: in the CALLER (the console's own picker), never hardcoded here. Each: {name, region, lat,
+    #: lng, w_km, h_km}.
+    cities: list[dict[str, Any]] = field(default_factory=list)
+    apply_filter: bool = False
+    filter_indicators: list[str] = field(default_factory=list)
+    status: str = JOB_QUEUED
+    #: {"city": i, "point": i, "keyword": i} — the next unit of work. Advances one (point,
+    #: keyword) pair per unit; a city boundary resets point/keyword to 0.
+    cursor: dict[str, int] = field(default_factory=lambda: {"city": 0, "point": 0, "keyword": 0})
+    found_count: int = 0
+    duplicate_count: int = 0
+    created_at: int = 0
+    started_at: int = 0
+    finished_at: int = 0
+    error: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id, "affiliate_id": self.affiliate_id, "place_type": self.place_type,
+            "keywords": list(self.keywords), "radius_km": self.radius_km,
+            "cities": list(self.cities), "apply_filter": self.apply_filter,
+            "filter_indicators": list(self.filter_indicators), "status": self.status,
+            "cursor": dict(self.cursor), "found_count": self.found_count,
+            "duplicate_count": self.duplicate_count, "created_at": self.created_at,
+            "started_at": self.started_at, "finished_at": self.finished_at, "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "LeadSearchJob":
+        return cls(
+            id=str(d.get("id", "")), affiliate_id=str(d.get("affiliate_id", "")),
+            place_type=str(d.get("place_type", "")),
+            keywords=[str(k) for k in (d.get("keywords") or [])],
+            radius_km=float(d.get("radius_km", 5.0) or 5.0),
+            cities=list(d.get("cities") or []), apply_filter=bool(d.get("apply_filter", False)),
+            filter_indicators=[str(i) for i in (d.get("filter_indicators") or [])],
+            status=str(d.get("status", JOB_QUEUED)),
+            cursor=dict(d.get("cursor") or {"city": 0, "point": 0, "keyword": 0}),
+            found_count=int(d.get("found_count", 0)), duplicate_count=int(d.get("duplicate_count", 0)),
+            created_at=int(d.get("created_at", 0)), started_at=int(d.get("started_at", 0)),
+            finished_at=int(d.get("finished_at", 0)), error=str(d.get("error", "")),
+        )

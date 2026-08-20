@@ -14,7 +14,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, get_settings
 from app.core.erasure import AffiliateErasure
+from app.core.lead_sourcing import LeadSourcingService
+from app.core.leads import LeadSourcingKeys
+from app.core.models import JOB_QUEUED, JOB_RUNNING, LEAD_SEARCH_JOBS
 from app.core.referrals import ReferralError
+from app.core.secret_store import SecretStore
 from app.core import backup as _backup
 from app.backup_manifest import BACKUP
 from app.manifest import build_manifest
@@ -157,6 +161,50 @@ async def sweep_commissions(request: Request, settings: Settings = Depends(get_s
         "affiliate.commissions_swept", actor="", tenant="", resource="sweep",
         ip=request.client.host if request.client else "", metadata=out)
     return out
+
+
+def _lead_sourcing(request: Request, settings: Settings) -> LeadSourcingService | None:
+    """None (never raises) when SECRETS_KEK is unconfigured — the cron caller should see 'nothing
+    to tick, misconfigured' as a normal, quiet tick rather than the CronJob itself failing every
+    minute over a deploy that has not wired lead sourcing yet."""
+    if not settings.SECRETS_KEK:
+        return None
+    c = request.app.state.container
+    secret_store = SecretStore(c.datastore, settings.SECRETS_KEK,
+                               rotation_window_s=settings.SECRETS_ROTATION_WINDOW_SECONDS)
+    keys = LeadSourcingKeys(secret_store=secret_store,
+                            fallback_api_key=settings.LEADS_PLACES_API_KEY_FALLBACK)
+    return LeadSourcingService(store=c.datastore, keys=keys, onboarding=c.onboarding)
+
+
+@router.post("/leads/tick", dependencies=[Depends(require_internal_token)])
+async def tick_leads(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    """The resumable engine behind §٦'s search jobs (core/lead_sourcing.py's own module
+    docstring) — advances up to Settings.LEADS_TICK_UNITS (point, keyword) units across the
+    OLDEST non-terminal job, then returns. Meant for a k3s CronJob (see the deploy values'
+    cronJobs, same shape as commissions-sweep) rather than a person; a full search is hours, so
+    this is what turns that into many small, safely-interruptible calls."""
+    svc = _lead_sourcing(request, settings)
+    if svc is None:
+        return {"ticked": False, "reason": "leads_not_configured"}
+
+    c = request.app.state.container
+    running, _ = await c.datastore.find(
+        LEAD_SEARCH_JOBS, {"status": JOB_RUNNING}, limit=1, sort=("created_at", "asc"))
+    if not running:
+        running, _ = await c.datastore.find(
+            LEAD_SEARCH_JOBS, {"status": JOB_QUEUED}, limit=1, sort=("created_at", "asc"))
+    if not running:
+        return {"ticked": False, "reason": "no_pending_job"}
+
+    job_id = running[0]["id"]
+    units = 0
+    for _ in range(settings.LEADS_TICK_UNITS):
+        out = await svc.step(job_id)
+        units += 1
+        if out.get("done"):
+            break
+    return {"ticked": True, "job_id": job_id, "units": units}
 
 
 class BackupExportIn(BaseModel):

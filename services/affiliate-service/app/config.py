@@ -197,6 +197,11 @@ class Settings(BaseSettings):
     # AND no admin has set a tenant="" default via SecretStore either. Blank means "refused" —
     # see the routes in api/v1/affiliate_self.py.
     LEADS_PLACES_API_KEY_FALLBACK: str = ""
+    # How many (grid point × keyword) units POST /internal/leads/tick advances per call — same
+    # "capped sweep records where it stopped" shape as AFFILIATE_SWEEP_MAX. A k3s CronJob calls
+    # this on a schedule; a full search is hours (places_scraper_v2.py's own estimate), so this
+    # is what turns "hours" into "many small, resumable calls" rather than one long request.
+    LEADS_TICK_UNITS: int = 20
     # THE FAST PATH — billing's own event bus, subscribed to as a HINT that makes sync() run
     # sooner, never as the only way a commission is discovered (app/ports/event_bus.py's own
     # contract: "at-most-once, best effort... An event is a HINT... It is NEVER the only way a

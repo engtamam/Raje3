@@ -29,6 +29,10 @@ BACKUP: dict[str, Any] = {
         {"name": "affiliate_referrals", "tenant_scoped": False},
         {"name": "affiliate_commissions", "tenant_scoped": False},
         {"name": "affiliate_withdrawals", "tenant_scoped": False},
+        {"name": "affiliate_wafa_requests", "tenant_scoped": False},
+        {"name": "affiliate_employment_requests", "tenant_scoped": False},
+        {"name": "affiliate_leads", "tenant_scoped": False},
+        {"name": "affiliate_lead_search_jobs", "tenant_scoped": False},
     ],
     "excluded": [
         {"name": "affiliate_pending_secret",
