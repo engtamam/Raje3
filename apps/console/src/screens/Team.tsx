@@ -193,7 +193,9 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   );
 }
 
-function People({ session, operators, branches, add, edit, hire, pinKind, onChanged }: {
+// EXPORTED FOR THE SAME REASON `Branches` IS BELOW: its own test needs it directly rather than
+// driving the whole `TeamScreen` (catalogue, both reads, both tabs) to reach one form.
+export function People({ session, operators, branches, add, edit, hire, pinKind, onChanged }: {
   session: Session;
   operators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
@@ -235,16 +237,24 @@ function People({ session, operators, branches, add, edit, hire, pinKind, onChan
     setBusy(true);
     setError('');
     try {
+      // A SHOP WITH ONE PLACE NEVER SHOWS THE PICKER (noise, per the field below) — but «no
+      // picker shown» used to mean the request sent branch_id="", which api/scope.py reads as
+      // «unassigned = sees the WHOLE establishment», never «works at the one branch that
+      // exists». Harmless the day he is hired — one branch either way — and wrong the day the
+      // owner opens a second one: every employee hired before it silently starts seeing BOTH,
+      // because nobody ever chose to widen them. Sending the real branch id here is what keeps
+      // that a decision an owner makes later, not an accident of when someone was hired.
+      const effectiveBranchId = branchId || ((branches ?? []).length <= 1 ? MAIN_BRANCH : '');
       if (kind === 'login') {
         if (!hire) return;
         await call(session, hire, {
-          name: name.trim(), phone: phone.trim(), password, role, branch_id: branchId,
+          name: name.trim(), phone: phone.trim(), password, role, branch_id: effectiveBranchId,
         });
       } else {
         // AND THE BRANCH, WHICH THIS CALL USED TO OMIT. The server has always accepted it
         // (`staff.py` create_operator) — the screen simply never offered it, so the field that
         // decides where a visit happened was left empty for the majority of a workshop's staff.
-        await call(session, add, { name: name.trim(), pin, role, branch_id: branchId });
+        await call(session, add, { name: name.trim(), pin, role, branch_id: effectiveBranchId });
       }
       setName('');
       setPin('');
@@ -282,95 +292,8 @@ function People({ session, operators, branches, add, edit, hire, pinKind, onChan
       ) : (
         <ul className="flex flex-col gap-2">
           {operators.map((o) => (
-            <li key={o.id} className="flex items-center justify-between gap-3">
-              <span className="flex flex-col">
-                <span>{o.name}</span>
-                {/* SHOWN IN THE LIST TOO. A team screen that hides what each person may do is a
-                    screen an owner cannot audit — and the question he asks is always "who can
-                    touch the billing", never "how many employees do I have". */}
-                <span className="text-sm text-text-secondary">
-                  {ROLES.find((r) => r.value === o.role)?.label ?? o.role ?? ''}
-                </span>
-              </span>
-              {o.active === false ? (
-                <span className="text-sm text-text-secondary">موقوف</span>
-              ) : (
-                /* HIS BRANCH, CHANGEABLE IN PLACE — and it decides something: a visit he saves is
-                   filed under HIS branch, whatever the device sends (services/operations/core/
-                   operations.py). Hidden for a shop with one place, where the question is noise. */
-                (branches ?? []).length > 1 && edit ? (
-                  <label className="flex items-center gap-2 text-sm">
-                    <span className="text-text-secondary">فرعه</span>
-                    <select
-                      className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
-                      value={o.branch_id ?? ''}
-                      aria-label={`فرع ${o.name}`}
-                      onChange={async (e) => {
-                        await call(session, edit, { id: o.id, branch_id: e.target.value })
-                          .catch(() => undefined);
-                        onChanged();
-                      }}
-                    >
-                      <option value="">كل الفروع</option>
-                      {(branches ?? []).filter((b) => b.active !== false).map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null
-              )}
-              {/* AND WHAT HE MAY SEE, which is NOT where he works — the two were one field until
-                  now, so an owner could say «this branch» or «everything» and nothing between, and
-                  a supervisor over three had to be handed the whole chain to be given his three.
-                  Beside the station rather than instead of it: a man works in one place and may
-                  watch several, and both facts have to be readable at a glance or nobody can audit
-                  a grant. */}
-              {o.active !== false && (branches ?? []).length > 1 && edit ? (
-                <fieldset className="flex flex-wrap items-center gap-2 text-sm">
-                  <legend className="sr-only">{`ما يراه ${o.name}`}</legend>
-                  <span className="text-text-secondary">يرى</span>
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      className="size-5"
-                      checked={o.visible_all === true}
-                      onChange={async (e) => {
-                        await call(session, edit, { id: o.id, visible_all: e.target.checked })
-                          .catch(() => undefined);
-                        onChanged();
-                      }}
-                    />
-                    <span>كل الفروع</span>
-                  </label>
-                  {o.visible_all === true ? null : (branches ?? [])
-                    .filter((b) => b.active !== false)
-                    .map((b) => {
-                      // HIS OWN BRANCH IS ALWAYS AMONG THEM, granted or not: a man sees where he
-                      // works, and a screen that let an owner take that away would produce an
-                      // employee who cannot read his own counter.
-                      const granted = (o.visible_branch_ids ?? []).includes(b.id) || o.branch_id === b.id;
-                      return (
-                        <label key={b.id} className="flex items-center gap-1">
-                          <input
-                            type="checkbox"
-                            className="size-5"
-                            checked={granted}
-                            disabled={o.branch_id === b.id}
-                            onChange={async (e) => {
-                              const now = new Set(o.visible_branch_ids ?? []);
-                              if (e.target.checked) now.add(b.id); else now.delete(b.id);
-                              await call(session, edit,
-                                { id: o.id, visible_branch_ids: [...now] }).catch(() => undefined);
-                              onChanged();
-                            }}
-                          />
-                          <span>{b.name}</span>
-                        </label>
-                      );
-                    })}
-                </fieldset>
-              ) : null}
-            </li>
+            <OperatorRow key={o.id} session={session} o={o} branches={branches} edit={edit}
+                        onChanged={onChanged} />
           ))}
         </ul>
       )}
@@ -514,6 +437,191 @@ function People({ session, operators, branches, add, edit, hire, pinKind, onChan
         </form>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * ONE EMPLOYEE'S ROW — rename, role, and stop/reactivate, ALWAYS available (never behind the
+ * branch count). Found from a screenshot: a single-branch shop's «فريقي» showed a name and a
+ * role and NOTHING ELSE — the branch/visibility controls below were the only management this
+ * screen ever offered, and both are gated on `branches.length > 1`. The backend
+ * (`operations/api/v1/staff.py::update_operator`) has always accepted name, role and active —
+ * an owner just never had a control that called it for any of the three, on any shop, branch
+ * count irrelevant. An employee who left could not be stopped from this screen at all.
+ */
+function OperatorRow({ session, o, branches, edit, onChanged }: {
+  session: Session;
+  o: Operator;
+  branches: Branch[] | null | undefined;
+  edit: ReturnType<typeof action>;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(o.name);
+  const [role, setRole] = useState(o.role ?? 'operator');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save() {
+    if (!edit) return;
+    setBusy(true);
+    setError('');
+    try {
+      const patch: Record<string, unknown> = {};
+      if (name.trim() && name.trim() !== o.name) patch.name = name.trim();
+      if (role !== o.role) patch.role = role;
+      if (Object.keys(patch).length) await call(session, edit, { id: o.id, ...patch });
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleActive() {
+    if (!edit) return;
+    setBusy(true);
+    setError('');
+    try {
+      // DEACTIVATE, NEVER DELETE (staff.py's own words) — his history stays his. Reactivating
+      // somebody who was stopped needs a fresh login (server refuses REHIRE_REQUIRED otherwise);
+      // that sentence comes back through `call`'s own error and is shown as-is, same as every
+      // other refusal on this screen.
+      await call(session, edit, { id: o.id, active: o.active === false });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="flex flex-col gap-2 border-b border-border-subtle pb-2 last:border-0 last:pb-0">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span>{o.name}</span>
+          {/* SHOWN IN THE LIST TOO. A team screen that hides what each person may do is a
+              screen an owner cannot audit — and the question he asks is always "who can
+              touch the billing", never "how many employees do I have". */}
+          <span className="text-sm text-text-secondary">
+            {ROLES.find((r) => r.value === o.role)?.label ?? o.role ?? ''}
+            {o.active === false ? ' · موقوف' : ''}
+          </span>
+        </span>
+
+        {edit ? (
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" className="text-sm"
+                    onClick={() => { setName(o.name); setRole(o.role ?? 'operator'); setEditing((v) => !v); }}>
+              تعديل
+            </Button>
+            <Button type="button" variant="ghost" className="text-sm text-danger"
+                    disabled={busy} onClick={toggleActive}>
+              {o.active === false ? 'إعادة تفعيل' : 'إيقاف'}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {editing ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-xl bg-surface-2 p-2">
+          <Field label="الاسم" htmlFor={`op-name-${o.id}`}>
+            <Input id={`op-name-${o.id}`} value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-text-secondary">الدور</span>
+            <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+                    value={role} onChange={(e) => setRole(e.target.value)}>
+              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </label>
+          <Button type="button" disabled={busy} onClick={save}>حفظ</Button>
+          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>إلغاء</Button>
+        </div>
+      ) : null}
+
+      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+
+      {o.active === false ? null : (
+        /* HIS BRANCH, CHANGEABLE IN PLACE — and it decides something: a visit he saves is
+           filed under HIS branch, whatever the device sends (services/operations/core/
+           operations.py). Hidden for a shop with one place, where the question is noise. */
+        (branches ?? []).length > 1 && edit ? (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-text-secondary">فرعه</span>
+            <select
+              className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+              value={o.branch_id ?? ''}
+              aria-label={`فرع ${o.name}`}
+              onChange={async (e) => {
+                await call(session, edit, { id: o.id, branch_id: e.target.value })
+                  .catch(() => undefined);
+                onChanged();
+              }}
+            >
+              <option value="">كل الفروع</option>
+              {(branches ?? []).filter((b) => b.active !== false).map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : null
+      )}
+      {/* AND WHAT HE MAY SEE, which is NOT where he works — the two were one field until
+          now, so an owner could say «this branch» or «everything» and nothing between, and
+          a supervisor over three had to be handed the whole chain to be given his three.
+          Beside the station rather than instead of it: a man works in one place and may
+          watch several, and both facts have to be readable at a glance or nobody can audit
+          a grant. */}
+      {o.active !== false && (branches ?? []).length > 1 && edit ? (
+        <fieldset className="flex flex-wrap items-center gap-2 text-sm">
+          <legend className="sr-only">{`ما يراه ${o.name}`}</legend>
+          <span className="text-text-secondary">يرى</span>
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              className="size-5"
+              checked={o.visible_all === true}
+              onChange={async (e) => {
+                await call(session, edit, { id: o.id, visible_all: e.target.checked })
+                  .catch(() => undefined);
+                onChanged();
+              }}
+            />
+            <span>كل الفروع</span>
+          </label>
+          {o.visible_all === true ? null : (branches ?? [])
+            .filter((b) => b.active !== false)
+            .map((b) => {
+              // HIS OWN BRANCH IS ALWAYS AMONG THEM, granted or not: a man sees where he
+              // works, and a screen that let an owner take that away would produce an
+              // employee who cannot read his own counter.
+              const granted = (o.visible_branch_ids ?? []).includes(b.id) || o.branch_id === b.id;
+              return (
+                <label key={b.id} className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    checked={granted}
+                    disabled={o.branch_id === b.id}
+                    onChange={async (e) => {
+                      const now = new Set(o.visible_branch_ids ?? []);
+                      if (e.target.checked) now.add(b.id); else now.delete(b.id);
+                      await call(session, edit,
+                        { id: o.id, visible_branch_ids: [...now] }).catch(() => undefined);
+                      onChanged();
+                    }}
+                  />
+                  <span>{b.name}</span>
+                </label>
+              );
+            })}
+        </fieldset>
+      ) : null}
+    </li>
   );
 }
 
