@@ -564,6 +564,25 @@ LEAD_STATUSES = (LEAD_NEW, LEAD_ASSIGNED, LEAD_CONTACTED, LEAD_INTERESTED, LEAD_
 #: actually linking a real referral.
 LEAD_MANUAL_STATUSES = (LEAD_CONTACTED, LEAD_INTERESTED, LEAD_NOT_INTERESTED, LEAD_FOLLOW_UP)
 
+# ── the outbound conversion playbook (2026-08-22) — a FINER axis than LEAD_STATUSES above.
+# `status` is the coarse triage every lead gets regardless of channel; `outreach_stage_code` is
+# the sales-specific funnel a promoter actually walks — gatekeeper, hook, offer, follow-up,
+# onboarding, paid, plus a cold-revival and a post-conversion referral leg. Both live on the SAME
+# Lead row and neither replaces the other. Stages are a MANAGED taxonomy (see OutreachStage below,
+# same "Sector, not an enum" shape) — the eight above are seed data, never a fixed list in code.
+OUTREACH_STAGES = "affiliate_outreach_stages"
+MESSAGE_TEMPLATES = "affiliate_message_templates"
+TEMPLATE_USES = "affiliate_template_uses"
+
+#: A TemplateUse's own outcome — set BY HAND, always. Advancing a lead's stage or admitting
+#: nobody wrote back is a claim about the shop owner's actual reply that only the promoter who
+#: read it can make; inferring it from elapsed time would fabricate a fact nobody actually knows.
+OUTCOME_PENDING = "pending"
+OUTCOME_ADVANCED = "advanced"
+OUTCOME_NO_RESPONSE = "no_response"
+OUTCOME_REJECTED = "rejected"
+TEMPLATE_OUTCOMES = (OUTCOME_PENDING, OUTCOME_ADVANCED, OUTCOME_NO_RESPONSE, OUTCOME_REJECTED)
+
 JOB_QUEUED = "queued"
 JOB_RUNNING = "running"
 JOB_COMPLETED = "completed"
@@ -593,6 +612,114 @@ class Sector:
     def from_dict(cls, d: dict[str, Any]) -> "Sector":
         return cls(code=str(d.get("code", "")), name=str(d.get("name", "")),
                    active=bool(d.get("active", True)), created_at=int(d.get("created_at", 0)))
+
+
+@dataclass
+class OutreachStage:
+    """A MANAGED taxonomy, same shape as Sector above — a manager defines it, every promoter's
+    lead ends up labelled by it, and it is never deleted (only deactivated) because history under
+    a retired stage must stay legible forever. `order` is advisory only: it sorts the list for a
+    human reading it and groups a funnel view, but nothing here enforces that a lead must pass
+    through stages in sequence — a real conversation skips steps, and forcing an order onto it
+    would be a fiction the data then has to carry."""
+    code: str
+    name: str
+    order: int = 0
+    active: bool = True
+    created_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"code": self.code, "name": self.name, "order": self.order,
+               "active": self.active, "created_at": self.created_at}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "OutreachStage":
+        return cls(code=str(d.get("code", "")), name=str(d.get("name", "")),
+                   order=int(d.get("order", 0) or 0), active=bool(d.get("active", True)),
+                   created_at=int(d.get("created_at", 0)))
+
+
+@dataclass
+class MessageTemplate:
+    """One copy-paste-ready message/image/video for one stage of the playbook — shared across the
+    WHOLE affiliate program, never siloed per manager: a script one manager finds converts becomes
+    every other manager's tool the same day, not a secret kept in his own team (same reasoning as
+    Sector being platform-wide rather than per-manager).
+
+    `kind` and `objection_type` are both FREE TEXT, deliberately not a closed enum — a manager
+    names his own content types and his own objection categories; hardcoding either here would be
+    exactly the kind of fixed vocabulary this feature exists to avoid. Never deleted, only
+    deactivated: a TemplateUse row from months ago must still resolve to a real title in a report,
+    even after the template it names is retired.
+    """
+    id: str
+    stage_code: str
+    kind: str = ""
+    title: str = ""
+    body: str = ""
+    media_url: str = ""
+    #: Free-text objection this template answers ("وقت/جهد", "نظام قائم", "سعر"...) — optional,
+    #: only meaningful for stage-3-shaped templates, never a hardcoded branch in code.
+    objection_type: str = ""
+    active: bool = True
+    created_by: str = ""
+    created_at: int = 0
+    updated_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "stage_code": self.stage_code, "kind": self.kind,
+               "title": self.title, "body": self.body, "media_url": self.media_url,
+               "objection_type": self.objection_type, "active": self.active,
+               "created_by": self.created_by, "created_at": self.created_at,
+               "updated_at": self.updated_at}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "MessageTemplate":
+        return cls(id=str(d.get("id", "")), stage_code=str(d.get("stage_code", "")),
+                   kind=str(d.get("kind", "")), title=str(d.get("title", "")),
+                   body=str(d.get("body", "")), media_url=str(d.get("media_url", "")),
+                   objection_type=str(d.get("objection_type", "")),
+                   active=bool(d.get("active", True)), created_by=str(d.get("created_by", "")),
+                   created_at=int(d.get("created_at", 0)), updated_at=int(d.get("updated_at", 0)))
+
+
+@dataclass
+class TemplateUse:
+    """One promoter's use of one template against one lead — the ONLY source of the analytics
+    this playbook exists to produce ("which templates actually move a lead forward"). `stage_code`
+    and `kind` are a SNAPSHOT taken from the template at the moment of use, never re-read from it
+    later: a template edited or deactivated after the fact must not silently rewrite history that
+    already happened under its old shape — the same "lock at the moment, never re-derive from a
+    moving reference" rule `Lead.sector_code` already follows.
+
+    `outcome` starts PENDING and is changed by a HUMAN, never inferred (see OUTCOME_* above)."""
+    id: str
+    lead_id: str
+    template_id: str
+    stage_code: str
+    kind: str
+    used_by: str
+    used_at: int = 0
+    outcome: str = OUTCOME_PENDING
+    outcome_at: int = 0
+    outcome_by: str = ""
+    note: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "lead_id": self.lead_id, "template_id": self.template_id,
+               "stage_code": self.stage_code, "kind": self.kind, "used_by": self.used_by,
+               "used_at": self.used_at, "outcome": self.outcome, "outcome_at": self.outcome_at,
+               "outcome_by": self.outcome_by, "note": self.note}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TemplateUse":
+        return cls(id=str(d.get("id", "")), lead_id=str(d.get("lead_id", "")),
+                   template_id=str(d.get("template_id", "")),
+                   stage_code=str(d.get("stage_code", "")), kind=str(d.get("kind", "")),
+                   used_by=str(d.get("used_by", "")), used_at=int(d.get("used_at", 0)),
+                   outcome=str(d.get("outcome", OUTCOME_PENDING)),
+                   outcome_at=int(d.get("outcome_at", 0)), outcome_by=str(d.get("outcome_by", "")),
+                   note=str(d.get("note", "")))
 
 
 @dataclass
@@ -643,6 +770,17 @@ class Lead:
     #: Each: {"at": epoch, "by": affiliate_id, "text": str, "status_from": str, "status_to": str}.
     notes: list[dict[str, Any]] = field(default_factory=list)
     found_at: int = 0
+    #: THE FINER SALES FUNNEL (2026-08-22, see OUTREACH_STAGES's own note above) — blank until a
+    #: promoter first touches this lead through the playbook. A DIFFERENT axis from `status`:
+    #: changed only by TemplateUseService.set_outcome()'s explicit `new_stage_code`, never derived
+    #: from `status` or from a template's own `stage_code`.
+    outreach_stage_code: str = ""
+    #: THE REAL DECISION-MAKER'S OWN CONTACT — separate from `phone` above (Google's business
+    #: number, often the reception line). Set only by a promoter who actually obtained it
+    #: (TemplateUseService.set_decision_maker), never guessed or copied from `phone`.
+    decision_maker_name: str = ""
+    decision_maker_phone: str = ""
+    decision_maker_role: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -655,6 +793,10 @@ class Lead:
             "source_manager_id": self.source_manager_id, "assigned_to": self.assigned_to,
             "status": self.status, "converted_tenant": self.converted_tenant,
             "notes": list(self.notes), "found_at": self.found_at,
+            "outreach_stage_code": self.outreach_stage_code,
+            "decision_maker_name": self.decision_maker_name,
+            "decision_maker_phone": self.decision_maker_phone,
+            "decision_maker_role": self.decision_maker_role,
         }
 
     @classmethod
@@ -677,6 +819,10 @@ class Lead:
             converted_tenant=str(d.get("converted_tenant", "")),
             notes=[dict(n) for n in (d.get("notes") or [])],
             found_at=int(d.get("found_at", 0)),
+            outreach_stage_code=str(d.get("outreach_stage_code", "")),
+            decision_maker_name=str(d.get("decision_maker_name", "")),
+            decision_maker_phone=str(d.get("decision_maker_phone", "")),
+            decision_maker_role=str(d.get("decision_maker_role", "")),
         )
 
 

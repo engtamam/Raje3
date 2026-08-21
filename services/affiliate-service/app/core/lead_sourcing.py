@@ -52,6 +52,23 @@ class LeadError(Exception):
         self.reason = reason
 
 
+async def owns_lead(store, lead: Lead, affiliate_id: str) -> bool:
+    """The ownership check `set_status` originally inlined — extracted (2026-08-22) once the
+    outbound conversion playbook (core/outreach.py) needed the EXACT SAME rule for logging a
+    template use or setting its outcome: the lead's own assigned promoter, or that promoter's own
+    manager. Never a capability. An unassigned lead belongs to nobody yet — only `assign()` itself
+    may act on one, so this returns False rather than falling back to source_manager_id (a
+    DIFFERENT ownership rule, still inlined in `assign`/`link_registration` on purpose: they are
+    answering "is this MY search result", not "is this MY lead to work")."""
+    if affiliate_id == lead.assigned_to:
+        return True
+    if not lead.assigned_to:
+        return False
+    assignee_row = await store.get(AFFILIATES, lead.assigned_to)
+    assignee = Affiliate.from_dict(assignee_row) if assignee_row else None
+    return assignee is not None and assignee.parent_id == affiliate_id
+
+
 class LeadSourcingService:
     def __init__(self, *, store, keys, onboarding, sectors=None,
                 default_delay_seconds: float = 0.0) -> None:
@@ -313,12 +330,7 @@ class LeadSourcingService:
         if lead is None:
             raise LeadError("العميل المحتمل غير موجود.", reason="not_found")
 
-        allowed = affiliate_id == lead.assigned_to
-        if not allowed and lead.assigned_to:
-            assignee_row = await self._s.get(AFFILIATES, lead.assigned_to)
-            assignee = Affiliate.from_dict(assignee_row) if assignee_row else None
-            allowed = assignee is not None and assignee.parent_id == affiliate_id
-        if not allowed:
+        if not await owns_lead(self._s, lead, affiliate_id):
             raise LeadError("ما تقدر تعدّل حالة عميل محتمل مو مُسنَد لك أو لأحد بفريقك.",
                             reason="not_yours")
 

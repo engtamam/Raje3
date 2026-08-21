@@ -27,6 +27,7 @@ from app.api.v1.admin_sectors import router as affiliates_admin_sectors_router
 from app.api.v1.admin_payouts import router as affiliates_admin_payouts_router
 from app.api.v1.admin_wafa import router as affiliates_admin_wafa_router
 from app.api.v1.affiliate_self import router as affiliates_self_router
+from app.api.v1.outreach import router as affiliates_outreach_router
 from app.api.v1.operator import router as operator_router
 from app.api.v1.public import router as affiliates_public_router
 from app.config import get_settings
@@ -166,6 +167,7 @@ def create_app() -> FastAPI:
     app.include_router(v1_router)
     app.include_router(affiliates_public_router)
     app.include_router(affiliates_self_router)
+    app.include_router(affiliates_outreach_router)
     app.include_router(affiliates_admin_router)
     app.include_router(affiliates_admin_payouts_router)
     app.include_router(affiliates_admin_wafa_router)

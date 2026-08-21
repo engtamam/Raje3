@@ -312,4 +312,24 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "critical, since refusing a reactivation while the log is down costs the marketer "
                "a delay, not evidence",
     },
+    {
+        "action": "affiliate.outreach_stage_changed",
+        "source": "user",
+        "critical": False,
+        "resource": "outreach_stage",
+        "why": "a manager's own change to the shared conversion-funnel taxonomy — explains later "
+               "why a stage a promoter used to see stopped appearing, or why a new one showed up; "
+               "not critical, a mislabelled stage costs nothing an admin cannot fix by calling "
+               "this again while the log is down",
+    },
+    {
+        "action": "affiliate.template_changed",
+        "source": "user",
+        "critical": False,
+        "resource": "template",
+        "why": "a manager's own edit to a shared, program-wide message template — every promoter "
+               "reads and copies from this library, so a change to what it says is worth being "
+               "able to explain later; not critical, since the template itself (not the change "
+               "log) is what actually goes out to a shop owner",
+    },
 ]

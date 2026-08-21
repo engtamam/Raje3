@@ -173,6 +173,9 @@ class Container:
     tickets: Any = None
     escalation: Any = None
     sectors: Any = None
+    outreach_stages: Any = None
+    templates: Any = None
+    template_uses: Any = None
 
     def describe(self) -> list[dict[str, str]]:
         """[{port, driver}] for the service manifest."""
@@ -334,4 +337,12 @@ def build_container(settings: Settings) -> Container:
     from app.core.sectors import SectorService
 
     container.sectors = SectorService(store=container.datastore)
+
+    # The outbound conversion playbook — see core/outreach.py's own module docstring.
+    from app.core.outreach import OutreachStageService, TemplateService, TemplateUseService
+
+    container.outreach_stages = OutreachStageService(store=container.datastore)
+    container.templates = TemplateService(store=container.datastore)
+    container.template_uses = TemplateUseService(store=container.datastore,
+                                                  templates=container.templates)
     return container
