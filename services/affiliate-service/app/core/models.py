@@ -573,6 +573,7 @@ LEAD_MANUAL_STATUSES = (LEAD_CONTACTED, LEAD_INTERESTED, LEAD_NOT_INTERESTED, LE
 OUTREACH_STAGES = "affiliate_outreach_stages"
 MESSAGE_TEMPLATES = "affiliate_message_templates"
 TEMPLATE_USES = "affiliate_template_uses"
+STAT_CITATIONS = "affiliate_stat_citations"
 
 #: A TemplateUse's own outcome — set BY HAND, always. Advancing a lead's stage or admitting
 #: nobody wrote back is a claim about the shop owner's actual reply that only the promoter who
@@ -680,6 +681,51 @@ class MessageTemplate:
                    body=str(d.get("body", "")), media_url=str(d.get("media_url", "")),
                    objection_type=str(d.get("objection_type", "")),
                    active=bool(d.get("active", True)), created_by=str(d.get("created_by", "")),
+                   created_at=int(d.get("created_at", 0)), updated_at=int(d.get("updated_at", 0)))
+
+
+@dataclass
+class StatCitation:
+    """A researched, sourced number a promoter can put in front of a shop owner as proof, not
+    assertion — same managed-taxonomy shape as MessageTemplate: manager-writable, everyone-
+    readable, never deleted (only deactivated).
+
+    A NUMBER WITHOUT A SOURCE INCREASES SUSPICION RATHER THAN TRUST (the research that led here) —
+    so `source_label`/`source_url` are not optional metadata, they are the point. `source_label` is
+    what a promoter can say IN a WhatsApp message ("...Bain & Company") without it reading as spam;
+    `source_url` is what the PLATFORM itself links the number to — read on the platform, never
+    pasted into the outgoing message.
+
+    Deliberately sector- and gender-neutral, and each `body` is SELF-CONTAINED — it restates its
+    own assumptions (e.g. "100 عميل جديد بالشهر") rather than pointing at another citation's
+    numbers, so a promoter reading one row never has to cross-reference another to make sense of it.
+    """
+    id: str
+    title: str
+    body: str
+    source_label: str = ""
+    source_url: str = ""
+    #: Optional — which stage this number is meant for. Blank means general-purpose.
+    stage_code: str = ""
+    active: bool = True
+    created_by: str = ""
+    created_at: int = 0
+    updated_at: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"id": self.id, "title": self.title, "body": self.body,
+               "source_label": self.source_label, "source_url": self.source_url,
+               "stage_code": self.stage_code, "active": self.active,
+               "created_by": self.created_by, "created_at": self.created_at,
+               "updated_at": self.updated_at}
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "StatCitation":
+        return cls(id=str(d.get("id", "")), title=str(d.get("title", "")),
+                   body=str(d.get("body", "")), source_label=str(d.get("source_label", "")),
+                   source_url=str(d.get("source_url", "")),
+                   stage_code=str(d.get("stage_code", "")), active=bool(d.get("active", True)),
+                   created_by=str(d.get("created_by", "")),
                    created_at=int(d.get("created_at", 0)), updated_at=int(d.get("updated_at", 0)))
 
 

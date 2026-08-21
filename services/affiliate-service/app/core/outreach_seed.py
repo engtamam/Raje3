@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.outreach import OutreachStageService, TemplateService
+from app.core.outreach import OutreachStageService, StatCitationService, TemplateService
 
 SEED_STAGES: list[dict[str, Any]] = [
     {"code": "gatekeeper", "name": "تجاوز حارس البوابة", "order": 1},
@@ -67,7 +67,75 @@ SEED_TEMPLATES: list[dict[str, Any]] = [
 ]
 
 
-async def seed(*, stages: OutreachStageService, templates: TemplateService) -> None:
+# The nine researched, sourced numbers settled on 2026-08-22 — see docs/وصف-بوابة-المسوقين.md's
+# own §١٥ subsection for the full conversation trail. Sector- and gender-neutral, each SELF-
+# CONTAINED (restates its own "100 عميل جديد بالشهر" assumption rather than pointing at another
+# row), a real source on every one — a number without a source raises suspicion, not trust.
+SEED_STAT_CITATIONS: list[dict[str, Any]] = [
+    {
+        "title": "الانقطاع الصامت",
+        "body": "لو عندك ١٠٠ عميل جديد بالشهر، ٦٥ منهم ما يرجعون أبداً — بدون شكوى، بدون سبب "
+               "واضح لك.",
+        "source_label": "Meevo Salon & Spa Industry Report 2025",
+    },
+    {
+        "title": "الخسارة الشهرية الكاملة",
+        "body": "لو عندك ١٠٠ عميل جديد بالشهر ومتوسط الفاتورة ١٥٠ ريال، و٦٥ منهم ما يرجعون: كل "
+               "واحد يخسّرك ٤٥٠ ريال بالسنة (٣ زيارات متوقعة). المجموع: ٢٩,٢٥٠ ريال بالسنة، أي "
+               "~٢,٤٠٠ ريال كل شهر يتكرر تلقائياً.",
+        "source_label": "حساب مباشر مبني على بند الانقطاع الصامت",
+    },
+    {
+        "title": "أثر التحسين البسيط",
+        "body": "لو عندك ١٠٠ عميل جديد بالشهر وربحك الشهري ١٠,٠٠٠ ريال، ورفعت نسبة رجوعهم ٥٪ "
+               "بس: ربحك يصير ١٢,٥٠٠-١٩,٥٠٠ ريال — فرق ٢,٥٠٠-٩,٥٠٠ ريال شهرياً.",
+        "source_label": "Bain & Company",
+    },
+    {
+        "title": "استرجاع أرخص من جذب جديد",
+        "body": "لو عندك ١٠٠ عميل جديد بالشهر، و٦٥ منهم ما رجعوا: استرجاع كل واحد منهم يكلّفك "
+               "٢-١٠ ريال بس (بدل ٥٠ ريال إعلانات لجذب بديل جديد). التوفير: ٢,٦٠٠-٣,١٢٠ ريال "
+               "شهرياً لو استرجعتهم بدل ما تجذب جدد.",
+        "source_label": "أدبيات تسويق قياسية (تكلفة اكتساب العميل مقابل الاحتفاظ)",
+    },
+    {
+        "title": "إنفاق العميل الوفي",
+        "body": "لو عندك ١٠٠ عميل جديد بالشهر و٣٥ منهم يرجعون فعلاً (يصيرون \"أوفياء\")، "
+               "ومتوسط فاتورتهم ١٥٠ ريال: العميل الوفي يصرف ٥٣٪ أكثر = ٨٠ ريال إضافي بالزيارة. "
+               "المجموع: ٢,٨٠٠ ريال زيادة كل شهر من نفس قاعدتك الحالية.",
+        "source_label": "Zenoti 2024 Consumer Survey",
+    },
+    {
+        "title": "تكرار الزيارة",
+        "body": "لو عندك ٣٥ عميل وفي، ومتوسط فاتورتهم ١٥٠ ريال: كل واحد يزور ٢-٣ مرات إضافية "
+               "بالسنة (٤٠٪ زيادة). المجموع: ~١٥,٧٥٠ ريال إضافية بالسنة.",
+        "source_label": "Zenoti 2024 Consumer Survey",
+    },
+    {
+        "title": "نظام ولاء يضاعف الرجوع",
+        "body": "لو عندك ١٠٠ عميل جديد بالشهر، ومتوسط فاتورتهم ١٥٠ ريال: بدون نظام يرجع ٣٥ "
+               "منهم، وبنظام بسيط (نقطة/مكافأة) يرجع ٦٠-٧٠. الفرق: ٢٥-٣٥ عميل إضافي شهرياً = "
+               "١١,٢٥٠-١٥,٧٥٠ ريال إضافية بالسنة.",
+        "source_label": "Paytronix / Tremendous Loyalty Research",
+    },
+    {
+        "title": "تفضيل العملاء",
+        "body": "لو عندك ١٠٠ عميل محتمل بالشهر يقارنون بين محلك ومحل منافس: ٧٣ منهم يختارون "
+               "المحل اللي عنده نظام ولاء. يعني ٧٣ عميل محتمل ممكن تخسرهم للمنافس بس لأنه عنده "
+               "نظام وأنت لا.",
+        "source_label": "Zenoti 2024 Consumer Survey",
+    },
+    {
+        "title": "خسارة الحجز الصعب",
+        "body": "لو عندك ١٠٠ محاولة حجز بالشهر: ٧١ منها تضيع فعلياً لو العملية معقّدة أو بطيئة "
+               "— بغض النظر عن جودة خدمتك أو سعرك.",
+        "source_label": "Zenoti — بيانات الاحتكاك التشغيلي",
+    },
+]
+
+
+async def seed(*, stages: OutreachStageService, templates: TemplateService,
+              stat_citations: StatCitationService | None = None) -> None:
     for row in SEED_STAGES:
         if await stages.get(row["code"]) is None:
             await stages.create(**row)
@@ -76,3 +144,9 @@ async def seed(*, stages: OutreachStageService, templates: TemplateService) -> N
     for row in SEED_TEMPLATES:
         if (row["stage_code"], row["title"]) not in existing:
             await templates.create(**row, created_by="system:seed")
+
+    if stat_citations is not None:
+        existing_titles = {c.title for c in await stat_citations.list(active_only=False)}
+        for row in SEED_STAT_CITATIONS:
+            if row["title"] not in existing_titles:
+                await stat_citations.create(**row, created_by="system:seed")

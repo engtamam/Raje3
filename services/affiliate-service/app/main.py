@@ -113,7 +113,8 @@ def create_app() -> FastAPI:
         # server with a manager's own edits is never silently reset.
         from app.core.outreach_seed import seed as seed_outreach
 
-        await seed_outreach(stages=container.outreach_stages, templates=container.templates)
+        await seed_outreach(stages=container.outreach_stages, templates=container.templates,
+                            stat_citations=container.stat_citations)
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})

@@ -227,3 +227,69 @@ async def deactivate_template(request: Request, template_id: str,
             resource=f"template:{template_id}",
             ip=request.client.host if request.client else "")
     return {"ok": True, "changed": changed}
+
+
+# ── the evidence library — a researched, sourced number ready to cite ───────────────────────────
+@router.get("/stat-citations", dependencies=[Depends(rate_limit)])
+async def list_stat_citations(request: Request, stage_code: str = "",
+                              principal: Principal = Depends(require_user)) -> dict:
+    """ONE list, TWO uses — the same rows a template's own screen shows underneath it (filtered
+    by `stage_code`) and the standalone "مكتبة الأرقام" page (blank `stage_code`) browse. No
+    duplicated data, no second endpoint."""
+    rows = await request.app.state.container.stat_citations.list(stage_code=stage_code,
+                                                                  active_only=True)
+    return {"citations": [c.to_dict() for c in rows]}
+
+
+class StatCitationIn(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=1000)
+    source_label: str = Field(default="", max_length=200)
+    source_url: str = Field(default="", max_length=1000)
+    stage_code: str = Field(default="", max_length=64)
+
+
+@router.post("/stat-citations", status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit)])
+async def create_stat_citation(request: Request, body: StatCitationIn,
+                              principal: Principal = Depends(require_user)) -> Any:
+    affiliate = await _my_manager_affiliate(request, principal)
+    try:
+        out = await request.app.state.container.stat_citations.create(
+            title=body.title, body=body.body, source_label=body.source_label,
+            source_url=body.source_url, stage_code=body.stage_code, created_by=affiliate["id"])
+    except OutreachError as exc:
+        return _refused(exc)
+    await request.app.state.auditor.record(
+        "affiliate.stat_citation_changed", actor=affiliate["id"], tenant="",
+        resource=f"stat_citation:{out.id}", ip=request.client.host if request.client else "")
+    return {"ok": True, **out.to_dict()}
+
+
+@router.put("/stat-citations/{citation_id}", dependencies=[Depends(rate_limit)])
+async def update_stat_citation(request: Request, citation_id: str, body: StatCitationIn,
+                              principal: Principal = Depends(require_user)) -> Any:
+    affiliate = await _my_manager_affiliate(request, principal)
+    try:
+        out = await request.app.state.container.stat_citations.update(
+            citation_id, title=body.title, body=body.body, source_label=body.source_label,
+            source_url=body.source_url, stage_code=body.stage_code)
+    except OutreachError as exc:
+        return _refused(exc)
+    await request.app.state.auditor.record(
+        "affiliate.stat_citation_changed", actor=affiliate["id"], tenant="",
+        resource=f"stat_citation:{citation_id}", ip=request.client.host if request.client else "")
+    return {"ok": True, **out.to_dict()}
+
+
+@router.delete("/stat-citations/{citation_id}", dependencies=[Depends(rate_limit)])
+async def deactivate_stat_citation(request: Request, citation_id: str,
+                                   principal: Principal = Depends(require_user)) -> dict:
+    affiliate = await _my_manager_affiliate(request, principal)
+    changed = await request.app.state.container.stat_citations.deactivate(citation_id)
+    if changed:
+        await request.app.state.auditor.record(
+            "affiliate.stat_citation_changed", actor=affiliate["id"], tenant="",
+            resource=f"stat_citation:{citation_id}",
+            ip=request.client.host if request.client else "")
+    return {"ok": True, "changed": changed}

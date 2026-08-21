@@ -153,6 +153,11 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/template-uses/{}", "tier": "user", "method": "PATCH"},
             {"path": "/api/v1/affiliates/me/leads/{}/decision-maker", "tier": "user",
              "method": "PATCH"},
+            {"path": "/api/v1/affiliates/me/stat-citations", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/stat-citations", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/me/stat-citations/{}", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/affiliates/me/stat-citations/{}", "tier": "user",
+             "method": "DELETE"},
             {"path": "/internal/leads/tick", "tier": "internal", "method": "POST"},
             {"path": "/internal/tickets/escalation-sweep", "tier": "internal", "method": "POST"},
             # §١٣ — a shop's tickets, consent-scoped to the marketer who referred it.

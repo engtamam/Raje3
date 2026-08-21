@@ -332,4 +332,13 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "able to explain later; not critical, since the template itself (not the change "
                "log) is what actually goes out to a shop owner",
     },
+    {
+        "action": "affiliate.stat_citation_changed",
+        "source": "user",
+        "critical": False,
+        "resource": "stat_citation",
+        "why": "a manager's own edit to a shared, sourced number promoters cite to a shop owner "
+               "as proof — worth explaining later why a figure changed or its source moved; not "
+               "critical, since the number itself governs what gets said, not this log",
+    },
 ]

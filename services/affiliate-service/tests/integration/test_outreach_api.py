@@ -209,3 +209,56 @@ def test_deactivating_a_stage_and_a_template_never_deletes(client):
     stages = client.get("/api/v1/affiliates/me/outreach-stages",
                         headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"}).json()["stages"]
     assert not any(s["code"] == "offer" for s in stages)   # dropped from the ACTIVE list only
+
+
+# ── the evidence library ─────────────────────────────────────────────────────────────────────────
+def test_creating_a_stat_citation_refuses_a_non_manager(client):
+    r = client.post("/api/v1/affiliates/me/stat-citations",
+                    json={"title": "الانقطاع الصامت", "body": "٦٥ من ١٠٠ ما يرجعون"},
+                    headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"})
+    assert r.status_code == 403
+
+
+def test_a_manager_creates_a_citation_and_a_promoter_reads_it(client):
+    r = client.post("/api/v1/affiliates/me/stat-citations",
+                    json={"title": "الانقطاع الصامت", "body": "٦٥ من ١٠٠ ما يرجعون",
+                          "source_label": "Meevo 2025",
+                          "source_url": "https://example.com/meevo"},
+                    headers={"Authorization": f"Bearer {_token(sub='p-out1')}"})
+    assert r.status_code == 201, r.text
+    citation_id = r.json()["id"]
+
+    r = client.get("/api/v1/affiliates/me/stat-citations",
+                   headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"})
+    assert r.status_code == 200, r.text
+    row = next(c for c in r.json()["citations"] if c["id"] == citation_id)
+    assert row["source_label"] == "Meevo 2025"
+    assert row["source_url"] == "https://example.com/meevo"
+
+
+def test_updating_and_deactivating_a_citation_is_manager_only_and_never_deletes(client):
+    citation_id = client.post(
+        "/api/v1/affiliates/me/stat-citations",
+        json={"title": "أثر التحسين البسيط", "body": "نص أولي"},
+        headers={"Authorization": f"Bearer {_token(sub='p-out1')}"}).json()["id"]
+
+    r = client.put(f"/api/v1/affiliates/me/stat-citations/{citation_id}",
+                   json={"title": "أثر التحسين البسيط", "body": "نص محدَّث",
+                         "source_label": "Bain & Company"},
+                   headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"})
+    assert r.status_code == 403
+
+    r = client.put(f"/api/v1/affiliates/me/stat-citations/{citation_id}",
+                   json={"title": "أثر التحسين البسيط", "body": "نص محدَّث",
+                         "source_label": "Bain & Company"},
+                   headers={"Authorization": f"Bearer {_token(sub='p-out1')}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["body"] == "نص محدَّث"
+
+    r = client.delete(f"/api/v1/affiliates/me/stat-citations/{citation_id}",
+                     headers={"Authorization": f"Bearer {_token(sub='p-out1')}"})
+    assert r.status_code == 200 and r.json()["changed"] is True
+
+    active = client.get("/api/v1/affiliates/me/stat-citations",
+                        headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"}).json()["citations"]
+    assert not any(c["id"] == citation_id for c in active)   # dropped from active list only

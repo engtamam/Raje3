@@ -35,11 +35,13 @@ from app.core.models import (
     MESSAGE_TEMPLATES,
     OUTCOME_PENDING,
     OUTREACH_STAGES,
+    STAT_CITATIONS,
     TEMPLATE_OUTCOMES,
     TEMPLATE_USES,
     Lead,
     MessageTemplate,
     OutreachStage,
+    StatCitation,
     TemplateUse,
     new_id,
 )
@@ -160,6 +162,70 @@ class TemplateService:
             rows = await self._s.scan_all(MESSAGE_TEMPLATES, limit)
         return sorted((MessageTemplate.from_dict(r) for r in rows),
                      key=lambda t: (t.stage_code, t.title))
+
+
+class StatCitationService:
+    """A researched, sourced number a promoter can cite — see StatCitation's own docstring.
+    Same managed-taxonomy shape as SectorService/TemplateService: manager-writable, everyone-
+    readable, never deleted."""
+
+    def __init__(self, *, store) -> None:
+        self._s = store
+
+    async def create(self, *, title: str, body: str, source_label: str = "",
+                     source_url: str = "", stage_code: str = "",
+                     created_by: str = "") -> StatCitation:
+        title = title.strip()
+        body = body.strip()
+        if not title or not body:
+            raise OutreachError("أدخل عنوان ونص الرقم.", reason="missing_fields")
+        now = int(time.time())
+        row = StatCitation(id=new_id(), title=title, body=body, source_label=source_label,
+                          source_url=source_url, stage_code=stage_code, active=True,
+                          created_by=created_by, created_at=now, updated_at=now)
+        await self._s.put(STAT_CITATIONS, row.id, row.to_dict())
+        return row
+
+    async def update(self, citation_id: str, **fields: Any) -> StatCitation:
+        row = await self._s.get(STAT_CITATIONS, citation_id)
+        if row is None:
+            raise OutreachError("الرقم غير موجود.", reason="not_found")
+        cite = StatCitation.from_dict(row)
+        for name in ("title", "body", "source_label", "source_url", "stage_code"):
+            if name in fields and fields[name] is not None:
+                setattr(cite, name, str(fields[name]))
+        cite.updated_at = int(time.time())
+        await self._s.put(STAT_CITATIONS, cite.id, cite.to_dict())
+        return cite
+
+    async def deactivate(self, citation_id: str) -> bool:
+        row = await self._s.get(STAT_CITATIONS, citation_id)
+        if row is None:
+            return False
+        cite = StatCitation.from_dict(row)
+        if not cite.active:
+            return False   # idempotent
+        cite.active = False
+        cite.updated_at = int(time.time())
+        await self._s.put(STAT_CITATIONS, cite.id, cite.to_dict())
+        return True
+
+    async def get(self, citation_id: str) -> StatCitation | None:
+        row = await self._s.get(STAT_CITATIONS, citation_id)
+        return StatCitation.from_dict(row) if row else None
+
+    async def list(self, *, stage_code: str = "", active_only: bool = True,
+                   limit: int = 500) -> list[StatCitation]:
+        query: dict[str, Any] = {}
+        if active_only:
+            query["active"] = True
+        if stage_code:
+            query["stage_code"] = stage_code
+        if query:
+            rows, _ = await self._s.find(STAT_CITATIONS, query, limit=limit)
+        else:
+            rows = await self._s.scan_all(STAT_CITATIONS, limit)
+        return sorted((StatCitation.from_dict(r) for r in rows), key=lambda c: c.title)
 
 
 class TemplateUseService:
