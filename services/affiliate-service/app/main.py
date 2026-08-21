@@ -106,6 +106,14 @@ def create_app() -> FastAPI:
         # schedule) would on its own. A missed event costs latency, never correctness.
         for topic in settings.affiliate_commission_sync_topics:
             await container.event_bus.subscribe(topic, _commission_sync_handler(container, logger))
+        # THE OUTBOUND CONVERSION PLAYBOOK'S SEED DATA — see core/outreach_seed.py's own
+        # docstring for why this runs on every boot and is still safe: it only ever fills in a
+        # stage/template that has never existed, and never touches one a manager already has
+        # (even a deactivated one), so a fresh install gets the starting playbook and a live
+        # server with a manager's own edits is never silently reset.
+        from app.core.outreach_seed import seed as seed_outreach
+
+        await seed_outreach(stages=container.outreach_stages, templates=container.templates)
         yield
         await container.close()
         logger.info("shutdown", extra={"service": settings.SERVICE_NAME})
