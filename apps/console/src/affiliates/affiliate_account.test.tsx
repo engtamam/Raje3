@@ -8,6 +8,7 @@ const SESSION: AffiliateSession = { access_token: 'tok-1' };
 let meMock: () => Promise<Me>;
 let payoutMethodMock: () => Promise<PayoutMethod>;
 const setPayoutMethodMock = vi.fn();
+const changePasswordMock = vi.fn();
 
 vi.mock('./api', async (importOriginal) => {
   const real = await importOriginal<typeof import('./api')>();
@@ -16,8 +17,11 @@ vi.mock('./api', async (importOriginal) => {
     me: (...args: unknown[]) => meMock(),
     payoutMethod: (...args: unknown[]) => payoutMethodMock(),
     setPayoutMethod: (...args: unknown[]) => setPayoutMethodMock(...args),
+    changePassword: (...args: unknown[]) => changePasswordMock(...args),
   };
 });
+
+const PROMOTER: Me = { id: 'a1', role: 'affiliate_promoter', name: 'سلمان', parent_id: '', status: 'active' };
 
 afterEach(() => vi.clearAllMocks());
 
@@ -81,5 +85,46 @@ describe('AffiliateAccount', () => {
 
     await waitFor(() => expect(setPayoutMethodMock).toHaveBeenCalledWith(
       SESSION, { channel: 'bank_iban', channelName: '', accountRef: 'SA9999' }));
+  });
+
+  it('the change-password control starts collapsed, with no fields showing', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    payoutMethodMock = () => Promise.resolve({ set: false });
+    render(<AffiliateAccount session={SESSION} onSignOut={() => {}} />);
+    await waitFor(() => expect(screen.getByText('تغيير كلمة المرور')).toBeTruthy());
+    expect(screen.queryByPlaceholderText('كلمة المرور الحالية')).toBeFalsy();
+  });
+
+  it('refuses locally when the new password and its confirmation differ, without calling the API', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    payoutMethodMock = () => Promise.resolve({ set: false });
+    render(<AffiliateAccount session={SESSION} onSignOut={() => {}} />);
+    await waitFor(() => expect(screen.getByText('تغيير كلمة المرور')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('تغيير كلمة المرور'));
+    fireEvent.change(screen.getByPlaceholderText('كلمة المرور الحالية'), { target: { value: 'old-pw' } });
+    fireEvent.change(screen.getByPlaceholderText('كلمة المرور الجديدة'), { target: { value: 'new-pw-1' } });
+    fireEvent.change(screen.getByPlaceholderText('تأكيد كلمة المرور الجديدة'), { target: { value: 'new-pw-2' } });
+    fireEvent.click(screen.getByText('حفظ'));
+
+    expect(screen.getByText('كلمتا المرور الجديدتان غير متطابقتين.')).toBeTruthy();
+    expect(changePasswordMock).not.toHaveBeenCalled();
+  });
+
+  it('submits the old and new passwords, and confirms success', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    payoutMethodMock = () => Promise.resolve({ set: false });
+    changePasswordMock.mockResolvedValue(undefined);
+    render(<AffiliateAccount session={SESSION} onSignOut={() => {}} />);
+    await waitFor(() => expect(screen.getByText('تغيير كلمة المرور')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('تغيير كلمة المرور'));
+    fireEvent.change(screen.getByPlaceholderText('كلمة المرور الحالية'), { target: { value: 'old-pw' } });
+    fireEvent.change(screen.getByPlaceholderText('كلمة المرور الجديدة'), { target: { value: 'new-pw-1' } });
+    fireEvent.change(screen.getByPlaceholderText('تأكيد كلمة المرور الجديدة'), { target: { value: 'new-pw-1' } });
+    fireEvent.click(screen.getByText('حفظ'));
+
+    await waitFor(() => expect(changePasswordMock).toHaveBeenCalledWith(SESSION, 'old-pw', 'new-pw-1'));
+    expect(screen.getByText('تم تغيير كلمة المرور.')).toBeTruthy();
   });
 });

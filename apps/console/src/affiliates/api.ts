@@ -247,3 +247,11 @@ export async function setPayoutMethod(session: AffiliateSession, input: {
     channel: input.channel, channel_name: input.channelName ?? '', account_ref: input.accountRef,
   }, session.access_token);
 }
+
+/** A pure pass-through to identity-service (see the server route's own docstring) — nothing here
+ *  ever holds a password, old or new. */
+export async function changePassword(session: AffiliateSession, oldPassword: string,
+                                     newPassword: string): Promise<void> {
+  await req('/api/v1/affiliates/me/change-password', 'POST',
+            { old_password: oldPassword, new_password: newPassword }, session.access_token);
+}
