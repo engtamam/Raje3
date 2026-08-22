@@ -20,9 +20,9 @@ describe('resolvePane', () => {
   });
 
   it('sends every name that became a section to the tab now holding it', () => {
-    // AND «دخولي» IS NOW ONE OF THEM. Its switch — the weekly report — lives in «بياناتي», so a
-    // link written when it was a tab must land where the switch actually is.
-    expect(resolvePane('login')).toBe('data');
+    // AND «دخولي» IS NOW ONE OF THEM. Its switch — the weekly report — moved twice since, and now
+    // lives in «منشأتي», so a link written when it was a tab must land where the switch actually is.
+    expect(resolvePane('login')).toBe('shop');
     expect(resolvePane('whatsapp')).toBe('shop');
     expect(resolvePane('team')).toBe('shop');
     expect(resolvePane('keys')).toBe('shop');

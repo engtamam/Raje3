@@ -48,12 +48,13 @@ describe('«حسابي» — the tab that went, and where its parts landed', () 
     expect(screen.queryByText('دخولي')).toBeNull();
   });
 
-  it('sends an old ?tab=login link to «بياناتي» rather than dropping it on the default', () => {
+  it('sends an old ?tab=login link to «منشأتي» rather than dropping it on the default', () => {
     // THE LINKS ARE WRITTEN FAR FROM THIS SCREEN — locked cards, sentences in «محلّي», anything
     // anybody bookmarked. A name that stops landing does not fail; it opens the wrong tab and the
-    // setting looks deleted.
-    expect(MOVED.login).toBe('data');
-    expect(resolvePane('login')).toBe('data');
+    // setting looks deleted. The switch itself has since moved a second time, from «بياناتي» to
+    // «منشأتي» — this mapping follows it there.
+    expect(MOVED.login).toBe('shop');
+    expect(resolvePane('login')).toBe('shop');
   });
 
   it('keeps the weekly-report switch reachable, and reads its state', async () => {

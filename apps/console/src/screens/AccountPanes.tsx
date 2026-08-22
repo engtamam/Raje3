@@ -58,6 +58,31 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
   };
   useEffect(load, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── THE WEEKLY REPORT, WHICH ARRIVED HERE BY WAY OF THREE OTHER SCREENS ────────────────────
+  //
+  // It began on «محلّي», first thing on the shop's dashboard: a checkbox about ONE PERSON'S
+  // WhatsApp above every number the screen exists to show, pushing his retention rate below the
+  // fold. It moved to «دخولي» (since deleted), then to «بياناتي» beside data-retention settings
+  // it had nothing to do with, and now here — «منشأتي», where he actually looks for it.
+  //
+  // STILL PER PERSON, NOT PER SHOP, EVEN ON THIS PANE (the route says so): a manager may want the
+  // report and the owner may not, and one flag on the establishment makes unsubscribing an act
+  // that silently switches a colleague off. Living on «منشأتي» is about WHERE he finds the
+  // control, not about WHOSE inbox it governs.
+  const [digest, setDigest] = useState(true);
+  const digestAction = action(catalog, 'insights.digest');
+
+  useEffect(() => {
+    // `decided: false` means he has never chosen, and the default (subscribed) is then the honest
+    // thing to show. A FAILED READ CHANGES NOTHING: flipping the switch to «off» because a request
+    // timed out would tell him he had unsubscribed when he had not.
+    const dg = action(catalog, 'insights.digest_state');
+    if (!dg) return;
+    call<{ on?: boolean; decided?: boolean }>(session, dg)
+      .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
+      .catch(() => undefined);
+  }, [session, catalog]);
+
   if (t === undefined) return <Skeleton height={160} />;
   if (!t) return <Quiet>لا تملك صلاحية عرض بيانات المنشأة.</Quiet>;
 
@@ -90,6 +115,30 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
 
   return (
     <div className="flex flex-col gap-4">
+      {digestAction ? (
+        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
+          <span className="flex flex-col">
+            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
+            <span className="text-xs text-text-secondary">
+              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={digest}
+            aria-label="تقريري الأسبوعي على واتساب"
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setDigest(on);
+              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
+              // the box ticked teaches him he is subscribed when he is not — and he finds out by
+              // a report that never comes.
+              await call(session, digestAction, { on }).catch(() => setDigest(!on));
+            }}
+            className="size-6 shrink-0 accent-[var(--accent)]"
+          />
+        </label>
+      ) : null}
       {/* WHAT THIS SHOP DOES, BESIDE WHO IT IS. It stood among the branch settings, which made it
           read as a per-branch switch — and it is not one: `operations.shop_vehicles` is a fact
           about the whole establishment, and no shop works on cars in one branch and not another. */}
@@ -340,33 +389,10 @@ function Fact({ label, value, wide }: { label: string; value: string; wide?: boo
  * pane exists to put it one tap from where he already is.
  */
 export function DataPane({ session, catalog }: { session: Session; catalog: Catalog }) {
-  // ── THE WEEKLY REPORT, WHICH ARRIVED HERE BY WAY OF TWO OTHER SCREENS ────────────────────
-  //
-  // It began on «محلّي», first thing on the shop's dashboard: a checkbox about ONE PERSON'S
-  // WhatsApp above every number the screen exists to show, pushing his retention rate below the
-  // fold. It moved to «دخولي», beside his phone number, which was right — until «دخولي» turned
-  // out to be three cards of prose and this one switch, a tab nobody opened twice.
-  //
-  // So it lives with his other preferences. PER PERSON and not per shop (the route says so): a
-  // manager may want the report and the owner may not, and one flag on the establishment makes
-  // unsubscribing an act that silently switches a colleague off.
-  const [digest, setDigest] = useState(true);
-  const digestAction = action(catalog, 'insights.digest');
   const [busy, setBusy] = useState('');
   const [said, setSaid] = useState('');
   const [error, setError] = useState('');
   const canAsk = action(catalog, 'compliance.open_my_dsar');
-
-  useEffect(() => {
-    // `decided: false` means he has never chosen, and the default (subscribed) is then the honest
-    // thing to show. A FAILED READ CHANGES NOTHING: flipping the switch to «off» because a request
-    // timed out would tell him he had unsubscribed when he had not.
-    const dg = action(catalog, 'insights.digest_state');
-    if (!dg) return;
-    call<{ on?: boolean; decided?: boolean }>(session, dg)
-      .then((x) => { if (x?.decided) setDigest(Boolean(x.on)); })
-      .catch(() => undefined);
-  }, [session, catalog]);
 
   /**
    * `type`, NOT `kind` — read off compliance-service rather than guessed, which is how the first
@@ -411,30 +437,6 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
 
   return (
     <div className="flex flex-col gap-4">
-      {digestAction ? (
-        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
-          <span className="flex flex-col">
-            <span className="text-sm">تقريري الأسبوعي على واتساب</span>
-            <span className="text-xs text-text-secondary">
-              صباح الأحد — أسبوعك في تسعة أسطر، بلا فتح اللوحة. لك وحدك: إيقافه لا يوقفه عن زملائك.
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={digest}
-            aria-label="تقريري الأسبوعي على واتساب"
-            onChange={async (e) => {
-              const on = e.target.checked;
-              setDigest(on);
-              // THE SWITCH FOLLOWS THE SERVER, NOT THE OTHER WAY ROUND. A failed save that leaves
-              // the box ticked teaches him he is subscribed when he is not — and he finds out by
-              // a report that never comes.
-              await call(session, digestAction, { on }).catch(() => setDigest(!on));
-            }}
-            className="size-6 shrink-0 accent-[var(--accent)]"
-          />
-        </label>
-      ) : null}
       <Card>
         <h3 className="mb-1">الاحتفاظ بالبيانات</h3>
         <p className="text-sm text-text-secondary">

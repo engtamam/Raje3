@@ -73,8 +73,9 @@ export const MOVED: Record<string, Pane> = {
   // «دخولي» IS GONE, AND ONLY ONE THING ON IT WAS EVER USED. Three cards of prose explaining what
   // he cannot change here — that his phone is his login, that a session lasts 31 days, how to
   // reset a password — a page to read rather than a page to use. The switch that WAS used, his
-  // weekly report, moved to «بياناتي», which is where his own preferences live.
-  login: 'data',
+  // weekly report, moved to «بياناتي» first, and then to «منشأتي» (see ShopPane) — where he
+  // actually looks for it, next to the rest of what he set up about his establishment.
+  login: 'shop',
   whatsapp: 'shop',
   team: 'shop',
   keys: 'shop',
