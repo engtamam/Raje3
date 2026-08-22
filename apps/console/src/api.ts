@@ -473,6 +473,31 @@ export function recentCustomers(session: Session, limit = 10): Promise<{ custome
   return call(session, `/api/v1/field/customers/recent?limit=${limit}`);
 }
 
+/** One recorded service event — a WALK-IN, not a booking. Its own model in operations, with no
+ *  relationship to `Booking` at all unless it was created by attending one (see `Booking.
+ *  visit_id`) — that link runs one way, from the booking, and this record never carries a
+ *  `booking_id` back. `services` is already joined to real names server-side; never `زيارة` for a
+ *  named service. */
+export interface VisitRecord {
+  id: string;
+  customer_id: string;
+  service_ids: string[];
+  services: string;
+  branch_id: string;
+  occurred_at: number;
+  note: string;
+  custom_service: string;
+}
+
+/** "متى كان آخر مرة جاء؟" — the record an operator opens to answer exactly that. Branch-scoped by
+ *  the route itself (a supervisor over one branch reads only that branch's visits on this same
+ *  customer, per `SCOPE.visible` server-side), never a second filter needed here. */
+export function customerRecord(session: Session, customerId: string): Promise<{
+  customer: CustomerHit; visits: VisitRecord[];
+}> {
+  return call(session, `/api/v1/field/customers/${encodeURIComponent(customerId)}`);
+}
+
 // ── the visit ──────────────────────────────────────────────────────────────────────────────────
 
 export interface VisitDraft {

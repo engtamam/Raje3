@@ -31,6 +31,9 @@ let bookingsOverride: Booking[] = [BOOKING];
 // past-and-future history rather than the day/week currently on screen, and its own tests need to
 // vary it without disturbing the grid fixtures every other test relies on.
 let customerUpcomingOverride: Booking[] = [];
+// A WALK-IN, real fields only — never a Booking in disguise.
+let customerVisitsOverride: { id: string; customer_id: string; service_ids: string[]; services: string;
+  branch_id: string; occurred_at: number; note: string; custom_service: string }[] = [];
 // 0=Monday..6=Sunday, all open 08:00-22:00 by default — most tests never touch working hours.
 let weeklyOverride: Record<string, { closed: boolean; start_minute: number; end_minute: number }> =
   Object.fromEntries(Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));
@@ -71,6 +74,10 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'bookingsForCustomer', args });
       return { bookings: customerUpcomingOverride };
     },
+    customerRecord: async (...args: unknown[]) => {
+      asked.push({ fn: 'customerRecord', args });
+      return { customer: { id: 'c1', phone: '966501234567', name: 'محمد' }, visits: customerVisitsOverride };
+    },
     attendBooking: async (...args: unknown[]) => {
       asked.push({ fn: 'attendBooking', args });
       return { ...BOOKING, status: 'attended' };
@@ -102,6 +109,7 @@ afterEach(() => {
   asked.length = 0;
   bookingsOverride = [BOOKING];
   customerUpcomingOverride = [];
+  customerVisitsOverride = [];
   weeklyOverride = Object.fromEntries(
     Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));
   cleanup();
@@ -124,6 +132,9 @@ const grid = () => screen.getByTestId('rj-grid');
 const card = () => within(grid()).getByText(/قص شعر/);
 const queryCard = () => within(grid()).queryByText(/قص شعر/);
 const list = () => screen.getByTestId('rj-list');
+// «السابقة» merges bookings and walk-in visits into a separate component (`CustomerHistoryList`)
+// with its own container — a real, different DOM node from the plain booking list.
+const history = () => screen.getByTestId('rj-history');
 
 describe('branch selection', () => {
   it('offers a chooser when more than one branch and none is scoped', () => {
@@ -570,8 +581,8 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
     fireEvent.click(screen.getByText('السابقة'));
     // BOTH past rows now, and NEITHER future one — order proven by which label sits first in the
     // DOM: "تلميع" (recent_past) must precede the second "قص شعر" (older_past).
-    await waitFor(() => expect(within(list()).getByText('تلميع')).toBeTruthy());
-    const labels = within(list()).getAllByText(/قص شعر|تلميع/).map((el) => el.textContent);
+    await waitFor(() => expect(within(history()).getByText('تلميع')).toBeTruthy());
+    const labels = within(history()).getAllByText(/قص شعر|تلميع/).map((el) => el.textContent);
     expect(labels).toEqual(['تلميع', 'قص شعر']);
   });
 
@@ -610,9 +621,58 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
     fireEvent.click(screen.getByText('السابقة'));
 
     // Appears on both the header and the row's own date badge — two text nodes, one year.
-    await waitFor(() => expect(within(list()).getAllByText(String(thisYear - 1), { exact: false }).length).toBeGreaterThan(0));
+    await waitFor(() => expect(within(history()).getAllByText(String(thisYear - 1), { exact: false }).length).toBeGreaterThan(0));
     // NOT ALSO ON THE ONE ROW STILL IN THIS YEAR — a year appended to every date would be the
     // clutter this rule exists to avoid.
-    expect(within(list()).queryAllByText(String(thisYear), { exact: false })).toHaveLength(0);
+    expect(within(history()).queryAllByText(String(thisYear), { exact: false })).toHaveLength(0);
+  });
+
+  it('merges walk-in visits into «السابقة» alongside past bookings — newest first, no status pill on a visit', async () => {
+    customerUpcomingOverride = [
+      { ...BOOKING, id: 'past_booking', customer_id: 'c1', starts_at: NOW - 3 * DAY, status: 'attended', service_ids: ['svc1'] },
+    ];
+    customerVisitsOverride = [
+      // Newer than the booking above — must sort ahead of it.
+      { id: 'v1', customer_id: 'c1', service_ids: ['svc2'], services: 'تلميع',
+        branch_id: 'b1', occurred_at: NOW - 1 * DAY, note: '', custom_service: '' },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+    await waitFor(() => screen.getByText('السابقة'));
+    fireEvent.click(screen.getByText('السابقة'));
+
+    await waitFor(() => expect(within(history()).getByText('تلميع')).toBeTruthy());
+    expect(within(history()).getByText('قص شعر')).toBeTruthy();
+    // «زيارة» is the walk-in's own tag — the past BOOKING still legitimately carries its real
+    // status pill («حضر»), which is not a contradiction: only the visit has none of its own.
+    expect(within(history()).getByText('زيارة')).toBeTruthy();
+    expect(within(history()).getByText('حضر')).toBeTruthy();
+
+    // NEWEST FIRST ACROSS BOTH KINDS — the visit (1 day ago) precedes the booking (3 days ago).
+    const order = within(history()).getAllByText(/قص شعر|تلميع/).map((el) => el.textContent);
+    expect(order).toEqual(['تلميع', 'قص شعر']);
+  });
+
+  it('a walk-in visit is not clickable — no action sheet exists behind it', async () => {
+    customerVisitsOverride = [
+      { id: 'v1', customer_id: 'c1', service_ids: ['svc1'], services: 'قص شعر',
+        branch_id: 'b1', occurred_at: NOW - DAY, note: '', custom_service: '' },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+    await waitFor(() => screen.getByText('السابقة'));
+    fireEvent.click(screen.getByText('السابقة'));
+
+    await waitFor(() => history());
+    within(history()).getByText('قص شعر').click();
+    expect(screen.queryByLabelText('حضر')).toBeNull();
   });
 });

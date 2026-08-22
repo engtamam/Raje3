@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 import {
   attendBooking, type Booking, bookingsForCustomer, cancelBooking, type CatalogueService,
-  type CustomerHit, type DayHours, fetchCatalogue, type FieldOperator, listBookings,
-  listBookingStaff, noShowBooking, rescheduleBooking, sentenceFor, suggestByPrefix,
-  type WeeklyHours, workingHours,
+  customerRecord, type CustomerHit, type DayHours, fetchCatalogue, type FieldOperator,
+  listBookings, listBookingStaff, noShowBooking, rescheduleBooking, sentenceFor, suggestByPrefix,
+  type VisitRecord, type WeeklyHours, workingHours,
 } from '../api';
 import { asLocal } from '../phone';
 import { digitsOnly } from '../digits';
@@ -232,19 +232,32 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // endpoint returns it (newest-first, any status) — ONE fetch, and «القادمة»/«السابقة» below are
   // two ways of slicing the same answer rather than two reads.
   const [customerAll, setCustomerAll] = useState<Booking[] | null | undefined>(undefined);
+  // A WALK-IN NEVER TOUCHES `bookings` AT ALL (verified against services/operations directly,
+  // not assumed) — the two services share no table, and the only link runs one way, from a
+  // booking's own `visit_id` once it is attended. "متى آخر مرة جاء؟" needs BOTH: every booking he
+  // ever had here AND every walk-in visit that was never a booking at all — from
+  // `GET /field/customers/{id}`, verified against the real route (not the `/customers/{id}` a
+  // first pass mis-read) and its own 38 passing unit tests before building on it.
+  const [customerVisits, setCustomerVisits] = useState<VisitRecord[] | null | undefined>(undefined);
   // DEFAULTS TO WHAT'S COMING, NEVER TO HIS PAST — a receptionist reaches for this to answer
   // "متى موعدي الجاي؟", not to audit him. Past appointments are one tap away, never open by
   // default: an option he reaches for stays out of his way until he actually wants it.
   const [customerHistoryMode, setCustomerHistoryMode] = useState<'upcoming' | 'past'>('upcoming');
   useEffect(() => {
     setCustomerHistoryMode('upcoming');
-    if (!filterCustomer) { setCustomerAll(undefined); return; }
+    if (!filterCustomer) { setCustomerAll(undefined); setCustomerVisits(undefined); return; }
     setLayout('list');
     setCustomerAll(undefined);
+    setCustomerVisits(undefined);
     let stale = false;
     bookingsForCustomer(session, filterCustomer.id)
       .then((r) => { if (!stale) setCustomerAll(r.bookings); })
       .catch(() => { if (!stale) setCustomerAll(null); });
+    // ITS OWN FAILURE, SEPARATE FROM THE BOOKINGS READ — a walk-in service outage must not blank
+    // out his real upcoming/past bookings, which came back fine from a different service.
+    customerRecord(session, filterCustomer.id)
+      .then((r) => { if (!stale) setCustomerVisits(r.visits); })
+      .catch(() => { if (!stale) setCustomerVisits(null); });
     return () => { stale = true; };
   }, [filterCustomer, session]);
 
@@ -263,6 +276,22 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     // endpoint already sorts newest-first, so no re-sort is needed here — only the slice.
     return customerAll.filter((b) => b.starts_at < todayStart);
   }, [customerAll, customerHistoryMode]);
+
+  // THE MERGED PAST — bookings that already happened AND walk-in visits, one timeline, newest
+  // first. Nothing here is invented: a visit stays a visit (no status pill — it was never
+  // scheduled, so there is no "attended/no-show" to say about it), a booking stays a booking.
+  // `null` only once BOTH reads have failed; one failing while the other succeeded is still a
+  // real, partial answer worth showing rather than discarding.
+  const pastEntries = useMemo(() => {
+    if (customerHistoryMode !== 'past') return undefined;
+    if (customerDisplayed === null && customerVisits === null) return null;
+    if (customerDisplayed === undefined || customerVisits === undefined) return undefined;
+    const fromBookings = (customerDisplayed ?? [])
+      .map((b) => ({ kind: 'booking' as const, time: b.starts_at, booking: b }));
+    const fromVisits = (customerVisits ?? [])
+      .map((v) => ({ kind: 'visit' as const, time: v.occurred_at, visit: v }));
+    return [...fromBookings, ...fromVisits].sort((a, b) => b.time - a.time);
+  }, [customerHistoryMode, customerDisplayed, customerVisits]);
 
   const [dialog, setDialog] = useState<{
     operatorId?: string; startsAt?: number; customer?: CustomerHit; serviceIds?: string[];
@@ -822,12 +851,27 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   </button>
                 ))}
               </div>
-              <BookingsList rows={customerDisplayed ?? []} nameOf={nameOf} serviceNameOf={serviceNameOf}
-                           priceMinorOf={priceMinorOf} onOpen={setOpenBooking}
-                           order={customerHistoryMode === 'past' ? 'desc' : 'asc'}
-                           emptyMessage={customerHistoryMode === 'upcoming'
-                             ? `ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} أي موعد قادم.`
-                             : `ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} مواعيد سابقة.`} />
+              {customerHistoryMode === 'upcoming' ? (
+                <BookingsList rows={customerDisplayed ?? []} nameOf={nameOf} serviceNameOf={serviceNameOf}
+                             priceMinorOf={priceMinorOf} onOpen={setOpenBooking}
+                             emptyMessage={`ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} أي موعد قادم.`} />
+              ) : pastEntries === undefined ? (
+                <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+                  يُحمَّل سجل زياراته…
+                </div>
+              ) : pastEntries === null ? (
+                <div className="grid place-items-center gap-2 py-24 text-center">
+                  <p className="text-base font-medium">تعذّرت قراءة سجله بالكامل</p>
+                  <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
+                         className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
+                    حاول مجدداً
+                  </button>
+                </div>
+              ) : (
+                <CustomerHistoryList entries={pastEntries} nameOf={nameOf} serviceNameOf={serviceNameOf}
+                             priceMinorOf={priceMinorOf} onOpenBooking={setOpenBooking}
+                             emptyMessage={`ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} مواعيد أو زيارات سابقة.`} />
+              )}
             </div>
           )
         ) : layout === 'list' ? (
@@ -1434,6 +1478,107 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                   {STATUS_LABEL[b.status]}
                 </span>
               </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+type PastEntry =
+  | { kind: 'booking'; time: number; booking: Booking }
+  | { kind: 'visit'; time: number; visit: VisitRecord };
+
+/** THE MERGED TIMELINE — every booking he ever had AND every walk-in visit that was never one,
+ *  in one list, because "متى آخر مرة جاء؟" is a question about the customer, not about which of
+ *  two services happened to record the answer. A visit row carries no status pill — it was never
+ *  scheduled, so there is nothing to say about whether it was "attended"; it simply happened,
+ *  which is the entire fact a walk-in visit is. Only booking rows open the action sheet — a
+ *  walk-in visit has no booking behind it to act on. */
+function CustomerHistoryList({ entries, nameOf, serviceNameOf, priceMinorOf, onOpenBooking, emptyMessage }: {
+  entries: PastEntry[];
+  nameOf: (id: string) => string;
+  serviceNameOf: (ids: string[]) => string;
+  priceMinorOf: (b: Booking) => number | null;
+  onOpenBooking: (b: Booking) => void;
+  emptyMessage?: string;
+}) {
+  if (entries.length === 0) {
+    return (
+      <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+        {emptyMessage ?? 'لا شيء هنا.'}
+      </div>
+    );
+  }
+
+  let lastDate = '';
+  const today = todayLocal();
+  return (
+    <div data-testid="rj-history" className="rj-card overflow-hidden rounded-[28px]" style={{ background: 'var(--rj-surface)' }}>
+      <ul>
+        {entries.map((e) => {
+          const dateKey = dateKeyOf(e.time);
+          const showDateHeader = dateKey !== lastDate;
+          lastDate = dateKey;
+          const isToday = dateKey === today;
+          const key = e.kind === 'booking' ? e.booking.id : e.visit.id;
+          return (
+            <li key={key}>
+              {showDateHeader ? (
+                <div className="sticky top-0 border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
+                    style={isToday
+                      ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
+                      : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
+                  {isToday ? `اليوم — ${humanDate(dateKey)}` : humanDate(dateKey)}
+                </div>
+              ) : null}
+              {e.kind === 'visit' ? (
+                // NOT A BUTTON — there is no action sheet behind a walk-in, on purpose.
+                <div className="flex w-full items-center gap-3 border-b px-4 py-3 last:border-b-0"
+                    style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined }}>
+                  <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                    {isToday ? 'اليوم' : shortDate(dateKey)}
+                  </span>
+                  <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(e.time))}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{e.visit.services || e.visit.custom_service || '—'}</span>
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                       style={{ background: 'var(--rj-cancelled-soft)', color: 'var(--rj-ink-soft)' }}>
+                    زيارة
+                  </span>
+                </div>
+              ) : (() => {
+                const b = e.booking;
+                const tone = STATUS_VARS[b.status];
+                const pay = b.payment_status ?? 'none';
+                const price = priceMinorOf(b);
+                const payLabel = pay === 'deposit' && b.deposit_amount_minor
+                  ? `عربون ${riyals(b.deposit_amount_minor)}`
+                  : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
+                    : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+                return (
+                  <button type="button" onClick={() => onOpenBooking(b)}
+                         className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
+                         style={{ borderColor: 'var(--rj-line)', background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined }}>
+                    <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                      {isToday ? 'اليوم' : shortDate(dateKey)}
+                    </span>
+                    <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(b.starts_at))}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm">{serviceNameOf(b.service_ids) || '—'}</span>
+                    <span className="hidden shrink-0 text-xs sm:block" style={{ color: 'var(--rj-ink-soft)' }}>{nameOf(b.operator_id)}</span>
+                    {payLabel ? (
+                      <span className="hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-block"
+                           style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
+                        {payLabel}
+                      </span>
+                    ) : null}
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                         style={{ background: tone.bg, color: tone.fg }}>
+                      {STATUS_LABEL[b.status]}
+                    </span>
+                  </button>
+                );
+              })()}
             </li>
           );
         })}
