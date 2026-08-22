@@ -1180,7 +1180,7 @@ export function PlansPane({
                         plan={p}
                         owned={isBaseSubRow ? true : isThisOne}
                         busy={busy}
-                        sellable={Boolean(canSubscribe && pay?.enabled)}
+                        sellable={Boolean(canSubscribe && pay?.enabled && canMintToken)}
                         onBuy={() => choose(p)}
                         unreadNote={unreadNote}
                         ownedLabel="اشتراكك"
@@ -1229,7 +1229,7 @@ export function PlansPane({
                       plan={p}
                       owned={false}
                       busy={busy}
-                      sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                      sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}
                       onBuy={() => choose(p)}
                       unreadNote={unreadNote}
                       ownedLabel=""
@@ -1275,7 +1275,7 @@ export function PlansPane({
                     plan={p}
                     owned={owns(owned ?? null, appKey(p))}
                     busy={busy}
-                    sellable={Boolean(canSubscribe && pay?.enabled && hasBase !== false)}
+                    sellable={Boolean(canSubscribe && pay?.enabled && canMintToken && hasBase !== false)}
                     onBuy={() => choose(p)}
                     unreadNote={unreadNote}
                     ownedLabel="مفعّل"

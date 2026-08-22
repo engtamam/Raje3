@@ -342,7 +342,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     finally { setRefreshing(false); }
   };
 
-  // «مو الآن» — cools this one rule (services/insights/app/core/next_step.py's own cooldown),
+  // «ليس الآن» — cools this one rule (services/insights/app/core/next_step.py's own cooldown),
   // then re-reads the dashboard so a DIFFERENT rule leads immediately rather than on next visit.
   const dismissNextStep = async (id: string) => {
     const dismiss = action(catalog, 'insights.dismiss_next_step');
@@ -1151,7 +1151,7 @@ function NextStepView({ step, onDismiss, busy }: {
           </Link>
         ) : null}
       </div>
-      {/* «مو الآن» — لا زر بارز، سطر خفيف: هذا ليس تجاهل معلومة، هو طلب يظهر شي آخر بدلها الآن،
+      {/* «ليس الآن» — لا زر بارز، سطر خفيف: هذا ليس تجاهل معلومة، هو طلب يظهر شي آخر بدلها الآن،
           وترجع هي بنفسها لو ظلّت صحيحة بعد فترة (تبريد، لا حذف — core/next_step.py). */}
       <button
         type="button"
@@ -1160,7 +1160,7 @@ function NextStepView({ step, onDismiss, busy }: {
         className="self-start text-[11px] underline underline-offset-2"
         style={{ color: 'var(--sh-ink-faint)' }}
       >
-        مو الآن
+        ليس الآن
       </button>
       {step.secondary ? (
         <p className="px-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
