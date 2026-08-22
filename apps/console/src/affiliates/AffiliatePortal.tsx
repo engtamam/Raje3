@@ -25,6 +25,7 @@ import { AffiliateDoor } from './AffiliateDoor';
 import { AffiliateHome } from './AffiliateHome';
 import { AffiliateLeads } from './AffiliateLeads';
 import { AffiliateSidebar, AffiliateBottomNav, ComingSoon, type Tab } from './AffiliateNav';
+import { AffiliateTools } from './AffiliateTools';
 import { useAffiliateSession } from './session';
 
 export function AffiliatePortal() {
@@ -42,7 +43,7 @@ export function AffiliatePortal() {
         <div className="flex-1">
           {tab === 'home' ? <AffiliateHome session={session} /> : null}
           {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
-          {tab === 'tools' ? <ComingSoon label="أدواتي" /> : null}
+          {tab === 'tools' ? <AffiliateTools session={session} /> : null}
           {tab === 'earnings' ? <ComingSoon label="أرباحي" /> : null}
           {tab === 'account' ? <AffiliateAccount session={session} onSignOut={signOut} /> : null}
         </div>

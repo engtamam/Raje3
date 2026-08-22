@@ -25,8 +25,8 @@ interface ApiResult {
   [key: string]: unknown;
 }
 
-async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT', body?: unknown,
-                      token?: string): Promise<T> {
+async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+                      body?: unknown, token?: string): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -254,4 +254,142 @@ export async function changePassword(session: AffiliateSession, oldPassword: str
                                      newPassword: string): Promise<void> {
   await req('/api/v1/affiliates/me/change-password', 'POST',
             { old_password: oldPassword, new_password: newPassword }, session.access_token);
+}
+
+/* ── «أدواتي» ──────────────────────────────────────────────────────────────────────────────────
+ * The shared playbook (stages/templates/citations) — any affiliate reads; a manager also writes.
+ * Every write mirrors the server's own upsert-by-code-or-id / deactivate-never-delete discipline:
+ * there is no `deleteTemplate`, only `deactivateTemplate`.
+ */
+export interface TemplateStat {
+  template_id: string; stage_code: string; kind: string; title: string; uses: number;
+  pending: number; advanced: number; no_response: number; rejected: number; advance_rate: number;
+}
+export interface KindStat {
+  kind: string; uses: number; pending: number; advanced: number; no_response: number;
+  rejected: number; advance_rate: number;
+}
+export async function templateStats(session: AffiliateSession,
+                                    opts: { stageCode?: string; mine?: boolean } = {}):
+    Promise<{ stats: TemplateStat[] }> {
+  const q = new URLSearchParams();
+  if (opts.stageCode) q.set('stage_code', opts.stageCode);
+  if (opts.mine) q.set('mine', 'true');
+  const qs = q.toString();
+  return req(`/api/v1/affiliates/me/template-stats${qs ? `?${qs}` : ''}`, 'GET', undefined,
+             session.access_token);
+}
+
+export async function upsertOutreachStage(session: AffiliateSession, input: {
+  code: string; name: string; order?: number;
+}): Promise<OutreachStage> {
+  return req('/api/v1/affiliates/me/outreach-stages', 'PUT', {
+    code: input.code, name: input.name, order: input.order ?? 0,
+  }, session.access_token);
+}
+
+export async function deactivateOutreachStage(session: AffiliateSession, code: string):
+    Promise<{ ok: boolean; changed: boolean }> {
+  return req(`/api/v1/affiliates/me/outreach-stages/${code}`, 'DELETE', undefined,
+             session.access_token);
+}
+
+export interface TemplateInput {
+  stageCode: string; kind?: string; title: string; body?: string; mediaUrl?: string;
+  objectionType?: string;
+}
+function templateBody(input: TemplateInput) {
+  return {
+    stage_code: input.stageCode, kind: input.kind ?? '', title: input.title,
+    body: input.body ?? '', media_url: input.mediaUrl ?? '', objection_type: input.objectionType ?? '',
+  };
+}
+export async function createTemplate(session: AffiliateSession, input: TemplateInput):
+    Promise<MessageTemplate> {
+  return req('/api/v1/affiliates/me/templates', 'POST', templateBody(input), session.access_token);
+}
+export async function updateTemplate(session: AffiliateSession, templateId: string,
+                                     input: TemplateInput): Promise<MessageTemplate> {
+  return req(`/api/v1/affiliates/me/templates/${templateId}`, 'PUT', templateBody(input),
+             session.access_token);
+}
+export async function deactivateTemplate(session: AffiliateSession, templateId: string):
+    Promise<{ ok: boolean; changed: boolean }> {
+  return req(`/api/v1/affiliates/me/templates/${templateId}`, 'DELETE', undefined,
+             session.access_token);
+}
+
+/** The evidence library — real, sourced financial facts a template can cite. */
+export interface StatCitation {
+  id: string; title: string; body: string; source_label: string; source_url: string;
+  stage_code: string; active: boolean;
+}
+export async function statCitations(session: AffiliateSession, stageCode = ''):
+    Promise<{ citations: StatCitation[] }> {
+  const qs = stageCode ? `?stage_code=${encodeURIComponent(stageCode)}` : '';
+  return req(`/api/v1/affiliates/me/stat-citations${qs}`, 'GET', undefined, session.access_token);
+}
+export interface StatCitationInput {
+  title: string; body: string; sourceLabel?: string; sourceUrl?: string; stageCode?: string;
+}
+function citationBody(input: StatCitationInput) {
+  return {
+    title: input.title, body: input.body, source_label: input.sourceLabel ?? '',
+    source_url: input.sourceUrl ?? '', stage_code: input.stageCode ?? '',
+  };
+}
+export async function createStatCitation(session: AffiliateSession, input: StatCitationInput):
+    Promise<StatCitation> {
+  return req('/api/v1/affiliates/me/stat-citations', 'POST', citationBody(input),
+             session.access_token);
+}
+export async function updateStatCitation(session: AffiliateSession, citationId: string,
+                                         input: StatCitationInput): Promise<StatCitation> {
+  return req(`/api/v1/affiliates/me/stat-citations/${citationId}`, 'PUT', citationBody(input),
+             session.access_token);
+}
+export async function deactivateStatCitation(session: AffiliateSession, citationId: string):
+    Promise<{ ok: boolean; changed: boolean }> {
+  return req(`/api/v1/affiliates/me/stat-citations/${citationId}`, 'DELETE', undefined,
+             session.access_token);
+}
+
+/* ── أداة البحث عن عملاء محتملين — مدير فقط (BYOK Google Places key + مهمة بحث بالخلفية) ───────── */
+export interface PlacesApiKeyInfo {
+  set: boolean; hint?: string; set_at?: number;
+}
+export async function placesApiKey(session: AffiliateSession): Promise<PlacesApiKeyInfo> {
+  return req('/api/v1/affiliates/me/places-api-key', 'GET', undefined, session.access_token);
+}
+export async function setPlacesApiKey(session: AffiliateSession, apiKey: string):
+    Promise<{ ok: boolean; hint: string; set_at: number }> {
+  return req('/api/v1/affiliates/me/places-api-key', 'PUT', { api_key: apiKey },
+             session.access_token);
+}
+export async function clearPlacesApiKey(session: AffiliateSession):
+    Promise<{ ok: boolean; cleared: boolean }> {
+  return req('/api/v1/affiliates/me/places-api-key', 'DELETE', undefined, session.access_token);
+}
+
+export interface City { name: string; region?: string; lat: number; lng: number; w_km: number; h_km: number }
+export interface LeadSearchJob {
+  id: string; affiliate_id: string; place_type: string; sector_code: string; keywords: string[];
+  radius_km: number; cities: City[]; status: string; cursor: { city: number; point: number; keyword: number };
+  found_count: number; duplicate_count: number; created_at: number; started_at: number;
+  finished_at: number; error: string;
+}
+export async function startLeadSearch(session: AffiliateSession, input: {
+  sectorCode: string; keywords: string[]; cities: City[]; placeType?: string; radiusKm?: number;
+}): Promise<LeadSearchJob> {
+  return req('/api/v1/affiliates/me/leads/search', 'POST', {
+    place_type: input.placeType ?? '', sector_code: input.sectorCode, keywords: input.keywords,
+    radius_km: input.radiusKm ?? 5, cities: input.cities,
+  }, session.access_token);
+}
+export async function myLeadSearches(session: AffiliateSession): Promise<{ jobs: LeadSearchJob[] }> {
+  return req('/api/v1/affiliates/me/leads/search', 'GET', undefined, session.access_token);
+}
+export async function leadSearchStatus(session: AffiliateSession, jobId: string):
+    Promise<LeadSearchJob> {
+  return req(`/api/v1/affiliates/me/leads/search/${jobId}`, 'GET', undefined, session.access_token);
 }
