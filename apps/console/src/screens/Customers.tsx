@@ -308,7 +308,13 @@ export function CustomersScreen(
               onClick={() => navigate(`/customers/${c.id}`)}
               className="flex w-full items-center justify-between rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]"
             >
-              <div className="flex flex-col">
+              {/* `items-end` — WITHOUT IT, `flex flex-col`'s default `align-items: stretch` makes
+                  every line stretch to the width of the WIDEST one (the "آخر زيارة" caption, on a
+                  row that has it) and the phone number's `dir="ltr"` text then left-aligns inside
+                  that now-wider box — so the same phone number sits flush on a short card and
+                  drifts left on a tall one, exactly the inconsistency the screenshot showed. Right
+                  edge fixed for every line regardless of width, in RTL, this is `items-end`. */}
+              <div className="flex flex-col items-end">
                 <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                 <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
                 {/* FREE ON THIS ROW'S OWN DATA — `last_visit`/`visit_count` are denormalised on
