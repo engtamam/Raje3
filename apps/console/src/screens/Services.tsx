@@ -17,13 +17,13 @@
  * holds its own, which is why "return to general" is a DELETE and not a write of today's default.
  */
 import { Fragment, useEffect, useState } from 'react';
-import { Button } from '@base-ui/design-system/Button';
-import { Badge } from '@base-ui/design-system/Badge';
-import { Segmented } from '@base-ui/design-system/Segmented';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Button } from '../rj-ui/Button';
+import { Badge } from '../rj-ui/Badge';
+import { Segmented } from '../rj-ui/Segmented';
+import { EmptyState } from '../rj-ui/EmptyState';
 import { Check, Pencil, Power, RotateCcw } from 'lucide-react';
 import { Hint } from '../Hint';
-import { Toggle } from '@base-ui/design-system/Toggle';
+import { Toggle } from '../rj-ui/Toggle';
 import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';

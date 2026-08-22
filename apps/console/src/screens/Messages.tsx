@@ -27,14 +27,14 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Badge } from '@base-ui/design-system/Badge';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { Badge } from '../rj-ui/Badge';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Segmented } from '../rj-ui/Segmented';
 import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { Toggle } from '@base-ui/design-system/Toggle';
+import { Skeleton } from '../rj-ui/Skeleton';
+import { Toggle } from '../rj-ui/Toggle';
 import { Lock } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
+import { Button } from '../rj-ui/Button';
 import { Launch } from './Launch';
 import { LockedCard } from './Locked';
 import { MessagePreview } from './MessagePreview';
