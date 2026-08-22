@@ -22,6 +22,10 @@ const PLANS = [
 ];
 
 const changeCalls: unknown[] = [];
+// WHICH BASE `billing.my_subscriptions` ANSWERS WITH — mutable per test, because `hasBase` (the
+// `owned` prop) and `baseSub` (this) are two SEPARATE reads in the real app and must agree with
+// each other for a test to say anything real about either.
+let currentPlanId = 'base_cheap';
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -31,7 +35,7 @@ vi.mock('../catalog', async (importOriginal) => {
     call: async (_s: unknown, a: { id: string }, body?: unknown) => {
       if (a.id === 'billing.plans') return { plans: PLANS };
       if (a.id === 'billing.my_subscriptions') {
-        return { subscriptions: [{ id: 'sub_1', plan_id: 'base_cheap', status: 'active' }] };
+        return { subscriptions: [{ id: 'sub_1', plan_id: currentPlanId, status: 'active' }] };
       }
       if (a.id === 'subscription.payment_state') return { enabled: true };
       if (a.id === 'billing.change_plan') { changeCalls.push(body); return { proration_minor: 6500 }; }
@@ -42,7 +46,7 @@ vi.mock('../catalog', async (importOriginal) => {
 
 const { PlansPane } = await import('./Plans');
 
-afterEach(() => { cleanup(); changeCalls.length = 0; });
+afterEach(() => { cleanup(); changeCalls.length = 0; currentPlanId = 'base_cheap'; });
 
 const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
@@ -79,5 +83,20 @@ describe('«بدّل الباقة»', () => {
     fireEvent.click(screen.getByRole('button', { name: 'بدّل إلى هذه' }));
     fireEvent.click(await screen.findByRole('button', { name: 'تأكيد التبديل' }));
     expect(await screen.findByText(/سيُضاف 65 ريال لفاتورتك القادمة/)).toBeTruthy();
+  });
+});
+
+describe('downgrades stay hidden (Tamam, 2026-08-22 — no negative balance/refund, ever)', () => {
+  it('offers no switch button toward a cheaper base tier', async () => {
+    // Owns the EXPENSIVE tier now — the other listed tier is a downgrade. Both the entitlements
+    // view AND billing.my_subscriptions have to agree it's base_pro, same as the real app.
+    currentPlanId = 'base_pro';
+    const ownedPro = { checked: true, message: '', keys: [], apps: [],
+                       base: { plan_id: 'base_pro', status: 'active', renews_at: 0 } };
+    render(<PlansPane session={session} catalog={catalog} owned={ownedPro} onGoConnect={() => {}} />);
+    await screen.findAllByText('الأساس');
+    // change_plan's immediate-credit path (even after v0.16.32) is exactly the negative-balance
+    // shape the product does not want — no button anywhere should be able to trigger it.
+    expect(screen.queryByRole('button', { name: 'بدّل إلى هذه' })).toBeNull();
   });
 });

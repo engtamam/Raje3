@@ -943,7 +943,18 @@ export function PlansPane({
                   // card «owned» the moment he had any one of them (audit #5's other half of the
                   // same bug: a shop on the cheap tier saw every tier badged as already his).
                   const isThisOne = hasBase === true ? baseSub?.plan_id === p.id : hasBase;
-                  const canSwitchToThis = hasBase === true && !isThisOne
+                  // UPGRADES ONLY, FOR NOW (Tamam, 2026-08-22): «مافي رصيد سالب أو استرداد — لو
+                  // نزّل باقته يكمل الفترة إلى أن تخلص، مثل المنصات العالمية». billing-service's
+                  // change_plan (even after v0.16.32) switches and credits IMMEDIATELY on a
+                  // downgrade — exactly the negative-balance shape the product does not want.
+                  // Offering the button for a cheaper plan would let a shop trigger that credit
+                  // path today; hidden here until base-services builds the effective-at-period-
+                  // end downgrade this needs (escalated separately) — an upgrade's delta is
+                  // always ≥ 0, so that half is safe to offer as-is.
+                  const currentBase = bases.find((b) => b.id === baseSub?.plan_id);
+                  const isUpgrade = (monthly(p)?.amount_minor ?? 0)
+                    >= (currentBase ? monthly(currentBase)?.amount_minor ?? 0 : 0);
+                  const canSwitchToThis = hasBase === true && !isThisOne && isUpgrade
                     && Boolean(action(catalog, 'billing.change_plan'));
                   return (
                     <li key={p.id}>
