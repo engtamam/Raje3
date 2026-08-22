@@ -68,11 +68,17 @@ class Http:
         self._token = internal_token
 
     def call(self, url: str, *, method: str, body: dict | None = None,
-             internal: bool = False) -> tuple[int, dict]:
+             internal: bool = False, bearer: str = "") -> tuple[int, dict]:
         data = json.dumps(body).encode() if body is not None else None
         headers = {"Content-Type": "application/json"}
         if internal:
             headers["X-Internal-Token"] = self._token
+        if bearer:
+            # THE CALLER'S OWN TOKEN, FORWARDED VERBATIM — used only for a call identity itself
+            # gates on `require_user` for the SAME PERSON (change-password): identity re-decodes
+            # it and answers for whoever it names, so this is never a way to act as someone else,
+            # only a pass-through of a request already inside its own subject's authority.
+            headers["Authorization"] = bearer
         req = urllib.request.Request(url, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # nosec B310
@@ -562,6 +568,22 @@ class OnboardingService:
         if status != 200:
             raise OnboardingRefused("رقم الجوال أو كلمة المرور غير صحيحة.")
         return body
+
+    async def change_password(self, *, bearer: str, old_password: str, new_password: str) -> None:
+        """NO PASSWORD IS STORED HERE, STILL — this changes NOTHING in `affiliates`; it forwards
+        to identity's own `POST /api/v1/auth/change-password`, the one place a credential is ever
+        held (same reasoning `apply()`'s own note gives for `_PENDING_SECRET`). The caller's own
+        bearer token IS an identity-issued JWT already — `sign_in` above returns identity's
+        response body verbatim, so the access_token the console holds was never re-minted by us —
+        which is what lets this be a pure pass-through: identity re-verifies the token and answers
+        for the exact person it names, never a person `self` merely claims to be."""
+        status, body = self._http.call(
+            f"{self._identity}/api/v1/auth/change-password", method="POST",
+            body={"old_password": old_password, "new_password": new_password}, bearer=bearer)
+        if status == 400 and body.get("detail") == "WEAK_PASSWORD":
+            raise OnboardingRefused("كلمة المرور الجديدة ضعيفة جداً.", reason="weak_password")
+        if status != 200:
+            raise OnboardingRefused("كلمة المرور الحالية غير صحيحة.", reason="wrong_password")
 
 
 #: A separate collection, deliberately — see apply()'s note on why a chosen password is never

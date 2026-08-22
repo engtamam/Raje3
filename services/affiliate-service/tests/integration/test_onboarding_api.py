@@ -191,6 +191,30 @@ def test_me_refuses_with_no_token(client):
     assert r.status_code == 401
 
 
+def test_change_password_refuses_with_no_token(client):
+    r = client.post("/api/v1/affiliates/me/change-password",
+                    json={"old_password": "old", "new_password": "new-strong-1"})
+    assert r.status_code == 401
+
+
+def test_change_password_refuses_a_token_with_no_capability_at_all(client):
+    r = client.post("/api/v1/affiliates/me/change-password",
+                    json={"old_password": "old", "new_password": "new-strong-1"},
+                    headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+
+
+def test_change_password_reaches_the_service_layer_with_no_ownership_check(client):
+    # No real identity-service backs this test app, so the pass-through itself fails — proving
+    # the ROUTE forwards to the service layer at all (a capability-only gate, no affiliate-row
+    # lookup) rather than that identity actually accepts the change.
+    r = client.post("/api/v1/affiliates/me/change-password",
+                    json={"old_password": "old", "new_password": "new-strong-1"},
+                    headers={"Authorization": f"Bearer {_token(sub='nobody-at-all')}"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "wrong_password"
+
+
 def test_me_is_404_for_a_token_with_no_matching_affiliate_row(client):
     r = client.get("/api/v1/affiliates/me",
                    headers={"Authorization": f"Bearer {_token(sub='nobody')}"})

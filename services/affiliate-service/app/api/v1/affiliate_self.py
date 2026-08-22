@@ -110,6 +110,27 @@ async def me(request: Request, principal: Principal = Depends(require_user)) -> 
     return out
 
 
+class ChangePasswordIn(BaseModel):
+    old_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=1, max_length=256)
+
+
+@router.post("/change-password", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def change_password(request: Request, body: ChangePasswordIn,
+                          principal: Principal = Depends(require_user)) -> Any:
+    """A credential is identity-service's alone (see `OnboardingService.change_password`'s own
+    docstring) — this forwards the caller's OWN bearer token, never mints a new authority. No role
+    check beyond `_SELF` because there is no ownership question here: a token can only ever change
+    the password of the person it already is."""
+    bearer = request.headers.get("authorization", "")
+    try:
+        await _svc(request).change_password(
+            bearer=bearer, old_password=body.old_password, new_password=body.new_password)
+    except OnboardingRefused as exc:
+        return _refused(exc)
+    return {"ok": True}
+
+
 @router.post("/invite", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def invite(request: Request, body: InviteIn,
                  principal: Principal = Depends(require_user)) -> Any:

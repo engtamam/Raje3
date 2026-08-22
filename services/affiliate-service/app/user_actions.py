@@ -52,6 +52,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
                "دعم الوفاء والترقية، وقسم الفريق إن كنت مديرًا.",
     },
     {
+        "id": "affiliates.change_password", "label": "تغيير كلمة المرور", "method": "POST",
+        "path": "/api/v1/affiliates/me/change-password", "capability": "affiliates.self",
+        "group": "حسابي",
+        "help": "يمرّ مباشرة لخدمة الهوية — لا كلمة مرور تُخزَّن هنا أبدًا.",
+    },
+    {
         "id": "affiliates.invite", "label": "دعوة مسوّق لفريقي", "method": "POST",
         "path": "/api/v1/affiliates/me/invite", "capability": "affiliates.self", "group": "فريقي",
         "help": "يمرّ عبر بوابة القبول الإدارية (§٢) — لا حساب فوري، لا كلمة مرور يختارها المدير.",

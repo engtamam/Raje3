@@ -94,6 +94,7 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me", "tier": "user", "method": "GET"},
             # A manager naming somebody for his own team — still gated by the admin queue below.
             {"path": "/api/v1/affiliates/me/invite", "tier": "user", "method": "POST"},
+            {"path": "/api/v1/affiliates/me/change-password", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/commissions", "tier": "user", "method": "GET"},
             # spec §10: a manager's own team, WITH what each of them actually earned.
             {"path": "/api/v1/affiliates/me/team", "tier": "user", "method": "GET"},

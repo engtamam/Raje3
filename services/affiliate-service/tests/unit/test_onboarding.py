@@ -26,10 +26,12 @@ class FakeHttp:
         # Bodies, recorded separately and in the same order as `calls` — kept apart so every
         # existing `(method, url) in methods_and_urls` assertion is untouched by this addition.
         self.bodies: list[dict] = []
+        self.bearers: list[str] = []
 
-    def call(self, url, *, method, body=None, internal=False):
+    def call(self, url, *, method, body=None, internal=False, bearer=""):
         self.calls.append((method, url))
         self.bodies.append(body or {})
+        self.bearers.append(bearer)
         for suffix, answer in self.answers:
             if url.endswith(suffix) and answer[0] is not None:
                 return answer
@@ -47,7 +49,7 @@ class ByIdentifierHttp:
         self._claim_answer = claim_answer
         self.calls: list[tuple[str, str]] = []
 
-    def call(self, url, *, method, body=None, internal=False):
+    def call(self, url, *, method, body=None, internal=False, bearer=""):
         self.calls.append((method, url))
         if url.endswith("/members"):
             return self._by_identifier[(body or {})["identifier"]]
@@ -638,3 +640,32 @@ async def test_platform_revenue_visibility_refuses_for_an_unknown_affiliate():
     with pytest.raises(OnboardingRefused) as exc:
         await svc.set_platform_revenue_visibility("no-such-affiliate", enabled=True)
     assert exc.value.reason == "not_found"
+
+
+# ── change-password: a pure pass-through to identity, never a stored credential ────────────────
+@pytest.mark.anyio
+async def test_change_password_forwards_the_callers_own_bearer_to_identity():
+    http = FakeHttp([("/change-password", (200, {"status": "ok"}))])
+    svc = build(http)
+    await svc.change_password(bearer="Bearer tok-123", old_password="old", new_password="new-strong-1")
+    assert http.calls[-1] == ("POST", "http://identity:8000/api/v1/auth/change-password")
+    assert http.bearers[-1] == "Bearer tok-123"
+    assert http.bodies[-1] == {"old_password": "old", "new_password": "new-strong-1"}
+
+
+@pytest.mark.anyio
+async def test_change_password_refuses_on_a_wrong_old_password():
+    http = FakeHttp([("/change-password", (400, {"detail": "INVALID_PASSWORD"}))])
+    svc = build(http)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.change_password(bearer="Bearer tok-123", old_password="wrong", new_password="new-strong-1")
+    assert exc.value.reason == "wrong_password"
+
+
+@pytest.mark.anyio
+async def test_change_password_refuses_a_weak_new_password_distinctly():
+    http = FakeHttp([("/change-password", (400, {"detail": "WEAK_PASSWORD"}))])
+    svc = build(http)
+    with pytest.raises(OnboardingRefused) as exc:
+        await svc.change_password(bearer="Bearer tok-123", old_password="old", new_password="1")
+    assert exc.value.reason == "weak_password"
