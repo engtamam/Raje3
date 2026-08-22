@@ -272,6 +272,20 @@ class LeadSourcingService:
         await self._s.put(LEADS, lead.id, lead.to_dict())
 
     # ── the manager's own results + assignment (spec §6's own "الإسناد") ────────────────────────
+    async def get_lead(self, lead_id: str, *, affiliate_id: str) -> Lead:
+        """A single lead's own detail — spec §٩'s scoping again, one row at a time: visible to
+        whoever `GET /me/leads` would already have shown it to, so this is never a second,
+        looser rule than the list. A manager sees his own search result (`source_manager_id`)
+        whether or not it has been handed out yet; anyone in the assignment chain sees an
+        assigned lead via `owns_lead` (the same rule `set_status`/`outreach.py` already use)."""
+        row = await self._s.get(LEADS, lead_id)
+        lead = Lead.from_dict(row) if row else None
+        if lead is None:
+            raise LeadError("العميل المحتمل غير موجود.", reason="not_found")
+        if lead.source_manager_id == affiliate_id or await owns_lead(self._s, lead, affiliate_id):
+            return lead
+        raise LeadError("هذا العميل المحتمل ليس ضمن قائمتك.", reason="not_yours")
+
     async def leads_of_manager(self, affiliate_id: str, *, limit: int = 500) -> list[Lead]:
         rows, _ = await self._s.find(LEADS, {"source_manager_id": affiliate_id}, limit=limit,
                                      sort=("found_at", "desc"))

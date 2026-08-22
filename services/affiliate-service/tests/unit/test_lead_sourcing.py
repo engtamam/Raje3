@@ -495,3 +495,60 @@ async def test_stale_leads_only_considers_the_callers_own_assigned_leads():
 
     stale = await svc.stale_leads("pro-1", stale_after_seconds=3 * 86400, now=now)
     assert {l.id for l in stale} == {"l1"}
+
+
+@pytest.mark.anyio
+async def test_get_lead_is_visible_to_the_assigned_promoter():
+    store = MemoryDataStore()
+    lead = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_ASSIGNED)
+    await store.put(LEADS, lead.id, lead.to_dict())
+    svc = build(store)
+
+    got = await svc.get_lead("l1", affiliate_id="pro-1")
+    assert got.id == "l1"
+
+
+@pytest.mark.anyio
+async def test_get_lead_is_visible_to_the_assignees_own_manager():
+    store = MemoryDataStore()
+    manager = Affiliate(id="mgr-1", person_id="p-mgr-1", phone="0500000001", name="مدير",
+                       role="affiliate_manager", status=ACTIVE)
+    promoter = Affiliate(id="pro-1", person_id="p-pro-1", phone="0500000002", name="مسوّق",
+                        role="affiliate_promoter", status=ACTIVE, parent_id="mgr-1")
+    await store.put(AFFILIATES, manager.id, manager.to_dict())
+    await store.put(AFFILIATES, promoter.id, promoter.to_dict())
+    lead = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_ASSIGNED)
+    await store.put(LEADS, lead.id, lead.to_dict())
+    svc = build(store)
+
+    got = await svc.get_lead("l1", affiliate_id="mgr-1")
+    assert got.id == "l1"
+
+
+@pytest.mark.anyio
+async def test_get_lead_is_visible_to_the_manager_who_sourced_it_even_before_assignment():
+    store = MemoryDataStore()
+    lead = Lead(id="l1", place_id="l1", source_manager_id="mgr-1", status=LEAD_NEW)
+    await store.put(LEADS, lead.id, lead.to_dict())
+    svc = build(store)
+
+    got = await svc.get_lead("l1", affiliate_id="mgr-1")
+    assert got.id == "l1"
+
+
+@pytest.mark.anyio
+async def test_get_lead_refuses_a_stranger():
+    store = MemoryDataStore()
+    lead = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_ASSIGNED)
+    await store.put(LEADS, lead.id, lead.to_dict())
+    svc = build(store)
+
+    with pytest.raises(LeadError):
+        await svc.get_lead("l1", affiliate_id="pro-2")
+
+
+@pytest.mark.anyio
+async def test_get_lead_refuses_an_unknown_id():
+    svc = build(MemoryDataStore())
+    with pytest.raises(LeadError):
+        await svc.get_lead("nope", affiliate_id="pro-1")

@@ -171,6 +171,66 @@ def test_set_lead_status_refuses_for_an_unrelated_affiliate(client):
     assert r.json()["reason"] == "not_yours"
 
 
+def test_one_lead_route_returns_the_full_row_to_its_own_promoter(client):
+    _seed_promoter_with_lead(client, affiliate_id="aff-ol1", person_id="p-ol1", lead_id="lead-ol1")
+    r = client.get("/api/v1/affiliates/me/leads/lead-ol1",
+                   headers={"Authorization": f"Bearer {_token(sub='p-ol1')}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == "lead-ol1"
+
+
+def test_one_lead_route_refuses_a_stranger(client):
+    _seed_promoter_with_lead(client, affiliate_id="aff-ol2", person_id="p-ol2", lead_id="lead-ol2")
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+
+    async def seed():
+        c = client.app.state.container
+        aff = Affiliate(id="aff-ol3", person_id="p-ol3", phone="+966501260003",
+                        name="غريب", role="affiliate_promoter", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+
+    asyncio.run(seed())
+    r = client.get("/api/v1/affiliates/me/leads/lead-ol2",
+                   headers={"Authorization": f"Bearer {_token(sub='p-ol3')}"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "not_yours"
+
+
+def test_one_lead_route_404s_on_an_unknown_id(client):
+    _seed_promoter_with_lead(client, affiliate_id="aff-ol4", person_id="p-ol4", lead_id="lead-ol4")
+    r = client.get("/api/v1/affiliates/me/leads/nope",
+                   headers={"Authorization": f"Bearer {_token(sub='p-ol4')}"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "not_found"
+
+
+def test_leads_list_filters_by_status_and_needs_attention(client):
+    from app.core.models import ACTIVE, AFFILIATES, LEADS, Affiliate, Lead
+
+    async def seed():
+        c = client.app.state.container
+        aff = Affiliate(id="aff-fl1", person_id="p-fl1", phone="+966501270001",
+                        name="مسوّق", role="affiliate_promoter", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+        stale = Lead(id="lead-fl-stale", place_id="lead-fl-stale", assigned_to="aff-fl1",
+                    status="assigned", found_at=0)
+        fresh = Lead(id="lead-fl-fresh", place_id="lead-fl-fresh", assigned_to="aff-fl1",
+                    status="interested", found_at=99_999_999_999)
+        await c.datastore.put(LEADS, stale.id, stale.to_dict())
+        await c.datastore.put(LEADS, fresh.id, fresh.to_dict())
+
+    asyncio.run(seed())
+    headers = {"Authorization": f"Bearer {_token(sub='p-fl1')}"}
+
+    by_status = client.get("/api/v1/affiliates/me/leads?status_eq=interested", headers=headers)
+    assert by_status.status_code == 200, by_status.text
+    assert {l["id"] for l in by_status.json()["leads"]} == {"lead-fl-fresh"}
+
+    attention = client.get("/api/v1/affiliates/me/leads?needs_attention=true", headers=headers)
+    assert attention.status_code == 200, attention.text
+    assert {l["id"] for l in attention.json()["leads"]} == {"lead-fl-stale"}
+
+
 def test_link_registration_end_to_end(client):
     from app.core.models import ACTIVE, AFFILIATES, Affiliate
 

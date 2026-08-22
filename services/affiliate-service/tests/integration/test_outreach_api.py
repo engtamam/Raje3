@@ -174,6 +174,18 @@ def test_an_unrelated_affiliate_cannot_log_a_use_against_someone_elses_lead(clie
     assert r.json()["reason"] == "not_yours"
 
 
+def test_reading_a_leads_template_uses_is_ownership_checked_too(client):
+    """Fixed (2026-08-22): this GET used to trust `lead_id` with no ownership check at all."""
+    r = client.get("/api/v1/affiliates/me/leads/lead-out1/template-uses",
+                   headers={"Authorization": f"Bearer {_token(sub='p-out2')}"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "not_yours"
+
+    ok = client.get("/api/v1/affiliates/me/leads/lead-out1/template-uses",
+                    headers={"Authorization": f"Bearer {_token(sub='p-out1b')}"})
+    assert ok.status_code == 200, ok.text
+
+
 def test_set_decision_maker_is_ownership_checked_and_readable_back(client):
     r = client.patch("/api/v1/affiliates/me/leads/lead-out1/decision-maker",
                      json={"name": "أبو سالم", "phone": "+966599990000", "role": "المالك"},

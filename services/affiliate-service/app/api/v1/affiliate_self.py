@@ -506,20 +506,36 @@ async def lead_search_status(request: Request, job_id: str,
 
 
 @router.get("/leads", dependencies=[Depends(_SELF), Depends(rate_limit)])
-async def my_leads(request: Request, principal: Principal = Depends(require_user)) -> dict:
+async def my_leads(request: Request, status_eq: str = "", stage_code: str = "", city: str = "",
+                   needs_attention: bool = False,
+                   principal: Principal = Depends(require_user)) -> dict:
     """spec §٩: "كل مسوّق يشوف فقط العملاء المحتملين المُسنَدين له، لا القائمة الكاملة" — a
     promoter sees what was ASSIGNED to him; a manager sees what HIS OWN search found (still
     pending assignment or already handed out), never each other's. One route, branched on the
     caller's own role — the same "is the caller himself an X" data check as everywhere else in
-    this file, never a capability."""
+    this file, never a capability.
+
+    THE FOUR FILTERS ARE APPLIED HERE, NOT REBUILT PER SCREEN — the list stays capped at 500 rows
+    (`leads_of_manager`/`leads_assigned_to`'s own limit), so filtering in Python after one fetch
+    costs nothing a caller would notice, and it means the Leads screen's stage/city/needs-
+    attention chips never have to duplicate `stale_leads`' own "no activity" definition —
+    `needs_attention=true` reads it straight from `stale_leads()` instead of reimplementing it."""
     affiliate = await _svc(request).me(principal.subject)
     if affiliate is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
     svc = _lead_sourcing(request)
-    if affiliate["role"] == get_settings().AFFILIATE_MANAGER_ROLE:
+    if needs_attention:
+        leads = await svc.stale_leads(affiliate["id"])
+    elif affiliate["role"] == get_settings().AFFILIATE_MANAGER_ROLE:
         leads = await svc.leads_of_manager(affiliate["id"])
     else:
         leads = await svc.leads_assigned_to(affiliate["id"])
+    if status_eq:
+        leads = [l for l in leads if l.status == status_eq]
+    if stage_code:
+        leads = [l for l in leads if l.outreach_stage_code == stage_code]
+    if city:
+        leads = [l for l in leads if l.city == city]
     return {"leads": [l.to_dict() for l in leads]}
 
 
@@ -601,6 +617,22 @@ async def my_lead_sector_stats(request: Request,
     affiliate = await _my_manager_affiliate(request, principal)
     stats = await _lead_sourcing(request).sector_stats(affiliate_id=affiliate["id"])
     return {"stats": stats}
+
+
+@router.get("/leads/{lead_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def one_lead(request: Request, lead_id: str,
+                   principal: Principal = Depends(require_user)) -> Any:
+    """The detail screen's own read — `GET /leads` already returns the full row, so this exists
+    only for a direct/refreshed/deep-linked open, kept to the exact same visibility rule
+    (`LeadSourcingService.get_lead`) rather than a looser one. Registered LAST among the `/leads/*`
+    GET routes deliberately — a path-param route registered before a static sibling (`/stale`,
+    `/sector-stats`) would swallow it as a `lead_id` of literally "stale"."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    try:
+        lead = await _lead_sourcing(request).get_lead(lead_id, affiliate_id=affiliate_id)
+    except LeadError as exc:
+        return _lead_refused(exc)
+    return lead.to_dict()
 
 
 @router.get("/sectors", dependencies=[Depends(_SELF), Depends(rate_limit)])

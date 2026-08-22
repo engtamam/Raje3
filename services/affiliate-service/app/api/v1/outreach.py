@@ -18,7 +18,10 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
-from app.api.v1.affiliate_self import _SELF, _my_affiliate_id, _my_manager_affiliate, _svc
+from app.api.v1.affiliate_self import (
+    _SELF, _lead_refused, _lead_sourcing, _my_affiliate_id, _my_manager_affiliate, _svc,
+)
+from app.core.lead_sourcing import LeadError
 from app.core.outreach import OutreachError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-outreach"])
@@ -122,6 +125,15 @@ async def set_template_use_outcome(request: Request, use_id: str, body: SetOutco
 @router.get("/leads/{lead_id}/template-uses", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def lead_template_uses(request: Request, lead_id: str,
                              principal: Principal = Depends(require_user)) -> dict:
+    """Fixed (2026-08-22): this used to trust `lead_id` with no ownership check at all — any
+    signed-in affiliate could read another affiliate's lead's whole outreach history by guessing
+    or observing an id. Gated now on the exact same rule every other lead-scoped route already
+    uses (`LeadSourcingService.get_lead`), not a new one."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    try:
+        await _lead_sourcing(request).get_lead(lead_id, affiliate_id=affiliate_id)
+    except LeadError as exc:
+        return _lead_refused(exc)
     uses = await request.app.state.container.template_uses.uses_for_lead(lead_id)
     return {"uses": [u.to_dict() for u in uses]}
 
