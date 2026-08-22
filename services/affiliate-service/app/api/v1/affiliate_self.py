@@ -121,7 +121,18 @@ async def change_password(request: Request, body: ChangePasswordIn,
     """A credential is identity-service's alone (see `OnboardingService.change_password`'s own
     docstring) — this forwards the caller's OWN bearer token, never mints a new authority. No role
     check beyond `_SELF` because there is no ownership question here: a token can only ever change
-    the password of the person it already is."""
+    the password of the person it already is.
+
+    AUDITED, NOT MESSAGED (Tamam, 2026-08-22): he just typed his own current password to get here
+    — a confirmation notification would tell him nothing he does not already know. What has to
+    exist is a RECORD, same "write it before the mutation" discipline `places-api-key` already
+    follows: identity is the one place the password itself lives, but the request entered through
+    OUR route, so an investigator asking whether this affiliate's account was taken over should
+    find the record here rather than needing to know the call was proxied."""
+    await request.app.state.auditor.record(
+        "affiliate.password_changed", actor=principal.subject, tenant="",
+        resource=f"person:{principal.subject}",
+        ip=request.client.host if request.client else "")
     bearer = request.headers.get("authorization", "")
     try:
         await _svc(request).change_password(
@@ -212,8 +223,16 @@ async def set_payout_method(request: Request, body: PayoutMethodIn,
     """spec §5, extended (Tamam, 2026-08-20): a bank IBAN or an intermediary payment platform
     (بحر or any other — `channel_name` is free text so a new one never needs a code change).
     Setting this does NOT touch any withdrawal already requested — see WithdrawalRequest's own
-    note on why the method is copied, not re-read, at request time."""
+    note on why the method is copied, not re-read, at request time.
+
+    AUDITED, WRITE-AHEAD (2026-08-22, same discipline `places-api-key` already follows): this
+    changes WHERE his commission money is sent, so an unrecorded change is indistinguishable from
+    an attacker redirecting a marketer's own earnings."""
     affiliate_id = await _my_affiliate_id(request, principal)
+    await request.app.state.auditor.record(
+        "affiliate.payout_method_changed", actor=affiliate_id, tenant="",
+        resource=f"affiliate:{affiliate_id}",
+        ip=request.client.host if request.client else "")
     try:
         out = await request.app.state.container.payouts.set_payout_method(
             affiliate_id, channel=body.channel, channel_name=body.channel_name,
@@ -625,10 +644,18 @@ async def link_lead_registration(request: Request, lead_id: str, body: LinkRegis
                                  principal: Principal = Depends(require_user)) -> Any:
     """Tamam, 2026-08-20: a shop sometimes signs up with a phone Google never had — the marketer
     himself says "this lead became THIS real shop", by hand, from HIS OWN referrals only. See
-    core/lead_sourcing.py::link_registration for why nothing here is inferred automatically."""
+    core/lead_sourcing.py::link_registration for why nothing here is inferred automatically.
+
+    AUDITED, WRITE-AHEAD (2026-08-22): this is the marketer SELF-DECLARING the event that opens
+    his own commission entitlement — an unrecorded claim cannot be checked later if the shop
+    disputes ever being referred by him."""
     affiliate = await _svc(request).me(principal.subject)
     if affiliate is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    await request.app.state.auditor.record(
+        "affiliate.lead_registration_linked", actor=affiliate["id"], tenant=body.tenant,
+        resource=f"lead:{lead_id}",
+        ip=request.client.host if request.client else "")
     try:
         out = await _lead_sourcing(request).link_registration(
             lead_id, affiliate_id=affiliate["id"], tenant=body.tenant,

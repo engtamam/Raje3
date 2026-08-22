@@ -248,6 +248,38 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "denied after meeting the platform's own published threshold",
     },
     {
+        "action": "affiliate.payout_method_changed",
+        "source": "user",
+        "critical": True,
+        "resource": "affiliate",
+        "why": "changes WHERE his commission money is actually sent — an unrecorded change is "
+               "indistinguishable from an attacker redirecting a marketer's own earnings to a "
+               "different account, and a later dispute ('I never changed my IBAN') has nothing to "
+               "check it against without this",
+    },
+    {
+        "action": "affiliate.lead_registration_linked",
+        "source": "user",
+        "critical": True,
+        "resource": "lead",
+        "why": "a marketer self-declaring 'this lead became this real, paying shop' is the event "
+               "that opens his own commission entitlement (spec §9/§6) — an unrecorded claim "
+               "cannot be checked later if the shop disputes ever being referred by him, and an "
+               "unattributable one is indistinguishable from someone minting himself a commission "
+               "on a shop that signed up on its own",
+    },
+    {
+        "action": "affiliate.password_changed",
+        "source": "user",
+        "critical": True,
+        "resource": "credential",
+        "why": "a password change is the same class of event identity-service's own "
+               "auth.password_changed already treats as critical — recorded HERE too because the "
+               "request enters through this service's own route (spec §affiliates.self), and an "
+               "investigator asking 'did this affiliate's account get taken over' should not have "
+               "to know the call was proxied to find the record",
+    },
+    {
         "action": "affiliate.places_api_key_set",
         "source": "user",
         "critical": True,
