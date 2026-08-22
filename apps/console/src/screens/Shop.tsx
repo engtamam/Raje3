@@ -20,9 +20,9 @@
  * platform-wide palette, which stays a separate decision for a separate day.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Button } from '@base-ui/design-system/Button';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Button } from '../rj-ui/Button';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Skeleton } from '../rj-ui/Skeleton';
 import type { ShellContext } from '../shell-context';
 import { Link, useOutletContext } from 'react-router-dom';
 import { hasFailed, isLoading, isReady } from '../loading';

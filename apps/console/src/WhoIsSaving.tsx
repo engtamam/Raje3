@@ -16,8 +16,8 @@
  * find his own name in a list that often is the way to make him tap «تخطّي» every time.
  */
 import { useEffect, useState } from 'react';
-import { Modal } from '@base-ui/design-system/Modal';
-import { Button } from '@base-ui/design-system/Button';
+import { Modal } from './rj-ui/Modal';
+import { Button } from './rj-ui/Button';
 import { listOperators, verifyPin, type FieldOperator } from './api';
 import { lastSeen, remember } from './operator';
 import type { Session } from './session';
