@@ -272,6 +272,7 @@ function renewalDay(epoch: number | null | undefined): string {
 
 function PlanCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
+  onSwitch, switchLabel, switching,
 }: {
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
@@ -289,6 +290,12 @@ function PlanCard({
   /** CAPACITY ROWS ONLY. One feature line and a price is the whole card — the base's own padding
    *  and icon size read as empty space around that little, not as room to breathe. */
   compact?: boolean;
+  /** BASE TIERS ONLY (audit #5, 2026-08-22) — given instead of `onBuy` when he already owns a
+   *  DIFFERENT base. Buying a second base subscribes him twice; this is the one card state that
+   *  means «تبديل», not «شراء». */
+  onSwitch?: () => void;
+  switchLabel?: string;
+  switching?: boolean;
 }) {
   const price = monthly(plan);
   const lines = planLines(plan);
@@ -392,7 +399,11 @@ function PlanCard({
       ) : null}
 
       <div className="mt-auto pt-2">
-        {has ? null : (
+        {has ? null : onSwitch ? (
+          <Button type="button" variant="outline" disabled={busy || switching} onClick={onSwitch}>
+            {switching ? 'يُبدَّل…' : switchLabel}
+          </Button>
+        ) : (
           <Button type="button" disabled={busy || !sellable} onClick={onBuy}>
             {buyLabel}
           </Button>
@@ -452,6 +463,14 @@ export function PlansPane({
   /** True only while resolving a token AFTER the 3DS redirect brought him back — a distinct wait
    *  from `busy`, because there is no form and no button to grey out at that moment. */
   const [resolvingReturn, setResolvingReturn] = useState(false);
+  /** «بدّل الباقة» (audit #5) — its own dialog, its own busy flag, its own error, same reasoning
+   *  as cancel's: switching in flight must not grey out the whole plan grid. */
+  const [confirmingChange, setConfirmingChange] = useState<Plan | null>(null);
+  const [changeBusy, setChangeBusy] = useState(false);
+  const [changeError, setChangeError] = useState('');
+  /** Its own banner, not `notice` — that one is titled «تم الاشتراك ✓» and offers «اربط واتسابي
+   *  الآن», neither of which is true of a plan SWITCH on an already-connected shop. */
+  const [changeNotice, setChangeNotice] = useState('');
   /**
    * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
    *
@@ -517,6 +536,36 @@ export function PlansPane({
       setCancelError(e instanceof Error ? e.message : 'تعذّر إلغاء الاشتراك.');
     } finally {
       setCancelBusy(false);
+    }
+  };
+
+  /** «بدّل الباقة» (audit #5) — THE ACTION THAT DID NOT EXIST. billing-service's `/change` route is
+   *  whole, proration and all; nothing in this console ever called it, so switching base tiers
+   *  meant a second «شراء» — a second subscription rather than a swap. The switch takes effect
+   *  immediately (his entitlements move to the new plan's limits the moment this returns); the
+   *  proration figure is REPORTED, not promised — billing_service.change_plan computes it and
+   *  hands it back, but nothing in that route writes it to an invoice or the ledger, so this says
+   *  «الفرق المحسوب» rather than «سيُضاف لفاتورتك»، which would be a promise the backend does not
+   *  keep today. */
+  const changeBase = async () => {
+    const a = action(catalog, 'billing.change_plan');
+    if (!a || !baseSub || !confirmingChange) return;
+    setChangeBusy(true); setChangeError('');
+    try {
+      const out = await call<{ proration_minor?: number }>(
+        session, a, { id: baseSub.id, plan_id: confirmingChange.id });
+      setConfirmingChange(null);
+      const d = out?.proration_minor;
+      setChangeNotice(
+        typeof d === 'number' && d !== 0
+          ? `تم تبديل باقتك إلى «${confirmingChange.name}». الفرق المحسوب لبقية هذه الفترة: ${
+              d > 0 ? `${riyals(d)} ريال إضافية` : `${riyals(Math.abs(d))} ريال لصالحك`}.`
+          : `تم تبديل باقتك إلى «${confirmingChange.name}».`);
+      load();
+    } catch (e) {
+      setChangeError(e instanceof Error ? e.message : 'تعذّر تبديل الباقة.');
+    } finally {
+      setChangeBusy(false);
     }
   };
 
@@ -798,6 +847,39 @@ export function PlansPane({
         </div>
       ) : null}
 
+      {/* «بدّل الباقة» CONFIRMATION — same discipline as cancel's: he is changing what he pays,
+          and the one thing he must know before pressing again is that the new limits apply
+          immediately, and what the price difference for the rest of THIS period is computed as.
+          THE FIGURE IS SAID AS COMPUTED, NOT PROMISED — billing_service.change_plan works out
+          the number and hands it back without writing it to any invoice; a sentence claiming it
+          «will be added to your next bill» would be a promise the backend does not keep today. */}
+      {confirmingChange ? (
+        <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+          <p className="mb-1 font-medium">تأكيد التبديل إلى «{confirmingChange.name}»</p>
+          <p className="mb-4 text-sm text-text-secondary">
+            حدود باقتك الجديدة تسري فوراً. سيُحسب فرق السعر لبقية هذه الفترة تناسبياً.
+          </p>
+          {changeError ? <p className="mb-3 text-sm text-danger">{changeError}</p> : null}
+          <div className="flex gap-2">
+            <Button type="button" disabled={changeBusy} onClick={() => void changeBase()}>
+              تأكيد التبديل
+            </Button>
+            <Button type="button" variant="ghost" disabled={changeBusy}
+                    onClick={() => { setConfirmingChange(null); setChangeError(''); }}>
+              تراجع
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {changeNotice ? (
+        <div className="rounded-card border border-accent-soft bg-accent-soft/40 p-5 shadow-sm">
+          <p className="mb-1 font-medium">تم التبديل ✓</p>
+          <p className="mb-4 text-sm text-text-secondary">{changeNotice}</p>
+          <Button type="button" variant="ghost" onClick={() => setChangeNotice('')}>تمام</Button>
+        </div>
+      ) : null}
+
       {/* WHAT IS LEFT, AFTER THE SUBSCRIPTION SUCCEEDED. Not a refusal and not styled as one: the
           payment went through, and this is the one step between him and messages going out. It is
           the server's sentence — the rule lives in one place — with the button that does it. */}
@@ -852,20 +934,31 @@ export function PlansPane({
             <section className="flex flex-col gap-2">
               <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
               <ul className="grid gap-3">
-                {bases.map((p) => (
-                  <li key={p.id}>
-                    <PlanCard
-                      plan={p}
-                      owned={hasBase}
-                      busy={busy}
-                      sellable={Boolean(canSubscribe && pay?.enabled)}
-                      onBuy={() => choose(p)}
-                      unreadNote={unreadNote}
-                      ownedLabel="اشتراكك"
-                      buyLabel="فعّل الأساس"
-                    />
-                  </li>
-                ))}
+                {bases.map((p) => {
+                  // WHICH BASE, NOT JUST WHETHER ONE — `hasBase` alone used to mark EVERY base
+                  // card «owned» the moment he had any one of them (audit #5's other half of the
+                  // same bug: a shop on the cheap tier saw every tier badged as already his).
+                  const isThisOne = hasBase === true ? baseSub?.plan_id === p.id : hasBase;
+                  const canSwitchToThis = hasBase === true && !isThisOne
+                    && Boolean(action(catalog, 'billing.change_plan'));
+                  return (
+                    <li key={p.id}>
+                      <PlanCard
+                        plan={p}
+                        owned={isThisOne}
+                        busy={busy}
+                        sellable={Boolean(canSubscribe && pay?.enabled)}
+                        onBuy={() => choose(p)}
+                        unreadNote={unreadNote}
+                        ownedLabel="اشتراكك"
+                        buyLabel="فعّل الأساس"
+                        onSwitch={canSwitchToThis ? () => setConfirmingChange(p) : undefined}
+                        switchLabel="بدّل إلى هذه"
+                        switching={changeBusy && confirmingChange?.id === p.id}
+                      />
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ) : null}
