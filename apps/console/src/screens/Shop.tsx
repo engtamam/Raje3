@@ -360,59 +360,72 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
 
       {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} /> : null}
 
-      <SurroundingKpis values={data.values} />
+      {/* EVERYTHING BELOW THE TWO LEAD CARDS FLOWS INTO TWO COLUMNS PAST `lg` — a `flex-col` stack
+          here was still one long vertical scroll no matter how wide محلّي's own outer column got;
+          the width was spent on margin, not on the content actually rebalancing across it. CSS
+          multi-column (not grid) is the right tool: it flows an unpredictable, conditionally-
+          rendered set of cards left-to-right by READING ORDER with no per-card column assignment
+          to maintain, and `break-inside-avoid` keeps each card from splitting across the seam. */}
+      <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
+        <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} /></div>
 
-      {week ? <WeekPulse week={week} /> : null}
-      {split && (split.new + split.returning) > 0 ? <NewVsReturning split={split} /> : null}
+        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div> : null}
+        {split && (split.new + split.returning) > 0
+          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} /></div> : null}
 
-      {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
-        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-          {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={perVisit.toLocaleString('en-US')} tone="flat" /> : null}
-          {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
-          {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
-        </div>
-      ) : null}
+        {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
+          <div className="mb-3 grid gap-2 break-inside-avoid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+            {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={perVisit.toLocaleString('en-US')} tone="flat" /> : null}
+            {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
+            {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
+          </div>
+        ) : null}
 
-      {(eff || opt) ? <MessageFlow eff={eff} opt={opt} /> : null}
-      {holdout ? <HoldoutCard h={holdout} /> : null}
+        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div> : null}
+        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div> : null}
 
-      {(popularity && popularity.length > 0) || (weak && weak.length > 0) ? (
-        <Section title="خدماتك">
-          {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
-          {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
-        </Section>
-      ) : null}
+        {(popularity && popularity.length > 0) || (weak && weak.length > 0) ? (
+          <div className="mb-3 break-inside-avoid">
+            <Section title="خدماتك">
+              {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
+              {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
+            </Section>
+          </div>
+        ) : null}
 
-      {somethingToDo ? (
-        <Section title="يحتاج تصرّفًا منك">
-          {locked.bundles ? (
-            <LockedLine title="باقات مقترحة" text={locked.bundles} />
-          ) : bundles && bundles.length ? (
-            <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-              <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
-              {bundles.slice(0, 4).map((b, i) => (
-                <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
-                  <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
-                  {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
-                  <div className="flex items-center justify-between gap-2">
-                    {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
-                    <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
-                  </div>
+        {somethingToDo ? (
+          <div className="mb-3 break-inside-avoid">
+            <Section title="يحتاج تصرّفًا منك">
+              {locked.bundles ? (
+                <LockedLine title="باقات مقترحة" text={locked.bundles} />
+              ) : bundles && bundles.length ? (
+                <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+                  <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
+                  {bundles.slice(0, 4).map((b, i) => (
+                    <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
+                      <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
+                      {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+                      <div className="flex items-center justify-between gap-2">
+                        {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
+                        <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : null}
-          {data.audience ? (
-            <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
-          ) : null}
-        </Section>
-      ) : null}
+              ) : null}
+              {data.audience ? (
+                <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
+              ) : null}
+            </Section>
+          </div>
+        ) : null}
 
-      {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
-        <p className="flex items-center gap-2 px-1 text-xs" style={{ color: 'var(--sh-ink-faint)' }}>
-          🔒 باقات مقترحة — في باقة أعلى.
-        </p>
-      ) : null}
+        {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
+          <p className="mb-3 flex items-center gap-2 break-inside-avoid px-1 text-xs" style={{ color: 'var(--sh-ink-faint)' }}>
+            🔒 باقات مقترحة — في باقة أعلى.
+          </p>
+        ) : null}
+      </div>
 
       <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
         {data.not_enabled && data.not_enabled.length > 0 ? (
