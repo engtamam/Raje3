@@ -2,13 +2,17 @@
   <title>راجِع</title>
   <desc>The same mark as src/brand/Mark.tsx. Colours are LITERAL, not var(--accent): a favicon is
   fetched outside the document, so it has no stylesheet and no custom properties, and currentColor
-  would render black on every tab. The ink square gives the mark its own ground, because a tab strip
+  would render black on every tab. The square gives the mark its own ground, because a tab strip
   may be light or dark and a bare accent stroke disappears into one of them. Any change to Mark.tsx
   belongs here too.
   REBRANDED 2026-08-22, gold (#B8862B) → violet (#6a4cf5, config/product.json's brand.accent.light)
   — this file was missed in that pass; a browser tab kept the old identity after every screen in
-  the product had already moved on.</desc>
-  <rect width="32" height="32" rx="7" fill="#151d33"/>
+  the product had already moved on.
+  GROUND SWITCHED TO WHITE THE SAME DAY (Tamam, by screenshot): dark ink read heavier in a tab
+  strip than the mark warranted, and violet-on-white is the pairing every other surface in the
+  product already uses for it — the dark ink square was never about the accent, only about
+  contrast, and white gives that just as well.</desc>
+  <rect width="32" height="32" rx="7" fill="#ffffff"/>
   <g fill="none" stroke="#6a4cf5" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M16 5.2a10.8 10.8 0 1 1-7.9 3.4"/>
     <path d="M6.6 4.9 8.1 9.2 12.4 8.1"/>

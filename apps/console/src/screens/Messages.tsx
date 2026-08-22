@@ -140,9 +140,14 @@ const CLASS_LABEL: Record<string, string> = {
   marketing: 'تسويقية',
 };
 
-const CLASS_TONE: Record<string, 'neutral' | 'accent' | 'info' | 'warning' | 'danger'> = {
+// «شخصية» WAS «neutral», AND UNDER THE VIOLET REBRAND THAT READ AS «تسويقية» IN DISGUISE. Neutral
+// draws from `surface-2` — a pale violet-tinted grey on this theme — which sits close enough to
+// `accent-soft` (marketing's own tone) that the two badges an owner is meant to tell apart by
+// colour at a glance stopped being tellable apart. `success` is a real third hue, not a third
+// shade of the same one.
+const CLASS_TONE: Record<string, 'neutral' | 'accent' | 'success' | 'info' | 'warning' | 'danger'> = {
   service: 'info',
-  personal: 'neutral',
+  personal: 'success',
   awareness: 'neutral',
   warning: 'warning',
   marketing: 'accent',
