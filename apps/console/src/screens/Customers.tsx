@@ -308,13 +308,15 @@ export function CustomersScreen(
               onClick={() => navigate(`/customers/${c.id}`)}
               className="flex w-full items-center justify-between rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]"
             >
-              {/* `items-end` — WITHOUT IT, `flex flex-col`'s default `align-items: stretch` makes
-                  every line stretch to the width of the WIDEST one (the "آخر زيارة" caption, on a
-                  row that has it) and the phone number's `dir="ltr"` text then left-aligns inside
-                  that now-wider box — so the same phone number sits flush on a short card and
-                  drifts left on a tall one, exactly the inconsistency the screenshot showed. Right
-                  edge fixed for every line regardless of width, in RTL, this is `items-end`. */}
-              <div className="flex flex-col items-end">
+              {/* `text-right`, A PHYSICAL VALUE ON PURPOSE — `items-end` was tried first and did
+                  not hold: `align-items: flex-end` on a `flex-col` container's CROSS axis (which
+                  is the horizontal, inline axis) does not reliably resolve against `dir="rtl"`
+                  the same way across engines, and the phone number kept drifting. `flex flex-col`
+                  stretches every line to the width of the widest one (the "آخر زيارة" caption, on
+                  a row that has it) regardless, so the fix that actually holds is forcing every
+                  line's OWN text to paint at the box's right edge, independent of any child's own
+                  `dir` — text-align is not a flex property and does not inherit that ambiguity. */}
+              <div className="flex flex-col text-right">
                 <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                 <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
                 {/* FREE ON THIS ROW'S OWN DATA — `last_visit`/`visit_count` are denormalised on
