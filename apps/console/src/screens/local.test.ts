@@ -6,7 +6,7 @@
  * return rate as his business's.
  */
 import { describe, expect, it } from 'vitest';
-import { blockedSentence, outsideVisits } from './Shop';
+import { blockedSentence, outsideVisits, retentionStreak } from './Shop';
 
 const ROWS = [
   { branch_id: 'riyadh', visits: 340 },
@@ -71,5 +71,40 @@ describe('blockedSentence', () => {
     // `message` and `reason` are what the old render looked for. Neither exists on the wire, and a
     // row carrying only those must still draw nothing rather than resurrect the guess.
     expect(blockedSentence({ indicator: 'x', message: 'م', reason: 'ر' } as never)).toBe('');
+  });
+});
+
+/**
+ * The "game-like" element that is actually computed — a real, honest streak, or nothing.
+ */
+describe('retentionStreak', () => {
+  it('says nothing on fewer than three drawn points', () => {
+    expect(retentionStreak([{ value: 0.4 }, { value: 0.5 }])).toBeNull();
+    expect(retentionStreak(undefined)).toBeNull();
+  });
+
+  it('counts a rising run ending at the newest point', () => {
+    const points = [{ value: 0.3 }, { value: 0.35 }, { value: 0.4 }, { value: 0.5 }];
+    expect(retentionStreak(points)).toEqual({ length: 4, rising: true });
+  });
+
+  it('counts a falling run the same way, and says so', () => {
+    const points = [{ value: 0.6 }, { value: 0.5 }, { value: 0.4 }];
+    expect(retentionStreak(points)).toEqual({ length: 3, rising: false });
+  });
+
+  it('stops the count the moment the direction reverses or goes flat', () => {
+    // Rising, then flat — the streak the newest point actually belongs to is length 1, below the
+    // floor, so this is silence rather than a stale streak from two points ago.
+    expect(retentionStreak([{ value: 0.3 }, { value: 0.4 }, { value: 0.4 }])).toBeNull();
+    // Rising twice, then a reversal — the newest point is now falling, alone.
+    expect(retentionStreak([{ value: 0.3 }, { value: 0.4 }, { value: 0.5 }, { value: 0.45 }])).toBeNull();
+  });
+
+  it('skips null gaps rather than bridging across them', () => {
+    // The middle point is unset (too few customers that period) — only the drawn points count,
+    // and here that is still just two, below the floor.
+    const points = [{ value: 0.3 }, { value: null }, { value: 0.4 }];
+    expect(retentionStreak(points)).toBeNull();
   });
 });

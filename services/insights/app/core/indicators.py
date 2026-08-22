@@ -106,6 +106,53 @@ def churn_rate(visits: list[dict], *, now: int, slack: float = 1.5) -> float:
     return round(lapsed / eligible, 3) if eligible else 0.0
 
 
+def active_customers_trend(visits: list[dict], *, now: int, window_days: int = 90,
+                           step_days: int = 30) -> dict[str, Any]:
+    """`active_customers`, plus what it was one step earlier.
+
+    THE SAME NUMBER CAN CLIMB WHILE REAL CUSTOMERS LEAVE — new ones backfilling the count is
+    exactly how a lifetime figure hides churn happening underneath it. An owner watching only the
+    level has no way to tell "growing" from "turning over," and this is the smallest change that
+    tells them apart: the same trailing-window count, read twice, one step apart.
+
+    `previous` IS None, NOT 0, WHEN THE HISTORY DOES NOT REACH BACK — same contract as
+    `visits_in_window`. A shop whose whole history fits inside one window has no "before" to show,
+    and printing 0 there would read as "you had no active customers a month ago," which is not
+    what "we have no earlier window" means.
+    """
+    span = window_days * DAY
+    step = step_days * DAY
+
+    def _count(cutoff: int) -> int:
+        return len({str(v.get("subject_ref")) for v in visits
+                    if cutoff - span < int(v.get("occurred_at") or v.get("created_at") or 0) <= cutoff
+                    and v.get("subject_ref")})
+
+    times = [int(v.get("occurred_at") or v.get("created_at") or 0) for v in visits]
+    covered = bool(times) and min(times) <= now - span - step
+    return {"current": _count(now), "previous": _count(now - step) if covered else None}
+
+
+def churn_rate_trend(visits: list[dict], *, now: int, slack: float = 1.5,
+                     step_days: int = 30) -> dict[str, Any]:
+    """`churn_rate`, plus what it was one step earlier — recomputed from the history AS IT STOOD
+    then, never from visits that had not happened yet.
+
+    Filtering to `occurred_at <= cutoff` before calling `churn_rate` again is the whole trick: the
+    function itself never changes, only how much of the feed it is allowed to see, so "the past" is
+    not a different calculation — it is the same one, asked earlier.
+    """
+    step = step_days * DAY
+    cutoff = now - step
+    times = [int(v.get("occurred_at") or v.get("created_at") or 0) for v in visits]
+    covered = bool(times) and min(times) <= cutoff
+    past = [v for v in visits if int(v.get("occurred_at") or v.get("created_at") or 0) <= cutoff]
+    return {
+        "current": churn_rate(visits, now=now, slack=slack),
+        "previous": churn_rate(past, now=cutoff, slack=slack) if covered else None,
+    }
+
+
 def at_risk(visits: list[dict], *, now: int, slack: float = 1.5,
             limit: int = 200) -> list[dict[str, Any]]:
     """Not an indicator — a LIST TO ACT ON (spec §10.7).

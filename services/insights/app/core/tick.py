@@ -186,6 +186,12 @@ class Tick:
             "visits_week": indicators.visits_in_window(visits, now=now),
             "churn_rate": indicators.churn_rate(visits, now=now),
             "active_customers": indicators.active_customers(visits, now=now),
+            # THE SAME TWO NUMBERS, WITH A "BEFORE" — a level alone cannot tell an owner "growing"
+            # from "turning over" (new customers backfilling a count while real ones leave under
+            # it). Kept as separate keys from the two above rather than reshaping them, so every
+            # existing reader of the plain scalar keeps working unchanged.
+            "active_customers_trend": indicators.active_customers_trend(visits, now=now),
+            "churn_rate_trend": indicators.churn_rate_trend(visits, now=now),
             "new_vs_returning": indicators.new_vs_returning(visits, now=now),
             "service_popularity": indicators.service_popularity(visits),
             "services_per_visit": indicators.services_per_visit(visits),

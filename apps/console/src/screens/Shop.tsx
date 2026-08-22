@@ -117,11 +117,13 @@ export function ShopScreen() {
   const { session, catalog, branch, setBranch } = useOutletContext<ShellContext>();
 
   return (
-    // A SINGLE STACKED COLUMN WAS A PHONE LAYOUT, EVEN ON A DESKTOP WINDOW — nothing here ever
-    // used the width a wide browser actually offers. Past `lg` this becomes two real columns: the
-    // indicators (what this screen is FOR) stay the wide lead column; today's pulse and the recent
-    // list — both short, glanceable strips — share a narrower side column, the way a dashboard
-    // that was designed for a desktop, not stretched onto one, would place them.
+    // A FIXED SIDE COLUMN WAS THE SAME MISTAKE IN A NEW SHAPE — today's pulse and the recent list
+    // are short, so a rigid `[1fr_23rem]` split left a tall dead strip of the shell's own ground
+    // under the short column while the wide column kept scrolling well past it. CSS multi-column
+    // (inside `IndicatorsPanel`, which now also renders `RecentVisits` as one more block in its own
+    // flow) balances by actual content height instead of by a column boundary picked in advance —
+    // the one layout primitive built for exactly this problem. Only today's pulse — status, not a
+    // number to compare — stays a plain full-width lead above it.
     //
     // `-m-4 sm:-m-6 md:-m-8` CANCELS THE SHELL'S OWN PADDING (AppShell's content wrapper carries
     // no background of its own — it just inherits the shell's ivory `bg-surface-0`), then `p-4
@@ -129,14 +131,9 @@ export function ShopScreen() {
     // as inherited padding, that gap was a strip of the old platform's ivory framing every card on
     // every side — the seam that made a screen with a brand-new identity read as pasted onto an
     // unchanged shell rather than actually redesigned.
-    <div style={TOKENS} className="-m-4 flex flex-col gap-3 p-4 sm:-m-6 sm:p-6 md:-m-8 md:p-8 lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-4">
-      <div className="flex flex-col gap-3 lg:order-2">
-        <TodayPulse session={session} catalog={catalog} />
-        <RecentVisits session={session} catalog={catalog} />
-      </div>
-      <div className="lg:order-1">
-        <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
-      </div>
+    <div style={TOKENS} className="-m-4 flex flex-col gap-3 p-4 sm:-m-6 sm:p-6 md:-m-8 md:p-8">
+      <TodayPulse session={session} catalog={catalog} />
+      <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
     </div>
   );
 }
@@ -220,15 +217,32 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
  *  means is decoration pretending to be information, and worse than no icon: it teaches the eye
  *  to skip it. The tone-colored number itself IS the signal; a top rule in the tone carries the
  *  same distinction an icon would have, honestly. */
-function Tile({ label, value, tone }: { label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat' }) {
+function Tile({ label, value, tone, delta }: {
+  label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
+  /** THE COMPARISON THAT MAKES A LEVEL MEAN SOMETHING — «good» means "up from before" for most
+   *  numbers, so a rising churn rate must still read as bad even though it went up. Pass
+   *  `goodIsUp: false` for a tile where more is worse. Omit `delta` entirely when there is no
+   *  earlier period to compare against — never render a fabricated "+0". */
+  delta?: { current: number; previous: number; goodIsUp?: boolean; percent?: boolean };
+}) {
   const fg = tone === 'violet' ? 'var(--sh-violet-deep)' : tone === 'teal' ? 'var(--sh-teal-deep)'
     : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink)';
   const rule = tone === 'violet' ? 'var(--sh-violet)' : tone === 'teal' ? 'var(--sh-teal)'
     : tone === 'coral' ? 'var(--sh-coral)' : 'var(--sh-line)';
+  const diff = delta ? delta.current - delta.previous : null;
+  const good = delta && diff !== null ? (delta.goodIsUp === false ? diff <= 0 : diff >= 0) : null;
   return (
     <div className="flex flex-col gap-1 rounded-2xl p-3 text-center" style={{ background: 'var(--sh-surface)', boxShadow: '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)', borderTop: `2.5px solid ${rule}` }}>
       <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
       <span className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+      {diff !== null ? (
+        <span dir="ltr" className="text-[10px] font-semibold" style={{
+          color: diff === 0 ? 'var(--sh-ink-faint)' : good ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {diff === 0 ? '= عن الشهر اللي فات' : `${diff > 0 ? '↑' : '↓'} ${delta!.percent ? `${Math.abs(Math.round(diff * 100))}%` : Math.abs(diff)} عن الشهر اللي فات`}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -369,6 +383,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           to maintain, and `break-inside-avoid` keeps each card from splitting across the seam. */}
       <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
         <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} /></div>
+        <div className="mb-3 break-inside-avoid"><RecentVisits session={session} catalog={catalog} /></div>
 
         {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div> : null}
         {split && (split.new + split.returning) > 0
@@ -398,32 +413,56 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} /></div>
         ) : null}
 
-        {somethingToDo ? (
-          <div className="mb-3 break-inside-avoid">
-            <Section title="يحتاج تصرّفًا منك">
-              {locked.bundles ? (
-                <LockedLine title="باقات مقترحة" text={locked.bundles} />
-              ) : bundles && bundles.length ? (
-                <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-                  <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
-                  {bundles.slice(0, 4).map((b, i) => (
-                    <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
-                      <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
-                      {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
-                      <div className="flex items-center justify-between gap-2">
-                        {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
-                        <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
-                      </div>
+        {/* THE SCREEN NEVER GOES QUIET. It used to say nothing at all here the moment there was no
+            cross-sell opportunity and no locked upsell to show — and «nothing» reads as «we have
+            no idea what you should do next», which is worse than a plain, honest suggestion. This
+            always renders something, in priority order, ending in a real positive nudge (never a
+            fabricated one) rather than silence. */}
+        <div className="mb-3 break-inside-avoid">
+          <Section title="الخطوة التالية">
+            {locked.bundles ? (
+              <LockedLine title="باقات مقترحة" text={locked.bundles} />
+            ) : bundles && bundles.length ? (
+              <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+                <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
+                {bundles.slice(0, 4).map((b, i) => (
+                  <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
+                    <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
+                    {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+                    <div className="flex items-center justify-between gap-2">
+                      {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
+                      <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
                     </div>
-                  ))}
-                </div>
-              ) : null}
-              {data.audience ? (
-                <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
-              ) : null}
-            </Section>
-          </div>
-        ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : data.audience ? (
+              <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
+            ) : weak && weak.length > 0 ? (
+              <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-coral-soft)' }}>
+                <p className="text-[13px]" style={{ color: 'var(--sh-coral-deep)' }}>
+                  عندك {weak.length} {weak.length === 1 ? 'خدمة' : 'خدمات'} ما تُطلب كثيرًا — رَوِّج لها أو راجع سعرها.
+                </p>
+              </div>
+            ) : (
+              // THE HONEST GOOD-NEWS CASE — no invented "growth" or fake urgency, and never
+              // silence: `reward_loyal` is the same real campaign goal `win_back` is, just for the
+              // shop with nothing currently wrong.
+              <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)' }}>
+                <p className="text-[13px]" style={{ color: 'var(--sh-teal-deep)' }}>وضعك ثابت ولا شي يستحق تنبيهًا الآن — جرّب تكافئ عملاءك الدائمين.</p>
+                {action(catalog, 'campaigns.create') ? (
+                  <Link
+                    to="/messages?tab=campaigns&launch=reward_loyal"
+                    className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
+                    style={{ background: 'var(--sh-teal)', color: '#ffffff' }}
+                  >
+                    كافئهم
+                  </Link>
+                ) : null}
+              </div>
+            )}
+          </Section>
+        </div>
 
         {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
           <p className="mb-3 flex items-center gap-2 break-inside-avoid px-1 text-xs" style={{ color: 'var(--sh-ink-faint)' }}>
@@ -485,6 +524,26 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
 
 const cardShadow = '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)';
 
+/** A "game-like" element that is actually computed, not decorated on — how many of the trailing
+ *  points in `retention_series.points` moved the SAME direction in a row, ending at the newest
+ *  one. Needs three to speak (two real moves in a row), because two points is just the badge above
+ *  restated, and a swing that reverses instantly is noise, not a streak. */
+export function retentionStreak(
+  points?: { value: number | null }[],
+): { length: number; rising: boolean } | null {
+  const drawn = (points ?? []).filter((p): p is { value: number } => p.value !== null);
+  if (drawn.length < 3) return null;
+  const rising = drawn[drawn.length - 1].value > drawn[drawn.length - 2].value;
+  let length = 1;
+  for (let i = drawn.length - 1; i > 0; i--) {
+    const up = drawn[i].value > drawn[i - 1].value;
+    const flat = drawn[i].value === drawn[i - 1].value;
+    if (flat || up !== rising) break;
+    length++;
+  }
+  return length >= 3 ? { length, rising } : null;
+}
+
 /** THE HERO — a narrated sentence, the number set large inline, never a bare ring. «من كل ١٠
  *  عملاء زاروك، ٦٫٧ يرجعون لك» is the sentence an owner actually repeats to himself; the number
  *  alone inside a circle was a fact he had to translate before it meant anything.
@@ -498,6 +557,7 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
   const SAMPLE_FLOOR = 10;
   const tooSmall = typeof sampleSize === 'number' && sampleSize < SAMPLE_FLOOR;
   const deltaPts = series ? Math.round(((series.last ?? 0) - (series.first ?? 0)) * 100) : null;
+  const streak = retentionStreak(series?.points);
   const sentence = tooSmall
     ? (() => {
         const returned = Math.round(pct * (sampleSize as number));
@@ -541,6 +601,15 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
               badge needed. */}
           {series?.points && series.points.length > 1 ? <RetentionSparkline points={series.points} /> : null}
         </div>
+      ) : null}
+      {/* THE STREAK — a real, computed thing (three or more consecutive points moving the same
+          way in `retention_series.points`), not a badge invented to feel like a game. It answers
+          the exact question a renewing owner asks himself: "is this actually working, lately, or
+          did it work once a while back?" */}
+      {streak ? (
+        <p className="mt-2 text-[12px] font-medium" style={{ color: streak.rising ? '#baf5da' : '#ffd3c9' }}>
+          {streak.rising ? '📈' : '📉'} {streak.rising ? 'تتحسّن' : 'تتراجع'} منذ {streak.length} فترات متتالية
+        </p>
       ) : null}
     </div>
   );
@@ -592,10 +661,12 @@ function RetentionSparkline({ points }: { points: { at: number; customers: numbe
 /** The three that surround the hero — absent is not zero: a key the plan withheld or the snapshot
  *  could not compute is skipped entirely rather than drawn as 0. */
 function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
-  const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat' }[] = [
-    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet' },
+  const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
+                trendKey?: string; goodIsUp?: boolean }[] = [
+    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true },
     { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat' },
-    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral' },
+    // MORE TSARRUB IS WORSE — `goodIsUp: false`, so a rising number still shades coral, never teal.
+    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false },
   ];
   const shown = items.filter((h) => typeof values[h.key] === 'number');
   if (!shown.length) return null;
@@ -604,7 +675,11 @@ function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
       {shown.map((h) => {
         const raw = values[h.key] as number;
         const v = h.percent ? `${Math.round(raw * 100)}%` : String(raw);
-        return <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone} />;
+        const trend = h.trendKey ? values[h.trendKey] as { current?: number; previous?: number | null } | undefined : undefined;
+        const delta = trend && typeof trend.current === 'number' && typeof trend.previous === 'number'
+          ? { current: trend.current, previous: trend.previous, goodIsUp: h.goodIsUp, percent: h.percent }
+          : undefined;
+        return <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone} delta={delta} />;
       })}
     </div>
   );
@@ -792,23 +867,23 @@ function ServicePopularity({ rows, names }: { rows: { service_id: string; count:
       <div className="flex flex-wrap gap-1.5">
         {top.map((r) => {
           const pct = r.count / total;
-          // A FLOOR ON WIDTH, not on truth — a service with 2% of demand still needs room for its
-          // name; the number beside it still says 2%, so nothing here overstates what it is.
-          const basis = Math.max(20, Math.round(pct * 100));
+          // A FLOOR ON WIDTH so a 2%-of-demand service still fits its name, AND A CEILING so one
+          // busy service never swallows the whole row — the number beside it still says the real
+          // share either way, so the tile's size is a hint, never the only place the truth lives.
+          const basis = Math.min(58, Math.max(24, Math.round(pct * 100)));
           return (
             <div
               key={r.service_id}
-              className="flex min-w-[86px] flex-col justify-between gap-3 rounded-xl p-2.5"
+              className="flex flex-col gap-0.5 rounded-lg px-2.5 py-1.5"
               style={{
                 flexBasis: `${basis}%`,
-                minHeight: 64,
                 background: `color-mix(in srgb, var(--sh-teal) ${Math.round(18 + pct * 72)}%, white)`,
               }}
             >
-              <span className="text-[11.5px] font-semibold leading-tight" style={{ color: 'var(--sh-teal-deep)' }}>
+              <span className="truncate text-[11.5px] font-semibold leading-tight" style={{ color: 'var(--sh-teal-deep)' }}>
                 {names[r.service_id] || r.service_id}
               </span>
-              <span dir="ltr" className="text-[10.5px] font-medium" style={{ color: 'var(--sh-teal-deep)', fontVariantNumeric: 'tabular-nums' }}>
+              <span dir="ltr" className="text-[10px] font-medium" style={{ color: 'var(--sh-teal-deep)', fontVariantNumeric: 'tabular-nums' }}>
                 {r.count} · {Math.round(r.share * 100)}%
               </span>
             </div>

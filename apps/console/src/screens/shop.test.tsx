@@ -13,6 +13,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { SECTIONS } from '../nav';
 
 vi.mock('../catalog', async (importOriginal) => {
@@ -58,7 +59,7 @@ describe('«محلّي» — one page, and the number first', () => {
 
   it('draws the retention ring BEFORE any heading, caption or lock', async () => {
     const { container } = render(
-      <LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} />,
+      <MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
 
@@ -75,11 +76,16 @@ describe('«محلّي» — one page, and the number first', () => {
     expect(rows.findIndex((c) => c.contains(age))).toBeGreaterThan(ringAt);
   });
 
-  it('draws no «يحتاج تصرّفاً منك» heading when there is nothing under it', async () => {
-    render(<LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} />);
+  it('never draws the old «يحتاج تصرّفاً منك» heading, and never goes silent either', async () => {
+    render(<MemoryRouter><LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
     // A section demanding action, about the one thing he cannot act on, is a heading he learns to
-    // stop reading.
+    // stop reading — the old heading is gone for good.
     expect(screen.queryByText('يحتاج تصرّفاً منك')).toBeNull();
+    // AND SOMETHING ALWAYS REPLACES IT — «الخطوة التالية» never renders empty; with nothing to
+    // cross-sell and no locked upsell, it still gives him a real, honest suggestion rather than
+    // silence.
+    expect(screen.getByText('الخطوة التالية')).toBeTruthy();
+    expect(screen.getByText(/وضعك ثابت/)).toBeTruthy();
   });
 });

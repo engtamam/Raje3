@@ -94,6 +94,47 @@ def test_a_first_time_customer_is_not_counted_as_churn():
     assert ind.churn_rate([visit("new", 400)], now=NOW) == 0.0
 
 
+def test_active_customers_trend_reads_the_same_window_one_step_earlier():
+    """The count that can climb while real customers leave — new customers backfilling the number
+    — is exactly what a level alone cannot show. One step back, over enough history to cover both
+    windows, is the smallest change that gives it a direction."""
+    v = ([visit("a", 5)] +                        # in this 90-day window only (too recent for last month's)
+         [visit(f"b{i}", 50) for i in range(3)] +  # in BOTH this window and last month's
+         [visit(f"c{i}", 200) for i in range(5)])  # old enough only to make "previous" trustworthy
+    got = ind.active_customers_trend(v, now=NOW, window_days=90, step_days=30)
+    assert got["current"] == 4     # a + the three b's
+    assert got["previous"] == 3    # the three b's only — 'a' had not shown up yet a month ago
+
+
+def test_active_customers_trend_reports_no_previous_when_history_does_not_reach_back():
+    """UNKNOWN IS NOT ZERO here either — the same defect `visits_in_window` was written to end,
+    committed again in a second indicator, would print '0 عملاء نشطون الشهر اللي فات' for a shop
+    that simply had not been open that long."""
+    fresh = [visit("a", 10), visit("b", 2)]
+    assert ind.active_customers_trend(fresh, now=NOW)["previous"] is None
+
+
+def test_churn_rate_trend_recomputes_from_history_truncated_to_the_earlier_moment():
+    """Not a stored snapshot — the SAME pure function, asked with less of the feed. A customer who
+    only lapsed in the most recent month must not count against how things stood a month ago."""
+    # 'a' lapsed only in the last 30 days: fine a month ago, lapsed now.
+    v = [visit("a", 100), visit("a", 40), visit("a", 5)]
+    # cycle ~ (100-40) days ~ 60; last visit 5 days ago, well within slack — not lapsed now either,
+    # so build a clearer case: a weekly customer whose last visit fell silent recently.
+    v = [visit("a", 60), visit("a", 53), visit("a", 46), visit("a", 39), visit("a", 32)]
+    # weekly cycle (~7d); 32 days since the last visit as of NOW is well past slack -> lapsed now.
+    got = ind.churn_rate_trend(v, now=NOW, slack=1.5, step_days=30)
+    assert got["current"] == 1.0
+    # A month earlier (cutoff = NOW-30d), the history truncated there ends at the "39 days ago"
+    # visit, itself only 9 days before that cutoff — not yet lapsed.
+    assert got["previous"] == 0.0
+
+
+def test_churn_rate_trend_reports_no_previous_when_history_does_not_reach_back():
+    fresh = [visit("a", 10), visit("a", 3)]
+    assert ind.churn_rate_trend(fresh, now=NOW)["previous"] is None
+
+
 def test_at_risk_returns_people_to_act_on_not_a_percentage():
     """An owner told '12% are lapsing' does nothing; handed twelve names he presses send."""
     v = [visit("a", 300), visit("a", 200), visit("b", 20), visit("b", 10)]

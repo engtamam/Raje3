@@ -13,6 +13,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createElement, useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { ApiError } from '../api';
 
 const asked: { id: string; body: unknown }[] = [];
@@ -60,7 +61,7 @@ function Host() {
   });
 }
 
-const open = () => render(createElement(Host));
+const open = () => render(createElement(MemoryRouter, null, createElement(Host)));
 
 describe('«محلّي» for a supervisor over several branches', () => {
   it('offers his branches by name instead of reporting a failure', async () => {
