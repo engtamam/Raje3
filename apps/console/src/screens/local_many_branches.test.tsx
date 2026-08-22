@@ -43,7 +43,7 @@ vi.mock('../catalog', async (importOriginal) => {
 
 afterEach(() => { asked.length = 0; cleanup(); });
 
-const { LocalScreen } = await import('./Local');
+const { IndicatorsPanel: LocalScreen } = await import('./Shop');
 
 /**
  * A HOST THAT HOLDS THE CHOICE, because the screen no longer does.

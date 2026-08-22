@@ -6,7 +6,7 @@
  * return rate as his business's.
  */
 import { describe, expect, it } from 'vitest';
-import { blockedSentence, outsideVisits } from './Local';
+import { blockedSentence, outsideVisits } from './Shop';
 
 const ROWS = [
   { branch_id: 'riyadh', visits: 340 },

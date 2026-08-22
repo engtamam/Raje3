@@ -26,7 +26,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { TodayStrip } = await import('./Today');
+const { TodayPulse: TodayStrip } = await import('./Shop');
 
 afterEach(cleanup);
 

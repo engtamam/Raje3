@@ -37,7 +37,7 @@ vi.mock('../catalog', async (importOriginal) => {
   };
 });
 
-const { LocalScreen } = await import('./Local');
+const { IndicatorsPanel: LocalScreen } = await import('./Shop');
 
 afterEach(cleanup);
 
@@ -60,11 +60,11 @@ describe('«محلّي» — one page, and the number first', () => {
     const { container } = render(
       <LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} />,
     );
-    await waitFor(() => expect(screen.getByText('نسبة العودة')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
 
     const page = container.firstElementChild!;
     const rows = [...page.children];
-    const ringAt = rows.findIndex((c) => c.contains(screen.getByText('نسبة العودة')));
+    const ringAt = rows.findIndex((c) => c.contains(screen.getByText('نسبة عودة عملائك')));
     // FIRST — not «somewhere on the page». The freshness caption and the locked-surface line both
     // sat above it, and both would pass a presence check while failing the only thing asked for.
     expect(ringAt).toBe(0);
@@ -77,7 +77,7 @@ describe('«محلّي» — one page, and the number first', () => {
 
   it('draws no «يحتاج تصرّفاً منك» heading when there is nothing under it', async () => {
     render(<LocalScreen session={session} catalog={catalog} branch="" onBranch={() => {}} />);
-    await waitFor(() => expect(screen.getByText('نسبة العودة')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('نسبة عودة عملائك')).toBeTruthy());
     // A section demanding action, about the one thing he cannot act on, is a heading he learns to
     // stop reading.
     expect(screen.queryByText('يحتاج تصرّفاً منك')).toBeNull();

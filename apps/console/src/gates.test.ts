@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import customerSrc from './screens/Customer.tsx?raw';
 import doorSrc from './screens/Door.tsx?raw';
 import editorSrc from './screens/TextEditor.tsx?raw';
-import localSrc from './screens/Local.tsx?raw';
+import localSrc from './screens/Shop.tsx?raw';
 import previewSrc from './screens/MessagePreview.tsx?raw';
 import pointsSrc from './screens/Points.tsx?raw';
 import { DENIED, isReady } from './loading';

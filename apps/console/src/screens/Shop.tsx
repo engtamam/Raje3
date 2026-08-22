@@ -1,40 +1,662 @@
 /**
- * «محلّي» — ONE PAGE, where there were two.
+ * «محلّي» — rebuilt as one file (2026-08-22, Tamam: "نصمم بطريقتنا الاحترافية... ملف واحد مخصص
+ * بالكامل"). Replaces Today.tsx + Local.tsx + this file's own old three-line shell.
  *
- * «اليوم» AND «محلّي» WERE THE SAME VISIT, SPLIT IN HALF. He opened «اليوم», read three tiles,
- * and pressed «محلّي» to see the number he pays us for — every time. Two rows in the rail, two
- * loads, and a duplicated freshness caption between them. Tamam's own words: «افكر ادمج صفحة
- * اليوم مع محلي في صفحة وحده وخلاص، نقلل من التكرارات».
+ * OUR OWN PRESENTATION, NOT THE SPEC'S TAXONOMY. docs/وصف-منصة-راجع.md groups indicators into five
+ * named categories (retention, cross-sell, segmentation, operational efficiency, staff) — that
+ * grouping is a content inventory, not a design a phone screen should render as five boxes. What
+ * decides layout here is urgency and depth, not which document section a number came from: what
+ * stops the shop, then the one number the whole product is about, then what surrounds it, then
+ * what he might act on, then everything else — folded, never hidden.
  *
- * THE ORDER IS THE ARGUMENT, and it is not the order we built things in:
+ * ONE FILE, NOT ONE COMPONENT. Every section below still keeps its OWN fetch and its OWN three
+ * states (loading/failed/ready) — `reminders.today` can be unreachable while `insights.dashboard`
+ * answers perfectly, and collapsing them into one shared loading state would throw away a working
+ * retention rate because a different service briefly is not answering. See each section's own hook.
  *
- *   1. what STOPS the shop — «رسائلك متوقّفة». Rare, and above everything when it is true.
- *   2. نسبة العودة, large. The one number this product is about, and the first thing he sees.
- *   3. the numbers around it — his three indicators, then what our messages moved and cost.
- *   4. what he might DO — a heading drawn only when there is something under it.
- *   5. detail, folded. Pairs, branches, and what is still too thin to show honestly.
- *   6. آخر الزيارات, LAST — «خليها اخر شي»: reassurance, not a decision.
- *
- * WHY THE PAGE IS ASSEMBLED HERE RATHER THAN MERGED INTO ONE COMPONENT: the two halves fail
- * independently. `reminders` can be unreachable while `insights` answers perfectly — and the
- * merged version of that is a page that throws away a working retention rate because a different
- * service is down. Each piece keeps its own three states, and each says its own sentence.
+ * A NEW VISUAL IDENTITY, SCOPED TO THIS SCREEN ONLY. The rest of the console still reads
+ * `var(--rj-gold)` etc. from the shared theme; this screen defines its own local tokens on its own
+ * root element (violet/teal/coral — see the comment on `TOKENS` below) rather than touching the
+ * platform-wide palette, which stays a separate decision for a separate day.
  */
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Button } from '@base-ui/design-system/Button';
+import { EmptyState } from '@base-ui/design-system/EmptyState';
+import { Skeleton } from '@base-ui/design-system/Skeleton';
 import type { ShellContext } from '../shell-context';
 import { useOutletContext } from 'react-router-dom';
-import { LocalScreen } from './Local';
-import { RecentVisits, TodayStrip } from './Today';
+import { hasFailed, isLoading, isReady } from '../loading';
+import { Waiting } from '../Waiting';
+import { ApiError, sentenceFor } from '../api';
+import { action, call, type Catalog } from '../catalog';
+import type { Session } from '../session';
+import { asLocal } from '../phone';
+import { outsideVisits } from '../branch-scope';
 
+export { outsideVisits };
+
+/** This screen's own palette — violet/teal/coral on a cool near-white ground, nothing beige,
+ *  nothing borrowed from the platform's gold. Applied once, on the outer wrapper, and read by
+ *  every child via `var(--sh-*)` the same way the rest of the console already reads `--rj-*`. */
+const TOKENS: CSSProperties = {
+  ['--sh-ground' as string]: '#f4f5fa',
+  ['--sh-surface' as string]: '#ffffff',
+  ['--sh-surface-2' as string]: '#eceefa',
+  ['--sh-ink' as string]: '#131226',
+  ['--sh-ink-soft' as string]: '#5a5a78',
+  ['--sh-ink-faint' as string]: '#9797ad',
+  ['--sh-line' as string]: '#e5e6f2',
+  ['--sh-violet' as string]: '#6a4cf5',
+  ['--sh-violet-deep' as string]: '#4c34c4',
+  ['--sh-violet-soft' as string]: '#ece7fe',
+  ['--sh-teal' as string]: '#0fb897',
+  ['--sh-teal-deep' as string]: '#0a8871',
+  ['--sh-teal-soft' as string]: '#dcf7f1',
+  ['--sh-coral' as string]: '#ff6b52',
+  ['--sh-coral-deep' as string]: '#d9472f',
+  ['--sh-coral-soft' as string]: '#ffe4dd',
+  background: 'var(--sh-ground)',
+  color: 'var(--sh-ink)',
+};
+
+/* ── shared shapes, unchanged from the services that answer them ─────────────────────────────── */
+interface Today {
+  can_send?: boolean;
+  blocked?: string;
+  messages: { sent_today: number; waiting: number; retrying?: number; retrying_reason?: string };
+  ceiling: { known: boolean; unlimited: boolean; limit: number; reached_today: number;
+            remaining: number; quality: string };
+}
+interface CustomerRow { id: string; phone: string; name?: string }
+interface Blocked {
+  indicator: string; lost?: string; why?: string; do?: string; owner?: string; request?: string;
+  progress?: { have?: number; need?: number };
+}
+const BLOCKED_OWNER: Record<string, string> = {
+  pos_vendor: 'على مزوّد الكاشير', establishment: 'عليك أنت', time: 'على الوقت', unknown: 'غير محدّد',
+};
+interface Effect { ready?: boolean; reason?: string; visits?: number; window_days?: number; partial?: boolean }
+interface OptOut {
+  ready?: boolean; reason?: string; rate?: number; per?: number; sent?: number; need?: number;
+  opt_outs?: number; partial?: boolean;
+}
+interface Holdout {
+  ready?: boolean; reason?: string; held?: number; reached?: number; need?: number;
+  held_rate?: number; reached_rate?: number; gap?: number; window_days?: number;
+}
+interface Series {
+  points?: { at: number; customers: number; value: number | null }[];
+  learning?: boolean; first?: number; last?: number; delta?: number; months?: number;
+}
+interface Dashboard {
+  computing: boolean; empty_branch?: boolean; message?: string; values: Record<string, unknown>;
+  audience?: { consented: number; message: string } | null; as_of_hours_ago?: number;
+  entitlements?: string[]; stale?: boolean; visits?: number; not_enabled?: Blocked[];
+  teaser?: { message?: string } | null;
+}
+interface Pairs { learning?: boolean; have?: number; need?: number;
+                 pairs?: { a: string; b: string; verdict: string; customers: number }[] }
+interface Bundle { a_name?: string; b_name?: string; why?: string; customers?: number;
+                  action?: string; action_label?: string }
+interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number }[];
+                    unknown?: number; can_rank?: boolean }
+
+export function blockedSentence(b: Blocked): string {
+  const why = (b.why ?? '').trim();
+  if (!why) return '';
+  const have = b.progress?.have, need = b.progress?.need;
+  if (typeof have === 'number' && typeof need === 'number' && need > 0) return `${why} — ${have} من ${need}.`;
+  return why;
+}
+
+/* ── the whole screen ──────────────────────────────────────────────────────────────────────────── */
 export function ShopScreen() {
-  // THE BRANCH COMES FROM THE SHELL, which is where the control now lives. A screen that read the
-  // stored value itself would be a second reader of the same choice — and the day the two got out
-  // of step, the rail would say «الرياض» over numbers about the whole chain.
   const { session, catalog, branch, setBranch } = useOutletContext<ShellContext>();
+
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <TodayStrip session={session} catalog={catalog} />
-      <LocalScreen session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
+    <div style={TOKENS} className="flex flex-col gap-3 p-4">
+      <TodayPulse session={session} catalog={catalog} />
+      <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
       <RecentVisits session={session} catalog={catalog} />
     </div>
+  );
+}
+
+/* ── ① what stops the shop, and today's pulse — own fetch, own three states ─────────────────────── */
+export function TodayPulse({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [today, setToday] = useState<Today | null | undefined>(undefined);
+  const [connected, setConnected] = useState<{ state: string; message: string; can_send?: boolean } | null | undefined>(undefined);
+
+  useEffect(() => {
+    const a = action(catalog, 'reminders.today');
+    if (a) call<Today>(session, a).then(setToday).catch(() => setToday(null));
+    else setToday(null);
+    const w = action(catalog, 'whatsapp.connect_status');
+    if (w) call<{ state: string; message: string; can_send?: boolean }>(session, w)
+      .then(setConnected).catch(() => {});
+  }, [session, catalog]);
+
+  const warning = (() => {
+    if (connected && connected.state !== 'connected' && connected.state !== '') return connected.message;
+    if (connected && connected.state === '') return 'واتساب غير مربوط — اربطه لتبدأ الرسائل. دقائق.';
+    if (connected && connected.can_send === false) return 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.';
+    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.';
+    return '';
+  })();
+
+  if (today === null) {
+    return (
+      <p className="rounded-2xl px-4 py-3 text-sm" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>
+        تعذّرت قراءة حالة اليوم — حسابك سليم، والأرقام أدناه صحيحة.
+      </p>
+    );
+  }
+  if (today === undefined) {
+    return <div className="grid gap-2 sm:grid-cols-3"><Skeleton height={68} /><Skeleton height={68} /><Skeleton height={68} /></div>;
+  }
+
+  return (
+    <>
+      {today.blocked ? (
+        <div className="flex flex-col gap-1.5 rounded-2xl px-4 py-4 text-white"
+             style={{ background: 'linear-gradient(120deg, var(--sh-coral), #ff8f5c)',
+                     boxShadow: '0 10px 24px -10px rgba(255,107,82,.5)' }}>
+          <div className="flex items-center gap-2 text-[15px] font-bold">
+            <span className="size-2 shrink-0 rounded-full bg-white" style={{ boxShadow: '0 0 0 4px rgba(255,255,255,.3)' }} />
+            رسائلك متوقّفة الآن
+          </div>
+          <p className="text-[13px] leading-relaxed opacity-95">{today.blocked}</p>
+          <a href="/app/account" className="mt-0.5 w-fit text-[13px] font-semibold underline underline-offset-2">افتح «حسابي» ←</a>
+        </div>
+      ) : null}
+
+      {(today.messages.retrying ?? 0) > 0 ? (
+        <div className="flex flex-col gap-1 rounded-2xl px-4 py-3"
+             style={{ background: 'var(--sh-coral-soft)', color: 'var(--sh-coral-deep)' }}>
+          <span className="font-semibold text-[14px]">{today.messages.retrying} رسالة تحاول الخروج</span>
+          {today.messages.retrying_reason ? <span className="text-[13px]">{today.messages.retrying_reason}</span> : null}
+        </div>
+      ) : null}
+
+      {warning ? (
+        <div className="rounded-2xl px-4 py-3 text-[13px]" style={{ background: '#fdf0dc', color: '#8a5a12' }}>
+          {warning}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-3 gap-2">
+        <Tile label="رسائل خرجت اليوم" value={String(today.messages.sent_today)} tone="violet" />
+        <Tile label="بانتظار الإرسال" value={String(today.messages.waiting)} tone="flat" />
+        <Tile
+          label="سقفك المتبقي اليوم"
+          value={!today.ceiling.known ? '—' : today.ceiling.unlimited ? 'بلا حدّ' : String(today.ceiling.remaining)}
+          tone={!today.ceiling.known || today.ceiling.unlimited ? 'flat' : today.ceiling.remaining <= 0 ? 'coral' : 'teal'}
+        />
+      </div>
+    </>
+  );
+}
+
+function Tile({ label, value, tone }: { label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat' }) {
+  const bg = tone === 'violet' ? 'var(--sh-violet-soft)' : tone === 'teal' ? 'var(--sh-teal-soft)'
+    : tone === 'coral' ? 'var(--sh-coral-soft)' : 'var(--sh-surface-2)';
+  const fg = tone === 'violet' ? 'var(--sh-violet-deep)' : tone === 'teal' ? 'var(--sh-teal-deep)'
+    : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink-soft)';
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center" style={{ background: 'var(--sh-surface)', boxShadow: '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)' }}>
+      <span className="mx-auto grid size-6 place-items-center rounded-lg text-[13px]" style={{ background: bg, color: fg }}>●</span>
+      <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+    </div>
+  );
+}
+
+/* ── ② the number this product is about, and everything that surrounds it ───────────────────────── */
+export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
+  session: Session; catalog: Catalog; branch: string; onBranch: (id: string) => void;
+}) {
+  const [data, setData] = useState<Dashboard | null | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
+  const [mustChoose, setMustChoose] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [note, setNote] = useState('');
+  const [pairs, setPairs] = useState<Pairs | null | undefined>(undefined);
+  const [bundles, setBundles] = useState<Bundle[] | null | undefined>(undefined);
+  const [locked, setLocked] = useState<Record<string, string>>({});
+  const [branches, setBranches] = useState<Branches | null | undefined>(undefined);
+
+  useEffect(() => {
+    const br = action(catalog, 'insights.branches');
+    if (br) call<Branches>(session, br).then(setBranches).catch(() => setBranches(null));
+  }, [session, catalog]);
+
+  useEffect(() => {
+    const a = action(catalog, 'insights.dashboard');
+    if (!a) { setFailed(true); return; }
+    setMustChoose([]);
+    call<Dashboard>(session, a, branch ? { branch_id: branch } : {})
+      .then((d) => {
+        setData(d);
+        const engine = (d.entitlements ?? []).includes('feature.insights.engine');
+        if (!engine) { setPairs(null); setBundles(null); return; }
+        const paidRead = (id: string, key: string, take: (r: any) => void) => {
+          const a2 = action(catalog, id);
+          if (!a2) return;
+          call<any>(session, a2).then(take).catch((e) => {
+            if (e instanceof ApiError && e.status === 402) {
+              setLocked((was) => ({ ...was, [key]: sentenceFor(e, 'غير مشمول بباقتك.') }));
+              return;
+            }
+            take(null);
+          });
+        };
+        paidRead('insights.associations', 'associations', (r) => setPairs(r));
+        paidRead('insights.bundles', 'bundles', (r) => setBundles(r === null ? null : r.bundles ?? []));
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 409 && (e.body as { error?: string } | undefined)?.error === 'MANY_BRANCHES') {
+          setMustChoose((e.body as { branches?: string[] } | undefined)?.branches ?? []);
+          return;
+        }
+        setFailed(true);
+      });
+  }, [session, catalog, branch]);
+
+  if (failed) return <div className="p-4"><EmptyState title="تعذّر قراءة المؤشرات" description="حاول بعد قليل." /></div>;
+
+  if (mustChoose.length) {
+    const named = branches?.rows ?? [];
+    return (
+      <div className="flex flex-col items-center gap-3 p-4">
+        <EmptyState title="لوحتك تغطي أكثر من فرع" description="اختر فرعاً لتقرأ مؤشراته. لوحة واحدة تجمع فروعك غير متاحة بعد." />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {mustChoose.map((id) => (
+            <button key={id} type="button" onClick={() => onBranch(id)}
+                   className="rounded-full px-3 py-1 text-sm" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
+              {named.find((r) => r.branch_id === id)?.name || id}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return <Waiting what="نقرأ مؤشرات محلّك" />;
+
+  const refreshNow = async () => {
+    const a = action(catalog, 'insights.refresh');
+    const d = action(catalog, 'insights.dashboard');
+    if (!a || !d || refreshing) return;
+    setRefreshing(true); setNote('');
+    try {
+      const r = await call<{ ok?: boolean; message?: string }>(session, a);
+      if (r?.message) setNote(r.message);
+      setData(await call<Dashboard>(session, d, branch ? { branch_id: branch } : {}));
+    } catch { setNote('تعذّر التحديث الآن — حاول بعد قليل.'); }
+    finally { setRefreshing(false); }
+  };
+
+  if (data.empty_branch) return <div className="p-4"><EmptyState title="فرعك لم يبدأ بعد" description={data.message || ''} /></div>;
+
+  if (data.computing) {
+    return (
+      <div className="flex flex-col items-center gap-3 p-4">
+        <EmptyState title="نحسب مؤشرات محلك" description={data.message || ''} />
+        {action(catalog, 'insights.refresh') ? (
+          <Button disabled={refreshing} onClick={refreshNow}>{refreshing ? 'نحسب…' : 'احسبها الآن'}</Button>
+        ) : null}
+        {note ? <p className="text-sm" style={{ color: 'var(--sh-ink-soft)' }}>{note}</p> : null}
+      </div>
+    );
+  }
+
+  const somethingToDo = Boolean(data.audience) || Boolean(locked.bundles) || Boolean(bundles?.length);
+  const returnRate = data.values['return_rate'];
+  const series = data.values['retention_series'] as Series | undefined;
+  const eff = data.values['returned_after_reminder'] as Effect | undefined;
+  const opt = data.values['opt_out_rate'] as OptOut | undefined;
+  const holdout = data.values['holdout_comparison'] as Holdout | undefined;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {typeof returnRate === 'number' ? (
+        <RetentionHero pct={returnRate} series={series && !series.learning ? series : undefined} />
+      ) : null}
+
+      <SurroundingKpis values={data.values} />
+
+      {(eff || opt) ? <MessageFlow eff={eff} opt={opt} /> : null}
+      {holdout ? <HoldoutCard h={holdout} /> : null}
+
+      {somethingToDo ? (
+        <Section title="يحتاج تصرّفًا منك">
+          {locked.bundles ? (
+            <LockedLine title="باقات مقترحة" text={locked.bundles} />
+          ) : bundles && bundles.length ? (
+            <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+              <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
+              {bundles.slice(0, 4).map((b, i) => (
+                <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
+                  <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
+                  {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+                  <div className="flex items-center justify-between gap-2">
+                    {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
+                    <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {data.audience ? (
+            <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
+          ) : null}
+        </Section>
+      ) : null}
+
+      {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
+        <p className="flex items-center gap-2 px-1 text-xs" style={{ color: 'var(--sh-ink-faint)' }}>
+          🔒 باقات مقترحة — في باقة أعلى.
+        </p>
+      ) : null}
+
+      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
+        {data.not_enabled && data.not_enabled.length > 0 ? (
+          <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+            <h3 className="mb-1 text-[13px] font-semibold">أرقامٌ لسه ما نقدر نعرضها</h3>
+            <p className="mb-3 text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>كلٌّ منها ينقصه شيء واحد — وهذا ما هو، ومن يستطيع إتمامه.</p>
+            <ul className="flex flex-col gap-3">
+              {data.not_enabled.map((b) => <MissingRow key={b.indicator} b={b} />)}
+            </ul>
+          </div>
+        ) : null}
+
+        {locked.associations ? <LockedLine title="ما يُطلب معًا" text={locked.associations} /> : null}
+        {pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
+          <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+            <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>ما يُطلب معًا</h3>
+            {(pairs.pairs ?? []).slice(0, 6).map((p) => (
+              <div key={`${p.a}|${p.b}`} className="flex items-center justify-between gap-3 pt-2 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
+                <span className="text-[13px]">{p.a} + {p.b}</span>
+                <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{p.customers} عميلاً</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {pairs?.learning ? (
+          <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>
+            ما زلنا نتعلّم ما يُطلب معًا في محلّك — {pairs.have ?? 0} زيارة من {pairs.need ?? 0}.
+          </p>
+        ) : null}
+
+        {branches && (branches.rows ?? []).length > 1 ? <BranchCompare branches={branches} /> : null}
+      </Section>
+
+      {data.teaser?.message ? (
+        <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.teaser.message}</p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-center gap-2 py-1 text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
+        <span>{data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}</span>
+        {data.stale ? <span className="rounded-full px-2 py-0.5" style={{ background: '#fdf0dc', color: '#8a5a12' }}>قديمة</span> : null}
+        {action(catalog, 'insights.refresh') ? (
+          <button type="button" disabled={refreshing} onClick={refreshNow}
+                 className="rounded-full px-3 py-1 font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
+            ↻ {refreshing ? 'نحدّث…' : 'حدّث الآن'}
+          </button>
+        ) : null}
+        {note ? <span>{note}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+const cardShadow = '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)';
+
+/** THE HERO — a narrated sentence, the number set large inline, never a bare ring. «من كل ١٠
+ *  عملاء زاروك، ٦٫٧ يرجعون لك» is the sentence an owner actually repeats to himself; the number
+ *  alone inside a circle was a fact he had to translate before it meant anything. */
+function RetentionHero({ pct, series }: { pct: number; series?: Series }) {
+  const of10 = (pct * 10).toLocaleString('en-US', { maximumFractionDigits: 1 });
+  const deltaPts = series ? Math.round(((series.last ?? 0) - (series.first ?? 0)) * 100) : null;
+  return (
+    <div className="rounded-3xl p-6 pb-5 text-white" style={{
+      background: 'radial-gradient(120% 90% at 15% 0%, #8f6bff 0%, transparent 55%),'
+        + 'radial-gradient(110% 100% at 100% 100%, #0fb897 0%, transparent 50%),'
+        + 'linear-gradient(160deg,#4c34c4,#2a1f7a)',
+      boxShadow: '0 6px 14px rgba(19,18,38,.08), 0 26px 50px -18px rgba(19,18,38,.3)',
+    }}>
+      <div className="text-[11.5px] font-semibold opacity-75">نسبة عودة عملائك</div>
+      <p className="mt-2 text-[20px] font-medium leading-relaxed">
+        من كل ١٠ عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
+      </p>
+      {deltaPts !== null && series?.months ? (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
+            {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts)}+ عن {series.months} أشهر
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The three that surround the hero — absent is not zero: a key the plan withheld or the snapshot
+ *  could not compute is skipped entirely rather than drawn as 0. */
+function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
+  const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat' }[] = [
+    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet' },
+    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat' },
+    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral' },
+  ];
+  const shown = items.filter((h) => typeof values[h.key] === 'number');
+  if (!shown.length) return null;
+  return (
+    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${shown.length}, 1fr)` }}>
+      {shown.map((h) => {
+        const raw = values[h.key] as number;
+        const v = h.percent ? `${Math.round(raw * 100)}%` : String(raw);
+        return <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone} />;
+      })}
+    </div>
+  );
+}
+
+/** What the messages moved, and what they cost — a flow, not two boxes. */
+function MessageFlow({ eff, opt }: { eff?: Effect; opt?: OptOut }) {
+  return (
+    <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="mb-2 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>أثر رسائلك</h3>
+      <div className="flex items-center gap-2">
+        <FlowNode
+          value={eff?.ready ? String(eff.visits ?? 0) : '—'}
+          label={eff?.ready ? `زيارة عادت خلال ${eff.window_days ?? 30} يومًا${eff.partial ? ' — على الأقل' : ''}` : 'لم نستطع قراءة سجل الرسائل بعد'}
+        />
+        <div className="h-[3px] flex-1 rounded" style={{ background: 'linear-gradient(90deg,var(--sh-violet-soft),var(--sh-teal-soft))' }} />
+        <FlowNode
+          value={opt?.ready ? String(opt.rate ?? 0) : '—'}
+          label={opt?.ready ? `إيقافًا لكل ألف رسالة${(opt.rate ?? 0) > 20 ? ' — راجع حملاتك' : ''}` : 'قياس الإزعاج يبدأ بعد رسائل أكثر'}
+          warn={opt?.ready && (opt.rate ?? 0) > 20}
+        />
+      </div>
+    </div>
+  );
+}
+function FlowNode({ value, label, warn }: { value: string; label: string; warn?: boolean }) {
+  return (
+    <div className="flex flex-1 flex-col items-center gap-1 text-center">
+      <span dir="ltr" className="text-[19px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums', color: warn ? 'var(--sh-coral-deep)' : 'var(--sh-ink)' }}>{value}</span>
+      <span className="max-w-[110px] text-[10px] leading-tight" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+    </div>
+  );
+}
+
+/** Two real cards, the winner visibly warmer — never two numbers with nothing between them. */
+function HoldoutCard({ h }: { h: Holdout }) {
+  if (!h?.ready) {
+    if (h?.reason === 'holdout_off') {
+      return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>قياس أثر الرسائل غير مُفعَّل — كل عملائك يصلهم كل شيء، فلا مجموعة نقارن بها.</p>;
+    }
+    const held = h?.held ?? 0, reached = h?.reached ?? 0, need = h?.need ?? 15;
+    if (!held && !reached) return null;
+    return <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>ما زلنا نقيس أثر الرسائل على محلّك — {Math.min(held, reached)} من {need} في أصغر المجموعتين.</p>;
+  }
+  const pct = (v?: number) => `${Math.round((v ?? 0) * 100)}%`;
+  const better = (h.gap ?? 0) > 0;
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[13px] font-semibold">أثر الرسائل، مقيساً</h3>
+      <div className="flex items-stretch gap-2">
+        <div className="flex flex-1 flex-col items-center gap-0.5 rounded-xl p-3" style={{ background: 'var(--sh-surface-2)' }}>
+          <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct(h.held_rate)}</span>
+          <span className="text-center text-[10.5px] leading-tight" style={{ color: 'var(--sh-ink-soft)' }}>بلا رسائل<br />({h.held} عميلاً)</span>
+        </div>
+        <div className="flex flex-1 flex-col items-center gap-0.5 rounded-xl p-3" style={{ background: better ? 'var(--sh-teal-soft)' : 'var(--sh-surface-2)', color: better ? 'var(--sh-teal-deep)' : 'inherit' }}>
+          <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{pct(h.reached_rate)}</span>
+          <span className="text-center text-[10.5px] leading-tight opacity-80">وصلتهم رسائلك<br />({h.reached} عميلاً)</span>
+        </div>
+      </div>
+      <p className="text-[11px] leading-relaxed" style={{ color: 'var(--sh-ink-soft)' }}>
+        نترك {Math.round(((h.held ?? 0) / ((h.held ?? 0) + (h.reached ?? 1))) * 100)}% من عملائك بلا حملات ولا عروض — لتقارن بنفسك، لا لتصدّقنا.
+      </p>
+    </div>
+  );
+}
+
+function LockedLine({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <span className="mt-0.5 shrink-0" style={{ color: 'var(--sh-ink-faint)' }}>🔒</span>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-[13px] font-semibold">{title}</h3>
+        <p className="text-[12.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function MissingRow({ b }: { b: Blocked }) {
+  const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
+  const headline = (b.lost ?? '').trim() || blockedSentence(b);
+  if (!headline) return null;
+  const owner = BLOCKED_OWNER[b.owner ?? 'unknown'];
+  const have = b.progress?.have, need = b.progress?.need;
+  const showBar = typeof have === 'number' && typeof need === 'number' && need > 0;
+  return (
+    <li className="flex flex-col gap-1 pt-3 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[13px] font-semibold">{headline}</span>
+        {owner ? <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>{owner}</span> : null}
+      </div>
+      {b.why ? <span className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+      {showBar ? (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%`, background: 'var(--sh-violet)' }} />
+          </div>
+          <span dir="ltr" className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{have} من {need}</span>
+        </div>
+      ) : null}
+      {b.do ? <span className="text-[12.5px]">{b.do}</span> : null}
+      {b.request ? (
+        <button type="button" onClick={() => {
+          const write = navigator.clipboard?.writeText(b.request ?? '');
+          if (!write) { setCopied('failed'); return; }
+          write.then(() => setCopied('ok')).catch(() => setCopied('failed'));
+        }} className="self-start rounded-full px-3 py-1.5 text-[11px] font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
+          {copied === 'ok' ? 'نُسخت — أرسلها له' : copied === 'failed' ? 'تعذّر النسخ — ظلّلها بإصبعك وانسخها' : 'انسخ الرسالة لمزوّد الكاشير'}
+        </button>
+      ) : null}
+      {b.request && copied === 'failed' ? <p className="select-all rounded-lg p-2 text-[11px]" style={{ background: 'var(--sh-surface-2)' }}>{b.request}</p> : null}
+    </li>
+  );
+}
+
+/** Branch comparison as points on one axis — closer to the strong end means a higher return rate,
+ *  never two bars of equal visual weight pretending a two-branch shop needs a chart. */
+function BranchCompare({ branches }: { branches: Branches }) {
+  const rows = (branches.rows ?? []).slice(0, 6);
+  const max = Math.max(1, ...rows.map((r) => r.visits ?? 0));
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[13px] font-semibold">فروعك</h3>
+      <ul className="flex flex-col gap-2.5">
+        {rows.map((r) => {
+          const pct = Math.round(((r.visits ?? 0) / max) * 100);
+          return (
+            <li key={r.branch_id} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[12.5px]">
+                <span className="font-medium">{r.name || r.branch_id || 'بلا اسم'}</span>
+                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--sh-violet),var(--sh-teal))' }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {branches.unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{branches.unknown} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.</p> : null}
+      {branches.can_rank === false ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p> : null}
+    </div>
+  );
+}
+
+function Section({ title, hint, children, folded = false }: { title: string; hint?: string; children: React.ReactNode; folded?: boolean }) {
+  const empty = useMemo(() => {
+    const arr = Array.isArray(children) ? children : [children];
+    return arr.every((c) => c === null || c === undefined || c === false);
+  }, [children]);
+  if (empty) return null;
+  if (folded) {
+    return (
+      <details className="rounded-2xl" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+        <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-[13px] font-semibold">
+          <span>{title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}</span>
+        </summary>
+        <div className="flex flex-col gap-3 p-4 pt-0">{children}</div>
+      </details>
+    );
+  }
+  return (
+    <section className="flex flex-col gap-2.5">
+      <h2 className="px-1 text-[13px] font-bold">{title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}</h2>
+      {children}
+    </section>
+  );
+}
+
+/* ── ③ reassurance, last — «آخر الزيارات» ─────────────────────────────────────────────────────── */
+function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [recent, setRecent] = useState<CustomerRow[] | null | undefined>(undefined);
+
+  useEffect(() => {
+    const r = action(catalog, 'operations.recent');
+    if (!r) { setRecent(null); return; }
+    call<{ customers: CustomerRow[] }>(session, r, { limit: 5 })
+      .then((x) => setRecent(x.customers)).catch(() => setRecent(null));
+  }, [session, catalog]);
+
+  return (
+    <section className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h2 className="mb-3 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>آخر الزيارات</h2>
+      {isLoading(recent) ? <Skeleton height={64} />
+      : hasFailed(recent) ? <EmptyState title="تعذّرت قراءة آخر الزيارات" description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل." />
+      : recent.length === 0 ? <EmptyState title="لم تُسجَّل زيارة بعد" description="سجّل أول زيارة من «تسجيل زيارة»." />
+      : (
+        <ul className="flex flex-col gap-2">
+          {recent.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-2 text-[13px]">
+              <span className="flex items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full text-[10.5px] font-bold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
+                  {(c.name || '—').slice(0, 1)}
+                </span>
+                <span style={{ color: 'var(--sh-ink-soft)' }}>{c.name || '—'}</span>
+              </span>
+              <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{asLocal(c.phone)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
