@@ -35,6 +35,7 @@ import { CardForm } from './CardForm';
 import { useEffect, useState } from 'react';
 import { Badge } from '../rj-ui/Badge';
 import { Button } from '../rj-ui/Button';
+import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
 import {
   CalendarClock, Check, Gift, Layers, Megaphone, Sparkles, type LucideIcon,
@@ -945,64 +946,76 @@ export function PlansPane({
 
       {/* THE CONFIRMATION — never a silent press. He is ending a paid relationship, and the one
           thing he must know before he presses again is that nothing is taken from him: the shop
-          keeps working exactly as it does today, until the day already printed above. */}
-      {confirmingCancel && baseSub ? (
-        <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
-          <p className="mb-1 font-medium">تأكيد إيقاف تجديد الاشتراك</p>
-          <p className="mb-4 text-sm text-text-secondary">
-            {renewalDay(baseSub.current_period_end)
-              ? `يستمر محلّك يعمل بلا أي تغيير حتى ${renewalDay(baseSub.current_period_end)}، ولن يتجدّد الاشتراك بعدها. لن نخصم منك شيئاً إضافياً.`
-              : 'يستمر محلّك يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد الاشتراك بعدها.'}
-          </p>
-          {/* NO APP SURVIVES ITS BASE — stated plainly, not discovered a month later on a
-              statement he did not expect. No app exists without the base under it, so cancelling
-              it takes every app with it, on the same schedule. */}
-          {activeAppSubs.length > 0 ? (
-            <p className="mb-4 text-sm text-text-secondary">
-              يتوقف معه أيضاً: {activeAppSubs.map((s) => apps.find((p) => p.id === s.plan_id)?.name ?? 'تطبيق').join('، ')}
-              — على نفس الموعد.
+          keeps working exactly as it does today, until the day already printed above.
+          A REAL MODAL, NOT A DIV IN THE PAGE FLOW — CONFIRMED BUG (screenshot): this used to
+          render inline, at the TOP of the screen, while the button that opens it lives on a card
+          inside the apps grid further down the page. Pressing "إيقاف التجديد" on any app near the
+          bottom opened a dialog off-screen above — invisible without scrolling up, which reads
+          exactly like the press did nothing at all. A portal-to-body modal is always visible
+          regardless of where its trigger sits. */}
+      <Modal open={confirmingCancel && Boolean(baseSub)}
+            onClose={() => { setConfirmingCancel(false); setCancelError(''); }}
+            title="تأكيد إيقاف تجديد الاشتراك">
+        {baseSub ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-text-secondary">
+              {renewalDay(baseSub.current_period_end)
+                ? `يستمر محلّك يعمل بلا أي تغيير حتى ${renewalDay(baseSub.current_period_end)}، ولن يتجدّد الاشتراك بعدها. لن نخصم منك شيئاً إضافياً.`
+                : 'يستمر محلّك يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد الاشتراك بعدها.'}
             </p>
-          ) : null}
-          {cancelError ? <p className="mb-3 text-sm text-danger">{cancelError}</p> : null}
-          <div className="flex gap-2">
-            <Button type="button" variant="danger" disabled={cancelBusy} onClick={() => void cancelBase()}>
-              تأكيد إيقاف التجديد
-            </Button>
-            <Button type="button" variant="ghost" disabled={cancelBusy}
-                    onClick={() => { setConfirmingCancel(false); setCancelError(''); }}>
-              تراجع
-            </Button>
+            {/* NO APP SURVIVES ITS BASE — stated plainly, not discovered a month later on a
+                statement he did not expect. No app exists without the base under it, so cancelling
+                it takes every app with it, on the same schedule. */}
+            {activeAppSubs.length > 0 ? (
+              <p className="text-sm text-text-secondary">
+                يتوقف معه أيضاً: {activeAppSubs.map((s) => apps.find((p) => p.id === s.plan_id)?.name ?? 'تطبيق').join('، ')}
+                — على نفس الموعد.
+              </p>
+            ) : null}
+            {cancelError ? <p className="text-sm text-danger">{cancelError}</p> : null}
+            <div className="flex gap-2">
+              <Button type="button" variant="danger" disabled={cancelBusy} onClick={() => void cancelBase()}>
+                تأكيد إيقاف التجديد
+              </Button>
+              <Button type="button" variant="ghost" disabled={cancelBusy}
+                      onClick={() => { setConfirmingCancel(false); setCancelError(''); }}>
+                تراجع
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
 
       {/* THE APP'S OWN CONFIRMATION — same discipline as the base's, one app at a time: he never
           fires this from the card itself, only opens this dialog, which names the exact app and
-          the exact date before anything happens. */}
-      {confirmingCancelApp ? (
-        <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
-          <p className="mb-1 font-medium">تأكيد إيقاف تجديد «{confirmingCancelApp.name}»</p>
-          <p className="mb-4 text-sm text-text-secondary">
-            {(() => {
-              const s = appSubs.find((x) => x.id === confirmingCancelApp.subId);
-              return renewalDay(s?.current_period_end)
-                ? `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى ${renewalDay(s?.current_period_end)}، ولن يتجدّد بعدها. لن نخصم منك شيئاً إضافياً.`
-                : `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد بعدها.`;
-            })()}
-          </p>
-          {appCancelError ? <p className="mb-3 text-sm text-danger">{appCancelError}</p> : null}
-          <div className="flex gap-2">
-            <Button type="button" variant="danger" disabled={cancelingAppId === confirmingCancelApp.subId}
-                    onClick={() => void cancelApp(confirmingCancelApp.subId)}>
-              تأكيد إيقاف التجديد
-            </Button>
-            <Button type="button" variant="ghost" disabled={cancelingAppId === confirmingCancelApp.subId}
-                    onClick={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}>
-              تراجع
-            </Button>
+          the exact date before anything happens. Same modal fix as the base's, above. */}
+      <Modal open={Boolean(confirmingCancelApp)}
+            onClose={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}
+            title={confirmingCancelApp ? `تأكيد إيقاف تجديد «${confirmingCancelApp.name}»` : ''}>
+        {confirmingCancelApp ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-text-secondary">
+              {(() => {
+                const s = appSubs.find((x) => x.id === confirmingCancelApp.subId);
+                return renewalDay(s?.current_period_end)
+                  ? `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى ${renewalDay(s?.current_period_end)}، ولن يتجدّد بعدها. لن نخصم منك شيئاً إضافياً.`
+                  : `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد بعدها.`;
+              })()}
+            </p>
+            {appCancelError ? <p className="text-sm text-danger">{appCancelError}</p> : null}
+            <div className="flex gap-2">
+              <Button type="button" variant="danger" disabled={cancelingAppId === confirmingCancelApp.subId}
+                      onClick={() => void cancelApp(confirmingCancelApp.subId)}>
+                تأكيد إيقاف التجديد
+              </Button>
+              <Button type="button" variant="ghost" disabled={cancelingAppId === confirmingCancelApp.subId}
+                      onClick={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}>
+                تراجع
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
 
       {/* «بدّل الباقة» CONFIRMATION — same discipline as cancel's: he is changing what he pays, and
           the one thing he must know before pressing again is what actually happens NOW.
@@ -1012,27 +1025,30 @@ export function PlansPane({
           NOTHING today; the current, already-paid plan keeps working in full until the period
           ends, and only then does the new one — and its new price — begin. Neither sentence is a
           guess: this is exactly what billing-service now does. */}
-      {confirmingChange ? (
-        <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
-          <p className="mb-1 font-medium">تأكيد التبديل إلى «{confirmingChange.name}»</p>
-          <p className="mb-4 text-sm text-text-secondary">
-            {(monthly(confirmingChange)?.amount_minor ?? 0)
-              >= (baseSub ? monthly(bases.find((b) => b.id === baseSub.plan_id) ?? confirmingChange)?.amount_minor ?? 0 : 0)
-              ? 'حدود باقتك الجديدة تسري فوراً، بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك.'
-              : 'يستمر اشتراكك الحالي كما هو حتى نهاية الفترة الحالية — لا يُخصم شيء الآن. عند التجديد القادم يبدأ سعر وحدود «' + confirmingChange.name + '».'}
-          </p>
-          {changeError ? <p className="mb-3 text-sm text-danger">{changeError}</p> : null}
-          <div className="flex gap-2">
-            <Button type="button" disabled={changeBusy} onClick={() => void changeBase()}>
-              تأكيد التبديل
-            </Button>
-            <Button type="button" variant="ghost" disabled={changeBusy}
-                    onClick={() => { setConfirmingChange(null); setChangeError(''); }}>
-              تراجع
-            </Button>
+      <Modal open={Boolean(confirmingChange)}
+            onClose={() => { setConfirmingChange(null); setChangeError(''); }}
+            title={confirmingChange ? `تأكيد التبديل إلى «${confirmingChange.name}»` : ''}>
+        {confirmingChange ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-text-secondary">
+              {(monthly(confirmingChange)?.amount_minor ?? 0)
+                >= (baseSub ? monthly(bases.find((b) => b.id === baseSub.plan_id) ?? confirmingChange)?.amount_minor ?? 0 : 0)
+                ? 'حدود باقتك الجديدة تسري فوراً، بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك.'
+                : 'يستمر اشتراكك الحالي كما هو حتى نهاية الفترة الحالية — لا يُخصم شيء الآن. عند التجديد القادم يبدأ سعر وحدود «' + confirmingChange.name + '».'}
+            </p>
+            {changeError ? <p className="text-sm text-danger">{changeError}</p> : null}
+            <div className="flex gap-2">
+              <Button type="button" disabled={changeBusy} onClick={() => void changeBase()}>
+                تأكيد التبديل
+              </Button>
+              <Button type="button" variant="ghost" disabled={changeBusy}
+                      onClick={() => { setConfirmingChange(null); setChangeError(''); }}>
+                تراجع
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
 
       {changeNotice ? (
         <div className="rounded-card border border-accent-soft bg-accent-soft/40 p-5 shadow-sm">
