@@ -653,6 +653,10 @@ else
   EDGE_TMP="$(mktemp -d)"
   # DOMAIN decides TLS: a name in public DNS gets a real certificate, and a box without one must
   # not ask Let's Encrypt for `localhost` — five failed attempts is a week-long rate limit.
+  # AFFILIATES.<DOMAIN> RIDES THE SAME CERTIFICATE, THE SAME SITE BLOCK, THE SAME UPSTREAM. It is
+  # not a second edge target — the console image still answers for it; the console's own router
+  # reads the hostname at boot and mounts the affiliate tree at '/' instead of the shop app at
+  # '/app' (main.tsx). admin.<DOMAIN> joins this list the day that panel exists, same pattern.
   python3 - "$EDGE_SRC" "$EDGE_TMP/edge.json" "${DOMAIN:-}" "${ACME_EMAIL:-}" <<'PYEOF'
 import json, sys
 src, dst, domain, email = sys.argv[1:5]
@@ -660,6 +664,7 @@ cfg = json.load(open(src, encoding='utf-8'))
 if domain:
     cfg['domain'] = domain
     cfg['tls'] = True
+    cfg['aliases'] = [f"affiliates.{domain}"]
     if email:
         cfg['acme_email'] = email
 json.dump(cfg, open(dst, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)

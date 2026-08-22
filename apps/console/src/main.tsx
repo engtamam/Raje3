@@ -22,11 +22,19 @@ import { arabicAuth, arabicBlockDoc, arabicShared } from './i18n';
 import { applyRaje3 } from './brand/theme';
 import './index.css';
 
+// AFFILIATES.<DOMAIN> IS A DIFFERENT HOST, NOT A DIFFERENT DEPLOY. The edge (deploy/edge/edge.json)
+// puts that hostname on the same certificate and the same site block as the shop's own domain —
+// this image is still what answers for it (see bring-up.sh). What changes is which tree we mount:
+// on the affiliate hostname there is no shop, no branch, no operator PIN, none of what <App/>
+// fetches on boot for its own audience, so it gets its own router root at '/' rather than living
+// under '/app/affiliates'. admin.<DOMAIN> gets the same treatment the day that panel exists.
+const isAffiliateHost = typeof window !== 'undefined' && window.location.hostname.startsWith('affiliates.');
+
 // ROUTES MATCH nav.ts BY PATH. The nav decides what is OFFERED; the router decides what EXISTS.
 // Keeping them separate is deliberate: a person who types a URL for a section his capabilities do
 // not reach gets the screen, and the screen gets nothing from the catalogue — which is the same
 // answer the server would give, arrived at without the client pretending to be the guard.
-const router = createBrowserRouter([
+const shopRouter = createBrowserRouter([
   {
     path: '/',
     element: <App />,
@@ -59,6 +67,9 @@ const router = createBrowserRouter([
   // under it would either fetch that catalogue anyway (a 401 for an audience that never has a
   // shop token) or need <App/> itself to grow a "which product is this" branch. Its own tree,
   // its own session store (affiliates/session.ts) — see AffiliatePortal.tsx for why.
+  //
+  // STILL REGISTERED HERE TOO, on the shop's own domain — a link sent before the subdomain
+  // existed, or anyone who never repointed DNS, must keep landing on the portal.
   {
     path: 'affiliates/*',
     element: <AffiliatePortal />,
@@ -70,6 +81,15 @@ const router = createBrowserRouter([
   // all loaded correctly. BASE_URL carries the trailing slash and basename must not.
   basename: import.meta.env.BASE_URL.replace(/\/$/, ''),
 });
+
+// ITS OWN ROOT, on the affiliate hostname — not '/app'. A marketer's link is
+// `affiliates.<domain>/…`, never `affiliates.<domain>/app/…`, so basename must match what the
+// edge actually put them on rather than reusing BASE_URL.
+const affiliateRouter = createBrowserRouter([
+  { path: '/*', element: <AffiliatePortal /> },
+], { basename: '/' });
+
+const router = isAffiliateHost ? affiliateRouter : shopRouter;
 
 applyRaje3();
 createRoot(document.getElementById('root')!).render(
