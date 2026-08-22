@@ -1,8 +1,5 @@
 /**
- * The affiliate portal's own tiny shell — Door, or Home. No AppShell, no nav, no catalogue: the
- * dashboard, commission and lead screens are later slices (spec §14's own table); today this is
- * just enough surface to sign in, apply, accept an invite, and — if signed in as a manager —
- * invite one more person onto the team.
+ * The affiliate portal's own shell — Door, or a tabbed set of screens once signed in.
  *
  * ONE `useAffiliateSession()` INSTANCE, HELD HERE AND PASSED DOWN — never called a second time
  * inside AffiliateDoor/SignInPane. A hook's state lives in the COMPONENT INSTANCE that calls it,
@@ -11,16 +8,35 @@
  * deciding whether to render the door or the home screen — would never hear about it until a full
  * reload re-read localStorage. Passing `signIn`/`session` down instead of re-deriving them is
  * what keeps that decision and that mutation in the same place.
+ *
+ * THE TAB ITSELF IS NOT PERSISTED — a fresh sign-in (or a reload) always opens on «الرئيسية»,
+ * the one screen every role needs first, rather than resuming wherever he last tapped away from.
  */
+import { useState } from 'react';
 import { AffiliateDoor } from './AffiliateDoor';
 import { AffiliateHome } from './AffiliateHome';
+import { AffiliateLeads } from './AffiliateLeads';
+import { AffiliateNav, ComingSoon, type Tab } from './AffiliateNav';
 import { useAffiliateSession } from './session';
 
 export function AffiliatePortal() {
   const { session, signedIn, signIn, signOut } = useAffiliateSession();
+  const [tab, setTab] = useState<Tab>('home');
 
   if (!signedIn) {
     return <AffiliateDoor onSignedIn={signIn} />;
   }
-  return <AffiliateHome session={session} onSignOut={signOut} />;
+
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
+      <div className="flex-1">
+        {tab === 'home' ? <AffiliateHome session={session} onSignOut={signOut} /> : null}
+        {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
+        {tab === 'tools' ? <ComingSoon label="أدواتي" /> : null}
+        {tab === 'earnings' ? <ComingSoon label="أرباحي" /> : null}
+        {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
+      </div>
+      <AffiliateNav active={tab} onChange={setTab} />
+    </div>
+  );
 }

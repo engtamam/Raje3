@@ -37,7 +37,7 @@ export function AffiliateHome({ session, onSignOut }: {
   }, [session]);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl leading-tight tracking-tight">
           {data !== 'loading' && data !== 'failed' ? `مرحباً، ${data.affiliate.name}` : 'بوابة المسوّق'}

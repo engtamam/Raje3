@@ -188,7 +188,7 @@ function ApplyPane() {
     setBusy(true);
     setError('');
     try {
-      await apply({ phone: v.phone, name: v.name, password: v.password, referralCode, agreed });
+      await apply({ phone: v.phone, name: v.name, password: v.password, referralCode, agreed: agree });
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof AffiliateRefused ? err.message : 'تعذّر إرسال الطلب.');

@@ -25,7 +25,7 @@ interface ApiResult {
   [key: string]: unknown;
 }
 
-async function req<T>(path: string, method: 'GET' | 'POST', body?: unknown,
+async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH', body?: unknown,
                       token?: string): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -128,4 +128,101 @@ export interface Home {
 
 export async function home(session: AffiliateSession): Promise<Home> {
   return req('/api/v1/affiliates/me/home', 'GET', undefined, session.access_token);
+}
+
+/**
+ * "عملائي المحتملين" — a straight mirror of `Lead.to_dict()`
+ * (`services/affiliate-service/app/core/models.py`), field for field, same discipline as `Home`
+ * above. `LEAD_MANUAL_STATUSES` is the subset a person may actually set through `setLeadStatus`
+ * — `new`/`assigned`/`registered` are reached only by the server itself (ingestion, `assign()`,
+ * `link-registration`), never typed in by a screen.
+ */
+export interface LeadNote {
+  at: number; by: string; text: string; status_from: string; status_to: string;
+}
+export interface Lead {
+  id: string; place_id: string; phone: string; name: string; place_type: string;
+  sector_code: string; city: string; region: string; address: string; neighborhood: string;
+  maps_url: string; rating: number; ratings_count: number; opening_hours: string; website: string;
+  lat: number; lng: number; extra_place_ids: string[]; source_manager_id: string;
+  assigned_to: string; status: string; converted_tenant: string; notes: LeadNote[];
+  found_at: number; outreach_stage_code: string; decision_maker_name: string;
+  decision_maker_phone: string; decision_maker_role: string;
+}
+export const LEAD_MANUAL_STATUSES = ['contacted', 'interested', 'not_interested', 'follow_up'] as const;
+
+export interface LeadsFilter {
+  status_eq?: string; stage_code?: string; city?: string; needs_attention?: boolean;
+}
+export async function leads(session: AffiliateSession, filter: LeadsFilter = {}):
+    Promise<{ leads: Lead[] }> {
+  const q = new URLSearchParams();
+  if (filter.status_eq) q.set('status_eq', filter.status_eq);
+  if (filter.stage_code) q.set('stage_code', filter.stage_code);
+  if (filter.city) q.set('city', filter.city);
+  if (filter.needs_attention) q.set('needs_attention', 'true');
+  const qs = q.toString();
+  return req(`/api/v1/affiliates/me/leads${qs ? `?${qs}` : ''}`, 'GET', undefined,
+             session.access_token);
+}
+
+export async function oneLead(session: AffiliateSession, leadId: string): Promise<Lead> {
+  return req(`/api/v1/affiliates/me/leads/${leadId}`, 'GET', undefined, session.access_token);
+}
+
+export async function setLeadStatus(session: AffiliateSession, leadId: string, newStatus: string,
+                                    text = ''): Promise<Lead> {
+  return req(`/api/v1/affiliates/me/leads/${leadId}/status`, 'POST', { status: newStatus, text },
+             session.access_token);
+}
+
+export async function setDecisionMaker(session: AffiliateSession, leadId: string,
+                                       input: { name?: string; phone?: string; role?: string }):
+    Promise<Lead> {
+  return req(`/api/v1/affiliates/me/leads/${leadId}/decision-maker`, 'PATCH', input,
+             session.access_token);
+}
+
+/** The outbound conversion playbook's own shared library — spec §15, read-only for every
+ *  affiliate; a manager's own write routes are a later slice (this screen only ever reads). */
+export interface OutreachStage { code: string; name: string; order: number; active: boolean }
+export interface MessageTemplate {
+  id: string; stage_code: string; kind: string; title: string; body: string; media_url: string;
+  objection_type: string; active: boolean;
+}
+export interface TemplateUse {
+  id: string; lead_id: string; template_id: string; stage_code: string; kind: string;
+  used_by: string; used_at: number; outcome: string; outcome_at: number; outcome_by: string;
+  note: string;
+}
+export const TEMPLATE_OUTCOMES = ['pending', 'advanced', 'no_response', 'rejected'] as const;
+
+export async function outreachStages(session: AffiliateSession): Promise<{ stages: OutreachStage[] }> {
+  return req('/api/v1/affiliates/me/outreach-stages', 'GET', undefined, session.access_token);
+}
+
+export async function templates(session: AffiliateSession, stageCode = ''):
+    Promise<{ templates: MessageTemplate[] }> {
+  const qs = stageCode ? `?stage_code=${encodeURIComponent(stageCode)}` : '';
+  return req(`/api/v1/affiliates/me/templates${qs}`, 'GET', undefined, session.access_token);
+}
+
+export async function templateUsesForLead(session: AffiliateSession, leadId: string):
+    Promise<{ uses: TemplateUse[] }> {
+  return req(`/api/v1/affiliates/me/leads/${leadId}/template-uses`, 'GET', undefined,
+             session.access_token);
+}
+
+export async function logTemplateUse(session: AffiliateSession, leadId: string, templateId: string):
+    Promise<TemplateUse> {
+  return req(`/api/v1/affiliates/me/leads/${leadId}/template-uses`, 'POST',
+             { template_id: templateId }, session.access_token);
+}
+
+export async function setOutcome(session: AffiliateSession, useId: string, outcome: string,
+                                 opts: { note?: string; newStageCode?: string } = {}):
+    Promise<TemplateUse> {
+  return req(`/api/v1/affiliates/me/template-uses/${useId}`, 'PATCH',
+             { outcome, note: opts.note ?? '', new_stage_code: opts.newStageCode ?? '' },
+             session.access_token);
 }
