@@ -13,8 +13,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, Pencil, Phone, Plus,
-  Settings, Trash2, User, X,
+  Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, LayoutGrid, List,
+  Pencil, Phone, Plus, Settings, Trash2, User, X,
 } from 'lucide-react';
 import {
   attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
@@ -143,6 +143,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   const activeBranch = branch || (branches.length === 1 ? branches[0].id : '');
 
   const [view, setView] = useState<'day' | 'week'>('day');
+  // A SEPARATE AXIS FROM `view` ON PURPOSE — `view` decides WHAT DATA is loaded (one day vs a
+  // week of seven), `layout` decides only HOW it is drawn. Neither filters, search, the picked
+  // date, nor `view` itself resets when this changes — the same data, read a different way, is
+  // the whole point of a second layout (Pencil & Paper / Mobiscroll's own scheduler-switching
+  // guidance: a view switch that silently drops the filter or the date is the #1 complaint about
+  // multi-view schedulers). `grid` stays the field default; `list` is the scan-and-search shape.
+  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [date, setDate] = useState(todayLocal);
   const [weekStaffId, setWeekStaffId] = useState('');
   // undefined = «not loaded yet» (skeleton); null = «the read failed» (retry). Collapsing them to
@@ -514,6 +521,26 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               ))}
             </div>
 
+            {/* GRID vs LIST — a separate control from يوم/أسبوع above, because it changes only
+                how the same read is drawn. Icon-only (كالإعدادات بجانبه) fits the toolbar's own
+                width budget; each carries its own aria-label and title for the first-time case
+                an icon alone does not explain itself. */}
+            <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
+              {([
+                { id: 'grid' as const, icon: LayoutGrid, label: 'عرض الشبكة' },
+                { id: 'list' as const, icon: List, label: 'عرض القائمة' },
+              ]).map(({ id, icon: Icon, label }) => (
+                <button key={id} type="button" onClick={() => setLayout(id)}
+                       aria-label={label} title={label}
+                       className="grid h-7 w-9 place-items-center rounded-full transition-colors"
+                       style={id === layout
+                         ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
+                         : { color: 'var(--rj-ink-soft)' }}>
+                  <Icon size={15} aria-hidden />
+                </button>
+              ))}
+            </div>
+
             <button type="button" onClick={() => setHoursDialogOpen(true)}
                    aria-label="أوقات الدوام" title="أوقات الدوام"
                    className="grid h-9 w-9 place-items-center rounded-full shadow-sm transition-transform active:scale-90"
@@ -704,6 +731,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             <button type="button" onClick={load} className="text-sm font-medium underline"
                    style={{ color: 'var(--rj-accent-deep)' }}>حاول مجدداً</button>
           </div>
+        ) : layout === 'list' ? (
+          // A FLAT LIST NEEDS NONE OF THE GRID'S OWN GEOMETRY — no staff-as-columns, no working
+          // hours, no "المحل مغلق" (a closed day simply has no rows, and an empty list already
+          // says so). It reads straight off `visible` — the SAME filtered array the grid draws
+          // from, so nothing here can disagree with the grid about which bookings match.
+          <BookingsList rows={visible} nameOf={nameOf} serviceNameOf={serviceNameOf}
+                       priceMinorOf={priceMinorOf} onOpen={setOpenBooking} />
         ) : view === 'day' && staff === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
             <p className="text-base font-medium">تعذّرت قراءة فريق العمل</p>
@@ -1200,6 +1234,82 @@ function PhoneLookup({
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** THE SCAN-AND-SEARCH SHAPE — one column of time-ordered rows instead of a spatial grid.
+ *  Tapping a row opens the SAME `BookingActions` sheet a grid card opens (`onOpen` is just
+ *  `setOpenBooking`), so this needed no new action logic at all, only a new way to reach it.
+ *  No customer name/phone on the row yet — `Booking` carries only `customer_id`, and there is no
+ *  batch id→name resolver in this screen's API surface the way `operations.customers_by_refs`
+ *  exists elsewhere; showing a raw id would be worse than not showing one. The phone-lookup
+ *  filter chip above the toolbar still narrows this list to one customer's bookings by name —
+ *  what is missing here is a name on every OTHER row, a real but separate piece of work. */
+function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen }: {
+  rows: Booking[];
+  nameOf: (id: string) => string;
+  serviceNameOf: (ids: string[]) => string;
+  priceMinorOf: (b: Booking) => number | null;
+  onOpen: (b: Booking) => void;
+}) {
+  const sorted = useMemo(() => [...rows].sort((a, b) => a.starts_at - b.starts_at), [rows]);
+
+  if (sorted.length === 0) {
+    return (
+      <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+        لا حجوزات تطابق هذا العرض.
+      </div>
+    );
+  }
+
+  let lastDate = '';
+  return (
+    <div data-testid="rj-list" className="rj-card overflow-hidden rounded-[28px]" style={{ background: 'var(--rj-surface)' }}>
+      <ul>
+        {sorted.map((b) => {
+          const dateKey = dateKeyOf(b.starts_at);
+          const showDateHeader = dateKey !== lastDate;
+          lastDate = dateKey;
+          const tone = STATUS_VARS[b.status];
+          const pay = b.payment_status ?? 'none';
+          const price = priceMinorOf(b);
+          const payLabel = pay === 'deposit' && b.deposit_amount_minor
+            ? `عربون ${riyals(b.deposit_amount_minor)}`
+            : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
+              : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+          return (
+            <li key={b.id}>
+              {/* A DAY HEADER ONLY WHEN THE DATE ACTUALLY CHANGES — a single day's list never
+                  shows one at all; a week's list gets exactly seven, at the point they occur in
+                  time order, never a fixed row per day regardless of whether it holds anything. */}
+              {showDateHeader ? (
+                <div className="sticky top-0 border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
+                    style={{ borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
+                  {humanDate(dateKey)}
+                </div>
+              ) : null}
+              <button type="button" onClick={() => onOpen(b)}
+                     className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
+                     style={{ borderColor: 'var(--rj-line)' }}>
+                <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(b.starts_at))}</span>
+                <span className="min-w-0 flex-1 truncate text-sm">{serviceNameOf(b.service_ids) || '—'}</span>
+                <span className="hidden shrink-0 text-xs sm:block" style={{ color: 'var(--rj-ink-soft)' }}>{nameOf(b.operator_id)}</span>
+                {payLabel ? (
+                  <span className="hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-block"
+                       style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
+                    {payLabel}
+                  </span>
+                ) : null}
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                     style={{ background: tone.bg, color: tone.fg }}>
+                  {STATUS_LABEL[b.status]}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

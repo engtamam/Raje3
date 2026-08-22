@@ -114,6 +114,7 @@ function open(props: Partial<Parameters<typeof BookingsScreen>[0]> = {}) {
 const grid = () => screen.getByTestId('rj-grid');
 const card = () => within(grid()).getByText(/قص شعر/);
 const queryCard = () => within(grid()).queryByText(/قص شعر/);
+const list = () => screen.getByTestId('rj-list');
 
 describe('branch selection', () => {
   it('offers a chooser when more than one branch and none is scoped', () => {
@@ -432,5 +433,57 @@ describe('أوقات الدوام', () => {
     await waitFor(() => screen.getByText('حفظ'));
     screen.getByText('حفظ').click();
     await waitFor(() => expect(asked.some((a) => a.fn === 'setWorkingHours')).toBe(true));
+  });
+});
+
+describe('عرض القائمة', () => {
+  it('switches to a flat list without asking the server again', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    const before = asked.filter((a) => a.fn === 'listBookings').length;
+
+    screen.getByLabelText('عرض القائمة').click();
+    // THE GRID IS GONE, THE SAME BOOKING IS NOT — the same read, drawn differently.
+    await waitFor(() => expect(screen.queryByTestId('rj-grid')).toBeNull());
+    expect(within(list()).getByText('قص شعر')).toBeTruthy();
+    expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
+  });
+
+  it('keeps an active filter applied across the switch', async () => {
+    bookingsOverride = [
+      { ...BOOKING, id: 'bkg_1', service_ids: ['svc1'] },
+      { ...BOOKING, id: 'bkg_2', service_ids: ['svc2'] },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.click(screen.getByText('الخدمة'));
+    fireEvent.click(within(screen.getByRole('listbox')).getByText('قص شعر'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(within(grid()).queryByText('تلميع')).toBeNull());
+
+    screen.getByLabelText('عرض القائمة').click();
+    await waitFor(() => expect(screen.queryByTestId('rj-grid')).toBeNull());
+    // THE FILTER SURVIVED THE SWITCH — the one thing multi-view research flags as the most
+    // common failure: a view change that silently drops what the operator already narrowed to.
+    expect(within(list()).getByText('قص شعر')).toBeTruthy();
+    expect(within(list()).queryByText('تلميع')).toBeNull();
+  });
+
+  it('opens the same action sheet a grid card would, from a tapped row', async () => {
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+    screen.getByLabelText('عرض القائمة').click();
+    await waitFor(() => within(list()).getByText('قص شعر'));
+    within(list()).getByText('قص شعر').click();
+    await waitFor(() => expect(screen.getByLabelText('حضر')).toBeTruthy());
+  });
+
+  it('says so plainly rather than drawing an empty list', async () => {
+    bookingsOverride = [];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('عرض القائمة'));
+    screen.getByLabelText('عرض القائمة').click();
+    await waitFor(() => expect(screen.getByText('لا حجوزات تطابق هذا العرض.')).toBeTruthy());
   });
 });
