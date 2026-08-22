@@ -83,7 +83,15 @@ export interface Plan {
   prices?: Price[];
   limits?: Record<string, Limit>;
 }
-export interface Subscription { id: string; plan_id?: string; plan_name?: string; status?: string; period_end?: number }
+export interface Subscription {
+  id: string; plan_id?: string; plan_name?: string; status?: string;
+  /** Seconds on the wire — the model's real field name is `current_period_end`; `period_end` here
+   *  was declared and never actually read by anything in this file. */
+  current_period_end?: number;
+  /** True once he has asked to leave — the subscription still serves him until the date above,
+   *  and nothing charges again after it. */
+  cancel_at_period_end?: boolean;
+}
 
 /**
  * One sentence per limit key, and a plan says only what we can say plainly.
@@ -421,11 +429,20 @@ export function PlansPane({
   onGoConnect: () => void;
 }) {
   const [plans, setPlans] = useState<Plan[] | null | undefined>(undefined);
-  const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
+  /** EVERY subscription he holds, not just one. A shop with a base and two apps holds three rows,
+   *  and cancelling the RIGHT one — the base, ending the relationship, not an app, dropping a
+   *  feature — needs the whole list rather than whichever row billing happened to return first. */
+  const [subs, setSubs] = useState<Subscription[] | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   /** What the server says is still owed after a successful subscription. Never an error. */
   const [notice, setNotice] = useState('');
+  /** «إلغاء الاشتراك» — its own dialog, its own busy flag, its own error. Kept apart from `busy`/
+   *  `error` above: those belong to BUYING, and a cancel in flight must not grey out every plan
+   *  card on the screen as if a purchase were happening. */
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState('');
   /**
    * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
    *
@@ -462,10 +479,35 @@ export function PlansPane({
     const mine = action(catalog, 'billing.my_subscriptions');
     if (mine) {
       call<{ subscriptions: Subscription[] }>(session, mine)
-        .then((x) => setSub(x.subscriptions?.[0] ?? null))
-        .catch(() => setSub(null));
+        .then((x) => setSubs(x.subscriptions ?? []))
+        .catch(() => setSubs(null));
     } else {
-      setSub(null);
+      setSubs(null);
+    }
+  };
+
+  // «إلغاء الاشتراك» — THE BUTTON THAT DID NOT EXIST (audit finding #2, 2026-08-22). The route was
+  // whole: cancel-at-period-end, tested, declared in the manifest — and nothing in this console
+  // ever called it. A customer wanting to end the relationship had no self-service path at all,
+  // which the audit rightly called a regulatory exposure, not a missing convenience.
+  //
+  // AT PERIOD END, ALWAYS, NOT A CHOICE HERE. `POST .../cancel` defaults to `at_period_end=true`
+  // server-side (billing.py's own default) — service keeps working through what he already paid
+  // for, and nothing charges again after it. An immediate/forfeit cancel is a support conversation,
+  // deliberately: it is the destructive, rarer path, and a self-service button for it belongs next
+  // to a real refund policy, not bundled into this pass.
+  const cancelBase = async () => {
+    const a = action(catalog, 'billing.cancel');
+    if (!a || !baseSub) return;
+    setCancelBusy(true); setCancelError('');
+    try {
+      await call(session, a, { id: baseSub.id });
+      setConfirmingCancel(false);
+      load();
+    } catch (e) {
+      setCancelError(e instanceof Error ? e.message : 'تعذّر إلغاء الاشتراك.');
+    } finally {
+      setCancelBusy(false);
     }
   };
 
@@ -516,6 +558,12 @@ export function PlansPane({
   const bases = plans?.filter((p) => kindOf(p) === 'base') ?? [];
   const apps = plans?.filter((p) => kindOf(p) === 'app') ?? [];
   const capacity = plans?.filter((p) => kindOf(p) === 'capacity') ?? [];
+  // THE ONE ROW «إلغاء الاشتراك» ACTS ON — matched by which PLAN it is a subscription TO, never
+  // by position: `subs[0]` is whichever row billing happened to return first (the same bug the
+  // summary line below was already rewritten to avoid), and an app row bought after the base would
+  // have been cancelled instead of the base itself.
+  const sub = subs?.[0];
+  const baseSub = (subs ?? []).find((s) => bases.some((p) => p.id === s.plan_id));
   // FOUR ANSWERS NOW, and none of them is «he has not bought». The read may be in flight
   // (`undefined`), have failed (`null`), be one his role cannot make (DENIED), or have arrived
   // with `checked: false` because billing itself could not be asked. The sections claim nothing
@@ -541,7 +589,7 @@ export function PlansPane({
   // printing one line for both.
   const unreadNote = unreadSentence(answer);
 
-  if (plans === null || sub === undefined) {
+  if (plans === null || subs === undefined) {
     return (
       <div className="flex flex-col gap-3">
         <Skeleton height={120} />
@@ -562,7 +610,7 @@ export function PlansPane({
           AND IT COUNTS THE APPS RATHER THAN LISTING THEM: each one is a card below, badged
           «مفعّل», and repeating the names here would be the same list twice on one screen. */}
       {sub ? (
-        <div className="rounded-card bg-surface-1 p-4 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
               {hasBase === false
@@ -580,9 +628,57 @@ export function PlansPane({
                 تطبيقاتك تتجدّد في {appDays.size} تواريخ مختلفة — كلٌّ في يوم شرائه.
               </p>
             ) : null}
-            <Badge tone={sub.status === 'active' ? 'success' : 'warning'}>
-              {sub.status === 'active' ? 'فعّال' : 'متوقف'}
+            {/* THE THIRD STATE, SAID PLAINLY. «قيد الإلغاء» is neither «فعّال» (it will not renew)
+                nor «متوقف» (he is still served, still billed for what he already paid) — a badge
+                that could only say one of those two would leave him guessing which is true. */}
+            <Badge tone={baseSub?.cancel_at_period_end ? 'warning'
+              : sub.status === 'active' ? 'success' : 'warning'}>
+              {baseSub?.cancel_at_period_end ? 'قيد الإلغاء' : sub.status === 'active' ? 'فعّال' : 'متوقف'}
             </Badge>
+          </div>
+
+          {/* «إلغاء الاشتراك» — THE ACTION THAT DID NOT EXIST (audit #2, 2026-08-22). The backend
+              route was complete and reachable; nothing in this console ever called it, so a customer
+              wanting to leave had no self-service path at all. Shown only for the BASE — cancelling
+              an app is a downgrade (a different, separate gap: #5 in the audit), not a departure. */}
+          {baseSub && action(catalog, 'billing.cancel') ? (
+            baseSub.cancel_at_period_end ? (
+              <p className="text-sm text-text-secondary">
+                {renewalDay(baseSub.current_period_end)
+                  ? `اشتراكك يعمل حتى ${renewalDay(baseSub.current_period_end)} ولن يتجدّد بعدها.`
+                  : 'اشتراكك لن يتجدّد بعد نهاية الفترة الحالية.'}
+              </p>
+            ) : (
+              <div>
+                <Button type="button" variant="ghost" onClick={() => setConfirmingCancel(true)}>
+                  إلغاء الاشتراك
+                </Button>
+              </div>
+            )
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* THE CONFIRMATION — never a silent press. He is ending a paid relationship, and the one
+          thing he must know before he presses again is that nothing is taken from him: the shop
+          keeps working exactly as it does today, until the day already printed above. */}
+      {confirmingCancel && baseSub ? (
+        <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+          <p className="mb-1 font-medium">تأكيد إلغاء الاشتراك</p>
+          <p className="mb-4 text-sm text-text-secondary">
+            {renewalDay(baseSub.current_period_end)
+              ? `يستمر محلّك يعمل بلا أي تغيير حتى ${renewalDay(baseSub.current_period_end)}، ولن يتجدّد الاشتراك بعدها. لن نخصم منك شيئاً إضافياً.`
+              : 'يستمر محلّك يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد الاشتراك بعدها.'}
+          </p>
+          {cancelError ? <p className="mb-3 text-sm text-danger">{cancelError}</p> : null}
+          <div className="flex gap-2">
+            <Button type="button" variant="danger" disabled={cancelBusy} onClick={() => void cancelBase()}>
+              تأكيد الإلغاء
+            </Button>
+            <Button type="button" variant="ghost" disabled={cancelBusy}
+                    onClick={() => { setConfirmingCancel(false); setCancelError(''); }}>
+              تراجع
+            </Button>
           </div>
         </div>
       ) : null}
