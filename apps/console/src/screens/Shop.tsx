@@ -397,7 +397,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
 
         {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
           <div className="mb-3 grid gap-2 break-inside-avoid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-            {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={perVisit.toLocaleString('en-US')} tone="flat" /> : null}
+            {/* ROUNDED FOR DISPLAY ONLY — insights-service's services_per_visit() is a genuine
+                average (round(x, 2), e.g. 1.5) and stays exact on the wire; a KPI tile reading
+                "1.5" beside a whole count of visits reads as a typo rather than a statistic, so
+                the tile shows the nearest whole number a shop owner can act on. */}
+            {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={Math.round(perVisit).toLocaleString('en-US')} tone="flat" /> : null}
             {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
             {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
           </div>
@@ -434,7 +438,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             cross-sell opportunity and no locked upsell to show — and «nothing» reads as «we have
             no idea what you should do next», which is worse than a plain, honest suggestion. This
             always renders something, in priority order, ending in a real positive nudge (never a
-            fabricated one) rather than silence. */}
+            fabricated one) rather than silence.
+
+            WEAK SERVICES ARE NO LONGER A BRANCH HERE — that used to duplicate `WeakServices`
+            below almost word for word (a count with no names here, the names with no sentence
+            there). The sentence now lives on that card directly, which already renders on its own
+            whenever there is anything to say — this section falls through to the positive nudge
+            instead of repeating it. */}
         <div className="mb-3 break-inside-avoid">
           <Section title="الخطوة التالية">
             {locked.bundles ? (
@@ -455,12 +465,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               </div>
             ) : data.audience ? (
               <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
-            ) : weak && weak.length > 0 ? (
-              <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-coral-soft)' }}>
-                <p className="text-[13px]" style={{ color: 'var(--sh-coral-deep)' }}>
-                  عندك {weak.length} {weak.length === 1 ? 'خدمة' : 'خدمات'} ما تُطلب كثيرًا — رَوِّج لها أو راجع سعرها.
-                </p>
-              </div>
             ) : (
               // THE HONEST GOOD-NEWS CASE — no invented "growth" or fake urgency, and never
               // silence: `reward_loyal` is the same real campaign goal `win_back` is, just for the
@@ -964,8 +968,11 @@ function ServicePopularity({ rows, names }: { rows: { service_id: string; count:
             <li key={r.service_id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span className="truncate font-medium">{names[r.service_id] || r.service_id}</span>
+                {/* SAID PLAINLY, NOT AS A BARE FRACTION. "2 · 67%" reads as two unrelated numbers
+                    with no unit — this states what each one counts, which the room beside it was
+                    already free to hold. */}
                 <span dir="ltr" className="shrink-0" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>
-                  {r.count} · {Math.round(r.share * 100)}%
+                  {r.count} طلبات · {Math.round(r.share * 100)}% من الطلبات
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
@@ -980,11 +987,23 @@ function ServicePopularity({ rows, names }: { rows: { service_id: string; count:
 }
 
 /** The quietest fifth of his OWN catalogue — a judgement about his shop, never an invented
- *  threshold. A service he never sold is weakest of all and belongs here too. */
+ *  threshold. A service he never sold is weakest of all and belongs here too.
+ *
+ *  THE CALL TO ACTION LIVES HERE NOW, NOT IN A SECOND CARD. «الخطوة التالية» used to repeat this
+ *  exact count and sentence in its own coral box above — the same fact said twice, once as a
+ *  summary with no names attached and once as this list of names with no sentence attached. One
+ *  card, both halves: what to do, then which services it's about. */
 function WeakServices({ ids, names }: { ids: string[]; names: Record<string, string> }) {
   return (
     <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="text-[13px] font-semibold">خدمات ما تُطلب كثيرًا</h3>
+      {/* "WEAK" IS RELATIVE TO HIS OWN CATALOGUE, NEVER A FIXED NUMBER — insights-service ranks
+          his services by demand and names the bottom fifth, ties included (weak_services()).
+          A car wash and a body shop cannot share one absolute threshold, so this says exactly
+          what the list means instead of leaving him to guess at a percentage or a zero. */}
+      <p className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>
+        أقلّ خُمس خدماتك طلبًا — رَوِّج لها أو راجع سعرها.
+      </p>
       <div className="flex flex-wrap gap-1.5">
         {ids.slice(0, 8).map((id) => (
           <span key={id} className="rounded-full px-2.5 py-1 text-[11.5px]" style={{ background: 'var(--sh-coral-soft)', color: 'var(--sh-coral-deep)' }}>
