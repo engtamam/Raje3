@@ -93,6 +93,11 @@ export interface Subscription {
   /** True once he has asked to leave — the subscription still serves him until the date above,
    *  and nothing charges again after it. */
   cancel_at_period_end?: boolean;
+  /** A SCHEDULED DOWNGRADE (v0.16.33) - set the moment billing.change_plan schedules
+   *  one, cleared the moment run_cycle adopts it at renewal or billing.cancel_scheduled_change
+   *  undoes it. Empty string, never absent, when nothing is scheduled - the server's own
+   *  sentinel, not ours. */
+  pending_plan_id?: string;
 }
 
 /**
@@ -270,7 +275,7 @@ function renewalDay(epoch: number | null | undefined): string {
 }
 
 
-// «تطبيقات، لا باقات» (Tamam, 2026-08-22) — راجِع does not sell subscription TIERS of one
+// «تطبيقات، لا باقات» — راجِع does not sell subscription TIERS of one
 // product; it sells INDEPENDENT APPS a shop adds to its base, each with its own price, its own
 // subscription, its own cancel. `الأساس` is itself one of them — the one every other app needs
 // running under it, not a different kind of thing. This card is the one place that fact has to
@@ -278,7 +283,7 @@ function renewalDay(epoch: number | null | undefined): string {
 function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
-  canceling, statusLabel, statusTone,
+  canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
 }: {
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
@@ -317,6 +322,14 @@ function AppCard({
    *  on the default success badge (`ownedLabel`) — an app has no `past_due` of its own to report. */
   statusLabel?: string;
   statusTone?: 'success' | 'warning' | 'danger';
+  /** THE BASE CARD ONLY (v0.16.33) — a SCHEDULED DOWNGRADE, taking effect at the next renewal.
+   *  Shown instead of the cancel control on the OWNED card (the plan he still has, in full, until
+   *  then), with its own undo — never a proration, never a credit, so there is nothing here to
+   *  reverse but the schedule itself. */
+  switchPending?: boolean;
+  switchPendingNote?: string;
+  onCancelSwitch?: () => void;
+  cancelingSwitch?: boolean;
 }) {
   const price = monthly(plan);
   const lines = planLines(plan);
@@ -431,19 +444,30 @@ function AppCard({
 
       <div className="mt-auto pt-2">
         {has ? (
-          // «كل تطبيق له إدارة اشتراكه الخاص» — drawn on ANY owned card that was given a cancel
+          // «كل تطبيق له إدارة اشتراكه الخاص» - drawn on ANY owned card that was given a cancel
           // control: an app cancels itself here directly; the base opens the confirmation
           // dialog instead (still this same button, a different `onCancel`).
-          onCancel ? (
-            cancelPending ? (
-              <p className="text-xs text-text-secondary">
-                {cancelPendingNote || 'لن يتجدّد بعد نهاية الفترة.'}
-              </p>
-            ) : (
-              <Button type="button" variant="ghost" size="sm" disabled={canceling} onClick={onCancel}>
-                {canceling ? 'يُلغى…' : (cancelLabel || 'إلغاء')}
-              </Button>
-            )
+          //
+          // PRIORITY: cancel_at_period_end WINS over a scheduled switch (mirrors billing-service's
+          // own rule that an ending subscription never renews onto anything) - so a card never
+          // has to say both "ending" and "switching to X" about the same future date at once.
+          cancelPending ? (
+            <p className="text-xs text-text-secondary">
+              {cancelPendingNote || 'لن يتجدّد بعد نهاية الفترة.'}
+            </p>
+          ) : switchPending ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-text-secondary">{switchPendingNote}</p>
+              {onCancelSwitch ? (
+                <Button type="button" variant="ghost" size="sm" disabled={cancelingSwitch} onClick={onCancelSwitch}>
+                  {cancelingSwitch ? 'يُلغى…' : 'تراجع عن التبديل'}
+                </Button>
+              ) : null}
+            </div>
+          ) : onCancel ? (
+            <Button type="button" variant="ghost" size="sm" disabled={canceling} onClick={onCancel}>
+              {canceling ? 'يُلغى…' : (cancelLabel || 'إلغاء')}
+            </Button>
           ) : null
         ) : onSwitch ? (
           <Button type="button" variant="outline" disabled={busy || switching} onClick={onSwitch}>
@@ -521,6 +545,11 @@ export function PlansPane({
   /** Its own banner, not `notice` — that one is titled «تم الاشتراك ✓» and offers «اربط واتسابي
    *  الآن», neither of which is true of a plan SWITCH on an already-connected shop. */
   const [changeNotice, setChangeNotice] = useState('');
+  /** «تراجع عن التبديل» (v0.16.33) — undoing a SCHEDULED downgrade before its renewal, a distinct
+   *  action from `changeBusy`/`changeError` above (those cover the confirm dialog picking a new
+   *  plan; this covers cancelling one already picked). */
+  const [cancelSwitchBusy, setCancelSwitchBusy] = useState(false);
+  const [cancelSwitchError, setCancelSwitchError] = useState('');
   /**
    * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
    *
@@ -617,35 +646,56 @@ export function PlansPane({
 
   /** «بدّل الباقة» (audit #5) — THE ACTION THAT DID NOT EXIST. billing-service's `/change` route is
    *  whole, proration and all; nothing in this console ever called it, so switching base tiers
-   *  meant a second «شراء» — a second subscription rather than a swap. The switch takes effect
-   *  immediately (his entitlements move to the new plan's limits the moment this returns).
+   *  meant a second «شراء» - a second subscription rather than a swap.
    *
-   *  THE PRORATION FIGURE IS NOW A REAL PROMISE (escalated as a follow-up finding, fixed
-   *  upstream v0.16.32 — billing_service.change_plan used to compute the delta and discard it;
-   *  it now accumulates as `pending_adjustment_minor` and folds into the NEXT invoice, VAT
-   *  included, with credit carried forward if it exceeds one cycle). So this says «سيُضاف
-   *  لفاتورتك القادمة» / «سيُخصم من فاتورتك القادمة» — an actual statement about what happens,
-   *  not the hedge it had to be while the backend only reported the number. */
+   *  THE STRIPE-STYLE SPLIT (no negative balance or refund, ever — fixed
+   *  upstream v0.16.33): an UPGRADE is charged the prorated difference FIRST and takes effect only
+   *  once that charge clears - `applied: "upgraded"`. A DOWNGRADE touches nothing now; the shop
+   *  keeps its current, already-paid plan at full value until the period ends, and the new one is
+   *  SCHEDULED for the next renewal at full price - `applied: "scheduled_downgrade"`, never a
+   *  credit line, never a negative balance. The two need two different sentences, because they are
+   *  two different promises: one says "already happened", the other says "will start". */
   const changeBase = async () => {
     const a = action(catalog, 'billing.change_plan');
     if (!a || !baseSub || !confirmingChange) return;
     setChangeBusy(true); setChangeError('');
     try {
-      const out = await call<{ proration_minor?: number }>(
+      const out = await call<{ applied?: string; proration_minor?: number }>(
         session, a, { id: baseSub.id, plan_id: confirmingChange.id });
       setConfirmingChange(null);
-      const d = out?.proration_minor;
-      setChangeNotice(
-        typeof d === 'number' && d !== 0
-          ? `تم تبديل باقتك إلى «${confirmingChange.name}». ${
-              d > 0 ? `سيُضاف ${riyals(d)} ريال لفاتورتك القادمة` : `سيُخصم ${riyals(Math.abs(d))} ريال من فاتورتك القادمة`
-            } — فرق سعر بقية هذه الفترة.`
-          : `تم تبديل باقتك إلى «${confirmingChange.name}».`);
+      if (out?.applied === 'scheduled_downgrade') {
+        setChangeNotice(
+          `سيتحول اشتراكك إلى «${confirmingChange.name}» عند نهاية الفترة الحالية، بالسعر الكامل ` +
+          'للفترة الجديدة — لن يُخصم أو يُضاف أي فرق قبل ذلك.');
+      } else {
+        const d = out?.proration_minor;
+        setChangeNotice(
+          typeof d === 'number' && d > 0
+            ? `تم تبديل باقتك إلى «${confirmingChange.name}». حُصِّل ${riyals(d)} ريال فرق السعر لبقية هذه الفترة.`
+            : `تم تبديل باقتك إلى «${confirmingChange.name}».`);
+      }
       load();
     } catch (e) {
       setChangeError(e instanceof Error ? e.message : 'تعذّر تبديل الباقة.');
     } finally {
       setChangeBusy(false);
+    }
+  };
+
+  /** «تراجع عن التبديل» (v0.16.33) — undoes a SCHEDULED downgrade before its renewal. Idempotent on
+   *  the server (a no-op when nothing is scheduled), so a stale button or a double click is
+   *  harmless rather than an error. */
+  const cancelScheduledChange = async () => {
+    const a = action(catalog, 'billing.cancel_scheduled_change');
+    if (!a || !baseSub) return;
+    setCancelSwitchBusy(true); setCancelSwitchError('');
+    try {
+      await call(session, a, { id: baseSub.id });
+      load();
+    } catch (e) {
+      setCancelSwitchError(e instanceof Error ? e.message : 'تعذّر التراجع عن التبديل.');
+    } finally {
+      setCancelSwitchBusy(false);
     }
   };
 
@@ -758,14 +808,15 @@ export function PlansPane({
   const apps = plans?.filter((p) => kindOf(p) === 'app') ?? [];
   const capacity = plans?.filter((p) => kindOf(p) === 'capacity') ?? [];
   // THE ONE ROW «إلغاء الاشتراك» ACTS ON — matched by which PLAN it is a subscription TO, never
-  // by position: `subs[0]` is whichever row billing happened to return first (the same bug the
-  // summary line below was already rewritten to avoid), and an app row bought after the base would
-  // have been cancelled instead of the base itself.
-  const sub = subs?.[0];
+  // by position: `subs[0]` is whichever row billing happened to return first, and an app row
+  // bought after the base would have been cancelled instead of the base itself. The bare
+  // `subs?.[0]` this file used to keep around for the status badge and the past-due alert carried
+  // exactly that same position bug into two more places — removed rather than fixed-in-place,
+  // so it cannot regrow a third use.
   const baseSub = (subs ?? []).find((s) => bases.some((p) => p.id === s.plan_id));
   // EVERY APP'S OWN SUBSCRIPTION ROW — matched the same way (by which plan it IS, never by
-  // position). Each app is independently cancellable (Tamam, 2026-08-22: «كل تطبيق له إدارة
-  // اشتراكه الخاص») — but none of them exists without the base, so cancelling the base is stated
+  // position). Each app is independently cancellable — «كل تطبيق له إدارة
+  // اشتراكه الخاص» — but none of them exists without the base, so cancelling the base is stated
   // plainly as cancelling all of them together, never a silent side effect.
   const appSubs = (subs ?? []).filter((s) => apps.some((p) => p.id === s.plan_id));
   const activeAppSubs = appSubs.filter((s) => s.status !== 'canceled' && !s.cancel_at_period_end);
@@ -792,12 +843,15 @@ export function PlansPane({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* «متأخر الدفع» — ITS OWN ALERT, NOT BURIED IN A CARD (Tamam, 2026-08-22: the aggregate
+      {/* «متأخر الدفع» — ITS OWN ALERT, NOT BURIED IN A CARD. The aggregate
           «اشتراكك: الأساس + N تطبيقات» summary card is gone entirely — each subscription now
-          carries its own status and its own cancel control on its own card, base included, below).
+          carries its own status and its own cancel control on its own card, base included, below.
           A failing charge is the loudest thing an owner needs to see the moment he opens this
-          screen, not a detail he finds by scrolling to the base card among the others. */}
-      {sub && sub.status === 'past_due' ? (
+          screen, not a detail he finds by scrolling to the base card among the others.
+          ANY SUBSCRIPTION, NOT JUST THE FIRST ONE IN THE ARRAY — same bug class as the base badge
+          fix beside it: `subs?.[0]` is an arbitrary row, and a
+          past-due APP subscription is just as real a billing problem as a past-due base. */}
+      {(subs ?? []).some((s) => s.status === 'past_due') ? (
         <div className="flex flex-col gap-2 rounded-card border border-danger/30 bg-danger-soft p-4">
           <p className="text-sm text-danger">آخر محاولة سحب لم تنجح. حدّث بطاقتك حتى لا يتوقف اشتراكك.</p>
           {/* «تحديث بطاقة الدفع» — audit #3's other half, the one that closes the involuntary-
@@ -869,17 +923,22 @@ export function PlansPane({
         </div>
       ) : null}
 
-      {/* «بدّل الباقة» CONFIRMATION — same discipline as cancel's: he is changing what he pays,
-          and the one thing he must know before pressing again is that the new limits apply
-          immediately, and what the price difference for the rest of THIS period is computed as.
-          THE FIGURE IS SAID AS COMPUTED, NOT PROMISED — billing_service.change_plan works out
-          the number and hands it back without writing it to any invoice; a sentence claiming it
-          «will be added to your next bill» would be a promise the backend does not keep today. */}
+      {/* «بدّل الباقة» CONFIRMATION — same discipline as cancel's: he is changing what he pays, and
+          the one thing he must know before pressing again is what actually happens NOW.
+          TWO DIFFERENT PROMISES (v0.16.33: «مافي رصيد سالب أو استرداد إطلاقاً»): an
+          UPGRADE charges the prorated difference immediately and switches only once that clears —
+          said as something about to be charged, not a fact already true. A DOWNGRADE changes
+          NOTHING today; the current, already-paid plan keeps working in full until the period
+          ends, and only then does the new one — and its new price — begin. Neither sentence is a
+          guess: this is exactly what billing-service now does. */}
       {confirmingChange ? (
         <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
           <p className="mb-1 font-medium">تأكيد التبديل إلى «{confirmingChange.name}»</p>
           <p className="mb-4 text-sm text-text-secondary">
-            حدود باقتك الجديدة تسري فوراً. فرق السعر لبقية هذه الفترة يُحتسب تناسبياً ويظهر في فاتورتك القادمة.
+            {(monthly(confirmingChange)?.amount_minor ?? 0)
+              >= (baseSub ? monthly(bases.find((b) => b.id === baseSub.plan_id) ?? confirmingChange)?.amount_minor ?? 0 : 0)
+              ? 'حدود باقتك الجديدة تسري فوراً، بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك.'
+              : 'يستمر اشتراكك الحالي كما هو حتى نهاية الفترة الحالية — لا يُخصم شيء الآن. عند التجديد القادم يبدأ سعر وحدود «' + confirmingChange.name + '».'}
           </p>
           {changeError ? <p className="mb-3 text-sm text-danger">{changeError}</p> : null}
           <div className="flex gap-2">
@@ -957,42 +1016,55 @@ export function PlansPane({
               <h2 className="text-sm text-text-secondary">الاشتراك الأساسي</h2>
               <ul className="grid gap-3">
                 {bases.map((p) => {
-                  // WHICH BASE, NOT JUST WHETHER ONE — `hasBase` alone used to mark EVERY base
-                  // card «owned» the moment he had any one of them (audit #5's other half of the
+                  // WHICH BASE, NOT JUST WHETHER ONE - `hasBase` alone used to mark EVERY base
+                  // card owned the moment he had any one of them (audit #5's other half of the
                   // same bug: a shop on the cheap tier saw every tier badged as already his).
                   const isThisOne = hasBase === true ? baseSub?.plan_id === p.id : hasBase;
-                  // UPGRADES ONLY, FOR NOW (Tamam, 2026-08-22): «مافي رصيد سالب أو استرداد — لو
-                  // نزّل باقته يكمل الفترة إلى أن تخلص، مثل المنصات العالمية». billing-service's
-                  // change_plan (even after v0.16.32) switches and credits IMMEDIATELY on a
-                  // downgrade — exactly the negative-balance shape the product does not want.
-                  // Offering the button for a cheaper plan would let a shop trigger that credit
-                  // path today; hidden here until base-services builds the effective-at-period-
-                  // end downgrade this needs (escalated separately) — an upgrade's delta is
-                  // always ≥ 0, so that half is safe to offer as-is.
+                  // UPGRADE OR SCHEDULED DOWNGRADE, NEVER A CREDIT (fixed
+                  // upstream v0.16.33): billing-service now splits change_plan itself - an
+                  // upgrade charges the difference and flips immediately, a downgrade schedules
+                  // the same target for the next renewal at full price and touches nothing now.
+                  // Both directions are safe to offer; only the label and the confirmation text
+                  // differ, because they are two different promises to make him before he presses.
                   const currentBase = bases.find((b) => b.id === baseSub?.plan_id);
                   const isUpgrade = (monthly(p)?.amount_minor ?? 0)
                     >= (currentBase ? monthly(currentBase)?.amount_minor ?? 0 : 0);
-                  const canSwitchToThis = hasBase === true && !isThisOne && isUpgrade
+                  const canSwitchToThis = hasBase === true && !isThisOne
                     && Boolean(action(catalog, 'billing.change_plan'));
-                  // THE BASE'S OWN CARD NOW CARRIES WHAT THE DELETED SUMMARY CARD USED TO SAY
-                  // (Tamam, 2026-08-22) — its honest status (including the «متأخر الدفع» fourth
+                  // THE BASE'S OWN CARD NOW CARRIES WHAT THE DELETED SUMMARY CARD USED TO SAY:
+                  // its honest status (including the متأخر الدفع fourth
                   // state, audit #3) and its own cancel control, exactly as an app card carries
                   // its. GATED ON THE SUBSCRIPTION ROW ITSELF, not on `isThisOne`/`hasBase`: the
                   // deleted summary card read `baseSub` straight off `billing.my_subscriptions`,
                   // never off the entitlements roll-up, so a viewer whose role can't check
-                  // entitlements (`hasBase === null`) could still see and use billing controls —
+                  // entitlements (`hasBase === null`) could still see and use billing controls -
                   // cancel must keep working for that viewer exactly as it did before.
                   const isBaseSubRow = baseSub?.plan_id === p.id;
+                  // READ FROM baseSub, NOT sub — CONFIRMED BUG: `sub`
+                  // is `subs?.[0]`, an arbitrary FIRST row of whatever order billing.my_subscriptions
+                  // happened to return, not necessarily the base's own row. A shop with the base
+                  // active and an app subscription first in the array read the base's badge as
+                  // «متوقف» while every app card correctly read «مفعّل» — the base's status must
+                  // come from the base's own subscription record, same as `cancel_at_period_end`
+                  // two lines above already correctly does.
                   const statusLabel = isBaseSubRow
                     ? (baseSub?.cancel_at_period_end ? 'قيد الإلغاء'
-                      : sub?.status === 'past_due' ? 'متأخر الدفع'
-                      : sub?.status === 'active' ? 'فعّال' : 'متوقف')
+                      : baseSub?.status === 'past_due' ? 'متأخر الدفع'
+                      : baseSub?.status === 'active' ? 'فعّال' : 'متوقف')
                     : undefined;
                   const statusTone = isBaseSubRow
                     ? (baseSub?.cancel_at_period_end ? 'warning'
-                      : sub?.status === 'past_due' ? 'danger'
-                      : sub?.status === 'active' ? 'success' : 'warning')
+                      : baseSub?.status === 'past_due' ? 'danger'
+                      : baseSub?.status === 'active' ? 'success' : 'warning')
                     : undefined;
+                  // A SCHEDULED DOWNGRADE, NAMED (v0.16.33) - shown only on the card he still owns
+                  // (the plan he keeps, in full, until the switch happens), never on the target -
+                  // buying that card outright is still a different action from the one already
+                  // scheduled toward it.
+                  const pendingPlan = baseSub?.pending_plan_id
+                    ? bases.find((b) => b.id === baseSub.pending_plan_id) : undefined;
+                  const switchPending = isBaseSubRow && !baseSub?.cancel_at_period_end
+                    && Boolean(pendingPlan);
                   return (
                     <li key={p.id}>
                       <AppCard
@@ -1005,7 +1077,7 @@ export function PlansPane({
                         ownedLabel="اشتراكك"
                         buyLabel="فعّل الأساس"
                         onSwitch={canSwitchToThis ? () => setConfirmingChange(p) : undefined}
-                        switchLabel="بدّل إلى هذه"
+                        switchLabel={isUpgrade ? 'بدّل إلى هذه' : 'جدولة التبديل عند التجديد'}
                         switching={changeBusy && confirmingChange?.id === p.id}
                         statusLabel={statusLabel}
                         statusTone={statusTone}
@@ -1017,6 +1089,13 @@ export function PlansPane({
                           ? `اشتراكك يعمل حتى ${renewalDay(baseSub.current_period_end)} ولن يتجدّد بعدها.`
                           : 'اشتراكك لن يتجدّد بعد نهاية الفترة الحالية.'}
                         canceling={cancelBusy}
+                        switchPending={switchPending}
+                        switchPendingNote={pendingPlan && renewalDay(baseSub?.current_period_end)
+                          ? `سيتحوّل إلى «${pendingPlan.name}» في ${renewalDay(baseSub?.current_period_end)}، بالسعر الكامل.`
+                          : pendingPlan ? `سيتحوّل إلى «${pendingPlan.name}» عند نهاية الفترة الحالية.` : undefined}
+                        onCancelSwitch={switchPending && action(catalog, 'billing.cancel_scheduled_change')
+                          ? () => void cancelScheduledChange() : undefined}
+                        cancelingSwitch={cancelSwitchBusy}
                       />
                     </li>
                   );
@@ -1069,7 +1148,7 @@ export function PlansPane({
           {appCancelError ? <p className="text-sm text-danger">{appCancelError}</p> : null}
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {apps.map((p) => {
-              // «كل تطبيق له إدارة اشتراكه الخاص» (Tamam, 2026-08-22) — an app cancels
+              // «كل تطبيق له إدارة اشتراكه الخاص» — an app cancels
               // independently of every other app and of the base; only the reverse (base takes
               // every app with it) is automatic. Matched by which subscription it IS, same rule
               // as `baseSub` above.

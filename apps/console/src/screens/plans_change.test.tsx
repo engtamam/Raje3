@@ -1,7 +1,9 @@
 /**
- * «بدّل الباقة» — audit gap #5. The switch button must only ever target the RIGHT base tier (not
- * every base card lighting up as owned the moment he owns any one of them), and must call
- * billing.change_plan rather than re-subscribing.
+ * «بدّل الباقة» — audit gap #5, now on the v0.16.33 Stripe-style split («مافي
+ * رصيد سالب أو استرداد إطلاقاً»). An UPGRADE charges the prorated difference and switches
+ * immediately; a DOWNGRADE schedules the same target for the next renewal at full price and
+ * touches nothing now — never a credit, never a negative balance. Both directions are offered;
+ * only the label, the confirmation text, and what happens on confirm differ.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -22,10 +24,12 @@ const PLANS = [
 ];
 
 const changeCalls: unknown[] = [];
-// WHICH BASE `billing.my_subscriptions` ANSWERS WITH — mutable per test, because `hasBase` (the
-// `owned` prop) and `baseSub` (this) are two SEPARATE reads in the real app and must agree with
-// each other for a test to say anything real about either.
+const cancelScheduledCalls: unknown[] = [];
+// WHICH BASE `billing.my_subscriptions` ANSWERS WITH, AND WHAT IT HAS SCHEDULED — mutable per
+// test, because `hasBase` (the `owned` prop) and `baseSub` (this) are two SEPARATE reads in the
+// real app and must agree with each other for a test to say anything real about either.
 let currentPlanId = 'base_cheap';
+let pendingPlanId = '';
 
 vi.mock('../catalog', async (importOriginal) => {
   const real = await importOriginal<typeof import('../catalog')>();
@@ -35,10 +39,24 @@ vi.mock('../catalog', async (importOriginal) => {
     call: async (_s: unknown, a: { id: string }, body?: unknown) => {
       if (a.id === 'billing.plans') return { plans: PLANS };
       if (a.id === 'billing.my_subscriptions') {
-        return { subscriptions: [{ id: 'sub_1', plan_id: currentPlanId, status: 'active' }] };
+        return { subscriptions: [{ id: 'sub_1', plan_id: currentPlanId, status: 'active',
+                                    pending_plan_id: pendingPlanId }] };
       }
       if (a.id === 'subscription.payment_state') return { enabled: true };
-      if (a.id === 'billing.change_plan') { changeCalls.push(body); return { proration_minor: 6500 }; }
+      if (a.id === 'billing.change_plan') {
+        changeCalls.push(body);
+        const target = PLANS.find((p) => p.id === (body as { plan_id: string }).plan_id);
+        const current = PLANS.find((p) => p.id === currentPlanId);
+        const isUpgrade = (target?.prices[0].amount_minor ?? 0) >= (current?.prices[0].amount_minor ?? 0);
+        if (isUpgrade) return { applied: 'upgraded', proration_minor: 6500 };
+        pendingPlanId = target?.id ?? '';
+        return { applied: 'scheduled_downgrade', pending_plan_id: pendingPlanId, proration_minor: 0 };
+      }
+      if (a.id === 'billing.cancel_scheduled_change') {
+        cancelScheduledCalls.push(body);
+        pendingPlanId = '';
+        return { cancelled_scheduled_change: true };
+      }
       return {};
     },
   };
@@ -46,7 +64,10 @@ vi.mock('../catalog', async (importOriginal) => {
 
 const { PlansPane } = await import('./Plans');
 
-afterEach(() => { cleanup(); changeCalls.length = 0; currentPlanId = 'base_cheap'; });
+afterEach(() => {
+  cleanup(); changeCalls.length = 0; cancelScheduledCalls.length = 0;
+  currentPlanId = 'base_cheap'; pendingPlanId = '';
+});
 
 const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
@@ -55,14 +76,14 @@ function open() {
   return render(<PlansPane session={session} catalog={catalog} owned={OWNED} onGoConnect={() => {}} />);
 }
 
-describe('«بدّل الباقة»', () => {
-  it('marks only the plan actually owned, and offers «بدّل إلى هذه» on the other tier', async () => {
+describe('«بدّل الباقة» — upgrade', () => {
+  it('marks only the plan actually owned, and offers «بدّل إلى هذه» on the higher tier', async () => {
     open();
     await screen.findAllByText('الأساس الموسّع');
     // The owned tier shows its honest status badge (now carrying what the deleted summary
-    // card used to say, Tamam 2026-08-22), not a switch button.
+    // card used to say), not a switch button.
     expect(screen.getByText('فعّال')).toBeTruthy();
-    // The OTHER tier gets exactly one switch offer — not a second «فعّل الأساس».
+    // The higher tier gets exactly one switch offer — not a second «فعّل الأساس».
     expect(screen.getAllByRole('button', { name: 'بدّل إلى هذه' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'فعّل الأساس' })).toBeNull();
   });
@@ -78,17 +99,18 @@ describe('«بدّل الباقة»', () => {
     expect(changeCalls).toEqual([{ id: 'sub_1', plan_id: 'base_pro' }]);
   });
 
-  it('states the proration as a real promise now that billing-service applies it (v0.16.32)', async () => {
+  it('states the upgrade as an immediate charge, and the result as a real collection (v0.16.33)', async () => {
     open();
     await screen.findAllByText('الأساس الموسّع');
     fireEvent.click(screen.getByRole('button', { name: 'بدّل إلى هذه' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'تأكيد التبديل' }));
-    expect(await screen.findByText(/سيُضاف 65 ريال لفاتورتك القادمة/)).toBeTruthy();
+    expect(await screen.findByText(/بعد تحصيل فرق السعر لبقية هذه الفترة من بطاقتك/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'تأكيد التبديل' }));
+    expect(await screen.findByText(/حُصِّل 65 ريال فرق السعر لبقية هذه الفترة/)).toBeTruthy();
   });
 });
 
-describe('downgrades stay hidden (Tamam, 2026-08-22 — no negative balance/refund, ever)', () => {
-  it('offers no switch button toward a cheaper base tier', async () => {
+describe('«بدّل الباقة» — downgrade, scheduled at renewal, never a credit (v0.16.33)', () => {
+  it('offers «جدولة التبديل عند التجديد» toward a cheaper base tier — no longer hidden', async () => {
     // Owns the EXPENSIVE tier now — the other listed tier is a downgrade. Both the entitlements
     // view AND billing.my_subscriptions have to agree it's base_pro, same as the real app.
     currentPlanId = 'base_pro';
@@ -96,8 +118,33 @@ describe('downgrades stay hidden (Tamam, 2026-08-22 — no negative balance/refu
                        base: { plan_id: 'base_pro', status: 'active', renews_at: 0 } };
     render(<PlansPane session={session} catalog={catalog} owned={ownedPro} onGoConnect={() => {}} />);
     await screen.findAllByText('الأساس');
-    // change_plan's immediate-credit path (even after v0.16.32) is exactly the negative-balance
-    // shape the product does not want — no button anywhere should be able to trigger it.
-    expect(screen.queryByRole('button', { name: 'بدّل إلى هذه' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'جدولة التبديل عند التجديد' })).toBeTruthy();
+  });
+
+  it('confirms with the «لا يُخصم شيء الآن» promise, schedules it, and shows «تراجع» on the owned card', async () => {
+    currentPlanId = 'base_pro';
+    const ownedPro = { checked: true, message: '', keys: [], apps: [],
+                       base: { plan_id: 'base_pro', status: 'active', renews_at: 0 } };
+    render(<PlansPane session={session} catalog={catalog} owned={ownedPro} onGoConnect={() => {}} />);
+    await screen.findAllByText('الأساس');
+    fireEvent.click(screen.getByRole('button', { name: 'جدولة التبديل عند التجديد' }));
+    // The one thing he must know before confirming: nothing is charged or credited today.
+    expect(await screen.findByText(/لا يُخصم شيء الآن/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'تأكيد التبديل' }));
+    await screen.findByText('تم التبديل ✓');
+    expect(changeCalls).toEqual([{ id: 'sub_1', plan_id: 'base_cheap' }]);
+    // «تراجع عن التبديل» now lives on the card he still owns — the plan he keeps until renewal.
+    expect(await screen.findByRole('button', { name: 'تراجع عن التبديل' })).toBeTruthy();
+  });
+
+  it('«تراجع عن التبديل» calls billing.cancel_scheduled_change with the base subscription id', async () => {
+    currentPlanId = 'base_pro';
+    pendingPlanId = 'base_cheap';
+    const ownedPro = { checked: true, message: '', keys: [], apps: [],
+                       base: { plan_id: 'base_pro', status: 'active', renews_at: 0 } };
+    render(<PlansPane session={session} catalog={catalog} owned={ownedPro} onGoConnect={() => {}} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'تراجع عن التبديل' }));
+    await vi.waitFor(() => expect(cancelScheduledCalls).toEqual([{ id: 'sub_1' }]));
   });
 });
