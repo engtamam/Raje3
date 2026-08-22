@@ -10,11 +10,13 @@
 
 FROM node:22-slim AS builder
 
-# THE PATHS ARE THE REPOSITORY'S, NOT A FLAT /build. The console consumes platform/ui AS SOURCE —
-# one vite alias, no npm package, no build step between — and its tailwind config reaches out with
-# ../../platform/ui/…/tailwind-preset.cjs. Copying only apps/console gave a tree where that path
-# leads nowhere, and the failure was a missing MODULE, which reads like a bad dependency rather
-# than a bad COPY. So the image mirrors the checkout: /build/apps/console beside /build/platform/ui.
+# THE PATHS ARE THE REPOSITORY'S, NOT A FLAT /build. The console consumes ui/ (OUR OWN design
+# system, copied from base-services' platform/ui at their v0.16.29 — 2026-08-22 — the day we
+# needed to edit it ourselves) AS SOURCE — one vite alias, no npm package, no build step between —
+# and its tailwind config reaches out with ../../ui/…/tailwind-preset.cjs. Copying only
+# apps/console gave a tree where that path leads nowhere, and the failure was a missing MODULE,
+# which reads like a bad dependency rather than a bad COPY. So the image mirrors the checkout:
+# /build/apps/console beside /build/ui.
 WORKDIR /build/apps/console
 
 # Dependencies first, and from the lockfile only — `npm ci` fails loudly when the
@@ -23,10 +25,10 @@ WORKDIR /build/apps/console
 COPY apps/console/package.json apps/console/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-# The design system is 530K of TypeScript and it is a BUILD input twice over: the preset shapes the
-# theme, and the content globs scan its components — a stylesheet compiled without them is missing
-# every class the library uses, which renders as an unstyled page and not as an error.
-COPY platform/ui /build/platform/ui
+# The design system is a BUILD input twice over: the preset shapes the theme, and the content
+# globs scan its components — a stylesheet compiled without them is missing every class the
+# library uses and renders as an unstyled page rather than as an error.
+COPY ui /build/ui
 
 # THE BRAND ACCENT'S ONE SOURCE OF TRUTH — vite.config.ts reads config/product.json directly
 # (../../config/product.json from apps/console/) to inject __PRODUCT_ACCENT__. Missing this COPY

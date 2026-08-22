@@ -6,10 +6,11 @@
  * that alone settles it. The operator is not given a smaller app; he is given the same app, which
  * shows him one section because that is all his capabilities reach.
  *
- * THE CHROME IS platform/ui's AppShell, BY ALIAS. Sidebar rail, persisted collapse, brand slot,
- * user block, theme and language toggles, and a Toaster — all of it already built and all of it
- * arriving with their next release. We supply the nav items and the brand; nothing else here is
- * ours to design.
+ * THE CHROME IS ui/'s AppShell, BY ALIAS. Sidebar rail, persisted collapse, brand slot, user
+ * block, theme and language toggles, and a Toaster — all of it already built. `ui/` is our own
+ * copy (taken from base-services' platform/ui at their v0.16.29, 2026-08-22, so we could edit it
+ * ourselves) — we supply the nav items and the brand, and can now change the shell itself too,
+ * rather than waiting on someone else's release.
  */
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';

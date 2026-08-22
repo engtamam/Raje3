@@ -1,6 +1,9 @@
-// The console consumes platform/ui AS SOURCE — one alias, no npm package, no build step between.
-// platform/ is READ-ONLY: we point at it and never edit it, which is what lets their releases
-// arrive on their own (v0.16.0 shipped four auth screens we did not have to write).
+// THE CONSOLE CONSUMES OUR OWN UI KIT AS SOURCE — one alias, no npm package, no build step
+// between. `ui/packages/ui/src` (repo root) is OURS: a copy taken from base-services' platform/ui
+// (2026-08-22, at their v0.16.29) the day we needed to edit it ourselves rather than ask their
+// team to carry our changes upstream. `platform/` stays read-only and untouched, same as every
+// backend service in it — this alias is the one exception that used to point there, and does not
+// any more.
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
@@ -28,7 +31,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@base-ui': here('../../platform/ui/packages/ui/src'),
+      '@base-ui': here('../../ui/packages/ui/src'),
 
       // AND ITS PEERS, EXPLICITLY — which is not boilerplate but the consequence of the aliasing
       // decision. Node resolves a bare import relative to the importing FILE, so `clsx` inside

@@ -12,11 +12,11 @@
     "types": ["vitest/globals", "node"],
     "baseUrl": ".",
     "paths": {
-      "@base-ui/*": ["../../platform/ui/packages/ui/src/*"],
+      "@base-ui/*": ["../../ui/packages/ui/src/*"],
 
       "//": [
         "THE KIT LIVES OUTSIDE THIS APP, so TypeScript resolves ITS bare imports by walking up",
-        "from platform/ and never reaches our node_modules. Its components then compile with any",
+        "from ui/ and never reaches our node_modules. Its components then compile with any",
         "props, and a wrong one passes silently — `tone=\"neutral\"` was inferred as plain string, so",
         "the literal union stopped being checked at all.",
         "",
