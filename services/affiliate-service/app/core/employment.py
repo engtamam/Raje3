@@ -56,6 +56,16 @@ class EmploymentService:
         rows = await self._commissions.of_affiliate(affiliate_id, limit=2000)
         return len(rows)
 
+    async def eligibility_preview(self, affiliate_id: str) -> dict[str, Any]:
+        """Same gap as WafaService's own eligibility_preview: the threshold check today only
+        runs inside request(), which REFUSES below it — a promoter can't see "how many more
+        customers" without triggering a refusal. This is the read-only version for a home
+        screen."""
+        count = await self.converted_customers(affiliate_id)
+        return {"converted_customers": count, "threshold": self._threshold,
+               "eligible": count >= self._threshold,
+               "customers_until_eligible": max(0, self._threshold - count)}
+
     async def request(self, affiliate_id: str) -> dict[str, Any]:
         row = await self._s.get(AFFILIATES, affiliate_id)
         affiliate = Affiliate.from_dict(row) if row else None

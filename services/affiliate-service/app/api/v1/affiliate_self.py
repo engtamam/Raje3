@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.core.employment import EmploymentError
 from app.core.lead_sourcing import LeadError, LeadSourcingService
 from app.core.leads import LeadSourcingKeys
+from app.core.models import AFFILIATES, REQUESTED, Affiliate
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
 from app.core.secret_store import SecretError, SecretStore
@@ -255,6 +256,16 @@ async def my_wafa_requests(request: Request,
     return {"wafa_requests": [r.to_dict() for r in rows]}
 
 
+@router.get("/wafa-eligibility", dependencies=[Depends(rate_limit)])
+async def my_wafa_eligibility(request: Request,
+                              principal: Principal = Depends(require_user)) -> dict:
+    """The read-only "how close am I" a promoter could never see before without actually filing
+    a request and having it refused below threshold — see WafaService.eligibility_preview's own
+    docstring."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    return await request.app.state.container.wafa.eligibility_preview(affiliate_id)
+
+
 @router.get("/team/wafa-requests", dependencies=[Depends(rate_limit)])
 async def team_wafa_requests(request: Request,
                              principal: Principal = Depends(require_user)) -> dict:
@@ -316,6 +327,14 @@ async def my_employment_requests(request: Request,
     affiliate_id = await _my_affiliate_id(request, principal)
     rows = await request.app.state.container.employment.of_affiliate(affiliate_id)
     return {"employment_requests": [r.to_dict() for r in rows]}
+
+
+@router.get("/employment-eligibility", dependencies=[Depends(rate_limit)])
+async def my_employment_eligibility(request: Request,
+                                    principal: Principal = Depends(require_user)) -> dict:
+    """Same gap, same fix as /wafa-eligibility — see EmploymentService.eligibility_preview."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    return await request.app.state.container.employment.eligibility_preview(affiliate_id)
 
 
 # ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK, Tamam 2026-08-20) ──────────
@@ -493,6 +512,20 @@ async def my_leads(request: Request, principal: Principal = Depends(require_user
     return {"leads": [l.to_dict() for l in leads]}
 
 
+@router.get("/leads/stale", dependencies=[Depends(rate_limit)])
+async def my_stale_leads(request: Request, stale_after_days: int = 3,
+                         principal: Principal = Depends(require_user)) -> dict:
+    """The home screen's "بانتظارك الآن" candidate — leads assigned to the CALLER with no
+    activity in `stale_after_days`. Deliberately his own assigned leads only (same scope as
+    `leads_assigned_to`, never the whole team) — a manager rarely holds leads assigned to
+    himself the way a promoter does, so this answers honestly for whichever role asks it rather
+    than silently becoming a team-wide sweep."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    leads = await _lead_sourcing(request).stale_leads(
+        affiliate_id, stale_after_seconds=max(1, stale_after_days) * 86400)
+    return {"leads": [l.to_dict() for l in leads]}
+
+
 @router.post("/leads/{lead_id}/assign", dependencies=[Depends(rate_limit)])
 async def assign_lead(request: Request, lead_id: str, body: AssignIn,
                       principal: Principal = Depends(require_user)) -> Any:
@@ -665,4 +698,76 @@ async def reply_shop_ticket(request: Request, tenant: str, ticket_id: str, body:
     await request.app.state.auditor.record(
         "affiliate.shop_ticket_replied", actor=grantee, tenant=tenant,
         resource=f"ticket:{ticket_id}", ip=request.client.host if request.client else "")
+    return out
+
+
+# ── the home screen — ONE call instead of six-to-eight ──────────────────────────────────────────
+@router.get("/home", dependencies=[Depends(rate_limit)])
+async def home(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    """Composite, server-side fan-out — the gap the design research kept surfacing: every number
+    a home screen needs already exists behind its OWN route, but a client assembling it had to
+    make six to eight separate calls. This does the fan-out here instead, once, so the screen
+    itself stays a single request.
+
+    Every figure below is read fresh from its owning service — nothing here is a stored
+    duplicate of another route's answer, and nothing here is a NEW fact this service didn't
+    already know how to compute."""
+    onboarding = _svc(request)
+    affiliate = await onboarding.me(principal.subject)
+    if affiliate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
+    aff_id = affiliate["id"]
+    is_manager = affiliate["role"] == get_settings().AFFILIATE_MANAGER_ROLE
+    c = request.app.state.container
+
+    # `onboarding.me()` deliberately answers with NAMED FIELDS ONLY (its own docstring: never
+    # `.to_dict()`, which carries `invite_token`) — `payout_channel` is not one of them, so it is
+    # read here straight off the row, the same way `set_payout_method`'s own route would.
+    raw = await c.datastore.get(AFFILIATES, aff_id)
+    payout_channel = Affiliate.from_dict(raw).payout_channel if raw else ""
+
+    balance = await c.payouts.balance(aff_id)
+    withdrawals = await c.payouts.of_affiliate(aff_id)
+    stale = await _lead_sourcing(request).stale_leads(aff_id, stale_after_seconds=3 * 86400)
+    wafa_elig = await c.wafa.eligibility_preview(aff_id)
+    employment_elig = await c.employment.eligibility_preview(aff_id)
+    # stats() already returns its rows sorted by -advance_rate — the first one IS the answer to
+    # "which of MY OWN templates actually moves a lead forward the most", no re-sorting needed.
+    my_template_stats = await c.template_uses.stats(used_by=aff_id)
+    top_template = my_template_stats[0] if my_template_stats else None
+
+    out: dict[str, Any] = {
+        "affiliate": {"id": aff_id, "name": affiliate["name"], "role": affiliate["role"]},
+        "balance": balance,
+        "payout_method_set": bool(payout_channel),
+        "stale_leads_count": len(stale),
+        "stale_leads": [l.to_dict() for l in stale[:10]],
+        "wafa_eligibility": wafa_elig,
+        "employment_eligibility": employment_elig,
+        "top_template_this_period": top_template,
+    }
+    if any(w.status == REQUESTED for w in withdrawals):
+        out["pending_withdrawal"] = True
+
+    if is_manager:
+        members = await onboarding.team(aff_id)
+        summary = await c.commissions.team_summary([m["id"] for m in members])
+        pending_wafa = await c.wafa.list_pending(limit=500)
+        member_ids = {m["id"] for m in members}
+        out["team"] = {
+            "member_count": len(members),
+            "team_confirmed_halalas": summary["team_confirmed_halalas"],
+            "team_pending_halalas": summary["team_pending_halalas"],
+            "pending_wafa_requests_count": sum(1 for r in pending_wafa
+                                               if r.affiliate_id in member_ids),
+        }
+        # NEVER 503 THE WHOLE HOME SCREEN over an unconfigured Places API key subsystem — the
+        # same reason _leads_keys() itself was written to refuse loudly on its OWN dedicated
+        # route (no KEK means nothing to seal a key with), but a home screen's job is to degrade,
+        # not to go dark because one manager-only widget's dependency is missing.
+        try:
+            key_info = await _leads_keys(request).info(aff_id)
+            out["places_api_key_set"] = key_info is not None
+        except HTTPException:
+            out["places_api_key_set"] = None
     return out

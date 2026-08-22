@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
-from app.api.v1.affiliate_self import _my_manager_affiliate, _svc
+from app.api.v1.affiliate_self import _my_affiliate_id, _my_manager_affiliate, _svc
 from app.core.outreach import OutreachError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-outreach"])
@@ -50,18 +50,28 @@ async def list_templates(request: Request, stage_code: str = "",
 
 
 @router.get("/template-stats", dependencies=[Depends(rate_limit)])
-async def template_stats(request: Request, stage_code: str = "",
+async def template_stats(request: Request, stage_code: str = "", mine: bool = False,
                          principal: Principal = Depends(require_user)) -> dict:
-    """Which TEMPLATE actually moves a lead forward — see core/outreach.py::stats."""
-    stats = await request.app.state.container.template_uses.stats(stage_code=stage_code)
+    """Which TEMPLATE actually moves a lead forward — see core/outreach.py::stats.
+    `mine=true` narrows to the caller's OWN uses — his personal conversion rate, not the
+    whole-program figure everyone used to get regardless of who asked."""
+    used_by = ""
+    if mine:
+        used_by = await _my_affiliate_id(request, principal)
+    stats = await request.app.state.container.template_uses.stats(stage_code=stage_code,
+                                                                   used_by=used_by)
     return {"stats": stats}
 
 
 @router.get("/template-kind-stats", dependencies=[Depends(rate_limit)])
-async def template_kind_stats(request: Request,
+async def template_kind_stats(request: Request, mine: bool = False,
                               principal: Principal = Depends(require_user)) -> dict:
-    """Which CONTENT TYPE actually moves a lead forward, across every template sharing it."""
-    stats = await request.app.state.container.template_uses.kind_stats()
+    """Which CONTENT TYPE actually moves a lead forward, across every template sharing it.
+    Same `mine=true` narrowing as `template_stats`."""
+    used_by = ""
+    if mine:
+        used_by = await _my_affiliate_id(request, principal)
+    stats = await request.app.state.container.template_uses.kind_stats(used_by=used_by)
     return {"stats": stats}
 
 

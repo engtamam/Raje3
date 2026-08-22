@@ -107,6 +107,7 @@ def build_manifest(
             # «برنامج دعم الوفاء» (spec §8).
             {"path": "/api/v1/affiliates/me/wafa-requests", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/wafa-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/wafa-eligibility", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/team/wafa-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/team/wafa-requests/{}/decision", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/wafa-requests", "tier": "user", "method": "GET"},
@@ -114,6 +115,7 @@ def build_manifest(
             # «رشّح نفسك لوظيفة» (spec §8).
             {"path": "/api/v1/affiliates/me/employment-requests", "tier": "user", "method": "POST"},
             {"path": "/api/v1/affiliates/me/employment-requests", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/employment-eligibility", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/employment-requests", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/employment-requests/{}/decision", "tier": "user", "method": "POST"},
             # §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK).
@@ -130,6 +132,8 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/leads/{}/link-registration", "tier": "user",
              "method": "POST"},
             {"path": "/api/v1/affiliates/me/leads/sector-stats", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/leads/stale", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/home", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/sectors", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/sectors", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/sectors", "tier": "user", "method": "PUT"},

@@ -55,6 +55,34 @@ async def test_converted_customers_counts_commissions_never_referrals():
 
 
 @pytest.mark.anyio
+async def test_eligibility_preview_answers_how_close_without_ever_refusing():
+    """request() refuses below threshold — a promoter could never see his own progress without
+    triggering a refusal. This must succeed at any count, including zero."""
+    store = MemoryDataStore()
+    await _seed_affiliate(store)
+    await _seed_n_conversions(store, "aff-1", 120)
+    svc = build(store, threshold=500)
+
+    out = await svc.eligibility_preview("aff-1")
+    assert out["converted_customers"] == 120
+    assert out["threshold"] == 500
+    assert out["eligible"] is False
+    assert out["customers_until_eligible"] == 380
+
+
+@pytest.mark.anyio
+async def test_eligibility_preview_at_threshold():
+    store = MemoryDataStore()
+    await _seed_affiliate(store)
+    await _seed_n_conversions(store, "aff-1", 500)
+    svc = build(store, threshold=500)
+
+    out = await svc.eligibility_preview("aff-1")
+    assert out["eligible"] is True
+    assert out["customers_until_eligible"] == 0
+
+
+@pytest.mark.anyio
 async def test_below_threshold_is_refused():
     store = MemoryDataStore()
     await _seed_affiliate(store)

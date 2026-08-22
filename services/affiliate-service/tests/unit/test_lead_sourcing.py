@@ -15,7 +15,7 @@ from app.adapters.datastore.memory import MemoryDataStore
 from app.core.lead_sourcing import LeadError, LeadSourcingService
 from app.core.models import (
     ACTIVE, AFFILIATES, JOB_COMPLETED, JOB_FAILED, JOB_RUNNING, LEAD_ASSIGNED, LEAD_INTERESTED,
-    LEAD_NEW, LEAD_REGISTERED, LEADS, Affiliate, Lead,
+    LEAD_NEW, LEAD_NOT_INTERESTED, LEAD_REGISTERED, LEADS, Affiliate, Lead,
 )
 from app.core.referrals import ReferralRegistry
 
@@ -431,3 +431,67 @@ async def test_sector_stats_groups_by_sector_and_city_with_a_status_breakdown():
     assert by_key[("salons", "الرياض")]["registered_count"] == 1
     assert by_key[("salons", "الرياض")]["by_status"] == {LEAD_NEW: 1, LEAD_REGISTERED: 1}
     assert by_key[("carwash", "جدة")]["lead_count"] == 1
+
+
+# ── stale_leads — the home screen's "بانتظارك الآن" candidate ───────────────────────────────────
+@pytest.mark.anyio
+async def test_stale_leads_flags_a_lead_with_no_activity_past_the_threshold():
+    store = MemoryDataStore()
+    now = 1_000_000
+    old = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_ASSIGNED,
+              found_at=now - 10 * 86400)   # no notes at all — found_at is the only timestamp
+    fresh = Lead(id="l2", place_id="l2", assigned_to="pro-1", status=LEAD_ASSIGNED,
+                found_at=now - 1 * 86400)
+    await store.put(LEADS, old.id, old.to_dict())
+    await store.put(LEADS, fresh.id, fresh.to_dict())
+    svc = build(store)
+
+    stale = await svc.stale_leads("pro-1", stale_after_seconds=3 * 86400, now=now)
+    assert {l.id for l in stale} == {"l1"}
+
+
+@pytest.mark.anyio
+async def test_stale_leads_uses_the_latest_note_not_just_found_at():
+    store = MemoryDataStore()
+    now = 1_000_000
+    lead = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_INTERESTED,
+               found_at=now - 30 * 86400,   # found long ago...
+               notes=[{"at": now - 1 * 86400, "by": "pro-1", "text": "تواصلت معه أمس"}])  # ...
+                                                                                            # but touched yesterday
+    await store.put(LEADS, lead.id, lead.to_dict())
+    svc = build(store)
+
+    stale = await svc.stale_leads("pro-1", stale_after_seconds=3 * 86400, now=now)
+    assert stale == []   # recent note means NOT stale, despite the old found_at
+
+
+@pytest.mark.anyio
+async def test_stale_leads_excludes_closed_outcomes():
+    store = MemoryDataStore()
+    now = 1_000_000
+    registered = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_REGISTERED,
+                      found_at=now - 30 * 86400)
+    not_interested = Lead(id="l2", place_id="l2", assigned_to="pro-1",
+                          status=LEAD_NOT_INTERESTED, found_at=now - 30 * 86400)
+    await store.put(LEADS, registered.id, registered.to_dict())
+    await store.put(LEADS, not_interested.id, not_interested.to_dict())
+    svc = build(store)
+
+    stale = await svc.stale_leads("pro-1", stale_after_seconds=3 * 86400, now=now)
+    assert stale == []   # both are a closed outcome, not "waiting"
+
+
+@pytest.mark.anyio
+async def test_stale_leads_only_considers_the_callers_own_assigned_leads():
+    store = MemoryDataStore()
+    now = 1_000_000
+    mine = Lead(id="l1", place_id="l1", assigned_to="pro-1", status=LEAD_ASSIGNED,
+               found_at=now - 10 * 86400)
+    someone_elses = Lead(id="l2", place_id="l2", assigned_to="pro-2", status=LEAD_ASSIGNED,
+                         found_at=now - 10 * 86400)
+    await store.put(LEADS, mine.id, mine.to_dict())
+    await store.put(LEADS, someone_elses.id, someone_elses.to_dict())
+    svc = build(store)
+
+    stale = await svc.stale_leads("pro-1", stale_after_seconds=3 * 86400, now=now)
+    assert {l.id for l in stale} == {"l1"}

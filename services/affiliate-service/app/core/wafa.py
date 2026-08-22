@@ -134,6 +134,25 @@ class WafaService:
     def tier_amount(self, active_shops: int) -> int:
         return (active_shops // self._tier_shops) * self._tier_amount
 
+    async def eligibility_preview(self, affiliate_id: str) -> dict[str, Any]:
+        """A promoter's own "how close am I" read — the exact gap request() left: today
+        active_shops/the threshold are computed inside request() and only surfaced by actually
+        filing one (which REFUSES below threshold). A home screen needs this BEFORE a request
+        exists, so it can show real progress instead of nothing at all."""
+        perf = await self.performance_for(affiliate_id)
+        active = perf["active_shops"]
+        # Distance to the NEXT tier boundary — `active % tier_shops` is 0 both at "none yet" and
+        # "sitting exactly on a boundary", and in both cases the next tier is a full tier away.
+        remainder = active % self._tier_shops
+        shops_until_next = self._tier_shops - remainder if remainder else self._tier_shops
+        return {
+            "active_shops": active, "tier_shops": self._tier_shops,
+            "shops_until_next_tier": shops_until_next,
+            "eligible": active >= self._tier_shops,
+            "current_tier_amount_halalas": self.tier_amount(active),
+            "retention_rate": perf["retention_rate"], "refund_rate": perf["refund_rate"],
+        }
+
     def _recommend(self, perf: dict[str, Any]) -> str:
         if perf["retention_rate"] >= self._retention_min and perf["refund_rate"] <= self._refund_max:
             return WAFA_APPROVE

@@ -307,3 +307,46 @@ async def test_kind_stats_aggregates_across_templates_sharing_a_kind():
     assert stats[0]["uses"] == 2
     assert stats[0]["advanced"] == 1
     assert stats[0]["rejected"] == 1
+
+
+@pytest.mark.anyio
+async def test_stats_used_by_narrows_to_one_promoters_own_uses():
+    """The gap the home screen surfaced: stats() used to answer for the WHOLE program regardless
+    of who asked. `used_by` gives a promoter his own personal conversion rate instead."""
+    store = MemoryDataStore()
+    await _seed_team(store)
+    await _seed_lead(store, assigned_to="pro-1")
+    await store.put(LEADS, "lead-2", Lead(id="lead-2", place_id="place-2",
+                                          assigned_to="pro-2").to_dict())
+    _, templates, uses = _build(store)
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+
+    use_mine = await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
+    use_other = await uses.log_use("lead-2", template_id=tpl.id, used_by="pro-2")
+    await uses.set_outcome(use_mine.id, outcome="advanced", by="pro-1")
+    await uses.set_outcome(use_other.id, outcome="rejected", by="pro-2")
+
+    mine_only = await uses.stats(used_by="pro-1")
+    assert len(mine_only) == 1
+    assert mine_only[0]["uses"] == 1
+    assert mine_only[0]["advanced"] == 1
+    assert mine_only[0]["rejected"] == 0   # pro-2's rejection never counted against pro-1
+
+    everyone = await uses.stats()
+    assert everyone[0]["uses"] == 2   # blank used_by is still the whole-program view
+
+
+@pytest.mark.anyio
+async def test_kind_stats_used_by_narrows_the_same_way():
+    store = MemoryDataStore()
+    await _seed_team(store)
+    await _seed_lead(store, assigned_to="pro-1")
+    await store.put(LEADS, "lead-2", Lead(id="lead-2", place_id="place-2",
+                                          assigned_to="pro-2").to_dict())
+    _, templates, uses = _build(store)
+    tpl = await templates.create(stage_code="hook", kind="رسالة", title="خطاف١")
+    await uses.log_use("lead-1", template_id=tpl.id, used_by="pro-1")
+    await uses.log_use("lead-2", template_id=tpl.id, used_by="pro-2")
+
+    mine_only = await uses.kind_stats(used_by="pro-1")
+    assert mine_only[0]["uses"] == 1

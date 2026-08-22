@@ -322,10 +322,19 @@ class TemplateUseService:
         return [TemplateUse.from_dict(r) for r in rows]
 
     # ── the whole point: which templates actually move a lead forward ───────────────────────────
-    async def stats(self, *, stage_code: str = "", limit: int = 20000) -> list[dict[str, Any]]:
+    async def stats(self, *, stage_code: str = "", used_by: str = "",
+                    limit: int = 20000) -> list[dict[str, Any]]:
         """Per-template counts, computed on demand — never stored twice, same bounded-scan idiom
-        as Lead.sector_stats(). `advance_rate` is the number a manager actually decides from."""
-        query: dict[str, Any] = {"stage_code": stage_code} if stage_code else {}
+        as Lead.sector_stats(). `advance_rate` is the number a manager actually decides from.
+
+        `used_by` narrows to ONE promoter's own uses — his personal conversion rate, not the
+        program-wide figure every caller used to get regardless of who was asking. Blank keeps
+        the original whole-program view."""
+        query: dict[str, Any] = {}
+        if stage_code:
+            query["stage_code"] = stage_code
+        if used_by:
+            query["used_by"] = used_by
         if query:
             rows, _ = await self._s.find(TEMPLATE_USES, query, limit=limit)
         else:
@@ -350,10 +359,14 @@ class TemplateUseService:
             out.append(bucket)
         return sorted(out, key=lambda b: -b["advance_rate"])
 
-    async def kind_stats(self, *, limit: int = 20000) -> list[dict[str, Any]]:
+    async def kind_stats(self, *, used_by: str = "", limit: int = 20000) -> list[dict[str, Any]]:
         """The same aggregate, one level coarser — WHICH CONTENT TYPE works, across every template
-        sharing a `kind`, not just which single template happens to."""
-        rows = await self._s.scan_all(TEMPLATE_USES, limit)
+        sharing a `kind`, not just which single template happens to. `used_by` is the same
+        personal-narrowing as `stats()`."""
+        if used_by:
+            rows, _ = await self._s.find(TEMPLATE_USES, {"used_by": used_by}, limit=limit)
+        else:
+            rows = await self._s.scan_all(TEMPLATE_USES, limit)
         by_kind: dict[str, dict[str, Any]] = {}
         for r in rows:
             kind = r.get("kind", "")

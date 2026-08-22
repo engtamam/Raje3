@@ -53,6 +53,48 @@ async def test_tier_amount_is_a_pure_multiplier():
 
 
 @pytest.mark.anyio
+async def test_eligibility_preview_answers_how_close_without_ever_refusing():
+    """The whole point of this method: request() refuses below threshold, so a promoter could
+    never see his own progress without triggering a refusal. This must succeed at any count."""
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store)
+    await _stamp_n_shops(referrals, "mgr-1", 30)
+
+    out = await wafa.eligibility_preview("mgr-1")
+    assert out["active_shops"] == 30
+    assert out["tier_shops"] == 50
+    assert out["shops_until_next_tier"] == 20
+    assert out["eligible"] is False
+    assert out["current_tier_amount_halalas"] == 0
+
+
+@pytest.mark.anyio
+async def test_eligibility_preview_at_and_past_a_tier_boundary():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store)
+    await _stamp_n_shops(referrals, "mgr-1", 50)
+
+    out = await wafa.eligibility_preview("mgr-1")
+    assert out["eligible"] is True
+    assert out["current_tier_amount_halalas"] == 50000
+    # sitting exactly on a boundary — the NEXT one is a full tier away, not zero
+    assert out["shops_until_next_tier"] == 50
+
+
+@pytest.mark.anyio
+async def test_eligibility_preview_with_zero_shops():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, _ = build(store)
+    out = await wafa.eligibility_preview("mgr-1")
+    assert out["active_shops"] == 0
+    assert out["shops_until_next_tier"] == 50
+    assert out["eligible"] is False
+
+
+@pytest.mark.anyio
 async def test_below_threshold_is_refused_before_any_recommendation_is_computed():
     store = MemoryDataStore()
     await _seed_manager(store)

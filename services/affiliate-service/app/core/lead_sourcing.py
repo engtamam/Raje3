@@ -32,6 +32,7 @@ from app.core.models import (
     JOB_RUNNING,
     LEAD_ASSIGNED,
     LEAD_MANUAL_STATUSES,
+    LEAD_NOT_INTERESTED,
     LEAD_REGISTERED,
     LEAD_SEARCH_JOBS,
     LEADS,
@@ -282,6 +283,28 @@ class LeadSourcingService:
         rows, _ = await self._s.find(LEADS, {"assigned_to": affiliate_id}, limit=limit,
                                      sort=("found_at", "desc"))
         return [Lead.from_dict(r) for r in rows]
+
+    async def stale_leads(self, affiliate_id: str, *, stale_after_seconds: int = 3 * 86400,
+                          now: int | None = None, limit: int = 500) -> list[Lead]:
+        """A home screen's "بانتظارك الآن" candidate — a lead assigned to him with NO activity
+        (no note written, not even a status change) in the last `stale_after_seconds`. Never a
+        stored flag: computed fresh every read from `Lead.notes`' own timestamps, the same
+        append-only log every other action here already writes to, so nothing new has to be
+        kept in sync with lead activity.
+
+        LEAD_REGISTERED and LEAD_NOT_INTERESTED are excluded — both are a closed outcome, not
+        something "waiting" on the promoter; a lead sitting in either forever is not stale, it is
+        finished."""
+        now = now if now is not None else int(time.time())
+        leads = await self.leads_assigned_to(affiliate_id, limit=limit)
+        out = []
+        for lead in leads:
+            if lead.status in (LEAD_REGISTERED, LEAD_NOT_INTERESTED):
+                continue
+            last_activity = max([n.get("at", 0) for n in lead.notes], default=lead.found_at)
+            if now - last_activity >= stale_after_seconds:
+                out.append(lead)
+        return out
 
     def _note(self, lead: Lead, *, by: str, text: str = "", status_from: str = "",
              status_to: str = "") -> None:
