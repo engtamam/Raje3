@@ -55,7 +55,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "affiliates.change_password", "label": "تغيير كلمة المرور", "method": "POST",
         "path": "/api/v1/affiliates/me/change-password", "capability": "affiliates.self",
         "group": "حسابي",
-        "help": "يمرّ مباشرة لخدمة الهوية — لا كلمة مرور تُخزَّن هنا أبدًا.",
+        "help": "يتطلّب كلمة المرور الحالية — لا كلمة مرور تُخزَّن عندنا أبدًا.",
     },
     {
         "id": "affiliates.invite", "label": "دعوة مسوّق لفريقي", "method": "POST",
