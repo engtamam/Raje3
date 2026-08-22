@@ -27,6 +27,11 @@ RUN npm ci --no-audit --no-fund
 # theme, and the content globs scan its components — a stylesheet compiled without them is missing
 # every class the library uses, which renders as an unstyled page and not as an error.
 COPY platform/ui /build/platform/ui
+
+# THE BRAND ACCENT'S ONE SOURCE OF TRUTH — vite.config.ts reads config/product.json directly
+# (../../config/product.json from apps/console/) to inject __PRODUCT_ACCENT__. Missing this COPY
+# fails the build with an ENOENT rather than a wrong colour, which is the right kind of loud.
+COPY config/product.json /build/config/product.json
 COPY apps/console/ ./
 
 # META'S IDENTIFIERS ARE BAKED AT BUILD TIME, because vite resolves import.meta.env when it
