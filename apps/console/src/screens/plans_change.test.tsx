@@ -73,11 +73,11 @@ describe('«بدّل الباقة»', () => {
     expect(changeCalls).toEqual([{ id: 'sub_1', plan_id: 'base_pro' }]);
   });
 
-  it('reports the computed proration as a fact, not a promise, and reports credit correctly', async () => {
+  it('states the proration as a real promise now that billing-service applies it (v0.16.32)', async () => {
     open();
     await screen.findAllByText('الأساس الموسّع');
     fireEvent.click(screen.getByRole('button', { name: 'بدّل إلى هذه' }));
     fireEvent.click(await screen.findByRole('button', { name: 'تأكيد التبديل' }));
-    expect(await screen.findByText(/الفرق المحسوب لبقية هذه الفترة: 65 ريال إضافية/)).toBeTruthy();
+    expect(await screen.findByText(/سيُضاف 65 ريال لفاتورتك القادمة/)).toBeTruthy();
   });
 });

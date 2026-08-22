@@ -542,11 +542,14 @@ export function PlansPane({
   /** «بدّل الباقة» (audit #5) — THE ACTION THAT DID NOT EXIST. billing-service's `/change` route is
    *  whole, proration and all; nothing in this console ever called it, so switching base tiers
    *  meant a second «شراء» — a second subscription rather than a swap. The switch takes effect
-   *  immediately (his entitlements move to the new plan's limits the moment this returns); the
-   *  proration figure is REPORTED, not promised — billing_service.change_plan computes it and
-   *  hands it back, but nothing in that route writes it to an invoice or the ledger, so this says
-   *  «الفرق المحسوب» rather than «سيُضاف لفاتورتك»، which would be a promise the backend does not
-   *  keep today. */
+   *  immediately (his entitlements move to the new plan's limits the moment this returns).
+   *
+   *  THE PRORATION FIGURE IS NOW A REAL PROMISE (escalated as a follow-up finding, fixed
+   *  upstream v0.16.32 — billing_service.change_plan used to compute the delta and discard it;
+   *  it now accumulates as `pending_adjustment_minor` and folds into the NEXT invoice, VAT
+   *  included, with credit carried forward if it exceeds one cycle). So this says «سيُضاف
+   *  لفاتورتك القادمة» / «سيُخصم من فاتورتك القادمة» — an actual statement about what happens,
+   *  not the hedge it had to be while the backend only reported the number. */
   const changeBase = async () => {
     const a = action(catalog, 'billing.change_plan');
     if (!a || !baseSub || !confirmingChange) return;
@@ -558,8 +561,9 @@ export function PlansPane({
       const d = out?.proration_minor;
       setChangeNotice(
         typeof d === 'number' && d !== 0
-          ? `تم تبديل باقتك إلى «${confirmingChange.name}». الفرق المحسوب لبقية هذه الفترة: ${
-              d > 0 ? `${riyals(d)} ريال إضافية` : `${riyals(Math.abs(d))} ريال لصالحك`}.`
+          ? `تم تبديل باقتك إلى «${confirmingChange.name}». ${
+              d > 0 ? `سيُضاف ${riyals(d)} ريال لفاتورتك القادمة` : `سيُخصم ${riyals(Math.abs(d))} ريال من فاتورتك القادمة`
+            } — فرق سعر بقية هذه الفترة.`
           : `تم تبديل باقتك إلى «${confirmingChange.name}».`);
       load();
     } catch (e) {
@@ -857,7 +861,7 @@ export function PlansPane({
         <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
           <p className="mb-1 font-medium">تأكيد التبديل إلى «{confirmingChange.name}»</p>
           <p className="mb-4 text-sm text-text-secondary">
-            حدود باقتك الجديدة تسري فوراً. سيُحسب فرق السعر لبقية هذه الفترة تناسبياً.
+            حدود باقتك الجديدة تسري فوراً. فرق السعر لبقية هذه الفترة يُحتسب تناسبياً ويظهر في فاتورتك القادمة.
           </p>
           {changeError ? <p className="mb-3 text-sm text-danger">{changeError}</p> : null}
           <div className="flex gap-2">
