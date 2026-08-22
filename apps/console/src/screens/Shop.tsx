@@ -968,11 +968,15 @@ function ServicePopularity({ rows, names }: { rows: { service_id: string; count:
             <li key={r.service_id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span className="truncate font-medium">{names[r.service_id] || r.service_id}</span>
-                {/* SAID PLAINLY, NOT AS A BARE FRACTION. "2 · 67%" reads as two unrelated numbers
-                    with no unit — this states what each one counts, which the room beside it was
-                    already free to hold. */}
-                <span dir="ltr" className="shrink-0" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>
-                  {r.count} طلبات · {Math.round(r.share * 100)}% من الطلبات
+                {/* SAID PLAINLY, IN PLAIN WORDS, AND IN THE RIGHT ORDER. "2 · 67%" read as two
+                    unrelated numbers with no unit; wrapping the whole Arabic phrase in one
+                    `dir="ltr"` span (to keep the digits Western) reversed the WORD order too —
+                    "طُلبت 2 مرة" came out as "2 مرة طُلبت". Only the digits need `dir="ltr"`; the
+                    words around them stay in the page's own RTL flow. */}
+                <span className="shrink-0" style={{ color: 'var(--sh-ink-faint)' }}>
+                  طُلبت <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{r.count}</span> مرة
+                  {' · '}
+                  <span dir="ltr" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(r.share * 100)}%</span>
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>

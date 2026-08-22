@@ -1,5 +1,5 @@
 /**
- * «إلغاء الاشتراك» — the self-service cancel button that did not exist (audit #2, 2026-08-22).
+ * «إيقاف تجديد الاشتراك» — the self-service cancel button that did not exist (audit #2, 2026-08-22).
  * billing-service's cancel route was complete and reachable; nothing in this console ever called
  * it. These pin: the button targets the BASE subscription specifically (never an app row), asks
  * for confirmation before acting, and the screen reflects a pending cancellation honestly.
@@ -52,23 +52,23 @@ function open() {
   return render(<PlansPane session={session} catalog={catalog} owned={DENIED} onGoConnect={() => {}} />);
 }
 
-describe('«إلغاء الاشتراك»', () => {
+describe('«إيقاف تجديد الاشتراك»', () => {
   it('asks for confirmation before cancelling, and cancels the BASE by its subscription id', async () => {
     open();
-    const btn = await screen.findByRole('button', { name: 'إلغاء الاشتراك' });
+    const btn = await screen.findByRole('button', { name: 'إيقاف تجديد الاشتراك' });
     // Not yet acted on — no call fired by rendering the button alone.
     expect(cancelCalls.length).toBe(0);
 
     fireEvent.click(btn);
-    await screen.findByText('تأكيد إلغاء الاشتراك');
+    await screen.findByText('تأكيد إيقاف تجديد الاشتراك');
     // The date already on the summary card is repeated in the confirmation — no surprise later.
     expect(screen.getByText(/يستمر محلّك يعمل بلا أي تغيير حتى/)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'تأكيد الإلغاء' }));
+    fireEvent.click(screen.getByRole('button', { name: 'تأكيد إيقاف التجديد' }));
     await screen.findByText('قيد الإلغاء');
     expect(cancelCalls).toEqual([{ id: 'sub_1' }]);
     // The button is gone once cancellation is pending — pressing it twice is not offered.
-    expect(screen.queryByRole('button', { name: 'إلغاء الاشتراك' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'إيقاف تجديد الاشتراك' })).toBeNull();
   });
 
   it('backs out cleanly on «تراجع» without calling anything', async () => {
@@ -76,10 +76,10 @@ describe('«إلغاء الاشتراك»', () => {
     subs = [{ id: 'sub_1', plan_id: 'base', status: 'active',
              current_period_end: Math.floor(Date.UTC(2026, 8, 20) / 1000), cancel_at_period_end: false }];
     open();
-    fireEvent.click(await screen.findByRole('button', { name: 'إلغاء الاشتراك' }));
-    await screen.findByText('تأكيد إلغاء الاشتراك');
+    fireEvent.click(await screen.findByRole('button', { name: 'إيقاف تجديد الاشتراك' }));
+    await screen.findByText('تأكيد إيقاف تجديد الاشتراك');
     fireEvent.click(screen.getByRole('button', { name: 'تراجع' }));
-    expect(screen.queryByText('تأكيد إلغاء الاشتراك')).toBeNull();
+    expect(screen.queryByText('تأكيد إيقاف تجديد الاشتراك')).toBeNull();
     expect(cancelCalls.length).toBe(0);
   });
 });

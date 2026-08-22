@@ -470,7 +470,7 @@ function AppCard({
             // every other card. Colour is the fastest signal a glance reads; a destructive action
             // wearing the same tone as a neutral one is a colour that is not saying anything.
             <Button type="button" variant="danger" size="sm" disabled={canceling} onClick={onCancel}>
-              {canceling ? 'يُلغى…' : (cancelLabel || 'إلغاء')}
+              {canceling ? 'يُوقَف…' : (cancelLabel || 'إيقاف التجديد')}
             </Button>
           ) : null
         ) : onSwitch ? (
@@ -899,7 +899,7 @@ export function PlansPane({
           keeps working exactly as it does today, until the day already printed above. */}
       {confirmingCancel && baseSub ? (
         <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
-          <p className="mb-1 font-medium">تأكيد إلغاء الاشتراك</p>
+          <p className="mb-1 font-medium">تأكيد إيقاف تجديد الاشتراك</p>
           <p className="mb-4 text-sm text-text-secondary">
             {renewalDay(baseSub.current_period_end)
               ? `يستمر محلّك يعمل بلا أي تغيير حتى ${renewalDay(baseSub.current_period_end)}، ولن يتجدّد الاشتراك بعدها. لن نخصم منك شيئاً إضافياً.`
@@ -917,7 +917,7 @@ export function PlansPane({
           {cancelError ? <p className="mb-3 text-sm text-danger">{cancelError}</p> : null}
           <div className="flex gap-2">
             <Button type="button" variant="danger" disabled={cancelBusy} onClick={() => void cancelBase()}>
-              تأكيد الإلغاء
+              تأكيد إيقاف التجديد
             </Button>
             <Button type="button" variant="ghost" disabled={cancelBusy}
                     onClick={() => { setConfirmingCancel(false); setCancelError(''); }}>
@@ -1085,7 +1085,7 @@ export function PlansPane({
                         switching={changeBusy && confirmingChange?.id === p.id}
                         statusLabel={statusLabel}
                         statusTone={statusTone}
-                        cancelLabel="إلغاء الاشتراك"
+                        cancelLabel="إيقاف تجديد الاشتراك"
                         onCancel={isBaseSubRow && action(catalog, 'billing.cancel')
                           ? () => setConfirmingCancel(true) : undefined}
                         cancelPending={isBaseSubRow && Boolean(baseSub?.cancel_at_period_end)}
@@ -1169,7 +1169,7 @@ export function PlansPane({
                     ownedLabel="مفعّل"
                     buyLabel="أضِفه"
                     renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}
-                    cancelLabel="إلغاء هذا التطبيق"
+                    cancelLabel="إيقاف تجديد هذا التطبيق"
                     cancelPending={appSub?.cancel_at_period_end}
                     onCancel={appSub && action(catalog, 'billing.cancel')
                       ? () => void cancelApp(appSub.id) : undefined}
