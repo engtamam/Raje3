@@ -1,6 +1,6 @@
 /**
- * «محلّي» — rebuilt as one file (2026-08-22, Tamam: "نصمم بطريقتنا الاحترافية... ملف واحد مخصص
- * بالكامل"). Replaces Today.tsx + Local.tsx + this file's own old three-line shell.
+ * «محلّي» — rebuilt as one file: نصمم بطريقتنا الاحترافية، ملف واحد مخصص
+ * بالكامل. Replaces Today.tsx + Local.tsx + this file's own old three-line shell.
  *
  * OUR OWN PRESENTATION, NOT THE SPEC'S TAXONOMY. docs/وصف-منصة-راجع.md groups indicators into five
  * named categories (retention, cross-sell, segmentation, operational efficiency, staff) — that
@@ -944,44 +944,37 @@ function MissedOpportunities({ session, catalog, rows, names }: {
   );
 }
 
-/** A TILE PER SERVICE, SIZED AND SHADED BY DEMAND — a bar list already said this once as a length;
- *  this says it again as an area, which reads at a glance the way a bar chart reads only after
- *  scanning every row. Both size and colour depth carry the SAME variable (share of demand) rather
- *  than a second, invented one — a service's growth over time isn't data this snapshot has, and a
- *  colour that pretended to encode it would be a colour that lied. `flexBasis` approximates a
- *  treemap without a squarified-layout algorithm: honest proportional area, not pixel-exact packing. */
+/** A RANKED BAR LIST, THE SAME LANGUAGE `BranchCompare` BELOW ALREADY SPEAKS — a name, its real
+ *  count and share stated in numerals, and one thin teal bar under it sized against the busiest
+ *  service. The card used to size AND shade wrapped tiles by the same variable, which read as a
+ *  cluster of same-toned buttons rather than a ranking — two rows of nearly-equal mint green with
+ *  no baseline to compare against. A bar chart reads at a glance; a treemap of two items never had
+ *  enough rows to earn its own shape. One hue only (share of demand is a magnitude, not a
+ *  category), rounded ends, a hairline gap from the track — the marks this list's siblings use. */
 function ServicePopularity({ rows, names }: { rows: { service_id: string; count: number; share: number }[]; names: Record<string, string> }) {
   const top = rows.slice(0, 8);
-  const total = top.reduce((s, r) => s + r.count, 0) || 1;
+  const max = Math.max(1, ...top.map((r) => r.count));
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="text-[13px] font-semibold">الأكثر طلبًا عندك</h3>
-      <div className="flex flex-wrap gap-1.5">
+      <ul className="flex flex-col gap-2.5">
         {top.map((r) => {
-          const pct = r.count / total;
-          // A FLOOR ON WIDTH so a 2%-of-demand service still fits its name, AND A CEILING so one
-          // busy service never swallows the whole row — the number beside it still says the real
-          // share either way, so the tile's size is a hint, never the only place the truth lives.
-          const basis = Math.min(58, Math.max(24, Math.round(pct * 100)));
+          const pct = Math.round((r.count / max) * 100);
           return (
-            <div
-              key={r.service_id}
-              className="flex flex-col gap-0.5 rounded-lg px-2.5 py-1.5"
-              style={{
-                flexBasis: `${basis}%`,
-                background: `color-mix(in srgb, var(--sh-teal) ${Math.round(18 + pct * 72)}%, white)`,
-              }}
-            >
-              <span className="truncate text-[11.5px] font-semibold leading-tight" style={{ color: 'var(--sh-teal-deep)' }}>
-                {names[r.service_id] || r.service_id}
-              </span>
-              <span dir="ltr" className="text-[10px] font-medium" style={{ color: 'var(--sh-teal-deep)', fontVariantNumeric: 'tabular-nums' }}>
-                {r.count} · {Math.round(r.share * 100)}%
-              </span>
-            </div>
+            <li key={r.service_id} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2 text-[12.5px]">
+                <span className="truncate font-medium">{names[r.service_id] || r.service_id}</span>
+                <span dir="ltr" className="shrink-0" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>
+                  {r.count} · {Math.round(r.share * 100)}%
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--sh-teal)' }} />
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }
