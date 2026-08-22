@@ -28,8 +28,8 @@ import { useEffect, useState } from 'react';
 import {
   AlertTriangle, Cake, Gift, Info, Megaphone, RotateCcw, Tag, type LucideIcon,
 } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { Button } from '../rj-ui/Button';
+import { Segmented } from '../rj-ui/Segmented';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';

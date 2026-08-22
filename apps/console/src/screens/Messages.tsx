@@ -30,10 +30,11 @@ import { useSearchParams } from 'react-router-dom';
 import { Badge } from '../rj-ui/Badge';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Segmented } from '../rj-ui/Segmented';
+import { FilterMenu } from '../rj-ui/FilterMenu';
 import { DENIED, hasFailed, isDenied, isLoading, isReady, type Loading } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { Toggle } from '../rj-ui/Toggle';
-import { Lock } from 'lucide-react';
+import { AlertTriangle, Gauge, Lock } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { Launch } from './Launch';
 import { LockedCard } from './Locked';
@@ -185,6 +186,88 @@ function asLocal(phone: string): string {
   return d.startsWith('966') ? `0${d.slice(3)}` : d;
 }
 
+/**
+ * «هل كل شيء يعمل؟» — everything `reminders.today` answers, in one call (owner.py's own note on
+ * the route: no screen had ever called it before this pass). This IS the summary the section was
+ * missing: whether sending is blocked at all, how many messages are calmly waiting versus stuck
+ * retrying, and how much of today's WhatsApp ceiling is left.
+ */
+interface Today {
+  can_send: boolean;
+  /** Empty when nothing is wrong — a field that always carries a sentence becomes furniture. */
+  blocked: string;
+  messages: { sent_today: number; waiting: number; retrying: number; retrying_reason: string };
+  ceiling: {
+    known: boolean; unlimited: boolean; limit?: number; reached_today?: number;
+    remaining?: number; quality?: string;
+  };
+}
+
+/** GREEN | YELLOW | RED | NA | UNKNOWN — Meta's own scale (services/reminders/core/ceiling.py).
+ *  The last two are deliberately unmapped: a quality we could not read is not «متوسطة», it is
+ *  nothing to say at all. */
+const QUALITY_LABEL: Record<string, string> = { GREEN: 'ممتازة', YELLOW: 'متوسطة', RED: 'ضعيفة' };
+
+/** One number, named. Three of these make the whole «هل كل شيء يعمل؟» answer scannable in the
+ *  half-second an owner actually spends on it. */
+function Stat({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
+  return (
+    <div className="flex flex-1 flex-col items-center gap-0.5 px-2 text-center">
+      <span className={[
+        'text-lg font-semibold tabular-nums',
+        warn && value > 0 ? 'text-warning' : 'text-text-primary',
+      ].join(' ')}>
+        {value}
+      </span>
+      <span className="text-xs text-text-secondary">{label}</span>
+    </div>
+  );
+}
+
+/**
+ * THE CARD THAT DID NOT EXIST. «رسائلي» is the screen an owner opens nervous — something went out
+ * or did not — and it never said, in one glance, whether sending was even possible today. Sending
+ * is blocked entirely (one sentence, in red, above everything else); or it is not, and three
+ * numbers say what is happening right now; and the WhatsApp ceiling, when it is close, is the
+ * quiet line under them rather than a fourth number competing for attention.
+ */
+function TodayCard({ today }: { today: Today }) {
+  // DEFENSIVE ALL THE WAY DOWN. `today` arrives from one network call, same as every other
+  // reader in this file — `messages` or `ceiling` missing from a malformed or partial answer
+  // must not crash the screen it decorates; it should just draw the parts that did arrive.
+  const messages = today.messages ?? { sent_today: 0, waiting: 0, retrying: 0, retrying_reason: '' };
+  const ceiling = today.ceiling ?? { known: false, unlimited: false };
+  const quality = QUALITY_LABEL[ceiling.quality ?? ''];
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border-subtle bg-surface-1 p-4 shadow-sm">
+      {today.blocked ? (
+        <div className="flex items-start gap-2 rounded-lg bg-danger-soft p-3 text-sm text-danger-on-soft">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+          <p>{today.blocked}</p>
+        </div>
+      ) : (
+        <div className="flex items-stretch divide-x divide-border-subtle rtl:divide-x-reverse">
+          <Stat label="خرجت اليوم" value={messages.sent_today ?? 0} />
+          <Stat label="بانتظار الخروج" value={messages.waiting ?? 0} />
+          <Stat label="تعيد المحاولة" value={messages.retrying ?? 0} warn />
+        </div>
+      )}
+      {messages.retrying_reason ? (
+        <p className="text-xs text-text-secondary">{messages.retrying_reason}</p>
+      ) : null}
+      {ceiling.known && !ceiling.unlimited ? (
+        <p className="flex items-center gap-1.5 border-t border-border-subtle pt-3 text-xs text-text-secondary">
+          <Gauge size={13} className="shrink-0" aria-hidden />
+          <span className="tabular-nums">
+            {`سقف واتساب اليوم: ${ceiling.remaining ?? 0} متبقٍّ من ${ceiling.limit ?? 0}`}
+          </span>
+          {quality ? ` · جودة الحساب: ${quality}` : ''}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function MessagesScreen(
   { session, catalog, owned }:
   { session: Session; catalog: Catalog; owned?: Loading<Owned> },
@@ -211,18 +294,26 @@ export function MessagesScreen(
   /** THE TWO FILTERS, AND THEY LIVE HERE RATHER THAN IN THE URL. A filter a person set to answer
    *  one question is not a place he wants to come back to tomorrow — «موقوفة» remembered across a
    *  session would hide his working messages the next time he opened the screen, and he would
-   *  read that as the product having switched them off. */
-  const [clsFilter, setClsFilter] = useState('');
+   *  read that as the product having switched them off.
+   *
+   *  THE CLASS FILTER IS AN ARRAY, ON `FilterMenu`. A shop asking «which of mine are marketing OR
+   *  personal» is one real question, and a single-select pill could never answer it — it could
+   *  only be asked one class at a time. */
+  const [clsFilter, setClsFilter] = useState<string[]>([]);
   const [stateFilter, setStateFilter] = useState<'' | 'on' | 'off'>('');
 
-  /** The rows the two pills leave standing. Nothing is invented and nothing is re-ordered: the
+  /** The rows the two filters leave standing. Nothing is invented and nothing is re-ordered: the
    *  server's order is the product's order, and a filter that also sorted would make «where did
    *  that row go» a second question. */
   const shown = (isReady(reasons) ? reasons : []).filter(
-    (t) => (!clsFilter || t.cls === clsFilter)
+    (t) => (clsFilter.length === 0 || clsFilter.includes(t.cls ?? ''))
       && (!stateFilter || (stateFilter === 'on' ? t.on : !t.on)),
   );
   const [switchError, setSwitchError] = useState('');
+
+  /** «هل كل شيء يعمل؟» — read once, with the screen, same as the reasons table below it: it is
+   *  the first thing an owner wants an answer to, so it is not gated behind any tab. */
+  const [today, setToday] = useState<Loading<Today>>(undefined);
 
   /**
    * WHAT WENT OUT AND WHAT DID NOT, WITH THE REASON.
@@ -252,8 +343,17 @@ export function MessagesScreen(
   /** The composer, open only when he asks for it — this tab is a list first. Except arriving with
    *  `?launch=`, where asking for it again would be the second ask this turn already answered. */
   const [launching, setLaunching] = useState(Boolean(launchGoal));
-  /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
+  /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own.
+   *  `runsFor` is WHICH campaign it belongs to — without it the panel had one place to render
+   *  (under the whole list) rather than under the row that asked for it, so a shop with more than
+   *  one campaign saw «ماذا حدث» open somewhere its own row never pointed to. */
   const [runs, setRuns] = useState<Run[] | null | undefined>(undefined);
+  const [runsFor, setRunsFor] = useState('');
+  /** Which row's «ماذا حدث»/«أوقفها» is mid-request — so a second tap while the first is still in
+   *  flight does nothing rather than firing the same call twice. */
+  const [campaignBusy, setCampaignBusy] = useState('');
+  /** Same idea, for a scheduled message's own «أوقفها» in the «بانتظار الخروج» tab. */
+  const [cancelBusy, setCancelBusy] = useState('');
   /**
    * PSEUDONYM → THE CUSTOMER, and this is what made the whole section useless without it.
    *
@@ -291,6 +391,16 @@ export function MessagesScreen(
       // A FAILED READ IS NOT AN EMPTY SYSTEM. `[]` here would tell an owner his shop sends
       // nothing, which is the one sentence that must never be shown by mistake.
       .catch(() => setReasons(null));
+  }, [session, catalog]);
+
+  // THE SUMMARY, ONCE, WITH THE SCREEN. Cheap by its own design (owner.py's docstring: one call
+  // rather than four, exactly so a status screen is never briefly wrong) — and silent on failure
+  // or denial rather than a second error box: it is a bonus answer layered over a screen that
+  // already works without it, not a thing this screen is named after.
+  useEffect(() => {
+    const a = action(catalog, 'reminders.today');
+    if (!a) { setToday(DENIED); return; }
+    call<Today>(session, a).then(setToday).catch(() => setToday(null));
   }, [session, catalog]);
 
   const flip = async (row: ReasonRow, on: boolean) => {
@@ -415,12 +525,18 @@ export function MessagesScreen(
   };
 
   const openRuns = async (id: string) => {
+    // A SECOND TAP CLOSES IT, rather than re-fetching the same answer — the whole point of
+    // pinning the panel to a row is that pressing that row's own button again is «hide it».
+    if (runsFor === id) { setRuns(null); setRunsFor(''); return; }
     const a = action(catalog, 'campaigns.runs');
     if (!a) return;
+    setRunsFor(id);
+    setCampaignBusy(`runs:${id}`);
     // AN EMPTY LIST RATHER THAN A CLOSED PANEL ON FAILURE: he asked a question, and silence is
     // the one answer that sends him to support.
     setRuns(await call<{ runs: Run[] }>(session, a, { campaign_id: id })
       .then((r) => r.runs ?? []).catch(() => []));
+    setCampaignBusy('');
   };
 
   /** Re-read the list — after a launch, so the campaign he just started is on screen. */
@@ -434,6 +550,12 @@ export function MessagesScreen(
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      {isLoading(today) ? (
+        <Skeleton height={76} radius="card" />
+      ) : isReady(today) ? (
+        <TodayCard today={today} />
+      ) : null}
+
       <Segmented
         // FULL WIDTH, SPLIT EVENLY, NEVER WRAPPED. The kit's Segmented is
         // `inline-flex flex-wrap`, which on a phone stacks two long Arabic labels into a
@@ -460,33 +582,29 @@ export function MessagesScreen(
               engine the first time a reason changed, and he would be reading a promise nothing
               keeps. */}
           {switchError ? <p className="px-1 text-sm text-danger">{switchError}</p> : null}
-          {/* ── what this list is, in one line, before he reads thirteen rows ────────────────
+          {/* ── ONE LINE, NOT TWO. Both facts an owner needs before reading thirteen rows —
+              what he has, and where the ones HE launches live — now share a sentence instead of
+              stacking as two paragraphs above a table he has not reached yet.
               «عدد الرسائل قليل» was the first reading of a flat list — and it was a reading, not
               a fact: the four promotional reasons were always here, indistinguishable from the
-              rest. The count says what he has; the badges say which is which; and the sentence
-              below answers the question the count raises next, which is where the campaigns went. */}
+              rest. The count says what he has; the badges say which is which. And the promotional
+              rows here fire THEMSELVES — a campaign is one he presses send on, both need his
+              customer's consent, and a screen naming one without the other reads as half a
+              product. */}
           {Array.isArray(reasons) && reasons.length > 0 ? (
-            <div className="flex flex-col gap-1 px-1">
-              <p className="text-sm text-text-secondary">
-                {`${reasons.length} سبباً يرسل باسم محلّك — `}
-                {Object.entries(
-                  reasons.reduce<Record<string, number>>((acc, r) => {
-                    const k = r.cls_label ?? 'أخرى';
-                    acc[k] = (acc[k] ?? 0) + 1;
-                    return acc;
-                  }, {}),
-                )
-                  .map(([label, n]) => `${n} ${label}`)
-                  .join(' · ')}
-              </p>
-              {/* THE PROMOTIONAL ROWS HERE FIRE THEMSELVES; a campaign is one he presses send on.
-                  Both are marketing and both need his customer's consent — the difference is who
-                  decides the moment, and a screen that shows one without naming the other reads
-                  as a product missing half its features. */}
-              <p className="text-xs text-text-secondary">
-                التسويقية هنا تنطلق وحدها عند حدوث سببها. أما ما تُطلقه أنت بنفسك فهو في «حملاتي».
-              </p>
-            </div>
+            <p className="px-1 text-sm text-text-secondary">
+              {`${reasons.length} سبباً يرسل باسم محلّك — `}
+              {Object.entries(
+                reasons.reduce<Record<string, number>>((acc, r) => {
+                  const k = r.cls_label ?? 'أخرى';
+                  acc[k] = (acc[k] ?? 0) + 1;
+                  return acc;
+                }, {}),
+              )
+                .map(([label, n]) => `${n} ${label}`)
+                .join(' · ')}
+              {' — التسويقية تنطلق وحدها؛ ما تُطلقه أنت بنفسك ففي «حملاتي».'}
+            </p>
           ) : null}
           {isLoading(reasons) ? (
             <Skeleton height={200} />
@@ -523,47 +641,22 @@ export function MessagesScreen(
                   ON THE ROW'S OWN FACTS, NEVER ON A SECOND LIST. Both filters read `cls` and `on`
                   from the rows the server sent; nothing here invents a category or remembers one. */}
               <div className="flex flex-wrap items-center gap-2 px-1">
-                <div className="flex flex-wrap items-center gap-1">
-                  {[['', 'الكل'], ...CLASS_ORDER.map((c) => [c, CLASS_LABEL[c]] as const)].map(
-                    ([value, label]) => (
-                      <button
-                        key={value || 'all'}
-                        type="button"
-                        onClick={() => setClsFilter(value as string)}
-                        aria-pressed={clsFilter === value}
-                        className={[
-                          'rounded-full px-2.5 py-1 text-xs',
-                          clsFilter === value
-                            ? 'bg-accent-soft text-accent-on-soft'
-                            : 'bg-surface-2 text-text-secondary',
-                        ].join(' ')}
-                      >
-                        {label}
-                      </button>
-                    ),
-                  )}
-                </div>
-                <span className="text-text-secondary">·</span>
-                <div className="flex flex-wrap items-center gap-1">
-                  {([['', 'الكل'], ['on', 'مفعّلة'], ['off', 'موقوفة']] as const).map(
-                    ([value, label]) => (
-                      <button
-                        key={value || 'any'}
-                        type="button"
-                        onClick={() => setStateFilter(value)}
-                        aria-pressed={stateFilter === value}
-                        className={[
-                          'rounded-full px-2.5 py-1 text-xs',
-                          stateFilter === value
-                            ? 'bg-accent-soft text-accent-on-soft'
-                            : 'bg-surface-2 text-text-secondary',
-                        ].join(' ')}
-                      >
-                        {label}
-                      </button>
-                    ),
-                  )}
-                </div>
+                <FilterMenu
+                  label="النوع"
+                  options={CLASS_ORDER.map((c) => ({ value: c, label: CLASS_LABEL[c] }))}
+                  selected={clsFilter}
+                  onChange={setClsFilter}
+                />
+                <Segmented
+                  ariaLabel="تصفية بالحالة"
+                  value={stateFilter}
+                  onChange={setStateFilter}
+                  options={[
+                    { value: '', label: 'الكل' },
+                    { value: 'on', label: 'مفعّلة' },
+                    { value: 'off', label: 'موقوفة' },
+                  ]}
+                />
               </div>
 
               {/* A FILTER THAT MATCHES NOTHING SAYS SO. An empty table under two pressed pills
@@ -605,44 +698,52 @@ export function MessagesScreen(
                         <span className="truncate text-xs text-text-secondary">{t.when}</span>
                       </button>
 
-                      {/* THE STATE IN A WORD, BESIDE THE SWITCH THAT CHANGES IT. The switch alone
-                          is readable to a person watching for it and invisible to one scanning
-                          fast — and «موقوفة» is exactly what the filter above promises to find. */}
-                      <span className="shrink-0 text-xs text-text-secondary">
-                        {t.can_switch ? (t.on ? 'مفعّلة' : 'موقوفة') : ''}
-                      </span>
+                      {/* ONE FIXED-WIDTH COLUMN, so thirteen switches line up under one another
+                          instead of each sitting wherever its own row's text happened to end. */}
+                      <span className="flex w-24 shrink-0 items-center justify-end gap-2">
+                        {/* THE STATE IN A WORD, BESIDE THE SWITCH THAT CHANGES IT. The switch
+                            alone is readable to a person watching for it and invisible to one
+                            scanning fast — and «موقوفة» is exactly what the filter above promises
+                            to find. */}
+                        <span className="text-xs text-text-secondary">
+                          {t.can_switch ? (t.on ? 'مفعّلة' : 'موقوفة') : ''}
+                        </span>
 
-                      {t.can_switch ? (
-                        // THE NAME STAYS, THE SECOND COPY GOES. The kit uses `label` for BOTH the
-                        // switch's accessible name and a visible caption beside it — so every row
-                        // printed its own title twice. Hiding it VISUALLY ONLY keeps it in the
-                        // accessibility tree, where it is the one thing that makes thirteen
-                        // identical switches distinguishable.
-                        <span className="shrink-0 [&_label>span]:sr-only">
-                          <Toggle
-                            label={t.label}
-                            checked={t.on}
-                            disabled={busy === t.id}
-                            onChange={(on) => flip(t, on)}
-                          />
-                        </span>
-                      ) : (
-                        // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying
-                        // does nothing; a lock with a reason answers before he asks.
-                        <span className="flex shrink-0 items-center gap-1 text-xs text-text-secondary">
-                          <Lock size={14} aria-hidden />
-                          حقٌّ لعميلك
-                        </span>
-                      )}
+                        {t.can_switch ? (
+                          // THE NAME STAYS, THE SECOND COPY GOES. The kit uses `label` for BOTH
+                          // the switch's accessible name and a visible caption beside it — so
+                          // every row printed its own title twice. Hiding it VISUALLY ONLY keeps
+                          // it in the accessibility tree, where it is the one thing that makes
+                          // thirteen identical switches distinguishable.
+                          <span className="[&_label>span]:sr-only">
+                            <Toggle
+                              label={t.label}
+                              checked={t.on}
+                              disabled={busy === t.id}
+                              onChange={(on) => flip(t, on)}
+                            />
+                          </span>
+                        ) : (
+                          // NOT A DISABLED SWITCH. A greyed toggle invites him to try, and trying
+                          // does nothing; a lock with a reason answers before he asks.
+                          <span className="flex items-center gap-1 text-xs text-text-secondary">
+                            <Lock size={14} aria-hidden />
+                            حقٌّ لعميلك
+                          </span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
+              {/* MOVED UP FROM UNDER THE WHOLE LIST — a note about what the switch above does
+                  belongs beside the switches, not after a reader has already scrolled past all
+                  thirteen of them. */}
+              <p className="px-1 text-xs text-text-secondary">
+                الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
+              </p>
             </>
           )}
-          <p className="px-1 text-xs text-text-secondary">
-            الإيقاف يوقف هذا النوع كلّه — وما هو في الطابور الآن يسقط معه.
-          </p>
           {reading ? (
             <MessagePreview
               session={session}
@@ -718,14 +819,17 @@ export function MessagesScreen(
                       {action(catalog, 'reminders.cancel') && r.id ? (
                         <Button
                           variant="ghost"
+                          disabled={cancelBusy === r.id}
                           onClick={async () => {
                             const a2 = action(catalog, 'reminders.cancel');
                             if (!a2 || !r.id) return;
+                            setCancelBusy(r.id);
                             await call(session, a2, { id: r.id }).catch(() => null);
+                            setCancelBusy('');
                             loadSchedule();
                           }}
                         >
-                          أوقفها
+                          {cancelBusy === r.id ? 'تُوقَف…' : 'أوقفها'}
                         </Button>
                       ) : null}
                     </li>
@@ -903,75 +1007,95 @@ export function MessagesScreen(
               description="اختر شريحة من عملائك الموافقين وأرسل لهم عرضاً."
             />
           ) : (
+            // ONE ROW SHAPE, EVERYWHERE ON THIS SCREEN. This used to hash the name, the sent
+            // count, a badge and two buttons into one horizontal line with nothing to wrap on a
+            // narrow phone — «بانتظار الخروج» already solved this with a stacked card, and a
+            // campaign is exactly as much information as a queued message.
             <ul className="flex flex-col gap-2">
               {campaigns.map((c) => (
-                <li key={c.id} className="flex items-center justify-between">
-                  <span>{GOAL_TITLE[c.goal ?? ''] || c.goal || 'حملة'}</span>
-                  <span className="flex items-center gap-2">
-                    {typeof c.sent === 'number' ? (
-                      <span className="tabular-nums text-text-secondary">{c.sent} أُرسلت</span>
-                    ) : null}
+                <li key={c.id} className="flex flex-col gap-2 rounded-card bg-surface-1 p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate font-medium">
+                        {GOAL_TITLE[c.goal ?? ''] || c.goal || 'حملة'}
+                      </span>
+                      {typeof c.sent === 'number' ? (
+                        <span className="text-sm text-text-secondary tabular-nums">
+                          {c.sent} أُرسلت
+                        </span>
+                      ) : null}
+                    </span>
                     {c.state ? (
                       <Badge tone={c.state === 'active' ? 'accent' : 'neutral'}>
                         {STATE[c.state] ?? c.state}
                       </Badge>
                     ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     {/* «ماذا حدث» — THE MOST IMPORTANT ROUTE THIS SERVICE HAS, by its own note:
                         "it didn't arrive" is the only complaint this product generates, and every
                         correct refusal (consent, the ceiling, quiet hours) reads as a fault until
                         it is named. It was declared and called by nothing. */}
                     {action(catalog, 'campaigns.runs') ? (
-                      <Button variant="ghost" onClick={() => void openRuns(c.id)}>ماذا حدث</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={campaignBusy === `runs:${c.id}`}
+                        aria-expanded={runsFor === c.id}
+                        onClick={() => void openRuns(c.id)}
+                      >
+                        {campaignBusy === `runs:${c.id}` ? 'يُحمَّل…' : 'ماذا حدث'}
+                      </Button>
                     ) : null}
                     {/* STOPPING A STANDING RULE, not deleting its history. Only while it runs —
                         a pause button on a finished campaign is a control that does nothing. */}
                     {c.state === 'active' && action(catalog, 'campaigns.pause') ? (
                       <Button
                         variant="ghost"
+                        size="sm"
+                        disabled={campaignBusy === `pause:${c.id}`}
                         onClick={async () => {
                           const a2 = action(catalog, 'campaigns.pause');
                           if (!a2) return;
+                          setCampaignBusy(`pause:${c.id}`);
                           await call(session, a2, { campaign_id: c.id }).catch(() => null);
+                          setCampaignBusy('');
                           loadCampaigns();
                         }}
                       >
-                        أوقفها
+                        {campaignBusy === `pause:${c.id}` ? 'تُوقَف…' : 'أوقفها'}
                       </Button>
                     ) : null}
-                  </span>
+                  </div>
+
+                  {/* WHAT ACTUALLY WENT OUT, PER SEND, WITH ITS REASON. Opened under ITS OWN
+                      row — never under the whole list — so a shop with more than one campaign
+                      can actually tell which one the panel is answering for. */}
+                  {runsFor === c.id && runs ? (
+                    <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+                      {runs.length === 0 ? (
+                        <p className="text-sm text-text-secondary">لم تخرج إرسالة بعد.</p>
+                      ) : (
+                        runs.map((r, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
+                            <span className="flex flex-col">
+                              <span className="text-sm tabular-nums">
+                                {r.sent ?? 0} وصلت · {r.suppressed ?? 0} امتنعت
+                              </span>
+                              {r.reason ? (
+                                <span className="text-xs text-text-secondary">{r.reason}</span>
+                              ) : null}
+                            </span>
+                            <span className="text-xs text-text-secondary">{when(r.at ?? 0)}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
-
-          {/* WHAT ACTUALLY WENT OUT, PER SEND, WITH ITS REASON. Opened under the campaign it
-              belongs to rather than on a page of its own: the question is always about ONE
-              campaign, and a combined log is a log he has to filter before he can read it. */}
-          {runs ? (
-            <div className="flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">ماذا حدث</span>
-                <Button variant="ghost" onClick={() => setRuns(null)}>إغلاق</Button>
-              </div>
-              {runs.length === 0 ? (
-                <p className="text-sm text-text-secondary">لم تخرج إرسالة بعد.</p>
-              ) : (
-                runs.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 first:border-0 first:pt-0">
-                    <span className="flex flex-col">
-                      <span className="text-sm tabular-nums">
-                        {r.sent ?? 0} وصلت · {r.suppressed ?? 0} امتنعت
-                      </span>
-                      {r.reason ? (
-                        <span className="text-xs text-text-secondary">{r.reason}</span>
-                      ) : null}
-                    </span>
-                    <span className="text-xs text-text-secondary">{when(r.at ?? 0)}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : null}
         </section>
       )}
     </div>

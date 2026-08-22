@@ -21,8 +21,15 @@
  * that copy — so typing never causes a rewrite, and an external change still lands.
  */
 import { useEffect, useRef, useState } from 'react';
+// STAYS ON THE KIT'S MODAL, DELIBERATELY. This one opens NESTED — while MessagePreview's own
+// Modal is already open (`writing` inside it, MessagePreview.tsx) — and rj-ui/Modal's own scope
+// note says exactly this case is unhandled: a single-dialog implementation with no stacking
+// registry, so two of them open at once would both bind Escape and both close together. The
+// kit's Modal exists precisely to coordinate that; reimplementing its registry here risks the
+// bug it was built to prevent the moment this modal ever had to coexist with another one — which
+// is exactly what happens the first time an owner opens the editor from inside the preview.
 import { Modal } from '@base-ui/design-system/Modal';
-import { Button } from '@base-ui/design-system/Button';
+import { Button } from '../rj-ui/Button';
 import { Lock, Plus } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';

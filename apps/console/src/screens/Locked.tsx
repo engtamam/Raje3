@@ -18,8 +18,8 @@
  */
 import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { hasFailed, isReady, type Loading } from '../loading';
 import { STORE_PATH } from '../nav';
 import { APP_ROWS, owns, type Owned } from '../apps';

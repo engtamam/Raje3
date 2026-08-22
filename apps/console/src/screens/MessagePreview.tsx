@@ -15,11 +15,16 @@
  * shape ten thousand times, so he judges the words instead of learning a layout.
  */
 import { useEffect, useState } from 'react';
+// STAYS ON THE KIT'S MODAL, DELIBERATELY. This screen opens TextEditor NESTED inside itself
+// (`writing`, below) — and the kit's Modal is the one with an actual stacking registry, so only
+// the top dialog binds Escape when two are open together. rj-ui/Modal is single-dialog only by
+// its own scope note; swapping just this one half of the pair would not make them coordinate —
+// the registry only knows about other kit Modals — so both stay on it rather than one.
 import { Modal } from '@base-ui/design-system/Modal';
-import { Badge } from '@base-ui/design-system/Badge';
-import { Button } from '@base-ui/design-system/Button';
+import { Badge } from '../rj-ui/Badge';
+import { Button } from '../rj-ui/Button';
 import { isDenied, isReady, DENIED, hasFailed, isLoading, type Loading } from '../loading';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { Check, Lock } from 'lucide-react';
 import { TextEditor, type Mandatory, type Slot } from './TextEditor';
 import { action, call, type Catalog } from '../catalog';

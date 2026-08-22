@@ -64,10 +64,12 @@ describe('«متى نرسل» — a table a question can be asked of', () => {
     expect(screen.getByText('بعد عشر دقائق')).toBeTruthy();
   });
 
-  it('narrows to one class when its pill is pressed', async () => {
+  it('narrows to one class when it is picked from the class filter', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    fireEvent.click(screen.getByRole('button', { name: 'تسويقية' }));
+    // FilterMenu — the trigger opens the list, then the option itself is a listbox row.
+    fireEvent.click(screen.getByRole('button', { name: 'النوع' }));
+    fireEvent.click(screen.getByRole('option', { name: 'تسويقية' }));
     expect(rows('استرجاع')).toBeGreaterThan(0);
     // The one he is answerable for, alone — which is the whole reason this filter exists.
     expect(rows('سُجّلت زيارة')).toBe(0);
@@ -77,7 +79,7 @@ describe('«متى نرسل» — a table a question can be asked of', () => {
   it('narrows to what is switched off', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    fireEvent.click(screen.getByRole('button', { name: 'موقوفة' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'موقوفة' }));
     expect(rows('استرجاع')).toBeGreaterThan(0);
     expect(rows('سُجّلت زيارة')).toBe(0);
   });
@@ -85,8 +87,9 @@ describe('«متى نرسل» — a table a question can be asked of', () => {
   it('combines both, because that is the question people actually have', async () => {
     open();
     await screen.findAllByText('سُجّلت زيارة');
-    fireEvent.click(screen.getByRole('button', { name: 'خدمية' }));
-    fireEvent.click(screen.getByRole('button', { name: 'موقوفة' }));
+    fireEvent.click(screen.getByRole('button', { name: 'النوع' }));
+    fireEvent.click(screen.getByRole('option', { name: 'خدمية' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'موقوفة' }));
     // A service message that is switched off: none here — and the screen says so rather than
     // showing an empty box under two pressed pills.
     expect(screen.getByText(/لا شيء بهذا الوصف/)).toBeTruthy();
