@@ -122,7 +122,14 @@ export function ShopScreen() {
     // indicators (what this screen is FOR) stay the wide lead column; today's pulse and the recent
     // list — both short, glanceable strips — share a narrower side column, the way a dashboard
     // that was designed for a desktop, not stretched onto one, would place them.
-    <div style={TOKENS} className="flex flex-col gap-3 p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-4">
+    //
+    // `-m-4 sm:-m-6 md:-m-8` CANCELS THE SHELL'S OWN PADDING (AppShell's content wrapper carries
+    // no background of its own — it just inherits the shell's ivory `bg-surface-0`), then `p-4
+    // sm:p-6 md:p-8` reapplies the identical spacing as OUR OWN padding, over OUR OWN ground. Left
+    // as inherited padding, that gap was a strip of the old platform's ivory framing every card on
+    // every side — the seam that made a screen with a brand-new identity read as pasted onto an
+    // unchanged shell rather than actually redesigned.
+    <div style={TOKENS} className="-m-4 flex flex-col gap-3 p-4 sm:-m-6 sm:p-6 md:-m-8 md:p-8 lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-4">
       <div className="flex flex-col gap-3 lg:order-2">
         <TodayPulse session={session} catalog={catalog} />
         <RecentVisits session={session} catalog={catalog} />
