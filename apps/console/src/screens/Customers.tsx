@@ -19,11 +19,11 @@ import { hasFailed, isDenied, isLoading, isReady, DENIED, type Loading } from '.
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search } from 'lucide-react';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Button } from '@base-ui/design-system/Button';
-import { Segmented } from '@base-ui/design-system/Segmented';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { Badge } from '@base-ui/design-system/Badge';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Button } from '../rj-ui/Button';
+import { Segmented } from '../rj-ui/Segmented';
+import { Skeleton } from '../rj-ui/Skeleton';
+import { Badge } from '../rj-ui/Badge';
 import { action, call, type Catalog } from '../catalog';
 import { suggestByPrefix, type CustomerHit } from '../api';
 import type { Session } from '../session';
