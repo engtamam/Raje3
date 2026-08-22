@@ -8,20 +8,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createElement } from 'react';
+import type { Booking } from '../api';
 
 const asked: { fn: string; args: unknown[] }[] = [];
 
-const BOOKING = {
+// TYPED AS THE REAL `Booking`, NOT `as const` — a literal-narrowed BOOKING made every override
+// below (a different id, a different service, `payment_status: 'deposit'`) a type error against
+// a fixture that was never meant to be the only shape a booking can take.
+const BOOKING: Booking = {
   id: 'bkg_1', branch_id: 'b1', operator_id: 'op1', customer_id: 'c1',
   service_ids: ['svc1'], starts_at: 1786860000, duration_minutes: 30,
   status: 'booked', series_id: null, series_seq: null, visit_id: null,
-  payment_status: 'none', deposit_amount_minor: null, note: '', reason_no_show: null, created: 1, created_by: '',
+  payment_status: 'none', deposit_amount_minor: null, price_override_minor: null, intended_reward_id: null,
+  note: '', reason_no_show: null, created: 1, created_by: '',
   updated: 1, cancelled_reason: null, thumb_up: null, rev: 1,
-} as const;
+};
 
 // A SINGLE OVERRIDABLE ROW — most tests want the plain default; the payment-pill test below
 // swaps this for one carrying a real deposit before rendering, and restores it in `afterEach`.
-let bookingsOverride: typeof BOOKING[] = [BOOKING];
+let bookingsOverride: Booking[] = [BOOKING];
 // 0=Monday..6=Sunday, all open 08:00-22:00 by default — most tests never touch working hours.
 let weeklyOverride: Record<string, { closed: boolean; start_minute: number; end_minute: number }> =
   Object.fromEntries(Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));

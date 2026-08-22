@@ -200,15 +200,18 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
   );
 }
 
+/** No icon slot on purpose — a dot that repeats on every single tile regardless of what the tile
+ *  means is decoration pretending to be information, and worse than no icon: it teaches the eye
+ *  to skip it. The tone-colored number itself IS the signal; a top rule in the tone carries the
+ *  same distinction an icon would have, honestly. */
 function Tile({ label, value, tone }: { label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat' }) {
-  const bg = tone === 'violet' ? 'var(--sh-violet-soft)' : tone === 'teal' ? 'var(--sh-teal-soft)'
-    : tone === 'coral' ? 'var(--sh-coral-soft)' : 'var(--sh-surface-2)';
   const fg = tone === 'violet' ? 'var(--sh-violet-deep)' : tone === 'teal' ? 'var(--sh-teal-deep)'
-    : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink-soft)';
+    : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink)';
+  const rule = tone === 'violet' ? 'var(--sh-violet)' : tone === 'teal' ? 'var(--sh-teal)'
+    : tone === 'coral' ? 'var(--sh-coral)' : 'var(--sh-line)';
   return (
-    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center" style={{ background: 'var(--sh-surface)', boxShadow: '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)' }}>
-      <span className="mx-auto grid size-6 place-items-center rounded-lg text-[13px]" style={{ background: bg, color: fg }}>●</span>
-      <span dir="ltr" className="text-[20px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center" style={{ background: 'var(--sh-surface)', boxShadow: '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)', borderTop: `2.5px solid ${rule}` }}>
+      <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
       <span className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
     </div>
   );
@@ -332,7 +335,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   return (
     <div className="flex flex-col gap-3">
       {typeof returnRate === 'number' ? (
-        <RetentionHero pct={returnRate} series={series && !series.learning ? series : undefined} />
+        <RetentionHero
+          pct={returnRate}
+          series={series && !series.learning ? series : undefined}
+          sampleSize={typeof data.values['active_customers'] === 'number' ? data.values['active_customers'] as number : undefined}
+        />
       ) : null}
 
       {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} /> : null}
@@ -446,10 +453,35 @@ const cardShadow = '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,
 
 /** THE HERO — a narrated sentence, the number set large inline, never a bare ring. «من كل ١٠
  *  عملاء زاروك، ٦٫٧ يرجعون لك» is the sentence an owner actually repeats to himself; the number
- *  alone inside a circle was a fact he had to translate before it meant anything. */
-function RetentionHero({ pct, series }: { pct: number; series?: Series }) {
-  const of10 = (pct * 10).toLocaleString('en-US', { maximumFractionDigits: 1 });
+ *  alone inside a circle was a fact he had to translate before it meant anything.
+ *
+ *  BUT PROJECTING TO A ROUND TEN LIES ON A SMALL SAMPLE. A shop with one active customer who
+ *  happened to return reads «من كل ١٠، ١٠ يرجعون» — a sentence built for a hundred customers,
+ *  stated as if it were a fact about ten. An owner does not do the mental math back to «that's
+ *  actually just me and my one customer»; he reads it as ten real people. Below a real floor we
+ *  say the true, small count instead of a projection dressed as one. */
+function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Series; sampleSize?: number }) {
+  const SAMPLE_FLOOR = 10;
+  const tooSmall = typeof sampleSize === 'number' && sampleSize < SAMPLE_FLOOR;
   const deltaPts = series ? Math.round(((series.last ?? 0) - (series.first ?? 0)) * 100) : null;
+  const sentence = tooSmall
+    ? (() => {
+        const returned = Math.round(pct * (sampleSize as number));
+        const base = sampleSize === 1 ? 'عميل واحد' : `${sampleSize} عملاء`;
+        return (
+          <>
+            من أصل {base} زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{returned}</b> يرجعون لك مرة ثانية.
+          </>
+        );
+      })()
+    : (() => {
+        const of10 = (pct * 10).toLocaleString('en-US', { maximumFractionDigits: 1 });
+        return (
+          <>
+            من كل ١٠ عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
+          </>
+        );
+      })();
   return (
     <div className="rounded-3xl p-6 pb-5 text-white" style={{
       background: 'radial-gradient(120% 90% at 15% 0%, #8f6bff 0%, transparent 55%),'
@@ -458,9 +490,10 @@ function RetentionHero({ pct, series }: { pct: number; series?: Series }) {
       boxShadow: '0 6px 14px rgba(19,18,38,.08), 0 26px 50px -18px rgba(19,18,38,.3)',
     }}>
       <div className="text-[11.5px] font-semibold opacity-75">نسبة عودة عملائك</div>
-      <p className="mt-2 text-[20px] font-medium leading-relaxed">
-        من كل ١٠ عملاء زاروك، <b dir="ltr" className="mx-0.5 inline-block text-[40px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{of10}</b> يرجعون لك مرة ثانية.
-      </p>
+      <p className="mt-2 text-[20px] font-medium leading-relaxed">{sentence}</p>
+      {tooSmall ? (
+        <p className="mt-1 text-[12px] opacity-75">العدد لسه صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
+      ) : null}
       {deltaPts !== null && series?.months ? (
         <div className="mt-3 flex items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
