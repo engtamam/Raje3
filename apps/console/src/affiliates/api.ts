@@ -25,7 +25,7 @@ interface ApiResult {
   [key: string]: unknown;
 }
 
-async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH', body?: unknown,
+async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT', body?: unknown,
                       token?: string): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -225,4 +225,25 @@ export async function setOutcome(session: AffiliateSession, useId: string, outco
   return req(`/api/v1/affiliates/me/template-uses/${useId}`, 'PATCH',
              { outcome, note: opts.note ?? '', new_stage_code: opts.newStageCode ?? '' },
              session.access_token);
+}
+
+/** «حسابي»'s own payout section — a straight mirror of `GET/PUT /me/payout-method`'s own shapes.
+ *  `masked_account_ref` is EVERYTHING a read ever returns of the account number on file — never
+ *  the full IBAN/account id, which is write-only past the initial save (see the server route's
+ *  own docstring). */
+export const PAYOUT_CHANNELS = ['bank_iban', 'intermediary'] as const;
+export type PayoutMethod =
+  | { set: false }
+  | { set: true; channel: string; channel_name: string; masked_account_ref: string };
+
+export async function payoutMethod(session: AffiliateSession): Promise<PayoutMethod> {
+  return req('/api/v1/affiliates/me/payout-method', 'GET', undefined, session.access_token);
+}
+
+export async function setPayoutMethod(session: AffiliateSession, input: {
+  channel: string; channelName?: string; accountRef: string;
+}): Promise<{ channel: string; channel_name: string; account_ref: string }> {
+  return req('/api/v1/affiliates/me/payout-method', 'PUT', {
+    channel: input.channel, channel_name: input.channelName ?? '', account_ref: input.accountRef,
+  }, session.access_token);
 }
