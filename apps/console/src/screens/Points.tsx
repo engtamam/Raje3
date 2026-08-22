@@ -22,14 +22,14 @@
  * that has the programme.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Badge } from '@base-ui/design-system/Badge';
+import { Badge } from '../rj-ui/Badge';
 import { halalas } from '../money';
-import { KpiCard } from '@base-ui/design-system/KpiCard';
-import { Coins, Gift, Power, Users } from 'lucide-react';
-import { Button } from '@base-ui/design-system/Button';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Field, Input } from '@base-ui/design-system/Field';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { KpiCard } from '../rj-ui/KpiCard';
+import { AlertTriangle, Coins, Gift, Power, Users } from 'lucide-react';
+import { Button } from '../rj-ui/Button';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Field, Input, Select } from '../rj-ui/Field';
+import { Segmented } from '../rj-ui/Segmented';
 import { isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -46,7 +46,20 @@ interface Reward {
   active?: boolean;
 }
 
-interface Report { redemptions?: number; customers?: number; outstanding?: number }
+/**
+ * `services/loyalty/app/core/report.py::build` — a superset the screen used to read a third of.
+ * `expired_share` is the field its own docstring names as "the one indicator that is a warning":
+ * how much of everything ever granted died unspent, which means the thresholds sit beyond his
+ * customers' reach and the programme is annoying them rather than holding them. Nothing else here
+ * reveals that — every other number only counts what already happened.
+ */
+interface Report {
+  redemptions?: number; customers?: number; outstanding?: number;
+  granted?: number; consumed?: number; expired_unredeemed?: number;
+  /** A fraction 0..1 — `granted ? expired/granted : 0`, straight from the backend. */
+  expired_share?: number;
+  top_rewards?: [string, number][];
+}
 
 interface Service { id: string; name: string }
 
@@ -225,22 +238,53 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   return (
     <div className="flex flex-col gap-5 p-4">
       {/* ── what the programme is costing him ────────────────────────────────────────────────
-          THREE NUMBERS, AND ONLY THE LAST ONE IS MONEY. Points outstanding are a debt the shop
-          has already promised and not yet paid (§9.1) — an owner who cannot see its size cannot
-          price the programme — so it carries the accent and the other two are context for it.
+          FOUR NUMBERS NOW, AND TWO OF THEM CARRY COLOUR ON PURPOSE. Points outstanding are a debt
+          the shop has already promised and not yet paid (§9.1) — an owner who cannot see its size
+          cannot price the programme — so it carries the accent tone, which the card was never
+          actually given despite the comment here always having said so (a documented intent the
+          code itself never matched).
+
+          THE FOURTH IS THE WARNING THE REPORT WAS BUILT AROUND. `report.py`'s own docstring calls
+          `expired_share` "the one indicator that is a warning": a high share means his thresholds
+          sit beyond what his customers actually reach, and the programme is reminding people of
+          something they will never get. Every OTHER number here only counts what already
+          happened; this is the only one that says something is wrong. It was computed on every
+          read and never once reached this screen.
 
           THE OLD ROW WAS THREE IDENTICAL GREY SPANS at one type size, and the eye had no reason
           to stop anywhere. A screen where everything is equally important is a screen where
           nothing is. */}
       {report ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard icon={<Users size={18} />} label="عميل يجمع نقاطاً"
                    value={String(report.customers ?? 0)} />
           <KpiCard icon={<Gift size={18} />} label="استبدال"
                    value={String(report.redemptions ?? 0)} />
-          <KpiCard icon={<Coins size={18} />} label="نقطة لم تُستبدل بعد"
+          <KpiCard icon={<Coins size={18} />} label="نقطة لم تُستبدل بعد" tone="accent"
                    value={String(report.outstanding ?? 0)}
                    hint="ما وعدت به ولم يُصرف — وهو التزام على محلّك." />
+          <KpiCard icon={<AlertTriangle size={18} />} label="من كل نقطة مُنحت، انتهت بلا استبدال"
+                   tone="warning"
+                   value={`${Math.round((report.expired_share ?? 0) * 100)}٪`}
+                   hint="نسبة عالية تعني أن حدود مكافآتك بعيدة عن متناول عملائك." />
+        </div>
+      ) : null}
+
+      {/* «أكثر ما يُستبدل» — the same report, its other half. Rewards a shop never sees redeemed
+          are the ones worth re-pricing; a shop cannot know which without this. Shown only once
+          there is something to rank — a programme with zero redemptions has nothing here to say
+          that the KPI above has not already said. */}
+      {report?.top_rewards && report.top_rewards.length > 0 ? (
+        <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-surface-1 p-4">
+          <h2 className="text-sm font-medium text-text-secondary">أكثر ما يُستبدل</h2>
+          <ul className="flex flex-col divide-y divide-border-subtle">
+            {report.top_rewards.map(([name, count]) => (
+              <li key={name} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                <span className="truncate">{name || 'بلا اسم'}</span>
+                <span className="shrink-0 tabular-nums text-text-secondary">{count}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 
@@ -279,11 +323,10 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
               {/* THE HINT IS UNDER THE SELECT, NOT INSIDE IT. A native option list sizes itself to
                   its longest string and is drawn by the OS, outside our layout. */}
               <Field label="النوع" htmlFor="rw-type" hint={TYPES.find((t) => t.value === type)?.hint}>
-                <select id="rw-type" name="type" value={type}
-                        onChange={(e) => setType(e.target.value)}
-                        className="h-10 rounded-lg bg-surface-2 px-3">
+                <Select id="rw-type" name="type" value={type}
+                        onChange={(e) => setType(e.target.value)}>
                   {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                </Select>
               </Field>
               {/* ONE FIELD AT A TIME. Showing both and labelling each with the case it belongs to
                   asks the owner to do the branching we already know the answer to. */}
@@ -298,11 +341,10 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                 </Field>
               ) : type === 'service' ? (
                 <Field label="ما يحصل عليه" htmlFor="rw-service" hint="مما تقدّمه — خدمةً كان أو منتجاً">
-                  <select id="rw-service" name="service_id" required
-                          className="h-10 rounded-lg bg-surface-2 px-3">
+                  <Select id="rw-service" name="service_id" required>
                     <option value="">—</option>
                     {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  </Select>
                 </Field>
               ) : null}
               <div className="flex gap-2">
