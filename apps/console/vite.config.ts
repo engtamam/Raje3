@@ -4,8 +4,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { readFileSync } from 'node:fs';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+// THE ONE PLACE A REBRAND BELONGS, ACTUALLY WIRED. theme.config.ts's own doc comment has always
+// promised that `config/product.json`'s `brand.accent` "is injected here at build time as
+// __PRODUCT_ACCENT__" — but no config anywhere ever defined it, so the app silently fell back to
+// theme.config.ts's OWN hardcoded gold every build, and a change to product.json did nothing. Read
+// straight from the file the doc comment already points at, so the promise is finally true.
+const product = JSON.parse(readFileSync(here('../../config/product.json'), 'utf8')) as
+  { brand: { accent: { light: string; dark: string } } };
 
 export default defineConfig({
   // THE CONSOLE LIVES AT /app/, AND THE BUNDLE HAS TO KNOW. Without this every asset is written as
@@ -13,6 +22,9 @@ export default defineConfig({
   // and the owner gets a blank screen with no error but a MIME complaint in a console he will
   // never open. Vite exposes it back as import.meta.env.BASE_URL, which is what the router reads.
   base: '/app/',
+  define: {
+    __PRODUCT_ACCENT__: JSON.stringify(product.brand.accent),
+  },
   plugins: [react()],
   resolve: {
     alias: {
