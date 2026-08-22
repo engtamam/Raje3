@@ -19,12 +19,12 @@
  * in the product: an operator signs in on his own phone and every visit is attributed to him.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Button } from '@base-ui/design-system/Button';
-import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Field, Input } from '@base-ui/design-system/Field';
-import { Segmented } from '@base-ui/design-system/Segmented';
+import { Button } from '../rj-ui/Button';
+import { EmptyState } from '../rj-ui/EmptyState';
+import { Field, Input } from '../rj-ui/Field';
+import { Segmented } from '../rj-ui/Segmented';
 import { hasFailed, isLoading, isReady } from '../loading';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { Check, Lock, Megaphone, ShieldCheck, UserCog, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { STORE_PATH } from '../nav';

@@ -22,9 +22,9 @@
  * opening this page gets a short page, never a broken one.
  */
 import { useEffect, useState } from 'react';
-import { Badge } from '@base-ui/design-system/Badge';
-import { Segmented } from '@base-ui/design-system/Segmented';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Badge } from '../rj-ui/Badge';
+import { Segmented } from '../rj-ui/Segmented';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
 import { Connect } from './Connect';

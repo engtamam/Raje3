@@ -19,7 +19,8 @@
  */
 import { useEffect, useState } from 'react';
 import { hasFailed, isLoading } from '../loading';
-import { Button } from '@base-ui/design-system/Button';
+import { Badge } from '../rj-ui/Badge';
+import { Button } from '../rj-ui/Button';
 import { action, call, type Catalog } from '../catalog';
 import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type SdkState } from '../meta';
 import type { Session } from '../session';
@@ -139,7 +140,19 @@ export function Connect({
   const statusAction = action(catalog, 'whatsapp.connect_status');
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-6 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-4 shadow-sm">
+      {/* ONE STATUS VOCABULARY, NOT TWO — this used to say the same fact the top summary card
+          already states, in raw `text-warning`/`text-success` Tailwind classes instead of the
+          Badge tones every other status in the console uses. Same colour, same shape, so an
+          owner reading this card and the one above it recognises them as the same kind of fact
+          rather than two different systems that happen to agree. */}
+      {!isLoading(state) && !hasFailed(state) ? (
+        <div>
+          <Badge tone={waiting ? 'warning' : connected ? 'success' : 'neutral'}>
+            {waiting ? 'بانتظارنا' : connected ? 'يعمل' : 'غير مربوط'}
+          </Badge>
+        </div>
+      ) : null}
       {/* AMBER, NOT GREEN, WHILE IT WAITS. The colour is read before the words are, and green over
           «الإرسال لم يُفتح بعد» tells him the opposite of the sentence under it. */}
       <p className={waiting ? 'text-warning' : connected ? 'text-success' : 'text-text-primary'}>

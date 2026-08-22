@@ -10,11 +10,11 @@
  * the box implies the product forgot to wire it, the sentence tells him what to do.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { Badge } from '@base-ui/design-system/Badge';
+import { Badge } from '../rj-ui/Badge';
 import { riyalsLabel } from '../money';
-import { Button } from '@base-ui/design-system/Button';
+import { Button } from '../rj-ui/Button';
 import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, downloadUrl, type Catalog } from '../catalog';
 import type { Session } from '../session';
 // ONE DEFINITION, RENDERED WHERE IT BELONGS. The card was written for «فريقي» and stayed there
@@ -115,8 +115,37 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
 
   return (
     <div className="flex flex-col gap-4">
+      {/* WHAT HIS CUSTOMER SEES, FIRST — reordered (was fourth, after two toggles that have
+          nothing to do with identity). This pane's own opening comment already said the brand
+          card is "the whole reason this pane is not cosmetic," yet it used to render last, behind
+          a notification preference and a vehicles flag. What a shop IS, and what it looks like to
+          the people it serves, now leads; personal preferences and administrative toggles follow. */}
+      {canBrand ? <BrandCard tenant={t} onSave={saveBranding} onSaveName={saveName} /> : null}
+
+      {/* WHAT HE IS, IN FOUR FACTS — a grid of cells rather than four label/value lines. Four rows
+          of «label ………… value» read as a form he has to fill; four cells read as a card about his
+          shop, which is what they are: not one of them is editable here. */}
+      <section className="grid grid-cols-2 gap-2">
+        <Fact label="اسم المنشأة" value={t.name || '—'} wide />
+        <Fact label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')} />
+        {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
+            timezone; reading the device's would schedule an owner travelling abroad into his
+            customers' small hours. */}
+        <Fact label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
+        <Fact label="التقويم" value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
+      </section>
+
+      {/* WHAT THIS SHOP DOES, BESIDE WHO IT IS. It stood among the branch settings, which made it
+          read as a per-branch switch — and it is not one: `operations.shop_vehicles` is a fact
+          about the whole establishment, and no shop works on cars in one branch and not another. */}
+      <VehiclesCard session={session} catalog={catalog} />
+
+      {/* A PERSONAL PREFERENCE, LAST — not because it matters less, but because it is not a fact
+          ABOUT the establishment the way everything above it is; it is one person's own inbox
+          setting, and the pane's own comment on it already says so («لك وحدك»). Standardised to
+          the same p-4/rounded-card/size-5 every peer card on this pane now uses. */}
       {digestAction ? (
-        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-3 shadow-sm">
+        <label className="flex items-center justify-between gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
           <span className="flex flex-col">
             <span className="text-sm">تقريري الأسبوعي على واتساب</span>
             <span className="text-xs text-text-secondary">
@@ -135,28 +164,10 @@ export function ShopPane({ session, catalog }: { session: Session; catalog: Cata
               // a report that never comes.
               await call(session, digestAction, { on }).catch(() => setDigest(!on));
             }}
-            className="size-6 shrink-0 accent-[var(--accent)]"
+            className="size-5 shrink-0 accent-[var(--accent)]"
           />
         </label>
       ) : null}
-      {/* WHAT THIS SHOP DOES, BESIDE WHO IT IS. It stood among the branch settings, which made it
-          read as a per-branch switch — and it is not one: `operations.shop_vehicles` is a fact
-          about the whole establishment, and no shop works on cars in one branch and not another. */}
-      <VehiclesCard session={session} catalog={catalog} />
-      {/* WHAT HE IS, IN FOUR FACTS — a grid of cells rather than four label/value lines. Four rows
-          of «label ………… value» read as a form he has to fill; four cells read as a card about his
-          shop, which is what they are: not one of them is editable here. */}
-      <section className="grid grid-cols-2 gap-2">
-        <Fact label="اسم المنشأة" value={t.name || '—'} wide />
-        <Fact label="حالة الحساب" value={t.status === 'active' ? 'فعّال' : (t.status || '—')} />
-        {/* FROM THE SERVER, NOT FROM THE BROWSER. Every reminder is scheduled against this
-            timezone; reading the device's would schedule an owner travelling abroad into his
-            customers' small hours. */}
-        <Fact label="التوقيت" value={t.config?.timezone || 'Asia/Riyadh'} />
-        <Fact label="التقويم" value={t.config?.calendar === 'hijri' ? 'هجري' : 'ميلادي'} wide />
-      </section>
-
-      {canBrand ? <BrandCard tenant={t} onSave={saveBranding} onSaveName={saveName} /> : null}
     </div>
   );
 }
@@ -740,7 +751,7 @@ export function KeysPane({ session, catalog }: { session: Session; catalog: Cata
         <ul className="flex flex-col gap-2">
           {rows.map((row) => (
             <li key={row.client_id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-1 p-3 shadow-sm">
+                className="flex flex-wrap items-center justify-between gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
               <span className="flex flex-col">
                 <span>{row.name || row.client_id}</span>
                 <span className="text-sm text-text-secondary">
