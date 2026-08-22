@@ -15,7 +15,7 @@
  * retention rate because a different service briefly is not answering. See each section's own hook.
  *
  * A NEW VISUAL IDENTITY, SCOPED TO THIS SCREEN ONLY. The rest of the console still reads
- * `var(--rj-gold)` etc. from the shared theme; this screen defines its own local tokens on its own
+ * `var(--rj-accent)` etc. from the shared theme; this screen defines its own local tokens on its own
  * root element (violet/teal/coral — see the comment on `TOKENS` below) rather than touching the
  * platform-wide palette, which stays a separate decision for a separate day.
  */

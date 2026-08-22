@@ -14,11 +14,11 @@ export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
 };
 
 // Distinct hues, not just distinct opacity — a glance at the card must tell the three apart
-// without reading the label. Neutral for "nothing in hand yet", gold for "something", green for
-// "settled" — the same traffic-light logic the rest of the product's status colours already use.
+// without reading the label. Neutral for "nothing in hand yet", accent violet for "something",
+// teal for "settled" — the same traffic-light logic the rest of the product's status colours use.
 export const PAYMENT_COLOR: Record<PaymentStatus, { fg: string; bg: string }> = {
   none: { fg: 'var(--rj-ink-soft)', bg: 'var(--rj-line)' },
-  deposit: { fg: 'var(--rj-gold-deep)', bg: 'var(--rj-gold-soft)' },
+  deposit: { fg: 'var(--rj-accent-deep)', bg: 'var(--rj-accent-soft)' },
   paid: { fg: 'var(--rj-attended)', bg: 'var(--rj-attended-soft)' },
 };
 

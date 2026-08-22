@@ -45,40 +45,57 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
   .raje-waiting { animation: raje-breathe 1.6s ease-in-out infinite; }
 }
 
-/* ── the bookings grid — its own visual identity ─────────────────────────────────────────────
+/* ── the bookings grid — its own visual identity, REBRANDED 2026-08-22 ───────────────────────
  *
  * SCOPED TO ONE SCREEN, DELIBERATELY (docs/خطة-تنفيذ-الحجوزات.md §7, Tamam's approval
  * 2026-08-19): this app deserves a world-class look of its own rather than inheriting the rest
- * of the console's standard colours — but it still borrows the brand's own gold (`GOLD` in
- * brand/theme.ts) instead of inventing a competing one, so it stays راجِع rather than a foreign
- * product.
+ * of the console's standard colours.
  *
- * Every variable is scoped under `.rj-grid`, so none of it leaks into any other screen. */
+ * BUT "ITS OWN LOOK" MEANT THE WARM CREAM/GOLD IDENTITY AT THE TIME, AND THAT IDENTITY IS GONE.
+ * Three days after this screen's palette was approved, Tamam rejected the exact same warm-
+ * cream/gold direction for the rest of the product outright ("مليت منه خلاص ارحمني") and the
+ * whole console moved to violet/teal/coral (platform/ui/…/theme.config.ts, config/product.json).
+ * Left alone, Bookings would be the one screen still carrying the identity everywhere else had
+ * just abandoned — not "its own distinct world" any more, just a relic. Re-hued to the same
+ * violet/teal/coral family the rest of the product now uses, still fully scoped under `.rj-grid`
+ * so this screen keeps the freedom to diverge in LAYOUT from the rest of the console — the actual
+ * reason it was ever split out — without diverging in colour language too.
+ *
+ * `--rj-gold*` is renamed to `--rj-accent*` throughout this file and every consumer in
+ * Bookings.tsx — the old name was already wrong the moment the value stopped being gold. */
 .rj-grid {
-  --rj-bg: #FBF8F3;
-  --rj-surface: #FFFFFF;
-  --rj-ink: #201A15;
-  --rj-ink-soft: #6B6259;
-  --rj-line: #ECE3D6;
-  --rj-gold: #B8862B;
-  --rj-gold-soft: #F7EFDD;
-  --rj-gold-deep: #8C6620;
-  --rj-booked: #5B4B8A;
-  --rj-booked-soft: #EFEBF9;
-  --rj-attended: #2F7A5C;
-  --rj-attended-soft: #E6F4EE;
-  --rj-noshow: #B15A2E;
-  --rj-noshow-soft: #FBEBE1;
-  --rj-cancelled: #A39A8F;
-  --rj-cancelled-soft: #F1ECE3;
-  --rj-valid: #2F7A5C;
-  --rj-valid-soft: #E1F3EA;
-  --rj-invalid: #B0432F;
-  --rj-invalid-soft: #FBE6E1;
-  --rj-shadow: 0 1px 2px rgba(32, 26, 21, 0.04), 0 8px 24px -8px rgba(32, 26, 21, 0.12);
-  --rj-shadow-lift: 0 4px 8px rgba(32, 26, 21, 0.06), 0 20px 40px -12px rgba(32, 26, 21, 0.24);
+  --rj-bg: #f4f5fa;
+  --rj-surface: #ffffff;
+  --rj-ink: #131226;
+  --rj-ink-soft: #5a5a78;
+  --rj-line: #e5e6f2;
+  --rj-accent: #6a4cf5;
+  --rj-accent-soft: #ece7fe;
+  --rj-accent-deep: #4c34c4;
+  --rj-booked: #6a4cf5;
+  --rj-booked-soft: #ece7fe;
+  --rj-attended: #0fb897;
+  --rj-attended-soft: #dcf7f1;
+  --rj-noshow: #d9472f;
+  --rj-noshow-soft: #ffe4dd;
+  --rj-cancelled: #9797ad;
+  --rj-cancelled-soft: #eceefa;
+  --rj-valid: #0fb897;
+  --rj-valid-soft: #dcf7f1;
+  --rj-invalid: #d9472f;
+  --rj-invalid-soft: #ffe4dd;
+  --rj-shadow: 0 1px 2px rgba(19, 18, 38, 0.04), 0 8px 24px -8px rgba(19, 18, 38, 0.12);
+  --rj-shadow-lift: 0 4px 8px rgba(19, 18, 38, 0.06), 0 20px 40px -12px rgba(19, 18, 38, 0.24);
   background: var(--rj-bg);
   color: var(--rj-ink);
+}
+
+/* A CARD AT REST WAS WEARING TAILWIND'S GENERIC GREY `shadow-sm`, NOT ITS OWN SHADOW TOKEN.
+ * `--rj-shadow`/`--rj-shadow-lift` were defined for exactly this and only ever reached through
+ * `.rj-card-dragging` — every card, every day, sat under a flat off-the-shelf shadow the rest of
+ * this screen's own colour language never touched. One line fixes every card at once. */
+.rj-card {
+  box-shadow: var(--rj-shadow);
 }
 
 /* The card actually lifts while dragged — a deeper shadow and a slight tilt, not just a

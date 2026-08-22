@@ -485,7 +485,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 </h1>
                 {date !== todayLocal() ? (
                   <button type="button" onClick={() => setDate(todayLocal())}
-                         className="text-xs font-medium" style={{ color: 'var(--rj-gold-deep)' }}>
+                         className="text-xs font-medium" style={{ color: 'var(--rj-accent-deep)' }}>
                     العودة لليوم
                   </button>
                 ) : null}
@@ -527,7 +527,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   <button key={b.id} type="button" onClick={() => onBranch(b.id)}
                          className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
                          style={b.id === activeBranch
-                           ? { background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }
+                           ? { background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
                            : { color: 'var(--rj-ink-soft)' }}>
                     {b.name || b.id}
                   </button>
@@ -592,14 +592,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                      aria-expanded={filtersOpen}
                      className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium shadow-sm"
                      style={{
-                       background: activeFilterCount ? 'var(--rj-gold-soft)' : 'var(--rj-surface)',
-                       color: activeFilterCount ? 'var(--rj-gold-deep)' : 'var(--rj-ink)',
+                       background: activeFilterCount ? 'var(--rj-accent-soft)' : 'var(--rj-surface)',
+                       color: activeFilterCount ? 'var(--rj-accent-deep)' : 'var(--rj-ink)',
                      }}>
                 <Filter size={14} aria-hidden />
                 فلاتر
                 {activeFilterCount ? (
                   <span className="grid h-4 w-4 place-items-center rounded-full text-[10px] font-bold"
-                       style={{ background: 'var(--rj-gold)', color: 'var(--rj-ink)' }}>
+                       style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}>
                     {activeFilterCount}
                   </span>
                 ) : null}
@@ -646,7 +646,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   </div>
                   {activeFilterCount ? (
                     <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
-                           className="text-xs font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
+                           className="text-xs font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
                       إزالة كل الفلاتر
                     </button>
                   ) : null}
@@ -702,13 +702,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           <div className="grid place-items-center gap-2 py-24 text-center">
             <p className="text-base font-medium">تعذّر قراءة الحجوزات</p>
             <button type="button" onClick={load} className="text-sm font-medium underline"
-                   style={{ color: 'var(--rj-gold-deep)' }}>حاول مجدداً</button>
+                   style={{ color: 'var(--rj-accent-deep)' }}>حاول مجدداً</button>
           </div>
         ) : view === 'day' && staff === null ? (
           <div className="grid place-items-center gap-2 py-24 text-center">
             <p className="text-base font-medium">تعذّرت قراءة فريق العمل</p>
             <button type="button" onClick={() => listBookingStaff(session).then(setStaff).catch(() => setStaff(null))}
-                   className="text-sm font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
+                   className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
               حاول مجدداً
             </button>
           </div>
@@ -723,7 +723,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           </div>
         ) : (
           <div data-testid="rj-grid"
-              className={view === 'week' ? 'rounded-[28px] p-2 shadow-sm' : 'overflow-x-auto rounded-[28px] p-2 shadow-sm'}
+              className={view === 'week' ? 'rj-card rounded-[28px] p-2' : 'rj-card overflow-x-auto rounded-[28px] p-2'}
               style={{ background: 'var(--rj-surface)' }}>
             {/* WEEK NEVER SCROLLS TO BE SEEN WHOLE — its seven columns are the fixed, known set the
                 view exists to show side by side, so they take `1fr` each and share the container's
@@ -807,7 +807,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       if (e.closed) {
                         return (
                           <div className="pointer-events-none absolute inset-0"
-                              style={{ background: 'rgba(32,26,21,0.06)' }} />
+                              style={{ background: 'rgba(19,18,38,0.06)' }} />
                         );
                       }
                       return (
@@ -815,12 +815,12 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           {e.start_minute > WINDOW_START ? (
                             <div className="pointer-events-none absolute inset-x-0 top-0"
                                 style={{ height: (e.start_minute - WINDOW_START) * PX_PER_MIN,
-                                        background: 'rgba(32,26,21,0.06)' }} />
+                                        background: 'rgba(19,18,38,0.06)' }} />
                           ) : null}
                           {e.end_minute < WINDOW_END ? (
                             <div className="pointer-events-none absolute inset-x-0 bottom-0"
                                 style={{ height: (WINDOW_END - e.end_minute) * PX_PER_MIN,
-                                        background: 'rgba(32,26,21,0.06)' }} />
+                                        background: 'rgba(19,18,38,0.06)' }} />
                           ) : null}
                         </>
                       );
@@ -893,7 +893,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           onPointerUp={cancelLongPress}
                           onPointerLeave={cancelLongPress}
                           onClick={(e) => { e.stopPropagation(); if (!moving) setOpenBooking(b); }}
-                          className={`rj-card-settle absolute cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start shadow-sm transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
+                          className={`rj-card rj-card-settle absolute cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
                           style={{
                             // A REAL GAP, NOT A HAIRLINE — 1-2px read as touching (Tamam,
                             // 2026-08-19, a screenshot of stacked cards with no visible margin
@@ -906,7 +906,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             zIndex: lane + 1,
                             boxShadow: overdue > 0
                               ? `0 0 0 ${overdueRing} var(--rj-noshow)` : undefined,
-                            ...(isBeingMoved ? { '--tw-ring-color': 'var(--rj-gold)' } as React.CSSProperties : {}),
+                            ...(isBeingMoved ? { '--tw-ring-color': 'var(--rj-accent)' } as React.CSSProperties : {}),
                           }}
                         >
                           {/* THE ONLY VISIBLE SIGN A CARD DRAGS AT ALL, otherwise the sole cue was
@@ -1040,14 +1040,14 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             style={{ background: 'var(--rj-ink)', color: 'var(--rj-bg)' }}>
           <span className="text-sm">نُقل الموعد</span>
           <button type="button" onClick={undoMove} className="text-sm font-semibold"
-                 style={{ color: 'var(--rj-gold)' }}>تراجع</button>
+                 style={{ color: 'var(--rj-accent)' }}>تراجع</button>
         </div>
       ) : null}
 
       {/* touch "move" mode — cancelled by tapping outside any card */}
       {moving ? (
         <div className="fixed inset-x-0 top-20 z-30 mx-auto flex w-fit items-center gap-3 rounded-full px-4 py-2 shadow-lg"
-            style={{ background: 'var(--rj-gold)', color: 'var(--rj-ink)' }}>
+            style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}>
           <span className="text-sm font-medium">انقري على الخانة الجديدة</span>
           <button type="button" onClick={() => setMoving(null)} aria-label="إلغاء النقل">
             <X size={16} aria-hidden />
@@ -1065,7 +1065,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
         aria-label="حجز جديد"
         title="حجز جديد"
         className="fixed bottom-6 inset-inline-end-6 z-20 grid h-14 w-14 place-items-center rounded-full shadow-lg transition-transform active:scale-95"
-        style={{ background: 'var(--rj-gold)', color: 'var(--rj-ink)' }}
+        style={{ background: 'var(--rj-accent)', color: 'var(--rj-ink)' }}
       >
         <Plus size={24} aria-hidden />
       </button>
@@ -1161,7 +1161,7 @@ function PhoneLookup({
   if (filterCustomer) {
     return (
       <div className="flex h-9 items-center gap-1.5 rounded-full ps-3 pe-1 text-xs font-medium shadow-sm"
-          style={{ background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }}>
+          style={{ background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }}>
         <Phone size={12} aria-hidden />
         <span className="truncate">{filterCustomer.name || asLocal(filterCustomer.phone)}</span>
         {typeof filterCustomer.visits === 'number' ? (
@@ -1169,7 +1169,7 @@ function PhoneLookup({
         ) : null}
         <button type="button" aria-label="إلغاء" onClick={() => { setFilterCustomer(null); setPhoneQuery(''); }}
                className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
-               style={{ color: 'var(--rj-gold-deep)' }}>
+               style={{ color: 'var(--rj-accent-deep)' }}>
           <X size={12} aria-hidden />
         </button>
       </div>
@@ -1245,15 +1245,15 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
     return (
       <div className="rj-grid fixed inset-0 z-40 flex items-end justify-center sm:items-center"
           onClick={onClose}>
-        <div className="absolute inset-0" style={{ background: 'rgba(32,26,21,0.35)' }} />
+        <div className="absolute inset-0" style={{ background: 'rgba(19,18,38,0.35)' }} />
         <div onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm rounded-t-[28px] p-5 shadow-lg sm:rounded-[28px]"
-            style={{ background: 'var(--rj-surface)' }}>
+            className="relative w-full max-w-sm rounded-t-[28px] p-5 sm:rounded-[28px]"
+            style={{ background: 'var(--rj-surface)', boxShadow: 'var(--rj-shadow-lift)' }}>
           <p className="mb-3 text-base font-semibold">سُجّل الحضور ✓</p>
           {cycleDays > 0 ? (
             <button type="button" onClick={() => onBookNext(attended)}
                    className="w-full rounded-2xl py-3 text-sm font-semibold"
-                   style={{ background: 'var(--rj-gold-soft)', color: 'var(--rj-gold-deep)' }}>
+                   style={{ background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }}>
               احجز الجلسة القادمة — بعد {cycleDays} يوماً
             </button>
           ) : null}
@@ -1269,10 +1269,10 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
   return (
     <div className="rj-grid fixed inset-0 z-40 flex items-end justify-center sm:items-center"
         onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: 'rgba(32,26,21,0.35)' }} />
+      <div className="absolute inset-0" style={{ background: 'rgba(19,18,38,0.35)' }} />
       <div onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-sm rounded-t-[28px] p-5 shadow-lg sm:rounded-[28px]"
-          style={{ background: 'var(--rj-surface)' }}>
+          className="relative w-full max-w-sm rounded-t-[28px] p-5 sm:rounded-[28px]"
+          style={{ background: 'var(--rj-surface)', boxShadow: 'var(--rj-shadow-lift)' }}>
         {/* التفاصيل أولاً — كل ما يحتاجه قبل يقرر، لا بعد ما يضغط (Tamam, 2026-08-19: "نعرض
             الخدمات والوقت وغيرها من التفاصيل"). */}
         <div className="mb-4 flex items-start justify-between gap-3">
