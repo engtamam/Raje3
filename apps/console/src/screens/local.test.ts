@@ -6,7 +6,7 @@
  * return rate as his business's.
  */
 import { describe, expect, it } from 'vitest';
-import { blockedSentence, outsideVisits, retentionStreak } from './Shop';
+import { blockedSentence, outsideVisits, retentionStreak, topEntitiesByDay } from './Shop';
 
 const ROWS = [
   { branch_id: 'riyadh', visits: 340 },
@@ -106,5 +106,28 @@ describe('retentionStreak', () => {
     // and here that is still just two, below the floor.
     const points = [{ value: 0.3 }, { value: null }, { value: 0.4 }];
     expect(retentionStreak(points)).toBeNull();
+  });
+});
+
+describe('topEntitiesByDay', () => {
+  it('sums a flat "id:day" grid into a 7-slot day array per entity, named', () => {
+    const grid = { 'svc1:0': 3, 'svc1:5': 7, 'svc2:2': 1 };
+    const got = topEntitiesByDay(grid, { svc1: 'قص شعر', svc2: 'تلميع' }, 5);
+    expect(got).toEqual([
+      { label: 'قص شعر', days: [3, 0, 0, 0, 0, 7, 0] },
+      { label: 'تلميع', days: [0, 0, 1, 0, 0, 0, 0] },
+    ]);
+  });
+
+  it('sorts by total demand, highest first, and caps at the limit', () => {
+    const grid = { 'a:0': 1, 'b:0': 9, 'c:0': 5 };
+    const got = topEntitiesByDay(grid, {}, 2);
+    expect(got.map((r) => r.label)).toEqual(['b', 'c']);
+  });
+
+  it('falls back to the raw id when no name is known, and handles an empty grid', () => {
+    expect(topEntitiesByDay({ 'x:1': 1 }, {}, 5)[0].label).toBe('x');
+    expect(topEntitiesByDay(undefined, {}, 5)).toEqual([]);
+    expect(topEntitiesByDay({}, {}, 5)).toEqual([]);
   });
 });

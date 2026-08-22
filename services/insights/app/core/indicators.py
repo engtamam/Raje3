@@ -255,6 +255,53 @@ def peak_map(visits: list[dict], *, tz_offset_hours: int = 3) -> dict[str, Any]:
     return {"grid": dict(grid), "busiest": max(grid, key=grid.get) if grid else ""}
 
 
+def _weekday(ts: int, tz_offset_hours: int = 3) -> int:
+    """0 = Sunday, the week's first day here — same convention `peak_map` uses, Riyadh-local."""
+    local = ts + tz_offset_hours * 3600
+    return int((local // DAY + 4) % 7)
+
+
+def service_day_heatmap(visits: list[dict], *, tz_offset_hours: int = 3) -> dict[str, int]:
+    """Which day of the week each service is actually asked for.
+
+    A SINGLE DEMAND COUNT SAYS NOTHING ABOUT WHEN. «تلميع» being popular overall could mean it is
+    asked for evenly all week, or almost only on Thursdays — and only the second is a fact an owner
+    can staff around (the specialist who does it works Thursdays, or he starts turning people away
+    on the one day it actually happens).
+
+    A visit with three services counts toward all three — the day is a fact about the VISIT, not
+    divided between what it contained.
+    """
+    grid: Counter = Counter()
+    for v in visits:
+        ts = int(v.get("occurred_at") or v.get("created_at") or 0)
+        if not ts:
+            continue
+        day = _weekday(ts, tz_offset_hours)
+        for sid in set(v.get("service_ids") or []):
+            grid[f"{sid}:{day}"] += 1
+    return dict(grid)
+
+
+def branch_day_heatmap(visits: list[dict], *, tz_offset_hours: int = 3) -> dict[str, int]:
+    """Which day each branch is actually busy.
+
+    A CHAIN'S BRANCHES DO NOT SHARE A RHYTHM. A mall branch peaks on a weekend evening; a
+    neighbourhood branch a few kilometres away peaks the morning after a workday. `branch_rows`
+    already says how much traffic each branch gets in total — this says on which day, so a
+    staffing decision can be made per branch rather than by the chain's own average.
+    """
+    grid: Counter = Counter()
+    for v in visits:
+        ts = int(v.get("occurred_at") or v.get("created_at") or 0)
+        b = str(v.get("branch_id") or "")
+        if not ts or not b:
+            continue
+        day = _weekday(ts, tz_offset_hours)
+        grid[f"{b}:{day}"] += 1
+    return dict(grid)
+
+
 def expected_flow(visits: list[dict], *, now: int, weeks: int = 4) -> int:
     """Next week's expected visits — the mean of the last four, and nothing cleverer.
 

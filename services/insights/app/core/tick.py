@@ -196,6 +196,7 @@ class Tick:
             "service_popularity": indicators.service_popularity(visits),
             "services_per_visit": indicators.services_per_visit(visits),
             "peak_map": indicators.peak_map(visits),
+            "service_day_heatmap": indicators.service_day_heatmap(visits),
             "expected_flow": indicators.expected_flow(visits, now=now),
             # HOW MUCH OF TODAY'S SENDING CEILING THE ENGINE NEEDS (spec §8.4.3). Computed here
             # because the input — visits by weekday — is already in this snapshot, and computing
@@ -268,15 +269,27 @@ class Tick:
                 if b and ref:
                     people.setdefault(b, set()).add(ref)
             names = branch_names or {}
+            # PER-BRANCH VISIT LISTS, ONE PASS — feeds both the return-rate column below and stays
+            # available for anything else that needs "just this branch's rows" without re-scanning
+            # the whole feed per branch.
+            by_branch: dict[str, list[dict]] = {}
+            for v in visits:
+                b = str(v.get("branch_id") or "")
+                if b:
+                    by_branch.setdefault(b, []).append(v)
             values["branch_rows"] = [
                 # A NAME WE DO NOT HOLD STAYS EMPTY, never filled with the id: the screen says
                 # «بلا اسم» honestly, and an id printed as a name is a name an owner will search
                 # his own shop for.
                 {"branch_id": r["key"], "name": names.get(r["key"], ""),
-                 "visits": r["count"], "customers": len(people.get(r["key"], ()))}
+                 "visits": r["count"], "customers": len(people.get(r["key"], ())),
+                 # THE SAME MEASUREMENT THE HERO USES, PER BRANCH — a chain doing 46% overall can
+                 # be one branch at 70% carrying one at 20%, and the aggregate hides exactly that.
+                 "return_rate": indicators.return_rate(by_branch.get(r["key"], []))}
                 for r in table["rows"]]
             values["branch_unknown"] = table["unknown"]
             values["branch_can_rank"] = table["can_rank"]
+            values["branch_day_heatmap"] = indicators.branch_day_heatmap(visits)
             # For the switcher (§10.6.4): every branch with a snapshot, in the order of the table.
             values["branch_names"] = {r["key"]: names.get(r["key"], "")
                                       for r in table["rows"]}

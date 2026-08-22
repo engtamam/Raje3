@@ -182,6 +182,30 @@ def test_the_peak_map_is_in_riyadh_time():
     assert got["busiest"].endswith(":3")          # 00:00 UTC is 3am in Riyadh
 
 
+def test_service_day_heatmap_counts_the_visit_toward_every_service_it_held():
+    """A three-service visit is one visit on one day, not divided a third to each — the day is a
+    fact about the VISIT."""
+    utc_midnight = 1_800_000_000 - (1_800_000_000 % DAY)  # 3am Riyadh — same instant peak_map tests
+    v = [{"occurred_at": utc_midnight, "service_ids": ["wash", "wax"]}]
+    got = ind.service_day_heatmap(v)
+    assert got == {"wash:5": 1, "wax:5": 1}
+
+
+def test_service_day_heatmap_ignores_a_visit_with_no_timestamp():
+    assert ind.service_day_heatmap([{"service_ids": ["wash"]}]) == {}
+
+
+def test_branch_day_heatmap_needs_both_a_time_and_a_branch():
+    utc_midnight = 1_800_000_000 - (1_800_000_000 % DAY)
+    v = [
+        {"occurred_at": utc_midnight, "branch_id": "riyadh"},
+        {"occurred_at": utc_midnight, "branch_id": "riyadh"},
+        {"occurred_at": utc_midnight, "branch_id": ""},          # unspecified — never counted
+        {"branch_id": "jeddah"},                                  # no timestamp — never counted
+    ]
+    assert ind.branch_day_heatmap(v) == {"riyadh:5": 2}
+
+
 def test_expected_flow_is_the_mean_of_recent_weeks():
     v = [visit("a", 3, "x")] * 10 + [visit("b", 10, "x")] * 20
     assert ind.expected_flow(v, now=NOW) == 15

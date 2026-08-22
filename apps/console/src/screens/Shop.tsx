@@ -98,7 +98,7 @@ interface Pairs { learning?: boolean; have?: number; need?: number;
                  pairs?: { a: string; b: string; verdict: string; customers: number }[] }
 interface Bundle { a_name?: string; b_name?: string; why?: string; customers?: number;
                   action?: string; action_label?: string }
-interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number }[];
+interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }[];
                     unknown?: number; can_rank?: boolean }
 interface WeekWindow { visits: number; previous: number | null; window_days: number }
 interface AtRiskRow { subject_ref: string; days_overdue: number; own_cycle_days: number; visits: number }
@@ -364,6 +364,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const weak = data.values['weak_services'] as string[] | undefined;
   const peak = data.values['peak_map'] as { grid?: Record<string, number>; busiest?: string } | undefined;
   const missed = data.values['missed_opportunities'] as MissedOpp[] | undefined;
+  const serviceDayGrid = data.values['service_day_heatmap'] as Record<string, number> | undefined;
+  const branchDayGrid = data.values['branch_day_heatmap'] as Record<string, number> | undefined;
+  const branchNames = (data.values['branch_names'] as Record<string, string> | undefined) ?? {};
+  const serviceDayRows = topEntitiesByDay(serviceDayGrid, serviceNames, 6);
+  const branchDayRows = topEntitiesByDay(branchDayGrid, branchNames, 6);
 
   return (
     <div className="flex flex-col gap-3">
@@ -385,7 +390,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           to maintain, and `break-inside-avoid` keeps each card from splitting across the seam. */}
       <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
         <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} /></div>
-        <div className="mb-3 break-inside-avoid"><RecentVisits session={session} catalog={catalog} /></div>
 
         {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div> : null}
         {split && (split.new + split.returning) > 0
@@ -413,6 +417,17 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
 
         {peak?.grid && Object.keys(peak.grid).length > 0 ? (
           <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} /></div>
+        ) : null}
+
+        {serviceDayRows.length > 0 ? (
+          <div className="mb-3 break-inside-avoid">
+            <EntityDayHeatmap
+              title="خدماتك حسب يوم الأسبوع"
+              hue="teal"
+              rows={serviceDayRows}
+              hint="أي خدمة تُطلب بيوم معيّن أكثر — يساعدك تجهّز الطاقم المناسب ذاك اليوم."
+            />
+          </div>
         ) : null}
 
         {/* THE SCREEN NEVER GOES QUIET. It used to say nothing at all here the moment there was no
@@ -514,11 +529,25 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {missed && missed.length > 0 ? <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} /> : null}
 
         {branches && (branches.rows ?? []).length > 1 ? <BranchCompare branches={branches} /> : null}
+        {branches && (branches.rows ?? []).length > 1 && branchDayRows.length > 0 ? (
+          <EntityDayHeatmap
+            title="فروعك حسب يوم الأسبوع"
+            hue="violet"
+            rows={branchDayRows}
+            hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
+          />
+        ) : null}
       </Section>
 
       {data.teaser?.message ? (
         <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.teaser.message}</p>
       ) : null}
+
+      {/* REASSURANCE, LAST ON PURPOSE — «آخر الزيارات» tells him nothing he needs to ACT on, only
+          that the system is really recording what happens in his shop. Everything above this line
+          is something to read or do; this is just proof, and proof belongs after the substance,
+          not mixed into the same flow as the things that matter. */}
+      <RecentVisits session={session} catalog={catalog} />
 
       <div className="flex flex-wrap items-center justify-center gap-2 py-1 text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
         <span>{data.as_of_hours_ago === 0 ? 'محسوبة الآن' : `محسوبة قبل ${data.as_of_hours_ago} ساعة`}</span>
@@ -1017,6 +1046,69 @@ function PeakHeatmap({ grid, busiest }: { grid: Record<string, number>; busiest?
   );
 }
 
+/** ONE ROW PER ENTITY (a service, a branch), SEVEN COLUMNS FOR THE WEEK — the same grid idea as
+ *  `PeakHeatmap`, generalised past hours. Shading is relative to THIS heatmap's own busiest cell,
+ *  not a shop-wide max, so a quiet service still shows real contrast between its own good and bad
+ *  days instead of reading as a flat, pale row beside a busier one. */
+function EntityDayHeatmap({ title, hue, rows, hint }: {
+  title: string; hue: 'violet' | 'teal'; hint?: string;
+  rows: { label: string; days: number[] }[]; // days[0..6] = Sun..Sat
+}) {
+  if (!rows.length) return null;
+  const max = Math.max(1, ...rows.flatMap((r) => r.days));
+  const color = hue === 'violet' ? 'var(--sh-violet)' : 'var(--sh-teal)';
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[13px] font-semibold">{title}</h3>
+      <div className="flex flex-col gap-[3px]">
+        {/* THE DAY LETTERS, ONCE, ABOVE THE GRID — لا داعي لإعادتها كل صف؛ العمود يبقى نفسه. */}
+        <div dir="ltr" className="flex items-center gap-[2px]">
+          <span className="w-20 shrink-0" />
+          {DAY_LETTERS.map((l, i) => (
+            <span key={i} className="flex-1 text-center text-[9.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{l}</span>
+          ))}
+        </div>
+        {rows.map((r) => (
+          <div key={r.label} dir="ltr" className="flex items-center gap-[2px]">
+            <span className="w-20 shrink-0 truncate text-[11px]" style={{ color: 'var(--sh-ink-soft)' }} dir="rtl">{r.label}</span>
+            {r.days.map((v, d) => (
+              <div
+                key={d}
+                title={v ? `${DAY_NAMES[d]} — ${v}` : undefined}
+                className="h-4 flex-1 rounded-[2px]"
+                style={{ background: v ? `color-mix(in srgb, ${color} ${Math.round(12 + (v / max) * 78)}%, white)` : 'var(--sh-surface-2)' }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      {hint ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</p> : null}
+    </div>
+  );
+}
+
+/** Turns a flat `"entityId:day"` grid (`service_day_heatmap`, `branch_day_heatmap`) into the
+ *  top-N entities by total, each with a 7-slot day array — the shape `EntityDayHeatmap` wants. */
+export function topEntitiesByDay(
+  grid: Record<string, number> | undefined, names: Record<string, string>, limit: number,
+): { label: string; days: number[] }[] {
+  if (!grid) return [];
+  const totals: Record<string, number[]> = {};
+  for (const [key, count] of Object.entries(grid)) {
+    const sep = key.lastIndexOf(':');
+    if (sep < 0) continue;
+    const id = key.slice(0, sep);
+    const day = Number(key.slice(sep + 1));
+    if (!(day >= 0 && day < 7)) continue;
+    (totals[id] ??= [0, 0, 0, 0, 0, 0, 0])[day] += count;
+  }
+  return Object.entries(totals)
+    .map(([id, days]) => ({ label: names[id] || id, days, sum: days.reduce((a, b) => a + b, 0) }))
+    .sort((a, b) => b.sum - a.sum)
+    .slice(0, limit)
+    .map(({ label, days }) => ({ label, days }));
+}
+
 function LockedLine({ title, text }: { title: string; text: string }) {
   return (
     <div className="flex items-start gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
@@ -1080,7 +1172,20 @@ function BranchCompare({ branches }: { branches: Branches }) {
           return (
             <li key={r.branch_id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-[12.5px]">
-                <span className="font-medium">{r.name || r.branch_id || 'بلا اسم'}</span>
+                <span className="flex items-center gap-1.5 font-medium">
+                  {r.name || r.branch_id || 'بلا اسم'}
+                  {/* THE AGGREGATE HERO NUMBER, PER BRANCH — a chain reading 46% overall can be
+                      one branch at 70% carrying one at 20%, invisible until it is broken out. Same
+                      colour language «التسرّب» already uses: coral means low, teal means high. */}
+                  {typeof r.return_rate === 'number' ? (
+                    <span dir="ltr" className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{
+                      background: `color-mix(in srgb, ${r.return_rate >= 0.4 ? 'var(--sh-teal)' : 'var(--sh-coral)'} ${Math.round(15 + r.return_rate * 60)}%, white)`,
+                      color: r.return_rate >= 0.4 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
+                    }}>
+                      {Math.round(r.return_rate * 100)}% عودة
+                    </span>
+                  ) : null}
+                </span>
                 <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
