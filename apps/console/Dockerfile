@@ -46,6 +46,11 @@ ARG VITE_META_GRAPH_VERSION=""
 # Login for Business configuration behind VITE_META_CONFIG_ID. A build argument here was a second
 # place to say it, and the two could disagree.
 ENV VITE_META_APP_ID=$VITE_META_APP_ID VITE_META_CONFIG_ID=$VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION=$VITE_META_GRAPH_VERSION
+# THE SAME SHAPE FOR MOYASAR. `payment.ts`'s `canMintToken` reads this the identical way META's
+# vars are read — baked in now or never, absent by default so the card form correctly declares
+# itself unavailable rather than pretending to work with no key behind it.
+ARG VITE_MOYASAR_PUBLISHABLE_KEY=""
+ENV VITE_MOYASAR_PUBLISHABLE_KEY=$VITE_MOYASAR_PUBLISHABLE_KEY
 RUN npm run build
 
 # ── runtime ──────────────────────────────────────────────────────────────────

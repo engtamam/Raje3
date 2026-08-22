@@ -29,7 +29,9 @@
  * thing left and what already works without it. A silent success here would be the real sale of
  * something undeliverable: he would learn it a week later from messages that never went.
  */
-import { canMintToken, mintPaymentToken, NO_CARD_FORM } from '../payment';
+import { canMintToken, confirmToken, NO_CARD_FORM } from '../payment';
+import { takePending, type PendingPayment } from '../pendingPayment';
+import { CardForm } from './CardForm';
 import { useEffect, useState } from 'react';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Button } from '@base-ui/design-system/Button';
@@ -443,6 +445,13 @@ export function PlansPane({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState('');
+  /** THE CARD FORM, OPEN FOR ONE OF TWO REASONS — buying a plan, or replacing the card on the
+   *  base subscription. `null` is closed; it is not a screen of its own, same as `reading` on
+   *  «رسائلي». Which reason decides what a resolved token is handed to next. */
+  const [cardFormPending, setCardFormPending] = useState<PendingPayment | null>(null);
+  /** True only while resolving a token AFTER the 3DS redirect brought him back — a distinct wait
+   *  from `busy`, because there is no form and no button to grey out at that moment. */
+  const [resolvingReturn, setResolvingReturn] = useState(false);
   /**
    * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
    *
@@ -522,7 +531,11 @@ export function PlansPane({
 
   useEffect(load, [session, catalog]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const choose = async (p: Plan) => {
+  // OPENS THE CARD FORM RATHER THAN MINTING INLINE. Tokenising is no longer one call an owner
+  // never sees — it is a real form, and almost always a full redirect to his bank's own 3DS page
+  // and back (see payment.ts). `choose` only decides WHETHER a card is needed at all; the form
+  // and the redirect-return effect below do the rest.
+  const choose = (p: Plan) => {
     setError('');
     // NOT GATED ON THE CONNECTION ANY MORE — see the module note. Only on having the action at
     // all, which is a capability question and not a readiness one.
@@ -536,14 +549,21 @@ export function PlansPane({
     if (!canSubscribe) return;
     if (!canBuy({ hasAction: true, gatewayEnabled: Boolean(pay?.enabled),
                  canMint: canMintToken })) return;
-    setBusy(true);
+    setCardFormPending({ kind: 'subscribe', planId: p.id });
+  };
+
+  /** The purchase itself, once a token exists — reached either straight from the form (a card
+   *  that skipped 3DS) or from the redirect-return effect below (the ordinary case). */
+  const finishSubscribe = async (planId: string, payment_token: string) => {
+    if (!canSubscribe) return;
+    setBusy(true); setError('');
     try {
-      const payment_token = await mintPaymentToken();
       const out = await call<{ notice?: string }>(session, canSubscribe,
-                                                 { plan_id: p.id, payment_token });
+                                                 { plan_id: planId, payment_token });
       // THE SERVER'S SENTENCE, NOT OURS. What is still owed after a successful subscription is a
       // product rule and it lives in one place; a second copy here is the one that goes stale.
       setNotice(out?.notice ?? '');
+      setCardFormPending(null);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر تفعيل الباقة.');
@@ -551,6 +571,56 @@ export function PlansPane({
       setBusy(false);
     }
   };
+
+  /** «تحديث بطاقة الدفع» — closes audit gap #3 on our side. Only renders/reaches here once
+   *  billing.update_payment_method exists in the catalogue; until base-services ships that route
+   *  (see the escalation) this whole path is simply unreachable, never rendered-and-refused. */
+  const finishUpdatePaymentMethod = async (subscriptionId: string, payment_token: string) => {
+    const a = action(catalog, 'billing.update_payment_method');
+    if (!a) return;
+    setBusy(true); setError('');
+    try {
+      await call(session, a, { id: subscriptionId, payment_token });
+      setCardFormPending(null);
+      setNotice('تم تحديث بطاقة الدفع.');
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'تعذّر تحديث البطاقة.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // THE RETURN FROM 3DS. Moyasar's own callback shape appends `id`/`status`/`message` to the URL
+  // we gave it as `callback_url` — the same page, so this effect fires on every ordinary load
+  // too, and `takePending()` is the guard: no pending payment, nothing to do, and a bookmarked or
+  // refreshed URL carrying a stale `id` cannot replay anything a second time (`takePending`
+  // clears itself on the first read, pending or not).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenId = params.get('id');
+    const pending = takePending();
+    if (!tokenId || !pending) return;
+    setResolvingReturn(true);
+    confirmToken(tokenId)
+      .then((result) => {
+        if (result.kind === 'error') { setError(result.message); return; }
+        if (result.kind !== 'token') return;
+        if (pending.kind === 'subscribe') return finishSubscribe(pending.planId, result.token);
+        return finishUpdatePaymentMethod(pending.subscriptionId, result.token);
+      })
+      .finally(() => {
+        setResolvingReturn(false);
+        // THE URL IS CLEANED EITHER WAY. A refresh of this page must not re-run verification
+        // against a token `takePending()` has already consumed and Moyasar may have expired.
+        const url = new URL(window.location.href);
+        for (const k of ['id', 'status', 'message']) url.searchParams.delete(k);
+        window.history.replaceState({}, '', url.toString());
+      });
+    // Runs once, on mount only — a pending payment is read and cleared exactly once regardless of
+    // what else on this screen re-renders afterward.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── GROUPED BY WHAT A ROW GRANTS, never by its name or its position in a list ─────────────
   // This is what makes the next app free to add: invoicing and CRM arrive as rows in the price
@@ -628,35 +698,80 @@ export function PlansPane({
                 تطبيقاتك تتجدّد في {appDays.size} تواريخ مختلفة — كلٌّ في يوم شرائه.
               </p>
             ) : null}
-            {/* THE THIRD STATE, SAID PLAINLY. «قيد الإلغاء» is neither «فعّال» (it will not renew)
-                nor «متوقف» (he is still served, still billed for what he already paid) — a badge
-                that could only say one of those two would leave him guessing which is true. */}
+            {/* FOUR STATES NOW, SAID PLAINLY — «متأخر الدفع» is the honest fourth (audit #3,
+                2026-08-22). Before this the screen only ever read `sub.status === 'active'` as
+                «فعّال» and printed «متوقف» for everything else, including `past_due` — the one
+                state where he is still being SERVED but a charge is failing behind the scenes,
+                said in the exact word the product used for "he cancelled and it already ended".
+                An owner reading «متوقف» had no reason to think a card needed fixing. */}
             <Badge tone={baseSub?.cancel_at_period_end ? 'warning'
+              : sub.status === 'past_due' ? 'danger'
               : sub.status === 'active' ? 'success' : 'warning'}>
-              {baseSub?.cancel_at_period_end ? 'قيد الإلغاء' : sub.status === 'active' ? 'فعّال' : 'متوقف'}
+              {baseSub?.cancel_at_period_end ? 'قيد الإلغاء'
+                : sub.status === 'past_due' ? 'متأخر الدفع'
+                : sub.status === 'active' ? 'فعّال' : 'متوقف'}
             </Badge>
           </div>
 
-          {/* «إلغاء الاشتراك» — THE ACTION THAT DID NOT EXIST (audit #2, 2026-08-22). The backend
-              route was complete and reachable; nothing in this console ever called it, so a customer
-              wanting to leave had no self-service path at all. Shown only for the BASE — cancelling
-              an app is a downgrade (a different, separate gap: #5 in the audit), not a departure. */}
-          {baseSub && action(catalog, 'billing.cancel') ? (
-            baseSub.cancel_at_period_end ? (
-              <p className="text-sm text-text-secondary">
-                {renewalDay(baseSub.current_period_end)
-                  ? `اشتراكك يعمل حتى ${renewalDay(baseSub.current_period_end)} ولن يتجدّد بعدها.`
-                  : 'اشتراكك لن يتجدّد بعد نهاية الفترة الحالية.'}
-              </p>
-            ) : (
-              <div>
+          {/* WHY IT IS متأخر, AND WHAT TO DO ABOUT IT — the sentence «متوقف» never had. */}
+          {sub.status === 'past_due' ? (
+            <p className="text-sm text-danger">
+              آخر محاولة سحب لم تنجح. حدّث بطاقتك حتى لا يتوقف اشتراكك.
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            {/* «إلغاء الاشتراك» — THE ACTION THAT DID NOT EXIST (audit #2, 2026-08-22). The backend
+                route was complete and reachable; nothing in this console ever called it, so a
+                customer wanting to leave had no self-service path at all. Shown only for the BASE
+                — cancelling an app is a downgrade (a different, separate gap: #5), not a departure. */}
+            {baseSub && action(catalog, 'billing.cancel') ? (
+              baseSub.cancel_at_period_end ? (
+                <p className="text-sm text-text-secondary">
+                  {renewalDay(baseSub.current_period_end)
+                    ? `اشتراكك يعمل حتى ${renewalDay(baseSub.current_period_end)} ولن يتجدّد بعدها.`
+                    : 'اشتراكك لن يتجدّد بعد نهاية الفترة الحالية.'}
+                </p>
+              ) : (
                 <Button type="button" variant="ghost" onClick={() => setConfirmingCancel(true)}>
                   إلغاء الاشتراك
                 </Button>
-              </div>
-            )
-          ) : null}
+              )
+            ) : null}
+
+            {/* «تحديث بطاقة الدفع» — audit #3's other half, the one that closes the involuntary-
+                churn loop: `dunning_sweep` on the backend keeps retrying the SAME stored token
+                forever, and this was the only way that token could ever change. Reachable only
+                once `billing.update_payment_method` exists in the catalogue AND this build can
+                actually mint a token (`canMintToken` — false until Ops sets the Moyasar
+                publishable key) — never rendered-and-refused. */}
+            {baseSub && action(catalog, 'billing.update_payment_method') && canMintToken ? (
+              <Button type="button" variant="ghost"
+                      onClick={() => setCardFormPending({ kind: 'update_payment_method',
+                                                          subscriptionId: baseSub.id })}>
+                تحديث بطاقة الدفع
+              </Button>
+            ) : null}
+          </div>
         </div>
+      ) : null}
+
+      {/* THE CARD FORM — subscribing to a paid plan, or replacing the card on the base. Shown
+          inline rather than in a modal: it is a full-page redirect away and back on the ordinary
+          path (3DS), and a modal that survives that round trip is a modal fighting its own DOM. */}
+      {cardFormPending ? (
+        <CardForm
+          pending={cardFormPending}
+          onCancel={() => setCardFormPending(null)}
+          onToken={(token) => {
+            if (cardFormPending.kind === 'subscribe') void finishSubscribe(cardFormPending.planId, token);
+            else void finishUpdatePaymentMethod(cardFormPending.subscriptionId, token);
+          }}
+        />
+      ) : null}
+
+      {resolvingReturn ? (
+        <p className="text-sm text-text-secondary">نتحقق من بطاقتك…</p>
       ) : null}
 
       {/* THE CONFIRMATION — never a silent press. He is ending a paid relationship, and the one

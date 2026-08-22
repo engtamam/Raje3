@@ -34,18 +34,23 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
-# META'S THREE VALUES REACH THE CONSOLE AT BUILD TIME OR NOT AT ALL.
+# META'S THREE VALUES, AND MOYASAR'S ONE, REACH THE CONSOLE AT BUILD TIME OR NOT AT ALL.
 #
 # Vite inlines `import.meta.env.*` into the bundle, so these cannot be set on the pod the way every
 # service setting is: an image built without them cannot be configured later, and the screen
 # correctly says «الربط غير مُفعَّل بعد» for ever. They were declared in the Dockerfile and passed
 # by nothing — a setting nobody could supply, which is the shape this repo keeps finding.
 #
+# VITE_MOYASAR_PUBLISHABLE_KEY joined the same list 2026-08-22: `payment.ts`'s `canMintToken`
+# reads it the identical way, and it is the identical kind of value — a publishable key, safe to
+# ship in client code, absent by default so the card form correctly declares itself unavailable
+# rather than pretending to work.
+#
 # NOT IN GIT, and read from the same file the ship already reads: they are an operator's own
 # application credentials. Absent is a valid state — the button then says so honestly.
 [ -f "$ROOT/deploy/target.env" ] && . "$ROOT/deploy/target.env"
 META_ARGS=()
-for v in VITE_META_APP_ID VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION; do
+for v in VITE_META_APP_ID VITE_META_CONFIG_ID VITE_META_GRAPH_VERSION VITE_MOYASAR_PUBLISHABLE_KEY; do
   [ -n "${!v:-}" ] && META_ARGS+=(--build-arg "$v=${!v}")
 done
 OWNER="${GHCR_OWNER:-engtamam}"
