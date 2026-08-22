@@ -23,12 +23,14 @@ import { DENIED, isReady, type Loading } from './loading';
 import { Mark, NAME_AR } from './brand/Mark';
 import { Door } from './screens/Door';
 import { LegalGate } from './screens/LegalGate';
+import { WelcomeTrial } from './screens/WelcomeTrial';
 import { action, call, fetchCatalog, SessionExpired, type Catalog } from './catalog';
 import { ACCOUNT_PATH, isOutage, visibleSections } from './nav';
 import { BranchSwitch } from './BranchSwitch';
 import { currentBranch, loadBranch, saveBranch, type ScopeBranch } from './branch-scope';
 import type { Owned } from './apps';
 import { isSignedIn, useSession } from './session';
+import { WELCOME_TRIAL_KEY } from './auth';
 
 export function App() {
   const { session, signedIn, signOut } = useSession();
@@ -58,6 +60,17 @@ export function App() {
    */
   const [scopeBranches, setScopeBranches] = useState<Loading<ScopeBranch[]>>(undefined);
   const [branch, setBranchState] = useState<string>(() => loadBranch());
+  // THE FLAG DOOR.TSX SET THE MOMENT A FRESH SIGNUP'S TRIAL OPENED — read once, at mount, so a
+  // page reload mid-onboarding still shows the welcome exactly once rather than never or forever.
+  // `null` = nothing to show; `0` or a real epoch = show it (0 simply omits the date line).
+  const [welcomeTrialEnd, setWelcomeTrialEnd] = useState<number | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(WELCOME_TRIAL_KEY);
+      return raw === null ? null : Number(raw) || 0;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     if (!isSignedIn(session)) return;
@@ -127,6 +140,21 @@ export function App() {
   // into a screen that then renders half-loaded and 401s. Signed out, there is one thing on the
   // screen and no way past it but through.
   if (!isSignedIn(session)) return <Door onSignedIn={signedIn} />;
+
+  // THE WELCOME, SHOWN EXACTLY ONCE — the flag Door.tsx set the moment his shop (and its trial)
+  // opened, read here and cleared the instant he presses through. session-scoped, so it cannot
+  // survive past this tab or replay on an ordinary sign-in from another device.
+  if (welcomeTrialEnd !== null) {
+    return (
+      <WelcomeTrial
+        trialEnd={welcomeTrialEnd}
+        onDone={() => {
+          try { sessionStorage.removeItem(WELCOME_TRIAL_KEY); } catch { /* private mode */ }
+          setWelcomeTrialEnd(null);
+        }}
+      />
+    );
+  }
 
   if (failed) {
     // THE DISTINCTION THAT MATTERS TO A PAYING OWNER: "we cannot reach the platform" and "you have

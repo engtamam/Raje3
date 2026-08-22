@@ -41,7 +41,7 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
 import {
-  openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, Refused,
+  openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, WELCOME_TRIAL_KEY, Refused,
 } from '../auth';
 import { sentenceFor } from '../api';
 import type { Session } from '../session';
@@ -335,6 +335,14 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // CARRIED FROM THE FIRST CALL THROUGH A POSSIBLE «أكّد رقمك» DETOUR — see auth.ts's own note
+  // on `openShop`: the shop and its trial already exist the moment sign-in itself refuses.
+  const [trialEnd, setTrialEnd] = useState(0);
+
+  function markWelcome(end: number) {
+    if (!end) return;
+    try { sessionStorage.setItem(WELCOME_TRIAL_KEY, String(end)); } catch { /* private mode */ }
+  }
 
   const errs = useMemo(() => ({
     phone: errorFor('phone', v.phone),
@@ -398,7 +406,9 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       // its first day for any shop that did two things. A shop now starts empty and its owner
       // writes what he actually sells; whether he works on cars is a checkbox in «منشأتي» that he
       // can change the day his work changes.
-      await openShop({
+      // ONE SIGN-IN, NOT TWO — `openShop` already walks him through the door itself (auth.ts's
+      // own doc comment says so); this pane used to discard that session and ask again.
+      const opened = await openShop({
         phone: filled.phone, password: filled.password, shopName: filled.shopName,
         // WHICH MARKETER'S LINK HE ARRIVED ON, IF ANY — read once, silently, from `?aff=`; see
         // auth.ts's own note on why this is never a field he fills in himself.
@@ -412,23 +422,17 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         localStorage.setItem(AGREED_KEY, normalizePhone(filled.phone) ?? '');
       } catch { /* private mode — the gate simply asks, which is the safe direction */ }
 
-      // STRAIGHT IN, AND THE SERVER DECIDES WHETHER THAT IS ALLOWED.
-      //
-      // The rule "an unproven number may not sign in" lives in operations, behind a setting — and
-      // while sending is not wired to Meta it is off, because demanding a proof we cannot send is
-      // a locked door with no key. So the console does not gate on its own: it signs in, and if
-      // the server still wants the number proven it says so with `unverified`, which the sign-in
-      // pane already knows how to turn into the code screen.
-      //
-      // ONE PLACE DECIDES, and it is the one that knows. A second rule here would be the copy that
-      // goes stale the day the setting flips.
-      onSignedIn(await signIn(filled.phone, filled.password));
+      markWelcome(opened.trialEnd);
+      onSignedIn(opened.session);
     } catch (err) {
       // THE SAME REFUSAL, THE SAME STEP — and this pane used to answer it with a sentence on a
       // form that has no code field anywhere on it (م · قاطع). The account exists by then, his
       // number is spoken for, and «أكّد رقمك» with nowhere to type it is a locked door he built
       // himself. The pane beside this one has handled it correctly since it was written.
       if (needsProof(err)) {
+        // THE TRIAL ALREADY OPENED — carried on the thrown error itself (auth.ts's own note),
+        // since the shop and its trial exist by the time sign-in alone is what refused.
+        setTrialEnd(Number((err as { trialEnd?: number }).trialEnd) || 0);
         setProving(await proveStep(filled.phone, filled.password));
         return;
       }
@@ -439,7 +443,8 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   }
 
   if (proving) {
-    return <ProveNumber proving={proving} setProving={setProving} onSignedIn={onSignedIn} />;
+    return <ProveNumber proving={proving} setProving={setProving}
+                        onSignedIn={(s) => { markWelcome(trialEnd); onSignedIn(s); }} />;
   }
 
   return (
