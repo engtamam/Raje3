@@ -26,6 +26,7 @@ import { digitsOnly } from '../digits';
 import type { ScopeBranch } from '../branch-scope';
 import { riyals } from '../money';
 import { PAYMENT_COLOR, PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPayment';
+import { FilterMenu } from '../rj-ui/FilterMenu';
 import type { Session } from '../session';
 import { BookingDialog } from './BookingDialog';
 import { WorkingHoursDialog } from './WorkingHoursDialog';
@@ -182,7 +183,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   useEffect(() => { setOverdueDismissedAt(0); }, [date]);
   // FILTERS, NOT SEARCH — a shop reads this grid a hundred times a day; typing a name is a
   // request nobody asked to make when the same narrowing is three taps away as a chip.
-  const [filterService, setFilterService] = useState('');   // '' = every service
+  const [filterServices, setFilterServices] = useState<string[]>([]);   // [] = every service
   const [filterPayment, setFilterPayment] = useState<'any' | PaymentStatus>('any');
   const [filtersOpen, setFiltersOpen] = useState(false);
   // البحث بالبادئة — عاد بعد إصدار المنصة v0.16.24 (2026-08-19)، الذي حمل المسار الداخلي
@@ -278,15 +279,15 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
   const visible = useMemo(() => {
     return (rows ?? []).filter((b) => {
-      if (filterService && !b.service_ids.includes(filterService)) return false;
+      if (filterServices.length && !b.service_ids.some((id) => filterServices.includes(id))) return false;
       if (filterPayment !== 'any' && b.payment_status !== filterPayment) return false;
       if (filterCustomer && b.customer_id !== filterCustomer.id) return false;
       return true;
     });
-  }, [rows, filterService, filterPayment, filterCustomer]);
+  }, [rows, filterServices, filterPayment, filterCustomer]);
 
   const activeFilterCount =
-    (filterService ? 1 : 0) + (filterPayment !== 'any' ? 1 : 0) + (filterCustomer ? 1 : 0);
+    filterServices.length + (filterPayment !== 'any' ? 1 : 0) + (filterCustomer ? 1 : 0);
 
   // MINUTES PAST THE WHOLE APPOINTMENT WINDOW, NOT PAST ITS START — a booking still inside its
   // own duration is simply happening, not overdue. 0 (or negative) means "not overdue yet".
@@ -555,12 +556,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
               <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
                           phoneMatches={phoneMatches} filterCustomer={filterCustomer}
                           setFilterCustomer={setFilterCustomer} />
-              <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
-                     className="h-9 rounded-full px-3 text-xs font-medium shadow-sm outline-none"
-                     style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink)' }}>
-                <option value="">كل الخدمات</option>
-                {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <FilterMenu label="الخدمة" options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                         selected={filterServices} onChange={setFilterServices} />
               <div className="flex overflow-hidden rounded-full shadow-sm" style={{ border: '1px solid var(--rj-line)' }}>
                 <button type="button" onClick={() => setFilterPayment('any')}
                        className="h-9 px-3 text-xs font-medium"
@@ -580,7 +577,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                 ))}
               </div>
               {activeFilterCount ? (
-                <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
+                <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
                        aria-label="إزالة كل الفلاتر"
                        className="grid h-9 w-9 place-items-center rounded-full shadow-sm"
                        style={{ background: 'var(--rj-surface)', color: 'var(--rj-ink-soft)' }}>
@@ -622,12 +619,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الخدمة</span>
-                    <select value={filterService} onChange={(e) => setFilterService(e.target.value)}
-                           className="h-9 rounded-xl px-2 text-sm outline-none"
-                           style={{ background: 'var(--rj-bg)', border: '1px solid var(--rj-line)' }}>
-                      <option value="">كل الخدمات</option>
-                      {(services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    <FilterMenu label="الخدمة" options={(services ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                               selected={filterServices} onChange={setFilterServices} className="w-full" />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الدفع</span>
@@ -652,7 +645,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                     </div>
                   </div>
                   {activeFilterCount ? (
-                    <button type="button" onClick={() => { setFilterService(''); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
+                    <button type="button" onClick={() => { setFilterServices([]); setFilterPayment('any'); setFilterCustomer(null); setPhoneQuery(''); }}
                            className="text-xs font-medium underline" style={{ color: 'var(--rj-gold-deep)' }}>
                       إزالة كل الفلاتر
                     </button>

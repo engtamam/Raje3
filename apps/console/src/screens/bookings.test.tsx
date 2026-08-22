@@ -173,17 +173,41 @@ describe('the grid', () => {
 
   it('filters visible cards by chip, with no new request', async () => {
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
-    // TWO MATCHES BEFORE FILTERING: the booking card itself, and the same name as a <option> in
-    // the filter row's own service select (always in the DOM — jsdom does not apply the `sm:`
-    // breakpoint that picks inline-row-vs-mobile-chip at a real viewport width). Filtering the
-    // card away leaves exactly the option.
-    await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(2));
+    // ONE MATCH BEFORE FILTERING: just the booking card itself — the service FilterMenu is closed
+    // by default and, unlike a native <select>, never renders its option list into the DOM until
+    // opened, so there is no second "قص شعر" hiding in an always-present <option>.
+    await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(1));
     const before = asked.filter((a) => a.fn === 'listBookings').length;
     // BOOKING.payment_status is 'none', so "عربون" excludes the one card on screen — the same
     // outcome the old search-by-text test proved, now over a chip instead of a query.
     fireEvent.click(screen.getAllByText('عربون')[0]);
-    await waitFor(() => expect(screen.getAllByText(/قص شعر/)).toHaveLength(1));
+    await waitFor(() => expect(screen.queryAllByText(/قص شعر/)).toHaveLength(0));
     expect(asked.filter((a) => a.fn === 'listBookings').length).toBe(before);
+  });
+
+  it('the service filter is a real multi-select — either of two chosen services keeps a card', async () => {
+    bookingsOverride = [
+      { ...BOOKING, id: 'bkg_1', service_ids: ['svc1'] },
+      { ...BOOKING, id: 'bkg_2', service_ids: ['svc2'] },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => expect(within(grid()).getByText(/قص شعر/)).toBeTruthy());
+    expect(within(grid()).getByText(/تلميع/)).toBeTruthy();
+
+    fireEvent.click(screen.getByText('الخدمة'));
+    const menu = screen.getByRole('listbox');
+    fireEvent.click(within(menu).getByText('قص شعر'));
+    fireEvent.click(within(menu).getByText('تلميع'));
+    fireEvent.keyDown(document, { key: 'Escape' });   // close the menu, so only the cards remain
+
+    // Both selected — neither card is excluded.
+    await waitFor(() => expect(within(grid()).getByText(/قص شعر/)).toBeTruthy());
+    expect(within(grid()).getByText(/تلميع/)).toBeTruthy();
+
+    // Removing one selection via its own chip — never clearing the other — leaves exactly one card.
+    fireEvent.click(screen.getByLabelText('إزالة تلميع'));
+    await waitFor(() => expect(within(grid()).queryByText(/تلميع/)).toBeFalsy());
+    expect(within(grid()).getByText(/قص شعر/)).toBeTruthy();
   });
 
   it('shows the deposit amount right on the card, not just a coloured dot', async () => {
