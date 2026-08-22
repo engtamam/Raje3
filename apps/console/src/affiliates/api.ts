@@ -86,3 +86,46 @@ export interface Me {
 export async function me(session: AffiliateSession): Promise<Me> {
   return req('/api/v1/affiliates/me', 'GET', undefined, session.access_token);
 }
+
+/** Same shape as `services/affiliate-service/app/api/v1/affiliate_self.py::home`'s own response —
+ *  ONE call assembling what used to need six to eight, kept a straight mirror of the server's own
+ *  dict rather than reshaped here, so the two can never drift apart silently. */
+export interface Balance {
+  pending_halalas: number; confirmed_available_halalas: number; withdrawn_halalas: number;
+}
+export interface WafaEligibility {
+  active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
+  current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
+}
+export interface EmploymentEligibility {
+  converted_customers: number; threshold: number; eligible: boolean;
+  customers_until_eligible: number;
+}
+export interface TopTemplate {
+  template_id: string; title: string; stage_code: string; kind: string; uses: number;
+  advanced: number; no_response: number; rejected: number; pending: number; advance_rate: number;
+}
+export interface StaleLead {
+  id: string; name: string; city: string; status: string; found_at: number;
+}
+export interface TeamSummary {
+  member_count: number; team_confirmed_halalas: number; team_pending_halalas: number;
+  pending_wafa_requests_count: number;
+}
+export interface Home {
+  affiliate: { id: string; name: string; role: string };
+  balance: Balance;
+  payout_method_set: boolean;
+  pending_withdrawal?: boolean;
+  stale_leads_count: number;
+  stale_leads: StaleLead[];
+  wafa_eligibility: WafaEligibility;
+  employment_eligibility: EmploymentEligibility;
+  top_template_this_period: TopTemplate | null;
+  team?: TeamSummary;
+  places_api_key_set?: boolean | null;
+}
+
+export async function home(session: AffiliateSession): Promise<Home> {
+  return req('/api/v1/affiliates/me/home', 'GET', undefined, session.access_token);
+}
