@@ -315,10 +315,41 @@ describe('حجز جديد', () => {
   it('opens the same dialog from an empty cell click — no separate flow', async () => {
     const { container } = open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => card());
-    // The column background itself, not a card — clicking a card opens the action sheet instead.
+    // A quarter-hour cell inside the column, not a card — clicking a card opens the action sheet
+    // instead. Each cell is its own <button> now (real hover affordance), so the click lands on
+    // one of those rather than the column's own background.
     const column = container.querySelectorAll('.border-s')[1];
-    fireEvent.click(column);
+    const cell = column.querySelector('button');
+    expect(cell).toBeTruthy();
+    fireEvent.click(cell!);
     await waitFor(() => expect(screen.getByText(/جوّال العميل/)).toBeTruthy());
+  });
+
+  it('«أقرب موعد» always searches from right now, never from a pre-filled later time', async () => {
+    // Reported directly: opening the dialog from an early grid cell pre-fills day/time to that
+    // cell, and pressing «أقرب موعد» used to respect that pre-filled value as the search floor
+    // whenever it was later than the real current moment — so a shop owner who opened the dialog
+    // from a far-future cell got THAT cell's own hour back as "nearest", no matter the real time.
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => screen.getByLabelText('حجز جديد'));
+    screen.getByLabelText('حجز جديد').click();
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = () => within(screen.getByRole('dialog'));
+
+    dialog().getByText('قص شعر').click();
+    // A day and time far in the future — exactly the shape a pre-filled cell click would leave
+    // behind, just pushed further out to make the bug unmistakable against real wall-clock time.
+    fireEvent.change(document.getElementById('bkg-day') as HTMLInputElement, { target: { value: '2030-01-01' } });
+    fireEvent.change(document.getElementById('bkg-time') as HTMLInputElement, { target: { value: '08:00' } });
+
+    const before = Math.floor(Date.now() / 1000);
+    dialog().getByText('أقرب موعد').click();
+    await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlot')).toBe(true));
+    const call = asked.find((a) => a.fn === 'nearestSlot')!;
+    const after = call.args[4] as number;
+    // Within a generous few seconds of the real current moment — never anywhere near the
+    // pre-filled 2030-01-01 08:00, which would be many years away in epoch seconds.
+    expect(Math.abs(after - before)).toBeLessThan(10);
   });
 
   it('fixes a missing duration from inside the dialog, never sends him away', async () => {

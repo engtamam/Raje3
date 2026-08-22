@@ -960,22 +960,6 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                       if (drag && dragOver?.column === col.key) commitMove(drag.booking, col.key, dragOver.minutes);
                       setDrag(null); setDragOver(null);
                     }}
-                    onClick={(e) => {
-                      if (moving) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const raw = WINDOW_START + (e.clientY - rect.top) / PX_PER_MIN;
-                        const snapped = Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES;
-                        commitMove(moving.booking, col.key, snapped);
-                        setMoving(null);
-                        return;
-                      }
-                      if (e.target !== e.currentTarget) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const raw = WINDOW_START + (e.clientY - rect.top) / PX_PER_MIN;
-                      const snapped = Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES;
-                      setDialog({ operatorId: view === 'day' ? col.key : weekStaffId,
-                                 startsAt: epochAt(col.date, snapped) });
-                    }}
                   >
                     {/* أيام مغلقة أو خارج دوامها ضمن المحور المشترك — تُعتَّم لا تُقصَّر، عشان
                         نفس الموضع الرأسي يبقى يعني نفس الوقت في كل الأعمدة. */}
@@ -1002,17 +986,40 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                         </>
                       );
                     })() : null}
-                    {/* QUARTER-HOUR LINES, FAINTER THAN THE HOUR — every cell is already
-                        clickable at 15-minute precision (SNAP_MINUTES), this is what makes that
-                        structure visible instead of guessed. Four real sections per hour, each
-                        its own tap target, matching the grain the click math already snaps to. */}
+                    {/* REAL CELLS NOW, NOT JUST LINES — each quarter-hour used to be a zero-height
+                        border with no way to tell it was clickable except by clicking it. A cell
+                        that only reveals itself on contact is not an affordance; it is a guess
+                        that happened to be right. Every band now lights up and names its own time
+                        on hover — the same "this is pressable" cue a button gives, at the exact
+                        grain SNAP_MINUTES already snaps every drop to. The click itself moved
+                        here too, off the column's own onClick: a cell knows its own minute
+                        precisely, so this is a snap to what was actually pressed, not pixel math
+                        against the pointer's Y. */}
                     {Array.from({ length: WINDOW_LEN / 15 }, (_, i) => WINDOW_START + i * 15).map((m) => (
-                      <div key={m} className="absolute inset-x-0 border-t"
-                          style={{
-                            top: (m - WINDOW_START) * PX_PER_MIN,
-                            borderColor: m % 60 === 0 ? 'var(--rj-line)' : 'var(--rj-line)',
-                            opacity: m % 60 === 0 ? 1 : 0.4,
-                          }} />
+                      <button
+                        key={m}
+                        type="button"
+                        tabIndex={-1}
+                        className="group absolute inset-x-0 cursor-pointer border-t text-start transition-colors duration-100 hover:bg-[var(--rj-accent-soft)]"
+                        style={{
+                          top: (m - WINDOW_START) * PX_PER_MIN,
+                          height: 15 * PX_PER_MIN,
+                          borderColor: m % 60 === 0
+                            ? 'var(--rj-line)'
+                            : 'color-mix(in srgb, var(--rj-line) 40%, transparent)',
+                        }}
+                        onClick={() => {
+                          if (moving) { commitMove(moving.booking, col.key, m); setMoving(null); return; }
+                          setDialog({ operatorId: view === 'day' ? col.key : weekStaffId,
+                                     startsAt: epochAt(col.date, m) });
+                        }}
+                      >
+                        <span
+                          className="pointer-events-none absolute inset-inline-end-1.5 top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-bold shadow-sm group-hover:block"
+                          style={{ background: 'var(--rj-accent-deep)', color: '#ffffff' }}>
+                          {timeLabel(m)}
+                        </span>
+                      </button>
                     ))}
 
                     {/* THE PREVIEW SAYS WHERE IT WILL LAND, NOT JUST THAT IT MOVED — a dashed box
@@ -1078,6 +1085,13 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             insetInlineStart: `calc(${lane * laneWidth}% + ${lane ? 3 : 4}px)`,
                             width: `calc(${laneWidth}% - ${lanes > 1 ? 6 : 8}px)`,
                             background: tone.bg, color: tone.fg,
+                            // A SOLID STRIPE, NOT JUST A TINTED BOX — a flat wash of the status
+                            // colour was the whole card, which reads as one undifferentiated
+                            // block of colour rather than a card WITH a status. A 3px solid edge
+                            // in the same colour gives the eye one strong anchor to scan a whole
+                            // week of these by, while the tint underneath stays soft enough that
+                            // service-name text over it never fights for contrast.
+                            borderInlineStart: `3px solid ${tone.fg}`,
                             opacity: drag?.booking.id === b.id ? 0.4 : 1,
                             zIndex: lane + 1,
                             boxShadow: overdue > 0
@@ -1184,11 +1198,21 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                                     eye already goes for every fact about this card, not a
                                     separate corner badge nobody was told to look at. */}
                                 <div className="mt-0.5 flex flex-wrap items-center gap-1 overflow-hidden" style={{ maxHeight: height - 20 }}>
+                                  {/* TINTED TO THE CARD'S OWN STATUS, NOT A FLAT GREY — a
+                                      black-at-8% chip reads as murky on a violet/teal/red tint
+                                      instead of on the white it was designed for, which is
+                                      exactly the "cheap sticker" look reported directly. Blending
+                                      the tone's own colour into white keeps every chip on a card
+                                      visibly part of the same card, whatever its status is. */}
                                   {serviceNamesOf(b.service_ids).length > 0
                                     ? serviceNamesOf(b.service_ids).map((name) => (
                                         <span key={name}
-                                             className="truncate rounded-full px-1.5 py-px text-[10px] leading-tight"
-                                             style={{ background: 'rgb(0 0 0 / 0.08)', maxWidth: '100%' }}>
+                                             className="truncate rounded-full px-1.5 py-px text-[10px] font-medium leading-tight"
+                                             style={{
+                                               background: `color-mix(in srgb, ${tone.fg} 16%, white)`,
+                                               color: tone.fg,
+                                               maxWidth: '100%',
+                                             }}>
                                           {name}
                                         </span>
                                       ))

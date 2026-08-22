@@ -230,13 +230,15 @@ export function BookingDialog(
     if (chosen.length === 0 || missingDuration || finding) return;
     setFinding(true);
     setError('');
-    // NEVER BEFORE NOW — a day/time already typed can sit in the past (the
-    // date default is today, and an empty time field reads as 00:00 the moment ANY digit lands
-    // in it before the rest is typed), and searching from there could hand back a slot that has
-    // already passed. `now` always wins over an earlier `starts_at`; a LATER one he already
-    // chose is respected exactly as before.
-    const now = Math.floor(Date.now() / 1000);
-    const after = starts_at > now ? starts_at : now;
+    // ALWAYS FROM THIS EXACT MOMENT — reported directly: opening the dialog from a grid cell
+    // pre-fills day/time to THAT cell (this morning's 8:00, say), and "أقرب موعد" used to respect
+    // whatever was already sitting in the fields as the search floor if it was later than now —
+    // so a shop owner opening the dialog from an early cell got that early hour back as "nearest"
+    // even at 3pm, which reads as "gives the first opening of the day" no matter the actual time.
+    // "أقرب موعد" means nearest to RIGHT NOW, full stop — never to a pre-filled default he never
+    // asked to search from. A LATER time he deliberately TYPED himself is a different act (he is
+    // choosing a slot, not asking to find one) and is not this button's concern at all.
+    const after = Math.floor(Date.now() / 1000);
     try {
       const staffToTry = operatorId ? [operatorId] : staff.map((o) => o.id);
       // THE EARLIEST SLOT, AND WHO OWNS IT — a search across several staff must know which one
