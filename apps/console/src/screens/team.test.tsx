@@ -77,8 +77,26 @@ describe('OperatorRow — management always available', () => {
   });
 });
 
-describe('adding a worker to a single-branch shop', () => {
-  it('sends the real main branch id, never an empty (unassigned) one', async () => {
+describe('adding a worker — branch is explicit, even for one branch', () => {
+  it('the picker is always shown, opens on no selection, and blocks submit until he picks one', () => {
+    render(
+      <People session={SESSION} operators={[]} branches={ONE_BRANCH}
+              add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
+              hire={actionOf('operations.hire')} pinKind={false} onChanged={() => {}} />,
+    );
+    fireEvent.click(screen.getByText('إضافة موظف'));
+    expect(screen.getByLabelText('فرع الموظف')).toBeTruthy();
+    fireEvent.change(document.getElementById('op-name') as HTMLInputElement,
+                     { target: { value: 'خالد' } });
+    fireEvent.change(document.getElementById('op-phone') as HTMLInputElement,
+                     { target: { value: '0501234567' } });
+    fireEvent.change(document.getElementById('op-pw') as HTMLInputElement,
+                     { target: { value: 'hunter2hunter2' } });
+    // Every other field is filled — still disabled, because he never touched the branch.
+    expect((screen.getByText('حفظ') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('sends the branch he actually picked, never a silent default', async () => {
     render(
       <People session={SESSION} operators={[]} branches={ONE_BRANCH}
               add={actionOf('operations.create_operator')} edit={actionOf('operations.update_operator')}
@@ -91,6 +109,7 @@ describe('adding a worker to a single-branch shop', () => {
                      { target: { value: '0501234567' } });
     fireEvent.change(document.getElementById('op-pw') as HTMLInputElement,
                      { target: { value: 'hunter2hunter2' } });
+    fireEvent.change(screen.getByLabelText('فرع الموظف'), { target: { value: 'brn-main' } });
 
     fireEvent.click(screen.getByText('حفظ'));
     await waitFor(() => expect(calls.some((c) => c.id === 'operations.hire')).toBe(true));

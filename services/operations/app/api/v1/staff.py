@@ -121,7 +121,11 @@ class OperatorIn(BaseModel):
     # whether the product gets used.
     pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
     role: str = Field(default="operator", max_length=32)
-    branch_id: str = Field(default="", max_length=64)
+    # REQUIRED, NOT DESCRIPTIVE (Tamam, 2026-08-22) — every operator now names a real branch at
+    # the moment he is added, the same way `till.py`'s own door already requires one on a sale.
+    # No silent «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي»
+    # explicitly, so the choice is a fact he made rather than one we guessed for him.
+    branch_id: str = Field(min_length=1, max_length=64)
 
 
 @router.post("/operators", status_code=status.HTTP_201_CREATED,
@@ -154,6 +158,16 @@ async def create_operator(request: Request, body: OperatorIn,
     # THE COUNT AND THE INSERT ARE ONE ACT OR THE CAP IS DECORATION. Everything from the count to
     # the write happens inside the establishment's lane; two managers hiring in the same
     # millisecond are serialised rather than both told there is room (core/seats.py).
+    # CHECKED BEFORE THE SEAT CLAIM AND THE AUDIT RECORD, not inside them — both are write-ahead
+    # acts (a seat consumed, «operator.created» logged) that must never fire for an operator who
+    # is then refused for lacking a real branch.
+    try:
+        branch_id = await B.resolve_required(
+            BranchStore(request.app.state.container.datastore), tenant, body.branch_id)
+    except B.BranchRequired:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+            "error": "BRANCH_REQUIRED", "message": "اختر فرعاً حقيقياً لهذا الموظف."})
+
     try:
         async with S.claiming(request.app.state.container.datastore,
                               tenant=tenant, key=S.SEATS, now=time.time()):
@@ -165,13 +179,6 @@ async def create_operator(request: Request, body: OperatorIn,
                 ip=request.client.host if request.client else "")
 
             settings = request.app.state.container_settings
-            # HIS BRANCH, IF THE SHOP HAS ONE BY THAT ID. Unlike a visit this is a field on a form
-            # we serve, so a bad value here is our bug rather than a till's — but the same rule
-            # applies: an employee is not refused over a label, he is recorded without one.
-            branch_id = ""
-            if body.branch_id.strip():
-                branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
-                                            tenant, body.branch_id)
             op = Operator(id=new_id("opr"), tenant=tenant, name=body.name.strip(), role=body.role,
                           branch_id=branch_id, created=int(time.time()))
             op.pin_hash = _pin_hash(settings.PII_SALT, tenant, op.id, body.pin)
@@ -204,7 +211,8 @@ class MemberIn(BaseModel):
     # short one anyway, and refusing here means he is told before the round trip.
     password: str = Field(min_length=8, max_length=256)
     role: str = Field(min_length=1, max_length=32)
-    branch_id: str = Field(default="", max_length=64)
+    # REQUIRED — see OperatorIn's own note (Tamam, 2026-08-22).
+    branch_id: str = Field(min_length=1, max_length=64)
 
 
 @router.post("/members", status_code=status.HTTP_201_CREATED,
@@ -231,6 +239,15 @@ async def hire_member(request: Request, body: MemberIn,
     store = OperatorStore(request.app.state.container.datastore)
     gauges = request.app.state.container.gauges
 
+    # CHECKED BEFORE ANY OF IT — see create_operator's own note on why this cannot live inside the
+    # seat/audit lane.
+    try:
+        branch_id = await B.resolve_required(
+            BranchStore(request.app.state.container.datastore), tenant, body.branch_id)
+    except B.BranchRequired:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+            "error": "BRANCH_REQUIRED", "message": "اختر فرعاً حقيقياً لهذا الموظف."})
+
     # ONE LANE, AND IT COVERS THE MEMBERSHIP TOO. The seat is spent by the pair (identity account,
     # operator row), so the lane must not be released between them: two hires racing would both
     # count four, both create an account, and the second would find the first's row only after
@@ -240,11 +257,6 @@ async def hire_member(request: Request, body: MemberIn,
                               tenant=tenant, key=S.SEATS, now=time.time()):
             current = len([o for o in await store.list(tenant) if o.active])
             await S.guard_and_report(gauges, tenant=tenant, key=S.SEATS, current=current)
-
-            branch_id = ""
-            if body.branch_id.strip():
-                branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
-                                            tenant, body.branch_id)
 
             # CRITICAL AND WRITE-AHEAD: this is a person being given access to an establishment's
             # data, which is the one family of acts that must be refused rather than performed
@@ -357,11 +369,16 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
 
     branch_id = op.branch_id
     if body.branch_id is not None:
-        # CHECKED AGAINST HIS OWN SHOP'S BRANCHES, and an empty string means «كل الفروع» — the
-        # state every shop starts in. An id we do not recognise resolves to that same state rather
-        # than pinning him to a place that does not exist.
-        branch_id = await B.resolve(BranchStore(request.app.state.container.datastore),
-                                    tenant, body.branch_id)
+        # `None` STILL MEANS «LEAVE IT» — an owner renaming somebody has not asked to move him.
+        # An EXPLICIT VALUE MUST NOW BE A REAL BRANCH (2026-08-22): «كل الفروع» is no longer a
+        # state this route can put somebody back into, matching create's own rule. An id we do
+        # not recognise is refused rather than silently resolved to «unassigned».
+        try:
+            branch_id = await B.resolve_required(
+                BranchStore(request.app.state.container.datastore), tenant, body.branch_id)
+        except B.BranchRequired:
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                "error": "BRANCH_REQUIRED", "message": "اختر فرعاً حقيقياً لهذا الموظف."})
 
     # EVERY BRANCH HE IS GRANTED IS CHECKED, one at a time, against his own shop's list. An id we
     # do not recognise is DROPPED rather than stored: a scope carrying a branch that does not exist

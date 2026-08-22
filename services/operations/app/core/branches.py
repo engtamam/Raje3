@@ -88,6 +88,28 @@ async def resolve(store: Any, tenant: str, branch_id: str) -> str:
     return ""
 
 
+class BranchRequired(Exception):
+    """An empty or unrecognised branch, where the caller cannot accept either (2026-08-22, Tamam:
+    every operator now names a real branch — no silent «كل الفروع» default, matching the rule
+    `till.py`'s own door already enforces for a sale). `resolve()` above stays as it is for the
+    callers that genuinely mean «no branch is a true answer» (the field screen's own operator
+    lookup); this is for the one that does not."""
+
+    def __init__(self, branch_id: str) -> None:
+        self.branch_id = branch_id
+        super().__init__(f"unknown or empty branch: {branch_id!r}")
+
+
+async def resolve_required(store: Any, tenant: str, branch_id: str) -> str:
+    """Like `resolve()`, but refuses an empty or unrecognised id instead of accepting it as the
+    honest "unassigned" state — for the one caller (operator create/update) where every row must
+    now name somewhere real."""
+    wanted = (branch_id or "").strip()
+    if not wanted or wanted not in await known(store, tenant):
+        raise BranchRequired(wanted)
+    return wanted
+
+
 async def known(store: Any, tenant: str) -> set[str]:
     """Every branch id this shop actually has — active or not.
 

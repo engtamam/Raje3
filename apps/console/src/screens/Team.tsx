@@ -237,24 +237,22 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
     setBusy(true);
     setError('');
     try {
-      // A SHOP WITH ONE PLACE NEVER SHOWS THE PICKER (noise, per the field below) — but «no
-      // picker shown» used to mean the request sent branch_id="", which api/scope.py reads as
-      // «unassigned = sees the WHOLE establishment», never «works at the one branch that
-      // exists». Harmless the day he is hired — one branch either way — and wrong the day the
-      // owner opens a second one: every employee hired before it silently starts seeing BOTH,
-      // because nobody ever chose to widen them. Sending the real branch id here is what keeps
-      // that a decision an owner makes later, not an accident of when someone was hired.
-      const effectiveBranchId = branchId || ((branches ?? []).length <= 1 ? MAIN_BRANCH : '');
+      // EXPLICIT, ALWAYS — NEVER GUESSED (Tamam, 2026-08-22). A shop with one place used to skip
+      // the picker entirely and send branch_id="", which api/scope.py reads as «unassigned =
+      // sees the WHOLE establishment», never «works at the one branch that exists». Harmless the
+      // day he is hired — one branch either way — and wrong the day the owner opens a second
+      // one: every employee hired before it silently starts seeing BOTH, because nobody ever
+      // chose to widen them. The server itself now refuses an empty branch_id outright
+      // (`staff.py`'s own BRANCH_REQUIRED) — this form just makes sure he never reaches that
+      // refusal: the picker is always shown, and submit stays disabled until he has actually
+      // chosen «الفرع الرئيسي» or another real branch himself.
       if (kind === 'login') {
         if (!hire) return;
         await call(session, hire, {
-          name: name.trim(), phone: phone.trim(), password, role, branch_id: effectiveBranchId,
+          name: name.trim(), phone: phone.trim(), password, role, branch_id: branchId,
         });
       } else {
-        // AND THE BRANCH, WHICH THIS CALL USED TO OMIT. The server has always accepted it
-        // (`staff.py` create_operator) — the screen simply never offered it, so the field that
-        // decides where a visit happened was left empty for the majority of a workshop's staff.
-        await call(session, add, { name: name.trim(), pin, role, branch_id: effectiveBranchId });
+        await call(session, add, { name: name.trim(), pin, role, branch_id: branchId });
       }
       setName('');
       setPin('');
@@ -350,26 +348,28 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
               branches opened his comparison table and read three empty rows and one huge unnamed
               one, with nothing on any screen to tell him why.
 
-              SHOWN ONLY TO A SHOP WITH MORE THAN ONE PLACE — for everyone else the answer is «كل
-              الفروع» and the question is noise. */}
-          {(branches ?? []).length > 1 ? (
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="text-text-secondary">فرعه</span>
-              <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
-                      value={branchId} aria-label="فرع الموظف"
-                      onChange={(e) => setBranchId(e.target.value)}>
-                <option value="">كل الفروع</option>
-                {(branches ?? []).filter((b) => b.active !== false).map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-              <span className="text-xs text-text-secondary">
-                {kind === 'pin'
-                  ? 'الزيارات التي يسجّلها تُنسب لهذا الفرع.'
-                  : 'من له فرع يرى بيانات فرعه وحده، وزياراته تُنسب إليه.'}
-              </span>
-            </label>
-          ) : null}
+              ALWAYS SHOWN NOW, EVEN FOR ONE PLACE (Tamam, 2026-08-22) — «كل الفروع» is gone as an
+              option entirely. A single-branch shop still picks «الفرع الرئيسي» explicitly: the
+              choice is a fact he made, not a silent default nobody asked him about. Opens on NO
+              selection (`branchId` starts empty) so submit stays disabled until he has actually
+              touched it — a pre-selected first option would be the same silent default in a
+              different shape. */}
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-text-secondary">فرعه</span>
+            <select className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm"
+                    value={branchId} aria-label="فرع الموظف" required
+                    onChange={(e) => setBranchId(e.target.value)}>
+              <option value="" disabled>اختر الفرع…</option>
+              {(branches ?? []).filter((b) => b.active !== false).map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            <span className="text-xs text-text-secondary">
+              {kind === 'pin'
+                ? 'الزيارات التي يسجّلها تُنسب لهذا الفرع.'
+                : 'من له فرع يرى بيانات فرعه وحده، وزياراته تُنسب إليه.'}
+            </span>
+          </label>
           {/* FOUR DIGITS, AND THE SERVER SAYS FOUR. A longer PIN is not meaningfully safer for what
               it protects and IS meaningfully slower to type a hundred times a day. */}
           {kind === 'pin' ? (
@@ -424,7 +424,7 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
           <div className="flex gap-2">
             <Button
               type="submit"
-              disabled={busy || name.trim().length === 0
+              disabled={busy || name.trim().length === 0 || branchId.length === 0
                 || (kind === 'pin' ? pin.length !== 4
                     : phone.trim().length < 6 || password.length < 8)}
             >
@@ -546,10 +546,15 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
       {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
 
       {o.active === false ? null : (
-        /* HIS BRANCH, CHANGEABLE IN PLACE — and it decides something: a visit he saves is
-           filed under HIS branch, whatever the device sends (services/operations/core/
-           operations.py). Hidden for a shop with one place, where the question is noise. */
-        (branches ?? []).length > 1 && edit ? (
+        /* HIS BRANCH, CHANGEABLE IN PLACE — and it decides something: a visit he saves is filed
+           under HIS branch, whatever the device sends (services/operations/core/operations.py).
+           ALWAYS SHOWN NOW, even for one place (Tamam, 2026-08-22) — a single-branch shop still
+           gets to see and confirm «الفرع الرئيسي», not a hidden control. «كل الفروع» is gone as
+           a choice: an owner cannot put somebody back into it, matching the server's own refusal
+           (staff.py's BRANCH_REQUIRED). A row still carrying the old empty state (hired before
+           this rule) shows a disabled placeholder rather than a false selection — he has to pick
+           a real branch to clear it, same as adding somebody new. */
+        edit ? (
           <label className="flex items-center gap-2 text-sm">
             <span className="text-text-secondary">فرعه</span>
             <select
@@ -557,12 +562,13 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
               value={o.branch_id ?? ''}
               aria-label={`فرع ${o.name}`}
               onChange={async (e) => {
+                if (!e.target.value) return;
                 await call(session, edit, { id: o.id, branch_id: e.target.value })
                   .catch(() => undefined);
                 onChanged();
               }}
             >
-              <option value="">كل الفروع</option>
+              {o.branch_id ? null : <option value="" disabled>فرع غير محدَّد — اختره الآن</option>}
               {(branches ?? []).filter((b) => b.active !== false).map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}

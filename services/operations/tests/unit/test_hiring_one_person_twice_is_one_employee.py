@@ -79,7 +79,7 @@ def wired(monkeypatch):
     # The seat guard and the branch resolver are other findings' subjects; here they must not be
     # what the test is measuring.
     monkeypatch.setattr(ST.S, "guard_and_report", _passes)
-    monkeypatch.setattr(ST.B, "resolve", _no_branch)
+    monkeypatch.setattr(ST.B, "resolve_required", _main_branch)
 
     request = types.SimpleNamespace(
         client=None,
@@ -99,13 +99,13 @@ async def _passes(gauges, *, tenant, key, current):
     return None
 
 
-async def _no_branch(store, tenant, value):
-    return ""
+async def _main_branch(store, tenant, value):
+    return "brn-main"
 
 
 def _body(name="أحمد", phone="0555000111"):
     return ST.MemberIn(name=name, phone=phone, password="a-long-enough-password", role="operator",
-                       branch_id="")
+                       branch_id="brn-main")
 
 
 def _hire(request, body):

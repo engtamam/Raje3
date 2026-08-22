@@ -229,7 +229,7 @@ def test_the_employee_past_the_limit_is_refused_with_his_limit_named(client, mon
     monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", True)
     monkeypatch.setattr(client.app.state.container, "gauges", Full())
     r = client.post("/api/v1/staff/operators",
-                    json={"name": "موظف", "pin": "1234"},
+                    json={"name": "موظف", "pin": "1234", "branch_id": "brn-main"},
                     headers=_auth("operations.manage", tenant="t1"))
     assert r.status_code == 402
     body = r.json()
@@ -256,7 +256,7 @@ def test_a_created_employee_reports_the_new_total(client, monkeypatch):
     monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", True)
     monkeypatch.setattr(client.app.state.container, "gauges", Counting())
     r = client.post("/api/v1/staff/operators",
-                    json={"name": "موظف جديد", "pin": "4321"},
+                    json={"name": "موظف جديد", "pin": "4321", "branch_id": "brn-main"},
                     headers=_auth("operations.manage", tenant="t1"))
     assert r.status_code == 201, r.text
     assert seen and seen[-1][0] == "staff.seats"
@@ -269,7 +269,7 @@ def test_a_switched_off_pin_employee_is_refused_by_the_route_not_only_the_screen
     told the same answer so that turning it back on is a flag, never a console release."""
     monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", False)
     r = client.post("/api/v1/staff/operators",
-                    json={"name": "موظف", "pin": "1234"},
+                    json={"name": "موظف", "pin": "1234", "branch_id": "brn-main"},
                     headers=_auth("operations.manage", tenant="t1"))
     assert r.status_code == 409, r.text
     assert r.json()["error"] == "PIN_OPERATORS_OFF"
@@ -278,6 +278,42 @@ def test_a_switched_off_pin_employee_is_refused_by_the_route_not_only_the_screen
                          headers=_auth("operations.read", tenant="t1"))
     assert listing.status_code == 200, listing.text
     assert listing.json()["pin_operators_enabled"] is False
+
+
+# ── every operator now names a real branch (Tamam, 2026-08-22) ─────────────────────────────────
+def test_creating_an_operator_with_no_branch_is_a_clean_400_not_a_silent_unassigned(
+        client, monkeypatch):
+    """The model itself refuses a missing/empty branch_id (Field(min_length=1)) — this proves the
+    ROUTE also refuses an unrecognised one, over the seat/audit lane it must never enter first."""
+    monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", True)
+    r = client.post("/api/v1/staff/operators",
+                    json={"name": "موظف", "pin": "1234", "branch_id": "brn-does-not-exist"},
+                    headers=_auth("operations.manage", tenant="t_no_branch"))
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "BRANCH_REQUIRED"
+
+
+def test_creating_an_operator_with_the_main_branch_id_succeeds(client, monkeypatch):
+    """«brn-main» always resolves — every shop has it from signup — with no Branch row required."""
+    monkeypatch.setattr(client.app.state.container_settings, "PIN_OPERATORS_ENABLED", True)
+    r = client.post("/api/v1/staff/operators",
+                    json={"name": "موظف", "pin": "1234", "branch_id": "brn-main"},
+                    headers=_auth("operations.manage", tenant="t_main_branch"))
+    assert r.status_code == 201, r.text
+    assert r.json()["branch_id"] == "brn-main"
+
+
+def test_updating_an_operator_to_an_empty_branch_is_refused(client, monkeypatch):
+    """«كل الفروع» is no longer a state PATCH may put somebody back into."""
+    fake = _Signup()
+    monkeypatch.setattr(client.app.state.container, "signup", fake, raising=False)
+    _hired(client, "t_unset", "u_unset", oid="opr_unset")
+
+    r = client.patch("/api/v1/staff/operators/opr_unset", json={"branch_id": ""},
+                     headers=_auth("operations.manage", tenant="t_unset"))
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "BRANCH_REQUIRED"
+
 
 # ── our own subscribe path ─────────────────────────────────────────────────────────────────────
 class FakePlans:
