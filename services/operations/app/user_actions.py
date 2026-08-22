@@ -304,6 +304,20 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "help": "فرعه هنا هو المرجع: الزيارة التي تسمّيه تُنسب إليه، لا إلى ما يرسله الجهاز.",
     },
     {
+        "id": "operations.set_staff_hours", "label": "تخصيص دوام موظف", "method": "PUT",
+        "path": "/api/v1/staff/operators/{id}/working-hours", "capability": "operations.manage",
+        "group": "الفريق",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True},
+                   {"name": "weekly", "in": "body", "type": "object", "required": True}],
+        "help": "يرث دوام المحل تلقائياً ما لم يُخصَّص له دوام هنا — ولا يمكن أن يتجاوز دوام المحل.",
+    },
+    {
+        "id": "operations.clear_staff_hours", "label": "إعادة الدوام لدوام المحل", "method": "DELETE",
+        "path": "/api/v1/staff/operators/{id}/working-hours", "capability": "operations.manage",
+        "group": "الفريق",
+        "params": [{"name": "id", "in": "path", "type": "string", "required": True}],
+    },
+    {
         "id": "operations.shop_mode", "label": "نظام الفروع", "method": "GET",
         "path": "/api/v1/staff/mode", "capability": "operations.read", "group": "الفروع",
     },

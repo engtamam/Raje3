@@ -240,7 +240,8 @@ def build_container(settings: Settings) -> Container:
     # this service asks `operations` (a service's duration, the booking->visit gateway, and the
     # customer's pseudonym), the confirmation event, and the operations that use all of them.
     from app.core.operations import (BookingEvents, BookingOperations, DurationLookup,
-                                     RewardGateway, SubjectRefLookup, VisitGateway)
+                                     RewardGateway, StaffEligibilityLookup, StaffHoursLookup,
+                                     SubjectRefLookup, VisitGateway)
     from app.core.stores import BookingStore, WorkingHoursStore
     container.bookings = BookingStore(container.datastore)
     container.working_hours = WorkingHoursStore(container.datastore)
@@ -248,6 +249,8 @@ def build_container(settings: Settings) -> Container:
     container.visit_gateway = _build_visit_gateway(settings)
     container.subject_ref_lookup = _build_subject_ref_lookup(settings)
     container.reward_gateway = _build_reward_gateway(settings)
+    container.staff_eligibility_lookup = _build_staff_eligibility_lookup(settings)
+    container.staff_hours_lookup = _build_staff_hours_lookup(settings)
     from app.adapters.branch_scope import build as build_branch_scope
     container.branch_scope = build_branch_scope(settings)
     container.booking_ops = BookingOperations(
@@ -259,7 +262,9 @@ def build_container(settings: Settings) -> Container:
         rewards=RewardGateway(redeem=container.reward_gateway),
         risk_window=settings.NO_SHOW_RISK_WINDOW,
         risk_threshold_percent=settings.NO_SHOW_RISK_THRESHOLD_PERCENT,
-        working_hours=container.working_hours)
+        working_hours=container.working_hours,
+        staff_eligibility=StaffEligibilityLookup(lookup=container.staff_eligibility_lookup),
+        staff_hours=StaffHoursLookup(lookup=container.staff_hours_lookup))
     return container
 
 
@@ -289,6 +294,38 @@ def _build_subject_ref_lookup(settings: Settings):
         return _refuses_always
     return HttpSubjectRefLookup(
         operations_url=settings.OPERATIONS_SERVICE_URL, path=settings.OPERATIONS_SUBJECT_REF_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_staff_eligibility_lookup(settings: Settings):
+    """`http` when `operations` is wired, or a lookup that always answers "no restriction found"
+    otherwise — never a guessed narrower eligibility. Unlike duration, an unconfigured peer here
+    must NOT fail closed: refusing every booking because eligibility could not be checked would
+    make a feature nobody has configured yet break a shop that has never touched it."""
+    from app.adapters.staff_eligibility.http import HttpStaffEligibility
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_SERVICE_ELIGIBILITY_PATH:
+        async def _no_restriction(tenant: str, service_ids) -> dict:
+            return {}
+        return _no_restriction
+    return HttpStaffEligibility(
+        operations_url=settings.OPERATIONS_SERVICE_URL,
+        path=settings.OPERATIONS_SERVICE_ELIGIBILITY_PATH,
+        token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
+
+
+def _build_staff_hours_lookup(settings: Settings):
+    """`http` when `operations` is wired, or a lookup that always answers "inherits the shop's
+    hours" otherwise — same non-fail-closed reasoning as eligibility above: an unconfigured peer
+    must not narrow every operator to hours nobody set."""
+    from app.adapters.staff_hours_lookup.http import HttpStaffHoursLookup
+
+    if not settings.OPERATIONS_SERVICE_URL or not settings.OPERATIONS_STAFF_HOURS_PATH:
+        async def _inherits_shop_hours(tenant: str, operator_ids) -> dict:
+            return {}
+        return _inherits_shop_hours
+    return HttpStaffHoursLookup(
+        operations_url=settings.OPERATIONS_SERVICE_URL, path=settings.OPERATIONS_STAFF_HOURS_PATH,
         token=settings.INTERNAL_SERVICE_TOKEN, timeout=settings.PEER_TIMEOUT_SECONDS)
 
 

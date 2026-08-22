@@ -205,6 +205,16 @@ class Settings(BaseSettings):
     # means an intended reward is simply never redeemed automatically; attendance itself is
     # never blocked by it either way (see RewardGateway's own note in core/operations.py).
     OPERATIONS_REWARD_REDEEM_PATH: str = "/internal/operations/bookings/redeem"
+    # WHICH OPERATORS MAY DO A CHOSEN SERVICE — the sixth peer question, same URL. Empty for a
+    # given service in the response means "every active operator" (see
+    # app/adapters/staff_eligibility/http.py) — a shop that never restricted anything never has
+    # its booking flow narrowed by a peer that could not be reached.
+    OPERATIONS_SERVICE_ELIGIBILITY_PATH: str = "/internal/operations/service-eligibility"
+    # EACH OPERATOR'S OWN WORKING-HOURS OVERRIDE — the seventh peer question, same URL, batched
+    # per candidate list rather than one call per operator (see
+    # app/adapters/staff_hours_lookup/http.py). `null` for an operator means he simply inherits
+    # the shop's own hours; unreachable means the same thing, never a guess of narrower hours.
+    OPERATIONS_STAFF_HOURS_PATH: str = "/internal/operations/staff-hours"
 
     # ── Ports & adapters (Phase 2) — driver selection, ZERO-INFRA defaults ──
     # Every default reaches NO external system; point at real infra by config.

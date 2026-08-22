@@ -443,6 +443,99 @@ async def update_operator(request: Request, operator_id: str, body: OperatorPatc
     return op.public()
 
 
+_WEEKDAY_NAMES_AR = ("الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد")
+
+
+class OperatorHoursIn(BaseModel):
+    # "0"-"6" as strings, Monday=0..Sunday=6 — `date.weekday()`'s own numbering, the SAME one
+    # bookings-service's tenant-wide working-hours store already uses (models.py:17-18's own
+    # comment on WORKING_HOURS), so the two never need translating into each other.
+    weekly: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+@router.put("/operators/{operator_id}/working-hours",
+           dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def set_operator_working_hours(request: Request, operator_id: str, body: OperatorHoursIn,
+                                     principal: Principal = Depends(_MANAGE)) -> dict:
+    """An EXPLICIT override for one operator — a DEDICATED route rather than a nullable field on
+    `OperatorPatch`, because `working_hours`'s own valid domain genuinely needs `None` to mean
+    "inherits the shop's hours" (models.py's own docstring), which collides with `None` already
+    meaning "leave this field alone" on every other patchable field. Two unambiguous routes (this
+    one to SET, `DELETE` below to CLEAR) instead of one route with an ambiguous meaning for `null`.
+
+    THE WHOLE WEEK, ALWAYS — same reasoning as bookings' own `set_working_hours`: a partial save
+    is ambiguous (day 3 sent, day 5 not — keep it, or default it?), so the whole document is
+    validated and written as one, never merged with what was there.
+
+    NEVER WIDER THAN THE SHOP'S OWN HOURS — refused at write time when `bookings` can be asked
+    (fail-OPEN when it cannot: an unreachable peer must not block every staff-hours edit on a
+    check that simply cannot run right now — `bookings` still intersects defensively at read
+    time regardless, so this is one of two independent guards, never the only one).
+    """
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get(tenant, operator_id)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+
+    out: dict[str, dict[str, Any]] = {}
+    for d in range(7):
+        entry = body.weekly.get(str(d)) or {}
+        closed = bool(entry.get("closed", False))
+        start = int(entry.get("start_minute", 0) or 0)
+        end = int(entry.get("end_minute", 0) or 0)
+        # RETURNED, NOT RAISED — the platform's own error handler strips an HTTPException's
+        # `detail` before it reaches the caller (see `create_operator`'s `SEAT_LIMIT` note above),
+        # so a message meant to tell an owner exactly which day is wrong must not be raised.
+        if not closed and not (0 <= start < end <= 24 * 60):
+            return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                "error": "BAD_HOURS",
+                "message": f"وقت دوام يوم {_WEEKDAY_NAMES_AR[d]} غير صحيح"})
+        out[str(d)] = {"closed": closed, "start_minute": start, "end_minute": end}
+
+    shop_hours = await request.app.state.container.bookings_desk.working_hours(tenant)
+    if shop_hours is not None:
+        for d in range(7):
+            shop_entry = shop_hours.get(str(d)) or {}
+            mine = out[str(d)]
+            if mine["closed"] or shop_entry.get("closed"):
+                continue
+            if (mine["start_minute"] < int(shop_entry.get("start_minute", 0))
+                    or mine["end_minute"] > int(shop_entry.get("end_minute", 24 * 60))):
+                return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={
+                    "error": "EXCEEDS_SHOP_HOURS",
+                    "message": f"دوام {_WEEKDAY_NAMES_AR[d]} يتجاوز دوام المحل نفسه — عدّله ليقع ضمنه"})
+
+    op.working_hours = out
+    await store.save(op)
+    await request.app.state.auditor.record(
+        "staff_hours.changed", actor=principal.subject, tenant=tenant,
+        resource=f"operator:{operator_id}", ip=request.client.host if request.client else "")
+    return op.public()
+
+
+@router.delete("/operators/{operator_id}/working-hours",
+              dependencies=[Depends(subscribed_write), Depends(rate_limit)])
+async def clear_operator_working_hours(request: Request, operator_id: str,
+                                       principal: Principal = Depends(_MANAGE)) -> dict:
+    """Back to inheriting the shop's own hours, in full — idempotent (clearing an
+    already-inherited operator is a harmless no-op success, matching this codebase's usual
+    idempotent-delete shape), never an error over a double click or a stale button."""
+    tenant = _tenant(principal)
+    store = OperatorStore(request.app.state.container.datastore)
+    op = await store.get(tenant, operator_id)
+    if op is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_FOUND")
+    had = op.working_hours is not None
+    op.working_hours = None
+    await store.save(op)
+    if had:
+        await request.app.state.auditor.record(
+            "staff_hours.changed", actor=principal.subject, tenant=tenant,
+            resource=f"operator:{operator_id}", ip=request.client.host if request.client else "")
+    return op.public()
+
+
 @router.get("/operators", dependencies=[Depends(rate_limit)])
 async def list_operators(request: Request, principal: Principal = Depends(_READ_OPERATORS_FOR_BOOKINGS)) -> dict:
     """«فريقي» — and HIS branch's team, not the chain's.
@@ -918,6 +1011,11 @@ class ServicePatch(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=0, le=720)
     active: bool | None = None
     sort: int | None = Field(default=None, ge=0, le=9999)
+    # WHO CAN ACTUALLY DO THIS — `None` MEANS «LEAVE IT», same convention every other field on
+    # this model already uses. An EXPLICIT empty list is a real value (models.py's own
+    # `Service.eligible_staff_ids` docstring: "[] means every active operator"), not "leave it" —
+    # so an owner can deliberately clear a restriction back to unrestricted from this same route.
+    eligible_staff_ids: list[str] | None = Field(default=None, max_length=64)
 
 
 @router.patch("/services/{service_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
@@ -943,5 +1041,14 @@ async def update_service(request: Request, service_id: str, body: ServicePatch,
         val = getattr(body, fld)
         if val is not None:
             setattr(s, fld, val.strip() if isinstance(val, str) else val)
+
+    # EVERY OPERATOR GRANTED IS CHECKED against this tenant's own roster, same discipline
+    # `update_operator`'s `visible_branch_ids` already uses — an id we do not recognise is
+    # DROPPED, not stored, so a stale/foreign id cannot silently narrow a service to nobody.
+    if body.eligible_staff_ids is not None:
+        operators = OperatorStore(request.app.state.container.datastore)
+        real = {o.id for o in await operators.list(tenant)}
+        s.eligible_staff_ids = [oid for oid in body.eligible_staff_ids if oid in real]
+
     await store.save(s)
     return s.public()

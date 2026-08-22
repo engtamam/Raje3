@@ -78,6 +78,32 @@ class SubjectRefLookup:
         return await self.lookup(tenant, customer_id)
 
 
+@dataclass
+class StaffEligibilityLookup:
+    """Which operators may perform each of a chosen set of services — the FOURTH question this
+    module asks `operations`. `{}` (or a missing key) means "no restriction found" for that
+    service, exactly like an unreachable peer: a shop that never restricted a service, or a peer
+    outage, must never narrow who can be booked for it. Enforced in BOTH `create()` (the actual
+    write — a client cannot bypass eligibility by skipping "أقرب موعد" and posting directly) and
+    `nearest_slot()` (so a probe against an ineligible operator refuses the same way, never
+    leaking an open slot for a service that operator cannot actually do)."""
+    lookup: Any   # async (tenant, service_ids) -> dict[service_id, list[operator_id] | None]
+
+    async def eligible_for(self, tenant: str, service_ids: tuple[str, ...]) -> dict[str, list[str] | None]:
+        return await self.lookup(tenant, service_ids)
+
+
+@dataclass
+class StaffHoursLookup:
+    """Each candidate operator's own working-hours OVERRIDE — the FIFTH question this module asks
+    `operations`. `None` for an operator (or an unreachable peer) means "inherits the shop's own
+    hours in full", which is also this class's behaviour when no port is wired at all."""
+    lookup: Any   # async (tenant, operator_ids) -> dict[operator_id, dict | None]
+
+    async def hours_for(self, tenant: str, operator_ids: tuple[str, ...]) -> dict[str, dict | None]:
+        return await self.lookup(tenant, operator_ids)
+
+
 BOOKING_EVENTS_TOPIC = "bookings.booking.changed"
 
 
@@ -113,7 +139,9 @@ class BookingOperations:
                 licence: Any, visits: VisitGateway, subject_refs: SubjectRefLookup,
                 events: BookingEvents, rewards: RewardGateway | None = None,
                 risk_window: int = 5, risk_threshold_percent: int = 60,
-                working_hours: Any = None) -> None:
+                working_hours: Any = None,
+                staff_eligibility: StaffEligibilityLookup | None = None,
+                staff_hours: StaffHoursLookup | None = None) -> None:
         self._store = datastore
         self._bookings = bookings
         self._durations = durations
@@ -132,6 +160,54 @@ class BookingOperations:
         # OPTIONAL, LIKE `rewards` ABOVE — `working_hours()` below falls back to the honest
         # 08:00-22:00 default when this is `None`, never crashes a read over it.
         self._working_hours = working_hours
+        # OPTIONAL, LIKE `rewards` ABOVE — a shop with no restriction on any service (or a test/
+        # local run with no peer wired) sees NO refusal, ever, from either of these: an absent
+        # port means "everyone is eligible" and "everyone inherits the shop's hours", the same
+        # safe defaults the peer itself answers with when it IS wired but has nothing to say.
+        self._staff_eligibility = staff_eligibility
+        self._staff_hours = staff_hours
+
+    async def _refuse_if_ineligible(self, tenant: str, operator_id: str, service_ids: list[str]) -> None:
+        """Refuses when `operator_id` cannot perform one of `service_ids` — enforced here, at the
+        one place every booking is actually written (`create()`), not only suggested by "أقرب
+        موعد": a client that skips the suggestion and posts a booking directly must be refused
+        exactly the same way, or eligibility is a UI hint rather than a real rule."""
+        if self._staff_eligibility is None:
+            return
+        by_service = await self._staff_eligibility.eligible_for(tenant, tuple(service_ids))
+        for sid in service_ids:
+            allowed = by_service.get(sid)
+            if allowed and operator_id not in allowed:
+                raise OperationError("هذا الموظف لا يقدر يسوّي إحدى الخدمات المختارة")
+
+    async def _effective_schedule(self, tenant: str, operator_id: str) -> "Any":
+        """The shop's own weekly hours, narrowed to THIS operator's own override when he has
+        one — never wider than the shop's, by construction: `operations` refuses to save an
+        override that reaches outside the shop's hours (write-time check), and this intersects
+        defensively AGAIN at read time regardless (belt and suspender, neither alone)."""
+        from app.core.availability import Schedule, Window
+
+        hours = await self.working_hours(tenant)
+        override = None
+        if self._staff_hours is not None:
+            per_operator = await self._staff_hours.hours_for(tenant, (operator_id,))
+            override = per_operator.get(operator_id)
+        weekly: dict[int, tuple] = {}
+        for d in range(7):
+            shop_entry = hours[str(d)]
+            entry = (override or {}).get(str(d)) if override else shop_entry
+            if entry is None:
+                entry = shop_entry
+            if shop_entry["closed"] or entry.get("closed"):
+                weekly[d] = ()
+                continue
+            # INTERSECTED, NOT TRUSTED AS-IS — an operator override that somehow reaches earlier/
+            # later than the shop's own hours (a write-time check bypassed, or edited directly in
+            # a store) still cannot open a slot the shop itself is closed for.
+            start = max(int(entry.get("start_minute", shop_entry["start_minute"])), shop_entry["start_minute"])
+            end = min(int(entry.get("end_minute", shop_entry["end_minute"])), shop_entry["end_minute"])
+            weekly[d] = (Window(start, end),) if start < end else ()
+        return Schedule(weekly=weekly, exceptions={})
 
     async def create(self, *, tenant: str, branch_id: str, operator_id: str, customer_id: str,
                      service_ids: list[str], starts_at: int, note: str = "",
@@ -176,6 +252,10 @@ class BookingOperations:
             # THE "SILENT DEFAULT DECIDES POLICY" FAMILY, NAMED EXPLICITLY: no thirty-minute
             # guess. §4 of the plan requires this refusal by name.
             raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
+
+        # THE WRITE ITSELF REFUSES, NOT ONLY THE SUGGESTION — see `_refuse_if_ineligible`'s own
+        # docstring.
+        await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
         # STAMPED ONCE, HERE, FAIL-CLOSED — same family as the duration refusal above. Without a
         # pseudonym this booking can never be found by a DSAR (§6.5) and can never key a
@@ -457,24 +537,22 @@ class BookingOperations:
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
                            search_days: int = 14) -> int | None:
-        """The "أقرب موعد" button (§6.2) — the same pure derivation (app/core/availability.py),
-        fed busy intervals from the operator's OWN real bookings, and now the SHOP'S OWN real
-        working hours (Tamam, 2026-08-19) — `working_hours()` above, translated into a real
-        `Schedule` here rather than the fixed 08:00-22:00 stand-in this used before that store
-        existed.
+        """The "أقرب موعد" button (§6.2) - the same pure derivation (app/core/availability.py),
+        fed busy intervals from the operator's OWN real bookings, the shop's own working hours,
+        and now (this feature) THIS OPERATOR'S OWN hours when he has a custom schedule - see
+        `_effective_schedule`. Refuses up front, same as `create()`, if this operator cannot
+        actually perform one of `service_ids` - a probe against an ineligible operator must not
+        leak an open slot he could never actually be booked into.
         """
         duration = await self._durations.minutes(tenant, tuple(service_ids))
         if not duration:
             raise OperationError("مدة هذه الخدمة غير مضبوطة — اطلب من صاحب المحل ضبطها من «خدماتي»")
 
-        from app.core.availability import Schedule, Window, Busy, nearest_slot as _nearest
+        await self._refuse_if_ineligible(tenant, operator_id, service_ids)
 
-        hours = await self.working_hours(tenant)
-        weekly: dict[int, tuple] = {}
-        for d in range(7):
-            entry = hours[str(d)]
-            weekly[d] = () if entry["closed"] else (Window(entry["start_minute"], entry["end_minute"]),)
-        schedule = Schedule(weekly=weekly, exceptions={})
+        from app.core.availability import Busy, nearest_slot as _nearest
+
+        schedule = await self._effective_schedule(tenant, operator_id)
 
         bucket = day_bucket(after)
         end_bucket = day_bucket(after + search_days * 86400)

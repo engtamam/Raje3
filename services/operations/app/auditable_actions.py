@@ -176,6 +176,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "resource": "operator",
     },
     {
+        # A custom schedule narrower than the shop's own hours — worth its own row rather than
+        # folding into `operator.updated`: this changes which bookings can even reach him, not
+        # merely his name or branch.
+        "action": "staff_hours.changed",
+        "source": "admin",
+        "critical": False,
+        "resource": "operator",
+    },
+    {
         "action": "branch.created",
         "source": "admin",
         "critical": False,

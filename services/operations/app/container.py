@@ -237,6 +237,11 @@ def build_container(settings: Settings) -> Container:
     # its behalf so its own credential never has to carry a capability over the ledger.
     from app.adapters.loyalty_desk import build_loyalty_desk
     container.loyalty_desk = build_loyalty_desk(settings)
+    # THE ONE QUESTION ASKED OF `bookings`: the shop's own working hours, so a staff member's
+    # custom schedule can be refused at write time if it reaches outside them (a fail-OPEN check
+    # — `bookings` intersects defensively at read time regardless of whether this peer answers).
+    from app.adapters.bookings_desk import build_bookings_desk
+    container.bookings_desk = build_bookings_desk(settings)
     # WHAT EACH SHOP ACTUALLY PAID US — the one input a commission statement takes. Unconfigured
     # in a local run, and then the monthly sweep issues nothing and says why, rather than issuing
     # a statement of zero that a partner would read and believe.
