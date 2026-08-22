@@ -23,7 +23,12 @@ export const rjButtonVariants = cva(
         solid: 'bg-accent text-accent-contrast shadow-sm hover:bg-accent-hover',
         soft: 'bg-accent-soft text-accent-on-soft hover:opacity-90',
         outline: 'border border-border-strong bg-transparent text-text-primary hover:bg-surface-2',
-        ghost: 'bg-transparent text-text-secondary hover:bg-surface-2 hover:text-text-primary',
+        // GHOST HAD NO RESTING SHAPE — `bg-transparent` plus coloured text alone, indistinguishable
+        // from a plain label until the pointer already found it by accident. Reported directly
+        // (screenshot: «اجعلها نبرتي» read as inert text, not a control). A permanent light fill
+        // gives it the same "this is a chip you can press" cue `outline` gets from its border,
+        // without competing visually with `outline`'s own bordered look.
+        ghost: 'bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary',
         danger: 'bg-danger text-danger-contrast hover:opacity-90',
       },
       size: {

@@ -22,7 +22,8 @@ describe('rj-ui Button', () => {
     expect(screen.getByText('افتراضي').className).toContain('bg-accent');
 
     render(<Button variant="ghost" size="sm">صغير</Button>);
-    expect(screen.getByText('صغير').className).toContain('bg-transparent');
+    // A real resting shape, not bare coloured text (2026-08-22 fix — see the variant's own comment).
+    expect(screen.getByText('صغير').className).toContain('bg-surface-2');
   });
 
   it('forwards a ref to the underlying <button>', () => {
