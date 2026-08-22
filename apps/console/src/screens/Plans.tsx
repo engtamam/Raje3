@@ -285,6 +285,7 @@ function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone, switchPending, switchPendingNote, onCancelSwitch, cancelingSwitch,
+  onUndoCancel, undoingCancel,
 }: {
   plan: Plan;
   /** true · false · null while the answer has not arrived or billing could not be asked. */
@@ -331,6 +332,12 @@ function AppCard({
   switchPendingNote?: string;
   onCancelSwitch?: () => void;
   cancelingSwitch?: boolean;
+  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoes a scheduled cancel before it takes effect, on
+   *  ANY owned card that has one (base or app, same shape). Shown beside `cancelPendingNote`
+   *  instead of replacing it: he still needs to know exactly when it would have ended if he does
+   *  nothing, and the undo is the second half of that sentence, not a substitute for it. */
+  onUndoCancel?: () => void;
+  undoingCancel?: boolean;
 }) {
   const price = monthly(plan);
   const lines = planLines(plan);
@@ -453,9 +460,16 @@ function AppCard({
           // own rule that an ending subscription never renews onto anything) - so a card never
           // has to say both "ending" and "switching to X" about the same future date at once.
           cancelPending ? (
-            <p className="text-xs text-text-secondary">
-              {cancelPendingNote || 'لن يتجدّد بعد نهاية الفترة.'}
-            </p>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-text-secondary">
+                {cancelPendingNote || 'لن يتجدّد بعد نهاية الفترة.'}
+              </p>
+              {onUndoCancel ? (
+                <Button type="button" variant="ghost" size="sm" disabled={undoingCancel} onClick={onUndoCancel}>
+                  {undoingCancel ? 'يُرجَع…' : 'تراجع عن إيقاف التجديد'}
+                </Button>
+              ) : null}
+            </div>
           ) : switchPending ? (
             <div className="flex flex-col gap-1.5">
               <p className="text-xs text-text-secondary">{switchPendingNote}</p>
@@ -561,6 +575,12 @@ export function PlansPane({
    *  plan; this covers cancelling one already picked). */
   const [cancelSwitchBusy, setCancelSwitchBusy] = useState(false);
   const [cancelSwitchError, setCancelSwitchError] = useState('');
+  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoing an already-scheduled cancel, on either the base
+   *  or an app. One flag per kind rather than a shared boolean: the base and an app can each have
+   *  their own pending cancel at once, and undoing one must not grey out the other's button. */
+  const [undoBaseCancelBusy, setUndoBaseCancelBusy] = useState(false);
+  const [undoingAppCancelId, setUndoingAppCancelId] = useState('');
+  const [undoCancelError, setUndoCancelError] = useState('');
   /**
    * WHETHER THERE IS A LIVE WAY TO PAY AT ALL — asked, never assumed.
    *
@@ -710,6 +730,25 @@ export function PlansPane({
       setCancelSwitchError(e instanceof Error ? e.message : 'تعذّر التراجع عن التبديل.');
     } finally {
       setCancelSwitchBusy(false);
+    }
+  };
+
+  /** «تراجع عن إيقاف التجديد» (v0.16.34) — undoes an already-scheduled cancel (base or app, same
+   *  route: billing.undo_cancel is idempotent and never resurrects an already-ended subscription,
+   *  so calling it on a stale button is harmless). One function, two callers below — same shape
+   *  `cancelApp`/`cancelBase` already split into. */
+  const undoCancel = async (subId: string, which: 'base' | 'app') => {
+    const a = action(catalog, 'billing.undo_cancel');
+    if (!a) return;
+    if (which === 'base') setUndoBaseCancelBusy(true); else setUndoingAppCancelId(subId);
+    setUndoCancelError('');
+    try {
+      await call(session, a, { id: subId });
+      load();
+    } catch (e) {
+      setUndoCancelError(e instanceof Error ? e.message : 'تعذّر التراجع عن إيقاف التجديد.');
+    } finally {
+      if (which === 'base') setUndoBaseCancelBusy(false); else setUndoingAppCancelId('');
     }
   };
 
@@ -1044,6 +1083,7 @@ export function PlansPane({
 
           AND IT IS WHAT MAKES THE NEXT APP CHEAP TO ADD. Invoicing and CRM arrive as rows in the
           price list; this screen groups by what a row GRANTS, so neither needs a line here. */}
+      {undoCancelError ? <p className="text-sm text-danger">{undoCancelError}</p> : null}
 
       {/* ── THE BASE, WIDE, WITH ITS CAPACITY BESIDE IT ────────────────────────────────────
           ONE ROW, NOT A STACK BELOW A STACK. The base is what he already pays for; «السعة» is
@@ -1089,14 +1129,25 @@ export function PlansPane({
                   // «متوقف» while every app card correctly read «مفعّل» — the base's status must
                   // come from the base's own subscription record, same as `cancel_at_period_end`
                   // two lines above already correctly does.
+                  // FIVE REAL STATUSES, NOT TWO — CONFIRMED BUG (screenshot): billing-service's
+                  // Subscription.status is trialing|active|past_due|paused|canceled (models.py),
+                  // and a subscription DEFAULTS to "trialing" until its first run_cycle bills it
+                  // active. This card only ever recognised "active" as working and printed
+                  // «متوقف» for every other status — including a brand-new, perfectly healthy
+                  // trial subscription — while every app card beside it correctly read «مفعّل»
+                  // off the entitlements roll-up instead. Named honestly now, one word per status.
                   const statusLabel = isBaseSubRow
                     ? (baseSub?.cancel_at_period_end ? 'قيد الإلغاء'
                       : baseSub?.status === 'past_due' ? 'متأخر الدفع'
+                      : baseSub?.status === 'trialing' ? 'تجريبي'
+                      : baseSub?.status === 'paused' ? 'موقوف مؤقتاً'
                       : baseSub?.status === 'active' ? 'فعّال' : 'متوقف')
                     : undefined;
                   const statusTone = isBaseSubRow
                     ? (baseSub?.cancel_at_period_end ? 'warning'
                       : baseSub?.status === 'past_due' ? 'danger'
+                      : baseSub?.status === 'trialing' ? 'success'
+                      : baseSub?.status === 'paused' ? 'warning'
                       : baseSub?.status === 'active' ? 'success' : 'warning')
                     : undefined;
                   // A SCHEDULED DOWNGRADE, NAMED (v0.16.33) - shown only on the card he still owns
@@ -1138,6 +1189,9 @@ export function PlansPane({
                         onCancelSwitch={switchPending && action(catalog, 'billing.cancel_scheduled_change')
                           ? () => void cancelScheduledChange() : undefined}
                         cancelingSwitch={cancelSwitchBusy}
+                        onUndoCancel={isBaseSubRow && baseSub?.cancel_at_period_end && action(catalog, 'billing.undo_cancel')
+                          ? () => void undoCancel(baseSub.id, 'base') : undefined}
+                        undoingCancel={undoBaseCancelBusy}
                       />
                     </li>
                   );
@@ -1194,6 +1248,11 @@ export function PlansPane({
               // every app with it) is automatic. Matched by which subscription it IS, same rule
               // as `baseSub` above.
               const appSub = appSubs.find((s) => s.plan_id === p.id);
+              // TRIAL, SAID PLAINLY — same honesty the base card just got (screenshot). An app
+              // subscription defaults to "trialing" the same way the base's does; without this
+              // it read as the same flat «مفعّل» a fully-paying app gets, which is a different
+              // fact he needs to know before the trial ends and the first real charge lands.
+              const appStatusLabel = appSub?.status === 'trialing' ? 'تجريبي' : undefined;
               return (
                 <li key={p.id}>
                   <AppCard
@@ -1204,6 +1263,8 @@ export function PlansPane({
                     onBuy={() => choose(p)}
                     unreadNote={unreadNote}
                     ownedLabel="مفعّل"
+                    statusLabel={appStatusLabel}
+                    statusTone={appStatusLabel ? 'success' : undefined}
                     buyLabel="أضِفه"
                     renewsAt={answer?.apps.find((a) => a.key === appKey(p))?.renews_at ?? null}
                     cancelLabel="إيقاف تجديد هذا التطبيق"
@@ -1211,6 +1272,9 @@ export function PlansPane({
                     onCancel={appSub && action(catalog, 'billing.cancel')
                       ? () => setConfirmingCancelApp({ subId: appSub.id, name: p.name }) : undefined}
                     canceling={cancelingAppId === appSub?.id}
+                    onUndoCancel={appSub?.cancel_at_period_end && action(catalog, 'billing.undo_cancel')
+                      ? () => void undoCancel(appSub.id, 'app') : undefined}
+                    undoingCancel={undoingAppCancelId === appSub?.id}
                   />
                 </li>
               );

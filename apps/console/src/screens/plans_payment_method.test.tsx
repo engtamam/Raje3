@@ -120,3 +120,27 @@ describe("the base's own status, read from its own row, never from the first row
     expect(await screen.findByText(/حدّث بطاقتك/)).toBeTruthy();
   });
 });
+
+describe('a trialing subscription is not «متوقف» — confirmed bug (screenshot)', () => {
+  it('reads «تجريبي» on the base card, not the generic «متوقف»', async () => {
+    // billing-service's Subscription.status defaults to "trialing", not "active" — every
+    // subscription starts here until its first run_cycle bills it. The status label only ever
+    // recognised "active" as working and printed «متوقف» for everything else, including a
+    // brand-new, perfectly healthy trial.
+    subscriptions = [{ id: 'sub_base', plan_id: 'base', status: 'trialing' }];
+    await open();
+    await screen.findByText('تجريبي');
+    expect(screen.queryByText('متوقف')).toBeNull();
+  });
+
+  it('reads «تجريبي» on a trialing APP card too, not the flat «مفعّل»', async () => {
+    subscriptions = [
+      { id: 'sub_base', plan_id: 'base', status: 'active' },
+      { id: 'sub_app', plan_id: 'campaigns', status: 'trialing' },
+    ];
+    await open();
+    await screen.findByText('فعّال');
+    expect(screen.getByText('تجريبي')).toBeTruthy();
+    expect(screen.queryByText('متوقف')).toBeNull();
+  });
+});
