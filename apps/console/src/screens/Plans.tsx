@@ -33,9 +33,9 @@ import { canMintToken, confirmToken, NO_CARD_FORM } from '../payment';
 import { takePending, type PendingPayment } from '../pendingPayment';
 import { CardForm } from './CardForm';
 import { useEffect, useState } from 'react';
-import { Badge } from '@base-ui/design-system/Badge';
-import { Button } from '@base-ui/design-system/Button';
-import { Skeleton } from '@base-ui/design-system/Skeleton';
+import { Badge } from '../rj-ui/Badge';
+import { Button } from '../rj-ui/Button';
+import { Skeleton } from '../rj-ui/Skeleton';
 import {
   CalendarClock, Check, Gift, Layers, Megaphone, Sparkles, type LucideIcon,
 } from 'lucide-react';
@@ -270,7 +270,12 @@ function renewalDay(epoch: number | null | undefined): string {
 }
 
 
-function PlanCard({
+// «تطبيقات، لا باقات» (Tamam, 2026-08-22) — راجِع does not sell subscription TIERS of one
+// product; it sells INDEPENDENT APPS a shop adds to its base, each with its own price, its own
+// subscription, its own cancel. `الأساس` is itself one of them — the one every other app needs
+// running under it, not a different kind of thing. This card is the one place that fact has to
+// read true at a glance, so it is named, and built, around an app — never a "plan".
+function AppCard({
   plan, owned, busy, sellable, onBuy, ownedLabel, buyLabel, renewsAt, unreadNote, compact,
   onSwitch, switchLabel, switching, onCancel, cancelLabel, cancelPending, cancelPendingNote,
   canceling, statusLabel, statusTone,
@@ -328,34 +333,38 @@ function PlanCard({
       className={[
         'group relative flex h-full flex-col overflow-hidden rounded-card',
         compact ? 'gap-2 p-3' : 'gap-3 p-5',
-        'transition-shadow duration-200',
+        // TRANSFORM, NOT JUST SHADOW - a card a shop can buy responds to the pointer arriving on
+        // it the same way rj-ui's own Button does (a small lift, not a bounce): a screen full of
+        // app cards should read as a store with pressable things in it, not a page of printed
+        // tiles.
+        'transition-[transform,box-shadow] duration-200',
         has
           // OWNED READS AS SETTLED, NOT AS SOLD. A ring rather than a fill: a card he already owns
           // must not compete for attention with the ones he might buy.
           ? 'bg-surface-1 shadow-sm ring-1 ring-accent-soft'
-          : 'bg-surface-1 shadow-sm hover:shadow-md',
+          : 'bg-surface-1 shadow-sm hover:-translate-y-0.5 hover:shadow-md',
       ].join(' ')}
     >
-      {/* A HAIRLINE OF ACCENT ALONG THE TOP of what he owns — the whole decoration budget of this
+      {/* A HAIRLINE OF ACCENT ALONG THE TOP of what he owns - the whole decoration budget of this
           screen. Anything louder turns a shop into an advertisement. */}
       {has ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-accent" /> : null}
 
       <header className="flex items-start justify-between gap-2">
         <div className={compact ? 'flex items-center gap-1.5' : 'flex items-center gap-2.5'}>
-          {/* THE FACE OF THE APP, NOT DECORATION FOR ITS OWN SAKE — the same icon this app wears
-              in the rail once he owns it, so the card that sells «الحجوزات» and the row it lands
+          {/* THE FACE OF THE APP, NOT DECORATION FOR ITS OWN SAKE - the same icon this app wears
+              in the rail once he owns it, so the card that sells campaigns and the row it lands
               on afterward are visibly the same thing. Capacity rows carry no app icon of their
-              own (they grant seats or branches, not a feature), so this is skipped there —
-              a generic Layers badge beside «10 مقاعد إضافية» would say nothing true. */}
+              own (they grant seats or branches, not a feature), so this is skipped there - a
+              generic Layers badge beside a seat count would say nothing true. */}
           {compact ? null : (
             <span
               aria-hidden
               className={[
-                'grid h-9 w-9 shrink-0 place-items-center rounded-full',
+                'grid h-10 w-10 shrink-0 place-items-center rounded-full',
                 has ? 'bg-accent-soft text-accent-on-soft' : 'bg-surface-2 text-text-secondary',
               ].join(' ')}
             >
-              <Icon size={17} />
+              <Icon size={18} />
             </span>
           )}
           <h3 className={compact ? 'text-sm font-medium leading-tight' : 'text-base font-medium leading-tight'}>
@@ -366,32 +375,32 @@ function PlanCard({
           : has && ownedLabel ? <Badge tone="success">{ownedLabel}</Badge> : null}
       </header>
 
-      {/* THE DAY THIS ONE IS CHARGED. Only when he owns it and billing answered — an app he has
-          not bought has no date, and an unread billing has none to print. */}
-      {has && renewalDay(renewsAt) ? (
-        <p className="-mt-1 text-xs text-text-secondary">يتجدّد في {renewalDay(renewsAt)}</p>
-      ) : null}
-
-      {/* WHAT IT DOES FOR HIM. The one line that does the selling. */}
+      {/* WHAT IT DOES FOR HIM. The one line that does the selling - first, before a single number,
+          because that is the order a shop owner actually decides in. */}
       {app?.what ? (
         <p className="text-sm leading-relaxed text-text-secondary">{app.what}</p>
       ) : null}
 
+      {/* THE PRICE AND ITS TAX NOTE, ONE UNIT - was two elements pulled together with a negative
+          margin, which is a hack pretending to be a gap. Grouped in one flex column so the tax
+          line reads as a footnote OF the price above it, not a stray sentence near it. */}
       {price?.amount_minor ? (
-        <div className="flex items-baseline gap-1.5">
-          <span className={compact
-            ? 'text-xl font-semibold tabular-nums leading-none'
-            : 'text-3xl font-semibold tabular-nums leading-none'}>
-            {riyals(price.amount_minor)}
-          </span>
-          <span className="text-sm text-text-secondary">ريال / شهر</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className={compact
+              ? 'text-xl font-semibold tabular-nums leading-none'
+              : 'text-3xl font-semibold tabular-nums leading-none'}>
+              {riyals(price.amount_minor)}
+            </span>
+            <span className="text-sm text-text-secondary">ريال / شهر</span>
+          </div>
+          {/* SAID, NOT ASSUMED - the server's own flag. A shop owner reading a price without it
+              budgets the wrong number. Skipped in the compact card: a capacity row's tax note
+              would be the longest line on a card whose whole point is to stay short. */}
+          {price.includes_tax && !compact ? (
+            <span className="text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
+          ) : null}
         </div>
-      ) : null}
-      {/* SAID, NOT ASSUMED — the server's own flag. A shop owner reading a price without it
-          budgets the wrong number. Skipped in the compact card: a capacity row's tax note would
-          be the longest line on a card whose whole point is to stay short. */}
-      {price?.includes_tax && !compact ? (
-        <span className="-mt-2 text-xs text-text-secondary">شامل ضريبة القيمة المضافة</span>
       ) : null}
 
       {lines.length ? (
@@ -407,11 +416,16 @@ function PlanCard({
         </ul>
       ) : null}
 
-      {/* WHERE IT SHOWS UP, because «اشتريته وين ألقاه؟» is the first support question after every
-          purchase — and the answer is already written down in the registry. */}
-      {app?.section ? (
-        <p className="text-xs text-text-secondary">
-          يظهر في «{SECTION_LABEL[app.section] ?? app.section}»
+      {/* THE OWNED APP'S OWN META ROW - renewal date and where it lives, together on one line
+          instead of stacked as two identical grey paragraphs competing for the same attention.
+          "where did I put what I bought" is the first support question after every purchase, and
+          "when am I charged" the second; a shop owner who already owns this app wants both in one
+          glance, not two lines he has to read separately to notice they are related. */}
+      {has && (renewalDay(renewsAt) || app?.section) ? (
+        <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-text-secondary">
+          {renewalDay(renewsAt) ? <span>يتجدّد في {renewalDay(renewsAt)}</span> : null}
+          {renewalDay(renewsAt) && app?.section ? <span aria-hidden className="text-text-muted">·</span> : null}
+          {app?.section ? <span>يظهر في «{SECTION_LABEL[app.section] ?? app.section}»</span> : null}
         </p>
       ) : null}
 
@@ -981,7 +995,7 @@ export function PlansPane({
                     : undefined;
                   return (
                     <li key={p.id}>
-                      <PlanCard
+                      <AppCard
                         plan={p}
                         owned={isBaseSubRow ? true : isThisOne}
                         busy={busy}
@@ -1020,7 +1034,7 @@ export function PlansPane({
               <ul className="grid gap-3 grid-cols-2">
                 {capacity.map((p) => (
                   <li key={p.id}>
-                    <PlanCard
+                    <AppCard
                       plan={p}
                       owned={false}
                       busy={busy}
@@ -1062,7 +1076,7 @@ export function PlansPane({
               const appSub = appSubs.find((s) => s.plan_id === p.id);
               return (
                 <li key={p.id}>
-                  <PlanCard
+                  <AppCard
                     plan={p}
                     owned={owns(owned ?? null, appKey(p))}
                     busy={busy}
