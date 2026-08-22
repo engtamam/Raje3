@@ -465,7 +465,11 @@ function AppCard({
               ) : null}
             </div>
           ) : onCancel ? (
-            <Button type="button" variant="ghost" size="sm" disabled={canceling} onClick={onCancel}>
+            // RED, DELIBERATELY — leaving is the one action on this card that costs him something,
+            // and a neutral grey button said that no louder than the "buy" button beside it does on
+            // every other card. Colour is the fastest signal a glance reads; a destructive action
+            // wearing the same tone as a neutral one is a colour that is not saying anything.
+            <Button type="button" variant="danger" size="sm" disabled={canceling} onClick={onCancel}>
               {canceling ? 'يُلغى…' : (cancelLabel || 'إلغاء')}
             </Button>
           ) : null
