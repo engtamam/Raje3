@@ -31,14 +31,14 @@
  *   him on; an unproven identifier is not an identity. The code arrives on WhatsApp, which is the
  *   channel he is about to connect anyway — no SMS contract, no second vendor.
  */
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { OtpVerify } from '@base-ui/auth/OtpVerify';
 import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { hasFailed, isLoading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
-import { Check } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { DoorLayout } from './DoorLayout';
 import {
   openShop, requestCode, signIn, verifyCode, affiliateRefFromUrl, AGREED_KEY, Refused,
@@ -46,6 +46,40 @@ import {
 import { sentenceFor } from '../api';
 import type { Session } from '../session';
 import { western } from '../digits';
+
+/**
+ * A password field with a real show/hide toggle — reported directly: neither pane offered any
+ * way to check what he had actually typed, on a form whose whole point (§ the twelve-character
+ * rule above) is that a wrong keystroke is easy to make and easy to miss while the field masks
+ * it. One eye icon inside the box, never a second control competing for the label's own space.
+ */
+function PasswordInput({ id, name, value, onChange, onBlur, autoComplete }: {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: () => void;
+  autoComplete: string;
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id} name={name} value={value} onChange={onChange} onBlur={onBlur}
+        type={shown ? 'text' : 'password'} autoComplete={autoComplete}
+        className="pe-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-label={shown ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+        className="absolute inset-y-0 end-0 grid w-10 place-items-center text-text-secondary"
+      >
+        {shown ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+      </button>
+    </div>
+  );
+}
 
 export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
   const [mode, setMode] = useState<'in' | 'new'>('in');
@@ -210,10 +244,10 @@ function SignInPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       </Field>
 
       <Field label="كلمة المرور" required htmlFor="in-password">
-        <Input
+        <PasswordInput
           id="in-password" name="password" value={password}
           onChange={(e) => { setPassword(e.target.value); setError(''); }}
-          type="password" autoComplete="current-password"
+          autoComplete="current-password"
         />
       </Field>
 
@@ -420,10 +454,10 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
       </Field>
 
       <Field label="كلمة المرور" required htmlFor="password" error={shown('password')}>
-        <Input
+        <PasswordInput
           id="password" name="password" value={v.password} onChange={set('password')}
           onBlur={blur('password')}
-          type="password" autoComplete="new-password"
+          autoComplete="new-password"
         />
       </Field>
 

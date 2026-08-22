@@ -632,7 +632,7 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
       <div className="text-[11.5px] font-semibold opacity-75">نسبة عودة عملائك</div>
       <p className="mt-2 text-[20px] font-medium leading-relaxed">{sentence}</p>
       {tooSmall ? (
-        <p className="mt-1 text-[12px] opacity-75">العدد لسه صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
+        <p className="mt-1 text-[12px] opacity-75">العدد يعتبر صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
       ) : null}
       {deltaPts !== null && series?.months ? (
         <div className="mt-3 flex items-center gap-3">
