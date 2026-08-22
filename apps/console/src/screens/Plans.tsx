@@ -55,6 +55,7 @@ import { riyals } from '../money';
 const SECTION_LABEL: Record<string, string> = {
   messages: 'رسائلي',
   points: 'نقاطي',
+  bookings: 'الحجوزات',
   team: 'فريقي',
   account: 'حسابي',
   shop: 'محلّي',
@@ -534,6 +535,12 @@ export function PlansPane({
    *  can happen while the other is untouched. */
   const [cancelingAppId, setCancelingAppId] = useState('');
   const [appCancelError, setAppCancelError] = useState('');
+  /** THE APP'S OWN CONFIRMATION — same discipline the base already has, asked for directly: a
+   *  press must never fire the request itself, only open the dialog that names what actually
+   *  happens (works exactly as-is until the date already on the card, then stops renewing). Holds
+   *  the pending subscription id AND its app's name, since the dialog needs both and neither
+   *  the id alone nor `apps` alone can answer «which app, in his own words» on its own. */
+  const [confirmingCancelApp, setConfirmingCancelApp] = useState<{ subId: string; name: string } | null>(null);
   /** THE CARD FORM, OPEN FOR ONE OF TWO REASONS — buying a plan, or replacing the card on the
    *  base subscription. `null` is closed; it is not a screen of its own, same as `reading` on
    *  «رسائلي». Which reason decides what a resolved token is handed to next. */
@@ -632,17 +639,20 @@ export function PlansPane({
     }
   };
 
-  /** «إلغاء هذا التطبيق» — an app's own, independent cancellation. Never touches the base or any
-   *  other app; the reverse direction (base takes every app with it) is `cancelBase` above. */
+  /** «إيقاف تجديد هذا التطبيق» — an app's own, independent cancellation. Never touches the base or
+   *  any other app; the reverse direction (base takes every app with it) is `cancelBase` above.
+   *  Only ever fired from `confirmingCancelApp`'s own confirm button — never directly from the
+   *  card, same discipline the base already had and the app was missing. */
   const cancelApp = async (subId: string) => {
     const a = action(catalog, 'billing.cancel');
     if (!a) return;
     setCancelingAppId(subId); setAppCancelError('');
     try {
       await call(session, a, { id: subId });
+      setConfirmingCancelApp(null);
       load();
     } catch (e) {
-      setAppCancelError(e instanceof Error ? e.message : 'تعذّر إلغاء التطبيق.');
+      setAppCancelError(e instanceof Error ? e.message : 'تعذّر إيقاف تجديد التطبيق.');
     } finally {
       setCancelingAppId('');
     }
@@ -927,6 +937,34 @@ export function PlansPane({
         </div>
       ) : null}
 
+      {/* THE APP'S OWN CONFIRMATION — same discipline as the base's, one app at a time: he never
+          fires this from the card itself, only opens this dialog, which names the exact app and
+          the exact date before anything happens. */}
+      {confirmingCancelApp ? (
+        <div className="rounded-card border border-border-subtle bg-surface-1 p-5 shadow-sm">
+          <p className="mb-1 font-medium">تأكيد إيقاف تجديد «{confirmingCancelApp.name}»</p>
+          <p className="mb-4 text-sm text-text-secondary">
+            {(() => {
+              const s = appSubs.find((x) => x.id === confirmingCancelApp.subId);
+              return renewalDay(s?.current_period_end)
+                ? `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى ${renewalDay(s?.current_period_end)}، ولن يتجدّد بعدها. لن نخصم منك شيئاً إضافياً.`
+                : `يستمر «${confirmingCancelApp.name}» يعمل بلا أي تغيير حتى نهاية الفترة التي دفعت عنها، ولن يتجدّد بعدها.`;
+            })()}
+          </p>
+          {appCancelError ? <p className="mb-3 text-sm text-danger">{appCancelError}</p> : null}
+          <div className="flex gap-2">
+            <Button type="button" variant="danger" disabled={cancelingAppId === confirmingCancelApp.subId}
+                    onClick={() => void cancelApp(confirmingCancelApp.subId)}>
+              تأكيد إيقاف التجديد
+            </Button>
+            <Button type="button" variant="ghost" disabled={cancelingAppId === confirmingCancelApp.subId}
+                    onClick={() => { setConfirmingCancelApp(null); setAppCancelError(''); }}>
+              تراجع
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {/* «بدّل الباقة» CONFIRMATION — same discipline as cancel's: he is changing what he pays, and
           the one thing he must know before pressing again is what actually happens NOW.
           TWO DIFFERENT PROMISES (v0.16.33: «مافي رصيد سالب أو استرداد إطلاقاً»): an
@@ -1149,7 +1187,6 @@ export function PlansPane({
           {hasBase === false ? (
             <p className="text-sm text-text-secondary">تُضاف إلى الاشتراك الأساسي بعد تفعيله.</p>
           ) : null}
-          {appCancelError ? <p className="text-sm text-danger">{appCancelError}</p> : null}
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {apps.map((p) => {
               // «كل تطبيق له إدارة اشتراكه الخاص» — an app cancels
@@ -1172,7 +1209,7 @@ export function PlansPane({
                     cancelLabel="إيقاف تجديد هذا التطبيق"
                     cancelPending={appSub?.cancel_at_period_end}
                     onCancel={appSub && action(catalog, 'billing.cancel')
-                      ? () => void cancelApp(appSub.id) : undefined}
+                      ? () => setConfirmingCancelApp({ subId: appSub.id, name: p.name }) : undefined}
                     canceling={cancelingAppId === appSub?.id}
                   />
                 </li>
