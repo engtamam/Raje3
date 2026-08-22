@@ -22,6 +22,7 @@
 import { useState } from 'react';
 import { AffiliateAccount } from './AffiliateAccount';
 import { AffiliateDoor } from './AffiliateDoor';
+import { AffiliateEarnings } from './AffiliateEarnings';
 import { AffiliateHome } from './AffiliateHome';
 import { AffiliateLeads } from './AffiliateLeads';
 import { AffiliateSidebar, AffiliateBottomNav, ComingSoon, type Tab } from './AffiliateNav';
@@ -44,7 +45,7 @@ export function AffiliatePortal() {
           {tab === 'home' ? <AffiliateHome session={session} /> : null}
           {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
           {tab === 'tools' ? <AffiliateTools session={session} /> : null}
-          {tab === 'earnings' ? <ComingSoon label="أرباحي" /> : null}
+          {tab === 'earnings' ? <AffiliateEarnings session={session} /> : null}
           {tab === 'account' ? <AffiliateAccount session={session} onSignOut={signOut} /> : null}
         </div>
         <AffiliateBottomNav active={tab} onChange={setTab} />

@@ -93,6 +93,9 @@ export async function me(session: AffiliateSession): Promise<Me> {
 export interface Balance {
   pending_halalas: number; confirmed_available_halalas: number; withdrawn_halalas: number;
 }
+export async function balance(session: AffiliateSession): Promise<Balance> {
+  return req('/api/v1/affiliates/me/balance', 'GET', undefined, session.access_token);
+}
 export interface WafaEligibility {
   active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
   current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
@@ -392,4 +395,87 @@ export async function myLeadSearches(session: AffiliateSession): Promise<{ jobs:
 export async function leadSearchStatus(session: AffiliateSession, jobId: string):
     Promise<LeadSearchJob> {
   return req(`/api/v1/affiliates/me/leads/search/${jobId}`, 'GET', undefined, session.access_token);
+}
+
+/* ── «أرباحي» — the money deep-dive: commissions, withdrawals, receipts, team earnings, Wafa ───── */
+export interface Commission {
+  id: string; tenant: string; affiliate_id: string; kind: string; amount_halalas: number;
+  status: string; earned_at: string; confirms_at: number; created_at: number; withdrawal_id: string;
+}
+export async function commissions(session: AffiliateSession): Promise<{ commissions: Commission[] }> {
+  return req('/api/v1/affiliates/me/commissions', 'GET', undefined, session.access_token);
+}
+
+export const WITHDRAWAL_STATUS = ['requested', 'completed', 'rejected'] as const;
+export interface WithdrawalRequest {
+  id: string; affiliate_id: string; amount_halalas: number; commission_ids: string[];
+  status: string; payout_channel: string; payout_channel_name: string; payout_account_ref: string;
+  requested_at: number; decided_at: number; decided_by: string; receipt_reference: string;
+  receipt_content_type: string; reason: string;
+}
+export async function requestWithdrawal(session: AffiliateSession): Promise<WithdrawalRequest> {
+  return req('/api/v1/affiliates/me/withdrawals', 'POST', undefined, session.access_token);
+}
+export async function myWithdrawals(session: AffiliateSession):
+    Promise<{ withdrawals: WithdrawalRequest[] }> {
+  return req('/api/v1/affiliates/me/withdrawals', 'GET', undefined, session.access_token);
+}
+/** A binary response, unlike every other call here — `req<T>` assumes JSON, so this fetches
+ *  directly and hands back an object URL the caller opens/revokes itself. */
+export async function withdrawalReceiptUrl(session: AffiliateSession, withdrawalId: string):
+    Promise<string> {
+  const res = await fetch(`${BASE}/api/v1/affiliates/me/withdrawals/${withdrawalId}/receipt`,
+    { headers: { Authorization: `Bearer ${session.access_token}` } });
+  if (!res.ok) throw new AffiliateRefused('تعذّر فتح الإيصال.');
+  return URL.createObjectURL(await res.blob());
+}
+
+/** The manager's own team-earnings view — richer than `Home`'s `TeamSummary` teaser, one member
+ *  row at a time. */
+export interface TeamMember {
+  id: string; name: string; status: string; confirmed_halalas: number; pending_halalas: number;
+  commission_count: number; shops: number; total_net_revenue_minor: number; revenue_partial: boolean;
+}
+export interface Team {
+  my_shops: number; my_net_revenue_minor: number; my_revenue_partial: boolean;
+  members: TeamMember[]; team_confirmed_halalas: number; team_pending_halalas: number;
+  team_net_revenue_minor: number; team_revenue_partial: boolean; platform_revenue_enabled: boolean;
+  platform_net_revenue_minor?: number; platform_revenue_partial?: boolean;
+}
+export async function team(session: AffiliateSession): Promise<Team> {
+  return req('/api/v1/affiliates/me/team', 'GET', undefined, session.access_token);
+}
+
+/** برنامج دعم الوفاء — الاستحقاق الذاتي، منفصل تمامًا عن سجل العمولات (بطاقة حالة، لا صف بجدول).
+ *  `manager_decision` استشاري فقط؛ `status` هو قرار المنصة الملزِم — لا يُخلَط بينهما بالواجهة. */
+export const WAFA_STATUSES = ['requested', 'granted', 'rejected'] as const;
+export interface WafaRequest {
+  id: string; affiliate_id: string; active_shops: number; tier_amount_halalas: number;
+  status: string; requested_at: number; system_recommendation: string;
+  system_retention_rate: number; system_refund_rate: number; manager_decision: string;
+  manager_decided_by: string; manager_decided_at: number; manager_reason: string;
+  decided_by: string; decided_at: number; reason: string; granted_at: number;
+}
+export async function wafaEligibility(session: AffiliateSession) {
+  return req<{
+    active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
+    current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
+  }>('/api/v1/affiliates/me/wafa-eligibility', 'GET', undefined, session.access_token);
+}
+export async function requestWafa(session: AffiliateSession): Promise<WafaRequest> {
+  return req('/api/v1/affiliates/me/wafa-requests', 'POST', undefined, session.access_token);
+}
+export async function myWafaRequests(session: AffiliateSession):
+    Promise<{ wafa_requests: WafaRequest[] }> {
+  return req('/api/v1/affiliates/me/wafa-requests', 'GET', undefined, session.access_token);
+}
+export async function teamWafaRequests(session: AffiliateSession):
+    Promise<{ wafa_requests: WafaRequest[] }> {
+  return req('/api/v1/affiliates/me/team/wafa-requests', 'GET', undefined, session.access_token);
+}
+export async function decideTeamWafaRequest(session: AffiliateSession, requestId: string,
+                                            decision: 'approve' | 'reject', reason = ''):
+    Promise<WafaRequest> {
+  return req(`/api/v1/affiliates/me/team/wafa-requests/${requestId}/decision`, 'POST',
+             { decision, reason }, session.access_token);
 }

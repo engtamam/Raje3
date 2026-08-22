@@ -31,7 +31,7 @@ const TABS: { id: Tab; label: string; icon: ReactNode; ready: boolean }[] = [
   { id: 'home', label: 'الرئيسية', icon: <HomeIcon size={20} />, ready: true },
   { id: 'leads', label: 'عملائي', icon: <Users size={20} />, ready: true },
   { id: 'tools', label: 'أدواتي', icon: <Wrench size={20} />, ready: true },
-  { id: 'earnings', label: 'أرباحي', icon: <Wallet size={20} />, ready: false },
+  { id: 'earnings', label: 'أرباحي', icon: <Wallet size={20} />, ready: true },
   { id: 'account', label: 'حسابي', icon: <CircleUserRound size={20} />, ready: true },
 ];
 
