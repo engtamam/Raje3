@@ -484,12 +484,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             )}
           </Section>
         </div>
-
-        {data.entitlements && !data.entitlements.includes('feature.insights.engine') ? (
-          <p className="mb-3 flex items-center gap-2 break-inside-avoid px-1 text-xs" style={{ color: 'var(--sh-ink-faint)' }}>
-            🔒 باقات مقترحة — في باقة أعلى.
-          </p>
-        ) : null}
       </div>
 
       <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
