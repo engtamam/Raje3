@@ -16,7 +16,7 @@
  * because the overdue list comes from reminders and reminders holds no names at all, deliberately.
  */
 import { hasFailed, isDenied, isLoading, isReady, DENIED, type Loading } from '../loading';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search } from 'lucide-react';
 import { EmptyState } from '../rj-ui/EmptyState';
@@ -86,17 +86,16 @@ export function CustomersScreen(
    * being the one on the owner's screen. So the schedule is read as it stands, and this screen
    * only asks WHOSE it is.
    *
-   * LOADED ONLY WHEN THE TAB IS OPENED. It costs two round trips, and most visits to this section
-   * are somebody looking up one customer at the counter.
+   * NO LONGER LAZY, AND THAT IS A DELIBERATE COST. It used to load only once the tab was opened,
+   * on the reasoning that most visits are one lookup at the counter. It now also feeds a badge on
+   * every row of «عملائي» itself — the SAME engine-owned list, read once, so an owner scanning the
+   * default list sees who is overdue without opening a second tab. Two extra round trips, paid
+   * once per visit to this screen, for a fact that used to be a tab away.
    */
   useEffect(() => {
-    // NOT YET IS `undefined`, AND THIS LINE ONCE SAID `null`. It was written when a fetched value
-    // had two states and `null` meant «not asked for yet»; `loading.ts` gave every screen four, and
-    // this lazy guard kept the old vocabulary. So the tab opened at `undefined`, the guard read it
-    // as «already handled», nothing was ever requested, and «من تأخّر» was a grey rectangle for
-    // ever — the exact defect the four states were introduced to end. It would also have RETRIED A
-    // FAILURE ENDLESSLY, since `null` now means «it failed» and would re-enter on every render.
-    if (tab !== 'overdue' || overdue !== undefined) return;
+    // NOT YET IS `undefined`. `loading.ts` gives every screen four states, and re-entering on a
+    // failure (`null`) rather than only on `undefined` would retry a real failure on every render.
+    if (overdue !== undefined) return;
     const schedule = action(catalog, 'reminders.list_schedule');
     const resolve = action(catalog, 'operations.customers_by_refs');
     if (!schedule || !resolve) { setOverdue(DENIED); return; }
@@ -118,7 +117,7 @@ export function CustomersScreen(
       .then((x) => { if (!stale) setOverdue(x.customers ?? []); })
       .catch(() => { if (!stale) setOverdue(null); });
     return () => { stale = true; };
-  }, [tab, overdue, session, catalog]);
+  }, [overdue, session, catalog]);
 
   /**
    * DEBOUNCED, AND GUARDED AGAINST ITS OWN HISTORY. This fires on every key of a ten-digit number
@@ -191,6 +190,15 @@ export function CustomersScreen(
   const showing = isReady(source) ? source : [];
   const loading = isLoading(source);
   const denied = isDenied(source);
+
+  // THE SAME "متأخر" ON EVERY ROW, ON EITHER TAB — never a second opinion of its own. A row on
+  // «عملائي» itself is badged from this exact set (the engine's own resolved list) rather than
+  // any locally recomputed guess, so a customer never reads "متأخر" on one screen and something
+  // else on another.
+  const overdueIds = useMemo(
+    () => new Set(isReady(overdue) ? overdue.map((c) => c.id) : []),
+    [overdue],
+  );
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -303,12 +311,30 @@ export function CustomersScreen(
               <div className="flex flex-col">
                 <span dir="ltr" className="tabular-nums">{asLocal(c.phone)}</span>
                 <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
+                {/* FREE ON THIS ROW'S OWN DATA — `last_visit`/`visit_count` are denormalised on
+                    the Customer record itself (services/operations `Customer.public()`), no
+                    extra join. ABSENT, not zero, on a search-result row: the search index does
+                    not carry these fields, and a guessed "0 زيارة" would be a fact we do not
+                    have, stated as one we do. */}
+                {typeof c.last_visit === 'number' && c.last_visit > 0 ? (
+                  <span className="text-xs text-text-muted">
+                    آخر زيارة {ago(c.last_visit)}
+                    {typeof c.visit_count === 'number' ? ` · ${c.visit_count} زيارة` : ''}
+                  </span>
+                ) : null}
               </div>
               {/* THE CONSENT STATE IS SHOWN BECAUSE IT CHANGES WHAT HE MAY DO, not as decoration:
                   a customer who withdrew still earns points and still gets service messages, and
                   the one thing that stops is marketing. An owner who cannot see it will assume an
                   offer reached everyone. */}
               <span className="flex items-center gap-2">
+                {/* THE SAME "متأخر" THE DEDICATED TAB ALREADY MEANS — from `overdueIds`, the
+                    engine's own resolved schedule, never a second computation. Shown on «عملائي»
+                    only: every row on «من تأخّر» is already this by definition, and a whole tab
+                    of the same badge on every line is noise, not information. */}
+                {tab === 'all' && overdueIds.has(c.id) ? (
+                  <Badge tone="warning">متأخر</Badge>
+                ) : null}
                 {c.marketing === false ? (
                   <Badge tone="neutral">أوقف التسويق</Badge>
                 ) : null}

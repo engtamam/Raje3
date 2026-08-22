@@ -186,6 +186,12 @@ export interface CustomerHit {
   /** Whether marketing messages reach him. Shown as a hint so the operator can say the balance out
    *  loud (spec 4.7) — a customer who opted out earns points and is never told he has them. */
   marketing?: boolean;
+  /** Denormalised on the Customer row itself (services/operations `Customer.public()`) — free,
+   *  no extra join. Present on `operations.recent` and `operations.customers_by_refs` results;
+   *  ABSENT on a search-service `suggest` hit, whose index carries only id/phone/name/plate. Never
+   *  substitute a guess when it is missing — the row simply says less, honestly, for that source. */
+  last_visit?: number;
+  visit_count?: number;
 }
 
 /**
