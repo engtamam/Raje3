@@ -61,7 +61,7 @@ export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
           className="flex w-full [&>button]:flex-1 [&>button]:whitespace-nowrap"
           options={[
             { value: 'in', label: 'تسجيل الدخول' },
-            { value: 'new', label: 'محل جديد' },
+            { value: 'new', label: 'تسجيل جديد' },
           ]}
           value={mode}
           onChange={setMode}
