@@ -67,14 +67,23 @@ function startOfWeek(date: string): string {
 const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
                'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+// A YEAR SHOWN ONLY WHEN IT ISN'T THIS ONE. Every date on this screen used to render month+day
+// alone — harmless for the day/week grid, which can never leave the current year, but the
+// customer-history list can genuinely span years (a booking from last summer, one for next), and
+// "23 أغسطس" said nothing about which year it was. Appending the year always would clutter every
+// ordinary date with a number that is almost always obvious; appending it only when it differs is
+// the same rule a calendar app follows.
+function withYear(y: number, rendered: string): string {
+  return y === new Date().getFullYear() ? rendered : `${rendered} ${y}`;
+}
 function humanDate(date: string): string {
   const [y, m, d] = date.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
-  return `${WEEKDAYS[dt.getUTCDay()]} ${d} ${MONTHS[m - 1]}`;
+  return withYear(y, `${WEEKDAYS[dt.getUTCDay()]} ${d} ${MONTHS[m - 1]}`);
 }
 function shortDate(date: string): string {
-  const [, m, d] = date.split('-').map(Number);
-  return `${d} ${MONTHS[m - 1]}`;
+  const [y, m, d] = date.split('-').map(Number);
+  return withYear(y, `${d} ${MONTHS[m - 1]}`);
 }
 
 /** Minutes since local midnight, for positioning a card on the axis. */

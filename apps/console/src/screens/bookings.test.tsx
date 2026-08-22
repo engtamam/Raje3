@@ -592,4 +592,27 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
     await waitFor(() => expect(within(list()).getByText(/^اليوم —/)).toBeTruthy());
     expect(within(list()).getByText('اليوم', { selector: 'span' })).toBeTruthy();
   });
+
+  it('names the year on a date that is not this one, and leaves this year unsaid', async () => {
+    const thisYear = new Date().getFullYear();
+    const lastNewYearEve = Math.floor(new Date(Date.UTC(thisYear - 1, 11, 31, 12)).getTime() / 1000);
+    customerUpcomingOverride = [
+      { ...BOOKING, id: 'this_year', customer_id: 'c1', starts_at: NOW + 5 * DAY, status: 'booked' },
+      { ...BOOKING, id: 'last_year', customer_id: 'c1', starts_at: lastNewYearEve, status: 'attended' },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+    await waitFor(() => screen.getByText('السابقة'));
+    fireEvent.click(screen.getByText('السابقة'));
+
+    // Appears on both the header and the row's own date badge — two text nodes, one year.
+    await waitFor(() => expect(within(list()).getAllByText(String(thisYear - 1), { exact: false }).length).toBeGreaterThan(0));
+    // NOT ALSO ON THE ONE ROW STILL IN THIS YEAR — a year appended to every date would be the
+    // clutter this rule exists to avoid.
+    expect(within(list()).queryAllByText(String(thisYear), { exact: false })).toHaveLength(0);
+  });
 });
