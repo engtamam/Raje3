@@ -662,8 +662,13 @@ function RetentionSparkline({ points }: { points: { at: number; customers: numbe
  *  could not compute is skipped entirely rather than drawn as 0. */
 function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
   const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
-                trendKey?: string; goodIsUp?: boolean }[] = [
-    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true },
+                trendKey?: string; goodIsUp?: boolean; weight?: number }[] = [
+    // WEIGHT IS A DESIGN CHOICE, NOT A DATA ONE — «عملاء نشطون» is the headline count of the
+    // three (the other two are context on it), so it keeps more room whether it happens to be
+    // high or low today. A size that swung with the number itself would be a second, competing
+    // way of saying "this matters," on top of colour — one signal per idea, not two fighting
+    // each other.
+    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3 },
     { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat' },
     // MORE TSARRUB IS WORSE — `goodIsUp: false`, so a rising number still shades coral, never teal.
     { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false },
@@ -671,7 +676,7 @@ function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
   const shown = items.filter((h) => typeof values[h.key] === 'number');
   if (!shown.length) return null;
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${shown.length}, 1fr)` }}>
+    <div className="grid gap-2" style={{ gridTemplateColumns: shown.map((h) => `${h.weight ?? 1}fr`).join(' ') }}>
       {shown.map((h) => {
         const raw = values[h.key] as number;
         const v = h.percent ? `${Math.round(raw * 100)}%` : String(raw);
