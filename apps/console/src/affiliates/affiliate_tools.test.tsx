@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AffiliateTools } from './AffiliateTools';
 import type {
-  AffiliateSession, Me, OutreachStage, MessageTemplate, TemplateStat, StatCitation,
+  AffiliateSession, Me, OutreachStage, MessageTemplate, TemplateStat, StatCitation, SectorStat,
+  ReferredShop, ShopTicket,
 } from './api';
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
@@ -17,6 +18,9 @@ let stagesMock: () => Promise<{ stages: OutreachStage[] }>;
 let templatesMock: () => Promise<{ templates: MessageTemplate[] }>;
 let templateStatsMock: () => Promise<{ stats: TemplateStat[] }>;
 let citationsMock: () => Promise<{ citations: StatCitation[] }>;
+let sectorStatsMock: () => Promise<{ stats: SectorStat[] }>;
+let referredShopsMock: () => Promise<{ shops: ReferredShop[] }>;
+let shopTicketsMock: () => Promise<{ tickets: ShopTicket[] }>;
 
 vi.mock('./api', async (importOriginal) => {
   const real = await importOriginal<typeof import('./api')>();
@@ -27,6 +31,9 @@ vi.mock('./api', async (importOriginal) => {
     templates: (...args: unknown[]) => templatesMock(),
     templateStats: (...args: unknown[]) => templateStatsMock(),
     statCitations: (...args: unknown[]) => citationsMock(),
+    sectorStats: (...args: unknown[]) => sectorStatsMock(),
+    referredShops: (...args: unknown[]) => referredShopsMock(),
+    shopTickets: (...args: unknown[]) => shopTicketsMock(),
   };
 });
 
@@ -120,5 +127,58 @@ describe('AffiliateTools — the citation library', () => {
 
     await waitFor(() => expect(screen.getByText('الانقطاع الصامت')).toBeTruthy());
     expect(screen.getByText(/Bain & Company/)).toBeTruthy();
+  });
+});
+
+describe('AffiliateTools — sector stats (manager only)', () => {
+  it('a promoter never sees the sector-stats card', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('مكتبة الرسائل')).toBeTruthy());
+    expect(screen.queryByText('إحصائيات القطاعات')).toBeFalsy();
+  });
+
+  it('a manager opens it and sees real counts, sorted by lead_count', async () => {
+    meMock = () => Promise.resolve(MANAGER);
+    sectorStatsMock = () => Promise.resolve({
+      stats: [
+        { sector_code: 'صالونات', city: 'جدة', lead_count: 3, by_status: {}, registered_count: 0 },
+        { sector_code: 'صالونات', city: 'الرياض', lead_count: 12, by_status: {}, registered_count: 2 },
+      ],
+    });
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('إحصائيات القطاعات')).toBeTruthy());
+    fireEvent.click(screen.getByText('إحصائيات القطاعات'));
+    await waitFor(() => expect(screen.getByText('الرياض')).toBeTruthy());
+    expect(screen.getByText('سجَّل 2 من 12')).toBeTruthy();
+  });
+});
+
+describe('AffiliateTools — shop tickets (§13)', () => {
+  it('is visible to both roles, and lists referred shops', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    referredShopsMock = () => Promise.resolve({
+      shops: [{ tenant: 't1', shop_name: 'صالون النخبة', status: 'referred', stamped_at: 0 }],
+    });
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تذاكر المحلات')).toBeTruthy());
+    fireEvent.click(screen.getByText('تذاكر المحلات'));
+    await waitFor(() => expect(screen.getByText('صالون النخبة')).toBeTruthy());
+  });
+
+  it('opening a shop lists its tickets', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    referredShopsMock = () => Promise.resolve({
+      shops: [{ tenant: 't1', shop_name: 'صالون النخبة', status: 'referred', stamped_at: 0 }],
+    });
+    shopTicketsMock = () => Promise.resolve({
+      tickets: [{ id: 'tk1', subject: 'مشكلة بالحجز', status: 'open' }],
+    });
+    render(<AffiliateTools session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تذاكر المحلات')).toBeTruthy());
+    fireEvent.click(screen.getByText('تذاكر المحلات'));
+    await waitFor(() => expect(screen.getByText('صالون النخبة')).toBeTruthy());
+    fireEvent.click(screen.getByText('صالون النخبة'));
+    await waitFor(() => expect(screen.getByText('مشكلة بالحجز')).toBeTruthy());
   });
 });

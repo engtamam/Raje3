@@ -479,3 +479,69 @@ export async function decideTeamWafaRequest(session: AffiliateSession, requestId
   return req(`/api/v1/affiliates/me/team/wafa-requests/${requestId}/decision`, 'POST',
              { decision, reason }, session.access_token);
 }
+
+/** «رشّح نفسك لوظيفة» — نفس نمط دعم الوفاء بالضبط، بطاقة حالة مستقلة. */
+export const EMPLOYMENT_STATUSES = ['requested', 'approved', 'rejected'] as const;
+export interface EmploymentRequest {
+  id: string; affiliate_id: string; converted_customers: number; status: string;
+  requested_at: number; decided_by: string; decided_at: number; reason: string;
+}
+export async function employmentEligibility(session: AffiliateSession) {
+  return req<{
+    converted_customers: number; threshold: number; eligible: boolean;
+    customers_until_eligible: number;
+  }>('/api/v1/affiliates/me/employment-eligibility', 'GET', undefined, session.access_token);
+}
+export async function requestEmployment(session: AffiliateSession): Promise<EmploymentRequest> {
+  return req('/api/v1/affiliates/me/employment-requests', 'POST', undefined, session.access_token);
+}
+export async function myEmploymentRequests(session: AffiliateSession):
+    Promise<{ employment_requests: EmploymentRequest[] }> {
+  return req('/api/v1/affiliates/me/employment-requests', 'GET', undefined, session.access_token);
+}
+
+/** إحصائيات القطاعات — بيانات محرّك البحث، مدير فقط، من `LeadSourcingService.sector_stats`. */
+export interface SectorStat {
+  sector_code: string; city: string; lead_count: number; by_status: Record<string, number>;
+  registered_count: number;
+}
+export async function sectorStats(session: AffiliateSession): Promise<{ stats: SectorStat[] }> {
+  return req('/api/v1/affiliates/me/leads/sector-stats', 'GET', undefined, session.access_token);
+}
+
+/* ── §١٣ تذاكر المحلات — أي مسوّق أحال محلًا فعليًا، لا مدير فقط ─────────────────────────────────── */
+export interface ReferredShop {
+  tenant: string; shop_name: string; status: string; stamped_at: number;
+}
+export async function referredShops(session: AffiliateSession): Promise<{ shops: ReferredShop[] }> {
+  return req('/api/v1/affiliates/me/referred-shops', 'GET', undefined, session.access_token);
+}
+
+/** شكل التذكرة نفسه يملكه ticket-service (خدمة خارجية) — يبقى مفتوحًا هنا عمدًا بدل تخمين حقوله؛
+ *  الحقول الشائعة اختيارية للاستخدام المباشر بالواجهة. */
+export interface ShopTicket extends Record<string, unknown> {
+  id?: string; subject?: string; body?: string; status?: string; type?: string;
+  priority?: string; created_at?: number;
+}
+export async function shopTickets(session: AffiliateSession, tenant: string):
+    Promise<{ tickets: ShopTicket[] }> {
+  return req(`/api/v1/affiliates/me/shops/${tenant}/tickets`, 'GET', undefined, session.access_token);
+}
+export async function shopTicket(session: AffiliateSession, tenant: string, ticketId: string):
+    Promise<ShopTicket> {
+  return req(`/api/v1/affiliates/me/shops/${tenant}/tickets/${ticketId}`, 'GET', undefined,
+             session.access_token);
+}
+export async function openShopTicket(session: AffiliateSession, tenant: string, input: {
+  type: string; subject?: string; body?: string; priority?: string;
+}): Promise<ShopTicket> {
+  return req(`/api/v1/affiliates/me/shops/${tenant}/tickets`, 'POST', {
+    type: input.type, subject: input.subject ?? '', body: input.body ?? '',
+    priority: input.priority ?? 'normal',
+  }, session.access_token);
+}
+export async function replyShopTicket(session: AffiliateSession, tenant: string, ticketId: string,
+                                      body: string): Promise<ShopTicket> {
+  return req(`/api/v1/affiliates/me/shops/${tenant}/tickets/${ticketId}/replies`, 'POST',
+             { body }, session.access_token);
+}

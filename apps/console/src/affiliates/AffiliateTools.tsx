@@ -20,6 +20,7 @@
 import { useEffect, useState } from 'react';
 import {
   MessagesSquare, Quote, Search as SearchIcon, ChevronRight, Plus, Pencil, Ban, Copy, Check,
+  BarChart3, Ticket, Send,
 } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -29,12 +30,14 @@ import {
   AffiliateRefused, me, outreachStages, templates, templateStats, createTemplate, updateTemplate,
   deactivateTemplate, statCitations, createStatCitation, updateStatCitation,
   deactivateStatCitation, placesApiKey, setPlacesApiKey, clearPlacesApiKey, myLeadSearches,
-  leadSearchStatus, startLeadSearch,
+  leadSearchStatus, startLeadSearch, sectorStats, referredShops, shopTickets, openShopTicket,
+  replyShopTicket,
   type AffiliateSession, type OutreachStage, type MessageTemplate, type TemplateStat,
-  type StatCitation, type PlacesApiKeyInfo, type LeadSearchJob,
+  type StatCitation, type PlacesApiKeyInfo, type LeadSearchJob, type ReferredShop,
+  type ShopTicket, type SectorStat,
 } from './api';
 
-type View = 'menu' | 'templates' | 'citations' | 'search';
+type View = 'menu' | 'templates' | 'citations' | 'search' | 'sector-stats' | 'tickets';
 
 export function AffiliateTools({ session }: { session: AffiliateSession }) {
   const [view, setView] = useState<View>('menu');
@@ -50,6 +53,8 @@ export function AffiliateTools({ session }: { session: AffiliateSession }) {
   if (view === 'templates') return <TemplateLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'citations') return <CitationLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'search') return <LeadSearchTool session={session} onBack={() => setView('menu')} />;
+  if (view === 'sector-stats') return <SectorStatsView session={session} onBack={() => setView('menu')} />;
+  if (view === 'tickets') return <ShopTicketsView session={session} onBack={() => setView('menu')} />;
 
   if (isManager === 'loading') {
     return (
@@ -79,6 +84,16 @@ export function AffiliateTools({ session }: { session: AffiliateSession }) {
                  subtitle="ابحث عن محلات جديدة عبر خرائط جوجل، وتابع تقدّم البحث"
                  onClick={() => setView('search')} />
       ) : null}
+
+      {isManager ? (
+        <ToolCard icon={<BarChart3 size={20} />} title="إحصائيات القطاعات"
+                 subtitle="أي قطاع ومدينة يعطيك نتائج أكثر من بحثك"
+                 onClick={() => setView('sector-stats')} />
+      ) : null}
+
+      <ToolCard icon={<Ticket size={20} />} title="تذاكر المحلات"
+               subtitle="محلات أحلتها ولها تذاكر — تابعها وردّ عليها"
+               onClick={() => setView('tickets')} />
     </div>
   );
 }
@@ -627,6 +642,225 @@ function StartSearchForm({ session, onDone, onCancel }: {
       <div className="flex gap-2">
         <Button type="button" disabled={busy} onClick={submit}>ابدأ البحث</Button>
         <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>إلغاء</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ── إحصائيات القطاعات ─────────────────────────────────────────────────────────────────────────── */
+function SectorStatsView({ session, onBack }: { session: AffiliateSession; onBack: () => void }) {
+  const [rows, setRows] = useState<SectorStat[] | 'loading' | 'failed'>('loading');
+
+  useEffect(() => {
+    sectorStats(session).then((r) => setRows(r.stats)).catch(() => setRows('failed'));
+  }, [session]);
+
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      <BackRow onBack={onBack} title="إحصائيات القطاعات" />
+
+      {rows === 'loading' ? (
+        <Skeleton height={220} />
+      ) : rows === 'failed' ? (
+        <EmptyState title="تعذّرت القراءة" />
+      ) : rows.length === 0 ? (
+        <EmptyState title="لا نتائج بحث بعد" description="ابدأ بحثًا من أداة البحث عن عملاء محتملين." />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rows
+            .slice()
+            .sort((a, b) => b.lead_count - a.lead_count)
+            .map((s, i) => (
+              <li key={i} className="flex items-center justify-between rounded-card bg-surface-1 px-4 py-3 shadow-sm">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{s.sector_code || 'بلا قطاع'}</span>
+                  <span className="text-xs text-text-secondary">{s.city || 'بلا مدينة'}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-text-secondary">
+                    سجَّل {s.registered_count} من {s.lead_count}
+                  </span>
+                  <Badge tone={s.registered_count > 0 ? 'success' : 'neutral'}>{s.lead_count}</Badge>
+                </div>
+              </li>
+            ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ── تذاكر المحلات (§١٣) ──────────────────────────────────────────────────────────────────────── */
+function ShopTicketsView({ session, onBack }: { session: AffiliateSession; onBack: () => void }) {
+  const [shops, setShops] = useState<ReferredShop[] | 'loading' | 'failed'>('loading');
+  const [openTenant, setOpenTenant] = useState<string | null>(null);
+
+  useEffect(() => {
+    referredShops(session).then((r) => setShops(r.shops)).catch(() => setShops('failed'));
+  }, [session]);
+
+  if (openTenant) {
+    const shop = shops !== 'loading' && shops !== 'failed' ? shops.find((s) => s.tenant === openTenant) : undefined;
+    return (
+      <ShopTicketList session={session} tenant={openTenant} shopName={shop?.shop_name || openTenant}
+                      onBack={() => setOpenTenant(null)} />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      <BackRow onBack={onBack} title="تذاكر المحلات" />
+
+      {shops === 'loading' ? (
+        <Skeleton height={180} />
+      ) : shops === 'failed' ? (
+        <EmptyState title="تعذّرت القراءة" />
+      ) : shops.length === 0 ? (
+        <EmptyState title="لا محلات أحلتها بعد" description="تظهر هنا المحلات اللي سجّلت عبر رابطك." />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {shops.map((s) => (
+            <li key={s.tenant}>
+              <button type="button" onClick={() => setOpenTenant(s.tenant)}
+                     className="flex w-full items-center justify-between rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]">
+                <span className="font-medium">{s.shop_name || s.tenant}</span>
+                <ChevronRight size={18} className="rotate-180 text-text-muted" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ShopTicketList({ session, tenant, shopName, onBack }: {
+  session: AffiliateSession; tenant: string; shopName: string; onBack: () => void;
+}) {
+  const [rows, setRows] = useState<ShopTicket[] | 'loading' | 'failed'>('loading');
+  const [openTicket, setOpenTicket] = useState<ShopTicket | 'new' | null>(null);
+
+  const load = () => {
+    setRows('loading');
+    shopTickets(session, tenant).then((r) => setRows(r.tickets)).catch(() => setRows('failed'));
+  };
+  useEffect(load, [session, tenant]);
+
+  if (openTicket === 'new') {
+    return <NewTicketForm session={session} tenant={tenant}
+                          onDone={() => { setOpenTicket(null); load(); }}
+                          onCancel={() => setOpenTicket(null)} />;
+  }
+  if (openTicket) {
+    return <TicketThread session={session} tenant={tenant} ticket={openTicket}
+                         onBack={() => setOpenTicket(null)} />;
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      <BackRow onBack={onBack} title={shopName} />
+
+      <Button type="button" onClick={() => setOpenTicket('new')}
+             className="flex items-center justify-center gap-2">
+        <Plus size={16} /> تذكرة جديدة
+      </Button>
+
+      {rows === 'loading' ? (
+        <Skeleton height={140} />
+      ) : rows === 'failed' ? (
+        <EmptyState title="تعذّرت القراءة"
+                   description="قد لا توجد موافقة فعّالة من هذا المحل، أو خدمة التذاكر غير متاحة الآن." />
+      ) : rows.length === 0 ? (
+        <EmptyState title="لا تذاكر بعد" />
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rows.map((t, i) => (
+            <li key={t.id ?? i}>
+              <button type="button" onClick={() => setOpenTicket(t)}
+                     className="flex w-full items-center justify-between rounded-card bg-surface-1 px-4 py-3 text-start shadow-sm active:scale-[0.99]">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-sm font-medium">{t.subject || t.type || 'تذكرة'}</span>
+                  {t.body ? <span className="truncate text-xs text-text-secondary">{t.body}</span> : null}
+                </div>
+                {t.status ? <Badge tone="neutral">{t.status}</Badge> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function NewTicketForm({ session, tenant, onDone, onCancel }: {
+  session: AffiliateSession; tenant: string; onDone: () => void; onCancel: () => void;
+}) {
+  const [type, setType] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit() {
+    setBusy(true); setError('');
+    try { await openShopTicket(session, tenant, { type, subject, body }); onDone(); }
+    catch (err) { setError(err instanceof AffiliateRefused ? err.message : 'تعذّر فتح التذكرة.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      <BackRow onBack={onCancel} title="تذكرة جديدة" />
+      <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
+        <input value={type} onChange={(e) => setType(e.target.value)} placeholder="نوع المشكلة"
+               className="h-11 rounded-md border border-border-strong bg-surface-0 px-3 text-sm" />
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="عنوان (اختياري)"
+               className="h-11 rounded-md border border-border-strong bg-surface-0 px-3 text-sm" />
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5}
+                 placeholder="تفاصيل المشكلة"
+                 className="rounded-md border border-border-strong bg-surface-0 p-3 text-sm" />
+        {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+        <Button type="button" disabled={busy || !type.trim()} onClick={submit}>فتح التذكرة</Button>
+      </div>
+    </div>
+  );
+}
+
+function TicketThread({ session, tenant, ticket, onBack }: {
+  session: AffiliateSession; tenant: string; ticket: ShopTicket; onBack: () => void;
+}) {
+  const [reply, setReply] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+  const ticketId = String(ticket.id ?? '');
+
+  async function submit() {
+    setBusy(true); setError('');
+    try { await replyShopTicket(session, tenant, ticketId, reply); setReply(''); setSent(true); }
+    catch (err) { setError(err instanceof AffiliateRefused ? err.message : 'تعذّر إرسال الردّ.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-6">
+      <BackRow onBack={onBack} title={ticket.subject || ticket.type || 'التذكرة'} />
+
+      <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+        {ticket.status ? <Badge tone="neutral">{ticket.status}</Badge> : null}
+        <p className="text-sm">{ticket.body}</p>
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-card bg-surface-1 p-4 shadow-sm">
+        <textarea value={reply} onChange={(e) => { setReply(e.target.value); setSent(false); }} rows={4}
+                 placeholder="اكتب ردّك"
+                 className="rounded-md border border-border-strong bg-surface-0 p-3 text-sm" />
+        {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+        {sent ? <p className="text-sm text-success">أُرسل الردّ.</p> : null}
+        <Button type="button" disabled={busy || !reply.trim()} onClick={submit}
+               className="flex items-center justify-center gap-2">
+          <Send size={16} /> إرسال الردّ
+        </Button>
       </div>
     </div>
   );

@@ -27,9 +27,9 @@ import { riyalsLabel } from '../money';
 import {
   AffiliateRefused, me, balance, commissions, requestWithdrawal, myWithdrawals,
   withdrawalReceiptUrl, team, wafaEligibility, requestWafa, myWafaRequests, teamWafaRequests,
-  decideTeamWafaRequest,
+  decideTeamWafaRequest, employmentEligibility, requestEmployment, myEmploymentRequests,
   type AffiliateSession, type Me, type Balance, type Commission, type WithdrawalRequest,
-  type Team, type WafaRequest,
+  type Team, type WafaRequest, type EmploymentRequest,
 } from './api';
 
 const COMMISSION_STATUS_LABEL: Record<string, string> = {
@@ -40,6 +40,9 @@ const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
 };
 const WAFA_STATUS_LABEL: Record<string, string> = {
   requested: 'قيد المراجعة', granted: 'مُستحَق', rejected: 'مرفوض',
+};
+const EMPLOYMENT_STATUS_LABEL: Record<string, string> = {
+  requested: 'قيد المراجعة', approved: 'مُستحَق', rejected: 'مرفوض',
 };
 
 export function AffiliateEarnings({ session }: { session: AffiliateSession }) {
@@ -61,6 +64,7 @@ export function AffiliateEarnings({ session }: { session: AffiliateSession }) {
       <h1 className="text-2xl leading-tight tracking-tight">أرباحي</h1>
       <BalanceSection session={session} />
       <WafaCard session={session} />
+      <EmploymentCard session={session} />
       {isManager ? <TeamEarningsCard session={session} /> : null}
       {isManager ? <TeamWafaQueue session={session} /> : null}
       <CommissionHistory session={session} />
@@ -175,7 +179,58 @@ function WafaCard({ session }: { session: AffiliateSession }) {
       {elig.eligible && !hasOpenRequest ? (
         <Button type="button" disabled={busy} onClick={request}>اطلب الاستحقاق</Button>
       ) : hasOpenRequest ? (
-        <span className="text-xs text-text-secondary">طلبك الحالي قيد المراجعة.</span>
+        <span className="text-xs text-text-secondary">طلبك الحالي {WAFA_STATUS_LABEL.requested}.</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** «رشّح نفسك لوظيفة» — نفس الشكل بالضبط، بطاقة منفصلة لأنه برنامج مختلف بعتبة مختلفة (عملاء
+ *  مشتركون لا محلات نشِطة)، لا تبويب فرعي داخل بطاقة دعم الوفاء. */
+function EmploymentCard({ session }: { session: AffiliateSession }) {
+  const [elig, setElig] = useState<Awaited<ReturnType<typeof employmentEligibility>> | 'loading'>('loading');
+  const [requests, setRequests] = useState<EmploymentRequest[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = () => {
+    employmentEligibility(session).then(setElig).catch(() => {});
+    myEmploymentRequests(session).then((r) => setRequests(r.employment_requests)).catch(() => {});
+  };
+  useEffect(load, [session]);
+
+  if (elig === 'loading') return <Skeleton height={90} />;
+
+  const hasOpenRequest = requests.some((r) => r.status === 'requested');
+  const pct = Math.min(100, Math.round((elig.converted_customers / elig.threshold) * 100));
+
+  async function request() {
+    setBusy(true); setError('');
+    try { await requestEmployment(session); load(); }
+    catch (err) { setError(err instanceof AffiliateRefused ? err.message : 'تعذّر إرسال الطلب.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-card border border-success/30 bg-success-soft/40 p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-medium text-success-on-soft">
+        <TrendingUp size={16} /> رشّح نفسك لوظيفة
+      </div>
+      <div className="flex justify-between text-xs text-text-secondary">
+        <span>عملاء مشتركون</span>
+        <span className="tabular-nums">{elig.converted_customers} / {elig.threshold}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-surface-0">
+        <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-sm">
+        {elig.eligible ? 'مؤهَّل للترشّح لوظيفة الآن' : `${elig.customers_until_eligible} للترشّح لوظيفة`}
+      </span>
+      {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+      {elig.eligible && !hasOpenRequest ? (
+        <Button type="button" disabled={busy} onClick={request}>رشّح نفسي</Button>
+      ) : hasOpenRequest ? (
+        <span className="text-xs text-text-secondary">طلبك الحالي {EMPLOYMENT_STATUS_LABEL.requested}.</span>
       ) : null}
     </div>
   );

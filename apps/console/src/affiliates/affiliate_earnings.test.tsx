@@ -16,6 +16,9 @@ const NO_ELIGIBILITY = {
   active_shops: 0, tier_shops: 50, shops_until_next_tier: 50, eligible: false,
   current_tier_amount_halalas: 0, retention_rate: 1, refund_rate: 0,
 };
+const NO_EMPLOYMENT_ELIGIBILITY = {
+  converted_customers: 0, threshold: 500, eligible: false, customers_until_eligible: 500,
+};
 
 let meMock: () => Promise<Me>;
 let balanceMock: () => Promise<Balance>;
@@ -25,6 +28,8 @@ let wafaEligibilityMock: () => Promise<typeof NO_ELIGIBILITY>;
 let wafaRequestsMock: () => Promise<{ wafa_requests: [] }>;
 let teamMock: () => Promise<Team>;
 let teamWafaMock: () => Promise<{ wafa_requests: [] }>;
+let employmentEligibilityMock: () => Promise<typeof NO_EMPLOYMENT_ELIGIBILITY>;
+let employmentRequestsMock: () => Promise<{ employment_requests: [] }>;
 
 vi.mock('./api', async (importOriginal) => {
   const real = await importOriginal<typeof import('./api')>();
@@ -38,6 +43,8 @@ vi.mock('./api', async (importOriginal) => {
     myWafaRequests: (...args: unknown[]) => wafaRequestsMock(),
     team: (...args: unknown[]) => teamMock(),
     teamWafaRequests: (...args: unknown[]) => teamWafaMock(),
+    employmentEligibility: (...args: unknown[]) => employmentEligibilityMock(),
+    myEmploymentRequests: (...args: unknown[]) => employmentRequestsMock(),
   };
 });
 
@@ -51,6 +58,8 @@ function stubCommon() {
   wafaEligibilityMock = () => Promise.resolve(NO_ELIGIBILITY);
   wafaRequestsMock = () => Promise.resolve({ wafa_requests: [] });
   teamWafaMock = () => Promise.resolve({ wafa_requests: [] });
+  employmentEligibilityMock = () => Promise.resolve(NO_EMPLOYMENT_ELIGIBILITY);
+  employmentRequestsMock = () => Promise.resolve({ employment_requests: [] });
 }
 
 afterEach(() => vi.clearAllMocks());
@@ -115,5 +124,23 @@ describe('AffiliateEarnings', () => {
     render(<AffiliateEarnings session={SESSION} />);
     await waitFor(() => expect(screen.getByText('150 ريال')).toBeTruthy());
     expect(screen.getByText('مؤكَّدة')).toBeTruthy();
+  });
+
+  it('the employment card shows the request action once eligible', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    stubCommon();
+    employmentEligibilityMock = () => Promise.resolve({
+      converted_customers: 500, threshold: 500, eligible: true, customers_until_eligible: 0,
+    });
+    render(<AffiliateEarnings session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('رشّح نفسي')).toBeTruthy());
+  });
+
+  it('the employment card has no action before eligibility is reached', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    stubCommon();
+    render(<AffiliateEarnings session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('رشّح نفسك لوظيفة')).toBeTruthy());
+    expect(screen.queryByText('رشّح نفسي')).toBeFalsy();
   });
 });
