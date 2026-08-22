@@ -39,7 +39,7 @@ afterEach(() => vi.clearAllMocks());
 describe('AffiliateHome', () => {
   it('greets him by name once the read resolves', async () => {
     homeMock = () => Promise.resolve(BASE_PROMOTER);
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('مرحباً، سلمان')).toBeTruthy());
   });
 
@@ -48,14 +48,14 @@ describe('AffiliateHome', () => {
       ...BASE_PROMOTER, stale_leads_count: 1,
       stale_leads: [{ id: 'l1', name: 'صالون النخبة', city: 'الرياض', status: 'assigned', found_at: 0 }],
     });
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('عميل واحد بانتظار ردك')).toBeTruthy());
     expect(screen.getByText('صالون النخبة')).toBeTruthy();
   });
 
   it('the urgent strip is absent for a fresh account with nothing waiting', async () => {
     homeMock = () => Promise.resolve(BASE_PROMOTER);
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('مرحباً، سلمان')).toBeTruthy());
     expect(screen.queryByText(/بانتظار ردك/)).toBeFalsy();
   });
@@ -65,13 +65,13 @@ describe('AffiliateHome', () => {
       ...BASE_PROMOTER, payout_method_set: false,
       balance: { pending_halalas: 0, confirmed_available_halalas: 5000, withdrawn_halalas: 0 },
     });
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText(/أضف طريقة استلام أرباحك/)).toBeTruthy());
   });
 
   it('the top-template card is absent until at least one template has been used', async () => {
     homeMock = () => Promise.resolve(BASE_PROMOTER);
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('مرحباً، سلمان')).toBeTruthy());
     expect(screen.queryByText(/أفضل قالب/)).toBeFalsy();
   });
@@ -83,14 +83,14 @@ describe('AffiliateHome', () => {
                                   kind: 'رسالة', uses: 13, advanced: 6, no_response: 5, rejected: 2,
                                   pending: 0, advance_rate: 0.46 },
     });
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('العطاء أولاً')).toBeTruthy());
     expect(screen.getByText('46٪')).toBeTruthy();
   });
 
   it('a promoter never sees the team section — a manager does', async () => {
     homeMock = () => Promise.resolve(BASE_PROMOTER);
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('مرحباً، سلمان')).toBeTruthy());
     expect(screen.queryByText('فريقك')).toBeFalsy();
   });
@@ -102,14 +102,14 @@ describe('AffiliateHome', () => {
       team: { member_count: 3, team_confirmed_halalas: 100000, team_pending_halalas: 5000,
              pending_wafa_requests_count: 2 },
     });
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('فريقك')).toBeTruthy());
     expect(screen.getByText('2 قرار بانتظارك')).toBeTruthy();
   });
 
   it('a failed read says so rather than showing a stale or empty screen', async () => {
     homeMock = () => Promise.reject(new Error('network'));
-    render(<AffiliateHome session={SESSION} onSignOut={() => {}} />);
+    render(<AffiliateHome session={SESSION} />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
   });
 });

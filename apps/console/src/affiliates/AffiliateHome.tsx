@@ -23,9 +23,7 @@ import { riyalsLabel } from '../money';
 import { western } from '../digits';
 import { AffiliateRefused, home, invite, type AffiliateSession, type Home } from './api';
 
-export function AffiliateHome({ session, onSignOut }: {
-  session: AffiliateSession; onSignOut: () => void;
-}) {
+export function AffiliateHome({ session }: { session: AffiliateSession }) {
   const [data, setData] = useState<Home | 'loading' | 'failed'>('loading');
 
   useEffect(() => {
@@ -38,12 +36,9 @@ export function AffiliateHome({ session, onSignOut }: {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl leading-tight tracking-tight">
-          {data !== 'loading' && data !== 'failed' ? `مرحباً، ${data.affiliate.name}` : 'بوابة المسوّق'}
-        </h1>
-        <Button type="button" onClick={onSignOut} className="opacity-70">تسجيل الخروج</Button>
-      </div>
+      <h1 className="text-2xl leading-tight tracking-tight">
+        {data !== 'loading' && data !== 'failed' ? `مرحباً، ${data.affiliate.name}` : 'بوابة المسوّق'}
+      </h1>
 
       {data === 'loading' ? <HomeSkeleton /> : null}
       {data === 'failed' ? (

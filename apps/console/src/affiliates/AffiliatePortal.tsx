@@ -20,6 +20,7 @@
  * off-canvas drawer.
  */
 import { useState } from 'react';
+import { AffiliateAccount } from './AffiliateAccount';
 import { AffiliateDoor } from './AffiliateDoor';
 import { AffiliateHome } from './AffiliateHome';
 import { AffiliateLeads } from './AffiliateLeads';
@@ -39,11 +40,11 @@ export function AffiliatePortal() {
       <AffiliateSidebar active={tab} onChange={setTab} />
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col md:max-w-2xl">
         <div className="flex-1">
-          {tab === 'home' ? <AffiliateHome session={session} onSignOut={signOut} /> : null}
+          {tab === 'home' ? <AffiliateHome session={session} /> : null}
           {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
           {tab === 'tools' ? <ComingSoon label="أدواتي" /> : null}
           {tab === 'earnings' ? <ComingSoon label="أرباحي" /> : null}
-          {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
+          {tab === 'account' ? <AffiliateAccount session={session} onSignOut={signOut} /> : null}
         </div>
         <AffiliateBottomNav active={tab} onChange={setTab} />
       </div>
