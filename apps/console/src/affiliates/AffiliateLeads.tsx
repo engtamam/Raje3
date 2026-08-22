@@ -13,9 +13,17 @@
  * THE DETAIL VIEW IS THE WORKING SCREEN, NOT A READ-ONLY CARD: the quick-action row (send this
  * stage's template, one-tap outcome logging right under it) is what the research called out as the
  * single biggest lever — under 30 seconds from "who do I contact" to "logged", never a full form.
+ *
+ * WHATSAPP IS ONE TAP AWAY, NOT A NUMBER TO RETYPE (2026-08-22, Tamam: "أسرع شي نقدر نسوي لهم
+ * لدعم التواصل السريع") — every template gets its own «نسخ» (clipboard) and a send action that
+ * opens WhatsApp with the template's own text already in the composer (`waLink`, `?text=`), and
+ * the lead's own phone number in the header is itself a WhatsApp link. Copy exists ALONGSIDE the
+ * direct open, not instead of it — a `wa.me?text=` link fails silently on a phone with no
+ * WhatsApp app registered for the scheme, and a promoter mid-conversation needs the words even
+ * when the automatic hand-off does not fire.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ChevronRight, Phone } from 'lucide-react';
+import { Search, ChevronRight, Phone, Copy, Check, MessageCircle } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Segmented } from '@base-ui/design-system/Segmented';
 import { Badge } from '@base-ui/design-system/Badge';
@@ -27,6 +35,7 @@ import {
   LEAD_MANUAL_STATUSES, TEMPLATE_OUTCOMES,
   type AffiliateSession, type Lead, type OutreachStage, type MessageTemplate, type TemplateUse,
 } from './api';
+import { waLink } from './whatsapp';
 
 const CLOSED_STATUSES = new Set(['registered', 'not_interested']);
 const STALE_AFTER_SECONDS = 3 * 86400;
@@ -252,10 +261,21 @@ function LeadDetail({ session, leadId, onBack }: {
         </div>
         <span className="text-sm text-text-secondary">{lead.city}</span>
         {lead.phone ? (
-          <a href={`tel:${lead.phone}`} dir="ltr"
-             className="mt-1 flex w-fit items-center gap-1.5 text-sm text-accent">
-            <Phone size={14} /> {lead.phone}
-          </a>
+          <div className="mt-1 flex items-center gap-3">
+            {/* THE FAST PATH — one tap straight into WhatsApp, no number to retype or switch app
+                for. Absent when the number is not recognisably a Saudi mobile (`waLink` returns
+                null), rather than opening WhatsApp to nowhere. */}
+            {waLink(lead.phone) ? (
+              <a href={waLink(lead.phone) ?? undefined} target="_blank" rel="noreferrer" dir="ltr"
+                 className="flex items-center gap-1.5 text-sm text-success">
+                <MessageCircle size={14} /> واتساب
+              </a>
+            ) : null}
+            <a href={`tel:${lead.phone}`} dir="ltr"
+               className="flex items-center gap-1.5 text-sm text-accent">
+              <Phone size={14} /> {lead.phone}
+            </a>
+          </div>
         ) : null}
       </div>
 
@@ -274,10 +294,7 @@ function LeadDetail({ session, leadId, onBack }: {
           ) : (
             <ul className="flex flex-col gap-2">
               {stageTemplates.slice(0, 5).map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm">{t.title}</span>
-                  <Button type="button" disabled={busy} onClick={() => send(t.id)}>أرسِل</Button>
-                </li>
+                <TemplateRow key={t.id} template={t} lead={lead} busy={busy} onSend={() => send(t.id)} />
               ))}
             </ul>
           )}
@@ -335,6 +352,43 @@ function LeadDetail({ session, leadId, onBack }: {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** One template — «نسخ» (clipboard, no side effect) and the send action, which copies the SAME
+ *  text as a fallback, opens WhatsApp with it pre-filled, and only then logs the use. Copy first,
+ *  open second: if the WhatsApp hand-off silently fails (no app registered for the `wa.me` scheme),
+ *  the text is still in his clipboard to paste by hand rather than lost. */
+function TemplateRow({ template, lead, busy, onSend }: {
+  template: MessageTemplate; lead: Lead; busy: boolean; onSend: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard?.writeText(template.body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard permission denied — the send button still works */ }
+  }
+
+  function sendViaWhatsApp() {
+    navigator.clipboard?.writeText(template.body).catch(() => {});
+    const link = waLink(lead.phone, template.body);
+    if (link) window.open(link, '_blank', 'noreferrer');
+    onSend();
+  }
+
+  return (
+    <li className="flex items-center justify-between gap-2">
+      <span className="truncate text-sm">{template.title}</span>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button type="button" variant="ghost" size="icon" aria-label="نسخ نص القالب" onClick={copy}>
+          {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+        </Button>
+        <Button type="button" disabled={busy} onClick={sendViaWhatsApp}>أرسِل عبر واتساب</Button>
+      </div>
+    </li>
   );
 }
 
