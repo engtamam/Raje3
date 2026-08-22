@@ -102,6 +102,23 @@ class PayoutService:
         return {"channel": affiliate.payout_channel, "channel_name": affiliate.payout_channel_name,
                "account_ref": affiliate.payout_account_ref}
 
+    async def get_payout_method(self, affiliate_id: str) -> dict[str, Any]:
+        """The read half `set_payout_method` never had (2026-08-22) — the account screen needs to
+        show WHAT is on file before he changes it, same "hint, never the value" discipline
+        `LeadSourcingKeys`'s own places-API-key routes already use for a secret on file. The full
+        `account_ref` (an IBAN, or a platform account id) is write-only past this point: it goes
+        in once, and every read back is masked to its last four characters — enough for him to
+        recognise his own account, never enough to be useful to anyone reading over his shoulder
+        or a leaked response body."""
+        row = await self._s.get(AFFILIATES, affiliate_id)
+        affiliate = Affiliate.from_dict(row) if row else None
+        if affiliate is None or not affiliate.payout_channel:
+            return {"set": False}
+        ref = affiliate.payout_account_ref
+        masked = f"••••{ref[-4:]}" if len(ref) >= 4 else "••••"
+        return {"set": True, "channel": affiliate.payout_channel,
+                "channel_name": affiliate.payout_channel_name, "masked_account_ref": masked}
+
     # ── the balance a marketer actually sees ────────────────────────────────────────────────
     async def balance(self, affiliate_id: str) -> dict[str, int]:
         rows, _ = await self._s.find(COMMISSIONS, {"affiliate_id": affiliate_id}, limit=2000)

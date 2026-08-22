@@ -202,6 +202,14 @@ async def set_payout_method(request: Request, body: PayoutMethodIn,
     return {"ok": True, **out}
 
 
+@router.get("/payout-method", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def read_payout_method(request: Request,
+                             principal: Principal = Depends(require_user)) -> dict:
+    """What is on file, masked — see `PayoutsService.get_payout_method`'s own docstring."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    return await request.app.state.container.payouts.get_payout_method(affiliate_id)
+
+
 @router.get("/balance", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def balance(request: Request, principal: Principal = Depends(require_user)) -> dict:
     affiliate_id = await _my_affiliate_id(request, principal)

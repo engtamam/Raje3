@@ -98,6 +98,7 @@ def build_manifest(
             # spec §10: a manager's own team, WITH what each of them actually earned.
             {"path": "/api/v1/affiliates/me/team", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/payout-method", "tier": "user", "method": "PUT"},
+            {"path": "/api/v1/affiliates/me/payout-method", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/balance", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/withdrawals", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/withdrawals", "tier": "user", "method": "POST"},

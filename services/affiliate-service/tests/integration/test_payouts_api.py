@@ -79,6 +79,45 @@ def test_set_payout_method_404s_for_a_non_affiliate(client):
     assert r.status_code == 404
 
 
+def test_reading_the_payout_method_reports_unset_before_anything_is_saved(client):
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+
+    async def seed():
+        c = client.app.state.container
+        aff = Affiliate(id="aff-pm1", person_id="p-pm1", phone="+966501300001",
+                        name="مسوّق", role="affiliate_promoter", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+
+    asyncio.run(seed())
+    r = client.get("/api/v1/affiliates/me/payout-method",
+                   headers={"Authorization": f"Bearer {_token(sub='p-pm1')}"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"set": False}
+
+
+def test_setting_then_reading_the_payout_method_returns_only_a_masked_ref(client):
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+
+    async def seed():
+        c = client.app.state.container
+        aff = Affiliate(id="aff-pm2", person_id="p-pm2", phone="+966501300002",
+                        name="مسوّق", role="affiliate_promoter", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+
+    asyncio.run(seed())
+    headers = {"Authorization": f"Bearer {_token(sub='p-pm2')}"}
+    put = client.put("/api/v1/affiliates/me/payout-method",
+                     json={"channel": "bank_iban", "account_ref": "SA4420000001234567891234"},
+                     headers=headers)
+    assert put.status_code == 200, put.text
+
+    got = client.get("/api/v1/affiliates/me/payout-method", headers=headers)
+    assert got.status_code == 200, got.text
+    assert got.json() == {"set": True, "channel": "bank_iban", "channel_name": "",
+                          "masked_account_ref": "••••1234"}
+    assert "SA4420000001234567891234" not in got.text
+
+
 def test_balance_404s_for_a_non_affiliate(client):
     r = client.get("/api/v1/affiliates/me/balance",
                    headers={"Authorization": f"Bearer {_token()}"})

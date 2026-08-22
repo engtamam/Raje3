@@ -73,6 +73,34 @@ async def test_an_unknown_channel_is_refused():
     assert exc.value.reason == "bad_channel"
 
 
+@pytest.mark.anyio
+async def test_get_payout_method_reports_unset_before_anything_is_saved():
+    svc, store = build()
+    await _seed_affiliate(store)
+    out = await svc.get_payout_method(AFF)
+    assert out == {"set": False}
+
+
+@pytest.mark.anyio
+async def test_get_payout_method_masks_the_account_ref_to_its_last_four():
+    svc, store = build()
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA4420000001234567891234")
+    out = await svc.get_payout_method(AFF)
+    assert out == {"set": True, "channel": "bank_iban", "channel_name": "",
+                   "masked_account_ref": "••••1234"}
+
+
+@pytest.mark.anyio
+async def test_get_payout_method_never_returns_the_full_account_ref():
+    svc, store = build()
+    await _seed_affiliate(store)
+    await svc.set_payout_method(AFF, channel="bank_iban", account_ref="SA4420000001234567891234")
+    out = await svc.get_payout_method(AFF)
+    assert "account_ref" not in out
+    assert "SA4420000001234567891234" not in str(out)
+
+
 # ── requesting a withdrawal ──────────────────────────────────────────────────────────────────
 @pytest.mark.anyio
 async def test_cannot_request_with_no_payout_method_set():
