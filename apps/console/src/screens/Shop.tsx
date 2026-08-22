@@ -24,7 +24,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import type { ShellContext } from '../shell-context';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Waiting } from '../Waiting';
 import { ApiError, sentenceFor } from '../api';
@@ -347,6 +347,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const serviceNames = (data.values['service_names'] as Record<string, string> | undefined) ?? {};
   const popularity = data.values['service_popularity'] as { service_id: string; count: number; share: number }[] | undefined;
   const weak = data.values['weak_services'] as string[] | undefined;
+  const peak = data.values['peak_map'] as { grid?: Record<string, number>; busiest?: string } | undefined;
 
   return (
     <div className="flex flex-col gap-3">
@@ -391,6 +392,10 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
             </Section>
           </div>
+        ) : null}
+
+        {peak?.grid && Object.keys(peak.grid).length > 0 ? (
+          <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} /></div>
         ) : null}
 
         {somethingToDo ? (
@@ -524,13 +529,63 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
         <p className="mt-1 text-[12px] opacity-75">العدد لسه صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
       ) : null}
       {deltaPts !== null && series?.months ? (
-        <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
             {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts)}+ عن {series.months} أشهر
           </span>
+          {/* THE LINE, NOT JUST ITS SIGN — an aggregate ratio can hold steady, or even climb, while
+              real customers churn underneath it and new ones backfill the count. The badge above
+              says only «up» or «down» over the whole span; the line says WHEN, which is the
+              question an owner asking «متى» actually has. Drawn from `retention_series.points`,
+              already computed on every tick and, until now, thrown away after the two numbers the
+              badge needed. */}
+          {series?.points && series.points.length > 1 ? <RetentionSparkline points={series.points} /> : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** The trend the aggregate hides. Each point is the SAME measurement — return rate over a trailing
+ *  window — ending one step earlier than the point after it (see `retention_series`'s own
+ *  docstring), so the shape is the shop changing, not the method changing. A point with `value:
+ *  null` is a gap in the line — too few customers in that window to trust — never bridged into a
+ *  false continuity, and never drawn as zero. */
+function RetentionSparkline({ points }: { points: { at: number; customers: number; value: number | null }[] }) {
+  const W = 128, H = 34, PAD = 3;
+  const drawn = points.map((p) => p.value).filter((v): v is number => v !== null);
+  if (drawn.length < 2) return null;
+  const min = Math.min(...drawn), max = Math.max(...drawn);
+  const span = max - min || 1;
+  const x = (i: number) => PAD + (i / (points.length - 1)) * (W - PAD * 2);
+  const y = (v: number) => H - PAD - ((v - min) / span) * (H - PAD * 2);
+
+  // ONE <polyline> PER UNBROKEN RUN of non-null points — a single path across a gap would draw a
+  // false connection where the docstring explicitly says there must be none.
+  const runs: { x: number; y: number }[][] = [];
+  let current: { x: number; y: number }[] = [];
+  points.forEach((p, i) => {
+    if (p.value === null) { if (current.length) runs.push(current); current = []; return; }
+    current.push({ x: x(i), y: y(p.value) });
+  });
+  if (current.length) runs.push(current);
+
+  const last = runs.at(-1)?.at(-1);
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0" aria-hidden="true">
+      {runs.map((run, i) => (
+        <polyline
+          key={i}
+          points={run.map((p) => `${p.x},${p.y}`).join(' ')}
+          fill="none"
+          stroke="rgba(255,255,255,.75)"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+      {last ? <circle cx={last.x} cy={last.y} r={2.6} fill="#ffffff" /> : null}
+    </svg>
   );
 }
 
@@ -681,10 +736,24 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-violet-soft)' }}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-[13px] font-bold" style={{ color: 'var(--sh-violet-deep)' }}>
           {rows.length === 1 ? 'عميل واحد يستحق متابعتك الآن' : `${rows.length} عملاء يستحقون متابعتك الآن`}
         </h3>
+        {/* THE LIST WAS THE DEAD END. `win_back` already exists as a full campaign goal — the same
+            1.5×-cycle threshold this card's own rows are built from — but nothing on this screen
+            reached it, so an owner reading twelve overdue names still had to go find «رسائلي»,
+            press «أطلق حملة», and pick the one goal he already came here for. This carries the
+            decision with him instead of asking him to make it twice. */}
+        {action(catalog, 'campaigns.create') ? (
+          <Link
+            to="/messages?tab=campaigns&launch=win_back"
+            className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
+            style={{ background: 'var(--sh-violet)', color: '#ffffff' }}
+          >
+            أرسل رسالة رجوع
+          </Link>
+        ) : null}
       </div>
       {who === undefined ? <Skeleton height={40} /> : (
         <ul className="flex flex-col gap-2">
@@ -708,25 +777,44 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
 }
 
 /** What his own customers ask for most — real counts, real names, never a placeholder. */
+/** A TILE PER SERVICE, SIZED AND SHADED BY DEMAND — a bar list already said this once as a length;
+ *  this says it again as an area, which reads at a glance the way a bar chart reads only after
+ *  scanning every row. Both size and colour depth carry the SAME variable (share of demand) rather
+ *  than a second, invented one — a service's growth over time isn't data this snapshot has, and a
+ *  colour that pretended to encode it would be a colour that lied. `flexBasis` approximates a
+ *  treemap without a squarified-layout algorithm: honest proportional area, not pixel-exact packing. */
 function ServicePopularity({ rows, names }: { rows: { service_id: string; count: number; share: number }[]; names: Record<string, string> }) {
-  const top = rows.slice(0, 5);
-  const max = Math.max(1, ...top.map((r) => r.count));
+  const top = rows.slice(0, 8);
+  const total = top.reduce((s, r) => s + r.count, 0) || 1;
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <h3 className="text-[13px] font-semibold">الأكثر طلبًا عندك</h3>
-      <ul className="flex flex-col gap-2">
-        {top.map((r) => (
-          <li key={r.service_id} className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[12px]">
-              <span>{names[r.service_id] || r.service_id}</span>
-              <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {top.map((r) => {
+          const pct = r.count / total;
+          // A FLOOR ON WIDTH, not on truth — a service with 2% of demand still needs room for its
+          // name; the number beside it still says 2%, so nothing here overstates what it is.
+          const basis = Math.max(20, Math.round(pct * 100));
+          return (
+            <div
+              key={r.service_id}
+              className="flex min-w-[86px] flex-col justify-between gap-3 rounded-xl p-2.5"
+              style={{
+                flexBasis: `${basis}%`,
+                minHeight: 64,
+                background: `color-mix(in srgb, var(--sh-teal) ${Math.round(18 + pct * 72)}%, white)`,
+              }}
+            >
+              <span className="text-[11.5px] font-semibold leading-tight" style={{ color: 'var(--sh-teal-deep)' }}>
+                {names[r.service_id] || r.service_id}
+              </span>
+              <span dir="ltr" className="text-[10.5px] font-medium" style={{ color: 'var(--sh-teal-deep)', fontVariantNumeric: 'tabular-nums' }}>
+                {r.count} · {Math.round(r.share * 100)}%
+              </span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
-              <div className="h-full rounded-full" style={{ width: `${Math.round((r.count / max) * 100)}%`, background: 'var(--sh-teal)' }} />
-            </div>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -744,6 +832,49 @@ function WeakServices({ ids, names }: { ids: string[]; names: Record<string, str
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+const DAY_LETTERS = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+const DAY_NAMES = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+/** WHEN HE'S ACTUALLY BUSY — not "the shop's own city, on a real map" (nothing here is
+ *  geographic), but the same visual idea the request asked for: a grid where colour depth alone
+ *  says which cell matters, no legend to read first. 7 days × 24 hours, one sequential hue —
+ *  darker means busier, never a second hue crossing zero, because this has no "bad" side. The
+ *  offset into Riyadh time already happened in `peak_map` itself, deliberately, so a UTC grid never
+ *  puts a Saudi evening rush at three in the afternoon here. */
+function PeakHeatmap({ grid, busiest }: { grid: Record<string, number>; busiest?: string }) {
+  const cells: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+  let max = 0;
+  for (const [key, count] of Object.entries(grid)) {
+    const [d, h] = key.split(':').map(Number);
+    if (d >= 0 && d < 7 && h >= 0 && h < 24) { cells[d][h] = count; if (count > max) max = count; }
+  }
+  if (max <= 0) return null;
+  const [bd, bh] = (busiest ?? '').split(':').map(Number);
+  const busiestName = Number.isFinite(bd) && DAY_NAMES[bd] ? `${DAY_NAMES[bd]} حوالي الساعة ${bh}:00` : '';
+
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[13px] font-semibold">أكثر أوقاتك ازدحامًا</h3>
+      <div dir="ltr" className="flex flex-col gap-[2px]">
+        {cells.map((row, d) => (
+          <div key={d} className="flex items-center gap-[2px]">
+            <span className="w-4 shrink-0 text-center text-[10px]" style={{ color: 'var(--sh-ink-faint)' }}>{DAY_LETTERS[d]}</span>
+            {row.map((v, h) => (
+              <div
+                key={h}
+                title={v ? `${DAY_NAMES[d]} ${h}:00 — ${v} زيارة` : undefined}
+                className="h-3 flex-1 rounded-[2px]"
+                style={{ background: v ? `color-mix(in srgb, var(--sh-violet) ${Math.round(12 + (v / max) * 78)}%, white)` : 'var(--sh-surface-2)' }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      {busiestName ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-soft)' }}>أكثر وقت زحمة عندك: {busiestName}.</p> : null}
     </div>
   );
 }

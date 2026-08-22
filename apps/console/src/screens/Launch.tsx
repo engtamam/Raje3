@@ -117,8 +117,8 @@ interface Branch { id: string; name: string; active?: boolean }
 
 interface Service { id: string; name: string }
 
-export function Launch({ session, catalog, onDone }:
-    { session: Session; catalog: Catalog; onDone: () => void }) {
+export function Launch({ session, catalog, onDone, initialGoalId }:
+    { session: Session; catalog: Catalog; onDone: () => void; initialGoalId?: string }) {
   const [goals, setGoals] = useState<Loading<Goal[]>>(undefined);
   // `null` MEANS «STILL READING» HERE — the screen shows a Waiting on it — so the failure needs a
   // field of its own. Sharing one would make a dead peer indistinguishable from a slow one, and
@@ -199,7 +199,18 @@ export function Launch({ session, catalog, onDone }:
   useEffect(() => {
     if (!goalsAction) { setGoals(DENIED); return; }
     call<{ goals: Goal[] }>(session, goalsAction)
-      .then((r) => setGoals(r.goals ?? []))
+      .then((r) => {
+        const list = r.goals ?? [];
+        setGoals(list);
+        // ARRIVING WITH A GOAL ALREADY DECIDED — a card sent us here ("أرسل رسالة رجوع") having
+        // already answered "why", so asking him to pick it again from six tiles is a second
+        // decision he already made once. Only pre-selects if the goal is actually AVAILABLE —
+        // an unreachable goal falls through to the normal picker instead of a dead pre-selection.
+        if (initialGoalId) {
+          const match = list.find((g) => g.goal === initialGoalId && g.available !== false);
+          if (match) setPicked(match);
+        }
+      })
       .catch(() => { setGoalsFailed(true); setGoals([]); });
 
     // HIS OWN CATALOGUE, because «عرض على خدمة» must name one of HIS services. Without it that

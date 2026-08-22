@@ -14,6 +14,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 
 /** A row's title appears TWICE by design: once visibly, and once as the switch's accessible name —
  *  `sr-only`, because thirteen identical toggles are indistinguishable to a screen reader without
@@ -49,7 +50,9 @@ const session = {} as never;
 const catalog = { services: [], unreachable: [] } as never;
 
 function open() {
-  return render(<MessagesScreen session={session} catalog={catalog} />);
+  // MessagesScreen now reads `useSearchParams` (the «أرسل رسالة رجوع» deep link from محلّي's
+  // at-risk card) — it needs a router context even for a test that never touches the query string.
+  return render(<MemoryRouter><MessagesScreen session={session} catalog={catalog} /></MemoryRouter>);
 }
 
 describe('«متى نرسل» — a table a question can be asked of', () => {

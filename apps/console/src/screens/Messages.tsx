@@ -26,6 +26,7 @@
  * while a capability nobody can see is one nobody can buy.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
 import { Segmented } from '@base-ui/design-system/Segmented';
@@ -188,7 +189,14 @@ export function MessagesScreen(
   { session, catalog, owned }:
   { session: Session; catalog: Catalog; owned?: Loading<Owned> },
 ) {
-  const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>('reasons');
+  // ARRIVING FROM ANOTHER SCREEN WITH THE DECISION ALREADY MADE — محلّي's «يستحقون متابعتك» card
+  // links here with `?tab=campaigns&launch=win_back` rather than a plain link to «رسائلي», because
+  // a plain link still makes him find the tab, press «أطلق حملة», and pick the one goal he already
+  // came here for. Read once, on mount — a tab change afterwards is his own choice to keep.
+  const [params] = useSearchParams();
+  const launchGoal = params.get('launch') || undefined;
+  const [tab, setTab] = useState<'reasons' | 'auto' | 'campaigns' | 'log'>(
+    params.get('tab') === 'campaigns' ? 'campaigns' : 'reasons');
 
   /**
    * WHAT SENDS IN HIS NAME — the question this whole section is named after, and the one it could
@@ -241,8 +249,9 @@ export function MessagesScreen(
   // different answers into one — the same mistake this pass exists to undo, committed in a new
   // place. He is told to buy something he already owns, or told he owns nothing during an outage.
   const [campaignsFailed, setCampaignsFailed] = useState(false);
-  /** The composer, open only when he asks for it — this tab is a list first. */
-  const [launching, setLaunching] = useState(false);
+  /** The composer, open only when he asks for it — this tab is a list first. Except arriving with
+   *  `?launch=`, where asking for it again would be the second ask this turn already answered. */
+  const [launching, setLaunching] = useState(Boolean(launchGoal));
   /** One campaign's sends, open under its row. `null` is closed — it is not a screen of its own. */
   const [runs, setRuns] = useState<Run[] | null | undefined>(undefined);
   /**
@@ -875,7 +884,7 @@ export function MessagesScreen(
               and unreachable; this tab listed campaigns and explained what a campaign is for,
               which is a brochure for a feature its owner cannot use. */}
           {launching ? (
-            <Launch session={session} catalog={catalog}
+            <Launch session={session} catalog={catalog} initialGoalId={launchGoal}
                     onDone={() => { setLaunching(false); loadCampaigns(); }} />
           ) : action(catalog, 'campaigns.create') ? (
             <div><Button onClick={() => setLaunching(true)}>أطلق حملة</Button></div>
