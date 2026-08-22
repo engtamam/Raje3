@@ -249,3 +249,38 @@ export async function call<T>(
   }
   return body as T;
 }
+
+/**
+ * A binary action — a PDF, unlike everything `call()` handles. Same path substitution, same
+ * bearer, same one-renewal-then-retry on a stale token; the difference starts only after the
+ * response arrives, where this reads a blob instead of parsing JSON and hands back an object URL
+ * the caller opens (`window.open`) and revokes itself.
+ *
+ * THE ONLY WAY THIS EVER GETS BUILT — `billing.invoice_pdf`/`_receipt`/`_document` were declared,
+ * served and tested for months with no console call anywhere; `InvoicesPane` listed invoices and
+ * nothing else, so an owner's only way to a document was asking support to send it. A GET action
+ * with no body params (an id in the path is the whole request) is the entire shape this needs.
+ */
+export async function downloadUrl(session: Session, a: Action, params: Record<string, unknown> = {}):
+    Promise<string> {
+  const rest = { ...params };
+  const path = a.path.replace(/\{([^}]+)\}/g, (_, name: string) => {
+    const v = rest[name];
+    delete rest[name];
+    return encodeURIComponent(String(v ?? ''));
+  });
+  const bearer = await fresh(session.token);
+  let res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${bearer}` } });
+  if (res.status === 401) {
+    const token = await renew();
+    if (token) res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  }
+  if (!res.ok) {
+    // A PDF ENDPOINT HAS NO JSON BODY TO READ A SENTENCE FROM ON FAILURE — the status is the
+    // whole story, and the caller already has a fixed sentence for «تعذّر التنزيل» ready to show.
+    const err = new Error(`${a.method} ${a.path} → ${res.status}`);
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
+  }
+  return URL.createObjectURL(await res.blob());
+}
