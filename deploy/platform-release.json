@@ -1,12 +1,12 @@
 {
-  "release": "v0.16.25",
+  "release": "v0.16.31",
   "images": {
     "analytics-service": "sha256:5592c1f7a3e91045cdecf1e87740791076737371f0a9f3685de5ad84d493b459",
     "api-gateway": "sha256:facc640a266fa8fb7a44134f7f5fdc6fd6b50ba2f4338f9fe8de7efc58b2e1cb",
     "audit-service": "sha256:f5b8766c32378a85617380b9a5f2263e0508ec8b5b8eb0dd44e81b9213d0d56d",
     "authz-service": "sha256:a46d3f6e618d6a6a71b63aef118d01629ad3bc7eb477c8dcd7ca61eca1086831",
     "backup-service": "sha256:35152933d4bca7be17adb72a90f6ee904266827791b001f876f341eec3109cdc",
-    "billing-service": "sha256:0b6899c088aaf0105edebda01442fb570e73957d6bb0fdbc77c1473133681a3c",
+    "billing-service": "sha256:4191cf4acf7e81ccb1b59cdf65ff3c9a0888889624a3229f71abec2a6fe2cd43",
     "compliance-service": "sha256:f84257ab51b5732def50c4c68f9845ade9142c002a8603df6e77ac54542a4bfd",
     "connector-service": "sha256:61579405f3d7815ae84ccd442fd05a874334020d673fc2ec71bb29399bff8c77",
     "feature-flag-service": "sha256:75e0b5ed7b354c6720b40a83bf9cd9ee3e47d823708478d86c11631cbe5133bc",
@@ -16,7 +16,7 @@
     "onboarding-service": "sha256:f93f403ec2b70605d5cb059e26b6fece058d7f48fc9bb1d75e7e17d5fa1f2a8e",
     "search-service": "sha256:aed1e1c577b17937de32eb685b506621d64c832cd60e9f36edfb890ff3cff64a",
     "tenant-service": "sha256:5f6e76a0973baf951301c18b41237be39f117dde722ce6f5b2033e3a2f75b0f8",
-    "ticket-service": "sha256:5b2498568d2bc91bcc13b3eaa3d2e82553923697f7bae46445a9db44be54d535",
+    "ticket-service": "sha256:1acec5b82392592bc12d083aabeb3c2737f6c39490495af56617c0d1a29c93a6",
     "wallet-service": "sha256:76bb6f968fed6803224d35bb9c409d606e822b6fc4d03d42d343d1801f464957",
     "webhook-service": "sha256:dda35699cf11097f1120ef79ab76ae42d2569a6d4ab0103bf742b9c6ecb5b358"
   }
