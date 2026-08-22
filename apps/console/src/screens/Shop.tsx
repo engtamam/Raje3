@@ -100,6 +100,9 @@ interface Bundle { a_name?: string; b_name?: string; why?: string; customers?: n
                   action?: string; action_label?: string }
 interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number }[];
                     unknown?: number; can_rank?: boolean }
+interface WeekWindow { visits: number; previous: number | null; window_days: number }
+interface AtRiskRow { subject_ref: string; days_overdue: number; own_cycle_days: number; visits: number }
+interface CustomerHitLite { id: string; phone: string; name?: string; subject_ref?: string }
 
 export function blockedSentence(b: Blocked): string {
   const why = (b.why ?? '').trim();
@@ -316,6 +319,15 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const eff = data.values['returned_after_reminder'] as Effect | undefined;
   const opt = data.values['opt_out_rate'] as OptOut | undefined;
   const holdout = data.values['holdout_comparison'] as Holdout | undefined;
+  const week = data.values['visits_week'] as WeekWindow | undefined;
+  const split = data.values['new_vs_returning'] as { new: number; returning: number } | undefined;
+  const perVisit = data.values['services_per_visit'];
+  const flow = data.values['expected_flow'];
+  const cycleCompletion = data.values['cycle_completion'];
+  const atRisk = data.values['at_risk'] as AtRiskRow[] | undefined;
+  const serviceNames = (data.values['service_names'] as Record<string, string> | undefined) ?? {};
+  const popularity = data.values['service_popularity'] as { service_id: string; count: number; share: number }[] | undefined;
+  const weak = data.values['weak_services'] as string[] | undefined;
 
   return (
     <div className="flex flex-col gap-3">
@@ -323,10 +335,30 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         <RetentionHero pct={returnRate} series={series && !series.learning ? series : undefined} />
       ) : null}
 
+      {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} /> : null}
+
       <SurroundingKpis values={data.values} />
+
+      {week ? <WeekPulse week={week} /> : null}
+      {split && (split.new + split.returning) > 0 ? <NewVsReturning split={split} /> : null}
+
+      {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
+        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+          {typeof perVisit === 'number' ? <Tile label="خدمات لكل زيارة" value={perVisit.toLocaleString('en-US')} tone="flat" /> : null}
+          {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
+          {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
+        </div>
+      ) : null}
 
       {(eff || opt) ? <MessageFlow eff={eff} opt={opt} /> : null}
       {holdout ? <HoldoutCard h={holdout} /> : null}
+
+      {(popularity && popularity.length > 0) || (weak && weak.length > 0) ? (
+        <Section title="خدماتك">
+          {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
+          {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
+        </Section>
+      ) : null}
 
       {somethingToDo ? (
         <Section title="يحتاج تصرّفًا منك">
@@ -518,6 +550,138 @@ function HoldoutCard({ h }: { h: Holdout }) {
       <p className="text-[11px] leading-relaxed" style={{ color: 'var(--sh-ink-soft)' }}>
         نترك {Math.round(((h.held ?? 0) / ((h.held ?? 0) + (h.reached ?? 1))) * 100)}% من عملائك بلا حملات ولا عروض — لتقارن بنفسك، لا لتصدّقنا.
       </p>
+    </div>
+  );
+}
+
+/** This week against last — the pair the weekly report is actually about, never the shop's whole
+ *  life mislabelled as «this week». `previous` is null, not 0, when the history does not reach
+ *  back — a triumph invented out of the signup date is worse than no comparison at all. */
+function WeekPulse({ week }: { week: WeekWindow }) {
+  const delta = week.previous === null ? null : week.visits - week.previous;
+  return (
+    <div className="flex items-center justify-between rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <div className="flex flex-col">
+        <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>زياراتك آخر {week.window_days} أيام</span>
+        <span dir="ltr" className="text-[22px] font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>{week.visits}</span>
+      </div>
+      {delta !== null ? (
+        <span className="rounded-full px-2.5 py-1 text-[12px] font-bold" style={{
+          background: delta >= 0 ? 'var(--sh-teal-soft)' : 'var(--sh-coral-soft)',
+          color: delta >= 0 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
+        }}>
+          {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)} عن الأسبوع اللي قبله
+        </span>
+      ) : (
+        <span className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لسه ما عندنا أسبوع كامل نقارنه</span>
+      )}
+    </div>
+  );
+}
+
+/** Who came for the first time this month, against who came back — a split, not two lone numbers. */
+function NewVsReturning({ split }: { split: { new: number; returning: number } }) {
+  const total = Math.max(1, split.new + split.returning);
+  const newPct = Math.round((split.new / total) * 100);
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <div className="flex items-center justify-between text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>
+        <span>عملاء جدد هذا الشهر — {split.new}</span>
+        <span>عائدون — {split.returning}</span>
+      </div>
+      <div className="flex h-2.5 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+        <div className="h-full" style={{ width: `${newPct}%`, background: 'var(--sh-violet)' }} />
+        <div className="h-full flex-1" style={{ background: 'var(--sh-teal)' }} />
+      </div>
+    </div>
+  );
+}
+
+/** THE MOST ACTIONABLE CARD ON THE SCREEN — a list of names, not a percentage. «12% من عملائك
+ *  متأخرون» does nothing; a name and a tap-to-message does. `subject_ref` is a pseudonym (the
+ *  indicator never held a phone number); resolved the same way «من تأخّر» resolves one on
+ *  عملائي, via `operations.customers_by_refs`. */
+function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Catalog; rows: AtRiskRow[] }) {
+  const [who, setWho] = useState<Record<string, CustomerHitLite> | null | undefined>(undefined);
+
+  useEffect(() => {
+    const resolve = action(catalog, 'operations.customers_by_refs');
+    if (!resolve) { setWho(null); return; }
+    const refs = rows.slice(0, 8).map((r) => r.subject_ref);
+    call<{ customers: CustomerHitLite[] }>(session, resolve, { refs })
+      .then((x) => {
+        const by: Record<string, CustomerHitLite> = {};
+        for (const c of x.customers ?? []) if (c.subject_ref) by[c.subject_ref] = c;
+        setWho(by);
+      })
+      .catch(() => setWho(null));
+  }, [session, catalog, rows]);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-violet-soft)' }}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-bold" style={{ color: 'var(--sh-violet-deep)' }}>
+          {rows.length === 1 ? 'عميل واحد يستحق متابعتك الآن' : `${rows.length} عملاء يستحقون متابعتك الآن`}
+        </h3>
+      </div>
+      {who === undefined ? <Skeleton height={40} /> : (
+        <ul className="flex flex-col gap-2">
+          {rows.slice(0, 5).map((r) => {
+            const c = who?.[r.subject_ref];
+            return (
+              <li key={r.subject_ref} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: 'var(--sh-surface)' }}>
+                <span dir={c?.name ? undefined : 'ltr'} className="text-[13px] font-medium">
+                  {c ? (c.name || asLocal(c.phone)) : 'عميل'}
+                </span>
+                <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>
+                  متأخر {r.days_overdue} يومًا عن دورته المعتادة
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** What his own customers ask for most — real counts, real names, never a placeholder. */
+function ServicePopularity({ rows, names }: { rows: { service_id: string; count: number; share: number }[]; names: Record<string, string> }) {
+  const top = rows.slice(0, 5);
+  const max = Math.max(1, ...top.map((r) => r.count));
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[13px] font-semibold">الأكثر طلبًا عندك</h3>
+      <ul className="flex flex-col gap-2">
+        {top.map((r) => (
+          <li key={r.service_id} className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-[12px]">
+              <span>{names[r.service_id] || r.service_id}</span>
+              <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+              <div className="h-full rounded-full" style={{ width: `${Math.round((r.count / max) * 100)}%`, background: 'var(--sh-teal)' }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** The quietest fifth of his OWN catalogue — a judgement about his shop, never an invented
+ *  threshold. A service he never sold is weakest of all and belongs here too. */
+function WeakServices({ ids, names }: { ids: string[]; names: Record<string, string> }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[13px] font-semibold">خدمات ما تُطلب كثيرًا</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {ids.slice(0, 8).map((id) => (
+          <span key={id} className="rounded-full px-2.5 py-1 text-[11.5px]" style={{ background: 'var(--sh-coral-soft)', color: 'var(--sh-coral-deep)' }}>
+            {names[id] || id}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
