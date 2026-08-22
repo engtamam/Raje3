@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
 from app.api.ratelimit import rate_limit
-from app.api.v1.affiliate_self import _my_affiliate_id, _my_manager_affiliate, _svc
+from app.api.v1.affiliate_self import _SELF, _my_affiliate_id, _my_manager_affiliate, _svc
 from app.core.outreach import OutreachError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-outreach"])
@@ -34,14 +34,14 @@ def _refused(exc: OutreachError) -> JSONResponse:
 
 
 # ── reads — any affiliate ────────────────────────────────────────────────────────────────────
-@router.get("/outreach-stages", dependencies=[Depends(rate_limit)])
+@router.get("/outreach-stages", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def list_outreach_stages(request: Request,
                                principal: Principal = Depends(require_user)) -> dict:
     stages = await request.app.state.container.outreach_stages.list(active_only=True)
     return {"stages": [s.to_dict() for s in stages]}
 
 
-@router.get("/templates", dependencies=[Depends(rate_limit)])
+@router.get("/templates", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def list_templates(request: Request, stage_code: str = "",
                          principal: Principal = Depends(require_user)) -> dict:
     tpls = await request.app.state.container.templates.list(stage_code=stage_code,
@@ -49,7 +49,7 @@ async def list_templates(request: Request, stage_code: str = "",
     return {"templates": [t.to_dict() for t in tpls]}
 
 
-@router.get("/template-stats", dependencies=[Depends(rate_limit)])
+@router.get("/template-stats", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def template_stats(request: Request, stage_code: str = "", mine: bool = False,
                          principal: Principal = Depends(require_user)) -> dict:
     """Which TEMPLATE actually moves a lead forward — see core/outreach.py::stats.
@@ -63,7 +63,7 @@ async def template_stats(request: Request, stage_code: str = "", mine: bool = Fa
     return {"stats": stats}
 
 
-@router.get("/template-kind-stats", dependencies=[Depends(rate_limit)])
+@router.get("/template-kind-stats", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def template_kind_stats(request: Request, mine: bool = False,
                               principal: Principal = Depends(require_user)) -> dict:
     """Which CONTENT TYPE actually moves a lead forward, across every template sharing it.
@@ -81,7 +81,7 @@ class TemplateUseIn(BaseModel):
 
 
 @router.post("/leads/{lead_id}/template-uses", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def log_template_use(request: Request, lead_id: str, body: TemplateUseIn,
                            principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _svc(request).me(principal.subject)
@@ -101,7 +101,7 @@ class SetOutcomeIn(BaseModel):
     new_stage_code: str = Field(default="", max_length=64)
 
 
-@router.patch("/template-uses/{use_id}", dependencies=[Depends(rate_limit)])
+@router.patch("/template-uses/{use_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_template_use_outcome(request: Request, use_id: str, body: SetOutcomeIn,
                                    principal: Principal = Depends(require_user)) -> Any:
     """The one place a lead's outcome — and, explicitly, its next stage — is recorded. Never
@@ -119,7 +119,7 @@ async def set_template_use_outcome(request: Request, use_id: str, body: SetOutco
     return {"ok": True, **out.to_dict()}
 
 
-@router.get("/leads/{lead_id}/template-uses", dependencies=[Depends(rate_limit)])
+@router.get("/leads/{lead_id}/template-uses", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def lead_template_uses(request: Request, lead_id: str,
                              principal: Principal = Depends(require_user)) -> dict:
     uses = await request.app.state.container.template_uses.uses_for_lead(lead_id)
@@ -132,7 +132,7 @@ class DecisionMakerIn(BaseModel):
     role: str = Field(default="", max_length=64)
 
 
-@router.patch("/leads/{lead_id}/decision-maker", dependencies=[Depends(rate_limit)])
+@router.patch("/leads/{lead_id}/decision-maker", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_decision_maker(request: Request, lead_id: str, body: DecisionMakerIn,
                              principal: Principal = Depends(require_user)) -> Any:
     """The reception's own line (`Lead.phone`) is Google's, often unreachable-to-the-owner; this
@@ -155,7 +155,7 @@ class StageIn(BaseModel):
     order: int = Field(default=0, ge=0, le=10000)
 
 
-@router.put("/outreach-stages", dependencies=[Depends(rate_limit)])
+@router.put("/outreach-stages", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def upsert_outreach_stage(request: Request, body: StageIn,
                                 principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -171,7 +171,7 @@ async def upsert_outreach_stage(request: Request, body: StageIn,
     return {"ok": True, **out.to_dict()}
 
 
-@router.delete("/outreach-stages/{code}", dependencies=[Depends(rate_limit)])
+@router.delete("/outreach-stages/{code}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def deactivate_outreach_stage(request: Request, code: str,
                                     principal: Principal = Depends(require_user)) -> dict:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -193,7 +193,7 @@ class TemplateIn(BaseModel):
     objection_type: str = Field(default="", max_length=64)
 
 
-@router.post("/templates", status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit)])
+@router.post("/templates", status_code=status.HTTP_201_CREATED, dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def create_template(request: Request, body: TemplateIn,
                          principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -210,7 +210,7 @@ async def create_template(request: Request, body: TemplateIn,
     return {"ok": True, **out.to_dict()}
 
 
-@router.put("/templates/{template_id}", dependencies=[Depends(rate_limit)])
+@router.put("/templates/{template_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def update_template(request: Request, template_id: str, body: TemplateIn,
                          principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -226,7 +226,7 @@ async def update_template(request: Request, template_id: str, body: TemplateIn,
     return {"ok": True, **out.to_dict()}
 
 
-@router.delete("/templates/{template_id}", dependencies=[Depends(rate_limit)])
+@router.delete("/templates/{template_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def deactivate_template(request: Request, template_id: str,
                               principal: Principal = Depends(require_user)) -> dict:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -240,7 +240,7 @@ async def deactivate_template(request: Request, template_id: str,
 
 
 # ── the evidence library — a researched, sourced number ready to cite ───────────────────────────
-@router.get("/stat-citations", dependencies=[Depends(rate_limit)])
+@router.get("/stat-citations", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def list_stat_citations(request: Request, stage_code: str = "",
                               principal: Principal = Depends(require_user)) -> dict:
     """ONE list, TWO uses — the same rows a template's own screen shows underneath it (filtered
@@ -260,7 +260,7 @@ class StatCitationIn(BaseModel):
 
 
 @router.post("/stat-citations", status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def create_stat_citation(request: Request, body: StatCitationIn,
                               principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -276,7 +276,7 @@ async def create_stat_citation(request: Request, body: StatCitationIn,
     return {"ok": True, **out.to_dict()}
 
 
-@router.put("/stat-citations/{citation_id}", dependencies=[Depends(rate_limit)])
+@router.put("/stat-citations/{citation_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def update_stat_citation(request: Request, citation_id: str, body: StatCitationIn,
                               principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -292,7 +292,7 @@ async def update_stat_citation(request: Request, citation_id: str, body: StatCit
     return {"ok": True, **out.to_dict()}
 
 
-@router.delete("/stat-citations/{citation_id}", dependencies=[Depends(rate_limit)])
+@router.delete("/stat-citations/{citation_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def deactivate_stat_citation(request: Request, citation_id: str,
                                    principal: Principal = Depends(require_user)) -> dict:
     affiliate = await _my_manager_affiliate(request, principal)

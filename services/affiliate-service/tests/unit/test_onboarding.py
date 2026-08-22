@@ -23,9 +23,13 @@ class FakeHttp:
     def __init__(self, answers) -> None:
         self.answers = answers
         self.calls: list[tuple[str, str]] = []
+        # Bodies, recorded separately and in the same order as `calls` — kept apart so every
+        # existing `(method, url) in methods_and_urls` assertion is untouched by this addition.
+        self.bodies: list[dict] = []
 
     def call(self, url, *, method, body=None, internal=False):
         self.calls.append((method, url))
+        self.bodies.append(body or {})
         for suffix, answer in self.answers:
             if url.endswith(suffix) and answer[0] is not None:
                 return answer
@@ -500,6 +504,15 @@ async def test_a_missing_tenant_is_created_then_roles_are_bootstrapped():
     assert ("GET", f"http://tenants:8000/internal/tenants/{TENANT}") in methods_and_urls
     assert ("POST", "http://tenants:8000/internal/tenants") in methods_and_urls
     assert ("POST", f"http://authz:8000/internal/authz/tenants/{TENANT}/bootstrap") in methods_and_urls
+
+    # THE ACTUAL GAP CLOSED 2026-08-22 — both roles used to bootstrap with `"capabilities": []`,
+    # so no real affiliate token ever carried anything a route could gate on. Proven here rather
+    # than trusted from the diff: the bootstrap BODY itself must carry `affiliates.self`.
+    bootstrap_body = next(b for u, b in zip((u for _, u in http.calls), http.bodies)
+                          if u.endswith("/bootstrap"))
+    role_caps = {r["name"]: r["capabilities"] for r in bootstrap_body["roles"]}
+    assert role_caps["affiliate_manager"] == ["affiliates.self"]
+    assert role_caps["affiliate_promoter"] == ["affiliates.self"]
 
 
 @pytest.mark.anyio

@@ -57,11 +57,14 @@ def client(wafa_env) -> TestClient:
 
 
 def _token(caps=None, **over) -> str:
+    # Default to the one capability every approved affiliate token holds
+    # (`affiliates.self`, 2026-08-22) — a test wanting to prove a 403 from a MISSING
+    # capability passes `caps=[]` explicitly; every ordinary self-service call gets
+    # the real baseline instead of an empty list that never existed on a real token.
     now = dt.datetime.now(dt.timezone.utc)
     claims = {"sub": "nobody", "iss": ISS, "aud": AUD,
               "exp": now + dt.timedelta(minutes=5), "iat": now}
-    if caps is not None:
-        claims["caps"] = caps
+    claims["caps"] = list(caps) if caps is not None else ["affiliates.self"]
     claims.update(over)
     return jwt.encode(claims, SECRET, algorithm="HS256")
 

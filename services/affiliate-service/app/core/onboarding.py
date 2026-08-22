@@ -30,6 +30,7 @@ from typing import Any
 from app.core.phone import canonical_phone
 from app.core.models import (
     ACTIVE,
+    AFFILIATE_SELF,
     AFFILIATES,
     APPLICATIONS,
     APPROVED,
@@ -141,9 +142,16 @@ class OnboardingService:
                 f"{self._authz}/internal/authz/tenants/{self._tenant}/bootstrap", method="POST",
                 internal=True,
                 body={"roles": [
-                    {"name": self._manager_role, "capabilities": [],
+                    # `affiliates.self` (2026-08-22) — closes the gap this comment used to
+                    # flag: neither role ever carried a real capability, so every affiliate
+                    # token minted for this tenant held `caps: []` and every self-service route
+                    # (once gated by app/api/authz.py::require_capability) would have refused
+                    # everyone, including a legitimate marketer reading his own data. Both roles
+                    # get the SAME one capability — it answers "is he a real, approved affiliate
+                    # at all", never which rows he may touch; ownership checks still decide that.
+                    {"name": self._manager_role, "capabilities": [AFFILIATE_SELF],
                      "description": "مدير تسويق — بوابة المسوّقين بالعمولة"},
-                    {"name": self._promoter_role, "capabilities": [],
+                    {"name": self._promoter_role, "capabilities": [AFFILIATE_SELF],
                      "description": "مسوّق بالعمولة — بوابة المسوّقين بالعمولة"},
                 ], "subject": first_subject, "assign": [first_role]})
             if status not in (200, 201):

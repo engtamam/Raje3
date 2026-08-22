@@ -57,7 +57,10 @@ def client(home_env) -> TestClient:
 
 def _token(**over) -> str:
     now = dt.datetime.now(dt.timezone.utc)
-    claims = {"sub": "nobody", "iss": ISS, "aud": AUD,
+    # Every real affiliate token carries `affiliates.self` (2026-08-22) — see
+    # app/core/models.py's own note. `**over` still lets a caller pass `caps=[...]` to test a
+    # missing-capability 403 specifically.
+    claims = {"sub": "nobody", "iss": ISS, "aud": AUD, "caps": ["affiliates.self"],
               "exp": now + dt.timedelta(minutes=5), "iat": now}
     claims.update(over)
     return jwt.encode(claims, SECRET, algorithm="HS256")

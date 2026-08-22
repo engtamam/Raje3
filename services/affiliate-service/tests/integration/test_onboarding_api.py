@@ -6,6 +6,7 @@ enforces `platform.affiliates`, and a route-layer mock cannot prove that.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import os
 
@@ -57,11 +58,14 @@ def client(onboarding_env) -> TestClient:
 
 
 def _token(caps=None, **over) -> str:
+    # Default to the one capability every approved affiliate token holds
+    # (`affiliates.self`, 2026-08-22) — a test wanting to prove a 403 from a MISSING
+    # capability passes `caps=[]` explicitly; every ordinary self-service call gets
+    # the real baseline instead of an empty list that never existed on a real token.
     now = dt.datetime.now(dt.timezone.utc)
     claims = {"sub": "admin1", "iss": ISS, "aud": AUD,
               "exp": now + dt.timedelta(minutes=5), "iat": now}
-    if caps is not None:
-        claims["caps"] = caps
+    claims["caps"] = list(caps) if caps is not None else ["affiliates.self"]
     claims.update(over)
     return jwt.encode(claims, SECRET, algorithm="HS256")
 
@@ -156,13 +160,23 @@ def test_approving_an_unknown_application_id_is_a_clean_400(client):
     assert r.json()["reason"] == "not_found"
 
 
-def test_invite_needs_a_token_but_no_capability(client):
-    # NO capability required — see api/v1/affiliate_self.py's own note: eligibility is a DATA
-    # check (is this caller an active manager affiliate), not an RBAC check. A bare valid token
-    # with NO caps at all still reaches the service layer, which is what actually refuses it.
+def test_invite_refuses_a_token_with_no_capability_at_all(client):
+    # `affiliates.self` (2026-08-22) now gates the route itself — a token with NO caps never
+    # reaches the service layer at all.
     r = client.post("/api/v1/affiliates/me/invite",
                     json={"phone": "0501234599", "name": "مدعو"},
                     headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+
+
+def test_invite_needs_no_role_specific_capability_beyond_self(client):
+    # Once past that baseline, eligibility is still a DATA check (is this caller an active
+    # manager affiliate), not an RBAC one — see api/v1/affiliate_self.py's own note. A token
+    # holding only `affiliates.self`, for a subject with no matching affiliate row at all,
+    # reaches the service layer, which is what actually refuses it.
+    r = client.post("/api/v1/affiliates/me/invite",
+                    json={"phone": "0501234599", "name": "مدعو"},
+                    headers={"Authorization": f"Bearer {_token(sub='nobody-at-all')}"})
     assert r.status_code == 403
     assert r.json()["reason"] == "not_an_active_affiliate"
 
@@ -181,6 +195,32 @@ def test_me_is_404_for_a_token_with_no_matching_affiliate_row(client):
     r = client.get("/api/v1/affiliates/me",
                    headers={"Authorization": f"Bearer {_token(sub='nobody')}"})
     assert r.status_code == 404
+
+
+def test_me_refuses_a_valid_token_that_lacks_affiliates_self(client):
+    """The real, positive proof that `affiliates.self` (2026-08-22) actually gates this family
+    of routes — a valid, signed token that simply never carries the capability is refused BEFORE
+    any data lookup, distinct from the 404 above (which is a data check on a token that DOES
+    carry it, for a subject with no matching row)."""
+    r = client.get("/api/v1/affiliates/me",
+                   headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    assert r.status_code == 403
+
+
+def test_me_succeeds_with_affiliates_self_and_a_real_row(client):
+    from app.core.models import ACTIVE, AFFILIATES, PROMOTER, Affiliate
+
+    async def go():
+        c = client.app.state.container
+        aff = Affiliate(id="aff-self-check", person_id="p-self-check", phone="+966501239911",
+                        name="مسوّق", role=PROMOTER, status=ACTIVE)
+        await c.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+
+    asyncio.run(go())
+    r = client.get("/api/v1/affiliates/me",
+                   headers={"Authorization": f"Bearer {_token(sub='p-self-check')}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == "aff-self-check"
 
 
 def test_my_commissions_refuses_with_no_token(client):

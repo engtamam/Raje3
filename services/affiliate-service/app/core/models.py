@@ -39,6 +39,14 @@ APPLICATION_STATUSES = (PENDING, APPROVED, REJECTED)
 
 MANAGER = "affiliate_manager"
 PROMOTER = "affiliate_promoter"
+
+#: THE ONE CAPABILITY EVERY SIGNED-IN AFFILIATE HOLDS (2026-08-22) — same shape as
+#: billing-service's own `billing.self`/compliance-service's `compliance.self`: not a role-
+#: specific grant, just "this is a real, approved affiliate acting on his own data", enforced by
+#: `app/api/authz.py::require_capability` on every self-service route. Every route's OWN
+#: ownership check (assigned promoter/his manager, source_manager_id, etc.) still decides WHICH
+#: rows he may touch — this capability only answers "is he allowed through the door at all".
+AFFILIATE_SELF = "affiliates.self"
 ROLES = (MANAGER, PROMOTER)
 
 ACTIVE = "active"

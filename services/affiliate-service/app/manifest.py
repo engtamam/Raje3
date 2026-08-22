@@ -61,7 +61,11 @@ def build_manifest(
         # (e.g. "files.upload", "files.read"); remove one only if you also remove the route that
         # enforces it. An advertised capability is what the admin panel and onboarding grant against.
         "capabilities": ["platform.secrets", "platform.config", "platform.affiliates",
-                        "platform.affiliates_payouts"],
+                        "platform.affiliates_payouts",
+                        # The one capability every APPROVED AFFILIATE holds (not a platform-
+                        # operator one) — see core/models.py::AFFILIATE_SELF and
+                        # onboarding.py::_ensure_tenant_ready, which is what actually grants it.
+                        "affiliates.self"],
         "endpoints": [
             {"path": "/healthz", "tier": "public", "method": "GET"},
             {"path": "/readyz", "tier": "public", "method": "GET"},

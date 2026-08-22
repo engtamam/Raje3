@@ -1,13 +1,22 @@
 # =============================================================================
 # affiliate-service — what an affiliate does about HIS OWN team, not the platform's
 # -----------------------------------------------------------------------------
-# NO CAPABILITY GATE HERE, deliberately — and that is not an oversight, it is the same shape as
-# operations.hire() (a shop owner needs no platform capability to hire his own staff; the gate is
-# "is this his shop", a DATA check, not an RBAC check). Here it is "is this an ACTIVE manager
-# affiliate", checked inside onboarding.invite() against the caller's own person_id — a
-# capability would answer "may marketers in general invite", which is the wrong question; the
-# real one is "is the caller himself a manager", and only a data lookup on his own identity
-# answers that honestly.
+# EVERY ROUTE HERE NOW CARRIES `_SELF` (`affiliates.self`, 2026-08-22) — the one capability every
+# approved affiliate token holds, proving "is this a real, approved affiliate at all", the same
+# shape as billing-service's `billing.self`/compliance-service's `compliance.self`. It answers
+# NOTHING about which rows he may touch — that is still, and only, the ownership/role DATA check
+# baked into each route (the same shape as operations.hire(): a shop owner needs no platform
+# capability to hire his own staff; the question is "is this HIS shop", never "may owners in
+# general do this"). `invite()` below is the clearest example: `_SELF` only proves he is signed
+# in as an affiliate; onboarding.invite() still checks his own person_id resolves to an ACTIVE
+# manager before anything happens — a capability would answer "may marketers in general invite",
+# which is the wrong question.
+#
+# WHY THIS EXISTS AT ALL: before 2026-08-22 no route here checked a capability, because no role
+# in this tenant had ever been bootstrapped with one (`onboarding.py::_ensure_tenant_ready` minted
+# both roles with `"capabilities": []`, unnoticed because zero real affiliates had ever completed
+# approval on the live server). `_SELF` closes that — see core/models.py's own note on
+# `AFFILIATE_SELF`.
 # =============================================================================
 from __future__ import annotations
 
@@ -18,12 +27,13 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.api.auth import Principal, require_user
+from app.api.authz import require_capability
 from app.api.ratelimit import rate_limit
 from app.config import get_settings
 from app.core.employment import EmploymentError
 from app.core.lead_sourcing import LeadError, LeadSourcingService
 from app.core.leads import LeadSourcingKeys
-from app.core.models import AFFILIATES, REQUESTED, Affiliate
+from app.core.models import AFFILIATE_SELF, AFFILIATES, REQUESTED, Affiliate
 from app.core.onboarding import OnboardingRefused
 from app.core.payouts import PayoutError
 from app.core.secret_store import SecretError, SecretStore
@@ -31,6 +41,7 @@ from app.core.tickets import TicketError
 from app.core.wafa import WafaError
 
 router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-self"])
+_SELF = require_capability(AFFILIATE_SELF)
 
 
 class InviteIn(BaseModel):
@@ -88,7 +99,7 @@ async def _my_affiliate_id(request: Request, principal: Principal) -> str:
     return affiliate["id"]
 
 
-@router.get("", dependencies=[Depends(rate_limit)])
+@router.get("", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def me(request: Request, principal: Principal = Depends(require_user)) -> dict:
     """Who I am, and — since his own `id` IS his referral code (spec §1) — everything the console
     needs to show him his own link: `?aff=<id>` for a shop, `?ref=<id>` for another marketer
@@ -99,7 +110,7 @@ async def me(request: Request, principal: Principal = Depends(require_user)) -> 
     return out
 
 
-@router.post("/invite", dependencies=[Depends(rate_limit)])
+@router.post("/invite", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def invite(request: Request, body: InviteIn,
                  principal: Principal = Depends(require_user)) -> Any:
     """A manager names somebody he wants on his team — still goes through the admin gate (spec
@@ -114,7 +125,7 @@ async def invite(request: Request, body: InviteIn,
     return {"ok": True, **out}
 
 
-@router.get("/commissions", dependencies=[Depends(rate_limit)])
+@router.get("/commissions", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def commissions(request: Request, principal: Principal = Depends(require_user)) -> dict:
     """His own commissions (core/commission.py — conversion only; renewal commissions retired
     2026-08-20). The read ITSELF
@@ -132,7 +143,7 @@ async def commissions(request: Request, principal: Principal = Depends(require_u
     return {"commissions": [c.to_dict() for c in confirmed if c is not None]}
 
 
-@router.get("/team", dependencies=[Depends(rate_limit)])
+@router.get("/team", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def team(request: Request, principal: Principal = Depends(require_user)) -> Any:
     """spec §10: a manager's real revenue transparency — who is on his team AND what each of them
     actually earned, not just the roster invite() already let him build. A promoter calling this
@@ -174,7 +185,7 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
     return out
 
 
-@router.put("/payout-method", dependencies=[Depends(rate_limit)])
+@router.put("/payout-method", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_payout_method(request: Request, body: PayoutMethodIn,
                             principal: Principal = Depends(require_user)) -> Any:
     """spec §5, extended (Tamam, 2026-08-20): a bank IBAN or an intermediary payment platform
@@ -191,13 +202,13 @@ async def set_payout_method(request: Request, body: PayoutMethodIn,
     return {"ok": True, **out}
 
 
-@router.get("/balance", dependencies=[Depends(rate_limit)])
+@router.get("/balance", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def balance(request: Request, principal: Principal = Depends(require_user)) -> dict:
     affiliate_id = await _my_affiliate_id(request, principal)
     return await request.app.state.container.payouts.balance(affiliate_id)
 
 
-@router.post("/withdrawals", dependencies=[Depends(rate_limit)])
+@router.post("/withdrawals", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def request_withdrawal(request: Request,
                              principal: Principal = Depends(require_user)) -> Any:
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -208,7 +219,7 @@ async def request_withdrawal(request: Request,
     return {"ok": True, **out}
 
 
-@router.get("/withdrawals", dependencies=[Depends(rate_limit)])
+@router.get("/withdrawals", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_withdrawals(request: Request,
                          principal: Principal = Depends(require_user)) -> dict:
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -216,7 +227,7 @@ async def my_withdrawals(request: Request,
     return {"withdrawals": [r.to_dict() for r in rows]}
 
 
-@router.get("/withdrawals/{withdrawal_id}/receipt", dependencies=[Depends(rate_limit)])
+@router.get("/withdrawals/{withdrawal_id}/receipt", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_withdrawal_receipt(request: Request, withdrawal_id: str,
                                 principal: Principal = Depends(require_user)) -> Response:
     """spec §5: "يقدر المسوّق يعرضه لاحقاً" — his own proof of payment, not just the admin's.
@@ -237,7 +248,7 @@ class WafaManagerDecisionIn(BaseModel):
     reason: str = Field(default="", max_length=500)
 
 
-@router.post("/wafa-requests", dependencies=[Depends(rate_limit)])
+@router.post("/wafa-requests", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def request_wafa(request: Request,
                        principal: Principal = Depends(require_user)) -> Any:
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -248,7 +259,7 @@ async def request_wafa(request: Request,
     return {"ok": True, **out}
 
 
-@router.get("/wafa-requests", dependencies=[Depends(rate_limit)])
+@router.get("/wafa-requests", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_wafa_requests(request: Request,
                            principal: Principal = Depends(require_user)) -> dict:
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -256,7 +267,7 @@ async def my_wafa_requests(request: Request,
     return {"wafa_requests": [r.to_dict() for r in rows]}
 
 
-@router.get("/wafa-eligibility", dependencies=[Depends(rate_limit)])
+@router.get("/wafa-eligibility", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_wafa_eligibility(request: Request,
                               principal: Principal = Depends(require_user)) -> dict:
     """The read-only "how close am I" a promoter could never see before without actually filing
@@ -266,7 +277,7 @@ async def my_wafa_eligibility(request: Request,
     return await request.app.state.container.wafa.eligibility_preview(affiliate_id)
 
 
-@router.get("/team/wafa-requests", dependencies=[Depends(rate_limit)])
+@router.get("/team/wafa-requests", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def team_wafa_requests(request: Request,
                              principal: Principal = Depends(require_user)) -> dict:
     """A manager's own review queue — every PENDING request from someone directly on his team
@@ -284,7 +295,7 @@ async def team_wafa_requests(request: Request,
     return {"wafa_requests": [r.to_dict() for r in mine]}
 
 
-@router.post("/team/wafa-requests/{wafa_id}/decision", dependencies=[Depends(rate_limit)])
+@router.post("/team/wafa-requests/{wafa_id}/decision", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def decide_team_wafa_request(request: Request, wafa_id: str, body: WafaManagerDecisionIn,
                                    principal: Principal = Depends(require_user)) -> Any:
     """The manager's ADVISORY call (spec §8) — never binding; see core/wafa.py's own module
@@ -310,7 +321,7 @@ async def decide_team_wafa_request(request: Request, wafa_id: str, body: WafaMan
 
 # ── «رشّح نفسك لوظيفة» (spec §8) — the marketer's own side ─────────────────────────────────────
 
-@router.post("/employment-requests", dependencies=[Depends(rate_limit)])
+@router.post("/employment-requests", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def request_employment(request: Request,
                              principal: Principal = Depends(require_user)) -> Any:
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -321,7 +332,7 @@ async def request_employment(request: Request,
     return {"ok": True, **out}
 
 
-@router.get("/employment-requests", dependencies=[Depends(rate_limit)])
+@router.get("/employment-requests", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_employment_requests(request: Request,
                                  principal: Principal = Depends(require_user)) -> dict:
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -329,7 +340,7 @@ async def my_employment_requests(request: Request,
     return {"employment_requests": [r.to_dict() for r in rows]}
 
 
-@router.get("/employment-eligibility", dependencies=[Depends(rate_limit)])
+@router.get("/employment-eligibility", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_employment_eligibility(request: Request,
                                     principal: Principal = Depends(require_user)) -> dict:
     """Same gap, same fix as /wafa-eligibility — see EmploymentService.eligibility_preview."""
@@ -367,7 +378,7 @@ async def _my_manager_affiliate(request: Request, principal: Principal) -> dict[
     return affiliate
 
 
-@router.put("/places-api-key", dependencies=[Depends(rate_limit)])
+@router.put("/places-api-key", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_places_api_key(request: Request, body: PlacesApiKeyIn,
                              principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -385,7 +396,7 @@ async def set_places_api_key(request: Request, body: PlacesApiKeyIn,
     return {"ok": True, "hint": info.hint, "set_at": info.set_at}
 
 
-@router.get("/places-api-key", dependencies=[Depends(rate_limit)])
+@router.get("/places-api-key", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def get_places_api_key(request: Request,
                              principal: Principal = Depends(require_user)) -> dict:
     """A hint only — same write-only guarantee as operator.py's own secrets. Never the value."""
@@ -396,7 +407,7 @@ async def get_places_api_key(request: Request,
     return {"set": True, "hint": info.hint, "set_at": info.set_at}
 
 
-@router.delete("/places-api-key", dependencies=[Depends(rate_limit)])
+@router.delete("/places-api-key", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def clear_places_api_key(request: Request,
                                principal: Principal = Depends(require_user)) -> dict:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -457,7 +468,7 @@ def _lead_refused(exc: LeadError) -> JSONResponse:
     return JSONResponse(status_code=400, content=body)
 
 
-@router.post("/leads/search", dependencies=[Depends(rate_limit)])
+@router.post("/leads/search", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def start_lead_search(request: Request, body: SearchIn,
                             principal: Principal = Depends(require_user)) -> Any:
     """§٦: a manager starts a grid search — real runtime is HOURS (places_scraper_v2.py's own
@@ -475,7 +486,7 @@ async def start_lead_search(request: Request, body: SearchIn,
     return {"ok": True, **out}
 
 
-@router.get("/leads/search", dependencies=[Depends(rate_limit)])
+@router.get("/leads/search", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_lead_searches(request: Request,
                            principal: Principal = Depends(require_user)) -> dict:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -483,7 +494,7 @@ async def my_lead_searches(request: Request,
     return {"jobs": [j.to_dict() for j in jobs]}
 
 
-@router.get("/leads/search/{job_id}", dependencies=[Depends(rate_limit)])
+@router.get("/leads/search/{job_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def lead_search_status(request: Request, job_id: str,
                              principal: Principal = Depends(require_user)) -> dict:
     """§٦: "المدير يشوف تقدّم البحث بالخلفية، لا ينتظره" — polled from here."""
@@ -494,7 +505,7 @@ async def lead_search_status(request: Request, job_id: str,
     return job.to_dict()
 
 
-@router.get("/leads", dependencies=[Depends(rate_limit)])
+@router.get("/leads", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_leads(request: Request, principal: Principal = Depends(require_user)) -> dict:
     """spec §٩: "كل مسوّق يشوف فقط العملاء المحتملين المُسنَدين له، لا القائمة الكاملة" — a
     promoter sees what was ASSIGNED to him; a manager sees what HIS OWN search found (still
@@ -512,7 +523,7 @@ async def my_leads(request: Request, principal: Principal = Depends(require_user
     return {"leads": [l.to_dict() for l in leads]}
 
 
-@router.get("/leads/stale", dependencies=[Depends(rate_limit)])
+@router.get("/leads/stale", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_stale_leads(request: Request, stale_after_days: int = 3,
                          principal: Principal = Depends(require_user)) -> dict:
     """The home screen's "بانتظارك الآن" candidate — leads assigned to the CALLER with no
@@ -526,7 +537,7 @@ async def my_stale_leads(request: Request, stale_after_days: int = 3,
     return {"leads": [l.to_dict() for l in leads]}
 
 
-@router.post("/leads/{lead_id}/assign", dependencies=[Depends(rate_limit)])
+@router.post("/leads/{lead_id}/assign", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def assign_lead(request: Request, lead_id: str, body: AssignIn,
                       principal: Principal = Depends(require_user)) -> Any:
     affiliate = await _my_manager_affiliate(request, principal)
@@ -543,7 +554,7 @@ class SetLeadStatusIn(BaseModel):
     text: str = Field(default="", max_length=1000)
 
 
-@router.post("/leads/{lead_id}/status", dependencies=[Depends(rate_limit)])
+@router.post("/leads/{lead_id}/status", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_lead_status(request: Request, lead_id: str, body: SetLeadStatusIn,
                           principal: Principal = Depends(require_user)) -> Any:
     """Tamam, 2026-08-20: a real follow-up pipeline, so the marketing team actually tracks who
@@ -564,7 +575,7 @@ class LinkRegistrationIn(BaseModel):
     tenant: str = Field(min_length=1, max_length=128)
 
 
-@router.post("/leads/{lead_id}/link-registration", dependencies=[Depends(rate_limit)])
+@router.post("/leads/{lead_id}/link-registration", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def link_lead_registration(request: Request, lead_id: str, body: LinkRegistrationIn,
                                  principal: Principal = Depends(require_user)) -> Any:
     """Tamam, 2026-08-20: a shop sometimes signs up with a phone Google never had — the marketer
@@ -582,7 +593,7 @@ async def link_lead_registration(request: Request, lead_id: str, body: LinkRegis
     return {"ok": True, **out.to_dict()}
 
 
-@router.get("/leads/sector-stats", dependencies=[Depends(rate_limit)])
+@router.get("/leads/sector-stats", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_lead_sector_stats(request: Request,
                                principal: Principal = Depends(require_user)) -> dict:
     """§٦'s own point: sector × city counts for a data-driven dashboard — a manager's own finds
@@ -592,7 +603,7 @@ async def my_lead_sector_stats(request: Request,
     return {"stats": stats}
 
 
-@router.get("/sectors", dependencies=[Depends(rate_limit)])
+@router.get("/sectors", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def list_active_sectors(request: Request,
                               principal: Principal = Depends(require_user)) -> dict:
     """The managed taxonomy — read-only here, for the search form's own picker. Any signed-in
@@ -644,7 +655,7 @@ def _ticket_reader(request: Request):
     return reader
 
 
-@router.get("/shops/{tenant}/tickets", dependencies=[Depends(rate_limit)])
+@router.get("/shops/{tenant}/tickets", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def shop_tickets(request: Request, tenant: str,
                        principal: Principal = Depends(require_user)) -> Any:
     grantee = await _my_shop_grant(request, principal, tenant)
@@ -655,7 +666,7 @@ async def shop_tickets(request: Request, tenant: str,
     return {"tickets": tickets}
 
 
-@router.get("/shops/{tenant}/tickets/{ticket_id}", dependencies=[Depends(rate_limit)])
+@router.get("/shops/{tenant}/tickets/{ticket_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def shop_ticket(request: Request, tenant: str, ticket_id: str,
                       principal: Principal = Depends(require_user)) -> Any:
     grantee = await _my_shop_grant(request, principal, tenant)
@@ -667,7 +678,7 @@ async def shop_ticket(request: Request, tenant: str, ticket_id: str,
     return out
 
 
-@router.post("/shops/{tenant}/tickets", status_code=201, dependencies=[Depends(rate_limit)])
+@router.post("/shops/{tenant}/tickets", status_code=201, dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def open_shop_ticket(request: Request, tenant: str, body: OpenTicketIn,
                            principal: Principal = Depends(require_user)) -> Any:
     grantee = await _my_shop_grant(request, principal, tenant)
@@ -684,7 +695,7 @@ async def open_shop_ticket(request: Request, tenant: str, body: OpenTicketIn,
 
 
 @router.post("/shops/{tenant}/tickets/{ticket_id}/replies", status_code=201,
-             dependencies=[Depends(rate_limit)])
+             dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def reply_shop_ticket(request: Request, tenant: str, ticket_id: str, body: ReplyIn,
                             principal: Principal = Depends(require_user)) -> Any:
     """spec §13's own point: a shop raises a problem, the marketer who brought it replies and
@@ -702,7 +713,7 @@ async def reply_shop_ticket(request: Request, tenant: str, ticket_id: str, body:
 
 
 # ── the home screen — ONE call instead of six-to-eight ──────────────────────────────────────────
-@router.get("/home", dependencies=[Depends(rate_limit)])
+@router.get("/home", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def home(request: Request, principal: Principal = Depends(require_user)) -> dict:
     """Composite, server-side fan-out — the gap the design research kept surfacing: every number
     a home screen needs already exists behind its OWN route, but a client assembling it had to
