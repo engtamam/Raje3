@@ -27,6 +27,10 @@ const BOOKING: Booking = {
 // A SINGLE OVERRIDABLE ROW — most tests want the plain default; the payment-pill test below
 // swaps this for one carrying a real deposit before rendering, and restores it in `afterEach`.
 let bookingsOverride: Booking[] = [BOOKING];
+// A SEPARATE FIXTURE — `bookings.for-customer` is a different read than `listBookings`, real
+// past-and-future history rather than the day/week currently on screen, and its own tests need to
+// vary it without disturbing the grid fixtures every other test relies on.
+let customerUpcomingOverride: Booking[] = [];
 // 0=Monday..6=Sunday, all open 08:00-22:00 by default — most tests never touch working hours.
 let weeklyOverride: Record<string, { closed: boolean; start_minute: number; end_minute: number }> =
   Object.fromEntries(Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));
@@ -63,6 +67,10 @@ vi.mock('../api', async (importOriginal) => {
       asked.push({ fn: 'suggestByPrefix', args });
       return [{ id: 'c1', phone: '966501234567', name: 'محمد' }];
     },
+    bookingsForCustomer: async (...args: unknown[]) => {
+      asked.push({ fn: 'bookingsForCustomer', args });
+      return { bookings: customerUpcomingOverride };
+    },
     attendBooking: async (...args: unknown[]) => {
       asked.push({ fn: 'attendBooking', args });
       return { ...BOOKING, status: 'attended' };
@@ -93,6 +101,7 @@ vi.mock('../api', async (importOriginal) => {
 afterEach(() => {
   asked.length = 0;
   bookingsOverride = [BOOKING];
+  customerUpcomingOverride = [];
   weeklyOverride = Object.fromEntries(
     Array.from({ length: 7 }, (_, d) => [String(d), { closed: false, start_minute: 480, end_minute: 1320 }]));
   cleanup();
@@ -485,5 +494,84 @@ describe('عرض القائمة', () => {
     await waitFor(() => screen.getByLabelText('عرض القائمة'));
     screen.getByLabelText('عرض القائمة').click();
     await waitFor(() => expect(screen.getByText('لا حجوزات تطابق هذا العرض.')).toBeTruthy());
+  });
+});
+
+describe('البحث عن عميل بجواله — كل مواعيده القادمة', () => {
+  const NOW = Math.floor(Date.now() / 1000);
+  const DAY = 86400;
+
+  it('switches to the list and reads bookings.for-customer, not the day/week grid', async () => {
+    customerUpcomingOverride = [
+      { ...BOOKING, id: 'future_1', customer_id: 'c1', starts_at: NOW + 3 * DAY, status: 'booked' },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+
+    await waitFor(() => expect(screen.queryByTestId('rj-grid')).toBeNull());
+    await waitFor(() => expect(within(list()).getByText('قص شعر')).toBeTruthy());
+    expect(asked.some((a) => a.fn === 'bookingsForCustomer' && a.args[1] === 'c1')).toBe(true);
+  });
+
+  it('keeps only future, still-booked appointments, oldest first', async () => {
+    customerUpcomingOverride = [
+      { ...BOOKING, id: 'far', customer_id: 'c1', starts_at: NOW + 10 * DAY, status: 'booked' },
+      { ...BOOKING, id: 'near', customer_id: 'c1', starts_at: NOW + 1 * DAY, status: 'booked' },
+      { ...BOOKING, id: 'past', customer_id: 'c1', starts_at: NOW - 5 * DAY, status: 'booked' },
+      { ...BOOKING, id: 'future_cancelled', customer_id: 'c1', starts_at: NOW + 2 * DAY, status: 'cancelled' },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+
+    await waitFor(() => expect(within(list()).getAllByText('قص شعر')).toHaveLength(2));
+    // "near" appears before "far" — the DOM order of the (unique) time labels proves the sort.
+    const times = within(list()).getAllByText(/^\d{1,2}:\d{2}/).map((el) => el.textContent);
+    expect(times).toHaveLength(2);
+  });
+
+  it('says so plainly when the customer has nothing ahead of him', async () => {
+    customerUpcomingOverride = [];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+
+    await waitFor(() => expect(screen.getByText('ما عند محمد أي موعد قادم.')).toBeTruthy());
+  });
+
+  it('defaults to «القادمة», and «السابقة» is one tap away, newest-first', async () => {
+    customerUpcomingOverride = [
+      // The endpoint's own contract: newest-first, any status, unfiltered by date.
+      { ...BOOKING, id: 'future', customer_id: 'c1', starts_at: NOW + 2 * DAY, status: 'booked', service_ids: ['svc1'] },
+      { ...BOOKING, id: 'recent_past', customer_id: 'c1', starts_at: NOW - 2 * DAY, status: 'attended', service_ids: ['svc2'] },
+      { ...BOOKING, id: 'older_past', customer_id: 'c1', starts_at: NOW - 20 * DAY, status: 'no_show', service_ids: ['svc1'] },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+
+    // DEFAULT: only the future one, never a past one shown unasked.
+    await waitFor(() => expect(within(list()).getByText('قص شعر')).toBeTruthy());
+    expect(within(list()).queryByText('تلميع')).toBeNull();
+
+    fireEvent.click(screen.getByText('السابقة'));
+    // BOTH past rows now, and NEITHER future one — order proven by which label sits first in the
+    // DOM: "تلميع" (recent_past) must precede the second "قص شعر" (older_past).
+    await waitFor(() => expect(within(list()).getByText('تلميع')).toBeTruthy());
+    const labels = within(list()).getAllByText(/قص شعر|تلميع/).map((el) => el.textContent);
+    expect(labels).toEqual(['تلميع', 'قص شعر']);
   });
 });

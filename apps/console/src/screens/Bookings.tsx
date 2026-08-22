@@ -17,9 +17,10 @@ import {
   Pencil, Phone, Plus, Settings, Trash2, User, X,
 } from 'lucide-react';
 import {
-  attendBooking, type Booking, cancelBooking, type CatalogueService, type CustomerHit,
-  type DayHours, fetchCatalogue, type FieldOperator, listBookings, listBookingStaff,
-  noShowBooking, rescheduleBooking, sentenceFor, suggestByPrefix, type WeeklyHours, workingHours,
+  attendBooking, type Booking, bookingsForCustomer, cancelBooking, type CatalogueService,
+  type CustomerHit, type DayHours, fetchCatalogue, type FieldOperator, listBookings,
+  listBookingStaff, noShowBooking, rescheduleBooking, sentenceFor, suggestByPrefix,
+  type WeeklyHours, workingHours,
 } from '../api';
 import { asLocal } from '../phone';
 import { digitsOnly } from '../digits';
@@ -208,6 +209,51 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
     }, 180);
     return () => { stale = true; window.clearTimeout(id); };
   }, [phoneQuery, filterCustomer, session]);
+
+  // PICKING A CUSTOMER BY PHONE ANSWERS A DIFFERENT QUESTION THAN THE GRID DOES. A receptionist
+  // typing a number is not narrowing today's board — she has someone in front of her asking
+  // "متى موعدي الجاي؟", and the answer is every appointment ahead of him, on any date, at any
+  // branch, not just what happens to be loaded for the day or week currently on screen. So this
+  // switches to the list layout on its own and reads `bookings.for-customer` — a real, already-
+  // built, cross-date, cross-branch endpoint (`bookings_for_customer` in operations.py: "a
+  // customer's OWN history is his across every branch he was ever served at") that nothing in
+  // the console had ever called before this.
+  //
+  // undefined = reading; null = the read failed; an array = his whole history, exactly as the
+  // endpoint returns it (newest-first, any status) — ONE fetch, and «القادمة»/«السابقة» below are
+  // two ways of slicing the same answer rather than two reads.
+  const [customerAll, setCustomerAll] = useState<Booking[] | null | undefined>(undefined);
+  // DEFAULTS TO WHAT'S COMING, NEVER TO HIS PAST — a receptionist reaches for this to answer
+  // "متى موعدي الجاي؟", not to audit him. Past appointments are one tap away, never open by
+  // default: an option he reaches for stays out of his way until he actually wants it.
+  const [customerHistoryMode, setCustomerHistoryMode] = useState<'upcoming' | 'past'>('upcoming');
+  useEffect(() => {
+    setCustomerHistoryMode('upcoming');
+    if (!filterCustomer) { setCustomerAll(undefined); return; }
+    setLayout('list');
+    setCustomerAll(undefined);
+    let stale = false;
+    bookingsForCustomer(session, filterCustomer.id)
+      .then((r) => { if (!stale) setCustomerAll(r.bookings); })
+      .catch(() => { if (!stale) setCustomerAll(null); });
+    return () => { stale = true; };
+  }, [filterCustomer, session]);
+
+  const customerDisplayed = useMemo(() => {
+    if (!customerAll) return customerAll;
+    const todayStart = epochAt(todayLocal(), 0);
+    if (customerHistoryMode === 'upcoming') {
+      // BOOKED ONLY, TODAY ONWARD — a cancelled booking with a future timestamp is not an
+      // appointment to confirm at the counter, so it is filtered out rather than trusted at
+      // face value. Soonest first: the one he is actually about to ask you to confirm.
+      return customerAll.filter((b) => b.status === 'booked' && b.starts_at >= todayStart)
+        .sort((a, b) => a.starts_at - b.starts_at);
+    }
+    // PAST, EVERY STATUS — "آخر موعد لك كان..." is a fact about what actually happened, and a
+    // no-show or a cancellation is still part of that answer, not a reason to hide the row. The
+    // endpoint already sorts newest-first, so no re-sort is needed here — only the slice.
+    return customerAll.filter((b) => b.starts_at < todayStart);
+  }, [customerAll, customerHistoryMode]);
 
   const [dialog, setDialog] = useState<{
     operatorId?: string; startsAt?: number; customer?: CustomerHit; serviceIds?: string[];
@@ -731,6 +777,50 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             <button type="button" onClick={load} className="text-sm font-medium underline"
                    style={{ color: 'var(--rj-accent-deep)' }}>حاول مجدداً</button>
           </div>
+        ) : layout === 'list' && filterCustomer ? (
+          // A CUSTOMER PICKED BY PHONE ANSWERS "متى موعده الجاي؟" — every booked appointment
+          // ahead of him, any date, any branch, not the day or week currently loaded. Its own
+          // loading/failed states, separate from the grid's — a different read (`for-customer`,
+          // not `listBookings`), so it can be in flight or fail independently of it.
+          customerAll === undefined ? (
+            <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
+              يُحمَّل سجل العميل…
+            </div>
+          ) : customerAll === null ? (
+            <div className="grid place-items-center gap-2 py-24 text-center">
+              <p className="text-base font-medium">تعذّرت قراءة مواعيد العميل</p>
+              <button type="button" onClick={() => setFilterCustomer({ ...filterCustomer })}
+                     className="text-sm font-medium underline" style={{ color: 'var(--rj-accent-deep)' }}>
+                حاول مجدداً
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {/* AN OPTION HE REACHES FOR, NOT ONE ALREADY OPEN IN HIS FACE — «القادمة» stays the
+                  default every time a new customer is picked; «السابقة» is one tap away for
+                  "آخر موعد لك كان؟", shown newest-first once he asks for it. */}
+              <div className="flex items-center gap-1 self-start rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
+                {([
+                  { id: 'upcoming' as const, label: 'القادمة' },
+                  { id: 'past' as const, label: 'السابقة' },
+                ]).map(({ id, label }) => (
+                  <button key={id} type="button" onClick={() => setCustomerHistoryMode(id)}
+                         className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                         style={id === customerHistoryMode
+                           ? { background: 'var(--rj-ink)', color: 'var(--rj-bg)' }
+                           : { color: 'var(--rj-ink-soft)' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <BookingsList rows={customerDisplayed ?? []} nameOf={nameOf} serviceNameOf={serviceNameOf}
+                           priceMinorOf={priceMinorOf} onOpen={setOpenBooking}
+                           order={customerHistoryMode === 'past' ? 'desc' : 'asc'}
+                           emptyMessage={customerHistoryMode === 'upcoming'
+                             ? `ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} أي موعد قادم.`
+                             : `ما عند ${filterCustomer.name || asLocal(filterCustomer.phone)} مواعيد سابقة.`} />
+            </div>
+          )
         ) : layout === 'list' ? (
           // A FLAT LIST NEEDS NONE OF THE GRID'S OWN GEOMETRY — no staff-as-columns, no working
           // hours, no "المحل مغلق" (a closed day simply has no rows, and an empty list already
@@ -1246,19 +1336,30 @@ function PhoneLookup({
  *  exists elsewhere; showing a raw id would be worse than not showing one. The phone-lookup
  *  filter chip above the toolbar still narrows this list to one customer's bookings by name —
  *  what is missing here is a name on every OTHER row, a real but separate piece of work. */
-function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen }: {
+function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, emptyMessage, order = 'asc' }: {
   rows: Booking[];
   nameOf: (id: string) => string;
   serviceNameOf: (ids: string[]) => string;
   priceMinorOf: (b: Booking) => number | null;
   onOpen: (b: Booking) => void;
+  /** «لا حجوزات تطابق هذا العرض» is the right sentence for a filtered grid view; a customer's own
+   *  upcoming list has a truer one to say when it's empty («ما عنده أي موعد قادم»), so the caller
+   *  may override it rather than every empty state reading the same regardless of why. */
+  emptyMessage?: string;
+  /** `asc` (soonest first) for anything upcoming — the grid, a customer's coming appointments.
+   *  `desc` (most recent first) for a customer's PAST ones — "آخر موعد لك كان؟" wants the most
+   *  recent past visit at the top, not buried under his oldest one. */
+  order?: 'asc' | 'desc';
 }) {
-  const sorted = useMemo(() => [...rows].sort((a, b) => a.starts_at - b.starts_at), [rows]);
+  const sorted = useMemo(
+    () => [...rows].sort((a, b) => (order === 'desc' ? b.starts_at - a.starts_at : a.starts_at - b.starts_at)),
+    [rows, order],
+  );
 
   if (sorted.length === 0) {
     return (
       <div className="grid place-items-center py-24 text-sm" style={{ color: 'var(--rj-ink-soft)' }}>
-        لا حجوزات تطابق هذا العرض.
+        {emptyMessage ?? 'لا حجوزات تطابق هذا العرض.'}
       </div>
     );
   }
