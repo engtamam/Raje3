@@ -84,6 +84,10 @@ const ROLES: { value: string; label: string; can: string; icon: typeof UserRound
 ];
 interface Branch { id: string; name: string; active?: boolean }
 
+/** Just enough of a service to list it as a candidate — mirrors Services.tsx's own reading of
+ *  `eligible_staff_ids` (empty/absent = every active operator, the zero-config default). */
+interface ServiceLite { id: string; name: string; active?: boolean; eligible_staff_ids?: string[] }
+
 /** What the branch comparison already computes for the whole shop (insights, spec 10.6.3). */
 interface BranchStat { branch_id?: string; visits?: number; customers?: number }
 
@@ -122,6 +126,11 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
    * explain.
    */
   const [pinKind, setPinKind] = useState(false);
+  // FOR THE SAME EDIT «تخصيص دوام» ALREADY OFFERS, ON THE OTHER SIDE OF THE SAME FACT — an owner
+  // asking "what does HE do" is the mirror of Services.tsx's own "who does THIS", and the answer
+  // lives in the exact same field (`Service.eligible_staff_ids`), just read from the operator's
+  // row instead of the service's.
+  const [services, setServices] = useState<ServiceLite[] | null | undefined>(undefined);
 
   // WHAT THIS PERSON MAY DO, FROM THE CATALOGUE. The gateway has already filtered it by
   // capability, so an absent action is a permission fact — and the control simply is not rendered.
@@ -131,8 +140,20 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
   const listBranches = action(catalog, 'operations.list_branches');
   const setHours = action(catalog, 'operations.set_staff_hours');
   const clearHours = action(catalog, 'operations.clear_staff_hours');
+  // SAME ACTION SERVICES.TSX PATCHES SERVICES WITH — no new route, no new capability; this pane
+  // just calls the same PATCH from the operator's side of the same field.
+  const updateService = action(catalog, 'operations.update_service');
 
   const load = () => {
+    const svc = action(catalog, 'operations.manage_services') ?? action(catalog, 'operations.list_services');
+    if (svc) {
+      call<{ services: ServiceLite[] }>(session, svc)
+        .then((x) => setServices(x.services ?? []))
+        .catch(() => setServices(null));
+    } else {
+      setServices(null);
+    }
+
     const o = action(catalog, 'operations.list_operators');
     if (o) {
       call<{ operators: Operator[]; pin_operators_enabled?: boolean }>(session, o)
@@ -198,6 +219,8 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
             hire={action(catalog, 'operations.hire_member')}
             setHours={setHours}
             clearHours={clearHours}
+            services={services}
+            updateService={updateService}
             pinKind={pinKind}
             onChanged={load}
           />
@@ -220,7 +243,7 @@ export function TeamScreen({ session, catalog }: { session: Session; catalog: Ca
 // EXPORTED FOR THE SAME REASON `Branches` IS BELOW: its own test needs it directly rather than
 // driving the whole `TeamScreen` (catalogue, both reads, both tabs) to reach one form.
 export function People({ session, operators, branches, add, edit, hire, setHours, clearHours,
-                        pinKind, onChanged }: {
+                        services, updateService, pinKind, onChanged }: {
   session: Session;
   operators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
@@ -229,6 +252,8 @@ export function People({ session, operators, branches, add, edit, hire, setHours
   hire: ReturnType<typeof action>;
   setHours?: ReturnType<typeof action>;
   clearHours?: ReturnType<typeof action>;
+  services?: ServiceLite[] | null;
+  updateService?: ReturnType<typeof action>;
   /** Whether this deployment offers «رمز على الجهاز» at all — the server's answer, not a guess. */
   pinKind: boolean;
   onChanged: () => void;
@@ -317,8 +342,9 @@ export function People({ session, operators, branches, add, edit, hire, setHours
       ) : (
         <ul className="flex flex-col gap-2">
           {operators.map((o) => (
-            <OperatorRow key={o.id} session={session} o={o} branches={branches} edit={edit}
-                        setHours={setHours} clearHours={clearHours} onChanged={onChanged} />
+            <OperatorRow key={o.id} session={session} o={o} allOperators={operators} branches={branches}
+                        edit={edit} setHours={setHours} clearHours={clearHours}
+                        services={services} updateService={updateService} onChanged={onChanged} />
           ))}
         </ul>
       )}
@@ -475,13 +501,17 @@ export function People({ session, operators, branches, add, edit, hire, setHours
  * an owner just never had a control that called it for any of the three, on any shop, branch
  * count irrelevant. An employee who left could not be stopped from this screen at all.
  */
-function OperatorRow({ session, o, branches, edit, setHours, clearHours, onChanged }: {
+function OperatorRow({ session, o, allOperators, branches, edit, setHours, clearHours,
+                       services, updateService, onChanged }: {
   session: Session;
   o: Operator;
+  allOperators: Operator[] | null | undefined;
   branches: Branch[] | null | undefined;
   edit: ReturnType<typeof action>;
   setHours?: ReturnType<typeof action>;
   clearHours?: ReturnType<typeof action>;
+  services?: ServiceLite[] | null;
+  updateService?: ReturnType<typeof action>;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -535,6 +565,34 @@ function OperatorRow({ session, o, branches, edit, setHours, clearHours, onChang
       setHoursError(err instanceof Error ? err.message : 'تعذّر إعادة الدوام.');
     } finally {
       setHoursBusy(false);
+    }
+  }
+
+  // «أي خدمات يسوّيها» — الوجه الآخر لنفس الحقل اللي «خدماتي» تُخصّصه من جهة الخدمة (§3 من خطة
+  // الحجوزات الذكية). مطويّ افتراضياً بنفس منطق «تخصيص دوام» تماماً.
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [servicesBusy, setServicesBusy] = useState(false);
+  const [servicesError, setServicesError] = useState('');
+
+  async function toggleService(svc: ServiceLite) {
+    if (!updateService) return;
+    const activeIds = (allOperators ?? []).filter((op) => op.active !== false).map((op) => op.id);
+    const current = svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
+      ? new Set(svc.eligible_staff_ids)
+      : new Set(activeIds);   // «كل الموظفين» — لا قيد بعد
+    if (current.has(o.id)) current.delete(o.id); else current.add(o.id);
+    // لا نخزّن «الجميع بالاسم» أبداً — نفس قاعدة Services.tsx بالضبط: الموظف السادس المضاف
+    // مستقبلاً لازم يبقى مؤهلاً تلقائياً لخدمة لم يقيّدها أحد، لا مستبعداً بصمت من قائمة جامدة.
+    const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
+    setServicesBusy(true);
+    setServicesError('');
+    try {
+      await call(session, updateService, { id: svc.id, eligible_staff_ids });
+      onChanged();
+    } catch (err) {
+      setServicesError(err instanceof Error ? err.message : 'تعذّر حفظ التعديل.');
+    } finally {
+      setServicesBusy(false);
     }
   }
 
@@ -762,6 +820,40 @@ function OperatorRow({ session, o, branches, edit, setHours, clearHours, onChang
                 </Button>
               </div>
             </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* «أي خدمات يسوّيها» — نفس شرط ظهور «من يقدر يسوّيها» في «خدماتي»: لا معنى له إن كان
+          عندك موظف نشط واحد فقط، فلا يظهر إطلاقاً في تلك الحالة. */}
+      {o.active !== false && updateService
+          && (allOperators ?? []).filter((op) => op.active !== false).length > 1
+          && (services ?? []).filter((s) => s.active !== false).length > 0 ? (
+        <div className="text-sm">
+          <button type="button" className="text-text-secondary underline underline-offset-2"
+                  onClick={() => setServicesOpen((v) => !v)}>
+            أي خدمات يسوّيها
+          </button>
+
+          {servicesOpen ? (
+            <fieldset className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 p-2">
+              <legend className="mb-1 w-full text-xs text-text-secondary">
+                بلا تحديد يعني يقدر يسوّي كل الخدمات
+              </legend>
+              {(services ?? []).filter((s) => s.active !== false).map((s) => {
+                const restricted = Boolean(s.eligible_staff_ids?.length);
+                const checked = restricted ? s.eligible_staff_ids!.includes(o.id) : true;
+                return (
+                  <label key={s.id} className="flex items-center gap-1.5 text-sm">
+                    <input type="checkbox" className="size-5" checked={checked}
+                          disabled={servicesBusy}
+                          onChange={() => toggleService(s)} />
+                    <span>{s.name}</span>
+                  </label>
+                );
+              })}
+              {servicesError ? <p role="alert" className="w-full text-danger text-xs">{servicesError}</p> : null}
+            </fieldset>
           ) : null}
         </div>
       ) : null}
