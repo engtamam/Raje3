@@ -102,6 +102,7 @@ interface Branches { rows?: { branch_id?: string; name?: string; visits?: number
                     unknown?: number; can_rank?: boolean }
 interface WeekWindow { visits: number; previous: number | null; window_days: number }
 interface AtRiskRow { subject_ref: string; days_overdue: number; own_cycle_days: number; visits: number }
+interface MissedOpp { subject_ref: string; has: string; missing: string; verdict: 'real' | 'temporal' | string }
 interface CustomerHitLite { id: string; phone: string; name?: string; subject_ref?: string }
 
 export function blockedSentence(b: Blocked): string {
@@ -362,6 +363,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const popularity = data.values['service_popularity'] as { service_id: string; count: number; share: number }[] | undefined;
   const weak = data.values['weak_services'] as string[] | undefined;
   const peak = data.values['peak_map'] as { grid?: Record<string, number>; busiest?: string } | undefined;
+  const missed = data.values['missed_opportunities'] as MissedOpp[] | undefined;
 
   return (
     <div className="flex flex-col gap-3">
@@ -486,9 +488,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
           <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>ما يُطلب معًا</h3>
+            {/* `p.a`/`p.b` ARE SERVICE IDS, NOT NAMES — `associations.build` derives every pair
+                from raw `service_ids` on the visit and never resolves them, so this rendered a
+                literal id (e.g. `svc_a1b2c3`) beside its partner until now. `service_names` was
+                already in `data.values` for exactly this reason; nothing else here changed. */}
             {(pairs.pairs ?? []).slice(0, 6).map((p) => (
               <div key={`${p.a}|${p.b}`} className="flex items-center justify-between gap-3 pt-2 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
-                <span className="text-[13px]">{p.a} + {p.b}</span>
+                <span className="text-[13px]">{serviceNames[p.a] || p.a} + {serviceNames[p.b] || p.b}</span>
                 <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{p.customers} عميلاً</span>
               </div>
             ))}
@@ -499,6 +505,13 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             ما زلنا نتعلّم ما يُطلب معًا في محلّك — {pairs.have ?? 0} زيارة من {pairs.need ?? 0}.
           </p>
         ) : null}
+
+        {/* THE INVERSE OF THE PAIR ABOVE — «ما يُطلب معًا» says a relationship exists in the
+            aggregate; this names the specific customers standing on the wrong side of it, the
+            same move `at_risk` already made for churn (a list to act on, not a percentage). Only
+            appears once a real or temporal pair exists to be missing FROM — «he never bought X»
+            means nothing without a rule saying X usually comes with what he did buy. */}
+        {missed && missed.length > 0 ? <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} /> : null}
 
         {branches && (branches.rows ?? []).length > 1 ? <BranchCompare branches={branches} /> : null}
       </Section>
@@ -856,7 +869,52 @@ function AtRiskCard({ session, catalog, rows }: { session: Session; catalog: Cat
   );
 }
 
-/** What his own customers ask for most — real counts, real names, never a placeholder. */
+/** THE INVERSE OF «ما يُطلب معًا» — a relationship the engine already trusts (`real` or
+ *  `temporal`, never a raw co-occurrence), and the specific customers standing on one side of it
+ *  without the other. Resolved the same way `AtRiskCard` resolves its own pseudonyms — a customer
+ *  he can actually reach, not a statistic. Capped at 8 resolutions for the same reason `AtRiskCard`
+ *  caps at 8: a PII lookup grows with the list, and the folded section is not the place for it to
+ *  grow unbounded. */
+function MissedOpportunities({ session, catalog, rows, names }: {
+  session: Session; catalog: Catalog; rows: MissedOpp[]; names: Record<string, string>;
+}) {
+  const [who, setWho] = useState<Record<string, CustomerHitLite> | null | undefined>(undefined);
+
+  useEffect(() => {
+    const resolve = action(catalog, 'operations.customers_by_refs');
+    if (!resolve) { setWho(null); return; }
+    const refs = rows.slice(0, 8).map((r) => r.subject_ref);
+    call<{ customers: CustomerHitLite[] }>(session, resolve, { refs })
+      .then((x) => {
+        const by: Record<string, CustomerHitLite> = {};
+        for (const c of x.customers ?? []) if (c.subject_ref) by[c.subject_ref] = c;
+        setWho(by);
+      })
+      .catch(() => setWho(null));
+  }, [session, catalog, rows]);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>عملاء ما جرّبوا كل اللي يناسبهم</h3>
+      {who === undefined ? <Skeleton height={40} /> : (
+        <ul className="flex flex-col gap-2">
+          {rows.slice(0, 8).map((r) => {
+            const c = who?.[r.subject_ref];
+            return (
+              <li key={`${r.subject_ref}|${r.missing}`} className="flex items-center justify-between gap-3 pt-2 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
+                <span dir={c?.name ? undefined : 'ltr'} className="text-[13px]">{c ? (c.name || asLocal(c.phone)) : 'عميل'}</span>
+                <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
+                  عنده {names[r.has] || r.has} — ما جرّب {names[r.missing] || r.missing}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /** A TILE PER SERVICE, SIZED AND SHADED BY DEMAND — a bar list already said this once as a length;
  *  this says it again as an area, which reads at a glance the way a bar chart reads only after
  *  scanning every row. Both size and colour depth carry the SAME variable (share of demand) rather
