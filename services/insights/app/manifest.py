@@ -97,7 +97,7 @@ def build_manifest(
              "erasure_category": "subject"},
             # ── the owner's dashboard ─────────────────────────────────────────────────────
             {"path": "/api/v1/insights/dashboard", "tier": "user", "method": "GET"},
-            # «مو الآن» — cools one next-step rule so a different one leads for a while.
+            # «ليس الآن» — cools one next-step rule so a different one leads for a while.
             {"path": "/api/v1/insights/next-step/dismiss", "tier": "user", "method": "POST"},
             # THE OWNER'S OWN RECOMPUTE. Recomputing existed for support only, so a shop that
             # recorded visits this morning had to wait for the sweep to see them.

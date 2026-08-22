@@ -350,7 +350,7 @@ class NextStepDismissIn(BaseModel):
 @router.post("/next-step/dismiss", dependencies=[Depends(rate_limit)])
 async def dismiss_next_step(request: Request, body: NextStepDismissIn,
                             principal: Principal = Depends(_READ)) -> dict:
-    """«مو الآن» — this one rule stops leading the card for a while, starting now.
+    """«ليس الآن» — this one rule stops leading the card for a while, starting now.
 
     SAME CAPABILITY AS `set_digest` ABOVE, for the same reason: this changes nothing the shop
     OWNS, only which of several true sentences he is shown first — closer to a per-person

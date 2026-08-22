@@ -371,7 +371,7 @@ def pick(ctx: NextStepCtx, first_seen: dict[str, int], *, now: int) -> dict[str,
     `first_seen` IS THE ONLY STATE THIS FUNCTION READS, AND IT ANSWERS ONE QUESTION: how long has
     THIS rule been true for THIS tenant. It is never reset while a rule keeps matching (a fresh
     timestamp every render would mean a rule can never cool — see the module's own note on why a
-    once-set value is kept rather than refreshed), and a dismiss ("مو الآن") simply back-dates it
+    once-set value is kept rather than refreshed), and a dismiss ("ليس الآن") simply back-dates it
     past `COOLDOWN_SECONDS`, which is the same effect using the same field rather than a second one.
     """
     scored: list[tuple[int, NextStepRule, NextStepResult]] = []
@@ -417,7 +417,7 @@ def next_first_seen(current: dict[str, int], picked_ids: set[str], *, now: int) 
 
 
 def dismiss(current: dict[str, int], rule_id: str, *, now: int) -> dict[str, int]:
-    """"مو الآن" — back-date this one rule past its own cooldown window, immediately, without
+    """"ليس الآن" — back-date this one rule past its own cooldown window, immediately, without
     touching any other rule's timer."""
     out = dict(current)
     out[rule_id] = now - COOLDOWN_SECONDS

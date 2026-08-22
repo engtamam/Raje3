@@ -34,7 +34,7 @@ USER_ACTIONS: list[dict[str, Any]] = [    # ── the owner's own surface, move
         # only computes it EARLIER. Whoever may see the numbers may ask for today's.
     },
     {
-        "id": "insights.dismiss_next_step", "label": "مو الآن", "method": "POST",
+        "id": "insights.dismiss_next_step", "label": "ليس الآن", "method": "POST",
         "path": "/api/v1/insights/next-step/dismiss", "capability": "insights.read",
         "group": "المؤشرات",
         # SAME CAPABILITY AS READING (see insights.refresh above): this changes nothing the
