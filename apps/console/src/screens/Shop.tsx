@@ -88,11 +88,19 @@ interface Series {
   points?: { at: number; customers: number; value: number | null }[];
   learning?: boolean; first?: number; last?: number; delta?: number; months?: number;
 }
+/** One rule's answer, from `services/insights/app/core/next_step.py::pick()` — never invented
+ *  client-side; the console only ever renders what the registry already decided and ranked. */
+interface NextStepCard {
+  id: string; category: string; category_label: string; message: string;
+  cta_label?: string; cta_link?: string; tone?: 'info' | 'warning' | 'success';
+}
+interface NextStep { primary: NextStepCard; secondary?: NextStepCard | null }
 interface Dashboard {
   computing: boolean; empty_branch?: boolean; message?: string; values: Record<string, unknown>;
   audience?: { consented: number; message: string } | null; as_of_hours_ago?: number;
   entitlements?: string[]; stale?: boolean; visits?: number; not_enabled?: Blocked[];
   teaser?: { message?: string } | null;
+  next_step?: NextStep;
 }
 interface Pairs { learning?: boolean; have?: number; need?: number;
                  pairs?: { a: string; b: string; verdict: string; customers: number }[] }
@@ -261,6 +269,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const [bundles, setBundles] = useState<Bundle[] | null | undefined>(undefined);
   const [locked, setLocked] = useState<Record<string, string>>({});
   const [branches, setBranches] = useState<Branches | null | undefined>(undefined);
+  const [dismissingStep, setDismissingStep] = useState(false);
 
   useEffect(() => {
     const br = action(catalog, 'insights.branches');
@@ -333,6 +342,20 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     finally { setRefreshing(false); }
   };
 
+  // «مو الآن» — cools this one rule (services/insights/app/core/next_step.py's own cooldown),
+  // then re-reads the dashboard so a DIFFERENT rule leads immediately rather than on next visit.
+  const dismissNextStep = async (id: string) => {
+    const dismiss = action(catalog, 'insights.dismiss_next_step');
+    const d = action(catalog, 'insights.dashboard');
+    if (!dismiss || !d || dismissingStep) return;
+    setDismissingStep(true);
+    try {
+      await call(session, dismiss, { id });
+      setData(await call<Dashboard>(session, d, branch ? { branch_id: branch } : {}));
+    } catch { /* the card stays as it was — a failed dismiss is not worth a sentence here */ }
+    finally { setDismissingStep(false); }
+  };
+
   if (data.empty_branch) return <div className="p-4"><EmptyState title="فرعك لم يبدأ بعد" description={data.message || ''} /></div>;
 
   if (data.computing) {
@@ -347,7 +370,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
     );
   }
 
-  const somethingToDo = Boolean(data.audience) || Boolean(locked.bundles) || Boolean(bundles?.length);
   const returnRate = data.values['return_rate'];
   const series = data.values['retention_series'] as Series | undefined;
   const eff = data.values['returned_after_reminder'] as Effect | undefined;
@@ -434,59 +456,36 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           </div>
         ) : null}
 
-        {/* THE SCREEN NEVER GOES QUIET. It used to say nothing at all here the moment there was no
-            cross-sell opportunity and no locked upsell to show — and «nothing» reads as «we have
-            no idea what you should do next», which is worse than a plain, honest suggestion. This
-            always renders something, in priority order, ending in a real positive nudge (never a
-            fabricated one) rather than silence.
-
-            WEAK SERVICES ARE NO LONGER A BRANCH HERE — that used to duplicate `WeakServices`
-            below almost word for word (a count with no names here, the names with no sentence
-            there). The sentence now lives on that card directly, which already renders on its own
-            whenever there is anything to say — this section falls through to the positive nudge
-            instead of repeating it. */}
+        {/* واحدة تتصدّر دائماً، من محرك حقيقي (services/insights/app/core/next_step.py) — لا
+            سلسلة if/else يدوية. أي قاعدة تختارها المنصة تُعرض كما هي، بلا اختراع نص هنا. */}
         <div className="mb-3 break-inside-avoid">
           <Section title="الخطوة التالية">
-            {locked.bundles ? (
-              <LockedLine title="باقات مقترحة" text={locked.bundles} />
-            ) : bundles && bundles.length ? (
-              <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-                <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
-                {bundles.slice(0, 4).map((b, i) => (
-                  <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
-                    <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
-                    {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
-                    <div className="flex items-center justify-between gap-2">
-                      {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
-                      <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : data.audience ? (
-              <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.audience.message}</p>
-            ) : (
-              // THE HONEST GOOD-NEWS CASE — no invented "growth" or fake urgency, and never
-              // silence: `reward_loyal` is the same real campaign goal `win_back` is, just for the
-              // shop with nothing currently wrong.
-              <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)' }}>
-                <p className="text-[13px]" style={{ color: 'var(--sh-teal-deep)' }}>وضعك ثابت ولا شي يستحق تنبيهًا الآن — جرّب تكافئ عملاءك الدائمين.</p>
-                {action(catalog, 'campaigns.create') ? (
-                  <Link
-                    to="/messages?tab=campaigns&launch=reward_loyal"
-                    className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
-                    style={{ background: 'var(--sh-teal)', color: '#ffffff' }}
-                  >
-                    كافئهم
-                  </Link>
-                ) : null}
-              </div>
-            )}
+            {data.next_step ? (
+              <NextStepView step={data.next_step} onDismiss={dismissNextStep} busy={dismissingStep} />
+            ) : null}
           </Section>
         </div>
       </div>
 
-      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · فروعك · ما ينقصه بيانات" folded>
+      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · باقات مقترحة · فروعك · ما ينقصه بيانات" folded>
+        {locked.bundles ? (
+          <LockedLine title="باقات مقترحة" text={locked.bundles} />
+        ) : bundles && bundles.length ? (
+          <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+            <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
+            {bundles.slice(0, 4).map((b, i) => (
+              <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
+                <span className="text-[13px] font-semibold">{b.a_name} + {b.b_name}</span>
+                {b.why ? <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+                <div className="flex items-center justify-between gap-2">
+                  {b.action_label ? <span className="text-[11px]" style={{ color: 'var(--sh-violet-deep)' }}>{b.action_label}</span> : <span />}
+                  <span dir="ltr" className="text-[11px]" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{b.customers} فرصة</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         {data.not_enabled && data.not_enabled.length > 0 ? (
           <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="mb-1 text-[13px] font-semibold">أرقامٌ لسه ما نقدر نعرضها</h3>
@@ -537,9 +536,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         ) : null}
       </Section>
 
-      {data.teaser?.message ? (
-        <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>{data.teaser.message}</p>
-      ) : null}
+      {/* THE STANDALONE «teaser» PARAGRAPH THAT USED TO SIT HERE IS GONE — the same fact is one
+          of `next_step`'s own PLAN-category rules (`associations_teaser`) now, arbitrated against
+          everything else rather than always shown unconditionally at the bottom of the page. A
+          shop for whom it is genuinely the most relevant thing sees it at the top, in the one
+          card that leads; nothing here repeats it a second time lower down. */}
 
       {/* REASSURANCE, LAST ON PURPOSE — «آخر الزيارات» tells him nothing he needs to ACT on, only
           that the system is really recording what happens in his shop. Everything above this line
@@ -1117,6 +1118,57 @@ export function topEntitiesByDay(
     .sort((a, b) => b.sum - a.sum)
     .slice(0, limit)
     .map(({ label, days }) => ({ label, days }));
+}
+
+/** THE ONE CARD "الخطوة التالية" EVER RENDERS, plus a second quiet line when the engine found a
+ *  genuinely different thing worth mentioning. Neither line invents its own wording — both are
+ *  exactly what `next_step.pick()` returned; this component only chooses colours from `tone`. */
+function NextStepView({ step, onDismiss, busy }: {
+  step: NextStep;
+  onDismiss: (id: string) => void;
+  busy: boolean;
+}) {
+  const TONE_BG: Record<string, string> = {
+    warning: 'var(--sh-coral-soft)', success: 'var(--sh-teal-soft)', info: 'var(--sh-surface)',
+  };
+  const TONE_FG: Record<string, string> = {
+    warning: 'var(--sh-coral-deep)', success: 'var(--sh-teal-deep)', info: 'var(--sh-ink)',
+  };
+  const p = step.primary;
+  const bg = TONE_BG[p.tone ?? 'info'] ?? TONE_BG.info;
+  const fg = TONE_FG[p.tone ?? 'info'] ?? TONE_FG.info;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 rounded-2xl p-4" style={{ background: bg, boxShadow: cardShadow }}>
+        <p className="text-[13px]" style={{ color: fg }}>{p.message}</p>
+        {p.cta_label && p.cta_link ? (
+          <Link
+            to={p.cta_link}
+            className="shrink-0 rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
+            style={{ background: fg, color: '#ffffff' }}
+          >
+            {p.cta_label}
+          </Link>
+        ) : null}
+      </div>
+      {/* «مو الآن» — لا زر بارز، سطر خفيف: هذا ليس تجاهل معلومة، هو طلب يظهر شي آخر بدلها الآن،
+          وترجع هي بنفسها لو ظلّت صحيحة بعد فترة (تبريد، لا حذف — core/next_step.py). */}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onDismiss(p.id)}
+        className="self-start text-[11px] underline underline-offset-2"
+        style={{ color: 'var(--sh-ink-faint)' }}
+      >
+        مو الآن
+      </button>
+      {step.secondary ? (
+        <p className="px-1 text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          وأيضاً: {step.secondary.message}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function LockedLine({ title, text }: { title: string; text: string }) {

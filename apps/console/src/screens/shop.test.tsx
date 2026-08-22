@@ -31,6 +31,17 @@ vi.mock('../catalog', async (importOriginal) => {
           // its own retention rate. If the lock ever climbs back over the ring, this test is the
           // one that notices.
           entitlements: [],
+          // THE ENGINE'S OWN CATCH-ALL (services/insights/app/core/next_step.py's `all_is_well`)
+          // — a shop with nothing else matching always gets this, never silence.
+          next_step: {
+            primary: {
+              id: 'all_is_well', category: 'health', category_label: 'الصحة العامة',
+              message: 'وضعك ثابت ولا شي يستحق تنبيهاً الآن — جرّب تكافئ عملاءك الدائمين.',
+              cta_label: 'كافئهم', cta_link: '/messages?tab=campaigns&launch=reward_loyal',
+              tone: 'success',
+            },
+            secondary: null,
+          },
         };
       }
       return {};
