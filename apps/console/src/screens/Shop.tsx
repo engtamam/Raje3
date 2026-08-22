@@ -117,10 +117,19 @@ export function ShopScreen() {
   const { session, catalog, branch, setBranch } = useOutletContext<ShellContext>();
 
   return (
-    <div style={TOKENS} className="flex flex-col gap-3 p-4">
-      <TodayPulse session={session} catalog={catalog} />
-      <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
-      <RecentVisits session={session} catalog={catalog} />
+    // A SINGLE STACKED COLUMN WAS A PHONE LAYOUT, EVEN ON A DESKTOP WINDOW — nothing here ever
+    // used the width a wide browser actually offers. Past `lg` this becomes two real columns: the
+    // indicators (what this screen is FOR) stay the wide lead column; today's pulse and the recent
+    // list — both short, glanceable strips — share a narrower side column, the way a dashboard
+    // that was designed for a desktop, not stretched onto one, would place them.
+    <div style={TOKENS} className="flex flex-col gap-3 p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start lg:gap-4">
+      <div className="flex flex-col gap-3 lg:order-2">
+        <TodayPulse session={session} catalog={catalog} />
+        <RecentVisits session={session} catalog={catalog} />
+      </div>
+      <div className="lg:order-1">
+        <IndicatorsPanel session={session} catalog={catalog} branch={branch} onBranch={setBranch} />
+      </div>
     </div>
   );
 }
