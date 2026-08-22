@@ -221,8 +221,35 @@ export function BookingDialog(
   const servicesMissing = chosen.length === 0;
   const operatorMissing = !operatorId;
   const timeMissing = starts_at <= 0;
+
+  // WHO CAN ACTUALLY DO EVERY CHOSEN SERVICE, TOGETHER — one booking is one operator covering the
+  // whole basket (the server's own `_refuse_if_ineligible` refuses anybody else), so this is the
+  // real set the dropdown may offer, not a hint layered on top of it.
+  //
+  // A SERVICE WITH NO RESTRICTION (`eligible_staff_ids` empty/absent) EXCLUDES NOBODY from the
+  // intersection — that is what "every active operator" means. A shop that never restricted
+  // anything ends up with the exact same set it always had: every operator, unchanged.
+  const eligibleStaff = useMemo(() => {
+    const restricting = chosen
+      .map((id) => services.find((s) => s.id === id)?.eligible_staff_ids)
+      .filter((ids): ids is string[] => Boolean(ids && ids.length > 0));
+    if (restricting.length === 0) return staff;
+    const common = restricting.reduce((a, b) => a.filter((id) => b.includes(id)));
+    return staff.filter((o) => common.includes(o.id));
+  }, [chosen, services, staff]);
+  // A CHOSEN OPERATOR WHO NO LONGER QUALIFIES (a service was added after he was picked) IS DROPPED
+  // rather than silently kept — sending him would just be refused server-side a moment later, with
+  // a less specific sentence than this one.
+  const operatorIneligible = Boolean(operatorId) && !eligibleStaff.some((o) => o.id === operatorId);
+  // NO SINGLE OPERATOR COVERS THIS COMBINATION — a real state, not an error in the data. Splitting
+  // such a basket across several people ("موظف لكل خدمة معاً في نفس الحجز") is not something the
+  // server can do today (`create()` books the whole basket under one operator id) — so the honest
+  // move here is to say so plainly and let him book the services one at a time, rather than
+  // offering a control that promises a split booking nothing behind it can perform.
+  const noCommonOperator = chosen.length > 1 && eligibleStaff.length === 0;
   const ready = Boolean(!phoneMissing && !servicesMissing && !missingDuration
-    && !operatorMissing && !timeMissing && !depositAmountMissing);
+    && !operatorMissing && !operatorIneligible && !noCommonOperator && !timeMissing
+    && !depositAmountMissing);
 
   // "أقرب موعد" (§6.2) — the same availability derivation the grid's own conflict lock rests
   // on, from the moment a service and (optionally) an operator are chosen.
@@ -240,7 +267,7 @@ export function BookingDialog(
     // choosing a slot, not asking to find one) and is not this button's concern at all.
     const after = Math.floor(Date.now() / 1000);
     try {
-      const staffToTry = operatorId ? [operatorId] : staff.map((o) => o.id);
+      const staffToTry = operatorId ? [operatorId] : eligibleStaff.map((o) => o.id);
       // THE EARLIEST SLOT, AND WHO OWNS IT — a search across several staff must know which one
       // produced the winning answer, not merely the winning TIME.
       let best: { operatorId: string; startsAt: number } | null = null;
@@ -520,19 +547,28 @@ export function BookingDialog(
           </Field>
         ) : null}
 
-        {/* ── الموظف ───────────────────────────────────────────────────────────────────── */}
+        {/* ── الموظف ─────────────────────────────────────────────────────────────────────
+            القائمة نفسها بلا تغيير لمحل لم يخصّص شيئاً قط — تضيق فقط حين خدمة مختارة فعلاً
+            مقيّدة بموظفين بعينهم (§3 من خطة الحجوزات الذكية: بساطة افتراضية، عمق عند الحاجة). */}
         <Field label="الموظف" required htmlFor="bkg-op"
-              error={attempted && operatorMissing ? 'اختر موظفاً' : undefined}>
+              error={attempted && (operatorMissing || operatorIneligible) ? 'اختر موظفاً' : undefined}>
           <select
             id="bkg-op"
-            value={operatorId}
+            value={operatorIneligible ? '' : operatorId}
             onChange={(e) => setOperatorId(e.target.value)}
             className="h-11 w-full rounded-xl bg-surface-1 px-3 shadow-sm"
           >
             <option value="">اختر…</option>
-            {staff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            {eligibleStaff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
         </Field>
+
+        {/* لا موظف واحد يغطي كل الخدمات المختارة معاً — حالة حقيقية، لا خطأ في البيانات. */}
+        {noCommonOperator ? (
+          <p className="text-sm text-danger">
+            لا يوجد موظف واحد يقدر يسوّي كل هذه الخدمات معاً. احجزها في مواعيد منفصلة، أو أزل إحداها.
+          </p>
+        ) : null}
 
         {/* ── الوقت ───────────────────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3">

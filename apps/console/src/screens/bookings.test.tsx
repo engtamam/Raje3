@@ -15,6 +15,18 @@ const asked: { fn: string; args: unknown[] }[] = [];
 // TYPED AS THE REAL `Booking`, NOT `as const` — a literal-narrowed BOOKING made every override
 // below (a different id, a different service, `payment_status: 'deposit'`) a type error against
 // a fixture that was never meant to be the only shape a booking can take.
+
+// TODAY, AT A FIXED HOUR — never a bare constant epoch. The week-view grid places a card by
+// matching its REAL date against the columns of the week actually on screen (the day-view grid
+// does not — it trusts whatever `listBookings` answered for the one day asked, which is why a
+// stale fixed epoch stayed invisible in that failure for a long time). A constant epoch is
+// "today" for as long as the suite is run near when it was written and silently drifts into a
+// different week than the one shown by default — the exact bug this once broke on.
+function todayAt(hour: number): number {
+  const n = new Date();
+  return Math.floor(new Date(n.getFullYear(), n.getMonth(), n.getDate(), hour, 0, 0).getTime() / 1000);
+}
+
 const BOOKING: Booking = {
   id: 'bkg_1', branch_id: 'b1', operator_id: 'op1', customer_id: 'c1',
   service_ids: ['svc1'], starts_at: 1786860000, duration_minutes: 30,
@@ -255,8 +267,14 @@ describe('the grid', () => {
   it('shows the amount alone, not a truncated label, on a short card in week view', async () => {
     // Same short-card row, but in the narrow week-view column — the label used to truncate
     // mid-word ("عربون…" with the amount itself cut off).
+    //
+    // starts_at IS TODAY, NOT `BOOKING`'s OWN FIXED EPOCH — the week grid (unlike the day grid)
+    // places a card by matching its real date against the columns of whichever week is actually
+    // on screen (the default week, containing today), so a constant epoch works only for as long
+    // as it happens to fall in that week and then silently stops rendering here at all.
     bookingsOverride = [{
-      ...BOOKING, duration_minutes: 15, payment_status: 'deposit', deposit_amount_minor: 5000,
+      ...BOOKING, starts_at: todayAt(10),
+      duration_minutes: 15, payment_status: 'deposit', deposit_amount_minor: 5000,
     }];
     open({ branch: 'b1', branches: [{ id: 'b1' }] });
     await waitFor(() => screen.getByText('الأسبوع'));

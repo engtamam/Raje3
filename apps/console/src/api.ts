@@ -115,6 +115,10 @@ export interface CatalogueService {
   /** Halalas. 0 or absent means no catalogue price is set — the booking dialog's own total then
    *  has nothing to suggest, which is an honest state and not an error. */
   price_minor?: number;
+  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active operator — the booking dialog reads this
+   *  to decide whether one merged operator step still covers every chosen service, or whether it
+   *  has to expand into one row per service (docs/خطة-تنفيذ-الحجوزات.md's smart-scheduling plan). */
+  eligible_staff_ids?: string[];
 }
 
 /** An extra input the visit sheet renders — the full descriptor, so this app never carries its

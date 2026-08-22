@@ -26,6 +26,27 @@ import { loadMetaSdk, metaSdk, SIGNUP_EXTRAS, type SdkState } from '../meta';
 import type { Session } from '../session';
 import { digitsOnly } from '../digits';
 
+/**
+ * THE WHATSAPP GLYPH, INLINED — this card used to say «غير مربوط» / «اربط واتساب» with no mark
+ * on it at all, so a screenshot of it read as an unlabelled status card about nothing in
+ * particular; the one thing giving it away was the word itself, in text, twice. A single fixed
+ * brand-green circle (WhatsApp's own colour, never themed) is the fastest thing a reader
+ * recognises on this whole pane.
+ */
+function WhatsAppMark() {
+  return (
+    <span
+      className="grid size-9 shrink-0 place-items-center rounded-full"
+      style={{ background: '#25D366' }}
+      aria-hidden
+    >
+      <svg viewBox="0 0 24 24" width={18} height={18} fill="#fff">
+        <path d="M17.6 6.32A7.85 7.85 0 0 0 12.05 4c-4.34 0-7.87 3.53-7.87 7.87 0 1.4.37 2.76 1.07 3.95L4.1 20l4.3-1.12a7.9 7.9 0 0 0 3.65.91h.01c4.34 0 7.87-3.53 7.87-7.87 0-2.1-.82-4.08-2.33-5.6zM12.05 18.4h-.01a6.5 6.5 0 0 1-3.32-.91l-.24-.14-2.47.64.66-2.41-.16-.25a6.53 6.53 0 0 1-1-3.48c0-3.61 2.94-6.55 6.56-6.55a6.5 6.5 0 0 1 4.63 1.92 6.5 6.5 0 0 1 1.92 4.63c0 3.61-2.94 6.55-6.56 6.55zm3.6-4.9c-.2-.1-1.17-.58-1.35-.64-.18-.07-.31-.1-.44.1-.13.2-.5.64-.62.77-.11.13-.23.15-.42.05-.2-.1-.83-.31-1.58-.98-.58-.52-.98-1.16-1.09-1.36-.11-.2-.01-.31.09-.4.09-.09.2-.23.3-.35.1-.11.13-.2.2-.33.07-.13.03-.25-.02-.35-.05-.1-.44-1.06-.6-1.45-.16-.38-.32-.33-.44-.34-.11 0-.25-.01-.38-.01-.13 0-.35.05-.53.25-.18.2-.7.68-.7 1.66 0 .98.72 1.93.82 2.06.1.13 1.4 2.14 3.4 3 .48.2.85.33 1.14.42.48.15.92.13 1.27.08.39-.06 1.17-.48 1.34-.94.17-.46.17-.86.12-.94-.05-.08-.18-.13-.38-.23z" />
+      </svg>
+    </span>
+  );
+}
+
 interface ConnectState {
   state: string;
   message: string;
@@ -141,18 +162,26 @@ export function Connect({
 
   return (
     <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-4 shadow-sm">
-      {/* ONE STATUS VOCABULARY, NOT TWO — this used to say the same fact the top summary card
-          already states, in raw `text-warning`/`text-success` Tailwind classes instead of the
-          Badge tones every other status in the console uses. Same colour, same shape, so an
-          owner reading this card and the one above it recognises them as the same kind of fact
-          rather than two different systems that happen to agree. */}
-      {!isLoading(state) && !hasFailed(state) ? (
-        <div>
-          <Badge tone={waiting ? 'warning' : connected ? 'success' : 'neutral'}>
+      {/* THE MARK AND THE NAME, FIRST — a card that only ever said «مربوط» / «اربط» in plain text
+          read as belonging to nothing recognisable on a screenshot; the brand mark and the actual
+          product name it connects to are what make this card legible at a glance. */}
+      <div className="flex items-center gap-3">
+        <WhatsAppMark />
+        <span className="flex flex-col">
+          <span className="font-medium">واتساب أعمالك</span>
+          <span className="text-xs text-text-secondary">قناة التذكيرات والحملات لعملائك</span>
+        </span>
+        {/* ONE STATUS VOCABULARY, NOT TWO — this used to say the same fact the top summary card
+            already states, in raw `text-warning`/`text-success` Tailwind classes instead of the
+            Badge tones every other status in the console uses. Same colour, same shape, so an
+            owner reading this card and the one above it recognises them as the same kind of fact
+            rather than two different systems that happen to agree. */}
+        {!isLoading(state) && !hasFailed(state) ? (
+          <Badge tone={waiting ? 'warning' : connected ? 'success' : 'neutral'} className="ms-auto">
             {waiting ? 'بانتظارنا' : connected ? 'يعمل' : 'غير مربوط'}
           </Badge>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       {/* AMBER, NOT GREEN, WHILE IT WAITS. The colour is read before the words are, and green over
           «الإرسال لم يُفتح بعد» tells him the opposite of the sentence under it. */}
       <p className={waiting ? 'text-warning' : connected ? 'text-success' : 'text-text-primary'}>
@@ -262,12 +291,22 @@ export function Connect({
           >
             {busy ? 'جارٍ الربط…'
               : sdk === 'loading' ? 'نُحضّر نافذة واتساب…'
-              : sdk === 'unconfigured' ? 'الربط غير مُفعَّل بعد'
+              : sdk === 'unconfigured' ? 'تعذّر فتح الربط الآن'
               : 'اربط واتساب'}
           </Button>
-          <p className="text-sm text-text-secondary">
-            دقائق، ولا يشترط توثيق نشاطك التجاري للبدء.
-          </p>
+          {/* THE REASON, NOT JUST THE REFUSAL — a disabled button can never be clicked to reach
+              the sentence that used to live only inside `onClick`. «الربط غير مُفعَّل بعد» told
+              him nothing he could act on: not ours or his to fix, not temporary or permanent. This
+              is the exact sentence that was stranded there, said where he can actually read it. */}
+          {sdk === 'unconfigured' ? (
+            <p className="text-sm text-danger">
+              عُطلٌ من عندنا، لا في حسابك — تواصل معنا ونكمل معك الربط.
+            </p>
+          ) : (
+            <p className="text-sm text-text-secondary">
+              دقائق، ولا يشترط توثيق نشاطك التجاري للبدء.
+            </p>
+          )}
         </div>
       )}
     </div>

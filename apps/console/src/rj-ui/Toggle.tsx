@@ -10,17 +10,24 @@ export interface RjToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  /** VISIBLE text beside the switch. Only pass this when nothing else on the row already says
+   *  what the switch does — a row that already carries its own title/description should use
+   *  `ariaLabel` instead, or the switch ends up naming itself twice on screen. */
   label?: string;
+  /** The accessible name, said only to a screen reader — for a switch that sits beside a title
+   *  and description already visible on the row, so it is not silently nameless to `role="switch"`
+   *  without also printing that title a second time next to it. */
+  ariaLabel?: string;
   testId?: string;
 }
 
-export function Toggle({ checked, onChange, disabled, label, testId }: RjToggleProps) {
+export function Toggle({ checked, onChange, disabled, label, ariaLabel, testId }: RjToggleProps) {
   const sw = (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={label ?? ariaLabel}
       disabled={disabled}
       data-state={checked ? 'checked' : 'unchecked'}
       onClick={() => onChange(!checked)}

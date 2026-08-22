@@ -38,7 +38,14 @@ interface Service {
   // writable anywhere in the console — a service could only ever get a real duration by seed.
   duration_minutes?: number;
   catchall?: boolean; active?: boolean;
+  /** WHO CAN ACTUALLY DO IT. Absent/empty = every active operator (the zero-config default — a
+   *  single-operator shop, or one where everybody does everything, never touches this). A real
+   *  list narrows it to those specific people. */
+  eligible_staff_ids?: string[];
 }
+
+/** Just enough of an operator to list him as a candidate — same shape Team.tsx reads. */
+interface StaffMember { id: string; name: string; active?: boolean }
 
 /** One service's entry in the tree, and whether it is its own or inherited. */
 interface ServiceSetting { interval_days?: number; lead_days?: number; follow_up_days?: number; enabled?: boolean }
@@ -144,6 +151,10 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
    * the table, not to the width of one column.
    */
   const [asked, setAsked] = useState<string | null>(null);
+  // WHO EXISTS AT ALL — read only so the eligibility row can be shown/hidden and its checkboxes
+  // labelled. A shop with one operator (or none of this screen's role) never reads this at all
+  // in any way that shows: the row below is hidden whenever there is one or fewer of them.
+  const [staff, setStaff] = useState<StaffMember[] | null | undefined>(undefined);
 
   const load = () => {
     // THE OWNER'S LIST WHEN HE HAS IT, and it includes what he has retired. The field grid is
@@ -180,6 +191,15 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
         // A FAILED READ LEAVES THE SWITCH AS IT WAS. Rendering it off would tell an owner his
         // confirmations are stopped because a request timed out.
         .catch(() => {});
+    }
+
+    const op = action(catalog, 'operations.list_operators');
+    if (op) {
+      call<{ operators: StaffMember[] }>(session, op)
+        .then((x) => setStaff(x.operators ?? []))
+        .catch(() => setStaff(null));
+    } else {
+      setStaff(null);
     }
 
     const sg = action(catalog, 'reminders.suggest_group');
@@ -389,6 +409,24 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Toggle one operator's eligibility for one service.
+   *
+   * NEVER STORES "EVERYONE, NAMED" — the moment the resulting set covers every active operator, it
+   * is written back as `[]` rather than the full list. `[]` and "everyone by name" read the same
+   * today, but only `[]` still means that the day a new operator is hired — a named list would
+   * silently exclude him from a service nobody meant to restrict.
+   */
+  const toggleEligible = async (svc: Service, operatorId: string) => {
+    const activeIds = (staff ?? []).filter((s) => s.active !== false).map((s) => s.id);
+    const current = svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
+      ? new Set(svc.eligible_staff_ids)
+      : new Set(activeIds);   // «كل الموظفين» — لا قيد بعد
+    if (current.has(operatorId)) current.delete(operatorId); else current.add(operatorId);
+    const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
+    await patchService(svc.id, { eligible_staff_ids });
   };
 
   /** Take a service out of its group; it goes back to following the general setting. */
@@ -750,7 +788,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                 </span>
               </span>
               <Toggle
-                label="تأكيد الزيارة"
+                ariaLabel="تأكيد الزيارة"
                 disabled={saving}
                 // PRESENCE, NOT TRUTH — the server answers with the reason's own state, and
                 // «لم يختر» is «نرسل». Rendering undefined as off would show a switch that
@@ -1202,6 +1240,36 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     </Field>
                   ) : null}
                 </div>
+              </td>
+            </tr>
+          ) : null}
+
+          {/* «من يقدر يسوّيها» — يظهر فقط حين يوجد أكثر من موظف نشط واحد؛ محل بموظف واحد لا يرى
+              هذا الصف إطلاقاً لأنه لا معنى له (§3 من الخطة: البساطة الافتراضية). صف كامل العرض
+              لأنه يحمل قائمة أسماء، لا رقماً يناسب عموداً. */}
+          {editing && (staff ?? []).filter((s) => s.active !== false).length > 1
+              && action(catalog, 'operations.update_service') ? (
+            <tr className="border-b border-border-subtle bg-surface-2/40">
+              <td colSpan={11} className="px-3 py-2">
+                <fieldset className="flex flex-wrap items-center gap-3">
+                  <legend className="mb-1 w-full text-xs text-text-secondary">
+                    من يقدر يسوّيها — بلا تحديد يعني كل موظف
+                  </legend>
+                  {(staff ?? []).filter((s) => s.active !== false).map((s) => {
+                    const restricted = Boolean(svc.eligible_staff_ids?.length);
+                    const checked = restricted
+                      ? svc.eligible_staff_ids!.includes(s.id)
+                      : true;
+                    return (
+                      <label key={s.id} className="flex items-center gap-1.5 text-sm">
+                        <input type="checkbox" className="size-5" checked={checked}
+                              disabled={saving}
+                              onChange={() => toggleEligible(svc, s.id)} />
+                        <span>{s.name}</span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
               </td>
             </tr>
           ) : null}
