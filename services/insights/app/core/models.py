@@ -35,6 +35,8 @@ SNAPSHOTS = "insight_snapshots"
 SEQUENCES = "insight_sequences"
 PAIRS = "insight_pairs"
 SUBSCRIPTIONS = "insight_digest_subs"
+# «الخطوة التالية» per-tenant cooldown state — one row, `{rule_id: first_seen_at}` (core/next_step.py).
+NEXT_STEP_STATE = "insight_next_step_state"
 
 def _now() -> int:
     return int(time.time())

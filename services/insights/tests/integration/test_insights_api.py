@@ -507,3 +507,38 @@ def test_the_dashboard_says_whether_the_history_behind_it_was_complete(client, o
         "the dashboard does not say whether its history was complete — a shop past the visit cap "
         "is shown a windowed number with nothing to distinguish it from a whole one")
     assert got["partial"] is False
+
+
+# ── الخطوة التالية — one card through the real route, and «مو الآن» through its own ─────────────
+def test_the_dashboard_always_carries_a_next_step(client, owner):
+    """The catch-all guarantees this even for a shop with nothing wrong — see core/next_step.py's
+    own «never silent» note."""
+    _seed(client, visits(20))
+    got = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert got["next_step"]["primary"]["id"]
+    assert got["next_step"]["primary"]["message"]
+
+
+def test_dismissing_a_rule_changes_the_next_card_shown(client, owner):
+    """No visits at all this week -> «visits_zero» leads. Dismissing it («مو الآن») must not just
+    record a click — the very next read has to show a different rule."""
+    _seed(client, visits(0))
+    first = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    rule_id = first["next_step"]["primary"]["id"]
+
+    r = client.post("/api/v1/insights/next-step/dismiss", json={"id": rule_id}, headers=owner)
+    assert r.status_code == 200, r.text
+
+    second = client.get("/api/v1/insights/dashboard", headers=owner).json()
+    assert second["next_step"]["primary"]["id"] != rule_id
+
+
+def test_dismiss_needs_a_real_id(client, owner):
+    r = client.post("/api/v1/insights/next-step/dismiss", json={"id": ""}, headers=owner)
+    assert r.status_code == 422
+
+
+def test_dismiss_is_refused_with_no_capability(client):
+    tok = _auth("reports.read")
+    r = client.post("/api/v1/insights/next-step/dismiss", json={"id": "visits_zero"}, headers=tok)
+    assert r.status_code == 403
