@@ -329,7 +329,12 @@ def build_container(settings: Settings) -> Container:
         # erasure then closes as COMPLETED while a whole service's copy is untouched. The failure
         # used to be a string in a response body nobody reads.
         telemetry=container.telemetry,
-        require_otp=settings.SIGNUP_REQUIRE_OTP)
+        require_otp=settings.SIGNUP_REQUIRE_OTP,
+        # HIS FREE MONTH, OPENED THE MOMENT HE SIGNS UP — see signup.py's own note on
+        # `_start_base_trial`. `None` on a deployment with billing_plans left at its null driver
+        # (tests, a local run) — the same optional trade the peers just above it already make.
+        plans=container.billing_plans if getattr(container.billing_plans, "driver", "") == "http"
+        else None)
     # WHO CAN ANSWER FOR CONSENT AND FOR WHAT WENT OUT. None when reminders is not configured,
     # and the evidence file says so rather than showing an empty section (core/evidence.py).
     from app.adapters.evidence_peer import build_evidence_peer

@@ -139,6 +139,75 @@ async def test_a_bad_affiliate_id_is_reported_but_does_not_cost_the_owner_his_sh
     assert "affiliate" in out["affiliate_stamp_error"].lower()
 
 
+# ── the free trial, opened at signup, not left for the owner to find and press himself ─────────
+class FakePlans:
+    def __init__(self, *, base_id="plan_base",
+                subscribe_answer=(201, {"status": "trialing", "trial_end": 1800000000.0})):
+        self.base_id = base_id
+        self.subscribe_answer = subscribe_answer
+        self.subscribe_calls: list[tuple[str, str]] = []
+
+    async def base_plan_id(self) -> str:
+        return self.base_id
+
+    async def subscribe(self, *, tenant: str, plan_id: str, interval: str = "month",
+                        payment_token: str = ""):
+        self.subscribe_calls.append((tenant, plan_id))
+        return self.subscribe_answer
+
+
+def build_with_plans(http, plans, **kw):
+    svc = build(http, **kw)
+    svc._plans = plans          # tests reach the private field directly, same as FakeStore above
+    return svc
+
+
+@pytest.mark.anyio
+async def test_signup_opens_the_base_trial_on_the_new_tenant():
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans()
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["trial_started"] is True
+    assert out["trial_error"] == ""
+    assert out["trial_end"] == 1800000000
+    assert plans.subscribe_calls == [("t-1", "plan_base")]
+
+
+@pytest.mark.anyio
+async def test_no_plans_wired_means_no_trial_and_no_error():
+    """A deployment without billing_plans (tests, a local run) must not fail every signup."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    out = await build(http).open_shop(NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["trial_started"] is False
+    assert out["trial_error"] == ""
+
+
+@pytest.mark.anyio
+async def test_a_billing_outage_does_not_cost_the_owner_his_shop():
+    """Same trade as the data map and the two stamps above: the account is real and repairable
+    from «متجر التطبيقات» either way."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans(subscribe_answer=(503, {"detail": "unreachable"}))
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["tenant"] == "t-1"                     # the shop still opened
+    assert out["trial_started"] is False
+    assert "unreachable" in out["trial_error"]
+
+
+@pytest.mark.anyio
+async def test_an_ambiguous_catalogue_skips_the_trial_rather_than_guessing():
+    """No single, clear base plan (`base_plan_id` empty) — never the first row found, which a
+    newly-opened shop has no way to notice was the wrong guess."""
+    http = FakeHttp(list(_HAPPY_PATH))
+    plans = FakePlans(base_id="")
+    out = await build_with_plans(http, plans).open_shop(
+        NewShop("0501234567", "hunter2hunter2", "بنشر النور"))
+    assert out["trial_started"] is False
+    assert plans.subscribe_calls == []
+
+
 @pytest.mark.anyio
 async def test_the_shop_owners_own_phone_rides_along_for_the_self_referral_check():
     """affiliate-service's own core/referrals.py refuses a marketer referring his own

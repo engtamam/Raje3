@@ -188,7 +188,7 @@ class SignupService:
                  partners=None,
                  owner_role: str = "owner",
                  default_cc: str = "966", otp_deliverable: bool = False,
-                 require_otp: bool = True, telemetry=None) -> None:
+                 require_otp: bool = True, telemetry=None, plans=None) -> None:
         self._store = store
         self._http = http
         self._identity = identity_url.rstrip("/")
@@ -217,6 +217,10 @@ class SignupService:
         # returned as a string in a response body nobody reads, and the consequence is a PDPL
         # erasure that reports COMPLETED while a whole service's copy is never touched.
         self._telemetry = telemetry
+        # THE FREE MONTH, STARTED HERE — not left for the owner to discover and press for himself.
+        # `None`/absent on a deployment that never wired billing_plans (tests, a local run) — same
+        # optional trade as `_loyalty`/`_affiliate` above.
+        self._plans = plans
         self._claims = CL.Claims(store)
         self._owner_role = owner_role
         self._cc = default_cc
@@ -350,6 +354,18 @@ class SignupService:
         # place on them, which no later purchase can reconstruct.
         await self._seed_main_branch(tenant, shop_name=shop.shop_name)
 
+        # HIS FREE MONTH, STARTED NOW — not left for him to find «متجر التطبيقات» and press
+        # «فعّل الأساس» himself first. Every write in the product (`subscribed_write`) refuses
+        # until the base subscription (or its trial) is live, and until this call a fresh signup
+        # held NEITHER — so a shop that had just registered was told «انتهى اشتراكك» (the exact
+        # sentence for a LAPSED month) on the very first thing he tried to do. Tamam, on seeing it:
+        # «وهو عنده فترة تجربة شهر كامل».
+        #
+        # NEVER UNDONE ON FAILURE, same trade as the data map and the two stamps below: an account
+        # that works and is missing a trial is repairable from «متجر التطبيقات» in one tap; deleting
+        # a working shop over one unreachable peer is the worse trade by a wide margin.
+        trial_started, trial_error, trial_end = await self._start_base_trial(tenant)
+
         # HIS DATA MAP, AND PDPL IS THE REASON IT IS HERE AND NOT LATER.
         #
         # `DsarService.dispatch` refuses with NO_DATA_TARGETS_REGISTERED on an empty map, so until
@@ -448,7 +464,14 @@ class SignupService:
 
         return {"tenant": tenant, "phone": phone, "services": seeded,
                 "stamp_error": stamp_error, "data_map_error": map_error,
-                "affiliate_stamp_error": affiliate_error}
+                "affiliate_stamp_error": affiliate_error,
+                # THE CONSOLE'S OWN CUE FOR THE WELCOME SCREEN — true only when a trial was
+                # actually opened just now, never assumed from a signup merely having succeeded.
+                "trial_started": trial_started,
+                "trial_error": trial_error,
+                # WHEN, NEVER "HOW LONG" — see `_start_base_trial`'s own note. 0 means either no
+                # trial was opened or billing did not answer one; the console shows nothing then.
+                "trial_end": int(trial_end)}
 
     async def reassert_data_map(self, tenant: str) -> str:
         """Re-register this tenant's data map, and say what could not be registered.
@@ -463,6 +486,47 @@ class SignupService:
         the map is whole — the caller refuses on anything else.
         """
         return await self._register_data_map(tenant)
+
+    async def _start_base_trial(self, tenant: str) -> tuple[bool, str, float]:
+        """Open the base subscription's trial for a shop that just opened, never raises.
+
+        `(False, "", 0.0)` ON A DEPLOYMENT WITHOUT `billing_plans` WIRED — tests, a local run —
+        and that is deliberately NOT an error: `trial_started` in the response and the console's
+        own welcome screen both read it as "nothing to show," not as a failure needing an audit
+        row.
+
+        ONE PLAN, FOUND BY WHAT IT IS, NEVER BY A CONFIGURED ID. A second config knob naming a
+        specific plan id would be a second copy of the price list, stale the day billing's own
+        catalogue changes — `HttpPlans.base_plan_id()` reads the one LISTED plan carrying the
+        message meter, the exact same rule `console`'s own «متجر التطبيقات» uses to tell a base
+        card from an app card (Plans.tsx's `kindOf`).
+
+        NO `payment_token` — the trial owes nothing, and asking a person who has not typed a card
+        number yet for one would refuse a signup that never should have been asked.
+
+        `trial_end` TRAVELS BACK RAW, NEVER A HARDCODED «شهر» IN EITHER SERVICE. How long a trial
+        runs is billing's own decision (a plan's `trial_days`, editable without a deploy) — the
+        marketing page's own rule (marketing/index.html) is that no duration is ever promised in
+        text that outlives the setting behind it. The welcome screen reads the real date instead.
+        """
+        if self._plans is None:
+            return False, "", 0.0
+        try:
+            plan_id = await self._plans.base_plan_id()
+            if not plan_id:
+                return False, "لم يُعثر على باقة أساسية واحدة واضحة.", 0.0
+            status, out = await self._plans.subscribe(tenant=tenant, plan_id=plan_id)
+        except Exception as exc:                                              # noqa: BLE001
+            return False, str(exc)[:200], 0.0
+        if status not in (200, 201):
+            error = str((out or {}).get("detail") or f"status {status}")[:200]
+            if self._telemetry is not None:
+                try:
+                    self._telemetry.event("signup_trial_failed", tenant=tenant, reason=error)
+                except Exception:                                              # noqa: BLE001
+                    pass    # a telemetry failure must not fail a signup
+            return False, error, 0.0
+        return True, "", float((out or {}).get("trial_end") or 0.0)
 
     async def _register_data_map(self, tenant: str) -> str:
         """Tell compliance which services hold this tenant's data. Never raises.

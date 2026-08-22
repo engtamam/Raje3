@@ -93,3 +93,36 @@ def test_the_word_the_price_list_mandates_is_a_grant_not_a_dropped_key() -> None
     # And 0 stays a DECLARED DENY: the base carries every app at 0 so no screen has to tell
     # «not bought» from «never heard of».
     assert granted_keys({"feature.loyalty": {"limit": 0}}) == set()
+
+
+# ── base_plan_id — signup's own way of finding "the one base plan" ─────────────────────────────
+def _plans_client(response, status=200):
+    from app.core.subscribe import HttpPlans
+
+    client = HttpPlans(billing_url="http://billing:8000", plans_path="/internal/billing/plans",
+                       subscribe_path="/internal/billing/subscriptions",
+                       subscriptions_path="/internal/billing/subscriptions", token="t")
+    client._request = lambda url, body=None: (status, response)
+    return client
+
+
+def test_base_plan_id_finds_the_one_plan_carrying_the_message_meter():
+    client = _plans_client({"plans": [
+        {"id": "plan_app_loyalty", "limits": {"feature.loyalty": {"limit": 1}}},
+        {"id": "plan_base", "limits": {"messages.monthly": {"limit": 2000}}},
+    ]})
+    assert run(client.base_plan_id()) == "plan_base"
+
+
+def test_base_plan_id_is_empty_when_none_or_more_than_one_carries_the_meter():
+    """A guess a newly-opened shop cannot fix is worse than skipping the step."""
+    assert run(_plans_client({"plans": [{"id": "a", "limits": {}}]}).base_plan_id()) == ""
+    two_bases = {"plans": [
+        {"id": "a", "limits": {"messages.monthly": {"limit": 1000}}},
+        {"id": "b", "limits": {"messages.monthly": {"limit": 5000}}},
+    ]}
+    assert run(_plans_client(two_bases).base_plan_id()) == ""
+
+
+def test_base_plan_id_is_empty_when_the_catalogue_cannot_be_read():
+    assert run(_plans_client({}, status=503).base_plan_id()) == ""

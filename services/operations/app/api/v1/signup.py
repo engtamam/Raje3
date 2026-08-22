@@ -100,6 +100,10 @@ async def open_shop(request: Request, body: OpenShopIn) -> Any:
     # learns nothing actionable; the fix is that somebody who CAN act, does.
     out.pop("stamp_error", None)
     out.pop("affiliate_stamp_error", None)
+    # SAME RULE AS THE TWO ABOVE — `trial_error` is telemetry's own diagnostic (a raw HTTP status
+    # or exception text), never a sentence an owner could act on; `trial_started`/`trial_end`
+    # alone are what the console's welcome screen needs.
+    out.pop("trial_error", None)
     return {"ok": True, **out}
 
 
