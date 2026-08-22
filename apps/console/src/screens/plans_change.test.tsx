@@ -59,8 +59,9 @@ describe('«بدّل الباقة»', () => {
   it('marks only the plan actually owned, and offers «بدّل إلى هذه» on the other tier', async () => {
     open();
     await screen.findAllByText('الأساس الموسّع');
-    // The owned tier shows the settled badge, not a switch button.
-    expect(screen.getByText('اشتراكك')).toBeTruthy();
+    // The owned tier shows its honest status badge (now carrying what the deleted summary
+    // card used to say, Tamam 2026-08-22), not a switch button.
+    expect(screen.getByText('فعّال')).toBeTruthy();
     // The OTHER tier gets exactly one switch offer — not a second «فعّل الأساس».
     expect(screen.getAllByRole('button', { name: 'بدّل إلى هذه' })).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'فعّل الأساس' })).toBeNull();
