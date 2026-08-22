@@ -597,7 +597,7 @@ export interface Booking {
   series_id: string | null;
   series_seq: number | null;
   visit_id: string | null;
-  /** "بدون عربون بعربون او مدفوع" (Tamam, 2026-08-19) — one field, three states, never inferred
+  /** "بدون عربون بعربون او مدفوع" — one field, three states, never inferred
    *  from `status`: an attended booking can still owe money, and a booked one can already be
    *  paid in full days ahead. */
   payment_status: 'none' | 'deposit' | 'paid';
@@ -607,10 +607,10 @@ export interface Booking {
   /** THIS booking's own price, when it was negotiated away from the catalogue's — never a write
    *  to the service itself. `null` means "whatever the catalogue says". */
   price_override_minor: number | null;
-  /** A reward he asked for AT BOOKING TIME, spent only at attend() — never here (Tamam,
-   *  2026-08-19: "نية استبدال, لا استبدال فوري"). Still set on an ATTENDED booking means the
-   *  spend failed or needed an approval nobody automated could give — redeem him by hand from
-   *  the visit screen. `null` means either "never asked" or "already spent". */
+  /** A reward he asked for AT BOOKING TIME, spent only at attend() — never here: the intent to
+   *  redeem is recorded up front, but the redemption itself is not immediate. Still set on an
+   *  ATTENDED booking means the spend failed or needed an approval nobody automated could give —
+   *  redeem him by hand from the visit screen. `null` means either "never asked" or "already spent". */
   intended_reward_id: string | null;
   note: string;
   reason_no_show: string | null;
@@ -631,7 +631,7 @@ export interface DayHours {
 }
 export type WeeklyHours = Record<string, DayHours>;
 
-/** The shop's own weekly policy — ONE per tenant, every branch shares it (Tamam, 2026-08-19).
+/** The shop's own weekly policy — ONE per tenant, every branch shares it.
  *  Unconfigured reads as 08:00-22:00 every day, the same honest default the server always used. */
 export function workingHours(session: Session): Promise<{ weekly: WeeklyHours }> {
   return call(session, '/api/v1/bookings/working-hours');
@@ -756,7 +756,7 @@ export interface NoShowRisk {
   considered: number;
   no_shows: number;
   risky: boolean;
-  /** The shop's own configured cutoff (config, not a constant — Tamam, 2026-08-19), so the
+  /** The shop's own configured cutoff (config, not a constant), so the
    *  screen can say the actual percentage rather than a bare "خطر" nobody can act on. */
   threshold_percent: number;
 }

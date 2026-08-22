@@ -93,7 +93,7 @@ export function BookingDialog(
   const [note, setNote] = useState(editing?.note ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // A PRESS THAT TEACHES, NOT ONE THAT REFUSES SILENTLY (Tamam, 2026-08-19) — «احجز» is always
+  // A PRESS THAT TEACHES, NOT ONE THAT REFUSES SILENTLY — «احجز» is always
   // clickable; a press while something required is still empty marks EXACTLY that field red,
   // right under it, instead of sitting disabled with no way to tell why. Stays false until the
   // first press, so an empty fresh dialog never opens already covered in red ink.
@@ -126,7 +126,7 @@ export function BookingDialog(
     return () => { stale = true; };
   }, [customer, session]);
 
-  // THE SAME GRID VISIT.TSX DRAWS, NOT A PLAINER ONE (Tamam, 2026-08-19) — «ServiceGrid» always
+  // THE SAME GRID VISIT.TSX DRAWS, NOT A PLAINER ONE — «ServiceGrid» always
   // took `offered`/`redeemable`/`points`, and this dialog never passed them, so a customer with a
   // live offer or a redeemable reward saw neither of those things while booking his OWN next visit
   // — only while being checked in for the one he was already standing at the counter for. Same
@@ -156,7 +156,7 @@ export function BookingDialog(
     return () => { stale = true; };
   }, [customer, session]);
 
-  // FIXED FROM HERE, NOT SENT AWAY (Tamam, 2026-08-19) — "اضبطها من «خدماتي ومنتجاتي»" sent him
+  // FIXED FROM HERE, NOT SENT AWAY — "اضبطها من «خدماتي ومنتجاتي»" sent him
   // to a whole other screen to answer a question this one already had open. A patch made from
   // here updates the SAME `operations.update_service` row Services.tsx's own edit row writes; this
   // overlay is only local memory of what was just saved, so the dialog reflects it without a
@@ -174,7 +174,7 @@ export function BookingDialog(
   const missingIds = chosen.filter((id) => !durationOf(id));
   const missingDuration = missingIds.length > 0;
 
-  // THE BOOKING'S OWN PRICE, NOT THE CATALOGUE'S (Tamam, 2026-08-19) — some appointments are
+  // THE BOOKING'S OWN PRICE, NOT THE CATALOGUE'S — some appointments are
   // negotiated at the counter, and that number must never leak onto every future booking of the
   // same service. Suggested from the catalogue's own sum, freely editable, saved back to the
   // catalogue ONLY when he explicitly ticks the box below — two different acts, never implied by
@@ -187,7 +187,7 @@ export function BookingDialog(
   const [priceTouched, setPriceTouched] = useState(false);
   const [saveToCatalog, setSaveToCatalog] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(editing?.payment_status ?? 'none');
-  // "عربون اجباري ولكن مدفوع السعر غير اجباري" — required only for «عربون»; «مدفوع» reads the
+  // required only for «عربون»; «مدفوع» reads the
   // price field above instead, so it needs no number of its own.
   const [depositAmountText, setDepositAmountText] = useState(
     editing?.deposit_amount_minor ? riyals(editing.deposit_amount_minor) : '',
@@ -195,7 +195,7 @@ export function BookingDialog(
   const depositAmountMinor = depositAmountText.trim() ? halalas(depositAmountText) : null;
   const depositAmountMissing = paymentStatus === 'deposit'
     && (depositAmountMinor === null || depositAmountMinor <= 0);
-  // نيّة استبدال، لا استبدال فوري (Tamam, 2026-08-19) — يُختار هنا، يُصرف فعلياً فقط عند
+  // نيّة استبدال، لا استبدال فوري — يُختار هنا، يُصرف فعلياً فقط عند
   // «حضر» (attend()), أبداً عند الحجز نفسه: نقاطه ما تُخصم لزيارة لسه ما صارت.
   const [intendedRewardId, setIntendedRewardId] = useState(editing?.intended_reward_id ?? '');
   const priceMinor = priceText.trim() ? halalas(priceText) : (catalogPriceMinor || null);
@@ -230,7 +230,7 @@ export function BookingDialog(
     if (chosen.length === 0 || missingDuration || finding) return;
     setFinding(true);
     setError('');
-    // NEVER BEFORE NOW (Tamam, 2026-08-19) — a day/time already typed can sit in the past (the
+    // NEVER BEFORE NOW — a day/time already typed can sit in the past (the
     // date default is today, and an empty time field reads as 00:00 the moment ANY digit lands
     // in it before the rest is typed), and searching from there could hand back a slot that has
     // already passed. `now` always wins over an earlier `starts_at`; a LATER one he already
@@ -387,8 +387,8 @@ export function BookingDialog(
             <p className="text-sm text-success">✓ عميل معروف{customer.name ? ` — ${customer.name}` : ''}</p>
             {/* A NUMBER, NEVER A VERDICT (§2.6) — the staff member reads it and decides: confirm
                 twice, ask for a recorded deposit, or book as usual. Nothing here refuses anything.
-                MADE TO BE UNDERSTOOD, NOT JUST NOTICED (Tamam, 2026-08-19: "الشاشة تكون واضحة...
-                مو بس شارة ما يعرف معناها") — the sentence names the actual percentage against
+                MADE TO BE UNDERSTOOD, NOT JUST NOTICED — the screen must be clear, not just a
+                badge whose meaning is unknown — the sentence names the actual percentage against
                 the shop's own configured cutoff, and offers the one action §5.3 names for this
                 exact number: "قرار طلب العربون ممن تكرّر منه", one tap away instead of a
                 separate trip to the payment section below. */}
@@ -449,7 +449,7 @@ export function BookingDialog(
           ) : null}
         </div>
 
-        {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً (Tamam, 2026-08-19) ───────────── */}
+        {/* ── السعر — لهذا الحجز وحده، ما لم يُحفظ صراحةً ───────────── */}
         {/* لا PATCH يكتب السعر بعد الحجز — يبقى كما كان، يُضبط من جديد فقط. */}
         {!editing && chosen.length > 0 ? (
           <Field label="السعر (اختياري، ريال)" htmlFor="bkg-price">
@@ -498,7 +498,7 @@ export function BookingDialog(
           </Field>
         ) : null}
 
-        {/* ── نيّة استبدال — تُختار الآن، تُصرف عند «حضر» فقط (Tamam, 2026-08-19) ──────────── */}
+        {/* ── نيّة استبدال — تُختار الآن، تُصرف عند «حضر» فقط ──────────── */}
         {(balance?.rewards ?? []).length > 0 ? (
           <Field label="جائزة يريد استبدالها (اختياري)" htmlFor="bkg-reward"
                 hint="لا تُخصم نقاطه الآن — تُصرف تلقائياً عند تسجيل حضوره.">

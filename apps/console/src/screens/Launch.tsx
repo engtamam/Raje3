@@ -39,7 +39,7 @@ import { western } from '../digits';
 /**
  * `campaigns-service` (app/core/goals.py) sends a NAME, never an emoji — "return", "gift",
  * "megaphone"... the same identifier scheme `nav.ts` already uses for the rail. Rendering it as
- * literal text (which this screen did, Tamam 2026-08-20 — screenshot: an Arabic title with the
+ * literal text (which this screen did — an Arabic title with the
  * English word "return" printed right beside it) is what a caller does with a name it never
  * mapped. An unknown name falls back to `Tag` rather than rendering nothing — a wrong icon is a
  * smaller fault than a blank one, and both are more honest than the raw string.

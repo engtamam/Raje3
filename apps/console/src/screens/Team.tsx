@@ -56,7 +56,7 @@ interface Operator {
  */
 const ROLES: { value: string; label: string; can: string; icon: typeof UserRound }[] = [
   // "يسجّل الزيارات فقط" كانت صحيحة قبل الحجوزات — الدور نفسه في roles.json يحمل
-  // bookings.read/bookings.write منذ ذلك الحين (Tamam, 2026-08-19: تأكد من دقّة الوصف الظاهر).
+  // bookings.read/bookings.write منذ ذلك الحين — الوصف الظاهر لا بد أن يبقى دقيقاً.
   { value: 'operator', label: 'موظف ميداني', can: 'يسجّل الزيارات ويحجز', icon: UserRound },
   { value: 'supervisor', label: 'مشرف وردية', can: 'الزيارات والحجوزات وعملاء ورديته والتقارير', icon: ShieldCheck },
   { value: 'marketer', label: 'مسؤول التسويق', can: 'الحملات والرسائل، بلا تعديل الخدمات', icon: Megaphone },
@@ -237,7 +237,7 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
     setBusy(true);
     setError('');
     try {
-      // EXPLICIT, ALWAYS — NEVER GUESSED (Tamam, 2026-08-22). A shop with one place used to skip
+      // EXPLICIT, ALWAYS — NEVER GUESSED. A shop with one place used to skip
       // the picker entirely and send branch_id="", which api/scope.py reads as «unassigned =
       // sees the WHOLE establishment», never «works at the one branch that exists». Harmless the
       // day he is hired — one branch either way — and wrong the day the owner opens a second
@@ -348,7 +348,7 @@ export function People({ session, operators, branches, add, edit, hire, pinKind,
               branches opened his comparison table and read three empty rows and one huge unnamed
               one, with nothing on any screen to tell him why.
 
-              ALWAYS SHOWN NOW, EVEN FOR ONE PLACE (Tamam, 2026-08-22) — «كل الفروع» is gone as an
+              ALWAYS SHOWN NOW, EVEN FOR ONE PLACE — «كل الفروع» is gone as an
               option entirely. A single-branch shop still picks «الفرع الرئيسي» explicitly: the
               choice is a fact he made, not a silent default nobody asked him about. Opens on NO
               selection (`branchId` starts empty) so submit stays disabled until he has actually
@@ -548,7 +548,7 @@ function OperatorRow({ session, o, branches, edit, onChanged }: {
       {o.active === false ? null : (
         /* HIS BRANCH, CHANGEABLE IN PLACE — and it decides something: a visit he saves is filed
            under HIS branch, whatever the device sends (services/operations/core/operations.py).
-           ALWAYS SHOWN NOW, even for one place (Tamam, 2026-08-22) — a single-branch shop still
+           ALWAYS SHOWN NOW, even for one place — a single-branch shop still
            gets to see and confirm «الفرع الرئيسي», not a hidden control. «كل الفروع» is gone as
            a choice: an owner cannot put somebody back into it, matching the server's own refusal
            (staff.py's BRANCH_REQUIRED). A row still carrying the old empty state (hired before
@@ -653,8 +653,8 @@ export function Branches({ session, catalog, branches, operators, add, edit, may
   const [open, setOpen] = useState(false);
   // HE PRESSED THE BUTTON AND THE OFFER ANSWERED. The cap used to REMOVE the button and leave
   // a grey sentence in its place, which reads as «this shop cannot have another branch» — and
-  // it can, for money we would like to be paid. Tamam's decision: «يعطيه الخيار ولما يضغط
-  // عليه يطلع له الرسالة مع رابط لبطاقة الترقية».
+  // it can, for money we would like to be paid. The decision: يعطيه الخيار، ولما يضغط
+  // عليه يطلع له الرسالة مع رابط لبطاقة الترقية.
   const [capped, setCapped] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');

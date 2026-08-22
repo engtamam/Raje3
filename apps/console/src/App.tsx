@@ -91,7 +91,7 @@ export function App() {
 
   useEffect(() => {
     if (!catalog) return;
-    // TWO IDS, ONE ROUTE (Tamam, 2026-08-20) — an owner/manager/marketer reaches it via
+    // TWO IDS, ONE ROUTE — an owner/manager/marketer reaches it via
     // `operations.list_branches` (operations.read); a field operator, who never holds that but
     // genuinely needs his own branch for Bookings, reaches the SAME read via
     // `operations.list_branches_for_bookings` (bookings.read). See services/operations/app/api/

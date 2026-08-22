@@ -1,6 +1,6 @@
 /**
  * «حسابي» — the identity line every screenshot of a field operator's own account page was
- * missing (Tamam, 2026-08-20): his name, and where he works, shown without depending on any tab
+ * missing: his name, and where he works, shown without depending on any tab
  * («منشأتي» is gated on capabilities a field operator never holds).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';

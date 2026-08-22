@@ -6,7 +6,8 @@
  * once — a control that disappears teaches an owner the product cannot do the thing, and the place
  * it named existed nowhere in the console.
  *
- * Tamam's decision: «يعطيه الخيار ولما يضغط عليه يطلع له الرسالة مع رابط لبطاقة الترقية».
+ * THE FIX: give the owner the choice — let them press it, and only then show the message with a
+ * link to the upgrade card.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';

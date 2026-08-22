@@ -11,8 +11,8 @@
  * hand-correction this file carried is gone — exactly as its own comment said it should be the
  * day the fix landed.
  *
- * AND THE BRAND ITSELF CHANGED. Tamam rejected the warm-cream/gold "sealed document" identity
- * ("مليت منه خلاص ارحمني") and approved a violet/teal/coral direction, built first on the shop
+ * AND THE BRAND ITSELF CHANGED. The warm-cream/gold "sealed document" identity was retired in
+ * favor of a violet/teal/coral direction, built first on the shop
  * console's «محلّي» screen and then promoted to the platform theme
  * (platform/ui/…/theme.config.ts) and the product's own accent (config/product.json,
  * `brand.accent`) — the ONE place a rebrand belongs, per that file's own doc comment. This file

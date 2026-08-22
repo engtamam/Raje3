@@ -14,8 +14,8 @@
  * stage's template, one-tap outcome logging right under it) is what the research called out as the
  * single biggest lever — under 30 seconds from "who do I contact" to "logged", never a full form.
  *
- * WHATSAPP IS ONE TAP AWAY, NOT A NUMBER TO RETYPE (2026-08-22, Tamam: "أسرع شي نقدر نسوي لهم
- * لدعم التواصل السريع") — every template gets its own «نسخ» (clipboard) and a send action that
+ * WHATSAPP IS ONE TAP AWAY, NOT A NUMBER TO RETYPE — it is the fastest channel available to
+ * support quick communication with them, so every template gets its own «نسخ» (clipboard) and a send action that
  * opens WhatsApp with the template's own text already in the composer (`waLink`, `?text=`), and
  * the lead's own phone number in the header is itself a WhatsApp link. Copy exists ALONGSIDE the
  * direct open, not instead of it — a `wa.me?text=` link fails silently on a phone with no

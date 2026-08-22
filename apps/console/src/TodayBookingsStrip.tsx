@@ -10,7 +10,7 @@
  * when the booking was made.
  *
  * NOT THE GRID'S OWN VISUAL IDENTITY. This is a strip inside the ordinary field screen, which is
- * not the one screen carrying its own look (Tamam's approval, 2026-08-19, was scoped to the
+ * not the one screen carrying its own look (that treatment was approved as scoped to the
  * bookings grid alone) — so this renders in the console's standard palette.
  */
 import { useEffect, useMemo, useState } from 'react';

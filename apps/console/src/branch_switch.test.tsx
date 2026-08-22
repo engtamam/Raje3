@@ -1,15 +1,15 @@
 /**
  * The rail's branch control: four states, and only one of them is a dropdown.
  *
- * WHAT THIS IS WRITTEN AFTER. Tamam opened the console and asked «الشريط الجانبي ما فيه التبديل
- * بين الفروع، ليه؟ ما أشوفه». The answer for his shop was the right one — one branch is no choice
- * — but the code could not have told him a different answer, and that is the defect:
+ * WHAT THIS IS WRITTEN AFTER. A single-branch shop's console did not surface branch switching at
+ * all, which is the right answer for a single branch — but the code could not have told a
+ * multi-branch owner a different answer, and that is the defect:
  * `App.tsx` kept `null` for «could not read» and `[]` for «none», then collapsed both into `[]`
  * one line before rendering. So a chain of four branches whose scope read failed saw exactly what
  * a single-branch shop sees: nothing at all. Its screens silently showed the whole chain, and its
  * owner never learned that a choice existed and had not been offered.
  *
- * AND THE SECOND HALF IS HIS OWN IDEA: «هل ممكن نخلي انشاء الفروع من المبدل نفسه؟» — the moment a
+ * AND THE SECOND HALF: branch creation should be reachable from the switcher itself — the moment a
  * person wants a second branch is the moment he is looking at this control, so the door is here,
  * drawn from the CAPABILITY and never from a role.
  */

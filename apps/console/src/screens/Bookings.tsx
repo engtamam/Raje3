@@ -1,6 +1,6 @@
 /**
  * Bookings grid (Stage 6 rebuilt + Stage 7, docs/خطة-تنفيذ-الحجوزات.md §6.1/§6.1.1,
- * docs/وصف-تطبيق-الحجوزات.md §6.1/§6.1.1). With Tamam's approval (2026-08-19) this screen alone
+ * docs/وصف-تطبيق-الحجوزات.md §6.1/§6.1.1). This screen alone
  * carries its own visual identity — it does not inherit `@base-ui/design-system` components or
  * colours, and borrows only the brand's own gold, so it stays راجِع rather than a foreign product.
  *
@@ -34,12 +34,12 @@ import { WorkingHoursDialog } from './WorkingHoursDialog';
 
 // ── display window and snap ─────────────────────────────────────────────────────────────────
 // WINDOW_START/WINDOW_END are no longer fixed constants — computed below from the shop's own
-// real working hours (Tamam, 2026-08-19). The honest default while they load, or for a shop
+// real working hours. The honest default while they load, or for a shop
 // that never configured them, stays 08:00–22:00 — the exact fixed window this used to be.
 const DEFAULT_WINDOW_START = 8 * 60;
 const DEFAULT_WINDOW_END = 22 * 60;
 const PX_PER_MIN = 1.85;
-const SNAP_MINUTES = 15;        // same grain as the conflict lock (Tamam's decision, 2026-08-19)
+const SNAP_MINUTES = 15;        // same grain as the conflict lock
 
 /** `date.weekday()`'s own numbering (0=Monday..6=Sunday) — the same one the server's
  *  `availability.Schedule` uses, from a `YYYY-MM-DD` string with no timezone ambiguity. */
@@ -170,7 +170,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // «لا موظفون نشِطون», which reads as a fact about the shop instead of a fact about the network.
   const [services, setServices] = useState<CatalogueService[] | null | undefined>(undefined);
   const [staff, setStaff] = useState<FieldOperator[] | null | undefined>(undefined);
-  // أوقات الدوام — سياسة واحدة للمنشأة كلها (Tamam, 2026-08-19). `undefined` = لسه ما وصلت، تُعامل
+  // أوقات الدوام — سياسة واحدة للمنشأة كلها. `undefined` = لسه ما وصلت، تُعامل
   // كنافذة ٨-٢٢ الافتراضية القديمة ريثما تصل، عشان الشبكة ما تومض فاضية أول ما تُفتح الشاشة.
   const [weekly, setWeekly] = useState<WeeklyHours | undefined>(undefined);
   const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
@@ -184,8 +184,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   };
   const [note, setNote] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState | null>(null);
-  // A CARD GROWS LOUDER, NOTHING EVER POPS UP (Tamam, 2026-08-19: "نضمن انه يقفلها... ما
-  // نزعجه"). `now` ticks once a minute — a card whose whole appointment window has already
+  // A CARD GROWS LOUDER, NOTHING EVER POPS UP — the operator must be able to close it out
+  // without being interrupted by it. `now` ticks once a minute — a card whose whole appointment window has already
   // passed and is still «booked» is unclosed, and it reads that way from a glance the moment
   // this re-renders, with no polling loop or alert of its own.
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -404,7 +404,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
 
   // النافذة الرأسية — يوم واحد: دوامه هو بالضبط. أسبوع: محور مشترك واحد (أوسع دوام بين كل أيامه)،
   // لأن مقياساً مختلفاً لكل عمود يخلي نفس الموضع الرأسي يعني وقتاً مختلفاً من عمود لعمود، وهذا
-  // تشويش أسوأ من الحل نفسه (Tamam, 2026-08-19). الأيام المغلقة داخل هذا المحور المشترك تُعتَّم
+  // تشويش أسوأ من الحل نفسه. الأيام المغلقة داخل هذا المحور المشترك تُعتَّم
   // بصرياً بدل ما تُقصَّر — أضيق نافذة ممكنة أعوج من قراءة صحيحة.
   const isDayClosed = view === 'day' && dayEntry(date).closed;
   const { WINDOW_START, WINDOW_END } = useMemo(() => {
@@ -590,7 +590,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
             </div>
           </div>
 
-          {/* اليوم/الأسبوع وزر الإعدادات على نفس خط الفلاتر (Tamam, 2026-08-19) — صف تحكّم
+          {/* اليوم/الأسبوع وزر الإعدادات على نفس خط الفلاتر — صف تحكّم
               واحد بدل صفّين، بدل ما يتفرّق التحكّم بالعرض عن التحكّم بالمحتوى. */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 rounded-full p-1 shadow-sm" style={{ background: 'var(--rj-surface)' }}>
@@ -978,7 +978,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                     }}
                   >
                     {/* أيام مغلقة أو خارج دوامها ضمن المحور المشترك — تُعتَّم لا تُقصَّر، عشان
-                        نفس الموضع الرأسي يبقى يعني نفس الوقت في كل الأعمدة (Tamam, 2026-08-19). */}
+                        نفس الموضع الرأسي يبقى يعني نفس الوقت في كل الأعمدة. */}
                     {view === 'week' ? (() => {
                       const e = dayEntry(col.date);
                       if (e.closed) {
@@ -1072,9 +1072,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                           onClick={(e) => { e.stopPropagation(); if (!moving) setOpenBooking(b); }}
                           className={`rj-card rj-card-settle absolute cursor-grab overflow-hidden rounded-xl px-2.5 py-1.5 text-start transition-shadow active:cursor-grabbing ${drag?.booking.id === b.id ? 'rj-card-dragging' : ''} ${isBeingMoved ? 'ring-2 ring-offset-1' : ''}`}
                           style={{
-                            // A REAL GAP, NOT A HAIRLINE — 1-2px read as touching (Tamam,
-                            // 2026-08-19, a screenshot of stacked cards with no visible margin
-                            // between them). 4px top and bottom is a real breath between cards.
+                            // A REAL GAP, NOT A HAIRLINE — 1-2px read as touching when cards
+                            // stack with no visible margin between them. 4px top and bottom is a real breath between cards.
                             top: top + 4, height: Math.max(26, height - 8),
                             insetInlineStart: `calc(${lane * laneWidth}% + ${lane ? 3 : 4}px)`,
                             width: `calc(${laneWidth}% - ${lanes > 1 ? 6 : 8}px)`,
@@ -1102,8 +1101,8 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             const pay = b.payment_status ?? 'none';
                             const price = priceMinorOf(b);
                             // THE NUMBER ITSELF, NOT JUST A DOT'S COLOUR — a tooltip on a 2px dot
-                            // never shows on a touch device at all (Tamam, 2026-08-19: "الرقم
-                            // محطوط عشان يكون واضح"). عربون shows what was actually taken;
+                            // never shows on a touch device at all, so the amount itself has to be printed for it to be
+                            // legible. عربون shows what was actually taken;
                             // مدفوع shows the booking's own price, when there is one to show.
                             const payLabel = pay === 'deposit' && b.deposit_amount_minor
                               ? `عربون ${riyals(b.deposit_amount_minor)}`
@@ -1129,7 +1128,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             // THE NUMBER ALONE, NOT THE LABEL — a week column is narrow at every
                             // lane count, and truncating "عربون 50" left "عربون…" with the
                             // amount itself cut off, which read as broken rather than merely
-                            // compact (Tamam, 2026-08-19, a second screenshot). The colour
+                            // compact. The colour
                             // already carries "عربون vs مدفوع" (same PAYMENT_COLOR the filter
                             // chips use); the digits are the one fact a dot's tooltip could never
                             // show on a touch device, so they are what survives the squeeze.
@@ -1157,7 +1156,7 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                               // TRUNCATES (`shrink-0` of its own, split out of the service name)
                               // — a narrow week column used to squeeze "10:00" itself down to a
                               // stray "…00" beside a pill that then read as disconnected from
-                              // anything (Tamam, 2026-08-19, a screenshot of exactly that). The
+                              // anything. The
                               // service name is what gives way now, and the pill shows the
                               // number ALONE (`payPillShort`) rather than a label that truncates
                               // mid-word.
@@ -1656,8 +1655,8 @@ function BookingActions({ booking, operatorLabel, services, onClose, onChanged,
       <div onClick={(e) => e.stopPropagation()}
           className="relative w-full max-w-sm rounded-t-[28px] p-5 sm:rounded-[28px]"
           style={{ background: 'var(--rj-surface)', boxShadow: 'var(--rj-shadow-lift)' }}>
-        {/* التفاصيل أولاً — كل ما يحتاجه قبل يقرر، لا بعد ما يضغط (Tamam, 2026-08-19: "نعرض
-            الخدمات والوقت وغيرها من التفاصيل"). */}
+        {/* التفاصيل أولاً — كل ما يحتاجه قبل يقرر، لا بعد ما يضغط: تُعرض الخدمات والوقت
+            وغيرها من التفاصيل قبل أي إجراء. */}
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-1">

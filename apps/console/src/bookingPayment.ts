@@ -1,4 +1,4 @@
-/** "بدون عربون بعربون او مدفوع" (Tamam, 2026-08-19) — one shared label+colour pair per state, so
+/** "بدون عربون بعربون او مدفوع" — one shared label+colour pair per state, so
  *  the booking dialog, the grid's filter chips and each card's own badge never drift into three
  *  different vocabularies for the same three values.
  *

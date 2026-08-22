@@ -5,8 +5,7 @@
  * screen that answers «what messages exist» and refuses every other question. An owner arrives
  * with one of two: «أيّها مفعّل؟» and «أيّ التسويقية عندي؟» — the second being the class he is
  * legally answerable for — and both were answered by scanning the whole page with his eye, every
- * time. Tamam's decision: «الشاشة نفسها تسير جدول ويسير فيه فلاتر على أنواع الرسائل وأيضاً على
- * الحالات».
+ * time. The screen itself is now a table, with filters over both message types and statuses.
  *
  * WHAT THE TABLE MUST NOT COST: the «when». «بعد تسجيل الزيارة بعشر دقائق» is what makes a name
  * mean something to somebody reading it for the first time, so it stays under the title — a column

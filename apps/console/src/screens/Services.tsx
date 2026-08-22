@@ -340,7 +340,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
       const created = await call<{ id?: string }>(
         session, a, {
           name: name.trim(), cycle_days: opts.cycleDays, duration_minutes: opts.durationMinutes,
-          // OPTIONAL, NOT ZERO (Tamam, 2026-08-19). `price_minor` defaults to 0 on the server when
+          // OPTIONAL, NOT ZERO. `price_minor` defaults to 0 on the server when
           // omitted — the same "0 = not configured" reading duration already uses — so a blank box
           // sends nothing at all rather than sending a real 0 (which would read as "free").
           ...(opts.priceMinor !== null ? { price_minor: opts.priceMinor } : {}),
@@ -807,7 +807,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
-                {/* 15 دقيقة، القيمة المقترحة (Tamam, 2026-08-19) — أصغر وحدة يتحرّك عليها الجدول
+                {/* 15 دقيقة، القيمة المقترحة — أصغر وحدة يتحرّك عليها الجدول
                     أصلاً، وأقرب افتراض واقعي لخدمة سريعة. رقم مقترح يُعدَّل قبل الحفظ، لا قيمة
                     يفرضها الخادم بصمت — العطاء الفعلي في operations يبقى «0 = غير مضبوطة» دائماً. */}
                 <Row label="المدة (بالدقائق)"
@@ -816,7 +816,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
                 </Row>
 
-                {/* السعر اختياري (Tamam, 2026-08-19) — فارغ يبقى فارغاً، لا صفر مفروض. */}
+                {/* السعر اختياري — فارغ يبقى فارغاً، لا صفر مفروض. */}
                 <Row label="السعر" hint="بالريال. اتركه فارغاً إن كان لا يُسعَّر من هنا.">
                   <input name="price" type="text" inputMode="decimal" dir="ltr" placeholder="—"
                          className="h-10 w-full rounded-lg bg-surface-2 px-3 text-center tabular-nums" />
@@ -1015,7 +1015,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
               )}
             </td>
 
-            {/* THE PRICE IS OPTIONAL (Tamam, 2026-08-19) — a shop that only wants operations'
+            {/* THE PRICE IS OPTIONAL — a shop that only wants operations'
                 scheduling and reminders, never invoicing, leaves it at «—» and nothing downstream
                 requires it. Riyals on the screen, halalas on the wire — see money.ts; never a
                 float, never `* 100` at this call site. */}

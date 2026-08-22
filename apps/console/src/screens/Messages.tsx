@@ -636,8 +636,7 @@ export function MessagesScreen(
           ) : (
             <>
               {/* ── FILTERS FIRST, BECAUSE THIRTEEN ROWS ARE READ WITH A QUESTION IN MIND ──────
-                  Tamam's decision: «الشاشة نفسها تسير جدول ويسير فيه فلاتر على أنواع الرسائل
-                  وأيضاً على الحالات».
+                  الشاشة نفسها تسير جدول ويسير فيه فلاتر على أنواع الرسائل وأيضاً على الحالات.
 
                   The list answered «what messages exist» and nothing else. «أيّها مفعّل؟» and «أيّ
                   التسويقية عندي؟» — the two questions an owner actually arrives with — were

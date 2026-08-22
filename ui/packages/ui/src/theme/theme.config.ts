@@ -109,9 +109,9 @@ const ACCENT_DARK = {
 };
 
 const light: Palette = {
-  // REBRANDED 2026-08-22, FROM THE SHOP CONSOLE'S OWN "محلّي" SCREEN, NOT INVENTED HERE. Tamam
-  // rejected the old warm-cream/gold "sealed document" identity outright ("مليت منه خلاص
-  // ارحمني") and approved a violet/teal/coral direction built for محلّي; this is that same
+  // REBRANDED, FROM THE SHOP CONSOLE'S OWN "محلّي" SCREEN, NOT INVENTED HERE. The old
+  // warm-cream/gold "sealed document" identity was rejected outright, and a
+  // violet/teal/coral direction built for محلّي was approved; this is that same
   // palette promoted from one screen's local `--sh-*` tokens to the platform's own theme, so
   // every screen gets it rather than one screen carrying a different identity than its shell.
   // A near-white cool violet ground (not warm cream), white cards, violet accent, teal

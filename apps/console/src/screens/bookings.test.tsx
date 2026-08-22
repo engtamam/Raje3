@@ -244,7 +244,7 @@ describe('the grid', () => {
 
   it('shows the payment pill on a short card too, not only the tall-card layout', async () => {
     // duration_minutes: 15 at PX_PER_MIN 1.6 -> height 24, the height < 30 combined-line branch —
-    // exactly the layout Tamam's screenshot showed with no payment fact on it at all.
+    // exactly the layout that used to show with no payment fact on it at all.
     bookingsOverride = [{
       ...BOOKING, duration_minutes: 15, payment_status: 'deposit', deposit_amount_minor: 5000,
     }];
@@ -254,7 +254,7 @@ describe('the grid', () => {
 
   it('shows the amount alone, not a truncated label, on a short card in week view', async () => {
     // Same short-card row, but in the narrow week-view column — the label used to truncate
-    // mid-word ("عربون…" with the amount itself cut off, Tamam's second screenshot).
+    // mid-word ("عربون…" with the amount itself cut off).
     bookingsOverride = [{
       ...BOOKING, duration_minutes: 15, payment_status: 'deposit', deposit_amount_minor: 5000,
     }];
@@ -401,7 +401,7 @@ describe('احجز الجلسة القادمة', () => {
     await waitFor(() => screen.getByText(/احجز الجلسة القادمة/));
     screen.getByText(/احجز الجلسة القادمة/).click();
     // The mock answers considered:4, no_shows:3 -> 75%, threshold 60% — both numbers on screen,
-    // not just a badge (Tamam, 2026-08-19: "مو بس شارة ما يعرف معناها").
+    // not just a badge that doesn't explain what it means.
     await waitFor(() => screen.getByText(/75٪/));
     expect(screen.getByText(/الحد 60٪/)).toBeTruthy();
     screen.getByText('فعّل العربون الآن').click();

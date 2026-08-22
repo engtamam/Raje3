@@ -49,14 +49,13 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
 
 /* ── the bookings grid — its own visual identity, REBRANDED 2026-08-22 ───────────────────────
  *
- * SCOPED TO ONE SCREEN, DELIBERATELY (docs/خطة-تنفيذ-الحجوزات.md §7, Tamam's approval
- * 2026-08-19): this app deserves a world-class look of its own rather than inheriting the rest
- * of the console's standard colours.
+ * SCOPED TO ONE SCREEN, DELIBERATELY (docs/خطة-تنفيذ-الحجوزات.md §7): this app deserves a
+ * world-class look of its own rather than inheriting the rest of the console's standard colours.
  *
  * BUT "ITS OWN LOOK" MEANT THE WARM CREAM/GOLD IDENTITY AT THE TIME, AND THAT IDENTITY IS GONE.
- * Three days after this screen's palette was approved, Tamam rejected the exact same warm-
- * cream/gold direction for the rest of the product outright ("مليت منه خلاص ارحمني") and the
- * whole console moved to violet/teal/coral (platform/ui/…/theme.config.ts, config/product.json).
+ * Three days after this screen's palette was approved, the exact same warm-cream/gold direction
+ * was rejected outright for the rest of the product, and the whole console moved to
+ * violet/teal/coral (platform/ui/…/theme.config.ts, config/product.json).
  * Left alone, Bookings would be the one screen still carrying the identity everywhere else had
  * just abandoned — not "its own distinct world" any more, just a relic. Re-hued to the same
  * violet/teal/coral family the rest of the product now uses, still fully scoped under `.rj-grid`
@@ -159,8 +158,8 @@ button { user-select: none; -webkit-user-select: none; touch-action: manipulatio
  *     level; this is it at the control level, and both come from the same cause: an affordance
  *     that only appeared on the interaction a touchscreen cannot make.
  *
- *     A HAIRLINE BORDER ALONE WAS NOT ENOUGH (Tamam, 2026-08-19, second report of the same
- *     screenshot) — `--border-subtle` is faint by design, and `disabled:opacity-50` halves it
+ *     A HAIRLINE BORDER ALONE WAS NOT ENOUGH — `--border-subtle` is faint by design, and
+ *     `disabled:opacity-50` halves it
  *     again, so a disabled ghost button (the common case: «أقرب موعد» before a service is picked)
  *     washed back out to plain text exactly where a border-only fix could not reach. A real
  *     resting fill, the same one hover already used, cannot wash out the same way — it is a

@@ -49,8 +49,8 @@ export function SubscriptionBar({ owned, now }: { owned: Loading<Owned>; now: nu
       }`}
     >
       <span>{text}</span>
-      {/* THE ACTION IS THE SAME ONE, ALWAYS. Tamam: «نفس الزر فعّل الأساس أو أضِف — كلها نفسها
-          للاشتراك الفعلي أو فترة التجربة». So this points at the store rather than growing a
+      {/* THE ACTION IS THE SAME ONE, ALWAYS: نفس الزر فعّل الأساس أو أضِف — كلها نفسها
+          للاشتراك الفعلي أو فترة التجربة. So this points at the store rather than growing a
           second activation path that would have to be kept in step with the first. */}
       {/* THE ADDRESS IS NAMED, NEVER SPELLED. `STORE_PATH` is where «متجر التطبيقات» lives, and
           #368 settled that name after the product carried two of them — a tab called «اشتراكي»

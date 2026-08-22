@@ -117,7 +117,7 @@ export function AccountScreen(
 ) {
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [connected, setConnected] = useState<ConnectState | null | undefined>(undefined);
-  // WHICH BRANCH IS HIS — Tamam, 2026-08-20: a field operator landing here saw a page that never
+  // WHICH BRANCH IS HIS — a field operator landing here saw a page that never
   // said who he is or where he works, because every tab that WOULD have said so («منشأتي») is
   // gated on capabilities his role does not hold. This reads independently of any tab, off the
   // SAME two-id read App.tsx's own branch switcher uses (staff.py::_READ_BRANCHES) — an owner/
