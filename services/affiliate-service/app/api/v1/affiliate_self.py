@@ -703,6 +703,20 @@ async def list_active_sectors(request: Request,
 
 # ── §١٣: a shop's tickets, consent-scoped to the marketer who referred it ──────────────────────
 
+@router.get("/referred-shops", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def my_referred_shops(request: Request,
+                            principal: Principal = Depends(require_user)) -> dict:
+    """The gap the tickets UI actually needed first (2026-08-22): `/shops/{tenant}/tickets` needs
+    a tenant id to call, and until now nothing gave a marketer his OWN list of them — he could
+    only reach one if he already knew its tenant id from elsewhere. Any affiliate, not
+    manager-only: `_my_shop_grant`'s own ownership check (a real referral he personally brought
+    in) is per-person, never role-gated."""
+    affiliate_id = await _my_affiliate_id(request, principal)
+    rows = await request.app.state.container.referrals.of_affiliate(affiliate_id)
+    return {"shops": [{"tenant": r.tenant, "shop_name": r.shop_name, "status": r.status,
+                       "stamped_at": r.stamped_at} for r in rows]}
+
+
 class ReplyIn(BaseModel):
     body: str = Field(min_length=1, max_length=20_000)
 

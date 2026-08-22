@@ -141,6 +141,7 @@ def build_manifest(
             {"path": "/api/v1/affiliates/me/leads/stale", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/home", "tier": "user", "method": "GET"},
             {"path": "/api/v1/affiliates/me/sectors", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/affiliates/me/referred-shops", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/sectors", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/sectors", "tier": "user", "method": "PUT"},
             {"path": "/api/v1/admin/sectors/{}", "tier": "user", "method": "DELETE"},

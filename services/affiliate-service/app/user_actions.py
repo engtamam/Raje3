@@ -217,6 +217,12 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "id": "affiliates.sectors", "label": "قطاعات النشاط", "method": "GET",
         "path": "/api/v1/affiliates/me/sectors", "capability": "affiliates.self", "group": "عملائي المحتملين",
     },
+    {
+        "id": "affiliates.referred_shops", "label": "المحلات اللي أحلتها", "method": "GET",
+        "path": "/api/v1/affiliates/me/referred-shops", "capability": "affiliates.self",
+        "group": "تذاكر المحلات",
+        "help": "بحاجة لهذي القائمة قبل فتح تذاكر أي محل — تعطيك رقم المحل (tenant) لكل واحد.",
+    },
     # ── رحلة التحويل: المراحل والقوالب ومكتبة الأدلة ────────────────────────────────────────────
     {
         "id": "affiliates.outreach_stages", "label": "مراحل رحلة التحويل", "method": "GET",

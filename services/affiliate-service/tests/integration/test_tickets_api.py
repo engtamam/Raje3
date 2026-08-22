@@ -96,6 +96,34 @@ def _seed_referral(client: TestClient, *, affiliate_id: str, person_id: str, ten
     asyncio.run(seed())
 
 
+def test_referred_shops_lists_what_the_caller_actually_referred():
+    client = _make_app(tickets_http=FakeTicketHttp({}))
+    _seed_referral(client, affiliate_id="aff-rs1", person_id="p-rs1", tenant="t-rs1")
+    r = client.get("/api/v1/affiliates/me/referred-shops",
+                   headers={"Authorization": f"Bearer {_token(sub='p-rs1')}"})
+    assert r.status_code == 200, r.text
+    shops = r.json()["shops"]
+    assert len(shops) == 1
+    assert shops[0]["tenant"] == "t-rs1"
+
+
+def test_referred_shops_is_empty_for_a_marketer_who_referred_nobody():
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+
+    client = _make_app(tickets_http=FakeTicketHttp({}))
+
+    async def seed():
+        aff = Affiliate(id="aff-rs2", person_id="p-rs2", phone="+966501230002",
+                        name="مسوّق", role="affiliate_promoter", status=ACTIVE)
+        await client.app.state.container.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+
+    asyncio.run(seed())
+    r = client.get("/api/v1/affiliates/me/referred-shops",
+                   headers={"Authorization": f"Bearer {_token(sub='p-rs2')}"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"shops": []}
+
+
 def test_tickets_unavailable_with_no_ticket_service_configured():
     client = _make_app(tickets_http=None)
     _seed_referral(client, affiliate_id="aff-tk1", person_id="p-tk1", tenant="t-tk1")
