@@ -158,8 +158,21 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // date, nor `view` itself resets when this changes — the same data, read a different way, is
   // the whole point of a second layout (Pencil & Paper / Mobiscroll's own scheduler-switching
   // guidance: a view switch that silently drops the filter or the date is the #1 complaint about
-  // multi-view schedulers). `grid` stays the field default; `list` is the scan-and-search shape.
-  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+  // multi-view schedulers).
+  //
+  // THE DEFAULT FOLLOWS THE DEVICE, ONCE, AT OPEN — requested directly: a phone opens on the
+  // list (a grid this narrow is mostly scrolling and squeezed lanes; a scan-and-search list is
+  // the shape a small screen actually reads well), a browser opens on the grid (the field
+  // default, real time-of-day layout). `pointer: coarse` is the same honest test index.css's own
+  // `.touch-only` rule already uses — a screen-width check would call a narrowed browser window
+  // "mobile", and a large tablet with a stylus "desktop", both wrong for what this is actually
+  // asking. Read once at mount, not tracked live: changing layout out from under him because he
+  // rotated a tablet mid-glance would be its own bug.
+  const [layout, setLayout] = useState<'grid' | 'list'>(() => (
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(pointer: coarse)').matches
+      ? 'list' : 'grid'
+  ));
   const [date, setDate] = useState(todayLocal);
   const [weekStaffId, setWeekStaffId] = useState('');
   // undefined = «not loaded yet» (skeleton); null = «the read failed» (retry). Collapsing them to
@@ -1442,69 +1455,103 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
 
   let lastDate = '';
   const today = todayLocal();
+  // A REAL TABLE, NOT A ROW OF FLEX SPANS — reported directly: the old row hid the staff name
+  // and the payment pill below `sm`, which is exactly where this layout is now the DEFAULT (a
+  // phone opens on the list, per its own device check above). Hiding two of six facts on the one
+  // device most likely to render this component is not a responsive table, it is a table missing
+  // columns. Every fact is now a real <th>/<td> pair, visible on every row regardless of width;
+  // the container scrolls sideways on a narrow screen rather than dropping a column, the same
+  // rule this product applies to every other wide table.
   return (
     <div data-testid="rj-list" className="rj-card overflow-hidden rounded-[28px]" style={{ background: 'var(--rj-surface)' }}>
-      <ul>
-        {sorted.map((b) => {
-          const dateKey = dateKeyOf(b.starts_at);
-          const showDateHeader = dateKey !== lastDate;
-          lastDate = dateKey;
-          const isToday = dateKey === today;
-          const tone = STATUS_VARS[b.status];
-          const pay = b.payment_status ?? 'none';
-          const price = priceMinorOf(b);
-          const payLabel = pay === 'deposit' && b.deposit_amount_minor
-            ? `عربون ${riyals(b.deposit_amount_minor)}`
-            : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
-              : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
-          return (
-            <li key={b.id}>
-              {/* A DAY HEADER ONLY WHEN THE DATE ACTUALLY CHANGES — a single day's list never
-                  shows one at all; a week's list gets exactly seven, at the point they occur in
-                  time order, never a fixed row per day regardless of whether it holds anything.
-                  TODAY GETS THE ACCENT, EVERY OTHER DAY STAYS NEUTRAL — a list spanning many
-                  dates (a customer's own history, a week flattened) is read fastest when "is this
-                  today?" costs nothing to notice. */}
-              {showDateHeader ? (
-                <div className="sticky top-0 border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
-                    style={isToday
-                      ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
-                      : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
-                  {isToday ? `اليوم — ${humanDate(dateKey)}` : humanDate(dateKey)}
-                </div>
-              ) : null}
-              {/* AND THE DATE ITSELF, ON EVERY ROW — not only in the header. The header sits
-                  `sticky top-0` inside this list's own scroll, but the PAGE (not this box) is
-                  what actually scrolls a long customer history, so a header can end up well out
-                  of view while its rows are still on screen. A row must never depend on
-                  remembering what it scrolled past. */}
-              <button type="button" onClick={() => onOpen(b)}
-                     className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="sticky top-0 z-10" style={{ background: 'var(--rj-surface)' }}>
+              {['التاريخ', 'الوقت', 'الخدمة', 'الموظف', 'الدفع', 'الحالة'].map((h) => (
+                <th key={h} scope="col"
+                    className="whitespace-nowrap border-b px-4 py-2.5 text-start text-xs font-semibold"
+                    style={{ borderColor: 'var(--rj-line)', color: 'var(--rj-ink-soft)' }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((b) => {
+              const dateKey = dateKeyOf(b.starts_at);
+              const showDateHeader = dateKey !== lastDate;
+              lastDate = dateKey;
+              const isToday = dateKey === today;
+              const tone = STATUS_VARS[b.status];
+              const pay = b.payment_status ?? 'none';
+              const price = priceMinorOf(b);
+              const payLabel = pay === 'deposit' && b.deposit_amount_minor
+                ? `عربون ${riyals(b.deposit_amount_minor)}`
+                : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
+                  : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
+              return (
+                <>
+                  {/* A DAY HEADER ROW ONLY WHEN THE DATE ACTUALLY CHANGES — a single day's list
+                      never shows one at all; a week's list gets exactly seven, at the point they
+                      occur in time order. TODAY GETS THE ACCENT, so "is this today?" costs
+                      nothing to notice scanning a week flattened into one table. */}
+                  {showDateHeader ? (
+                    <tr key={`${b.id}-hdr`}>
+                      <td colSpan={6}
+                          className="border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
+                          style={isToday
+                            ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
+                            : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
+                        {isToday ? `اليوم — ${humanDate(dateKey)}` : humanDate(dateKey)}
+                      </td>
+                    </tr>
+                  ) : null}
+                  {/* AND THE DATE ITSELF, ON EVERY ROW — not only in the header row above. That
+                      header sits `sticky top-0` inside this table's own scroll, but the PAGE (not
+                      this box) is what actually scrolls a long customer history, so it can end up
+                      well out of view while its rows are still on screen. A row must never depend
+                      on remembering what it scrolled past. */}
+                  <tr key={b.id} tabIndex={0} role="button"
+                     onClick={() => onOpen(b)}
+                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(b); } }}
+                     className="cursor-pointer border-b transition-colors last:border-b-0 hover:brightness-[0.98] focus-visible:outline-2"
                      style={{
                        borderColor: 'var(--rj-line)',
                        background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined,
                      }}>
-                <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
-                  {isToday ? 'اليوم' : shortDate(dateKey)}
-                </span>
-                <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(b.starts_at))}</span>
-                <span className="min-w-0 flex-1 truncate text-sm">{serviceNameOf(b.service_ids) || '—'}</span>
-                <span className="hidden shrink-0 text-xs sm:block" style={{ color: 'var(--rj-ink-soft)' }}>{nameOf(b.operator_id)}</span>
-                {payLabel ? (
-                  <span className="hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold sm:inline-block"
-                       style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
-                    {payLabel}
-                  </span>
-                ) : null}
-                <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                     style={{ background: tone.bg, color: tone.fg }}>
-                  {STATUS_LABEL[b.status]}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold"
+                       style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                      {isToday ? 'اليوم' : shortDate(dateKey)}
+                    </td>
+                    <td dir="ltr" className="whitespace-nowrap px-4 py-3 text-sm font-semibold tabular-nums">
+                      {timeLabel(minutesOf(b.starts_at))}
+                    </td>
+                    <td className="max-w-[240px] truncate px-4 py-3 text-sm">{serviceNameOf(b.service_ids) || '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs" style={{ color: 'var(--rj-ink-soft)' }}>
+                      {nameOf(b.operator_id)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {payLabel ? (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                             style={{ background: PAYMENT_COLOR[pay].bg, color: PAYMENT_COLOR[pay].fg }}>
+                          {payLabel}
+                        </span>
+                      ) : <span className="text-xs" style={{ color: 'var(--rj-ink-soft)' }}>—</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                           style={{ background: tone.bg, color: tone.fg }}>
+                        {STATUS_LABEL[b.status]}
+                      </span>
+                    </td>
+                  </tr>
+                </>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

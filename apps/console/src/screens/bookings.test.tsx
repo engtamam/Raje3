@@ -632,7 +632,7 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
     // «اليوم» marks both the header (as part of its own sentence) and the row's own date badge —
     // and never stands in for the later appointment's real date.
     await waitFor(() => expect(within(list()).getByText(/^اليوم —/)).toBeTruthy());
-    expect(within(list()).getByText('اليوم', { selector: 'span' })).toBeTruthy();
+    expect(within(list()).getByText('اليوم', { selector: 'td' })).toBeTruthy();
   });
 
   it('names the year on a date that is not this one, and leaves this year unsaid', async () => {
