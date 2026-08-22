@@ -313,15 +313,23 @@ export function CustomersScreen(
                 <span className="text-sm text-text-secondary">{c.name || 'بلا اسم'}</span>
                 {/* FREE ON THIS ROW'S OWN DATA — `last_visit`/`visit_count` are denormalised on
                     the Customer record itself (services/operations `Customer.public()`), no
-                    extra join. ABSENT, not zero, on a search-result row: the search index does
-                    not carry these fields, and a guessed "0 زيارة" would be a fact we do not
-                    have, stated as one we do. */}
+                    extra join. ABSENT, not zero, on a search-result row (the search index does
+                    not carry these fields) OR on a customer written before this was tracked at
+                    all (never backfilled, by the model's own documented choice) — a guessed
+                    "0 زيارة" would be a fact we do not have, stated as one we do.
+                    STILL A LINE, EVEN THEN — an invisible placeholder of the same height, not an
+                    absent one, so a row with the fact and a row without it are still the same
+                    height in a list read at a glance. A screenshot of two different card heights
+                    stacked is what made this worth fixing: the honesty was right, the layout
+                    consequence of it was not. */}
                 {typeof c.last_visit === 'number' && c.last_visit > 0 ? (
                   <span className="text-xs text-text-muted">
                     آخر زيارة {ago(c.last_visit)}
                     {typeof c.visit_count === 'number' ? ` · ${c.visit_count} زيارة` : ''}
                   </span>
-                ) : null}
+                ) : (
+                  <span className="text-xs invisible" aria-hidden="true">—</span>
+                )}
               </div>
               {/* THE CONSENT STATE IS SHOWN BECAUSE IT CHANGES WHAT HE MAY DO, not as decoration:
                   a customer who withdrew still earns points and still gets service messages, and

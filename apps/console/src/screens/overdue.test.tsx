@@ -106,4 +106,17 @@ describe('«من تأخّر»', () => {
     // خالد never visited by this source's own account — nothing invented for him.
     expect(screen.getByText('خالد')).toBeTruthy();
   });
+
+  it('keeps a row without the fact the same height as one with it — a placeholder, not an absence', async () => {
+    recentOverride = [
+      { id: 'cus_5', phone: '966505555555', name: 'مها', last_visit: Math.floor(Date.now() / 1000) - 86400, visit_count: 1 },
+      { id: 'cus_6', phone: '966506666666', name: 'نورة' },
+    ];
+    open();
+    await waitFor(() => screen.getByText('مها'));
+    // نورة's row still carries a placeholder line — invisible, never rendered as absent text.
+    const placeholder = screen.getByText('نورة').closest('button')?.querySelector('[aria-hidden="true"]');
+    expect(placeholder).toBeTruthy();
+    expect(placeholder?.className).toContain('invisible');
+  });
 });
