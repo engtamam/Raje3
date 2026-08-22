@@ -48,7 +48,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
     {
         "id": "affiliates.home", "label": "الرئيسية", "method": "GET",
         "path": "/api/v1/affiliates/me/home", "capability": "affiliates.self", "group": "الرئيسية",
-        "help": "كل ما تحتاجه الشاشة الرئيسية بنداء واحد — الرصيد، الليدز المنتظرة، أهلية "
+        "help": "كل ما تحتاجه الشاشة الرئيسية بنداء واحد — الرصيد، العملاء المحتملون المنتظرون، أهلية "
                "دعم الوفاء والترقية، وقسم الفريق إن كنت مديرًا.",
     },
     {
@@ -143,45 +143,45 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "group": "دعم الوفاء والترقية",
         "help": "كم عميل مشترك باقٍ لك — بدون تجربة طلب يُرفض.",
     },
-    # ── محرك البحث عن ليدز — §٦، للمدير أساسًا لكن الفحص ملكية لا صلاحية ────────────────────────
+    # ── محرك البحث عن عملاء محتملين — §٦، للمدير أساسًا لكن الفحص ملكية لا صلاحية ────────────────────────
     {
         "id": "affiliates.set_places_api_key", "label": "مفتاح خرائط جوجل الخاص بي",
         "method": "PUT",
         "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self",
-        "group": "بحث الليدز", "danger": True,
+        "group": "بحث العملاء المحتملين", "danger": True,
     },
     {
         "id": "affiliates.places_api_key_status", "label": "حالة مفتاح خرائط جوجل", "method": "GET",
-        "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self", "group": "بحث الليدز",
+        "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
         "help": "تلميح فقط، أبدًا القيمة الحقيقية.",
     },
     {
         "id": "affiliates.clear_places_api_key", "label": "احذف مفتاح خرائط جوجل", "method": "DELETE",
-        "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self", "group": "بحث الليدز",
+        "path": "/api/v1/affiliates/me/places-api-key", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
         "confirm": True, "danger": True,
     },
     {
-        "id": "affiliates.start_lead_search", "label": "ابدأ بحث ليدز جديد", "method": "POST",
-        "path": "/api/v1/affiliates/me/leads/search", "capability": "affiliates.self", "group": "بحث الليدز",
+        "id": "affiliates.start_lead_search", "label": "ابدأ بحث عملاء محتملين جديد", "method": "POST",
+        "path": "/api/v1/affiliates/me/leads/search", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
         "help": "بحث كامل يأخذ ساعات — يتقدّم بالخلفية، تتابعه من نفس الشاشة.",
     },
     {
         "id": "affiliates.lead_searches", "label": "عمليات البحث السابقة", "method": "GET",
-        "path": "/api/v1/affiliates/me/leads/search", "capability": "affiliates.self", "group": "بحث الليدز",
+        "path": "/api/v1/affiliates/me/leads/search", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
     },
     {
-        "id": "affiliates.lead_search_status", "label": "تقدّم بحث الليدز", "method": "GET",
-        "path": "/api/v1/affiliates/me/leads/search/{}", "capability": "affiliates.self", "group": "بحث الليدز",
+        "id": "affiliates.lead_search_status", "label": "تقدّم بحث العملاء المحتملين", "method": "GET",
+        "path": "/api/v1/affiliates/me/leads/search/{}", "capability": "affiliates.self", "group": "بحث العملاء المحتملين",
         "params": [{"name": "job_id", "in": "path", "type": "string", "required": True}],
     },
-    # ── عملائي المحتملين (الليدز) ────────────────────────────────────────────────────────────────
+    # ── عملائي المحتملين ────────────────────────────────────────────────────────────────
     {
         "id": "affiliates.leads", "label": "عملائي المحتملين", "method": "GET",
         "path": "/api/v1/affiliates/me/leads", "capability": "affiliates.self", "group": "عملائي المحتملين",
-        "help": "المسوّق يشوف ليدزه المُسنَدة فقط؛ المدير يشوف ما وجده بحثه هو.",
+        "help": "المسوّق يشوف عملاءه المحتملين المُسنَدين له فقط؛ المدير يشوف ما وجده بحثه هو.",
     },
     {
-        "id": "affiliates.stale_leads", "label": "ليدز بانتظار ردّي", "method": "GET",
+        "id": "affiliates.stale_leads", "label": "عملاء محتملون بانتظار ردّي", "method": "GET",
         "path": "/api/v1/affiliates/me/leads/stale", "capability": "affiliates.self",
         "group": "عملائي المحتملين",
         "params": [{"name": "stale_after_days", "in": "query", "type": "integer",
