@@ -618,8 +618,14 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
   });
 
   it('says «اليوم», not a date, on a row that actually falls today — and a real date on the rest', async () => {
+    // NOON TODAY, NOT "NOW + an hour" — a fixed offset from the real run-time clock crosses
+    // midnight (into a DIFFERENT calendar day) whenever this suite happens to run in the last
+    // hour before it, which is exactly the kind of flake a fixed anchor avoids regardless of
+    // when the test actually runs.
+    const n = new Date();
+    const todayNoon = Math.floor(new Date(n.getFullYear(), n.getMonth(), n.getDate(), 12, 0, 0).getTime() / 1000);
     customerUpcomingOverride = [
-      { ...BOOKING, id: 'today_row', customer_id: 'c1', starts_at: NOW + 3600, status: 'booked' },
+      { ...BOOKING, id: 'today_row', customer_id: 'c1', starts_at: todayNoon, status: 'booked' },
       { ...BOOKING, id: 'later_row', customer_id: 'c1', starts_at: NOW + 5 * DAY, status: 'booked' },
     ];
     open({ branch: 'b1', branches: [{ id: 'b1' }] });

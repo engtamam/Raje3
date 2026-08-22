@@ -11,7 +11,7 @@
  * (`pointer: coarse`) a real drag fights scrolling, so a long-press opens a "move" mode completed
  * with one tap on the destination cell.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Calendar, Check, ChevronLeft, ChevronRight, Clock, Filter, GripVertical, LayoutGrid, List,
   Pencil, Phone, Plus, Settings, Trash2, User, X,
@@ -1491,7 +1491,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                 : pay === 'paid' && price !== null ? `مدفوع ${riyals(price)}`
                   : pay !== 'none' ? PAYMENT_LABEL[pay] : null;
               return (
-                <>
+                <Fragment key={b.id}>
                   {/* A DAY HEADER ROW ONLY WHEN THE DATE ACTUALLY CHANGES — a single day's list
                       never shows one at all; a week's list gets exactly seven, at the point they
                       occur in time order. TODAY GETS THE ACCENT, so "is this today?" costs
@@ -1546,7 +1546,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
                       </span>
                     </td>
                   </tr>
-                </>
+                </Fragment>
               );
             })}
           </tbody>
