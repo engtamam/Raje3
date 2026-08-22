@@ -172,7 +172,7 @@
       ],
       "name": "الحملات",
       "amount": 9900,
-      "trial_days": 0,
+      "trial_days": 30,
       "limits": {
         "feature.campaigns": {
           "kind": "boolean",
@@ -189,7 +189,7 @@
     {
       "name": "برنامج النقاط",
       "amount": 9900,
-      "trial_days": 0,
+      "trial_days": 30,
       "limits": {
         "feature.loyalty": {
           "kind": "boolean",
@@ -200,7 +200,7 @@
     {
       "name": "فرصي",
       "amount": 9900,
-      "trial_days": 0,
+      "trial_days": 30,
       "limits": {
         "feature.insights.engine": {
           "kind": "boolean",
@@ -228,7 +228,7 @@
       ],
       "name": "الحجوزات",
       "amount": 9900,
-      "trial_days": 0,
+      "trial_days": 30,
       "listed": true,
       "limits": {
         "feature.bookings": {

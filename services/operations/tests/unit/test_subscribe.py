@@ -126,3 +126,16 @@ def test_base_plan_id_is_empty_when_none_or_more_than_one_carries_the_meter():
 
 def test_base_plan_id_is_empty_when_the_catalogue_cannot_be_read():
     assert run(_plans_client({}, status=503).base_plan_id()) == ""
+
+
+def test_list_trial_plans_reads_every_row_that_carries_a_trial():
+    client = _plans_client({"plans": [
+        {"id": "plan_base", "trial_days": 30},
+        {"id": "plan_bookings", "trial_days": 30},
+        {"id": "plan_seats", "trial_days": 0},          # a capacity pack — never a trial
+    ]})
+    assert run(client.list_trial_plans()) == ["plan_base", "plan_bookings"]
+
+
+def test_list_trial_plans_is_empty_when_the_catalogue_cannot_be_read():
+    assert run(_plans_client({}, status=503).list_trial_plans()) == []

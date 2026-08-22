@@ -488,7 +488,10 @@ class SignupService:
         return await self._register_data_map(tenant)
 
     async def _start_base_trial(self, tenant: str) -> tuple[bool, str, float]:
-        """Open the base subscription's trial for a shop that just opened, never raises.
+        """Open the base subscription's trial for a shop that just opened, never raises — and,
+        once the base is open, every app that also carries a trial (`_start_app_trials` below):
+        a shop should not have to find «متجر التطبيقات» and press «أضِف» four times just to try
+        what it already signed up to evaluate.
 
         `(False, "", 0.0)` ON A DEPLOYMENT WITHOUT `billing_plans` WIRED — tests, a local run —
         and that is deliberately NOT an error: `trial_started` in the response and the console's
@@ -526,7 +529,41 @@ class SignupService:
                 except Exception:                                              # noqa: BLE001
                     pass    # a telemetry failure must not fail a signup
             return False, error, 0.0
+
+        # AND EVERY APP THAT ALSO CARRIES A TRIAL, THE SAME MONTH — Tamam: «كل التطبيقات تُفعَّل
+        # تجريبياً تلقائياً عند التسجيل». Best-effort and never reflected in this call's own
+        # return value: the welcome screen answers for the BASE alone (one date, one sentence),
+        # and one app's subscribe failing must not read as "your trial did not start" when it
+        # plainly did.
+        await self._start_app_trials(tenant, base_plan_id=plan_id)
         return True, "", float((out or {}).get("trial_end") or 0.0)
+
+    async def _start_app_trials(self, tenant: str, *, base_plan_id: str) -> None:
+        """Every OTHER listed plan carrying a trial, subscribed the same moment the base's own
+        opens. Never raises, never undoes the base trial it follows, and failing on one app must
+        not stop the rest — a shop is not denied its loyalty trial because campaigns' subscribe
+        call timed out a second earlier.
+        """
+        if self._plans is None:
+            return
+        try:
+            plan_ids = await self._plans.list_trial_plans()
+        except Exception:                                                     # noqa: BLE001
+            return
+        for plan_id in plan_ids:
+            if plan_id == base_plan_id:
+                continue          # already subscribed above
+            try:
+                status, out = await self._plans.subscribe(tenant=tenant, plan_id=plan_id)
+            except Exception as exc:                                          # noqa: BLE001
+                status, out = 0, {"detail": str(exc)[:200]}
+            if status not in (200, 201) and self._telemetry is not None:
+                try:
+                    self._telemetry.event(
+                        "signup_app_trial_failed", tenant=tenant, plan=plan_id,
+                        reason=str((out or {}).get("detail") or f"status {status}")[:200])
+                except Exception:                                              # noqa: BLE001
+                    pass    # a telemetry failure must not fail a signup
 
     async def _register_data_map(self, tenant: str) -> str:
         """Tell compliance which services hold this tenant's data. Never raises.

@@ -292,6 +292,9 @@ class NullPlans:
     async def base_plan_id(self) -> str:
         return ""
 
+    async def list_trial_plans(self) -> list[str]:
+        return []
+
 
 class HttpPlans:
     """billing-service, for the two things this path needs and nothing else.
@@ -417,6 +420,25 @@ class HttpPlans:
             return ""
         bases = [p for p in (out.get("plans") or []) if is_base(p.get("limits"))]
         return str(bases[0].get("id") or "") if len(bases) == 1 else ""
+
+    async def list_trial_plans(self) -> list[str]:
+        """Every LISTED plan carrying a trial — base and app alike, whatever the price list says
+        today (Tamam: «كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل»).
+
+        NOT A SEPARATE "IS THIS AN APP" RULE. `trial_days` is the one fact each row already
+        states about itself; a plan not meant to be tried simply carries 0, and this reads that
+        the same way `trial_days()` above does for a single id — no second table of "which plans
+        get a free month," which would drift from the price list the day a plan is added or its
+        trial changed.
+
+        `include_hidden` STAYS OFF, same reasoning as `base_plan_id`: a signup must only ever
+        start a trial on something a person could actually buy today.
+        """
+        status, out = self._request(self._plans)
+        if status >= 400:
+            return []
+        return [str(p.get("id") or "") for p in (out.get("plans") or [])
+               if int(p.get("trial_days") or 0) > 0 and p.get("id")]
 
 
 def build_connections(settings) -> Any:
