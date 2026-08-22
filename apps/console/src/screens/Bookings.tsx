@@ -1365,6 +1365,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
   }
 
   let lastDate = '';
+  const today = todayLocal();
   return (
     <div data-testid="rj-list" className="rj-card overflow-hidden rounded-[28px]" style={{ background: 'var(--rj-surface)' }}>
       <ul>
@@ -1372,6 +1373,7 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
           const dateKey = dateKeyOf(b.starts_at);
           const showDateHeader = dateKey !== lastDate;
           lastDate = dateKey;
+          const isToday = dateKey === today;
           const tone = STATUS_VARS[b.status];
           const pay = b.payment_status ?? 'none';
           const price = priceMinorOf(b);
@@ -1383,16 +1385,32 @@ function BookingsList({ rows, nameOf, serviceNameOf, priceMinorOf, onOpen, empty
             <li key={b.id}>
               {/* A DAY HEADER ONLY WHEN THE DATE ACTUALLY CHANGES — a single day's list never
                   shows one at all; a week's list gets exactly seven, at the point they occur in
-                  time order, never a fixed row per day regardless of whether it holds anything. */}
+                  time order, never a fixed row per day regardless of whether it holds anything.
+                  TODAY GETS THE ACCENT, EVERY OTHER DAY STAYS NEUTRAL — a list spanning many
+                  dates (a customer's own history, a week flattened) is read fastest when "is this
+                  today?" costs nothing to notice. */}
               {showDateHeader ? (
                 <div className="sticky top-0 border-b px-4 pb-1.5 pt-3 text-xs font-semibold"
-                    style={{ borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
-                  {humanDate(dateKey)}
+                    style={isToday
+                      ? { borderColor: 'var(--rj-accent-soft)', background: 'var(--rj-accent-soft)', color: 'var(--rj-accent-deep)' }
+                      : { borderColor: 'var(--rj-line)', background: 'color-mix(in srgb, var(--rj-surface) 92%, transparent)', color: 'var(--rj-ink-soft)' }}>
+                  {isToday ? `اليوم — ${humanDate(dateKey)}` : humanDate(dateKey)}
                 </div>
               ) : null}
+              {/* AND THE DATE ITSELF, ON EVERY ROW — not only in the header. The header sits
+                  `sticky top-0` inside this list's own scroll, but the PAGE (not this box) is
+                  what actually scrolls a long customer history, so a header can end up well out
+                  of view while its rows are still on screen. A row must never depend on
+                  remembering what it scrolled past. */}
               <button type="button" onClick={() => onOpen(b)}
                      className="flex w-full items-center gap-3 border-b px-4 py-3 text-start transition-colors last:border-b-0 hover:brightness-[0.98]"
-                     style={{ borderColor: 'var(--rj-line)' }}>
+                     style={{
+                       borderColor: 'var(--rj-line)',
+                       background: isToday ? 'color-mix(in srgb, var(--rj-accent-soft) 45%, transparent)' : undefined,
+                     }}>
+                <span className="w-14 shrink-0 text-[11px] font-semibold" style={{ color: isToday ? 'var(--rj-accent-deep)' : 'var(--rj-ink-soft)' }}>
+                  {isToday ? 'اليوم' : shortDate(dateKey)}
+                </span>
                 <span dir="ltr" className="w-14 shrink-0 text-sm font-semibold tabular-nums">{timeLabel(minutesOf(b.starts_at))}</span>
                 <span className="min-w-0 flex-1 truncate text-sm">{serviceNameOf(b.service_ids) || '—'}</span>
                 <span className="hidden shrink-0 text-xs sm:block" style={{ color: 'var(--rj-ink-soft)' }}>{nameOf(b.operator_id)}</span>

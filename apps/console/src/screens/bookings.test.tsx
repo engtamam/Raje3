@@ -574,4 +574,22 @@ describe('البحث عن عميل بجواله — كل مواعيده القا
     const labels = within(list()).getAllByText(/قص شعر|تلميع/).map((el) => el.textContent);
     expect(labels).toEqual(['تلميع', 'قص شعر']);
   });
+
+  it('says «اليوم», not a date, on a row that actually falls today — and a real date on the rest', async () => {
+    customerUpcomingOverride = [
+      { ...BOOKING, id: 'today_row', customer_id: 'c1', starts_at: NOW + 3600, status: 'booked' },
+      { ...BOOKING, id: 'later_row', customer_id: 'c1', starts_at: NOW + 5 * DAY, status: 'booked' },
+    ];
+    open({ branch: 'b1', branches: [{ id: 'b1' }] });
+    await waitFor(() => card());
+
+    fireEvent.change(screen.getByLabelText('ابحث عن حجز عميل بجواله'), { target: { value: '9665' } });
+    await waitFor(() => screen.getByText('محمد'));
+    fireEvent.click(screen.getByText('محمد'));
+
+    // «اليوم» marks both the header (as part of its own sentence) and the row's own date badge —
+    // and never stands in for the later appointment's real date.
+    await waitFor(() => expect(within(list()).getByText(/^اليوم —/)).toBeTruthy());
+    expect(within(list()).getByText('اليوم', { selector: 'span' })).toBeTruthy();
+  });
 });
