@@ -76,4 +76,19 @@ export default defineConfig({
   // beside the unit results — a suite that is red for a reason that has nothing to do with the
   // code, which is how a suite stops being read.
   test: { environment: 'jsdom', globals: true, include: ['src/**/*.test.ts?(x)'] },
+  build: {
+    rollupOptions: {
+      output: {
+        // ONE VENDOR CHUNK, SPLIT FROM OUR OWN CODE — not a fix for total bytes shipped (the
+        // browser still fetches the same libraries once), but a fix for CACHE INVALIDATION: before
+        // this, every app commit re-hashed a single 800kB+ bundle that was mostly react/react-dom/
+        // react-router-dom/lucide-react, so a returning owner re-downloaded the whole console for
+        // a one-line copy change. Vendor code changes only on a dependency bump, so it now keeps
+        // its own hash across ordinary app releases.
+        manualChunks(id) {
+          if (id.includes('node_modules')) return 'vendor';
+        },
+      },
+    },
+  },
 });

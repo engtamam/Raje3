@@ -269,7 +269,7 @@ function BiCell({ value, editions, onChange }: {
   const { t } = useBlockDocI18n();
   const cur = asText(value);
   return (
-    <div className="grid grid-cols-2 gap-2 max-[32rem]:grid-cols-1">
+    <div className="grid grid-cols-2 gap-2 max-[512px]:grid-cols-1">
       {editions.map((lang) => (
         <div key={lang} className="flex min-w-0 flex-col gap-0.5">
           {editions.length > 1 && (
@@ -600,7 +600,7 @@ export function SectionPane({
       )}
 
       {!flat && (
-        <div className="grid grid-cols-2 gap-3 max-[42rem]:grid-cols-1">
+        <div className="grid grid-cols-2 gap-3 max-[672px]:grid-cols-1">
           <label className="flex flex-col gap-1">
             <span className="text-xs text-text-muted">{t('legal.f.titleEn')}</span>
             <input className={FIELD} value={section.title_en} onChange={(e) => onChange({ ...section, title_en: e.target.value })} />
@@ -781,8 +781,8 @@ export function BlockDocEditor({
     : [];
 
   return (
-    <div className="flex h-[72vh] gap-4 max-[46rem]:h-auto max-[46rem]:flex-col">
-      <aside className="w-60 shrink-0 overflow-y-auto rounded-xl border border-border-subtle bg-surface-2/40 p-2 max-[46rem]:max-h-52 max-[46rem]:w-full">
+    <div className="flex h-[72vh] gap-4 max-[736px]:h-auto max-[736px]:flex-col">
+      <aside className="w-60 shrink-0 overflow-y-auto rounded-xl border border-border-subtle bg-surface-2/40 p-2 max-[736px]:max-h-52 max-[736px]:w-full">
         <BlockIndexRail blocks={blocks} active={active} onSelect={setActive} vocab={vocab} prefer={prefer}
           onAdd={(type) => { onChange([...blocks, { type, data: {} }]); setActive(blocks.length); }}
           onReorder={(from, to) => { const n = blocks.slice(); const [m] = n.splice(from, 1); n.splice(to, 0, m); onChange(n); setActive(to); }} />
@@ -895,7 +895,7 @@ function BlockEditor({
                 return (
                   <div key={f.key} className="flex flex-col gap-1">
                     <span className="text-xs text-text-muted">{t(f.labelKey)}</span>
-                    <div className="grid grid-cols-2 gap-2 max-[36rem]:grid-cols-1">
+                    <div className="grid grid-cols-2 gap-2 max-[576px]:grid-cols-1">
                       {editions.map((lang) => (
                         <div key={lang} className="flex flex-col gap-0.5">
                           <span className="text-[0.65rem] uppercase tracking-wide text-text-muted">{t(`studio.block.${lang}`)}</span>
