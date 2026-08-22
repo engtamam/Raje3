@@ -11,12 +11,19 @@
  *
  * THE TAB ITSELF IS NOT PERSISTED — a fresh sign-in (or a reload) always opens on «الرئيسية»,
  * the one screen every role needs first, rather than resuming wherever he last tapped away from.
+ *
+ * TWO LAYOUTS, ONE MARKUP, PICKED BY CSS (2026-08-22): below `md` this column is content-then-
+ * bottom-bar (`flex-col`); at `md` and up it becomes sidebar-then-content (`md:flex-row`), and the
+ * RTL document flips a row's visual order on its own — so the sidebar, placed FIRST here, lands on
+ * the start (right) edge exactly where the shop console's own `AppShell` puts its rail. See
+ * `AffiliateNav.tsx`'s own header on why a phone gets a bottom bar rather than that shell's
+ * off-canvas drawer.
  */
 import { useState } from 'react';
 import { AffiliateDoor } from './AffiliateDoor';
 import { AffiliateHome } from './AffiliateHome';
 import { AffiliateLeads } from './AffiliateLeads';
-import { AffiliateNav, ComingSoon, type Tab } from './AffiliateNav';
+import { AffiliateSidebar, AffiliateBottomNav, ComingSoon, type Tab } from './AffiliateNav';
 import { useAffiliateSession } from './session';
 
 export function AffiliatePortal() {
@@ -28,15 +35,18 @@ export function AffiliatePortal() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
-      <div className="flex-1">
-        {tab === 'home' ? <AffiliateHome session={session} onSignOut={signOut} /> : null}
-        {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
-        {tab === 'tools' ? <ComingSoon label="أدواتي" /> : null}
-        {tab === 'earnings' ? <ComingSoon label="أرباحي" /> : null}
-        {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
+    <div className="flex min-h-dvh flex-col md:flex-row">
+      <AffiliateSidebar active={tab} onChange={setTab} />
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col md:max-w-2xl">
+        <div className="flex-1">
+          {tab === 'home' ? <AffiliateHome session={session} onSignOut={signOut} /> : null}
+          {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
+          {tab === 'tools' ? <ComingSoon label="أدواتي" /> : null}
+          {tab === 'earnings' ? <ComingSoon label="أرباحي" /> : null}
+          {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
+        </div>
+        <AffiliateBottomNav active={tab} onChange={setTab} />
       </div>
-      <AffiliateNav active={tab} onChange={setTab} />
     </div>
   );
 }

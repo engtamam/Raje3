@@ -9,6 +9,18 @@
  * is its own kind of instability. A stub tab says «قريبًا» rather than pretending to be a working
  * screen — the same honesty rule Home's own empty states follow, applied to navigation instead of
  * data.
+ *
+ * MOBILE GETS A BOTTOM BAR, NOT THE SHOP CONSOLE'S SIDEBAR (2026-08-22): a marketer works this app
+ * one-handed, walking between shops, and the thumb reaches the bottom edge of a phone — not a
+ * hamburger in a corner. `platform/ui`'s shared `AppShell` collapses to an off-canvas DRAWER on
+ * mobile (a hidden rail behind a hamburger), which is right for a shop owner sitting at a counter
+ * and wrong here on purpose. So this is its own component, not that one reused — same reasoning
+ * `api.ts`'s own header comment gives for not reusing the shop's `auth.ts`: a different audience,
+ * bent to fit, is the failure this avoids.
+ *
+ * ONE TAB LIST, TWO RENDERINGS, PICKED BY CSS NOT JS. `md:hidden` / `hidden md:flex` — no
+ * `matchMedia` listener, no layout flash while JS decides; the breakpoint the shop console itself
+ * already uses for the same rail-vs-drawer split (`AppShell.tsx`'s own `md:` classes).
  */
 import type { ReactNode } from 'react';
 import { Home as HomeIcon, Users, Wrench, Wallet, CircleUserRound } from 'lucide-react';
@@ -23,11 +35,16 @@ const TABS: { id: Tab; label: string; icon: ReactNode; ready: boolean }[] = [
   { id: 'account', label: 'حسابي', icon: <CircleUserRound size={20} />, ready: false },
 ];
 
-export function AffiliateNav({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+interface NavProps { active: Tab; onChange: (t: Tab) => void }
+
+/** DESKTOP/TABLET (md and up) — a side rail, rendered FIRST in `AffiliatePortal`'s markup so the
+ *  browser's own RTL row-reversal puts it on the start (right) edge, exactly where `AppShell`'s
+ *  own `<aside>` sits in the shop console — same convention, not reinvented. */
+export function AffiliateSidebar({ active, onChange }: NavProps) {
   return (
-    <nav
+    <aside
       aria-label="أقسام بوابة المسوّق"
-      className="sticky bottom-0 flex border-t border-border-subtle bg-surface-1/95 backdrop-blur"
+      className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-0.5 border-e border-border-subtle bg-surface-1 p-3 md:flex"
     >
       {TABS.map((t) => (
         <button
@@ -35,7 +52,35 @@ export function AffiliateNav({ active, onChange }: { active: Tab; onChange: (t: 
           type="button"
           onClick={() => onChange(t.id)}
           aria-current={active === t.id ? 'page' : undefined}
-          className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
+          className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
+            active === t.id
+              ? 'bg-accent-soft text-accent-on-soft'
+              : 'text-text-secondary hover:bg-surface-2 hover:text-text-primary'
+          }`}
+        >
+          {t.icon}
+          {t.label}
+        </button>
+      ))}
+    </aside>
+  );
+}
+
+/** PHONE (below md) — a bottom bar, rendered LAST after the content column so it sits at the foot
+ *  of the mobile column layout, sticky to the viewport's bottom edge, thumb-reachable. */
+export function AffiliateBottomNav({ active, onChange }: NavProps) {
+  return (
+    <nav
+      aria-label="أقسام بوابة المسوّق"
+      className="sticky bottom-0 z-20 flex border-t border-border-subtle bg-surface-1/95 backdrop-blur md:hidden"
+    >
+      {TABS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onChange(t.id)}
+          aria-current={active === t.id ? 'page' : undefined}
+          className={`flex min-h-11 flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
             active === t.id ? 'text-accent' : 'text-text-secondary'
           }`}
         >
