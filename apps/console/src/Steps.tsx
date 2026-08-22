@@ -119,7 +119,12 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
       }}
     >
       {/* WHERE HE IS, IN DOTS. Three steps is short enough that a number would be noise, and long
-          enough that "am I nearly done?" is a real question with a customer standing there. */}
+          enough that "am I nearly done?" is a real question with a customer standing there.
+          PAST DOTS STAY TINTED, not just "not current" — a dot he already answered and a dot he
+          has not reached yet used to look identical, so the row said only "here", never "this
+          far in". A filled small dot behind him costs nothing extra to read and answers the
+          actual question faster. Still pure CSS — no timer, no extra frame, nothing this screen's
+          five-second budget would ever notice. */}
       <div className="flex items-center justify-center gap-1.5 py-2">
         {live.map((s, i) => (
           <button
@@ -130,8 +135,8 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
             className="grid h-11 w-6 place-items-center"
           >
             <span
-              className={`h-1.5 rounded-full transition-all ${
-                i === at ? 'w-6 bg-accent' : 'w-1.5 bg-border-subtle'
+              className={`h-1.5 rounded-full transition-all duration-150 ${
+                i === at ? 'w-6 bg-accent' : i < at ? 'w-1.5 bg-accent-soft' : 'w-1.5 bg-border-subtle'
               }`}
             />
           </button>
@@ -164,12 +169,15 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           in a screenshot, not in a review. `◂` and `▸` are geometric shapes and are not mirrored,
           so what is written is what is drawn. */}
       <div className="mx-auto flex w-full max-w-3xl items-center gap-2 border-t border-border-subtle bg-surface-0 p-3">
+        {/* active:scale, NOT a hover state — this is a touch screen, and the only feedback that
+            matters is the one his thumb feels the instant it lands. 100ms so it reads as the tap
+            itself, never as a delay before the step actually turns. */}
         <button
           type="button"
           onClick={() => go(-1)}
           disabled={at === 0}
           aria-label="السابق"
-          className="grid size-11 place-items-center rounded-xl bg-surface-2 text-lg disabled:opacity-30"
+          className="grid size-11 shrink-0 place-items-center rounded-xl bg-surface-2 text-lg transition-transform duration-100 active:scale-90 disabled:opacity-30 disabled:active:scale-100"
         >
           ▸
         </button>
@@ -181,7 +189,7 @@ export function Steps({ steps, done }: { steps: Step[]; done: ReactNode }) {
           onClick={() => go(1)}
           disabled={last}
           aria-label="التالي"
-          className="grid size-11 place-items-center rounded-xl bg-accent text-lg text-white disabled:opacity-30"
+          className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent text-lg text-white transition-transform duration-100 active:scale-90 disabled:opacity-30 disabled:active:scale-100"
         >
           ◂
         </button>

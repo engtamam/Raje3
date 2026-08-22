@@ -19,7 +19,7 @@ import {
   sentenceFor,
 } from '../api';
 import { asLocal } from '../phone';
-import { Button } from '@base-ui/design-system/Button';
+import { Button } from '../rj-ui/Button';
 import { ServiceGrid } from '../ServiceGrid';
 import { Steps } from '../Steps';
 import { newIdempotencyKey, queue, type Queued } from '../queue';
