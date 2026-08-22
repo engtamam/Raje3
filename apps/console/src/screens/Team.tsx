@@ -24,6 +24,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { Field, Input, Select } from '../rj-ui/Field';
 import { Segmented } from '../rj-ui/Segmented';
 import { Toggle } from '../rj-ui/Toggle';
+import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading, isReady } from '../loading';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { Check, Lock, Megaphone, ShieldCheck, UserCog, UserRound } from 'lucide-react';
@@ -569,8 +570,8 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
   }
 
   // «أي خدمات يسوّيها» — الوجه الآخر لنفس الحقل اللي «خدماتي» تُخصّصه من جهة الخدمة (§3 من خطة
-  // الحجوزات الذكية). مطويّ افتراضياً بنفس منطق «تخصيص دوام» تماماً.
-  const [servicesOpen, setServicesOpen] = useState(false);
+  // الحجوزات الذكية). نفس منيو الفلترة المستخدمة في كل مكان آخر بالكونسول (`rj-ui/FilterMenu`) —
+  // زر بعدّاد + منيو بمربعات اختيار، لا صف خام من checkbox مبعثرة.
   const [servicesBusy, setServicesBusy] = useState(false);
   const [servicesError, setServicesError] = useState('');
 
@@ -594,6 +595,23 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
     } finally {
       setServicesBusy(false);
     }
+  }
+
+  // FilterMenu ONLY KNOWS "the new full selection", NOT which one box was clicked — eligibility
+  // is stored per SERVICE, not per operator, so the actual write is a diff against what was
+  // selected a moment ago, applied to whichever one service actually changed.
+  function isEligible(svc: ServiceLite): boolean {
+    return svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
+      ? svc.eligible_staff_ids.includes(o.id)
+      : true;   // «كل الموظفين» — لا قيد بعد
+  }
+  const activeServices = (services ?? []).filter((s) => s.active !== false);
+  const eligibleServiceIds = activeServices.filter(isEligible).map((s) => s.id);
+  function onServicesChange(next: string[]) {
+    const changedId = next.find((id) => !eligibleServiceIds.includes(id))
+      ?? eligibleServiceIds.find((id) => !next.includes(id));
+    const svc = changedId ? activeServices.find((s) => s.id === changedId) : undefined;
+    if (svc) toggleService(svc);
   }
 
   async function save() {
@@ -828,33 +846,16 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
           عندك موظف نشط واحد فقط، فلا يظهر إطلاقاً في تلك الحالة. */}
       {o.active !== false && updateService
           && (allOperators ?? []).filter((op) => op.active !== false).length > 1
-          && (services ?? []).filter((s) => s.active !== false).length > 0 ? (
-        <div className="text-sm">
-          <button type="button" className="text-text-secondary underline underline-offset-2"
-                  onClick={() => setServicesOpen((v) => !v)}>
-            أي خدمات يسوّيها
-          </button>
-
-          {servicesOpen ? (
-            <fieldset className="mt-2 flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 p-2">
-              <legend className="mb-1 w-full text-xs text-text-secondary">
-                بلا تحديد يعني يقدر يسوّي كل الخدمات
-              </legend>
-              {(services ?? []).filter((s) => s.active !== false).map((s) => {
-                const restricted = Boolean(s.eligible_staff_ids?.length);
-                const checked = restricted ? s.eligible_staff_ids!.includes(o.id) : true;
-                return (
-                  <label key={s.id} className="flex items-center gap-1.5 text-sm">
-                    <input type="checkbox" className="size-5" checked={checked}
-                          disabled={servicesBusy}
-                          onChange={() => toggleService(s)} />
-                    <span>{s.name}</span>
-                  </label>
-                );
-              })}
-              {servicesError ? <p role="alert" className="w-full text-danger text-xs">{servicesError}</p> : null}
-            </fieldset>
-          ) : null}
+          && activeServices.length > 0 ? (
+        <div>
+          <FilterMenu
+            label="أي خدمات يسوّيها"
+            options={activeServices.map((s) => ({ value: s.id, label: s.name }))}
+            selected={eligibleServiceIds}
+            onChange={onServicesChange}
+          />
+          {servicesBusy ? <p className="mt-1 text-xs text-text-secondary">جارٍ الحفظ…</p> : null}
+          {servicesError ? <p role="alert" className="mt-1 text-xs text-danger">{servicesError}</p> : null}
         </div>
       ) : null}
     </li>

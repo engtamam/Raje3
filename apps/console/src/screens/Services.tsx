@@ -24,6 +24,7 @@ import { EmptyState } from '../rj-ui/EmptyState';
 import { Check, Pencil, Power, RotateCcw } from 'lucide-react';
 import { Hint } from '../Hint';
 import { Toggle } from '../rj-ui/Toggle';
+import { FilterMenu } from '../rj-ui/FilterMenu';
 import { hasFailed, isLoading } from '../loading';
 import { Waiting } from '../Waiting';
 import { action, call, type Catalog } from '../catalog';
@@ -427,6 +428,23 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
     if (current.has(operatorId)) current.delete(operatorId); else current.add(operatorId);
     const eligible_staff_ids = activeIds.every((id) => current.has(id)) ? [] : [...current];
     await patchService(svc.id, { eligible_staff_ids });
+  };
+
+  /** Which operator ids `svc` is currently eligible for — unrestricted reads as everyone active. */
+  const eligibleIdsFor = (svc: Service): string[] => {
+    const activeIds = (staff ?? []).filter((s) => s.active !== false).map((s) => s.id);
+    return svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
+      ? svc.eligible_staff_ids.filter((id) => activeIds.includes(id))
+      : activeIds;
+  };
+
+  /** FilterMenu only ever hands back "the new full selection" — the actual write is one
+   *  operator's toggle, found by diffing against what was selected a moment ago. */
+  const onEligibleChange = (svc: Service, next: string[]) => {
+    const before = eligibleIdsFor(svc);
+    const changedId = next.find((id) => !before.includes(id))
+      ?? before.find((id) => !next.includes(id));
+    if (changedId) toggleEligible(svc, changedId);
   };
 
   /** Take a service out of its group; it goes back to following the general setting. */
@@ -1245,31 +1263,19 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
           ) : null}
 
           {/* «من يقدر يسوّيها» — يظهر فقط حين يوجد أكثر من موظف نشط واحد؛ محل بموظف واحد لا يرى
-              هذا الصف إطلاقاً لأنه لا معنى له (§3 من الخطة: البساطة الافتراضية). صف كامل العرض
-              لأنه يحمل قائمة أسماء، لا رقماً يناسب عموداً. */}
+              هذا الصف إطلاقاً لأنه لا معنى له (§3 من الخطة: البساطة الافتراضية). نفس منيو
+              الفلترة المستخدمة في كل مكان آخر بالكونسول — زر بعدّاد + منيو بمربعات اختيار. */}
           {editing && (staff ?? []).filter((s) => s.active !== false).length > 1
               && action(catalog, 'operations.update_service') ? (
             <tr className="border-b border-border-subtle bg-surface-2/40">
               <td colSpan={11} className="px-3 py-2">
-                <fieldset className="flex flex-wrap items-center gap-3">
-                  <legend className="mb-1 w-full text-xs text-text-secondary">
-                    من يقدر يسوّيها — بلا تحديد يعني كل موظف
-                  </legend>
-                  {(staff ?? []).filter((s) => s.active !== false).map((s) => {
-                    const restricted = Boolean(svc.eligible_staff_ids?.length);
-                    const checked = restricted
-                      ? svc.eligible_staff_ids!.includes(s.id)
-                      : true;
-                    return (
-                      <label key={s.id} className="flex items-center gap-1.5 text-sm">
-                        <input type="checkbox" className="size-5" checked={checked}
-                              disabled={saving}
-                              onChange={() => toggleEligible(svc, s.id)} />
-                        <span>{s.name}</span>
-                      </label>
-                    );
-                  })}
-                </fieldset>
+                <FilterMenu
+                  label="من يقدر يسوّيها"
+                  options={(staff ?? []).filter((s) => s.active !== false)
+                    .map((s) => ({ value: s.id, label: s.name }))}
+                  selected={eligibleIdsFor(svc)}
+                  onChange={(next) => onEligibleChange(svc, next)}
+                />
               </td>
             </tr>
           ) : null}
