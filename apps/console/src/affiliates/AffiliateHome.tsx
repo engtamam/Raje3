@@ -16,12 +16,12 @@
  * honestly at zero (no stale leads, no team, no template used yet) rather than assume data that
  * will not exist for a while.
  */
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import { QrCode } from 'lucide-react';
+import QRCode from 'qrcode';
 import { Button } from '@base-ui/design-system/Button';
-import { Field, Input } from '@base-ui/design-system/Field';
 import { riyalsLabel } from '../money';
-import { western } from '../digits';
-import { AffiliateRefused, home, invite, type AffiliateSession, type Home, type HomeTicket } from './api';
+import { home, type AffiliateSession, type Home, type HomeTicket } from './api';
 import { TicketCarousel } from './TicketCarousel';
 
 export function AffiliateHome({ session, onOpenTicket }: {
@@ -59,8 +59,6 @@ export function AffiliateHome({ session, onOpenTicket }: {
           <TopTemplateCard data={data} />
           {data.team ? <TeamCard team={data.team} /> : null}
           <ReferralLinkCard self={data.affiliate} />
-          {data.affiliate.role === 'affiliate_manager'
-            ? <InviteCard session={session} /> : null}
         </>
       ) : null}
     </div>
@@ -258,6 +256,7 @@ function ReferralLinkCard({ self }: { self: Home['affiliate'] }) {
           <Button type="button" onClick={() => copy('shop', shopLink)}>
             {copied === 'shop' ? 'تم النسخ' : 'نسخ'}
           </Button>
+          <QrDownloadButton link={shopLink} fileName="رابط-دعوة-محل" />
         </div>
       </div>
 
@@ -270,6 +269,7 @@ function ReferralLinkCard({ self }: { self: Home['affiliate'] }) {
             <Button type="button" onClick={() => copy('affiliate', affiliateLink)}>
               {copied === 'affiliate' ? 'تم النسخ' : 'نسخ'}
             </Button>
+            <QrDownloadButton link={affiliateLink} fileName="رابط-دعوة-مسوّق" />
           </div>
         </div>
       ) : null}
@@ -277,61 +277,31 @@ function ReferralLinkCard({ self }: { self: Home['affiliate'] }) {
   );
 }
 
-function InviteCard({ session }: { session: AffiliateSession }) {
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
+/** رابطه كباركود، جاهز للطباعة أو المشاركة — الكود يُولَّد وقت الضغط فقط (لا رسم دائم لكل رابط)،
+ *  ويُنزَّل مباشرة كصورة PNG بلا فتح تبويب جديد. */
+function QrDownloadButton({ link, fileName }: { link: string; fileName: string }) {
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!phone.trim() || !name.trim()) {
-      setError('أدخل الاسم ورقم الجوال.');
-      return;
-    }
+  async function download() {
     setBusy(true);
-    setError('');
     try {
-      await invite(session, phone, name);
-      setSent(true);
-      setPhone('');
-      setName('');
-    } catch (err) {
-      setError(err instanceof AffiliateRefused ? err.message : 'تعذّرت الدعوة.');
+      const dataUrl = await QRCode.toDataURL(link, { width: 512, margin: 2 });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${fileName}.png`;
+      a.click();
+    } catch {
+      // لا شي يُعطَّل — الرابط نفسه لسا قابل للنسخ عادي، الباركود مجرد تسهيل إضافي.
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 rounded-card bg-surface-1 p-5 shadow-sm">
-      <div>
-        <h2 className="text-lg">ادعُ مسوّقاً لفريقك</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          يمر طلبه على مراجعة فريقنا قبل التفعيل — نفس الخطوة لأي طلب جديد.
-        </p>
-      </div>
-
-      <Field label="اسمه" required htmlFor="inv-name">
-        <Input id="inv-name" value={name}
-               onChange={(e) => { setName(e.target.value); setError(''); setSent(false); }} />
-      </Field>
-
-      <Field label="رقم جواله" required htmlFor="inv-phone">
-        <Input id="inv-phone" value={phone} type="tel" inputMode="tel" dir="ltr"
-               placeholder="05XXXXXXXX"
-               onChange={(e) => {
-                 setPhone(western(e.target.value)); setError(''); setSent(false);
-               }} />
-      </Field>
-
-      {error ? <p role="alert" className="text-danger">{error}</p> : null}
-      {sent ? <p className="text-success">أُرسلت الدعوة — بانتظار المراجعة.</p> : null}
-
-      <Button type="submit" disabled={busy || !phone.trim() || !name.trim()}>
-        {busy ? 'جارٍ الإرسال…' : 'إرسال الدعوة'}
-      </Button>
-    </form>
+    <Button type="button" variant="ghost" size="icon" aria-label="تنزيل كباركود"
+           disabled={busy} onClick={download}>
+      <QrCode size={16} />
+    </Button>
   );
 }
+

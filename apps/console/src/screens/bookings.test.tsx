@@ -380,10 +380,17 @@ describe('حجز جديد', () => {
     await waitFor(() => expect(asked.some((a) => a.fn === 'nearestSlot')).toBe(true));
     const call = asked.find((a) => a.fn === 'nearestSlot')!;
     const after = call.args[4] as number;
-    const now = Math.floor(Date.now() / 1000);
-    // Tomorrow's midnight (Riyadh) is well ahead of «now», never close to it the way today's
-    // search is in the test above.
-    expect(after - now).toBeGreaterThan(3600);
+    // Computed independently of «now» — the previous version compared `after - now` against a
+    // fixed 3600s floor, which fails whenever the real clock happens to run this test within an
+    // hour of midnight Riyadh (the gap between «now» and tomorrow's own midnight legitimately
+    // shrinks below that floor at that time of day, with nothing wrong). Riyadh has no DST, so a
+    // fixed +3h offset is exact for every calendar day.
+    const riyadhOffsetSeconds = 3 * 3600;
+    const nowRiyadh = new Date((Math.floor(Date.now() / 1000) + riyadhOffsetSeconds) * 1000);
+    const tomorrowMidnightRiyadh = Date.UTC(
+      nowRiyadh.getUTCFullYear(), nowRiyadh.getUTCMonth(), nowRiyadh.getUTCDate() + 1,
+    ) / 1000;
+    expect(after).toBe(tomorrowMidnightRiyadh - riyadhOffsetSeconds);
   });
 
   it('fixes a missing duration from inside the dialog, never sends him away', async () => {

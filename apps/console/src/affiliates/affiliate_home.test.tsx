@@ -3,9 +3,13 @@
  * الحقل يقول إنه فارغ — لا "لا شيء بعد" مزيّفة، ولا رقم مخترع.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AffiliateHome } from './AffiliateHome';
 import type { AffiliateSession, Home } from './api';
+
+vi.mock('qrcode', () => ({
+  default: { toDataURL: vi.fn(async (text: string) => `data:image/png;base64,QR(${text})`) },
+}));
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
 
@@ -146,5 +150,17 @@ describe('AffiliateHome', () => {
 
     screen.getByText('استفسار').closest('button')!.click();
     expect(onOpenTicket).toHaveBeenCalledWith(ticket);
+  });
+
+  it('the referral link\'s QR button downloads a PNG generated from that exact link', async () => {
+    homeMock = () => Promise.resolve(BASE_PROMOTER);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<AffiliateHome session={SESSION} onOpenTicket={() => {}} />);
+    await waitFor(() => expect(screen.getByText('رابطك')).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText('تنزيل كباركود'));
+
+    await waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1));
+    clickSpy.mockRestore();
   });
 });
