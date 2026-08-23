@@ -843,6 +843,22 @@ function HoldoutCard({ h }: { h: Holdout }) {
  *  back — a triumph invented out of the signup date is worse than no comparison at all. */
 function WeekPulse({ week }: { week: WeekWindow }) {
   const delta = week.previous === null ? null : week.visits - week.previous;
+  // A SHOP WITH ZERO VISITS AND NOTHING TO COMPARE AGAINST IS NOT "MISSING A COMPARISON" — it has
+  // not started. Same dashed/linked treatment `Tile` now gives that exact case, so this card stops
+  // reading as one more plain white box beside it.
+  const justStarted = week.visits === 0 && week.previous === null;
+  if (justStarted) {
+    return (
+      <Link to="/visit" className="flex items-center justify-between gap-3 rounded-2xl p-4"
+           style={{ background: 'var(--sh-surface)', border: '1.5px dashed var(--sh-line)' }}>
+        <div className="flex flex-col">
+          <span className="text-[11.5px]" style={{ color: 'var(--sh-ink-faint)' }}>زياراتك آخر {week.window_days} أيام</span>
+          <span dir="ltr" className="text-[22px] font-extrabold" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>0</span>
+        </div>
+        <span className="text-[11px] font-semibold" style={{ color: 'var(--sh-violet-deep)' }}>سجّل أول زيارة ←</span>
+      </Link>
+    );
+  }
   return (
     <div className="flex items-center justify-between rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
       <div className="flex flex-col">
@@ -1413,7 +1429,10 @@ function RecentVisits({ session, catalog }: { session: Session; catalog: Catalog
       <h2 className="mb-3 text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>آخر الزيارات</h2>
       {isLoading(recent) ? <Skeleton height={64} />
       : hasFailed(recent) ? <EmptyState title="تعذّرت قراءة آخر الزيارات" description="والخلل عندنا — الزيارات محفوظة. أعد المحاولة بعد قليل." />
-      : recent.length === 0 ? <EmptyState title="لم تُسجَّل زيارة بعد" description="سجّل أول زيارة من «تسجيل زيارة»." />
+      : recent.length === 0 ? (
+        <EmptyState title="لم تُسجَّل زيارة بعد" description="من هنا تبدأ كل مؤشرات الصفحة تتكوّن."
+                    action={<Link to="/visit" className="rounded-full px-4 py-2 text-[12.5px] font-semibold text-white" style={{ background: 'var(--sh-violet)' }}>سجّل أول زيارة</Link>} />
+      )
       : (
         <ul className="flex flex-col gap-2">
           {recent.map((c) => (
