@@ -325,6 +325,22 @@ function TemplateForm({ session, stages, defaultStage, existing, onDone }: {
   );
 }
 
+/* ── نسخ بضغطة — نفس نمط زر نسخ نص القالب أعلاه، هنا لإعادة الاستخدام مرتين: نص الدليل ورابط
+   المصدر، كل واحد بحالة "تم النسخ" خاصة فيه لا مشتركة بينهما. */
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button type="button" variant="ghost" size="icon" aria-label={label}
+           onClick={() => {
+             navigator.clipboard?.writeText(text).then(() => {
+               setCopied(true); setTimeout(() => setCopied(false), 2000);
+             }).catch(() => {});
+           }}>
+      {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+    </Button>
+  );
+}
+
 /* ── مكتبة الأدلة ─────────────────────────────────────────────────────────────────────────────── */
 function CitationLibrary({ session, isManager, onBack }: {
   session: AffiliateSession; isManager: boolean; onBack: () => void;
@@ -372,21 +388,29 @@ function CitationLibrary({ session, isManager, onBack }: {
               <span className="font-medium">{c.title}</span>
               <p className="text-sm text-text-secondary">{c.body}</p>
               {c.source_label ? (
-                <a href={c.source_url || undefined} target="_blank" rel="noreferrer"
-                   className="text-xs text-accent">المصدر: {c.source_label}</a>
-              ) : null}
-              {isManager ? (
-                <div className="flex items-center gap-1.5">
-                  <Button type="button" variant="ghost" size="icon" aria-label="تعديل"
-                         onClick={() => setEditing(c)}>
-                    <Pencil size={16} />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" aria-label="تعطيل"
-                         onClick={async () => { await deactivateStatCitation(session, c.id); load(); }}>
-                    <Ban size={16} className="text-danger" />
-                  </Button>
+                <div className="flex items-center gap-1">
+                  <a href={c.source_url || undefined} target="_blank" rel="noreferrer"
+                     className="text-xs text-accent">المصدر: {c.source_label}</a>
+                  {c.source_url ? (
+                    <CopyButton text={c.source_url} label="نسخ رابط المصدر" />
+                  ) : null}
                 </div>
               ) : null}
+              <div className="flex items-center gap-1.5">
+                <CopyButton text={c.body} label="نسخ نص الدليل" />
+                {isManager ? (
+                  <>
+                    <Button type="button" variant="ghost" size="icon" aria-label="تعديل"
+                           onClick={() => setEditing(c)}>
+                      <Pencil size={16} />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" aria-label="تعطيل"
+                           onClick={async () => { await deactivateStatCitation(session, c.id); load(); }}>
+                      <Ban size={16} className="text-danger" />
+                    </Button>
+                  </>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
