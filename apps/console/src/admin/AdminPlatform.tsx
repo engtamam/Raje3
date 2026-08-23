@@ -6,9 +6,10 @@ import { Segmented } from '../rj-ui/Segmented';
 import { useState } from 'react';
 import { AdminConfig } from './AdminConfig';
 import { AdminSecrets } from './AdminSecrets';
+import { AdminTeam } from './AdminTeam';
 import type { AdminSession } from './api';
 
-type SubTab = 'config' | 'secrets';
+type SubTab = 'config' | 'secrets' | 'team';
 
 export function AdminPlatform({ session }: { session: AdminSession }) {
   const [sub, setSub] = useState<SubTab>('config');
@@ -21,10 +22,13 @@ export function AdminPlatform({ session }: { session: AdminSession }) {
           options={[
             { value: 'config', label: 'الإعدادات الحيّة' },
             { value: 'secrets', label: 'الأسرار' },
+            { value: 'team', label: 'فريق الإدارة' },
           ]}
         />
       </div>
-      {sub === 'config' ? <AdminConfig session={session} /> : <AdminSecrets session={session} />}
+      {sub === 'config' ? <AdminConfig session={session} /> : null}
+      {sub === 'secrets' ? <AdminSecrets session={session} /> : null}
+      {sub === 'team' ? <AdminTeam session={session} /> : null}
     </div>
   );
 }
