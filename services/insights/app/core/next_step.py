@@ -157,6 +157,12 @@ def _opt_out_high(ctx: NextStepCtx) -> NextStepResult | None:
 
 
 def _weak_reminder_effect(ctx: NextStepCtx) -> NextStepResult | None:
+    # `ready` ALONE ONLY MEANS "THE SEND LOG WAS READABLE" — not that enough was sent for "zero
+    # came back" to mean anything. A shop that sent one message and had nobody return from it is
+    # not a pattern; MIN_VISITS_FOR_DISTRIBUTION is the same real-history floor `weak_services`
+    # needs for the identical reason (§ module note on `total_visits`).
+    if ctx.total_visits < MIN_VISITS_FOR_DISTRIBUTION:
+        return None
     r = ctx.values.get("returned_after_reminder") or {}
     if r.get("ready") and not r.get("partial") and float(r.get("visits") or 0) == 0 \
             and int(r.get("window_days") or 0) > 0:
@@ -225,6 +231,8 @@ def _weak_services_exist(ctx: NextStepCtx) -> NextStepResult | None:
 
 
 def _service_concentration(ctx: NextStepCtx) -> NextStepResult | None:
+    if ctx.total_visits < MIN_VISITS_FOR_DISTRIBUTION:
+        return None       # 2 visits, one per service, is not "60% of your business"
     pop = ctx.values.get("service_popularity")
     if isinstance(pop, list) and pop:
         top = pop[0]
@@ -266,8 +274,11 @@ def _branch_gap_wide(ctx: NextStepCtx) -> NextStepResult | None:
     rows = ctx.values.get("branch_rows")
     if not isinstance(rows, list) or len(rows) < 2:
         return None
+    # EACH SIDE OF THE COMPARISON NEEDS ITS OWN REAL SAMPLE, same floor as `weak_services` and
+    # `service_concentration` — a 100%-vs-0% gap from one visit apiece is not a verdict on either
+    # branch, it is two coin flips.
     rates = [(r.get("name") or r.get("branch_id") or "", float(r.get("return_rate") or 0))
-             for r in rows if r.get("visits")]
+             for r in rows if int(r.get("visits") or 0) >= MIN_VISITS_FOR_DISTRIBUTION]
     if len(rates) < 2:
         return None
     best = max(rates, key=lambda r: r[1])

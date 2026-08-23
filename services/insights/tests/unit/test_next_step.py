@@ -50,6 +50,43 @@ def test_high_opt_out_outranks_a_mild_visit_drop():
     assert out["primary"]["id"] == "opt_out_high"
 
 
+def test_a_single_message_with_no_return_is_not_a_verdict_on_the_content():
+    out = ns.pick(ctx(
+        __total_visits__=2,
+        returned_after_reminder={"ready": True, "partial": False, "visits": 0, "window_days": 30},
+    ), {}, now=NOW)
+    assert out["primary"]["id"] != "weak_reminder_effect"
+
+
+def test_zero_return_after_reminder_fires_once_there_is_a_real_sample():
+    out = ns.pick(ctx(
+        __total_visits__=40,
+        returned_after_reminder={"ready": True, "partial": False, "visits": 0, "window_days": 30},
+    ), {}, now=NOW)
+    assert out["primary"]["id"] == "weak_reminder_effect"
+
+
+def test_two_visits_split_between_two_services_is_not_60_percent_of_anything():
+    out = ns.pick(ctx(
+        __total_visits__=2,
+        service_popularity=[{"service_id": "a", "count": 1, "share": 0.5},
+                            {"service_id": "b", "count": 1, "share": 0.5}],
+    ), {}, now=NOW)
+    assert out["primary"]["id"] != "service_concentration"
+
+
+def test_a_branch_gap_needs_a_real_sample_on_both_sides():
+    """One visit apiece, 100% vs 0% return, used to read as a verdict on either branch."""
+    out = ns.pick(ctx(
+        __multi_branch__=True,
+        branch_rows=[
+            {"branch_id": "b1", "name": "الرياض", "visits": 1, "return_rate": 1.0},
+            {"branch_id": "b2", "name": "جدة", "visits": 1, "return_rate": 0.0},
+        ],
+    ), {}, now=NOW)
+    assert out["primary"]["id"] != "branch_gap_wide"
+
+
 def test_many_at_risk_customers_offers_a_campaign_not_a_one_by_one_nudge():
     out = ns.pick(ctx(at_risk=[{"subject_ref": f"c{i}"} for i in range(12)]), {}, now=NOW)
     assert out["primary"]["id"] == "at_risk_many"
