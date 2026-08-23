@@ -108,6 +108,7 @@ interface Bundle { a_name?: string; b_name?: string; why?: string; customers?: n
                   action?: string; action_label?: string }
 interface Branches { rows?: { branch_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }[];
                     unknown?: number; can_rank?: boolean }
+interface OperatorRow { operator_id?: string; name?: string; visits?: number; customers?: number; return_rate?: number }
 interface WeekWindow { visits: number; previous: number | null; window_days: number }
 interface AtRiskRow { subject_ref: string; days_overdue: number; own_cycle_days: number; visits: number }
 interface MissedOpp { subject_ref: string; has: string; missing: string; verdict: 'real' | 'temporal' | string }
@@ -389,6 +390,9 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const serviceDayGrid = data.values['service_day_heatmap'] as Record<string, number> | undefined;
   const branchDayGrid = data.values['branch_day_heatmap'] as Record<string, number> | undefined;
   const branchNames = (data.values['branch_names'] as Record<string, string> | undefined) ?? {};
+  const operatorRows = data.values['operator_rows'] as OperatorRow[] | undefined;
+  const operatorUnknown = data.values['operator_unknown'] as number | undefined;
+  const operatorCanRank = data.values['operator_can_rank'] as boolean | undefined;
   const serviceDayRows = topEntitiesByDay(serviceDayGrid, serviceNames, 6);
   const branchDayRows = topEntitiesByDay(branchDayGrid, branchNames, 6);
 
@@ -432,6 +436,16 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div> : null}
         {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div> : null}
 
+        {/* MOVED OUT OF THE FOLDED «تفاصيل أكثر» SECTION — a ranking of his own branches and staff
+            is not a detail, it is the comparison Tamam asked for by name, and it read as absent
+            when it took an extra click to find. */}
+        {branches && (branches.rows ?? []).length > 1 ? <div className="mb-3 break-inside-avoid"><BranchCompare branches={branches} /></div> : null}
+        {operatorRows && operatorRows.length > 1 ? (
+          <div className="mb-3 break-inside-avoid">
+            <StaffCompare rows={operatorRows} unknown={operatorUnknown} canRank={operatorCanRank} />
+          </div>
+        ) : null}
+
         {(popularity && popularity.length > 0) || (weak && weak.length > 0) ? (
           <div className="mb-3 break-inside-avoid">
             <Section title="خدماتك">
@@ -467,7 +481,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         </div>
       </div>
 
-      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · باقات مقترحة · فروعك · ما ينقصه بيانات" folded>
+      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · باقات مقترحة · ما ينقصه بيانات" folded>
         {locked.bundles ? (
           <LockedLine title="باقات مقترحة" text={locked.bundles} />
         ) : bundles && bundles.length ? (
@@ -524,8 +538,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             appears once a real or temporal pair exists to be missing FROM — «he never bought X»
             means nothing without a rule saying X usually comes with what he did buy. */}
         {missed && missed.length > 0 ? <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} /> : null}
-
-        {branches && (branches.rows ?? []).length > 1 ? <BranchCompare branches={branches} /> : null}
         {branches && (branches.rows ?? []).length > 1 && branchDayRows.length > 0 ? (
           <EntityDayHeatmap
             title="فروعك حسب يوم الأسبوع"
@@ -1222,31 +1234,53 @@ function MissingRow({ b }: { b: Blocked }) {
 
 /** Branch comparison as points on one axis — closer to the strong end means a higher return rate,
  *  never two bars of equal visual weight pretending a two-branch shop needs a chart. */
+/** THE RANK BADGE both comparison cards share — a filled numeral disc, gold/silver/bronze for the
+ *  top three and a plain neutral disc after that, the same "podium" language a shop owner already
+ *  reads instinctively. This is the whole of the "فخامة" ask: not new data, a treatment worthy of
+ *  a ranking rather than a plain list. */
+function RankBadge({ n }: { n: number }) {
+  const tone = n === 1 ? { bg: 'linear-gradient(135deg,#f5cf6b,#c9932e)', fg: '#3a2a06' }
+    : n === 2 ? { bg: 'linear-gradient(135deg,#dfe4ea,#a9b1bb)', fg: '#2b3138' }
+    : n === 3 ? { bg: 'linear-gradient(135deg,#d79a6a,#a2603a)', fg: '#3a1f0c' }
+    : { bg: 'var(--sh-surface-2)', fg: 'var(--sh-ink-soft)' };
+  return (
+    <span dir="ltr" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+          style={{ background: tone.bg, color: tone.fg, fontVariantNumeric: 'tabular-nums' }}>
+      {n}
+    </span>
+  );
+}
+
+function RatePill({ rate, label }: { rate: number; label: string }) {
+  return (
+    <span dir="ltr" className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{
+      background: `color-mix(in srgb, ${rate >= 0.4 ? 'var(--sh-teal)' : 'var(--sh-coral)'} ${Math.round(15 + rate * 60)}%, white)`,
+      color: rate >= 0.4 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
+    }}>
+      {Math.round(rate * 100)}% {label}
+    </span>
+  );
+}
+
 function BranchCompare({ branches }: { branches: Branches }) {
   const rows = (branches.rows ?? []).slice(0, 6);
   const max = Math.max(1, ...rows.map((r) => r.visits ?? 0));
   return (
-    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-      <h3 className="text-[13px] font-semibold">فروعك</h3>
+    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)' }}>
+      <h3 className="text-[13px] font-semibold">مقارنة الفروع</h3>
       <ul className="flex flex-col gap-2.5">
-        {rows.map((r) => {
+        {rows.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
           return (
             <li key={r.branch_id} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-[12.5px]">
                 <span className="flex items-center gap-1.5 font-medium">
+                  <RankBadge n={i + 1} />
                   {r.name || r.branch_id || 'بلا اسم'}
                   {/* THE AGGREGATE HERO NUMBER, PER BRANCH — a chain reading 46% overall can be
                       one branch at 70% carrying one at 20%, invisible until it is broken out. Same
                       colour language «التسرّب» already uses: coral means low, teal means high. */}
-                  {typeof r.return_rate === 'number' ? (
-                    <span dir="ltr" className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{
-                      background: `color-mix(in srgb, ${r.return_rate >= 0.4 ? 'var(--sh-teal)' : 'var(--sh-coral)'} ${Math.round(15 + r.return_rate * 60)}%, white)`,
-                      color: r.return_rate >= 0.4 ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
-                    }}>
-                      {Math.round(r.return_rate * 100)}% عودة
-                    </span>
-                  ) : null}
+                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label="عودة" /> : null}
                 </span>
                 <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
               </div>
@@ -1259,6 +1293,48 @@ function BranchCompare({ branches }: { branches: Branches }) {
       </ul>
       {branches.unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{branches.unknown} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.</p> : null}
       {branches.can_rank === false ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p> : null}
+    </div>
+  );
+}
+
+/** THE STAFF EQUIVALENT OF `BranchCompare` ABOVE, same shape and same treatment — the metric
+ *  Tamam chose is visits + distinct customers PLUS a return rate computed on the EMPLOYEE'S OWN
+ *  slice of visits (`operator_rows` in tick.py), so "72% عودة" here means the customer came back
+ *  to THIS person specifically, not to the shop in general. Fairness was the point of asking. */
+function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown?: number; canRank?: boolean }) {
+  const top = [...rows].sort((a, b) => (b.visits ?? 0) - (a.visits ?? 0)).slice(0, 6);
+  const max = Math.max(1, ...top.map((r) => r.visits ?? 0));
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)' }}>
+      <h3 className="text-[13px] font-semibold">مقارنة الموظفين</h3>
+      <ul className="flex flex-col gap-2.5">
+        {top.map((r, i) => {
+          const pct = Math.round(((r.visits ?? 0) / max) * 100);
+          const label = (r.name || r.operator_id || 'بلا اسم').trim();
+          const initial = label ? label[0] : '؟';
+          return (
+            <li key={r.operator_id} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-[12.5px]">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <RankBadge n={i + 1} />
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{ background: 'var(--sh-violet-soft, var(--sh-surface-2))', color: 'var(--sh-violet-deep)' }}>
+                    {initial}
+                  </span>
+                  {label}
+                  {typeof r.return_rate === 'number' ? <RatePill rate={r.return_rate} label="عودة له" /> : null}
+                </span>
+                <span dir="ltr" style={{ color: 'var(--sh-ink-faint)', fontVariantNumeric: 'tabular-nums' }}>{r.visits ?? 0} زيارة · {r.customers ?? 0} عميلاً</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
+                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'linear-gradient(90deg,var(--sh-violet),var(--sh-teal))' }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{unknown} زيارة بلا موظف محدَّد — لا تُحتسب لأحد.</p> : null}
+      {canRank === false ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p> : null}
     </div>
   );
 }
