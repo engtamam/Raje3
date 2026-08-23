@@ -50,6 +50,14 @@ metrics:
 # From config/product.json — regenerate with scripts/gen_deploy_values.py.
 # Do not hand-edit: `identifiers` are frozen and guarded by safety:product.
 env:
+  # MISSING UNTIL NOW — TOKEN_VERIFIER_DRIVER defaults to "null" (app/config.py), which denies
+  # every bearer token. Every authenticated route on this service (/me, /team, and the whole
+  # /api/v1/admin/affiliates queue) has been 401ing in production since this service was first
+  # deployed; the gap was invisible because nothing calling it had a route at the gateway either
+  # (see deploy/services/api-gateway.values.yaml's GATEWAY_ROUTES fix, same investigation).
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
   AUDIT_SINK_DRIVER: "http"
   # A REAL PHONE-CAMERA RECEIPT PHOTO NEEDS MORE THAN THE TEMPLATE'S 1 MiB DEFAULT — raised

@@ -36,7 +36,7 @@ info(){ echo -e "${C_C}  ▸ $*${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
 
-OURS="bookings campaigns insights loyalty operations portal reminders"
+OURS="affiliate-service bookings campaigns insights loyalty operations portal reminders"
 SHARED="PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK SECRETS_KEK CACHE_URL EVENTBUS_URL QUEUE_URL RATELIMIT_URL TOKEN_PUBLIC_KEY"
 
 # READ EACH SHARED VALUE FROM WHOEVER ALREADY HOLDS IT. They are byte-identical across the fleet by
