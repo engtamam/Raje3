@@ -242,6 +242,11 @@ def build_container(settings: Settings) -> Container:
     # — `bookings` intersects defensively at read time regardless of whether this peer answers).
     from app.adapters.bookings_desk import build_bookings_desk
     container.bookings_desk = build_bookings_desk(settings)
+    # THE ADMIN PANEL'S "ليش واتساب هذا المحل معطّل" READ — an internal-token peer call made ON
+    # BEHALF of an operator who holds `platform.operations`, never a capability the browser's own
+    # token carries. See `api/v1/platform.py::whatsapp_diagnostics`.
+    from app.adapters.whatsapp_diagnostics import build_whatsapp_diagnostics
+    container.whatsapp_diagnostics = build_whatsapp_diagnostics(settings)
     # WHAT EACH SHOP ACTUALLY PAID US — the one input a commission statement takes. Unconfigured
     # in a local run, and then the monthly sweep issues nothing and says why, rather than issuing
     # a statement of zero that a partner would read and believe.

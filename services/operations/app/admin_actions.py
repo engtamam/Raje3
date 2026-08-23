@@ -91,6 +91,17 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "group": "المنصة",
         "help": "كل فرع فعّال حدّد موقعه بنفسه عبر أي تينانت — الفروع بلا موقع محدَّد لا تظهر.",
     },
+    {
+        "id": "operations.whatsapp_diagnostics", "label": "تشخيص واتساب لمحل", "method": "GET",
+        "path": "/api/v1/platform/whatsapp/diagnostics", "capability": "platform.operations",
+        "group": "المنصة",
+        "params": [
+            {"name": "tenant", "in": "query", "type": "string", "required": False},
+            {"name": "phone_number_id", "in": "query", "type": "string", "required": False,
+             "help": "بديل عن tenant — رقم ميتا نفسه"},
+        ],
+        "help": "سجلّ إرسال واتساب لمحل واحد بسببه — أحد الحقلين مطلوب.",
+    },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {
         "id": "operations.list_partners", "label": "الشركاء", "method": "GET",

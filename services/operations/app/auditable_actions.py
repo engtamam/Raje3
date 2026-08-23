@@ -403,6 +403,15 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "answer",
     },
     {
+        "action": "platform.whatsapp_diagnostics_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "whatsapp:{tenant|phone_number_id}",
+        "why": "a support read of one shop's own delivery history and its refusal reasons — no "
+               "message text is ever exposed, only whether it sent and why not. Not critical (a "
+               "missed record does not undo the read), but still worth naming who looked and when.",
+    },
+    {
         "action": "compliance.evidence_exported",
         "source": "internal",
         "critical": True,

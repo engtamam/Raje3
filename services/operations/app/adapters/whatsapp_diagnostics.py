@@ -1,0 +1,74 @@
+"""What the admin panel needs from `notification-service` about ONE shop's WhatsApp.
+
+WHY THIS FILE EXISTS AT ALL. `notification-service` exposes the diagnostic reads only on
+`/internal/whatsapp/deliveries`, guarded by the shared service token — deliberately never a
+declared admin action there, per the same rule `api/v1/platform.py::evidence_file` states for our
+own internal routes: an operator surface needs a capability a PERSON holds and an audit that names
+THEM, not a shared service token a browser could never legitimately carry. So the admin-facing
+route lives in `platform.py`, gated by `platform.operations` and audited there, and calls this
+adapter to reach the internal peer — same shape as `loyalty_desk.py`.
+
+A FAILURE IS ANSWERED, NEVER GUESSED, same reasoning as `loyalty_desk.py`: an unreachable peer
+returns None and the caller says so plainly, never a silent empty list that reads as "nothing
+ever failed to send" when the truth is "we could not check".
+"""
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any
+
+from starlette.concurrency import run_in_threadpool
+
+
+class WhatsAppDiagnostics:
+    def __init__(self, *, base_url: str, token: str, timeout: int = 5) -> None:
+        self._base = (base_url or "").rstrip("/")
+        self._token = token
+        self._timeout = timeout
+
+    @property
+    def configured(self) -> bool:
+        return bool(self._base)
+
+    def _call(self, path: str) -> dict[str, Any] | None:
+        req = urllib.request.Request(
+            self._base + path, method="GET",
+            headers={"X-Internal-Token": self._token})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:    # nosec B310
+                if not 200 <= resp.status < 300:
+                    return None
+                return json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            try:
+                payload = json.loads(exc.read() or b"{}")
+            except Exception:                                                   # noqa: BLE001
+                payload = {}
+            return {"_status": exc.code, "_reason": payload.get("detail") or ""}
+        except Exception:                                                       # noqa: BLE001
+            return None
+
+    async def by_tenant(self, tenant: str) -> dict[str, Any] | None:
+        """Every recent delivery attempt for one shop — sent, suppressed, and failed alike."""
+        if not self.configured:
+            return None
+        q = f"?tenant={urllib.parse.quote(tenant)}"
+        out = await run_in_threadpool(self._call, "/internal/whatsapp/deliveries" + q)
+        return None if out is None or "_status" in out else out
+
+    async def by_phone_number_id(self, phone_number_id: str) -> dict[str, Any] | None:
+        """Same read, entered from Meta's own identifier — what an operator usually has in hand
+        first (a webhook payload, a support ticket), not our internal tenant id."""
+        if not self.configured:
+            return None
+        q = f"?phone_number_id={urllib.parse.quote(phone_number_id)}"
+        out = await run_in_threadpool(self._call, "/internal/whatsapp/deliveries" + q)
+        return None if out is None or "_status" in out else out
+
+
+def build_whatsapp_diagnostics(settings) -> WhatsAppDiagnostics:
+    return WhatsAppDiagnostics(base_url=settings.NOTIFICATION_SERVICE_URL,
+                               token=settings.INTERNAL_SERVICE_TOKEN)

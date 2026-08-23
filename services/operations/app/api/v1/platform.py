@@ -437,3 +437,31 @@ async def branch_locations(request: Request, limit: int = 200, after: str = "",
     rows, nxt = await store.browse_platform(limit=limit, after=after or None)
     located = [b.public() for b in rows if b.lat != 0.0 or b.lng != 0.0]
     return {"branches": located, "next_cursor": nxt}
+
+
+@router.get("/whatsapp/diagnostics", dependencies=[Depends(rate_limit)])
+async def whatsapp_diagnostics(request: Request, tenant: str = "", phone_number_id: str = "",
+                               principal: Principal = Depends(_PLATFORM)) -> dict:
+    """«ليش واتساب هذا المحل معطّل؟» — one shop's own delivery history, read by tenant id or by
+    Meta's phone_number_id (an operator usually has the number first, not our internal id).
+
+    THE PANEL'S DOOR, THE INTERNAL ROUTE STAYS SEPARATE — same rule as `evidence_file` above:
+    `notification-service`'s own `/internal/whatsapp/deliveries` is guarded by a shared service
+    token, never a declared admin action there. This route is the operator surface: gated by
+    `platform.operations`, audited here by the actual person asking, and the peer call happens
+    through `container.whatsapp_diagnostics` so the browser's token never has to carry the
+    internal one.
+    """
+    if not tenant and not phone_number_id:
+        return _refuse("مرّر tenant أو phone_number_id — لا بحث بلا أحدهما.")
+    await request.app.state.auditor.record(
+        "platform.whatsapp_diagnostics_viewed", actor=getattr(principal, "subject", "") or "",
+        tenant=tenant, resource=f"whatsapp:{tenant or phone_number_id}",
+        ip=request.client.host if request.client else "")
+    desk = request.app.state.container.whatsapp_diagnostics
+    out = (await desk.by_tenant(tenant)) if tenant else (await desk.by_phone_number_id(phone_number_id))
+    if out is None:
+        return JSONResponse(
+            {"error": "UNAVAILABLE", "reason": "تعذّر الاتصال بخدمة الإشعارات الآن."},
+            status_code=502)
+    return out
