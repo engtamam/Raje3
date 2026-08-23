@@ -24,6 +24,38 @@ def test_an_empty_shop_still_gets_the_health_catch_all():
     assert out["primary"]["category"] == ns.CATEGORY_HEALTH
 
 
+# ── the exact bug Tamam reported: a genuinely brand-new shop, told nonsense ───────────────────────
+def test_a_zero_history_shop_gets_a_start_line_not_a_compliment_on_its_stability():
+    """"وضعك ثابت" (things are stable) is a claim about a track record — a shop with zero visits
+    ever has none, so the catch-all must say "get started", not "stable"."""
+    out = ns.pick(ctx(__total_visits__=0), {}, now=NOW)
+    assert out["primary"]["id"] == "all_is_well"
+    assert "ثابت" not in out["primary"]["message"]
+    assert out["primary"]["cta_link"] == "/visit"
+
+
+def test_too_few_sends_never_fires_on_a_shop_that_has_sent_nothing_at_all():
+    """"أرسل 200 رسالة أخرى" (send 200 MORE) to a shop that has sent zero claims a baseline that
+    never existed — this is `no_messages_sent_yet`'s case, not this rule's."""
+    out = ns.pick(ctx(opt_out_rate={"ready": False, "reason": "too_few_sends", "sent": 0, "need": 200}),
+                  {}, now=NOW)
+    assert out["primary"]["id"] != "too_few_sends"
+
+
+def test_no_messages_sent_yet_fires_honestly_when_nothing_was_sent():
+    out = ns.pick(ctx(opt_out_rate={"ready": False, "reason": "too_few_sends", "sent": 0, "need": 200}),
+                  {}, now=NOW)
+    assert out["primary"]["id"] == "no_messages_sent_yet"
+    assert "أخرى" not in out["primary"]["message"]
+
+
+def test_too_few_sends_still_fires_normally_once_some_were_actually_sent():
+    out = ns.pick(ctx(opt_out_rate={"ready": False, "reason": "too_few_sends", "sent": 40, "need": 200}),
+                  {}, now=NOW)
+    assert out["primary"]["id"] == "too_few_sends"
+    assert "160" in out["primary"]["message"]
+
+
 # ── individual rules fire on the right fact ──────────────────────────────────────────────────────
 def test_zero_visits_this_week_is_named():
     out = ns.pick(ctx(visits_week={"visits": 0, "previous": 4}), {}, now=NOW)

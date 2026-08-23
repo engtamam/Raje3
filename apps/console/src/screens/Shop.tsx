@@ -479,9 +479,24 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             ) : null}
           </Section>
         </div>
+
+        {/* MOVED OUT OF THE FOLDED SECTION — a محل جديد with nothing computed yet used to render a
+            wall of zero-value tiles with no explanation anywhere on the page for WHY they read
+            zero; this card is the honest "still waiting on X" line for exactly those tiles, and it
+            self-limits (it only lists what genuinely is not yet enabled, and shrinks as the shop
+            fills in). Hiding it behind an extra click hid the one explanation the screen had. */}
+        {data.not_enabled && data.not_enabled.length > 0 ? (
+          <div className="mb-3 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)' }}>
+            <h3 className="mb-1 text-[13px] font-semibold">أرقامٌ لسه ما نقدر نعرضها</h3>
+            <p className="mb-3 text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>كلٌّ منها ينقصه شيء واحد — وهذا ما هو، ومن يستطيع إتمامه.</p>
+            <ul className="flex flex-col gap-3">
+              {data.not_enabled.map((b) => <MissingRow key={b.indicator} b={b} />)}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
-      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · باقات مقترحة · ما ينقصه بيانات" folded>
+      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · باقات مقترحة" folded>
         {locked.bundles ? (
           <LockedLine title="باقات مقترحة" text={locked.bundles} />
         ) : bundles && bundles.length ? (
@@ -497,16 +512,6 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
                 </div>
               </div>
             ))}
-          </div>
-        ) : null}
-
-        {data.not_enabled && data.not_enabled.length > 0 ? (
-          <div className="rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
-            <h3 className="mb-1 text-[13px] font-semibold">أرقامٌ لسه ما نقدر نعرضها</h3>
-            <p className="mb-3 text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>كلٌّ منها ينقصه شيء واحد — وهذا ما هو، ومن يستطيع إتمامه.</p>
-            <ul className="flex flex-col gap-3">
-              {data.not_enabled.map((b) => <MissingRow key={b.indicator} b={b} />)}
-            </ul>
           </div>
         ) : null}
 

@@ -175,11 +175,28 @@ def _weak_reminder_effect(ctx: NextStepCtx) -> NextStepResult | None:
 def _too_few_sends_to_measure(ctx: NextStepCtx) -> NextStepResult | None:
     o = ctx.values.get("opt_out_rate") or {}
     if o.get("ready") is False and o.get("reason") == "too_few_sends":
-        need = int(o.get("need") or 0) - int(o.get("sent") or 0)
+        sent = int(o.get("sent") or 0)
+        # A SHOP THAT HAS NEVER SENT A MESSAGE HAS NOTHING TO MEASURE YET, PERIOD — this rule is
+        # about a partial sample ("you're on your way, keep going"), not a zero one. The exact bug
+        # Tamam reported: a brand-new tenant with `sent=0` still got "أرسل 200 رسالة أخرى" — "أخرى"
+        # (MORE) claims a baseline that never existed. `_no_messages_sent_yet` below owns the
+        # zero case with its own, honest wording.
+        if sent <= 0:
+            return None
+        need = int(o.get("need") or 0) - sent
         if need > 0:
             return NextStepResult(
                 f"لسا ما وصلت لعدد رسائل كافٍ نقيس عليه أثرها — أرسل {need} رسالة أخرى وتظهر لك الأرقام.",
                 tone="info")
+    return None
+
+
+def _no_messages_sent_yet(ctx: NextStepCtx) -> NextStepResult | None:
+    o = ctx.values.get("opt_out_rate") or {}
+    if o.get("ready") is False and o.get("reason") == "too_few_sends" and int(o.get("sent") or 0) <= 0:
+        return NextStepResult(
+            "ما أرسلت أي رسالة بعد — راسل عميلك الأول من «الرسائل» وتبدأ مؤشرات فعاليتها بالتكوّن.",
+            cta_label="الرسائل", cta_link="/messages", tone="info")
     return None
 
 
@@ -342,7 +359,15 @@ def _bundles_locked(ctx: NextStepCtx) -> NextStepResult | None:
 
 
 # ── ⑩ الصحة العامة — الحارسة الأخيرة، تطابق دائماً ────────────────────────────────────────────
-def _all_is_well(_: NextStepCtx) -> NextStepResult | None:
+def _all_is_well(ctx: NextStepCtx) -> NextStepResult | None:
+    # "وضعك ثابت" (things are stable) is a verdict on HISTORY — said to a shop with zero visits
+    # ever recorded, it claims a track record that does not exist yet. Tamam's screenshot: a
+    # brand-new tenant, nothing but zeros, still got told it was "stable". A shop that has not
+    # started needs a start line, not a compliment.
+    if ctx.total_visits <= 0:
+        return NextStepResult(
+            "محلّك جاهز ولسا ما بدأ — سجّل أول زيارة لعميلك من «تسجيل زيارة» وتبدأ كل المؤشرات هنا بالتكوّن.",
+            cta_label="سجّل زيارة", cta_link="/visit", tone="info")
     return NextStepResult(
         "وضعك ثابت ولا شي يستحق تنبيهاً الآن — جرّب تكافئ عملاءك الدائمين.",
         cta_label="كافئهم", cta_link="/messages?tab=campaigns&launch=reward_loyal", tone="success")
@@ -366,6 +391,7 @@ RULES: tuple[NextStepRule, ...] = (
     NextStepRule("opt_out_high", CATEGORY_MESSAGES, 85, _opt_out_high),
     NextStepRule("weak_reminder_effect", CATEGORY_MESSAGES, 55, _weak_reminder_effect),
     NextStepRule("too_few_sends", CATEGORY_MESSAGES, 20, _too_few_sends_to_measure),
+    NextStepRule("no_messages_sent_yet", CATEGORY_MESSAGES, 18, _no_messages_sent_yet),
 
     NextStepRule("at_risk_many", CATEGORY_AT_RISK, 75, _at_risk_many),
     NextStepRule("at_risk_some", CATEGORY_AT_RISK, 60, _at_risk_some),
