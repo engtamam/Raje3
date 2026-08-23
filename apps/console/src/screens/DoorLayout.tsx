@@ -74,7 +74,7 @@ export function DoorLayout({ children, title, subtitle }: {
           </p>
         </div>
 
-        <p className="text-xs text-[#8d8778]">راجِع · الرياض</p>
+        <p className="text-xs text-[#8d8778]">راجِع · السعودية</p>
       </aside>
 
       <main className="flex items-center justify-center bg-surface-0 p-6">

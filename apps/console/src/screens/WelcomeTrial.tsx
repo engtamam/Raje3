@@ -76,7 +76,7 @@ export function WelcomeTrial({ trialEnd, onDone }: { trialEnd: number; onDone: (
           لنبدأ
         </Button>
 
-        <p className="text-xs text-[#8d8778]">راجِع · الرياض</p>
+        <p className="text-xs text-[#8d8778]">راجِع · السعودية</p>
       </div>
     </div>
   );
