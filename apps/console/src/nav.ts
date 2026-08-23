@@ -21,7 +21,7 @@
  */
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarClock, ClipboardPlus, Gift, MessageSquare, Store, TrendingUp, Users, Wrench,
+  CalendarClock, ClipboardPlus, Gift, LifeBuoy, MessageSquare, Store, TrendingUp, Users, Wrench,
 } from 'lucide-react';
 import type { Catalog } from './catalog';
 import { hasAll } from './catalog';
@@ -131,6 +131,12 @@ export const SECTIONS: Section[] = [
   // ONE NAME, IN THE RAIL, WHERE A SHOP GOES TO BUY. Not a ninth errand: it is the only row
   // that takes money, and a product that hides its own till is a product that does not sell.
   { service: 'billing', id: 'store', path: '/store', label: 'متجر التطبيقات', icon: Store, requires: ['billing.plans'] },
+  // «الدعم الفني» — راجع، 2026-08-23: the shop's own half of the support loop, the affiliate
+  // portal's TicketCarousel being the other. `tickets.open` is ticket-service's own user action
+  // (platform/services/ticket-service/app/user_actions.py) — `tickets.self`, granted to owner and
+  // manager alike, same reasoning as every other row here: anyone who runs the shop day to day
+  // may raise a problem, not the owner alone.
+  { service: 'ticket-service', id: 'support', path: '/support', label: 'الدعم الفني', icon: LifeBuoy, requires: ['tickets.open'] },
   // «فريقي» IS NOT HERE EITHER — it is a tab inside «حسابي», beside «منشأتي» and «مفاتيح الربط».
   // The three answer one question, WHO AND WHAT MAY ACT IN THIS SHOP, and hiring is an errand done
   // once rather than a place to stand. The rail keeps the eight rows that are about the work.

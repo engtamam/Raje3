@@ -136,7 +136,7 @@ env:
     billing.read,billing.manage,billing.self,
     tenant.read,identity.read,identity.manage,compliance.self,compliance.manage,
     service_accounts:read,service_accounts:write,
-    ticket.read,ticket.write,
+    ticket.read,ticket.write,tickets.self,
     analytics.read,wallet.read,notification.read
 
   # ── Audit ─────────────────────────────────────────────────────────────────────────────────

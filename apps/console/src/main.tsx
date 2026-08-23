@@ -14,6 +14,7 @@ import { Team } from './screens/TeamRoute';
 import { Bookings } from './screens/BookingsRoute';
 import { ShopScreen } from './screens/Shop';
 import { Store } from './screens/StoreRoute';
+import { Support } from './screens/SupportRoute';
 import { AffiliatePortal } from './affiliates/AffiliatePortal';
 import { AuthI18nProvider } from '@base-ui/auth/i18n';
 import { BlockDocI18nProvider } from '@base-ui/components/blockdoc';
@@ -60,6 +61,7 @@ const shopRouter = createBrowserRouter([
       // the selling pane of «حسابي» rather than a second copy of it; `/account?tab=billing` still
       // answers, for every link already sent.
       { path: 'store', element: <Store /> },
+      { path: 'support', element: <Support /> },
     ],
   },
   // OUTSIDE <App/> ON PURPOSE. A marketer has no shop, no branch, no operator PIN and no action
