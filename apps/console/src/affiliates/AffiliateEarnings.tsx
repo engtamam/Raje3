@@ -99,12 +99,24 @@ function BalanceSection({ session }: { session: AffiliateSession }) {
   if (data === 'loading') return <Skeleton height={180} />;
   if (data === 'failed') return <EmptyState title="تعذّرت قراءة رصيدك" />;
 
+  // BELOW WHAT THE BUTTON WOULD ACTUALLY DO — payouts.py's own `request()` refuses with
+  // `below_minimum` at this exact comparison; showing it here means he learns it from the
+  // number, not from tapping the button and reading an error.
+  const belowMinimum = data.confirmed_available_halalas < data.min_withdrawal_halalas;
+  const remaining = data.min_withdrawal_halalas - data.confirmed_available_halalas;
+
   return (
     <div className="flex flex-col gap-4 rounded-card bg-surface-1 p-5 shadow-sm">
       <span className="text-label font-medium text-text-secondary">رصيدك الجاهز للسحب</span>
       <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums">
         {riyalsLabel(data.confirmed_available_halalas)}
       </span>
+      {data.min_withdrawal_halalas > 0 ? (
+        <span className="text-xs text-text-secondary">
+          الحد الأدنى للسحب {riyalsLabel(data.min_withdrawal_halalas)}
+          {belowMinimum ? ` — يتبقى ${riyalsLabel(remaining)} لتقدر تسحب` : null}
+        </span>
+      ) : null}
 
       <div className="flex gap-2">
         <div className="flex-1 rounded-md bg-surface-0 p-2.5">
@@ -124,7 +136,7 @@ function BalanceSection({ session }: { session: AffiliateSession }) {
           <span>طلب سحبك بقيمة {riyalsLabel(openRequest.amount_halalas)} قيد المعالجة</span>
         </div>
       ) : (
-        <Button type="button" disabled={busy || data.confirmed_available_halalas <= 0}
+        <Button type="button" disabled={busy || data.confirmed_available_halalas <= 0 || belowMinimum}
                onClick={withdraw} className="flex items-center justify-center gap-2">
           <Wallet size={16} /> اسحب أرباحك
         </Button>

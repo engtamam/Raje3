@@ -19,6 +19,17 @@ const BASE = (import.meta.env.VITE_AFFILIATE_API_BASE ?? '').replace(/\/$/, '');
 
 export const AFFILIATE_SESSION_RENEWED = 'raje3:affiliate-session-renewed';
 
+/** The affiliate portal's own `SESSION_EXPIRED` (`../expired.ts`) — a marketer whose refresh
+ *  token is ALSO dead (not just the 15-minute bearer) gets a real, deliberate sign-out instead
+ *  of being left half-signed-in, staring at a screen that 401s on everything with no explanation.
+ *  Fired only after `req()` has tried renewal and it genuinely failed — never on a bare 401 that
+ *  renewal might still fix. */
+export const AFFILIATE_SESSION_EXPIRED = 'raje3:affiliate-session-expired';
+
+export function announceExpiry(): void {
+  window.dispatchEvent(new Event(AFFILIATE_SESSION_EXPIRED));
+}
+
 let inFlight: Promise<string> | null = null;
 
 const EARLY_SECONDS = 60;

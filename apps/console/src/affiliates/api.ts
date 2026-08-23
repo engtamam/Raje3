@@ -8,7 +8,7 @@
  * kit's `LoginForm`/`SignupForm` — reused just enough to be wrong. So this is a second, small file
  * rather than a fork of the first.
  */
-import { fresh, renew } from './renew';
+import { announceExpiry, fresh, renew } from './renew';
 
 const BASE = (import.meta.env.VITE_AFFILIATE_API_BASE ?? '').replace(/\/$/, '');
 
@@ -49,6 +49,10 @@ async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | '
       });
     }
   }
+  // STILL A 401 AFTER RENEWAL WAS TRIED — the session is genuinely over (refresh token dead too),
+  // not a screen that fired before a fresh bearer was ready. Announce it ONCE so useAffiliateSession
+  // signs him out cleanly, instead of every remaining screen quietly 401ing with no explanation.
+  if (res.status === 401 && token) announceExpiry();
   const text = await res.text();
   let parsed: ApiResult | null = null;
   try { parsed = text ? (JSON.parse(text) as ApiResult) : null; } catch { parsed = null; }
@@ -108,6 +112,7 @@ export async function me(session: AffiliateSession): Promise<Me> {
  *  dict rather than reshaped here, so the two can never drift apart silently. */
 export interface Balance {
   pending_halalas: number; confirmed_available_halalas: number; withdrawn_halalas: number;
+  min_withdrawal_halalas: number;
 }
 export async function balance(session: AffiliateSession): Promise<Balance> {
   return req('/api/v1/affiliates/me/balance', 'GET', undefined, session.access_token);

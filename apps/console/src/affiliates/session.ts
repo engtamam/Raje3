@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { AffiliateSession } from './api';
-import { AFFILIATE_SESSION_RENEWED } from './renew';
+import { AFFILIATE_SESSION_EXPIRED, AFFILIATE_SESSION_RENEWED } from './renew';
 
 export const KEY = 'raje3.affiliate.session';
 
@@ -44,6 +44,17 @@ export function useAffiliateSession() {
     const onRenewed = () => setSession(read());
     window.addEventListener(AFFILIATE_SESSION_RENEWED, onRenewed);
     return () => window.removeEventListener(AFFILIATE_SESSION_RENEWED, onRenewed);
+  }, []);
+
+  // A CLEAN SIGN-OUT, NOT A SCREEN FULL OF 401s. Fired from api.ts only after renewal itself has
+  // been tried and failed — a real end, not a screen that raced ahead of a fresh bearer.
+  useEffect(() => {
+    const onExpired = () => {
+      localStorage.removeItem(KEY);
+      setSession(ANONYMOUS);
+    };
+    window.addEventListener(AFFILIATE_SESSION_EXPIRED, onExpired);
+    return () => window.removeEventListener(AFFILIATE_SESSION_EXPIRED, onExpired);
   }, []);
 
   return { session, signedIn: isSignedIn(session), signIn, signOut };

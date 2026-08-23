@@ -253,7 +253,13 @@ async def read_payout_method(request: Request,
 @router.get("/balance", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def balance(request: Request, principal: Principal = Depends(require_user)) -> dict:
     affiliate_id = await _my_affiliate_id(request, principal)
-    return await request.app.state.container.payouts.balance(affiliate_id)
+    payouts = request.app.state.container.payouts
+    out = await payouts.balance(affiliate_id)
+    # THE SCREEN THAT SHOWS THIS IS THE SCREEN WITH THE «اسحب» BUTTON — a marketer below the
+    # threshold used to have no way to learn it short of tapping withdraw and reading the refusal
+    # (payouts.py's own `below_minimum`). Same field `home()` exposes, same reasoning.
+    out["min_withdrawal_halalas"] = payouts.min_withdrawal_halalas
+    return out
 
 
 @router.post("/withdrawals", dependencies=[Depends(_SELF), Depends(rate_limit)])
@@ -852,6 +858,7 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     out: dict[str, Any] = {
         "affiliate": {"id": aff_id, "name": affiliate["name"], "role": affiliate["role"]},
         "balance": balance,
+        "min_withdrawal_halalas": c.payouts.min_withdrawal_halalas,
         "payout_method_set": bool(payout_channel),
         "stale_leads_count": len(stale),
         "stale_leads": [l.to_dict() for l in stale[:10]],

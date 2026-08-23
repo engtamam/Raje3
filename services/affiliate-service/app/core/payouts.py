@@ -78,6 +78,14 @@ class PayoutService:
         self._s = store
         self._min = min_withdrawal_halalas
 
+    @property
+    def min_withdrawal_halalas(self) -> int:
+        """READ-ONLY, on purpose — this is config (AFFILIATE_WITHDRAWAL_MIN_HALALAS), not a fact
+        any caller can change through this service. Exists so a screen can SHOW the threshold
+        before a marketer ever taps "اسحب" and hits `request()`'s own `below_minimum` refusal —
+        the balance card used to say nothing at all about what number he was waiting to reach."""
+        return self._min
+
     # ── how he wants to be paid ──────────────────────────────────────────────────────────────
     async def set_payout_method(self, affiliate_id: str, *, channel: str,
                                 channel_name: str = "", account_ref: str) -> dict[str, Any]:

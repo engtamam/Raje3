@@ -8,10 +8,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('./renew', () => ({
   fresh: vi.fn(async (token: string) => token),
   renew: vi.fn(async () => 'renewed-token'),
+  announceExpiry: vi.fn(),
 }));
 
 import { me } from './api';
-import { renew } from './renew';
+import { announceExpiry, renew } from './renew';
 
 describe('affiliate api req()', () => {
   beforeEach(() => {
@@ -39,5 +40,13 @@ describe('affiliate api req()', () => {
       new Response(JSON.stringify({ message: 'انتهت الجلسة' }), { status: 401 }));
 
     await expect(me({ access_token: 'old-token' })).rejects.toThrow('انتهت الجلسة');
+    expect(announceExpiry).toHaveBeenCalledTimes(1);
+  });
+
+  it('never announces expiry for an already-anonymous caller (no token to begin with)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 401 }));
+    await expect(me({ access_token: '' })).rejects.toThrow();
+    expect(announceExpiry).not.toHaveBeenCalled();
+    expect(renew).not.toHaveBeenCalled();
   });
 });

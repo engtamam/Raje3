@@ -105,6 +105,11 @@ function EarningsCard({ data }: { data: Home }) {
       <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums">
         {riyalsLabel(balance.confirmed_available_halalas)}
       </span>
+      {balance.min_withdrawal_halalas > 0 ? (
+        <span className="text-xs text-text-secondary">
+          الحد الأدنى للسحب {riyalsLabel(balance.min_withdrawal_halalas)}
+        </span>
+      ) : null}
       <div className="flex gap-2">
         <div className="flex-1 rounded-md bg-surface-0 p-2.5">
           <span className="block text-xs text-text-secondary">معلَّق</span>
