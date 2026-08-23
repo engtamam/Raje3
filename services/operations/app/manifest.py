@@ -117,6 +117,7 @@ def build_manifest(
             # thing happened, never reconstructed — and the extraction is itself audited.
             {"path": "/internal/operations/evidence", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/branches", "tier": "internal", "method": "POST"},
+            {"path": "/internal/operations/operators", "tier": "internal", "method": "POST"},
             # Who may see which branch — the staffing join no other service can make.
             {"path": "/internal/operations/branch-scope", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/customers", "tier": "internal", "method": "POST"},

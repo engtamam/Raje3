@@ -1251,6 +1251,24 @@ async def read_branches(request: Request, body: CatalogueIn) -> dict:
             "count": len(rows)}
 
 
+@router.post("/operations/operators", dependencies=[Depends(require_internal_token)])
+async def read_operators(request: Request, body: CatalogueIn) -> dict:
+    """One establishment's people — id and name, nothing else.
+
+    SAME REASON `/operations/branches` EXISTS, one row over: `insights`'s per-operator table
+    (Shop.tsx's own staff comparison card) is grouped by the `operator_id` carried on each
+    visit, and this service holds the only name that id has.
+
+    STOPPED ONES INCLUDED, same reasoning as a closed branch — a man let go in March still has
+    February's visits under his name, and a table that cannot print it is wrong about last
+    month's history, not just today's.
+    """
+    c = request.app.state.container
+    rows = await OperatorStore(c.datastore).list(body.tenant)
+    return {"operators": [{"id": o.id, "name": o.name, "active": o.active} for o in rows],
+            "count": len(rows)}
+
+
 
 class BackupExportIn(BaseModel):
     # Empty tenant = the whole service; a value = just that customer's tenant-scoped rows.

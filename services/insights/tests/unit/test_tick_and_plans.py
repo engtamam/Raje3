@@ -617,3 +617,60 @@ def test_a_branch_we_have_no_name_for_is_left_empty_never_filled_with_its_id():
     run(tick.compute(T, now=NOW))
     rows = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]["branch_rows"]
     assert all(r["name"] == "" for r in rows)
+
+
+# ── staff comparison: same shape as branches, one row over (operator_id, not branch_id) ──────────
+def test_the_operator_table_lives_on_the_establishment_snapshot_only():
+    rows = (visits(6, ref_prefix="r", operator_id="op_sara")
+            + visits(4, ref_prefix="j", operator_id="op_noor"))
+    store, _, tick = build_tick(rows)
+    run(tick.compute(T, now=NOW))
+    whole = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]
+    assert [r["operator_id"] for r in whole["operator_rows"]] == ["op_sara", "op_noor"]
+    assert [r["visits"] for r in whole["operator_rows"]] == [6, 4]
+    assert whole["operator_rows"][0]["customers"] > 0
+
+
+def test_operator_return_rate_is_specific_to_that_employee_not_the_shop():
+    """A customer who always comes back but only ever to Sara must not lift Noor's rate — the
+    metric is «did the customer come back to THIS employee», not «did the shop retain them»."""
+    rows = ([{"tenant": T, "subject_ref": "c1", "visit_id": f"v{i}", "service_ids": ["wash"],
+              "operator_id": "op_sara", "occurred_at": NOW - i * DAY} for i in range(3)]
+            + visits(1, ref_prefix="x", operator_id="op_noor"))
+    store, _, tick = build_tick(rows)
+    run(tick.compute(T, now=NOW))
+    whole = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]
+    got = {r["operator_id"]: r["return_rate"] for r in whole["operator_rows"]}
+    assert got["op_sara"] > 0
+    assert got["op_noor"] == 0
+
+
+def test_unattributed_operator_visits_are_reported_and_not_attributed():
+    rows = (visits(5, ref_prefix="r", operator_id="op_sara")
+            + visits(4, ref_prefix="j", operator_id="op_noor") + visits(9, ref_prefix="u"))
+    store, _, tick = build_tick(rows)
+    run(tick.compute(T, now=NOW))
+    whole = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]
+    assert whole["operator_unknown"] == 9
+    assert whole["operator_can_rank"] is False
+
+
+def test_the_operator_table_carries_names_from_operations():
+    rows = (visits(6, ref_prefix="r", operator_id="op_sara")
+            + visits(4, ref_prefix="j", operator_id="op_noor"))
+    store = MemoryDataStore()
+    peers = NullPeers(visits=rows, catalogue=[{"id": "wash", "name": "غسيل", "cycle_days": 30}],
+                      operators=[{"id": "op_sara", "name": "سارة"},
+                                 {"id": "op_noor", "name": "نور"}])
+    run(Tick(store, peers, batch=2).compute(T, now=NOW))
+    got = {r["operator_id"]: r["name"]
+           for r in run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]["operator_rows"]}
+    assert got == {"op_sara": "سارة", "op_noor": "نور"}
+
+
+def test_an_operator_we_have_no_name_for_is_left_empty_never_filled_with_its_id():
+    store, _, tick = build_tick(visits(6, ref_prefix="r", operator_id="opr_9f2a")
+                                + visits(4, ref_prefix="j", operator_id="op_noor"))
+    run(tick.compute(T, now=NOW))
+    rows = run(store.get(SNAPSHOTS, f"{T}|_all"))["values"]["operator_rows"]
+    assert all(r["name"] == "" for r in rows)

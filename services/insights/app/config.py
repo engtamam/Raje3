@@ -249,6 +249,8 @@ class Settings(BaseSettings):
     OPERATIONS_CATALOGUE_PATH: str = "/internal/operations/catalogue"
     # Branch NAMES for the comparison table — ids alone made every row read «بلا اسم».
     OPERATIONS_BRANCHES_PATH: str = "/internal/operations/branches"
+    # Operator NAMES for the staff comparison table — same reason as branches above.
+    OPERATIONS_OPERATORS_PATH: str = "/internal/operations/operators"
     # Who may see which branch (§12.4) — the staffing join only operations can make.
     OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
     REMINDERS_SERVICE_URL: str = ""
