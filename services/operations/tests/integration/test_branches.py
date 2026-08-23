@@ -722,3 +722,53 @@ def test_the_switcher_can_only_ever_narrow(client):
     # do. He is answered with his own scope, which is the honest «I showed you what is yours».
     assert narrow("brn-jeddah", "brn-riyadh") == "brn-jeddah"
     assert narrow(frozenset({"a", "b"}), "z") == frozenset({"a", "b"})
+
+
+# ── location: optional, owner-set, and the admin panel's own map reads it ───────────────────────
+
+def test_a_branch_can_be_created_with_a_location(client):
+    h = _headers("tnt_geo_create")
+    r = client.post(BRANCHES, json={"name": "فرع الروضة", "lat": 24.71, "lng": 46.68, "city": "الرياض"},
+                    headers=h)
+    assert r.status_code == 201
+    assert r.json()["lat"] == 24.71 and r.json()["lng"] == 46.68 and r.json()["city"] == "الرياض"
+
+
+def test_a_branch_created_with_no_location_reports_it_as_unset(client):
+    h = _headers("tnt_geo_unset")
+    r = client.post(BRANCHES, json={"name": "فرع بلا موقع"}, headers=h)
+    assert r.json()["lat"] == 0.0 and r.json()["lng"] == 0.0 and r.json()["city"] == ""
+
+
+def test_a_branchs_location_can_be_set_later_by_patch(client):
+    h = _headers("tnt_geo_patch")
+    client.get(BRANCHES, headers=h)  # provisions brn-main
+    r = client.patch(f"{BRANCHES}/brn-main", json={"lat": 21.54, "lng": 39.17, "city": "جدة"}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["lat"] == 21.54 and r.json()["city"] == "جدة"
+
+
+def test_an_out_of_range_coordinate_is_refused_not_silently_clamped(client):
+    h = _headers("tnt_geo_bad")
+    r = client.post(BRANCHES, json={"name": "فرع", "lat": 200, "lng": 0}, headers=h)
+    assert r.status_code == 422
+
+
+def test_platform_branch_locations_lists_only_located_active_branches_across_tenants(client):
+    h1 = _headers("tnt_geo_a")
+    h2 = _headers("tnt_geo_b")
+    client.post(BRANCHES, json={"name": "محل أ", "lat": 24.0, "lng": 46.0, "city": "الرياض"}, headers=h1)
+    client.post(BRANCHES, json={"name": "محل ب بلا موقع"}, headers=h2)  # no lat/lng — excluded
+
+    admin = _headers("_platform", caps=("platform.operations",))
+    r = client.get("/api/v1/platform/branches/locations", headers=admin)
+    assert r.status_code == 200
+    names = {b["name"] for b in r.json()["branches"]}
+    assert "محل أ" in names
+    assert "محل ب بلا موقع" not in names
+
+
+def test_platform_branch_locations_refuses_without_the_capability(client):
+    h = _headers("tnt_geo_c", caps=("operations.manage",))
+    r = client.get("/api/v1/platform/branches/locations", headers=h)
+    assert r.status_code == 403

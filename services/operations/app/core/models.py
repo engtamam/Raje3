@@ -356,7 +356,14 @@ class Branch:
     name: str
     active: bool = True
     created: int = 0
+    #: Optional, set by the shop's own owner (never inferred) — the admin panel's own map of
+    #: where shops actually are reads these, but this service never invents a location for a
+    #: branch nobody located. 0.0/0.0 (the Gulf of Guinea) means "not set", not "at the equator".
+    lat: float = 0.0
+    lng: float = 0.0
+    city: str = ""
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "tenant": self.tenant, "name": self.name,
-                "active": self.active, "created": self.created}
+                "active": self.active, "created": self.created,
+                "lat": self.lat, "lng": self.lng, "city": self.city}

@@ -85,6 +85,12 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         "confirm": True, "danger": True, "group": "المنصة",
         "help": "يوقف صنف رسائل، وعَرَضه صمت لا خطأ.",
     },
+    {
+        "id": "operations.branch_locations", "label": "خريطة المحلات", "method": "GET",
+        "path": "/api/v1/platform/branches/locations", "capability": "platform.operations",
+        "group": "المنصة",
+        "help": "كل فرع فعّال حدّد موقعه بنفسه عبر أي تينانت — الفروع بلا موقع محدَّد لا تظهر.",
+    },
     # ── partners: who resells us, and what we owe them (spec 16.6.3) ──────────────────────
     {
         "id": "operations.list_partners", "label": "الشركاء", "method": "GET",

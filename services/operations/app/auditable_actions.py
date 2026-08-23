@@ -393,6 +393,16 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "means the signup completed",
     },
     {
+        "action": "platform.branch_locations_viewed",
+        "source": "admin",
+        "critical": False,
+        "resource": "branches:all-tenants",
+        "why": "a read that crosses the tenancy wall — every other branch and location a shop "
+               "holds is theirs alone. Not critical (a missed record does not undo the read), but "
+               "who looked at every shop's own address, and when, is a real question worth an "
+               "answer",
+    },
+    {
         "action": "compliance.evidence_exported",
         "source": "internal",
         "critical": True,

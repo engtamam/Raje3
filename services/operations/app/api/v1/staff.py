@@ -769,13 +769,21 @@ async def set_shop_name(request: Request, body: ShopNameIn,
 # ── branches ──────────────────────────────────────────────────────────────────────────────────
 class BranchIn(BaseModel):
     name: str = Field(min_length=1, max_length=128)
+    #: Optional, set by the owner if he wants his branch on the admin panel's own map — never
+    #: required to open a branch, same trade as every other optional field on this product.
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    city: str = Field(default="", max_length=80)
 
 
 class BranchPatch(BaseModel):
-    """Rename, close, reopen. NO DELETE — see `update_branch`."""
+    """Rename, close, reopen, or set/correct its location. NO DELETE — see `update_branch`."""
 
     name: str | None = Field(default=None, min_length=1, max_length=128)
     active: bool | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    city: str | None = Field(default=None, max_length=80)
 
 
 def _live(rows: list[Branch]) -> int:
@@ -806,7 +814,8 @@ async def create_branch(request: Request, body: BranchIn,
                 "branch.created", actor=principal.subject, tenant=tenant, resource="branch",
                 ip=request.client.host if request.client else "")
             b = Branch(id=new_id("brn"), tenant=tenant, name=body.name.strip(),
-                       created=int(time.time()))
+                       created=int(time.time()),
+                       lat=body.lat or 0.0, lng=body.lng or 0.0, city=body.city.strip())
             await store.save(b)
             await gauges.report(tenant, S.BRANCHES, current + 1)
     except S.SeatClaimBusy as exc:
@@ -821,7 +830,7 @@ async def create_branch(request: Request, body: BranchIn,
 @router.patch("/branches/{branch_id}", dependencies=[Depends(subscribed_write), Depends(rate_limit)])
 async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                         principal: Principal = Depends(_MANAGE)) -> dict:
-    """Rename a branch, or close one — and NEVER delete one.
+    """Rename a branch, close one, or set/correct its location — and NEVER delete one.
 
     DEACTIVATE RATHER THAN DELETE, the same rule the service catalogue follows above and for a
     harder reason: visits, points movements and schedules all carry a `branch_id` as a plain
@@ -873,6 +882,12 @@ async def update_branch(request: Request, branch_id: str, body: BranchPatch,
                 b.name = body.name.strip()
             if body.active is not None:
                 b.active = body.active
+            if body.lat is not None:
+                b.lat = body.lat
+            if body.lng is not None:
+                b.lng = body.lng
+            if body.city is not None:
+                b.city = body.city.strip()
             await store.save(b)
             # THE WHOLE COUNT, RECOMPUTED — a gauge is reported, never incremented
             # (core/seats.py). The saved row is the one in `rows` by identity only if the store
