@@ -163,12 +163,14 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
       .then(setConnected).catch(() => {});
   }, [session, catalog]);
 
-  const warning = (() => {
-    if (connected && connected.state !== 'connected' && connected.state !== '') return connected.message;
-    if (connected && connected.state === '') return 'واتساب غير مربوط — اربطه لتبدأ الرسائل. دقائق.';
-    if (connected && connected.can_send === false) return 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.';
-    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.';
-    return '';
+  // «دقائق» WAS A CLAIM ABOUT HOW LONG SOMETHING TAKES WITH NO LINK TO GO DO IT — the owner read
+  // "minutes" and still had to go find «حسابي» himself. Dropped the estimate, added the real link.
+  const warning: { text: string; href?: string } | null = (() => {
+    if (connected && connected.state !== 'connected' && connected.state !== '') return { text: connected.message };
+    if (connected && connected.state === '') return { text: 'واتساب غير مربوط — رسائلك لا تُرسل بعد.', href: '/account?tab=whatsapp' };
+    if (connected && connected.can_send === false) return { text: 'واتساب مربوط ولم يبدأ الإرسال — أدخل رمز التحقق بخطوتين في «حسابي» لتفعيله.', href: '/account?tab=whatsapp' };
+    if (today?.ceiling.known && !today.ceiling.unlimited && today.ceiling.remaining <= 0) return { text: 'بلغت سقف واتساب اليوم. الرسائل المتبقية ستُرسل غداً تلقائياً.' };
+    return null;
   })();
 
   if (today === null) {
@@ -206,8 +208,11 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
       ) : null}
 
       {warning ? (
-        <div className="rounded-2xl px-4 py-3 text-[13px]" style={{ background: '#fdf0dc', color: '#8a5a12' }}>
-          {warning}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-4 py-3 text-[13px]" style={{ background: '#fdf0dc', color: '#8a5a12' }}>
+          <span>{warning.text}</span>
+          {warning.href ? (
+            <Link to={warning.href} className="shrink-0 font-semibold underline underline-offset-2">اربطه الآن ←</Link>
+          ) : null}
         </div>
       ) : null}
 
