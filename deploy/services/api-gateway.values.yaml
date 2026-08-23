@@ -142,7 +142,19 @@ env:
       {"prefix":"/api/v1/insights","upstream":"http://insights:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/campaigns","upstream":"http://campaigns:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/search","upstream":"http://search-service:8000","auth":"required","strip_prefix":false},
-      {"prefix":"/api/v1/bookings","upstream":"http://bookings:8000","auth":"required","strip_prefix":false}
+      {"prefix":"/api/v1/bookings","upstream":"http://bookings:8000","auth":"required","strip_prefix":false},
+
+      # affiliate-service was running, healthy, pinned and rolled — same shape as the operations/
+      # reminders/loyalty/insights/campaigns gap noted above — and its whole affiliates.<DOMAIN>
+      # portal 404'd at the gateway (never reached the service) until this was found and added.
+      # apply/signin/accept-invite are auth=none for the same reason auth/register and auth/login
+      # are: a stranger with no token yet is the entire point of those three routes. Longest-prefix
+      # match means these three are tried before the bare /api/v1/affiliates catch-all below.
+      {"prefix":"/api/v1/affiliates/apply","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/affiliates/signin","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/affiliates/accept-invite","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
+      {"prefix":"/api/v1/admin/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false}
     ]
   UPSTREAM_TIMEOUT_SECONDS: "15"
 
@@ -174,13 +186,18 @@ env:
       {"prefix":"/api/v1/auth/register","class":"auth","limit":5,"window_s":300,"cost":1},
       {"prefix":"/api/v1/field","class":"field","limit":600,"window_s":60,"cost":1},
       {"prefix":"/api/v1/till","class":"field","limit":600,"window_s":60,"cost":1},
-      {"prefix":"/api/v1/staff","class":"field","limit":600,"window_s":60,"cost":1}
+      {"prefix":"/api/v1/staff","class":"field","limit":600,"window_s":60,"cost":1},
+      # Same abuse shape as auth/register: a public, password-setting signup route. Without its own
+      # tight class it would fall to the default 300/60s, cheap enough to flood the admin's pending
+      # queue with junk applications.
+      {"prefix":"/api/v1/affiliates/apply","class":"auth","limit":5,"window_s":300,"cost":1},
+      {"prefix":"/api/v1/affiliates/signin","class":"auth","limit":10,"window_s":60,"cost":1}
     ]
 
   # ── Admin panel aggregator (spec §15) ─────────────────────────────────────────────────────
   # CONFIG ONLY — never a request value. An aggregator that fans out to a caller-named host is
   # an SSRF console. Each service appears the moment it answers /internal/manifest.
-  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000"
+  ADMIN_SERVICES: "analytics-service=http://analytics-service:8000,audit-service=http://audit-service:8000,authz-service=http://authz-service:8000,billing-service=http://billing-service:8000,campaigns=http://campaigns:8000,compliance-service=http://compliance-service:8000,connector-service=http://connector-service:8000,feature-flag-service=http://feature-flag-service:8000,identity-service=http://identity-service:8000,job-service=http://job-service:8000,notification-service=http://notification-service:8000,onboarding-service=http://onboarding-service:8000,operations=http://operations:8000,portal=http://portal:8000,reminders=http://reminders:8000,search-service=http://search-service:8000,tenant-service=http://tenant-service:8000,ticket-service=http://ticket-service:8000,wallet-service=http://wallet-service:8000,webhook-service=http://webhook-service:8000,loyalty=http://loyalty:8000,insights=http://insights:8000,bookings=http://bookings:8000,affiliate-service=http://affiliate-service:8000"
   # OURS ADDED, AND THE OMISSION WAS INVISIBLE. The gateway aggregates every service's declared
   # actions into ONE catalog the console calls — and it only asks the services named here. Our
   # four declared forty actions between them and the gateway never asked for one of them, so the
