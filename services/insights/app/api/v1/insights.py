@@ -203,7 +203,8 @@ async def dashboard(request: Request, branch_id: str = "",
     ctx = next_step.NextStepCtx(
         values=values, entitlements=keys, audience=audience, teaser=teaser,
         multi_branch=len(values.get("branch_rows") or []) > 1,
-        staff_coverage=cov.get("staff_performance") or {})
+        staff_coverage=cov.get("staff_performance") or {},
+        total_visits=int(snap.get("visits") or 0))
     state_row = await c.datastore.get(NEXT_STEP_STATE, tenant) or {}
     first_seen = dict(state_row.get("seen") or {})
     picked = next_step.pick(ctx, first_seen, now=now)

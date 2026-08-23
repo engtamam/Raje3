@@ -8,9 +8,13 @@ DAY = 86400
 
 
 def ctx(**values) -> ns.NextStepCtx:
+    # DEFAULTS TO "PLENTY OF REAL HISTORY" — most tests below are about a specific signal firing
+    # correctly, not about the evidence floor itself; the floor gets its own tests below with an
+    # explicit `__total_visits__=0`.
     return ns.NextStepCtx(values=values, entitlements=set(), audience=None, teaser=None,
                           multi_branch=values.pop("__multi_branch__", False),
-                          staff_coverage=values.pop("__staff_coverage__", {}))
+                          staff_coverage=values.pop("__staff_coverage__", {}),
+                          total_visits=values.pop("__total_visits__", 50))
 
 
 # ── the guarantee: something always shows ────────────────────────────────────────────────────────
@@ -76,6 +80,63 @@ def test_branch_rules_are_silent_on_a_single_branch_shop():
         branch_rows=[{"branch_id": "b1", "name": "الرياض", "visits": 50, "return_rate": 0.1}],
     ), {}, now=NOW)
     assert out["primary"]["id"] != "branch_gap_wide"
+
+
+# ── the exact bug Tamam reported: a brand-new shop got an invented-looking verdict ───────────────
+def test_a_brand_new_shop_with_a_catalogue_but_zero_visits_gets_no_weak_services_verdict():
+    """`weak_services()` itself is CORRECT to rank a real, tied-at-zero distribution — the bug was
+    this rule treating "the list is non-empty" as evidence, when a shop that has never recorded a
+    single visit has every catalogue service tied at zero and `weak_services()` returns all of
+    them, which used to read as a real verdict ("N من خدماتك نادراً ما تُطلب") about a shop that
+    has done nothing at all yet."""
+    out = ns.pick(ctx(
+        __total_visits__=0,
+        weak_services=["svc1", "svc2", "svc3"],           # exactly what a zero-visit shop gets
+        service_popularity=[],
+    ), {}, now=NOW)
+    assert out["primary"]["id"] != "weak_services"
+    # THE HONEST ANSWER TAKES ITS PLACE — "no data yet", not a fabricated ranking.
+    assert out["primary"]["id"] == "no_service_data"
+
+
+def test_a_handful_of_real_visits_still_is_not_enough_for_a_services_verdict():
+    """Below the evidence floor, silence — not the honest "no data" line either, since there IS
+    some data; just not enough of it to rank anything."""
+    out = ns.pick(ctx(
+        __total_visits__=3,
+        weak_services=["svc1"],
+        service_popularity=[{"service_id": "svc1", "count": 3, "share": 1.0}],
+    ), {}, now=NOW)
+    assert out["primary"]["id"] not in ("weak_services", "service_concentration")
+
+
+def test_weak_services_fires_normally_once_there_is_a_real_sample():
+    out = ns.pick(ctx(__total_visits__=40, weak_services=["svc1"]), {}, now=NOW)
+    assert out["primary"]["id"] == "weak_services"
+
+
+def test_a_multi_branch_shop_with_no_activity_anywhere_gets_no_quiet_branch_verdict():
+    """Every branch tied at zero is a chain that has not started, not one branch singled out as
+    underperforming its (equally silent) peers."""
+    out = ns.pick(ctx(
+        __multi_branch__=True,
+        branch_rows=[
+            {"branch_id": "b1", "name": "الرياض", "visits": 0, "return_rate": 0},
+            {"branch_id": "b2", "name": "جدة", "visits": 0, "return_rate": 0},
+        ],
+    ), {}, now=NOW)
+    assert out["primary"]["id"] != "branch_quiet"
+
+
+def test_a_genuinely_quiet_branch_among_active_ones_still_fires():
+    out = ns.pick(ctx(
+        __multi_branch__=True,
+        branch_rows=[
+            {"branch_id": "b1", "name": "الرياض", "visits": 40, "return_rate": 0.5},
+            {"branch_id": "b2", "name": "جدة", "visits": 0, "return_rate": 0},
+        ],
+    ), {}, now=NOW)
+    assert out["primary"]["id"] == "branch_quiet"
 
 
 def test_staff_attribution_rule_needs_a_real_sample_first():

@@ -85,6 +85,14 @@ class NextStepCtx:
     # `snap["coverage"]["staff_performance"]` (tick.py's `_coverage()`) — attribution completeness,
     # not a workload number (see the module's own note on why الموظفين carries one rule).
     staff_coverage: dict[str, Any]
+    # `snap["visits"]` — THE ONE GUARD AGAINST A REAL BUG (Tamam, screenshot: a brand-new shop
+    # with zero real activity was told a service was "rarely requested"). `weak_services()` ranks
+    # a shop's OWN catalogue and is correct to call every service equally weak when they are all
+    # genuinely tied at zero visits over real history — but a shop that has never recorded a
+    # single visit has no history to rank AT ALL, and every rule that reasons about "his own
+    # distribution" must refuse to fire below a real sample, not just check that its OWN signal
+    # happens to be non-empty.
+    total_visits: int
 
 
 @dataclass(frozen=True)
@@ -200,7 +208,14 @@ def _churn_worsening(ctx: NextStepCtx) -> NextStepResult | None:
 
 
 # ── ④ الخدمات ─────────────────────────────────────────────────────────────────────────────────
+#: BELOW THIS MANY LIFETIME VISITS, "his own distribution" is not a distribution yet — see the
+#: module's own note on `NextStepCtx.total_visits` and the bug this constant closes.
+MIN_VISITS_FOR_DISTRIBUTION = 10
+
+
 def _weak_services_exist(ctx: NextStepCtx) -> NextStepResult | None:
+    if ctx.total_visits < MIN_VISITS_FOR_DISTRIBUTION:
+        return None
     weak = ctx.values.get("weak_services")
     if isinstance(weak, list) and weak:
         return NextStepResult(
@@ -271,7 +286,11 @@ def _branch_quiet(ctx: NextStepCtx) -> NextStepResult | None:
     if not isinstance(rows, list) or len(rows) < 2:
         return None
     quiet = [r for r in rows if int(r.get("visits") or 0) == 0]
-    if quiet:
+    # AT LEAST ONE BRANCH MUST BE ALIVE, OR "QUIET" IS EVERY BRANCH — a chain that has recorded
+    # nothing anywhere yet is a shop that has not started, not one branch singled out as the
+    # problem among working peers.
+    active = [r for r in rows if int(r.get("visits") or 0) > 0]
+    if quiet and active:
         name = quiet[0].get("name") or quiet[0].get("branch_id") or ""
         return NextStepResult(f"فرع «{name}» بلا أي زيارة مسجّلة — تأكد إنه يسجّل زياراته.",
                               tone="warning")
