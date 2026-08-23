@@ -540,6 +540,58 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
         "source_label": "McKinsey — The Value of Getting Personalization Right",
         "source_url": "https://www.mckinsey.com/capabilities/growth-marketing-and-sales/solutions/customerone/personalization",
     },
+    # ── الدفعة الرابعة (2026-08-24) — احتمالية البيع لعميل موجود، أثر المتابعة بعد الزيارة،
+    # رسائل المناسبات، الحجز الإلكتروني خارج أوقات الدوام، نافذة أول 90 يوم، وقائمة الانتظار.
+    # نفس التحقق: مصدر حقيقي قابل للضغط، وتأكدنا كل رقم يقيس شيء مختلف عن كل رقم مزروع فوق —
+    # ولا واحد منها يتعارض مع الثاني.
+    {
+        "title": "احتمال البيع لعميل عندك أعلى بكثير من عميل جديد",
+        "body": "كتاب Marketing Metrics (Farris) يوثّق: احتمال إتمام بيعة لعميل عندك بالفعل "
+               "60-70٪، مقابل 5-20٪ بس لعميل محتمل جديد ما جربك قبل. يعني لو عندك 100 عميل "
+               "حالي و100 عميل محتمل جديد: فرصة تبيع للأول أعلى بـ3-14 مرة من الثاني.",
+        "source_label": "O8 Agency — Marketing Metrics (Farris)",
+        "source_url": "https://www.o8.agency/blog/5-metrics-determine-how-much-youll-sell",
+    },
+    {
+        "title": "رسالة متابعة بعد الزيارة ترفع التكرار",
+        "body": "تقرير Zembula وجد: رسالة متابعة بسيطة بعد الزيارة (شكر، أو سؤال عن رأيه) ترفع "
+               "معدل تكرار الزيارة حتى 40٪. لو عندك 100 عميل جديد بالشهر: يعني عشرات إضافية "
+               "يرجعون بسبب رسالة واحدة ما كلّفتك شيء تقريباً.",
+        "source_label": "Zembula — Post-Purchase Email Statistics",
+        "source_url": "https://www.zembula.com/blog/the-stats-you-need-to-know-about-post-purchase-emails/",
+    },
+    {
+        "title": "رسالة المناسبة تفرق أضعاف الرسالة العادية",
+        "body": "بيانات Experian تُظهر: رسالة تهنئة بمناسبة (عيد ميلاد العميل مثلاً) تحقق ارتباطاً "
+               "ومبيعات أعلى بأضعاف مقارنة برسالة تسويقية عامة — نفس الجهد، استهداف شخصي بدل "
+               "رسالة واحدة للجميع.",
+        "source_label": "Litmus — Birthday Email Statistics (Experian)",
+        "source_url": "https://www.litmus.com/blog/happy-birthday-now-buy-yourself-a-present-the-potential-of-birthday-emails",
+    },
+    {
+        "title": "الحجز الإلكتروني يفتح باباً ما كان موجوداً",
+        "body": "بيانات SchedulingKit تُظهر: 30-40٪ من الحجوزات الإلكترونية تصير خارج أوقات "
+               "دوامك — يعني عملاء ما كانوا راح يتصلون أصلاً بره الدوام، والحجز المتاح لهم "
+               "24 ساعة هو اللي أنقذ الحجزة من الضياع.",
+        "source_label": "SchedulingKit — Online Booking Statistics",
+        "source_url": "https://schedulingkit.com/statistics/online-booking-statistics",
+    },
+    {
+        "title": "أول 90 يوم يقررون مصير العميل",
+        "body": "بيانات SundaySky تُظهر: 30-50٪ من العملاء اللي بينقطعون عن منشأة، ينقطعون "
+               "خلال أول 90 يوم من أول زيارة. يعني التركيز على تجربة أول شهرين-ثلاثة أهم من أي "
+               "جهد لاحق لاسترجاع عميل قديم.",
+        "source_label": "SundaySky — Customer Onboarding Statistics",
+        "source_url": "https://sundaysky.com/blog/customer-onboarding-statistics/",
+    },
+    {
+        "title": "قائمة الانتظار تسترجع نص المواعيد الملغاة",
+        "body": "بيانات Acuity Scheduling تُظهر: قائمة انتظار تلقائية (تعرض الموعد الملغى فوراً "
+               "لعميل ثاني بانتظار مكان) تسترجع 40-60٪ من المواعيد اللي تُلغى. لو عندك 20 "
+               "إلغاء بالشهر: يعني 8-12 موعد كان راح يضيع، رجع لك بدل ما يفضى.",
+        "source_label": "Acuity Scheduling — Waitlist Software",
+        "source_url": "https://acuityscheduling.com/learn/fill-slots-with-waitlist-software",
+    },
 ]
 
 
