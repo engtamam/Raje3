@@ -8,12 +8,17 @@
  * لاحقة (٧/٩ بالخطة)، لا تُترك للمحرّك العام.
  */
 import { useEffect, useState } from 'react';
+import { Segmented } from '../rj-ui/Segmented';
 import { ActionCatalogPanel } from './ActionRenderer';
+import { AdminWhatsAppDiagnostics } from './AdminWhatsAppDiagnostics';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 
+type SubTab = 'affiliates' | 'whatsapp';
+
 export function AdminCustomers({ session }: { session: AdminSession }) {
   const [catalog, setCatalog] = useState<AdminCatalog | 'loading' | 'failed'>('loading');
+  const [sub, setSub] = useState<SubTab>('affiliates');
 
   useEffect(() => {
     let cancelled = false;
@@ -33,9 +38,20 @@ export function AdminCustomers({ session }: { session: AdminSession }) {
   const affiliateActions = allActions(catalog).filter((a) => a.group === 'Affiliates');
 
   return (
-    <div>
-      <h1 className="px-6 pt-6 text-2xl leading-tight tracking-tight">العملاء والدعم</h1>
-      <ActionCatalogPanel session={session} actions={affiliateActions} />
+    <div className="flex flex-col gap-4">
+      <div className="px-6 pt-6">
+        <h1 className="mb-3 text-2xl leading-tight tracking-tight">العملاء والدعم</h1>
+        <Segmented
+          value={sub}
+          onChange={(v) => setSub(v as SubTab)}
+          options={[
+            { value: 'affiliates', label: 'طلبات المسوّقين' },
+            { value: 'whatsapp', label: 'تشخيص واتساب' },
+          ]}
+        />
+      </div>
+      {sub === 'affiliates' ? <ActionCatalogPanel session={session} actions={affiliateActions} /> : null}
+      {sub === 'whatsapp' ? <AdminWhatsAppDiagnostics session={session} /> : null}
     </div>
   );
 }
