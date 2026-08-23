@@ -126,3 +126,61 @@ def test_an_unreadable_status_does_not_invent_a_fault(client, monkeypatch):
     monkeypatch.setattr(connect, "build_registration", lambda s: _Registration(""))
 
     assert _finish(client).json()["can_send"] is True
+
+
+# ── the SAME defect, one door over: a branch's own number, checked under the wrong identity ──────
+class _RecordingRegistration:
+    """Meta's answer, plus WHICH identity it was actually asked about — the one fact both `_can_send`
+    call sites got wrong for a branch's own connection before this fix (asked about the bare
+    tenant, sealed under `tenant:branch`)."""
+
+    def __init__(self, verified: str) -> None:
+        self._verified = verified
+        self.asked_about: list[str] = []
+
+    async def status(self, tenant, phone_number_id=""):
+        self.asked_about.append(tenant)
+        return {"code_verification_status": self._verified} if self._verified else {}
+
+
+def _set_per_branch(client, tenant):
+    import asyncio
+    from app.core.shop_mode import ModeStore
+    asyncio.run(ModeStore(client.app.state.container.datastore).set(tenant, "per_branch", available=True))
+
+
+def test_a_branchs_readiness_is_asked_under_its_own_sending_identity(client, monkeypatch):
+    """د-16, one door over: the finish route used to ask Meta about the bare tenant even for a
+    branch's own connection — sealed under `tenant:branch`, asked about under `tenant` alone, so a
+    branch's real registration was invisible to the one check that decides «جاهز للإرسال»."""
+    _set_per_branch(client, TENANT)
+    _exchange_succeeds(monkeypatch)
+    reg = _RecordingRegistration("VERIFIED")
+    monkeypatch.setattr(connect, "build_registration", lambda s: reg)
+
+    r = client.post(PATH, json={"event": "FINISH", "phone_number_id": "pn_brn",
+                                "waba_id": "wa_1", "code": "c" * 20, "branch_id": "brn_jed"},
+                    headers=_headers())
+    assert r.json()["can_send"] is True
+    assert reg.asked_about == [f"{TENANT}:brn_jed"], (
+        "asked about the wrong identity — a branch's real registration would never be seen")
+
+
+def test_a_branchs_own_status_door_answers_for_that_branch_not_the_establishment(client, monkeypatch):
+    """The GET door used to accept no `branch_id` at all — a chain's second branch had no way to
+    ask «is MY number connected» and always read the establishment's own status (or nothing)."""
+    _set_per_branch(client, TENANT)
+    _exchange_succeeds(monkeypatch)
+    monkeypatch.setattr(connect, "build_registration", lambda s: _Registration("VERIFIED"))
+
+    client.post(PATH, json={"event": "FINISH", "phone_number_id": "pn_brn",
+                            "waba_id": "wa_1", "code": "c" * 20, "branch_id": "brn_jed"},
+               headers=_headers())
+
+    same_branch = client.get(PATH, params={"branch_id": "brn_jed"}, headers=_headers()).json()
+    assert same_branch["state"] == connect.STATE_CONNECTED
+
+    other_branch = client.get(PATH, params={"branch_id": "brn_riy"}, headers=_headers()).json()
+    assert other_branch["state"] != connect.STATE_CONNECTED, (
+        "a second branch that never connected read the first branch's own status"
+    )
