@@ -726,47 +726,51 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
         <p className="mt-1 text-[12px] opacity-75">العدد يعتبر صغير — النسبة راح تكون أدق مع عملاء أكثر.</p>
       ) : null}
       {deltaPts !== null && series?.months ? (
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-3 flex items-center gap-2">
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold" style={{ background: 'rgba(255,255,255,.16)', color: deltaPts >= 0 ? '#baf5da' : '#ffd3c9' }}>
             {deltaPts >= 0 ? '↑' : '↓'} {Math.abs(deltaPts)}+ عن {series.months} أشهر
           </span>
-          {/* THE LINE, NOT JUST ITS SIGN — an aggregate ratio can hold steady, or even climb, while
-              real customers churn underneath it and new ones backfill the count. The badge above
-              says only «up» or «down» over the whole span; the line says WHEN, which is the
-              question an owner asking «متى» actually has. Drawn from `retention_series.points`,
-              already computed on every tick and, until now, thrown away after the two numbers the
-              badge needed. */}
-          {series?.points && series.points.length > 1 ? <RetentionSparkline points={series.points} /> : null}
+          {/* THE STREAK, BESIDE THE BADGE — a real, computed thing (three or more consecutive
+              points moving the same way in `retention_series.points`), not invented to feel like a
+              game. It answers the exact question a renewing owner asks himself: "is this actually
+              working, lately, or did it work once a while back?" */}
+          {streak ? (
+            <span className="text-[11.5px] font-medium" style={{ color: streak.rising ? '#baf5da' : '#ffd3c9' }}>
+              {streak.rising ? '📈' : '📉'} {streak.rising ? 'تتحسّن' : 'تتراجع'} منذ {streak.length} فترات
+            </span>
+          ) : null}
         </div>
       ) : null}
-      {/* THE STREAK — a real, computed thing (three or more consecutive points moving the same
-          way in `retention_series.points`), not a badge invented to feel like a game. It answers
-          the exact question a renewing owner asks himself: "is this actually working, lately, or
-          did it work once a while back?" */}
-      {streak ? (
-        <p className="mt-2 text-[12px] font-medium" style={{ color: streak.rising ? '#baf5da' : '#ffd3c9' }}>
-          {streak.rising ? '📈' : '📉'} {streak.rising ? 'تتحسّن' : 'تتراجع'} منذ {streak.length} فترات متتالية
-        </p>
+      {/* THE LINE, NOT JUST ITS SIGN — an aggregate ratio can hold steady, or even climb, while
+          real customers churn underneath it and new ones backfill the count. The badge above says
+          only «up» or «down» over the whole span; the shape says WHEN, which is the question an
+          owner asking «متى» actually has. Given its own full-width row and real presence now — a
+          128×34 sliver squeezed beside the badge was there but invisible; Tamam asked for it to be
+          worth opening the page for: «سويها بشكل احترافي عالي الجمال ويخليه ينبسط منها». */}
+      {series?.points && series.points.length > 1 ? (
+        <div className="mt-4 -mx-1"><RetentionTrend points={series.points} /></div>
       ) : null}
     </div>
   );
 }
 
-/** The trend the aggregate hides. Each point is the SAME measurement — return rate over a trailing
- *  window — ending one step earlier than the point after it (see `retention_series`'s own
- *  docstring), so the shape is the shop changing, not the method changing. A point with `value:
- *  null` is a gap in the line — too few customers in that window to trust — never bridged into a
- *  false continuity, and never drawn as zero. */
-function RetentionSparkline({ points }: { points: { at: number; customers: number; value: number | null }[] }) {
-  const W = 128, H = 34, PAD = 3;
+/** THE TREND THE AGGREGATE HIDES, drawn as a real area chart rather than a hairline — a soft
+ *  gradient fill under a smoothed curve, the newest point lit with a glow, and the two dates that
+ *  bound the window spelled out underneath so «إلى أين» reads as an actual answer, not a shape with
+ *  no axis. Each point is the SAME measurement — return rate over a trailing window — ending one
+ *  step earlier than the point after it (see `retention_series`'s own docstring), so the shape is
+ *  the shop changing, not the method changing. A point with `value: null` is a gap in the curve —
+ *  too few customers in that window to trust — never bridged into a false continuity. */
+function RetentionTrend({ points }: { points: { at: number; customers: number; value: number | null }[] }) {
+  const W = 300, H = 84, PAD_X = 4, PAD_TOP = 10, PAD_BOTTOM = 4;
   const drawn = points.map((p) => p.value).filter((v): v is number => v !== null);
   if (drawn.length < 2) return null;
   const min = Math.min(...drawn), max = Math.max(...drawn);
-  const span = max - min || 1;
-  const x = (i: number) => PAD + (i / (points.length - 1)) * (W - PAD * 2);
-  const y = (v: number) => H - PAD - ((v - min) / span) * (H - PAD * 2);
+  const span = max - min || 0.1;
+  const x = (i: number) => PAD_X + (i / (points.length - 1)) * (W - PAD_X * 2);
+  const y = (v: number) => H - PAD_BOTTOM - ((v - min) / span) * (H - PAD_TOP - PAD_BOTTOM);
 
-  // ONE <polyline> PER UNBROKEN RUN of non-null points — a single path across a gap would draw a
+  // ONE RUN PER UNBROKEN STRETCH of non-null points — a single path across a gap would draw a
   // false connection where the docstring explicitly says there must be none.
   const runs: { x: number; y: number }[][] = [];
   let current: { x: number; y: number }[] = [];
@@ -776,22 +780,52 @@ function RetentionSparkline({ points }: { points: { at: number; customers: numbe
   });
   if (current.length) runs.push(current);
 
-  const last = runs.at(-1)?.at(-1);
+  // A SMOOTHED PATH, NOT A JOIN-THE-DOTS LINE — six monthly points read as a staircase drawn
+  // straight; a quadratic curve through each pair's midpoint is the smallest change that reads as
+  // a trend a human drew rather than a chart library's default.
+  const smoothPath = (run: { x: number; y: number }[]) => {
+    if (run.length < 2) return '';
+    let d = `M ${run[0].x} ${run[0].y}`;
+    for (let i = 1; i < run.length; i++) {
+      const mid = { x: (run[i - 1].x + run[i].x) / 2, y: (run[i - 1].y + run[i].y) / 2 };
+      d += ` Q ${run[i - 1].x} ${run[i - 1].y} ${mid.x} ${mid.y}`;
+    }
+    const p = run.at(-1)!;
+    d += ` T ${p.x} ${p.y}`;
+    return d;
+  };
+
+  const longest = runs.reduce((a, b) => (b.length > a.length ? b : a), runs[0]);
+  const first = longest[0], last = longest.at(-1)!;
+  const areaPath = `${smoothPath(longest)} L ${last.x} ${H} L ${first.x} ${H} Z`;
+  const oldestAt = points[0].at;
+  const fmt = (s: number) => new Date(s * 1000).toLocaleDateString('ar-SA-u-nu-latn', { month: 'short', day: 'numeric' });
+
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0" aria-hidden="true">
-      {runs.map((run, i) => (
-        <polyline
-          key={i}
-          points={run.map((p) => `${p.x},${p.y}`).join(' ')}
-          fill="none"
-          stroke="rgba(255,255,255,.75)"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
-      {last ? <circle cx={last.x} cy={last.y} r={2.6} fill="#ffffff" /> : null}
-    </svg>
+    <div className="flex flex-col gap-1">
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="retentionFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.32" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#retentionFill)" />
+        {runs.map((run, i) => (
+          <path key={i} d={smoothPath(run)} fill="none" stroke="rgba(255,255,255,.85)" strokeWidth={2.25} strokeLinecap="round" />
+        ))}
+        {/* THE NEWEST POINT, LIT — a soft halo behind a solid dot, the one point on the whole curve
+            that is also the number spelled out above it in the hero's own sentence. */}
+        <circle cx={last.x} cy={last.y} r={6} fill="#ffffff" opacity="0.18" />
+        <circle cx={last.x} cy={last.y} r={3} fill="#ffffff" />
+      </svg>
+      {/* THE WINDOW, NAMED — a curve with no axis invites "trend of what, exactly since when?".
+          Real dates from the same points the curve is drawn from, never invented. */}
+      <div dir="ltr" className="flex items-center justify-between px-1 text-[10px] font-medium" style={{ color: 'rgba(255,255,255,.55)' }}>
+        <span>{fmt(oldestAt)}</span>
+        <span>الآن</span>
+      </div>
+    </div>
   );
 }
 
