@@ -20,6 +20,7 @@
  * off-canvas drawer.
  */
 import { useState } from 'react';
+import type { HomeTicket } from './api';
 import { AffiliateAccount } from './AffiliateAccount';
 import { AffiliateDoor } from './AffiliateDoor';
 import { AffiliateEarnings } from './AffiliateEarnings';
@@ -32,6 +33,9 @@ import { useAffiliateSession } from './session';
 export function AffiliatePortal() {
   const { session, signedIn, signIn, signOut } = useAffiliateSession();
   const [tab, setTab] = useState<Tab>('home');
+  // Home's own TicketCarousel jumps straight into a ticket's own thread inside «أدواتي» — this is
+  // the one piece of state that crosses tabs, so it lives here rather than in either screen.
+  const [deepLinkTicket, setDeepLinkTicket] = useState<HomeTicket | null>(null);
 
   if (!signedIn) {
     return <AffiliateDoor onSignedIn={signIn} />;
@@ -42,9 +46,15 @@ export function AffiliatePortal() {
       <AffiliateSidebar active={tab} onChange={setTab} />
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col md:max-w-2xl">
         <div className="flex-1">
-          {tab === 'home' ? <AffiliateHome session={session} /> : null}
+          {tab === 'home' ? (
+            <AffiliateHome session={session}
+                          onOpenTicket={(t) => { setDeepLinkTicket(t); setTab('tools'); }} />
+          ) : null}
           {tab === 'leads' ? <AffiliateLeads session={session} /> : null}
-          {tab === 'tools' ? <AffiliateTools session={session} /> : null}
+          {tab === 'tools' ? (
+            <AffiliateTools session={session} deepLinkTicket={deepLinkTicket}
+                           onConsumeDeepLinkTicket={() => setDeepLinkTicket(null)} />
+          ) : null}
           {tab === 'earnings' ? <AffiliateEarnings session={session} /> : null}
           {tab === 'account' ? <AffiliateAccount session={session} onSignOut={signOut} /> : null}
         </div>

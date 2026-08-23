@@ -34,12 +34,18 @@ import {
   replyShopTicket,
   type AffiliateSession, type OutreachStage, type MessageTemplate, type TemplateStat,
   type StatCitation, type PlacesApiKeyInfo, type LeadSearchJob, type ReferredShop,
-  type ShopTicket, type SectorStat,
+  type ShopTicket, type SectorStat, type HomeTicket,
 } from './api';
 
 type View = 'menu' | 'templates' | 'citations' | 'search' | 'sector-stats' | 'tickets';
 
-export function AffiliateTools({ session }: { session: AffiliateSession }) {
+export function AffiliateTools({ session, deepLinkTicket, onConsumeDeepLinkTicket }: {
+  session: AffiliateSession;
+  /** Set by Home's own TicketCarousel (2026-08-23) — a ticket a marketer tapped directly, skipping
+   *  the shop picker and the ticket list entirely, straight into its own thread. */
+  deepLinkTicket?: HomeTicket | null;
+  onConsumeDeepLinkTicket?: () => void;
+}) {
   const [view, setView] = useState<View>('menu');
   const [isManager, setIsManager] = useState<boolean | 'loading'>('loading');
 
@@ -50,6 +56,12 @@ export function AffiliateTools({ session }: { session: AffiliateSession }) {
     return () => { cancelled = true; };
   }, [session]);
 
+  if (deepLinkTicket) {
+    return (
+      <TicketThread session={session} tenant={deepLinkTicket.tenant} ticket={deepLinkTicket}
+                   onBack={() => onConsumeDeepLinkTicket?.()} />
+    );
+  }
   if (view === 'templates') return <TemplateLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'citations') return <CitationLibrary session={session} isManager={isManager === true} onBack={() => setView('menu')} />;
   if (view === 'search') return <LeadSearchTool session={session} onBack={() => setView('menu')} />;

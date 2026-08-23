@@ -143,6 +143,7 @@ export interface Home {
   pending_withdrawal?: boolean;
   stale_leads_count: number;
   stale_leads: StaleLead[];
+  open_tickets: HomeTicket[];
   wafa_eligibility: WafaEligibility;
   employment_eligibility: EmploymentEligibility;
   top_template_this_period: TopTemplate | null;
@@ -543,6 +544,12 @@ export async function referredShops(session: AffiliateSession): Promise<{ shops:
 export interface ShopTicket extends Record<string, unknown> {
   id?: string; subject?: string; body?: string; status?: string; type?: string;
   priority?: string; created_at?: number;
+}
+/** A `ShopTicket` as `/me/home`'s own carousel feed returns it — the same row, with the shop it
+ *  belongs to attached (a marketer's ticket list is per-shop everywhere else; the carousel is the
+ *  one place several shops' tickets sit side by side, so it has to say whose is whose). */
+export interface HomeTicket extends ShopTicket {
+  tenant: string; shop_name: string;
 }
 export async function shopTickets(session: AffiliateSession, tenant: string):
     Promise<{ tickets: ShopTicket[] }> {

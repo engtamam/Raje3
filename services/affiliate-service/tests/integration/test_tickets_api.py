@@ -192,3 +192,53 @@ def test_reply_to_a_ticket_not_found_is_a_clean_404():
                     json={"body": "سنتابع فورًا"},
                     headers={"Authorization": f"Bearer {_token(sub='p-tk7')}"})
     assert r.status_code == 404
+
+
+# ── /me/home's own open_tickets carousel feed (2026-08-23) ─────────────────────────────────────
+
+def test_home_open_tickets_carries_open_ones_only_with_the_shops_name_attached():
+    http = FakeTicketHttp({
+        "http://tickets:8000/internal/tickets?tenant=t-hm1": (200, {"tickets": [
+            {"id": "tk-open", "subject": "الجهاز متوقف", "status": "open", "created_at": 200},
+            {"id": "tk-closed", "subject": "قديمة", "status": "closed", "created_at": 100},
+        ]}),
+    })
+    client = _make_app(tickets_http=http)
+    _seed_referral(client, affiliate_id="aff-hm1", person_id="p-hm1", tenant="t-hm1")
+
+    r = client.get("/api/v1/affiliates/me/home",
+                   headers={"Authorization": f"Bearer {_token(sub='p-hm1')}"})
+    assert r.status_code == 200, r.text
+    tickets = r.json()["open_tickets"]
+    assert [t["id"] for t in tickets] == ["tk-open"]   # the closed one is filtered out
+    assert tickets[0]["tenant"] == "t-hm1"
+    assert tickets[0]["shop_name"]   # falls back to the tenant id when unnamed — never blank
+
+
+def test_home_open_tickets_skips_a_shop_with_no_active_grant_without_blanking_the_rest():
+    http = FakeTicketHttp({
+        "http://tickets:8000/internal/tickets?tenant=t-hm2a": (409, {}),
+        "http://tickets:8000/internal/tickets?tenant=t-hm2b": (200, {"tickets": [
+            {"id": "tk-ok", "status": "open", "created_at": 50},
+        ]}),
+    })
+    client = _make_app(tickets_http=http)
+    _seed_referral(client, affiliate_id="aff-hm2", person_id="p-hm2", tenant="t-hm2a")
+
+    async def refer_second():
+        await client.app.state.container.referrals.stamp(tenant="t-hm2b", affiliate_id="aff-hm2")
+    asyncio.run(refer_second())
+
+    r = client.get("/api/v1/affiliates/me/home",
+                   headers={"Authorization": f"Bearer {_token(sub='p-hm2')}"})
+    assert r.status_code == 200, r.text
+    assert [t["id"] for t in r.json()["open_tickets"]] == ["tk-ok"]
+
+
+def test_home_open_tickets_is_empty_with_no_ticket_service_configured():
+    client = _make_app(tickets_http=None)
+    _seed_referral(client, affiliate_id="aff-hm3", person_id="p-hm3", tenant="t-hm3")
+    r = client.get("/api/v1/affiliates/me/home",
+                   headers={"Authorization": f"Bearer {_token(sub='p-hm3')}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["open_tickets"] == []

@@ -11,7 +11,9 @@ import type {
 } from './api';
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
-const ZERO_BALANCE: Balance = { pending_halalas: 0, confirmed_available_halalas: 0, withdrawn_halalas: 0 };
+const ZERO_BALANCE: Balance = {
+  pending_halalas: 0, confirmed_available_halalas: 0, withdrawn_halalas: 0, min_withdrawal_halalas: 0,
+};
 const NO_ELIGIBILITY = {
   active_shops: 0, tier_shops: 50, shops_until_next_tier: 50, eligible: false,
   current_tier_amount_halalas: 0, retention_rate: 1, refund_rate: 0,

@@ -21,9 +21,12 @@ import { Button } from '@base-ui/design-system/Button';
 import { Field, Input } from '@base-ui/design-system/Field';
 import { riyalsLabel } from '../money';
 import { western } from '../digits';
-import { AffiliateRefused, home, invite, type AffiliateSession, type Home } from './api';
+import { AffiliateRefused, home, invite, type AffiliateSession, type Home, type HomeTicket } from './api';
+import { TicketCarousel } from './TicketCarousel';
 
-export function AffiliateHome({ session }: { session: AffiliateSession }) {
+export function AffiliateHome({ session, onOpenTicket }: {
+  session: AffiliateSession; onOpenTicket: (ticket: HomeTicket) => void;
+}) {
   const [data, setData] = useState<Home | 'loading' | 'failed'>('loading');
 
   useEffect(() => {
@@ -48,6 +51,9 @@ export function AffiliateHome({ session }: { session: AffiliateSession }) {
       {data !== 'loading' && data !== 'failed' ? (
         <>
           <UrgentLeadsCard data={data} />
+          {data.open_tickets.length > 0 ? (
+            <TicketCarousel tickets={data.open_tickets} onOpen={onOpenTicket} />
+          ) : null}
           <EarningsCard data={data} />
           <EligibilityRow data={data} />
           <TopTemplateCard data={data} />

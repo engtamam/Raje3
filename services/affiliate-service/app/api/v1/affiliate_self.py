@@ -821,6 +821,45 @@ async def reply_shop_ticket(request: Request, tenant: str, ticket_id: str, body:
 
 
 # ── the home screen — ONE call instead of six-to-eight ──────────────────────────────────────────
+_HOME_TICKET_SHOP_CAP = 20     # bounds N calls (one per referred shop) on a home load
+_HOME_TICKET_ROW_CAP = 8       # what the carousel actually shows
+_CLOSED_LIKE_STATUSES = {"closed", "resolved", "done"}
+
+
+async def _open_tickets_for_home(request: Request, *, affiliate_id: str) -> list[dict[str, Any]]:
+    """The carousel's own feed (2026-08-23) — every OPEN ticket across every shop this marketer
+    referred, one call per shop via the SAME `TicketReader.list_tickets` the tickets screen
+    already uses (§13), never a new ticket-service endpoint.
+
+    BEST-EFFORT, PER SHOP, SAME AS `support_kpis` ABOVE IT. `no_active_grant` (a shop that never
+    wired consent, or revoked it) is the honest common case, not a failure — one shop's refusal
+    must never blank the whole banner for every other shop this marketer DOES have a grant for.
+    `TICKETS_UNAVAILABLE` (no ticket-service configured at all) degrades to an empty list the
+    same way, so a Home screen with the feature off simply shows nothing rather than crashing.
+    """
+    reader = request.app.state.container.tickets
+    if reader is None:
+        return []
+    referrals = await request.app.state.container.referrals.of_affiliate(affiliate_id)
+    out: list[dict[str, Any]] = []
+    for r in referrals[:_HOME_TICKET_SHOP_CAP]:
+        try:
+            tickets = await reader.list_tickets(tenant=r.tenant, grantee=affiliate_id)
+        except TicketError:
+            continue
+        for t in tickets:
+            status_val = str(t.get("status") or "").strip().lower()
+            if status_val in _CLOSED_LIKE_STATUSES:
+                continue
+            out.append({**t, "tenant": r.tenant, "shop_name": r.shop_name or r.tenant})
+    # NEWEST FIRST — no per-ticket urgency signal exists yet (ticket-service's own read
+    # projection carries no "needs reply"/unread flag), so recency is the honest proxy: what a
+    # marketer most likely has NOT already seen and handled.
+    out.sort(key=lambda t: t.get("created_at") or 0, reverse=True)
+    return out[:_HOME_TICKET_ROW_CAP]
+
+
+# ── the home screen — ONE call instead of six-to-eight ──────────────────────────────────────────
 @router.get("/home", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def home(request: Request, principal: Principal = Depends(require_user)) -> dict:
     """Composite, server-side fan-out — the gap the design research kept surfacing: every number
@@ -854,6 +893,7 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     # "which of MY OWN templates actually moves a lead forward the most", no re-sorting needed.
     my_template_stats = await c.template_uses.stats(used_by=aff_id)
     top_template = my_template_stats[0] if my_template_stats else None
+    open_tickets = await _open_tickets_for_home(request, affiliate_id=aff_id)
 
     out: dict[str, Any] = {
         "affiliate": {"id": aff_id, "name": affiliate["name"], "role": affiliate["role"]},
@@ -862,6 +902,7 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
         "payout_method_set": bool(payout_channel),
         "stale_leads_count": len(stale),
         "stale_leads": [l.to_dict() for l in stale[:10]],
+        "open_tickets": open_tickets,
         "wafa_eligibility": wafa_elig,
         "employment_eligibility": employment_elig,
         "top_template_this_period": top_template,
