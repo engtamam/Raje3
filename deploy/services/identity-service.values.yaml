@@ -78,6 +78,13 @@ env:
   # symmetric secret any service holding it could mint a token for any subject, so one
   # compromised service is a platform-wide forgery. Asymmetric keeps the private key here.
   TOKEN_ISSUER_DRIVER: "rs256"
+  # DAILY SIGNING-KEY ROTATION (opt-in upstream, v0.16.35's JWKS overlap design) -- Tamam,
+  # 2026-08-23: TOKEN_PRIVATE_KEY is adopted as the first key on the ring; SECRETS_KEK (already in
+  # identity-service-secrets, shared by every service) seals the ring at rest. The cron below
+  # fires the rotation daily; the endpoint is idempotent below the min-age, so a retry/repeat is a
+  # safe no-op. A retired public key stays in the JWKS for an overlap window sized off the 7-day
+  # refresh TTL, so no live token is ever rejected mid-rotation.
+  TOKEN_KEY_ROTATION_ENABLED: "true"
   # FROZEN — config/product.json identifiers.jwtIssuer. Renaming the product must never touch
   # this: change it and every live session and refresh token is rejected at once.
   TOKEN_ISSUER: "raje3"
@@ -273,3 +280,10 @@ env:
 
 ingress:
   enabled: false
+
+cronJobs:
+  # Min-age guard makes a repeat/retry a safe no-op — see TOKEN_KEY_ROTATION_ENABLED's own note.
+  - name: rotate-signing-key
+    schedule: "30 3 * * *"          # daily 03:30
+    timeZone: "Asia/Riyadh"
+    path: /internal/signing-key/rotate
