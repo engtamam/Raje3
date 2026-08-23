@@ -60,6 +60,25 @@
 		file_server
 	}
 
+	# AFFILIATES.<DOMAIN> HAS NO LANDING PAGE OF ITS OWN — main.tsx's `isAffiliateHost` branch
+	# (mounting AffiliatePortal at basename '/') can only ever run once the app bundle has loaded,
+	# and nothing above this point tells THIS server that a request for `/` on that hostname wants
+	# the app rather than the marketing site. Every visit to https://affiliates.<domain>/ fell
+	# through to the same `handle {}` below as the shop's own domain and rendered the marketing
+	# landing page — the app's own hostname check never got the chance to run.
+	#
+	# The edge (deploy/edge/edge.json) already puts both hostnames on one Caddy site block with no
+	# host-based routing at all (see bring-up.sh's own comment on `aliases`); the branch has to live
+	# HERE, the one server that already knows the difference between the app and the landing page.
+	@affiliate_host {
+		header_regexp affiliate_host Host ^affiliates\.
+		not path /app/*
+	}
+	handle @affiliate_host {
+		try_files {path} /app/index.html
+		file_server
+	}
+
 	# The landing page at the root, same origin as the console, so a link from one into the other is
 	# not a cross-site anything.
 	handle {
