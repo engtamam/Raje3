@@ -252,22 +252,30 @@ async def read_payout_method(request: Request,
 
 @router.get("/balance", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def balance(request: Request, principal: Principal = Depends(require_user)) -> dict:
+    from app.api.v1.operator import _runtime_config
+
     affiliate_id = await _my_affiliate_id(request, principal)
     payouts = request.app.state.container.payouts
     out = await payouts.balance(affiliate_id)
     # THE SCREEN THAT SHOWS THIS IS THE SCREEN WITH THE «اسحب» BUTTON — a marketer below the
     # threshold used to have no way to learn it short of tapping withdraw and reading the refusal
-    # (payouts.py's own `below_minimum`). Same field `home()` exposes, same reasoning.
-    out["min_withdrawal_halalas"] = payouts.min_withdrawal_halalas
+    # (payouts.py's own `below_minimum`). Same field `home()` exposes, same reasoning. LIVE, not
+    # the boot-time default — an operator's own /operator/config override applies immediately.
+    out["min_withdrawal_halalas"] = await payouts.effective_min_withdrawal_halalas(
+        _runtime_config(request))
     return out
 
 
 @router.post("/withdrawals", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def request_withdrawal(request: Request,
                              principal: Principal = Depends(require_user)) -> Any:
+    from app.api.v1.operator import _runtime_config
+
     affiliate_id = await _my_affiliate_id(request, principal)
+    payouts = request.app.state.container.payouts
+    min_halalas = await payouts.effective_min_withdrawal_halalas(_runtime_config(request))
     try:
-        out = await request.app.state.container.payouts.request_withdrawal(affiliate_id)
+        out = await payouts.request_withdrawal(affiliate_id, min_halalas=min_halalas)
     except PayoutError as exc:
         return _payout_refused(exc)
     return {"ok": True, **out}
@@ -870,6 +878,8 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     Every figure below is read fresh from its owning service — nothing here is a stored
     duplicate of another route's answer, and nothing here is a NEW fact this service didn't
     already know how to compute."""
+    from app.api.v1.operator import _runtime_config
+
     onboarding = _svc(request)
     affiliate = await onboarding.me(principal.subject)
     if affiliate is None:
@@ -898,7 +908,8 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     out: dict[str, Any] = {
         "affiliate": {"id": aff_id, "name": affiliate["name"], "role": affiliate["role"]},
         "balance": balance,
-        "min_withdrawal_halalas": c.payouts.min_withdrawal_halalas,
+        "min_withdrawal_halalas": await c.payouts.effective_min_withdrawal_halalas(
+            _runtime_config(request)),
         "payout_method_set": bool(payout_channel),
         "stale_leads_count": len(stale),
         "stale_leads": [l.to_dict() for l in stale[:10]],

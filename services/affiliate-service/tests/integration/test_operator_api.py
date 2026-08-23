@@ -158,16 +158,16 @@ def test_the_config_view_never_carries_a_credential(client, operator_auth):
         assert banned not in view
 
 
-def test_the_scaffold_declares_no_runtime_policy_so_it_offers_none(client, operator_auth):
-    """The template deliberately declares nothing, and the surface must reflect that rather than
-    advertising every settable field.
-
-    A generated service adds a key to RUNTIME_POLICY in the same change that wires the read. Until
-    then the knob is unavailable, which is honest — an advertised knob nothing consults reports a
-    change that never happened, with an audit entry to prove it.
+def test_only_the_declared_withdrawal_threshold_is_offered_not_every_settable_field(client, operator_auth):
+    """This service's RUNTIME_POLICY declares exactly one knob (AFFILIATE_WITHDRAWAL_MIN_HALALAS,
+    core/payouts.py's own effective_min_withdrawal_halalas actually reads it) — the surface must
+    offer that and nothing else, same discipline the scaffold's own comment states: an advertised
+    knob nothing consults reports a change that never happened, with an audit entry to prove it.
     """
     h = {"headers": operator_auth}
-    assert client.get("/api/v1/operator/config", **h).json()["config"] == {}
+    assert client.get("/api/v1/operator/config", **h).json()["config"] == {
+        "AFFILIATE_WITHDRAWAL_MIN_HALALAS": 0,
+    }
     r = client.put("/api/v1/operator/config", json={"key": "RATELIMIT_MAX", "value": 250}, **h)
     assert r.status_code == 400, "an undeclared knob was accepted and would have been inert"
 

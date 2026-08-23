@@ -242,3 +242,29 @@ def test_home_open_tickets_is_empty_with_no_ticket_service_configured():
                    headers={"Authorization": f"Bearer {_token(sub='p-hm3')}"})
     assert r.status_code == 200, r.text
     assert r.json()["open_tickets"] == []
+
+
+def test_an_operators_config_override_changes_the_withdrawal_threshold_live_on_home():
+    """The end-to-end proof for Tamam's own question (2026-08-23): "400 ريال، وممكن يتغير — أتوقع
+    فيه مكان لتعديلها" — an operator's PUT /api/v1/operator/config takes effect on the NEXT
+    /me/home read, no redeploy, exactly the surface `platform.config` already exists for."""
+    client = _make_app(tickets_http=None)
+    marketer_headers = {"Authorization": f"Bearer {_token(sub='p-cfg1')}"}
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+    async def seed():
+        aff = Affiliate(id="aff-cfg1", person_id="p-cfg1", phone="+966501230099",
+                        name="مسوّق", role="affiliate_manager", status=ACTIVE)
+        await client.app.state.container.datastore.put(AFFILIATES, aff.id, aff.to_dict())
+    asyncio.run(seed())
+
+    before = client.get("/api/v1/affiliates/me/home", headers=marketer_headers).json()
+    assert before["min_withdrawal_halalas"] == 0   # this test env's own boot default
+
+    operator_headers = {"Authorization": f"Bearer {_token(sub='op1', caps=['platform.config'])}"}
+    put = client.put("/api/v1/operator/config",
+                     json={"key": "AFFILIATE_WITHDRAWAL_MIN_HALALAS", "value": 40000},
+                     headers=operator_headers)
+    assert put.status_code == 200, put.text
+
+    after = client.get("/api/v1/affiliates/me/home", headers=marketer_headers).json()
+    assert after["min_withdrawal_halalas"] == 40000
