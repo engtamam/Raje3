@@ -1190,11 +1190,14 @@ function NextStepView({ step, onDismiss, busy }: {
   onDismiss: (id: string) => void;
   busy: boolean;
 }) {
+  // «info» USED TO STAY PLAIN WHITE — the one card the screen guarantees always has something to
+  // say read as the flattest one on it (Tamam's own words: "الشاشة كلها بياض"). It now takes the
+  // same tint language every other card on the screen already uses.
   const TONE_BG: Record<string, string> = {
-    warning: 'var(--sh-coral-soft)', success: 'var(--sh-teal-soft)', info: 'var(--sh-surface)',
+    warning: 'var(--sh-coral-soft)', success: 'var(--sh-teal-soft)', info: 'var(--sh-violet-soft)',
   };
   const TONE_FG: Record<string, string> = {
-    warning: 'var(--sh-coral-deep)', success: 'var(--sh-teal-deep)', info: 'var(--sh-ink)',
+    warning: 'var(--sh-coral-deep)', success: 'var(--sh-teal-deep)', info: 'var(--sh-violet-deep)',
   };
   const p = step.primary;
   const bg = TONE_BG[p.tone ?? 'info'] ?? TONE_BG.info;
