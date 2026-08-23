@@ -493,6 +493,53 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
         "source_label": "Stealth Agents — Beauty & Cosmetics Staffing Costs",
         "source_url": "https://stealthagents.com/research/beauty-and-cosmetics-industry-staffing-costs-2026",
     },
+    # ── الدفعة الثالثة (2026-08-24) — زوايا أقوى أثراً لم تُغطَّ بعد: العميل الساكت غير الراضي،
+    # سرعة الرد على استفسار جديد، تحويل الشكوى لفرصة، وأثر التخصيص. كل رقم يمر بنفس التحقق: مصدر
+    # حقيقي قابل للضغط، وصياغة لا تتعارض مع أي رقم مزروع أعلاه — الآليات مختلفة، والحسابات تتراكم
+    # فوق بعض لا تتضارب معها.
+    {
+        "title": "الزبون الساكت أخطر من الزبون الشاكي",
+        "body": "بيانات HelpScout تُظهر: مقابل كل عميل واحد يشتكي لك مباشرة، فيه حوالي 26 عميل "
+               "آخر غير راضين لكن ساكتين تماماً — ويحكون تجربتهم السيئة لـ9-15 شخص من معارفهم "
+               "من غير ما تعرف انت أصلاً. لو عندك 100 عميل غير راضٍ بالشهر: يعني أكثر من 90 "
+               "منهم يتكلمون عنك بالسلب لناس ما تشوفهم أبداً.",
+        "source_label": "HelpScout — Customer Service Statistics",
+        "source_url": "https://www.helpscout.com/75-customer-service-facts-quotes-statistics/",
+    },
+    {
+        "title": "سرعة الرد تفرق 21 ضعف",
+        "body": "دراسة Lead Response Management (MIT) وجدت: التواصل مع عميل محتمل خلال 5 دقائق "
+               "يرفع فرصة تحويله لعميل فعلي 21 ضعف مقارنة بالانتظار 30 دقيقة بس. لو عندك 100 "
+               "استفسار جديد بالشهر: سرعة ردك ممكن تحدد مصير عشرات منهم قبل ما تفتح المحادثة "
+               "أصلاً.",
+        "source_label": "Verse.ai — Speed to Lead Statistics",
+        "source_url": "https://verse.ai/blog/speed-to-lead-statistics",
+    },
+    {
+        "title": "الشكوى المحلولة تصنع عميلاً أوفى",
+        "body": "دراسة لمكتب حماية المستهلك الأمريكي وجدت: 95٪ من العملاء اللي يشتكون ويُحل "
+               "استفسارهم بسرعة يرجعون يتعاملون معك مرة ثانية — نسبة رجوع أعلى من عميل ما "
+               "واجه مشكلة أصلاً. يعني الشكوى نفسها فرصة تكسب فيها ثقة أعمق، مو خسارة أكيدة.",
+        "source_label": "SuperOffice — Customer Complaints Statistics",
+        "source_url": "https://www.superoffice.com/blog/customer-complaints-good-for-business/",
+    },
+    {
+        "title": "خطأ واحد يمسح أسابيع من الجهد",
+        "body": "بحث Newell-Legner (Understanding Customers) وجد: يحتاج المحل 12 تجربة إيجابية "
+               "عشان يعوّض أثر تجربة سلبية واحدة غير محلولة على سمعته عند نفس العميل. يعني "
+               "خطأ صغير ما تُعُومِل معه صح يمسح أسابيع من الخدمة الجيدة بلحظة واحدة.",
+        "source_label": "B&T — Understanding Customers Study",
+        "source_url": "https://www.bandt.com.au/study-takes-12-positive-customer-experiences-negate-one-negative-one/",
+    },
+    {
+        "title": "معرفة عميلك شخصياً ترفع دخلك",
+        "body": "أبحاث McKinsey وجدت: المنشآت اللي تتابع تفضيلات عملائها وتخاطب كل واحد بشكل "
+               "شخصي (بدل رسالة عامة للجميع) يرتفع إيرادها 10-15٪، والمتفوقة فيها ترفع إيرادها "
+               "40٪ فوق المتوسط. لو ربحك الشهري 10,000 ريال: يعني 1,000-1,500 ريال زيادة "
+               "بمجرد إنك تتابع عميلك بدل ما تعامله كأي زبون عابر.",
+        "source_label": "McKinsey — The Value of Getting Personalization Right",
+        "source_url": "https://www.mckinsey.com/capabilities/growth-marketing-and-sales/solutions/customerone/personalization",
+    },
 ]
 
 
