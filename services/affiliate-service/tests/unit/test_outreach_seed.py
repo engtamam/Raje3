@@ -84,3 +84,44 @@ async def test_seed_without_stat_citations_argument_still_seeds_stages_and_templ
 
     assert len(await stages.list(active_only=False)) == len(SEED_STAGES)
     assert len(await templates.list(active_only=False)) == len(SEED_TEMPLATES)
+
+
+@pytest.mark.anyio
+async def test_reseed_heals_arabic_indic_digits_left_by_the_old_seed_data():
+    """A row seeded before the 2026-08-23 digit fix keeps its old ٠-٩ forever under plain
+    create()-if-missing (title already matches, so it's never re-created) — the reseed's own
+    self-heal step must go back and fix it in place, on every boot, not just a fresh install."""
+    store = MemoryDataStore()
+    stages, templates, citations = _build(store)
+    await seed(stages=stages, templates=templates, stat_citations=citations)
+
+    # Simulate a row seeded by the OLD version of this file, before digits were fixed.
+    tpl = next(t for t in await templates.list(active_only=False)
+              if t.title == "الابتسامة الأولى")
+    await templates.update(tpl.id, body="خلال ٧٢ ساعة يرجع ١٨ عميل، من أصل ١٠٠ محاولة.")
+    cite = next(c for c in await citations.list(active_only=False))
+    await citations.update(cite.id, body="لو عندك ١٠٠ عميل جديد، ٦٥ منهم ما يرجعون.")
+
+    await seed(stages=stages, templates=templates, stat_citations=citations)   # heal on reboot
+
+    healed_tpl = await templates.get(tpl.id)
+    assert healed_tpl.body == "خلال 72 ساعة يرجع 18 عميل، من أصل 100 محاولة."
+    healed_cite = await citations.get(cite.id)
+    assert healed_cite.body == "لو عندك 100 عميل جديد، 65 منهم ما يرجعون."
+
+
+@pytest.mark.anyio
+async def test_reseed_never_touches_a_row_a_manager_created_or_edited():
+    """The self-heal is scoped to created_by == 'system:seed' ONLY — a manager's own row, even one
+    that happens to contain an Arabic-Indic digit, is never silently rewritten."""
+    store = MemoryDataStore()
+    stages, templates, citations = _build(store)
+    await seed(stages=stages, templates=templates, stat_citations=citations)
+
+    mine = await citations.create(title="دليلي الخاص", body="رجع ٥ عملاء هذا الأسبوع.",
+                                  created_by="manager:tamam")
+
+    await seed(stages=stages, templates=templates, stat_citations=citations)
+
+    untouched = await citations.get(mine.id)
+    assert untouched.body == "رجع ٥ عملاء هذا الأسبوع."   # exactly as the manager wrote it

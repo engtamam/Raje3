@@ -2,8 +2,9 @@
  * WHO IS USING THE AFFILIATE PORTAL — a SEPARATE store from session.ts (a different key, a
  * different shape), for the same reason api.ts is a separate file: a marketer is not a shop.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { AffiliateSession } from './api';
+import { AFFILIATE_SESSION_RENEWED } from './renew';
 
 export const KEY = 'raje3.affiliate.session';
 
@@ -35,6 +36,14 @@ export function useAffiliateSession() {
   const signOut = useCallback(() => {
     localStorage.removeItem(KEY);
     setSession(ANONYMOUS);
+  }, []);
+
+  // renew.ts writes the fresh token straight to storage, below any component — this is how that
+  // reaches whoever's holding `session` in state, the same pattern `../session.ts` already uses.
+  useEffect(() => {
+    const onRenewed = () => setSession(read());
+    window.addEventListener(AFFILIATE_SESSION_RENEWED, onRenewed);
+    return () => window.removeEventListener(AFFILIATE_SESSION_RENEWED, onRenewed);
   }, []);
 
   return { session, signedIn: isSignedIn(session), signIn, signOut };

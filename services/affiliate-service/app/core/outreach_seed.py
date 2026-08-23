@@ -407,3 +407,35 @@ async def seed(*, stages: OutreachStageService, templates: TemplateService,
         for row in SEED_STAT_CITATIONS:
             if row["title"] not in existing_titles:
                 await stat_citations.create(**row, created_by="system:seed")
+
+    # SELF-HEALING FOR ONE PAST MISTAKE: this file used to seed Arabic-Indic digits (٠-٩) into
+    # template/citation bodies, in violation of the product's own "every number is 0-9" rule —
+    # fixed here in the SOURCE, 2026-08-23. `create()` above only fills what's missing by
+    # (stage_code, title)/title match, so a row already seeded before this fix keeps its old,
+    # wrong digits forever unless something goes back and corrects it — this does, on every boot.
+    #
+    # WHY THIS DOES NOT VIOLATE THE "NEVER SILENTLY REWRITE A HUMAN'S DECISION" RULE ABOVE: it is
+    # scoped to `created_by == "system:seed"` ONLY — a row a manager has ever touched carries his
+    # own `created_by`/edit trail and is never in scope — and it TRANSLATES DIGIT CHARACTERS ONLY
+    # (str.translate over ٠-٩ → 0-9), never rewording or reformatting anything else in the text.
+    _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+
+    def _has_arabic_indic_digits(text: str) -> bool:
+        return any("٠" <= ch <= "٩" for ch in text)
+
+    for t in await templates.list(active_only=False):
+        if t.created_by != "system:seed":
+            continue
+        fixed = {f: getattr(t, f).translate(_DIGITS) for f in ("title", "body")
+                if _has_arabic_indic_digits(getattr(t, f))}
+        if fixed:
+            await templates.update(t.id, **fixed)
+
+    if stat_citations is not None:
+        for c in await stat_citations.list(active_only=False):
+            if c.created_by != "system:seed":
+                continue
+            fixed = {f: getattr(c, f).translate(_DIGITS) for f in ("title", "body", "source_label")
+                    if _has_arabic_indic_digits(getattr(c, f))}
+            if fixed:
+                await stat_citations.update(c.id, **fixed)

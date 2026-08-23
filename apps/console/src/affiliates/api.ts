@@ -8,6 +8,8 @@
  * kit's `LoginForm`/`SignupForm` — reused just enough to be wrong. So this is a second, small file
  * rather than a fork of the first.
  */
+import { fresh, renew } from './renew';
+
 const BASE = (import.meta.env.VITE_AFFILIATE_API_BASE ?? '').replace(/\/$/, '');
 
 /** Same shape as auth.ts's own Refused — the console-wide idiom for "a sentence AND a code the
@@ -27,12 +29,26 @@ interface ApiResult {
 
 async function req<T>(path: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
                       body?: unknown, token?: string): Promise<T> {
+  // RENEW BEFORE SENDING, RENEW AGAIN ON 401 — the exact fix `../api.ts`'s own `call()` already
+  // has for the shop console; see ./renew.ts for why the portal never had it until now. `fresh()`
+  // only touches a token that is actually about to expire, so a signed-out or never-signed-in
+  // caller (token === '') pays nothing extra.
+  let bearer = token ? await fresh(token) : token;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, {
+  if (bearer) headers.Authorization = `Bearer ${bearer}`;
+  let res = await fetch(`${BASE}${path}`, {
     method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401 && token) {
+    bearer = await renew();
+    if (bearer) {
+      headers.Authorization = `Bearer ${bearer}`;
+      res = await fetch(`${BASE}${path}`, {
+        method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    }
+  }
   const text = await res.text();
   let parsed: ApiResult | null = null;
   try { parsed = text ? (JSON.parse(text) as ApiResult) : null; } catch { parsed = null; }
