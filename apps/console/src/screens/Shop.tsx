@@ -225,26 +225,46 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
 
 /** No icon slot on purpose — a dot that repeats on every single tile regardless of what the tile
  *  means is decoration pretending to be information, and worse than no icon: it teaches the eye
- *  to skip it. The tone-colored number itself IS the signal; a top rule in the tone carries the
- *  same distinction an icon would have, honestly. */
-function Tile({ label, value, tone, delta }: {
+ *  to skip it. The tone-colored number itself IS the signal.
+ *
+ *  A SOFT-TINTED SURFACE, NOT A WHITE CARD WITH A COLOURED HAIRLINE — the earlier version put the
+ *  same near-white background on every tile regardless of tone, so a screen of six or eight tiles
+ *  read as identical boxes distinguished only by a 2px line most eyes never register (Tamam's own
+ *  screenshot of a fresh shop: "كلها مربعات… مافي أشكال احترافية"). Each tone now owns its own
+ *  panel colour, so the eye sorts the row by shape/colour before it ever reads a number — the same
+ *  move `MessageFlow`/`HoldoutCard` already make with their own tinted panels, applied here too. A
+ *  tile with no real signal yet (`empty`) drops the tint entirely and dashes its own border, so
+ *  "no data yet" reads as a different KIND of tile, not just a lower number. */
+function Tile({ label, value, tone, delta, empty, href, hint }: {
   label: string; value: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
   /** THE COMPARISON THAT MAKES A LEVEL MEAN SOMETHING — «good» means "up from before" for most
    *  numbers, so a rising churn rate must still read as bad even though it went up. Pass
    *  `goodIsUp: false` for a tile where more is worse. Omit `delta` entirely when there is no
    *  earlier period to compare against — never render a fabricated "+0". */
   delta?: { current: number; previous: number; goodIsUp?: boolean; percent?: boolean };
+  /** TRUE ONLY WHEN THE ZERO MEANS "NOTHING RECORDED YET", never for a real, meaningful zero (a
+   *  0% churn rate on an active shop is still a real number and stays in its own tone). */
+  empty?: boolean;
+  /** WHERE TO GO TO CHANGE THIS NUMBER — a shop reading "0" on day one has to know which screen
+   *  fixes that; a tile with nowhere to send him is silent about the one thing he'd ask next. */
+  href?: string;
+  hint?: string;
 }) {
+  const soft = tone === 'violet' ? 'var(--sh-violet-soft)' : tone === 'teal' ? 'var(--sh-teal-soft)'
+    : tone === 'coral' ? 'var(--sh-coral-soft)' : 'var(--sh-surface-2)';
   const fg = tone === 'violet' ? 'var(--sh-violet-deep)' : tone === 'teal' ? 'var(--sh-teal-deep)'
     : tone === 'coral' ? 'var(--sh-coral-deep)' : 'var(--sh-ink)';
-  const rule = tone === 'violet' ? 'var(--sh-violet)' : tone === 'teal' ? 'var(--sh-teal)'
-    : tone === 'coral' ? 'var(--sh-coral)' : 'var(--sh-line)';
   const diff = delta ? delta.current - delta.previous : null;
   const good = delta && diff !== null ? (delta.goodIsUp === false ? diff <= 0 : diff >= 0) : null;
-  return (
-    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center" style={{ background: 'var(--sh-surface)', boxShadow: '0 1px 2px rgba(19,18,38,.04), 0 6px 16px -8px rgba(19,18,38,.12)', borderTop: `2.5px solid ${rule}` }}>
-      <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-      <span className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+  const body = (
+    <div className="flex flex-col gap-1 rounded-2xl p-3 text-center transition-colors" style={
+      empty
+        ? { background: 'var(--sh-surface)', border: '1.5px dashed var(--sh-line)' }
+        : { background: soft, boxShadow: '0 1px 2px rgba(19,18,38,.04)' }
+    }>
+      <span dir="ltr" className="text-[20px] font-extrabold" style={{ color: empty ? 'var(--sh-ink-faint)' : fg, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+      <span className="text-[10.5px]" style={{ color: empty ? 'var(--sh-ink-faint)' : 'var(--sh-ink-soft)' }}>{label}</span>
+      {empty && hint ? <span className="text-[9.5px] leading-tight" style={{ color: 'var(--sh-violet-deep)' }}>{hint}{href ? ' ←' : ''}</span> : null}
       {diff !== null ? (
         <span dir="ltr" className="text-[10px] font-semibold" style={{
           color: diff === 0 ? 'var(--sh-ink-faint)' : good ? 'var(--sh-teal-deep)' : 'var(--sh-coral-deep)',
@@ -255,6 +275,7 @@ function Tile({ label, value, tone, delta }: {
       ) : null}
     </div>
   );
+  return href ? <Link to={href} className="block">{body}</Link> : body;
 }
 
 /* ── ② the number this product is about, and everything that surrounds it ───────────────────────── */
@@ -719,17 +740,21 @@ function RetentionSparkline({ points }: { points: { at: number; customers: numbe
 /** The three that surround the hero — absent is not zero: a key the plan withheld or the snapshot
  *  could not compute is skipped entirely rather than drawn as 0. */
 function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
+  // A SHOP WITH ZERO ACTIVE CUSTOMERS HAS NOT REALLY STARTED — churn and return-cycle are both
+  // undefined on nobody, so all three tiles fall back to the dashed "empty" treatment together
+  // rather than reading as three unrelated zeros.
+  const justStarted = values['active_customers'] === 0;
   const items: { key: string; label: string; percent?: boolean; suffix?: string; tone: 'violet' | 'teal' | 'coral' | 'flat';
-                trendKey?: string; goodIsUp?: boolean; weight?: number }[] = [
+                trendKey?: string; goodIsUp?: boolean; weight?: number; href?: string; hint?: string }[] = [
     // WEIGHT IS A DESIGN CHOICE, NOT A DATA ONE — «عملاء نشطون» is the headline count of the
     // three (the other two are context on it), so it keeps more room whether it happens to be
     // high or low today. A size that swung with the number itself would be a second, competing
     // way of saying "this matters," on top of colour — one signal per idea, not two fighting
     // each other.
-    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3 },
-    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat' },
+    { key: 'active_customers', label: 'عملاء نشطون', tone: 'violet', trendKey: 'active_customers_trend', goodIsUp: true, weight: 1.3, href: '/visit', hint: 'سجّل أول زيارة' },
+    { key: 'return_cycle_days', label: 'دورة العودة', suffix: 'يومًا', tone: 'flat', hint: 'تُحسب تلقائياً بعد أول زيارات' },
     // MORE TSARRUB IS WORSE — `goodIsUp: false`, so a rising number still shades coral, never teal.
-    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false },
+    { key: 'churn_rate', label: 'التسرّب', percent: true, tone: 'coral', trendKey: 'churn_rate_trend', goodIsUp: false, hint: 'لا عملاء بعد ليُحسب منهم' },
   ];
   const shown = items.filter((h) => typeof values[h.key] === 'number');
   if (!shown.length) return null;
@@ -742,7 +767,11 @@ function SurroundingKpis({ values }: { values: Record<string, unknown> }) {
         const delta = trend && typeof trend.current === 'number' && typeof trend.previous === 'number'
           ? { current: trend.current, previous: trend.previous, goodIsUp: h.goodIsUp, percent: h.percent }
           : undefined;
-        return <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone} delta={delta} />;
+        return (
+          <Tile key={h.key} label={h.label} value={h.suffix ? `${v} ${h.suffix}` : v} tone={h.tone}
+               delta={justStarted ? undefined : delta} empty={justStarted}
+               href={justStarted ? h.href : undefined} hint={justStarted ? h.hint : undefined} />
+        );
       })}
     </div>
   );
