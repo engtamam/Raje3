@@ -355,7 +355,12 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
         "body": "لو عندك 100 عميل جديد بالشهر، و65 منهم ما رجعوا: استرجاع كل واحد منهم يكلّفك "
                "2-10 ريال بس (بدل 50 ريال إعلانات لجذب بديل جديد). التوفير: 2,600-3,120 ريال "
                "شهرياً لو استرجعتهم بدل ما تجذب جدد.",
-        "source_label": "أدبيات تسويق قياسية (تكلفة اكتساب العميل مقابل الاحتفاظ)",
+        # WAS "أدبيات تسويق قياسية" — a vague, unclickable non-source. Replaced with the actual
+        # research this figure traces to (verified 2026-08-24): Reichheld's finding that
+        # acquiring a customer costs 5-25x more than retaining one, published as HBR's own
+        # "The Value of Keeping the Right Customers".
+        "source_label": "Harvard Business Review — Reichheld",
+        "source_url": "https://hbr.org/2014/10/the-value-of-keeping-the-right-customers",
     },
     {
         "title": "إنفاق العميل الوفي",
@@ -404,6 +409,76 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
                "— بغض النظر عن جودة خدمتك أو سعرك.",
         "source_label": "Zenoti — بيانات الاحتكاك التشغيلي",
         "source_url": "https://www.zenoti.com/thecheckin/salon-spa-booking-communication-trends",
+    },
+    # ── الدفعة الثانية (2026-08-24) — أوسع من الصالونات: أرقام عامة عبر قطاعات خدمية مختلفة إلى
+    # جانب أرقام قطاع محدد، بشرط عدم تعارضها مع أي رقم مزروع أعلاه (Tamam: "المهم انه ما يسير
+    # عندنا اي تعارض ابدا"). كل رقم يُصاغ بنفس أسلوب "لو عندك..." المالي البسيط، ومصدر حقيقي قابل
+    # للضغط على كل واحد — لا رقم بلا رابط بعد اليوم.
+    {
+        "title": "خسارة المواعيد الفارغة",
+        "body": "لو عندك 200 موعد بالشهر ومتوسط الفاتورة 150 ريال: 20٪ منها يضيع بعدم حضور بلا "
+               "إشعار مسبق — يعني 40 موعد فاضي، بخسارة 6,000 ريال كل شهر تتكرر تلقائياً.",
+        "source_label": "SchedulingKit — Appointment No-Show Statistics",
+        "source_url": "https://schedulingkit.com/statistics/no-show-statistics",
+    },
+    {
+        "title": "التذكير الآلي يقفل نصف الفجوة",
+        "body": "لو عندك 40 موعد يضيع شهرياً بخسارة 6,000 ريال: تذكير تلقائي عبر رسالة قبل الموعد "
+               "يقلّل الغياب حوالي 35٪ — يعني توفير ~2,100 ريال شهرياً بلا أي تغيير بخدمتك.",
+        "source_label": "Mozeo — SMS Appointment Reminders",
+        "source_url": "https://www.mozeo.com/blog/sms-appointment-reminders",
+    },
+    {
+        "title": "أثر نجمة واحدة",
+        "body": "دراسة هارفارد على آلاف المنشآت الخدمية وجدت: ارتفاع تقييمك نجمة واحدة على منصات "
+               "التقييم يرفع إيرادك 5-9٪ — بغض النظر عن التغيير الفعلي بجودة خدمتك. لو ربحك "
+               "الشهري 10,000 ريال، يصير 10,500-10,900 ريال.",
+        "source_label": "Harvard Business School — Michael Luca",
+        "source_url": "https://www.hbs.edu/ris/Publication%20Files/12-016_a7e4a5a2-03f9-490d-b093-8f951238dba2.pdf",
+    },
+    {
+        "title": "التقييم السلبي يمنع الحجز قبل ما يبدأ",
+        "body": "لو عندك 100 عميل محتمل يشوفون ملفك: 83 منهم ما يحجزون إذا صادفوا تقييماً سلبياً "
+               "واحداً — حتى لو باقي تقييماتك ممتازة. يعني 83 عميل محتمل يضيعون بسبب تعليق واحد "
+               "لم يُرَد عليه.",
+        "source_label": "Booksy — Spa & Salon Small Business Statistics",
+        "source_url": "https://biz.booksy.com/en-us/blog/spa-salon-small-business-statistics",
+    },
+    {
+        "title": "ثقة التوصية الشخصية",
+        "body": "92٪ من الناس يثقون بتوصية شخص يعرفونه أكثر من أي إعلان مدفوع — أياً كان حجم "
+               "ميزانيتك التسويقية. عميل جاك بتوصية صديق يبدأ الطريق بثقة إعلانك لن يوصلها له.",
+        "source_label": "Nielsen — Global Trust in Advertising",
+        "source_url": "https://www.nielsen.com/insights/2012/consumer-trust-in-online-social-and-mobile-advertising-grows/",
+    },
+    {
+        "title": "قيمة العميل المُحال أعلى من العادي",
+        "body": "العميل اللي يجيك بتوصية يبقى معك أول سنة بنسبة 74٪ (مقابل 41٪ بس للعميل اللي جاك "
+               "من إعلان)، ويصرف 25٪ أكثر بالزيارة، وقيمته الإجمالية أعلى بـ16٪ — نفس العميل، "
+               "قناة وصول مختلفة، نتيجة مختلفة تماماً.",
+        "source_label": "Zenoti — Referral Marketing",
+        "source_url": "https://www.zenoti.com/thecheckin/how-to-turn-happy-clients-into-a-growing-customer-base-with-referral-marketing",
+    },
+    {
+        "title": "فجوة الإحالة غير المستغلة",
+        "body": "83٪ من عملائك الراضين مستعدون يوصون بيك — لكن 29٪ بس فعلاً يسوّون. يعني أغلب "
+               "الإحالات اللي ممكن تجيك جاهزة بالفعل، بس محتاجة سبب بسيط يذكّرهم يسوّونها.",
+        "source_label": "Zenoti — Referral Marketing",
+        "source_url": "https://www.zenoti.com/thecheckin/how-to-turn-happy-clients-into-a-growing-customer-base-with-referral-marketing",
+    },
+    {
+        "title": "قيمة الإضافة البسيطة على الفاتورة",
+        "body": "منشآت عندها خدمات إضافية واضحة على قائمتها (مو بس الخدمة الأساسية) يرتفع دخلها "
+               "لكل زيارة 20-35٪ — بلا ما تغيّر سعر خدمتك الأساسية أو تجذب عميل واحد إضافي.",
+        "source_label": "Pabau — Average Ticket Size",
+        "source_url": "https://pabau.com/blog/how-to-increase-average-ticket-size-in-a-spa/",
+    },
+    {
+        "title": "كلفة فقدان موظف مُدرَّب",
+        "body": "استبدال موظف مُدرَّب واحد (توظيف، تدريب، فترة تأقلم) يكلّفك 22,000-30,000 ريال — "
+               "وهذا قبل ما نحسب العملاء اللي اعتادوا عليه وممكن يتوقفوا عن الحجز عندك.",
+        "source_label": "Stealth Agents — Beauty & Cosmetics Staffing Costs",
+        "source_url": "https://stealthagents.com/research/beauty-and-cosmetics-industry-staffing-costs-2026",
     },
 ]
 
