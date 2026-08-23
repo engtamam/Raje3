@@ -417,6 +417,14 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const operatorCanRank = data.values['operator_can_rank'] as boolean | undefined;
   const serviceDayRows = topEntitiesByDay(serviceDayGrid, serviceNames, 6);
   const branchDayRows = topEntitiesByDay(branchDayGrid, branchNames, 6);
+  // EACH ONE RENDERED IN ITS OWN INDICATOR'S SLOT NOW, NOT COLLECTED INTO A SEPARATE LIST — Tamam's
+  // own words on the old block: «اغبى تصميم بالكامل … كل مؤشر بمكانه المناسب». `not_enabled` still
+  // names exactly the same three indicators (`coverage.py`'s own `BLOCKED_REASONS`); only where
+  // each one is READ changed, right beside the real card it stands in for.
+  const notEnabled = data.not_enabled ?? [];
+  const branchBlocked = notEnabled.find((b) => b.indicator === 'branch_comparison');
+  const staffBlocked = notEnabled.find((b) => b.indicator === 'staff_performance');
+  const associationsBlocked = notEnabled.find((b) => b.indicator === 'associations');
 
   return (
     <div className="flex flex-col gap-3">
@@ -458,13 +466,26 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div> : null}
         {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div> : null}
 
-        {/* MOVED OUT OF THE FOLDED «تفاصيل أكثر» SECTION — a ranking of his own branches and staff
-            is not a detail, it is the comparison Tamam asked for by name, and it read as absent
-            when it took an extra click to find. */}
-        {branches && (branches.rows ?? []).length > 1 ? <div className="mb-3 break-inside-avoid"><BranchCompare branches={branches} /></div> : null}
+        {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison Tamam
+            asked for by name. And when there is not yet enough to rank, THE SAME SLOT holds a
+            stamp explaining exactly why, instead of the card just being absent with no
+            explanation anywhere on the page (his own words on that gap: «ما زال في مؤشرات ماهي
+            ظاهر … كلها تظهر بشكل رمادي … مع رابط لو في حاجة يسويها»). */}
+        {branches && (branches.rows ?? []).length > 1 ? (
+          <div className="mb-3 break-inside-avoid"><BranchCompare branches={branches} /></div>
+        ) : branchBlocked ? (
+          <div className="mb-3 break-inside-avoid"><BlockedStamp b={branchBlocked} /></div>
+        ) : null}
         {operatorRows && operatorRows.length > 1 ? (
           <div className="mb-3 break-inside-avoid">
             <StaffCompare rows={operatorRows} unknown={operatorUnknown} canRank={operatorCanRank} />
+          </div>
+        ) : staffBlocked ? (
+          <div className="mb-3 break-inside-avoid">
+            {/* THE ONE STAMP WITH A REAL LINK — a team he can invite into the product is the actual
+                fix for "visits arrive with nobody's name on them", unlike the other two (both
+                `owner: 'time'`, which genuinely have nowhere to send him). */}
+            <BlockedStamp b={staffBlocked} cta={action(catalog, 'operations.list_operators') ? { label: 'فريقي', href: '/team' } : undefined} />
           </div>
         ) : null}
 
@@ -502,27 +523,24 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           </Section>
         </div>
 
-        {/* MOVED OUT OF THE FOLDED SECTION — a محل جديد with nothing computed yet used to render a
-            wall of zero-value tiles with no explanation anywhere on the page for WHY they read
-            zero; this card is the honest "still waiting on X" line for exactly those tiles, and it
-            self-limits (it only lists what genuinely is not yet enabled, and shrinks as the shop
-            fills in). Hiding it behind an extra click hid the one explanation the screen had. */}
-        {data.not_enabled && data.not_enabled.length > 0 ? (
-          <div className="mb-3 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)' }}>
-            <h3 className="mb-1 text-[13px] font-semibold">أرقامٌ لسه ما نقدر نعرضها</h3>
-            <p className="mb-3 text-[11.5px]" style={{ color: 'var(--sh-ink-soft)' }}>كلٌّ منها ينقصه شيء واحد — وهذا ما هو، ومن يستطيع إتمامه.</p>
-            <ul className="flex flex-col gap-3">
-              {data.not_enabled.map((b) => <MissingRow key={b.indicator} b={b} />)}
-            </ul>
+        {branches && (branches.rows ?? []).length > 1 && branchDayRows.length > 0 ? (
+          <div className="mb-3 break-inside-avoid">
+            <EntityDayHeatmap
+              title="فروعك حسب يوم الأسبوع"
+              hue="violet"
+              rows={branchDayRows}
+              hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
+            />
           </div>
         ) : null}
-      </div>
 
-      <Section title="تفاصيل أكثر" hint="ما يُطلب معاً · باقات مقترحة" folded>
+        {/* ما يُطلب معًا وباقاته — كل حالة بمكانها، لا قائمة منفصلة مجمّعة آخر الصفحة. باقات مقترحة
+            نفسها مبنية من نفس الاقترانات (`_bundles.build(pairs, …)` في insights.py)، فسكوتها هو
+            نفس سكوت الاقترانات — لا حاجة لختم ثانٍ يكرّر نفس السبب. */}
         {locked.bundles ? (
-          <LockedLine title="باقات مقترحة" text={locked.bundles} />
+          <div className="mb-3 break-inside-avoid"><LockedLine title="باقات مقترحة" text={locked.bundles} /></div>
         ) : bundles && bundles.length ? (
-          <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+          <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="text-[12px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>باقات مقترحة</h3>
             {bundles.slice(0, 4).map((b, i) => (
               <div key={i} className="flex flex-col gap-1 pt-2 first:pt-0" style={{ borderTop: i ? '1px dashed var(--sh-line)' : 'none' }}>
@@ -537,9 +555,10 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           </div>
         ) : null}
 
-        {locked.associations ? <LockedLine title="ما يُطلب معًا" text={locked.associations} /> : null}
-        {pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
-          <div className="flex flex-col gap-2 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+        {locked.associations ? (
+          <div className="mb-3 break-inside-avoid"><LockedLine title="ما يُطلب معًا" text={locked.associations} /></div>
+        ) : pairs && !pairs.learning && (pairs.pairs ?? []).length ? (
+          <div className="mb-3 flex flex-col gap-2 break-inside-avoid rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
             <h3 className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>ما يُطلب معًا</h3>
             {/* `p.a`/`p.b` ARE SERVICE IDS, NOT NAMES — `associations.build` derives every pair
                 from raw `service_ids` on the visit and never resolves them, so this rendered a
@@ -552,11 +571,19 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               </div>
             ))}
           </div>
-        ) : null}
-        {pairs?.learning ? (
-          <p className="rounded-2xl p-4 text-sm" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, color: 'var(--sh-ink-soft)' }}>
-            ما زلنا نتعلّم ما يُطلب معًا في محلّك — {pairs.have ?? 0} زيارة من {pairs.need ?? 0}.
-          </p>
+        ) : pairs?.learning ? (
+          <div className="mb-3 break-inside-avoid">
+            <BlockedStamp b={{
+              indicator: 'associations_learning',
+              lost: 'ما نعرف بعد ما الذي يُطلب مع ماذا',
+              why: 'التعرّف على الاقترانات يحتاج زياراتٍ أكثر ليصير الاستنتاج صحيحاً لا صدفة.',
+              do: 'لا شيء عليك — يكتمل وحده مع زيارات محلّك.',
+              owner: 'time',
+              progress: { have: pairs.have ?? 0, need: pairs.need ?? 0 },
+            }} />
+          </div>
+        ) : associationsBlocked ? (
+          <div className="mb-3 break-inside-avoid"><BlockedStamp b={associationsBlocked} /></div>
         ) : null}
 
         {/* THE INVERSE OF THE PAIR ABOVE — «ما يُطلب معًا» says a relationship exists in the
@@ -564,16 +591,12 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             same move `at_risk` already made for churn (a list to act on, not a percentage). Only
             appears once a real or temporal pair exists to be missing FROM — «he never bought X»
             means nothing without a rule saying X usually comes with what he did buy. */}
-        {missed && missed.length > 0 ? <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} /> : null}
-        {branches && (branches.rows ?? []).length > 1 && branchDayRows.length > 0 ? (
-          <EntityDayHeatmap
-            title="فروعك حسب يوم الأسبوع"
-            hue="violet"
-            rows={branchDayRows}
-            hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
-          />
+        {missed && missed.length > 0 ? (
+          <div className="mb-3 break-inside-avoid">
+            <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} />
+          </div>
         ) : null}
-      </Section>
+      </div>
 
       {/* THE STANDALONE «teaser» PARAGRAPH THAT USED TO SIT HERE IS GONE — the same fact is one
           of `next_step`'s own PLAN-category rules (`associations_teaser`) now, arbitrated against
@@ -1249,7 +1272,12 @@ function LockedLine({ title, text }: { title: string; text: string }) {
   );
 }
 
-function MissingRow({ b }: { b: Blocked }) {
+/** A "قيد التكوّن" STAMP, standing IN THE INDICATOR'S OWN PLACE — not collected into a separate
+ *  list elsewhere on the page (Tamam's own words on that list: «اغبى تصميم بالكامل»). The dashed
+ *  border and rotated corner badge read as "not active yet" at a glance, the same way the empty
+ *  `Tile` treatment already does — real explanation, real progress when there is one, a real link
+ *  when there is somewhere on the platform that actually finishes it, never an invented one. */
+function BlockedStamp({ b, cta }: { b: Blocked; cta?: { label: string; href: string } }) {
   const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
   const headline = (b.lost ?? '').trim() || blockedSentence(b);
   if (!headline) return null;
@@ -1257,32 +1285,40 @@ function MissingRow({ b }: { b: Blocked }) {
   const have = b.progress?.have, need = b.progress?.need;
   const showBar = typeof have === 'number' && typeof need === 'number' && need > 0;
   return (
-    <li className="flex flex-col gap-1 pt-3 first:pt-0" style={{ borderTop: '1px solid var(--sh-line)' }}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] font-semibold">{headline}</span>
-        {owner ? <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>{owner}</span> : null}
+    <div className="relative flex flex-col gap-2 overflow-hidden rounded-2xl p-4" style={{ background: 'var(--sh-surface-2)', border: '1.5px dashed var(--sh-ink-faint)' }}>
+      <span dir="ltr" className="absolute -top-1 left-3 rotate-[-6deg] rounded-b-md px-2.5 py-1 text-[9.5px] font-bold tracking-wide" style={{ background: 'var(--sh-ink-faint)', color: 'var(--sh-surface)' }}>
+        قيد التكوّن
+      </span>
+      <div className="flex flex-wrap items-center gap-2 pt-2">
+        <span className="text-[13px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>{headline}</span>
+        {owner ? <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>{owner}</span> : null}
       </div>
-      {b.why ? <span className="text-[12px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.why}</span> : null}
+      {b.why ? <span className="text-[12px]" style={{ color: 'var(--sh-ink-faint)' }}>{b.why}</span> : null}
       {showBar ? (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }}>
-            <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%`, background: 'var(--sh-violet)' }} />
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface)' }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((have! / need!) * 100))}%`, background: 'var(--sh-ink-faint)' }} />
           </div>
           <span dir="ltr" className="text-[10.5px]" style={{ color: 'var(--sh-ink-faint)' }}>{have} من {need}</span>
         </div>
       ) : null}
-      {b.do ? <span className="text-[12.5px]">{b.do}</span> : null}
+      {b.do ? <span className="text-[12.5px]" style={{ color: 'var(--sh-ink-soft)' }}>{b.do}</span> : null}
+      {cta ? (
+        <Link to={cta.href} className="self-start text-[11px] font-semibold underline underline-offset-2" style={{ color: 'var(--sh-violet-deep)' }}>
+          {cta.label} ←
+        </Link>
+      ) : null}
       {b.request ? (
         <button type="button" onClick={() => {
           const write = navigator.clipboard?.writeText(b.request ?? '');
           if (!write) { setCopied('failed'); return; }
           write.then(() => setCopied('ok')).catch(() => setCopied('failed'));
-        }} className="self-start rounded-full px-3 py-1.5 text-[11px] font-semibold" style={{ background: 'var(--sh-surface-2)', color: 'var(--sh-ink-soft)' }}>
+        }} className="self-start rounded-full px-3 py-1.5 text-[11px] font-semibold" style={{ background: 'var(--sh-surface)', color: 'var(--sh-ink-soft)' }}>
           {copied === 'ok' ? 'نُسخت — أرسلها له' : copied === 'failed' ? 'تعذّر النسخ — ظلّلها بإصبعك وانسخها' : 'انسخ الرسالة لمزوّد الكاشير'}
         </button>
       ) : null}
-      {b.request && copied === 'failed' ? <p className="select-all rounded-lg p-2 text-[11px]" style={{ background: 'var(--sh-surface-2)' }}>{b.request}</p> : null}
-    </li>
+      {b.request && copied === 'failed' ? <p className="select-all rounded-lg p-2 text-[11px]" style={{ background: 'var(--sh-surface)' }}>{b.request}</p> : null}
+    </div>
   );
 }
 
