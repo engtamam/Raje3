@@ -1,0 +1,30 @@
+/**
+ * المنصّة والفريق — القسم ٥ بالشريط. يجمع الشاشات المصقولة يدوياً (٩.١/٩.٢): الإعدادات الحيّة
+ * والأسرار. فريق الإدارة وسجل التدقيق يُبنيان بخطوة تالية من نفس المرحلة، لا هنا بعد.
+ */
+import { Segmented } from '../rj-ui/Segmented';
+import { useState } from 'react';
+import { AdminConfig } from './AdminConfig';
+import { AdminSecrets } from './AdminSecrets';
+import type { AdminSession } from './api';
+
+type SubTab = 'config' | 'secrets';
+
+export function AdminPlatform({ session }: { session: AdminSession }) {
+  const [sub, setSub] = useState<SubTab>('config');
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="px-6 pt-6">
+        <Segmented
+          value={sub}
+          onChange={(v) => setSub(v as SubTab)}
+          options={[
+            { value: 'config', label: 'الإعدادات الحيّة' },
+            { value: 'secrets', label: 'الأسرار' },
+          ]}
+        />
+      </div>
+      {sub === 'config' ? <AdminConfig session={session} /> : <AdminSecrets session={session} />}
+    </div>
+  );
+}

@@ -10,6 +10,7 @@ import { AdminApps } from './AdminApps';
 import { AdminCustomers } from './AdminCustomers';
 import { AdminDoor } from './AdminDoor';
 import { AdminHome } from './AdminHome';
+import { AdminPlatform } from './AdminPlatform';
 import { ComingSoon } from './ComingSoon';
 import { useAdminSession } from './session';
 
@@ -30,7 +31,7 @@ export function AdminPortal() {
           {tab === 'apps' ? <AdminApps session={session} /> : null}
           {tab === 'customers' ? <AdminCustomers session={session} /> : null}
           {tab === 'billing' ? <ComingSoon label="المالية" /> : null}
-          {tab === 'platform' ? <ComingSoon label="المنصّة والفريق" /> : null}
+          {tab === 'platform' ? <AdminPlatform session={session} /> : null}
           {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
         </div>
         <AdminBottomNav active={tab} onChange={setTab} />
