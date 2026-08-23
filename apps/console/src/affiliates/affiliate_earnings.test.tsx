@@ -7,17 +7,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AffiliateEarnings } from './AffiliateEarnings';
 import type {
-  AffiliateSession, Me, Balance, Commission, WithdrawalRequest,
+  AffiliateSession, Me, Balance, Commission, WithdrawalRequest, WafaEligibility,
 } from './api';
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
 const ZERO_BALANCE: Balance = {
   pending_halalas: 0, confirmed_available_halalas: 0, withdrawn_halalas: 0, min_withdrawal_halalas: 0,
 };
-const NO_ELIGIBILITY = {
+const NO_ELIGIBILITY: WafaEligibility = {
   active_shops: 0, tier_shops: 50, shops_until_next_tier: 50, eligible: false,
   current_tier_amount_halalas: 0, retention_rate: 1, refund_rate: 0,
   support_kpis: { available: false, reason: 'no_shared_tickets' },
+  total_referrals: 0, total_commissions: 0,
 };
 const NO_EMPLOYMENT_ELIGIBILITY = {
   converted_customers: 0, threshold: 500, eligible: false, customers_until_eligible: 500,
@@ -93,7 +94,8 @@ describe('AffiliateEarnings', () => {
     meMock = () => Promise.resolve(MANAGER);
     stubCommon();
     wafaEligibilityMock = () => Promise.resolve({
-      ...NO_ELIGIBILITY, retention_rate: 0.82, refund_rate: 0.05,
+      ...NO_ELIGIBILITY, retention_rate: 0.82, refund_rate: 0.05, total_referrals: 10,
+      total_commissions: 4,
       support_kpis: { available: true, avg_first_response_seconds: 300,
                      avg_resolution_seconds: 7200, escalation_rate: 0.1 },
     });
@@ -110,6 +112,20 @@ describe('AffiliateEarnings', () => {
     render(<AffiliateEarnings session={SESSION} />);
     await waitFor(() => expect(screen.getByText('معدّل الاحتفاظ')).toBeTruthy());
     expect(screen.getByText(/تظهر أول ما محل يشارك تذاكره/)).toBeTruthy();
+  });
+
+  it('never shows a fabricated 100% retention with zero referred shops behind it', async () => {
+    // Tamam, 2026-08-23: "كيف كذا وهو صفر اساس! في غلط في المعادلة" — retention_rate defaults to
+    // 1.0 with no referral history at all (correct for the eligibility FORMULA, wrong to present
+    // as an earned 100%). NO_ELIGIBILITY's own retention_rate is already 1 with total_referrals: 0.
+    meMock = () => Promise.resolve(PROMOTER);
+    stubCommon();
+    render(<AffiliateEarnings session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('معدّل الاحتفاظ')).toBeTruthy());
+    expect(screen.queryByText('100٪')).toBeFalsy();
+    expect(screen.queryByText('0٪')).toBeFalsy();   // refund_rate's own fabricated default
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBe(2);   // retention AND refund, both with no sample behind them
   });
 
   it('lists a commission with its real status label', async () => {

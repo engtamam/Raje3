@@ -50,6 +50,7 @@ describe('AffiliateTeam — roster', () => {
       members: [{ id: 'm1', name: 'فيصل', status: 'active', confirmed_halalas: 10000,
                  pending_halalas: 0, commission_count: 2, shops: 3, total_net_revenue_minor: 0,
                  revenue_partial: false, active_shops: 3, retention_rate: 0.9, refund_rate: 0.02,
+                 total_referrals: 10, total_commissions: 5,
                  support_kpis: { available: true, avg_first_response_seconds: 120,
                                 avg_resolution_seconds: 3600, escalation_rate: 0.05 } }],
       team_confirmed_halalas: 10000,
@@ -92,6 +93,7 @@ describe('AffiliateTeam — WAFA queue', () => {
     teamWafaMock = () => Promise.resolve({
       wafa_requests: [{ id: 'w1', affiliate_id: 'm1', active_shops: 50, tier_amount_halalas: 20000,
                        status: 'requested', system_recommendation: 'approve', requested_at: 0,
+                       system_retention_rate: 0.9, system_refund_rate: 0.02, manager_decision: '',
                        manager_decided_by: '', manager_decided_at: 0, manager_reason: '',
                        decided_by: '', decided_at: 0, reason: '', granted_at: 0 }],
     });

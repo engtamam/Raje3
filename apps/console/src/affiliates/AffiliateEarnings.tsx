@@ -196,29 +196,45 @@ function WafaCard({ session }: { session: AffiliateSession }) {
           عنده نفس المؤشرات لنفسه" — هذي البطاقة تصير صحيحة لأي مسوّق، لا المدير فقط. */}
       <div className="mt-1 border-t border-accent/20 pt-3">
         <PerformanceStats retentionRate={elig.retention_rate} refundRate={elig.refund_rate}
-                         supportKpis={elig.support_kpis} />
+                         supportKpis={elig.support_kpis} totalReferrals={elig.total_referrals}
+                         totalCommissions={elig.total_commissions} />
       </div>
     </div>
   );
 }
 
 /** أرقام أداء مسوّق واحد — تُستخدم هنا لنفسه («دعم الوفاء») وبـ«فريقي» لكل عضو، نفس الشكل بالضبط
- *  حتى يتعلّم عضو الفريق قراءتها مرة واحدة ويفهمها بالمكانين. */
-export function PerformanceStats({ retentionRate, refundRate, supportKpis }: {
+ *  حتى يتعلّم عضو الفريق قراءتها مرة واحدة ويفهمها بالمكانين.
+ *
+ *  totalReferrals/totalCommissions هي حجم العيّنة وراء كل نسبة — بلا محلات محالة أو عمولات، الرقم
+ *  اللي ترجعه المعادلة (١٠٠٪ احتفاظ، ٠٪ استرجاع) قيمة افتراضية للحساب لا رقماً مُكتسَباً، وعرضه
+ *  كنسبة حقيقية بلا أي بيانات وراءها هو بالضبط ما اعترض عليه تمام (٢٠٢٦-٠٨-٢٣: "كيف كذا وهو صفر
+ *  اساس! في غلط في المعادلة"). المعادلة نفسها صحيحة لغرضها الأصلي (توصية الاستحقاق) — العرض هو
+ *  اللي كان يكذب. */
+export function PerformanceStats({ retentionRate, refundRate, supportKpis,
+                                  totalReferrals, totalCommissions }: {
   retentionRate: number; refundRate: number; supportKpis: SupportKpis;
+  totalReferrals: number; totalCommissions: number;
 }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
         <div className="flex-1 rounded-md bg-surface-0 p-2">
           <span className="block text-xs text-text-secondary">معدّل الاحتفاظ</span>
-          <span className="tabular-nums font-medium">{Math.round(retentionRate * 100)}٪</span>
+          <span className="tabular-nums font-medium">
+            {totalReferrals > 0 ? `${Math.round(retentionRate * 100)}٪` : '—'}
+          </span>
         </div>
         <div className="flex-1 rounded-md bg-surface-0 p-2">
           <span className="block text-xs text-text-secondary">معدّل الاسترجاع</span>
-          <span className="tabular-nums font-medium">{Math.round(refundRate * 100)}٪</span>
+          <span className="tabular-nums font-medium">
+            {totalCommissions > 0 ? `${Math.round(refundRate * 100)}٪` : '—'}
+          </span>
         </div>
       </div>
+      {totalReferrals === 0 && totalCommissions === 0 ? (
+        <p className="text-xs text-text-muted">لا بيانات كافية بعد — تظهر أول محل تحيله يستمر أو ينقطع.</p>
+      ) : null}
       {supportKpis.available ? (
         <div className="flex gap-2">
           <div className="flex-1 rounded-md bg-surface-0 p-2">

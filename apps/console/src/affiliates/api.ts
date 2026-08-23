@@ -134,6 +134,10 @@ export interface WafaEligibility {
   active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
   current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
   support_kpis: SupportKpis;
+  // THE SAMPLE SIZE BEHIND retention_rate/refund_rate — 0 referrals/commissions means the rate is
+  // a formula default (100%/0%), not an earned number; PerformanceStats reads these to say "no
+  // data yet" instead of a real-looking percentage (2026-08-23, Tamam: "كيف كذا وهو صفر اساس").
+  total_referrals: number; total_commissions: number;
 }
 export interface EmploymentEligibility {
   converted_customers: number; threshold: number; eligible: boolean;
@@ -474,6 +478,7 @@ export interface TeamMember {
   // `GET /me/team` merges the SAME `performance_for()` dict `/me/wafa-eligibility` returns for
   // the manager himself — sent all along, just never typed or rendered until now (2026-08-23).
   active_shops?: number; retention_rate?: number; refund_rate?: number; support_kpis?: SupportKpis;
+  total_referrals?: number; total_commissions?: number;
 }
 export interface Team {
   my_shops: number; my_net_revenue_minor: number; my_revenue_partial: boolean;

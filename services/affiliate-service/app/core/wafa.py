@@ -101,7 +101,15 @@ class WafaService:
 
         support = await self._aggregate_support_kpis(affiliate_id, referrals)
         return {"active_shops": active, "retention_rate": round(retention_rate, 4),
-               "refund_rate": round(refund_rate, 4), "support_kpis": support}
+               "refund_rate": round(refund_rate, 4), "support_kpis": support,
+               # THE SAMPLE SIZE BEHIND EACH RATE — added 2026-08-23, Tamam: "كيف كذا وهو صفر
+               # اساس! في غلط في المعادلة" (a marketer with ZERO referred shops showing "100%
+               # retention"). The math above is correct FOR `_recommend`'s OWN purpose (no
+               # referral has failed yet, so nothing argues against him) — the bug was a screen
+               # presenting that as a real, earned 100% with no shops behind it at all. These
+               # counts let a caller tell "no evidence yet" from "a real 100%" apart; the rates
+               # above are UNCHANGED so eligibility decisions never move.
+               "total_referrals": total, "total_commissions": earned}
 
     async def _aggregate_support_kpis(self, affiliate_id: str, referrals: list) -> dict[str, Any]:
         if self._tickets is None:
@@ -157,6 +165,7 @@ class WafaService:
             # يعتبر مسوّي، عنده نفس المؤشرات لنفسه"). Same best-effort shape (`available: False`
             # when no shop has shared its tickets yet, never a missing key).
             "support_kpis": perf["support_kpis"],
+            "total_referrals": perf["total_referrals"], "total_commissions": perf["total_commissions"],
         }
 
     def _recommend(self, perf: dict[str, Any]) -> str:

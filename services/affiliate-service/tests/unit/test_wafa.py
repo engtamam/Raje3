@@ -281,7 +281,13 @@ async def test_performance_for_reports_full_retention_and_zero_refund_with_no_hi
     wafa, _referrals = build(store)
     out = await wafa.performance_for("mgr-1")
     assert out == {"active_shops": 0, "retention_rate": 1.0, "refund_rate": 0.0,
-                   "support_kpis": {"available": False, "reason": "tickets_not_configured"}}
+                   "support_kpis": {"available": False, "reason": "tickets_not_configured"},
+                   "total_referrals": 0, "total_commissions": 0}
+    # THE POINT OF THIS TEST'S OWN NAME, made explicit: retention_rate/refund_rate are formula
+    # DEFAULTS with no referral or commission behind them — a caller must read total_referrals/
+    # total_commissions to tell "no evidence yet" from "a real 100%/0%" (2026-08-23, Tamam: "كيف
+    # كذا وهو صفر اساس! في غلط في المعادلة").
+    assert out["total_referrals"] == 0 and out["total_commissions"] == 0
 
 
 # ── §١٣: real support KPIs, additive and best-effort ────────────────────────────────────────────

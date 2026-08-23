@@ -85,7 +85,9 @@ function TeamRoster({ session }: { session: AffiliateSession }) {
                 {expanded && hasPerf ? (
                   <div className="border-t border-border-subtle p-2.5 pt-2">
                     <PerformanceStats retentionRate={m.retention_rate!} refundRate={m.refund_rate!}
-                                     supportKpis={m.support_kpis!} />
+                                     supportKpis={m.support_kpis!}
+                                     totalReferrals={m.total_referrals ?? 0}
+                                     totalCommissions={m.total_commissions ?? 0} />
                   </div>
                 ) : null}
               </li>
