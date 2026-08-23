@@ -81,7 +81,17 @@ function PasswordInput({ id, name, value, onChange, onBlur, autoComplete }: {
   );
 }
 
-export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
+export function Door({ onSignedIn, onWelcome }: {
+  onSignedIn: (s: Session) => void;
+  // FIRES THE MOMENT A FRESH SIGNUP'S TRIAL OPENS — a direct call into App's own state, not just
+  // the sessionStorage flag NewShopPane also writes. App itself only mounts once, at the very
+  // first page load, well before a person still on this screen has typed anything: its
+  // `useState` initializer (the thing that reads that flag) already ran with nothing in
+  // sessionStorage yet, and React does not re-run an initializer on a later render. Without this
+  // callback the welcome only ever appeared after a manual refresh remounted App — Tamam's own
+  // report: no welcome right after signup, a full page of it after F5.
+  onWelcome?: (end: number) => void;
+}) {
   const [mode, setMode] = useState<'in' | 'new'>('in');
 
   return (
@@ -102,7 +112,7 @@ export function Door({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
         />
         {mode === 'in'
           ? <SignInPane onSignedIn={onSignedIn} />
-          : <NewShopPane onSignedIn={onSignedIn} />}
+          : <NewShopPane onSignedIn={onSignedIn} onWelcome={onWelcome} />}
       </div>
     </DoorLayout>
   );
@@ -328,7 +338,10 @@ function errorFor(f: FieldName, v: string): string {
   }
 }
 
-function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
+function NewShopPane({ onSignedIn, onWelcome }: {
+  onSignedIn: (s: Session) => void;
+  onWelcome?: (end: number) => void;
+}) {
   const [proving, setProving] = useState<Proving | null>(null);
   const [v, setV] = useState<Record<FieldName, string>>({ phone: '', password: '', shopName: '' });
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
@@ -341,7 +354,12 @@ function NewShopPane({ onSignedIn }: { onSignedIn: (s: Session) => void }) {
 
   function markWelcome(end: number) {
     if (!end) return;
+    // BOTH, NOT EITHER — `onWelcome` is what actually shows the screen right now, in the same
+    // render pass `onSignedIn` moves App past the door; sessionStorage is only the fallback for
+    // the rare mid-onboarding reload (e.g. the OTP detour surviving a refresh), read by App's own
+    // mount-time initializer. Losing either one reintroduces a version of the same bug.
     try { sessionStorage.setItem(WELCOME_TRIAL_KEY, String(end)); } catch { /* private mode */ }
+    onWelcome?.(end);
   }
 
   const errs = useMemo(() => ({

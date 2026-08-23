@@ -139,58 +139,75 @@ export function App() {
   // navigated to WHILE signed in and, worse, a page a signed-out person can navigate AWAY from
   // into a screen that then renders half-loaded and 401s. Signed out, there is one thing on the
   // screen and no way past it but through.
-  if (!isSignedIn(session)) return <Door onSignedIn={signedIn} />;
+  // `onWelcome` FIRES THE SCREEN IMMEDIATELY, in the same render pass `onSignedIn` moves him past
+  // this branch — the sessionStorage flag Door.tsx also writes is read-once, at App's own mount,
+  // which already happened before he had typed a single character. Without this direct call the
+  // welcome only ever showed after a manual refresh remounted App and re-ran that initializer.
+  if (!isSignedIn(session)) return <Door onSignedIn={signedIn} onWelcome={setWelcomeTrialEnd} />;
 
   // THE WELCOME, SHOWN EXACTLY ONCE — the flag Door.tsx set the moment his shop (and its trial)
-  // opened, read here and cleared the instant he presses through. session-scoped, so it cannot
-  // survive past this tab or replay on an ordinary sign-in from another device.
-  if (welcomeTrialEnd !== null) {
-    return (
-      <WelcomeTrial
-        trialEnd={welcomeTrialEnd}
-        onDone={() => {
-          try { sessionStorage.removeItem(WELCOME_TRIAL_KEY); } catch { /* private mode */ }
-          setWelcomeTrialEnd(null);
-        }}
-      />
-    );
-  }
+  // opened, cleared the instant he presses through. session-scoped, so it cannot survive past this
+  // tab or replay on an ordinary sign-in from another device.
+  //
+  // A DIALOG OVER WHATEVER RENDERS BELOW, NOT A REPLACEMENT FOR IT — Tamam's own words: «نافذة
+  // منبثقة مو صفحة كامله». `WelcomeTrial` portals itself to `document.body`, so it is appended as
+  // a sibling to every branch below (loading skeleton, outage screen, the real shell) rather than
+  // being one more early return that discards whichever of them was about to render.
+  const welcomeOverlay = welcomeTrialEnd !== null ? (
+    <WelcomeTrial
+      trialEnd={welcomeTrialEnd}
+      onDone={() => {
+        try { sessionStorage.removeItem(WELCOME_TRIAL_KEY); } catch { /* private mode */ }
+        setWelcomeTrialEnd(null);
+      }}
+    />
+  ) : null;
 
   if (failed) {
     // THE DISTINCTION THAT MATTERS TO A PAYING OWNER: "we cannot reach the platform" and "you have
     // access to nothing" look identical on an empty screen, and only one of them is about him.
     return (
-      <main className="grid min-h-dvh place-items-center bg-surface-0 p-6">
-        <EmptyState
-          title="تعذّر الوصول إلى المنصة"
-          description="حسابك سليم — أعد المحاولة بعد قليل."
-        />
-      </main>
+      <>
+        <main className="grid min-h-dvh place-items-center bg-surface-0 p-6">
+          <EmptyState
+            title="تعذّر الوصول إلى المنصة"
+            description="حسابك سليم — أعد المحاولة بعد قليل."
+          />
+        </main>
+        {welcomeOverlay}
+      </>
     );
   }
 
   if (!catalog) {
     return (
-      <main className="min-h-dvh bg-surface-0 p-6">
-        <Skeleton width={192} height={40} />
-      </main>
+      <>
+        <main className="min-h-dvh bg-surface-0 p-6">
+          <Skeleton width={192} height={40} />
+        </main>
+        {welcomeOverlay}
+      </>
     );
   }
 
   if (isOutage(catalog)) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-surface-0 p-6">
-        <EmptyState
-          title="الخدمات غير متاحة الآن"
-          description="لا علاقة لهذا بحسابك. نعمل على إعادتها."
-        />
-      </main>
+      <>
+        <main className="grid min-h-dvh place-items-center bg-surface-0 p-6">
+          <EmptyState
+            title="الخدمات غير متاحة الآن"
+            description="لا علاقة لهذا بحسابك. نعمل على إعادتها."
+          />
+        </main>
+        {welcomeOverlay}
+      </>
     );
   }
 
   const sections = visibleSections(catalog);
 
   return (
+    <>
     <AppShell
       // OUR OWN MARK, AND IT IS THE ONE LINE THIS WAITED FOR.
       //
@@ -262,5 +279,7 @@ export function App() {
         <Outlet context={{ session, catalog, owned, branch: scoped, branches: allowed, setBranch }} />
       </LegalGate>
     </AppShell>
+    {welcomeOverlay}
+    </>
   );
 }
