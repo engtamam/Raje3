@@ -117,27 +117,36 @@ function renderNavItem(
   const Icon = item.icon;
   // min-h-11 (44px) is the accessible touch-target floor; py-1.5 alone rendered ~32px and failed the
   // mobile spec. The row still hugs its content width; only its HEIGHT is floored.
-  const base = 'relative flex min-h-11 items-center rounded-lg py-1.5 text-sm font-medium transition-colors focus-ring';
+  const base = 'group relative flex min-h-11 items-center rounded-lg py-1.5 text-sm font-medium transition-colors focus-ring';
   const layout = collapsed ? 'justify-center px-0' : 'gap-3 px-3';
-  const active = 'bg-accent-soft text-accent-on-soft before:absolute before:inset-y-2 before:start-0 before:w-[3px] before:rounded-full before:bg-accent';
+  // ACTIVE = A DISTINCT ICON CHIP, NOT A TINTED ROW. A soft-background row with a thin accent bar is
+  // the same shape every admin-template sidebar uses; the icon sitting inside its own accent-filled,
+  // rounded square (Linear/Vercel-style) is what actually reads as deliberate rather than generic, and
+  // it survives collapse unchanged — the chip alone still tells the current section apart with no label.
+  const active = 'bg-surface-2 text-text-primary font-semibold';
   const inactive = 'text-text-secondary hover:bg-surface-2 hover:text-text-primary';
-  const inner = (
-    <>
-      {Icon && <Icon size={18} className="shrink-0" />}
-      {!collapsed && item.label}
-    </>
+  const iconWrap = (isActive: boolean) => cn(
+    'grid size-7 shrink-0 place-items-center rounded-md transition-colors',
+    isActive ? 'bg-accent text-accent-contrast shadow-sm' : 'text-text-muted group-hover:text-text-secondary',
   );
+  // COLLAPSED ACCESSIBLE NAME WAS `title=` ALONE — a hover tooltip, invisible to a screen reader that
+  // never receives a synthetic hover. `aria-label` (paired with `aria-hidden` on the visual glyphs
+  // below) is what actually announces "رسائلي" etc. when the rail is icon-only.
   if (onSelect) {
     const k = item.key ?? item.to ?? item.label;
+    const isActive = activeKey === k;
     return (
       <button
         key={k}
         type="button"
         onClick={() => { onSelect(k); onNavigate?.(); }}
         title={collapsed ? item.label : undefined}
-        className={cn(base, layout, 'w-full text-start', activeKey === k ? active : inactive)}
+        aria-label={collapsed ? item.label : undefined}
+        aria-current={isActive ? 'page' : undefined}
+        className={cn(base, layout, 'w-full text-start', isActive ? active : inactive)}
       >
-        {inner}
+        {Icon && <span className={iconWrap(isActive)} aria-hidden><Icon size={16} /></span>}
+        {!collapsed && <span className="truncate">{item.label}</span>}
       </button>
     );
   }
@@ -147,9 +156,15 @@ function renderNavItem(
       to={item.to ?? '#'}
       onClick={onNavigate}
       title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
       className={({ isActive }) => cn(base, layout, isActive ? active : inactive)}
     >
-      {inner}
+      {({ isActive }) => (
+        <>
+          {Icon && <span className={iconWrap(isActive)} aria-hidden><Icon size={16} /></span>}
+          {!collapsed && <span className="truncate">{item.label}</span>}
+        </>
+      )}
     </NavLink>
   );
 }
@@ -190,6 +205,16 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeMobile = () => setMobileOpen(false);
 
+  // ESCAPE CLOSES THE DRAWER — a scrim tap and an X button worked, but the keyboard had no way out
+  // at all, and a drawer with `role="dialog"` below promises exactly this. Only bound while it is
+  // actually open, so it never intercepts Escape anywhere else in the app.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMobile(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
   return (
     <div className="flex h-screen overflow-hidden bg-surface-0 text-text-primary">
       {/* Mobile scrim behind the drawer (below md only). */}
@@ -205,6 +230,9 @@ export function AppShell({
       <aside
         data-testid="sidebar"
         data-collapsed={collapsed}
+        role={mobileOpen ? 'dialog' : undefined}
+        aria-modal={mobileOpen ? true : undefined}
+        aria-label={mobileOpen ? brand.name : undefined}
         className={cn(
           'flex flex-col border-e border-border-subtle bg-surface-1',
           // mobile drawer: fixed, slides in from the start edge (works in RTL + LTR)
@@ -245,7 +273,7 @@ export function AppShell({
         </Button>
 
         {/* brand */}
-        <div className={cn('flex items-center px-3 py-3.5', collapsed ? 'justify-center' : 'justify-start')}>
+        <div className={cn('flex items-center border-b border-border-subtle px-3 py-3.5', collapsed ? 'justify-center' : 'justify-start')}>
           {collapsed ? (
             brand.mark ?? <BrandMark size={26} className="shrink-0" />
           ) : (
@@ -269,7 +297,7 @@ export function AppShell({
           <div className="px-3 pb-1" data-testid="project-switcher-slot">{projectSwitcher}</div>
         )}
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pt-1">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pt-3">
           {(navGroups && navGroups.length > 0
             ? navGroups
                 .map((g) => ({ group: g, items: navItems.filter((it) => it.group === g.id) }))
