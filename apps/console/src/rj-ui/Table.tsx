@@ -110,27 +110,31 @@ export function Table<T>({
       </div>
 
       {/* PHONE — a stack of cards, below md. Every column becomes a label:value row, unless
-          marked hideOnCard (a column only meaningful at a glance in a wide row). */}
+          marked hideOnCard (a column only meaningful at a glance in a wide row).
+          A PLAIN <div>, NEVER A <button>, WHEN THE ROW ITSELF ISN'T CLICKABLE — a cell can hold
+          its own real buttons (row actions, e.g. `ActionRenderer`'s own approve/reject), and a
+          <button> cannot nest another <button> without breaking HTML validity. Only wrap the
+          card in a real <button> when `onRowClick` makes the WHOLE card the control. */}
       <ul className="flex flex-col gap-2 md:hidden">
         {rows.map((row) => {
           const visible = columns.filter((c) => !c.hideOnCard);
+          const body = visible.map((col) => (
+            <div key={col.key} className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-text-secondary">{col.header}</span>
+              <span className="text-text-primary">{cell(col, row)}</span>
+            </div>
+          ));
+          const cardClass = 'flex w-full flex-col gap-1.5 rounded-card border border-border-subtle bg-surface-1 p-3 text-start';
           return (
             <li key={getRowId(row)}>
-              <button
-                type="button"
-                disabled={!onRowClick}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`flex w-full flex-col gap-1.5 rounded-card border border-border-subtle bg-surface-1 p-3 text-start ${
-                  onRowClick ? 'cursor-pointer active:bg-surface-2' : ''
-                }`}
-              >
-                {visible.map((col) => (
-                  <div key={col.key} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-text-secondary">{col.header}</span>
-                    <span className="text-text-primary">{cell(col, row)}</span>
-                  </div>
-                ))}
-              </button>
+              {onRowClick ? (
+                <button type="button" onClick={() => onRowClick(row)}
+                       className={`${cardClass} cursor-pointer active:bg-surface-2`}>
+                  {body}
+                </button>
+              ) : (
+                <div className={cardClass}>{body}</div>
+              )}
             </li>
           );
         })}

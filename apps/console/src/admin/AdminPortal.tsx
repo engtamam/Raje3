@@ -6,6 +6,7 @@
  */
 import { useState } from 'react';
 import { AdminBottomNav, AdminSidebar, type Tab } from './AdminNav';
+import { AdminCustomers } from './AdminCustomers';
 import { AdminDoor } from './AdminDoor';
 import { AdminHome } from './AdminHome';
 import { ComingSoon } from './ComingSoon';
@@ -26,7 +27,7 @@ export function AdminPortal() {
         <div className="flex-1">
           {tab === 'home' ? <AdminHome session={session} /> : null}
           {tab === 'apps' ? <ComingSoon label="التطبيقات والأسعار" /> : null}
-          {tab === 'customers' ? <ComingSoon label="العملاء والدعم" /> : null}
+          {tab === 'customers' ? <AdminCustomers session={session} /> : null}
           {tab === 'billing' ? <ComingSoon label="المالية" /> : null}
           {tab === 'platform' ? <ComingSoon label="المنصّة والفريق" /> : null}
           {tab === 'account' ? <ComingSoon label="حسابي" /> : null}
