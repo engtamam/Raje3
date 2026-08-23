@@ -9,7 +9,7 @@
   "http_port": 80,
   "acme_email": "ops@example.com",
 
-  "_aliases": "Set by bring-up.sh alongside domain — affiliates.<DOMAIN> today, admin.<DOMAIN> the day that panel exists. Same site block, same routes, same cert (one SAN list): the console image is still what answers, and it is the console's own router that reads the hostname and decides which tree to mount (see main.tsx). An alias buys a distinct address, not a distinct upstream.",
+  "_aliases": "Set by bring-up.sh alongside domain — affiliates.<DOMAIN> and admin.<DOMAIN>. Same site block, same routes, same cert (one SAN list): the console image is still what answers, and it is the console's own router that reads the hostname and decides which tree to mount (see main.tsx). An alias buys a distinct address, not a distinct upstream.",
   "aliases": [],
 
   "_routes": "Longest prefix wins and the renderer sorts, so listing order cannot shadow a route. The last entry is the catch-all: everything that is not an API call is the console image, which carries the landing page at / and the screens under /app and does its own SPA fallback.",

@@ -115,6 +115,7 @@ env:
       {"prefix":"/api/v1/auth/register","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/auth/login","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/auth/refresh","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
+      {"prefix":"/api/v1/auth/tenant","upstream":"http://identity-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/auth","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/tenancy","upstream":"http://identity-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/tenants","upstream":"http://tenant-service:8000","auth":"required","strip_prefix":false},
@@ -179,6 +180,7 @@ env:
     [
       {"prefix":"/api/v1/auth/login","class":"auth","limit":10,"window_s":60,"cost":1},
       {"prefix":"/api/v1/auth/register","class":"auth","limit":5,"window_s":300,"cost":1},
+      {"prefix":"/api/v1/auth/tenant","class":"auth","limit":10,"window_s":60,"cost":1},
       {"prefix":"/api/v1/field","class":"field","limit":600,"window_s":60,"cost":1},
       {"prefix":"/api/v1/till","class":"field","limit":600,"window_s":60,"cost":1},
       {"prefix":"/api/v1/staff","class":"field","limit":600,"window_s":60,"cost":1},
