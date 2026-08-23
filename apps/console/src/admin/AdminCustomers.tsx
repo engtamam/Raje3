@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react';
 import { ActionCatalogPanel } from './ActionRenderer';
-import { fetchCatalog, type AdminCatalog } from './catalog';
+import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 
 export function AdminCustomers({ session }: { session: AdminSession }) {
@@ -30,7 +30,7 @@ export function AdminCustomers({ session }: { session: AdminSession }) {
     return <p role="alert" className="p-6 text-danger">تعذّرت قراءة كتالوج الإدارة.</p>;
   }
 
-  const affiliateActions = catalog.actions.filter((a) => a.group === 'Affiliates');
+  const affiliateActions = allActions(catalog).filter((a) => a.group === 'Affiliates');
 
   return (
     <div>

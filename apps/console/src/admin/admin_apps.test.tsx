@@ -10,8 +10,10 @@ import type { AdminSession } from './api';
 
 const SESSION: AdminSession = { access_token: 'tok-1' };
 
+// REAL SHAPE — grouped by service (admin_catalog.py::build_catalog). Both actions genuinely come
+// from billing-service in production; kept as one service entry here for that reason.
 const FULL_CATALOG = {
-  actions: [
+  services: [{ service: 'billing-service', actions: [
     { id: 'billing.list_plans', label: 'Plans & pricing', method: 'GET' as const,
      path: '/api/v1/billing/plans', capability: 'billing.manage', group: 'Catalogue' },
     { id: 'billing.update_plan', label: 'Edit a plan', method: 'PATCH' as const,
@@ -24,7 +26,8 @@ const FULL_CATALOG = {
      path: '/api/v1/billing/coupons/{coupon_id}', capability: 'platform.billing',
      params: [{ name: 'coupon_id', in: 'path' as const, type: 'string', required: true }],
      danger: true, confirm: true, group: 'Catalogue' },
-  ],
+  ] }],
+  unreachable: [],
 };
 
 let fetchCatalogMock: ReturnType<typeof vi.fn>;
@@ -66,7 +69,7 @@ describe('AdminApps', () => {
   });
 
   it('an honest sentence, no section headers, when nothing is readable', async () => {
-    fetchCatalogMock = vi.fn().mockResolvedValue({ actions: [] });
+    fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminApps session={SESSION} />);
     await waitFor(() => expect(screen.getByText(/لا باقات ولا كوبونات لعرضها لك/)).toBeTruthy());
     expect(screen.queryByText('الباقات والأسعار')).toBeFalsy();

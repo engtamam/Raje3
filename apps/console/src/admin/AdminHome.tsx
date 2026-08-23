@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { DollarSign, TrendingUp, Store, Sparkles } from 'lucide-react';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { riyalsLabel } from '../money';
-import { fetchCatalog, type AdminCatalog } from './catalog';
+import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import { monthRevenueHalalas, tenantCounts, type TenantCounts } from './platformMetrics';
 import type { AdminSession } from './api';
 
@@ -43,7 +43,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         revenueThisMonth: revNow.ok ? revNow.halalas : null,
         revenueLastMonth: revBefore.ok ? revBefore.halalas : null,
         tenants: tenants.ok ? tenants.counts : null,
-        actionCount: catalog.actions.length,
+        actionCount: allActions(catalog).length,
       });
     })();
     return () => { cancelled = true; };

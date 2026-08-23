@@ -12,7 +12,7 @@
  */
 import { useEffect, useState } from 'react';
 import { ActionListGroup } from './ActionRenderer';
-import { fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
+import { allActions, fetchCatalog, type AdminAction, type AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
 
 export function AdminApps({ session }: { session: AdminSession }) {
@@ -33,7 +33,8 @@ export function AdminApps({ session }: { session: AdminSession }) {
     return <p role="alert" className="p-6 text-danger">تعذّرت قراءة كتالوج الإدارة.</p>;
   }
 
-  const byId = (id: string) => catalog.actions.find((a) => a.id === id);
+  const flat = allActions(catalog);
+  const byId = (id: string) => flat.find((a) => a.id === id);
   const plansList = byId('billing.list_plans');
   const couponsList = byId('billing.list_coupons');
   const rowActionsFor = (ids: string[]): AdminAction[] =>

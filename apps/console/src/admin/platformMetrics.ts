@@ -11,7 +11,7 @@
  * output client-side is arithmetic, not a new privileged capability.
  */
 import { req, type AdminSession } from './api';
-import type { AdminCatalog } from './catalog';
+import { allActions, type AdminCatalog } from './catalog';
 
 interface InvoiceRow {
   total_minor: number;
@@ -41,7 +41,7 @@ function isoMonthStart(monthsAgo: number): string {
 }
 
 function findAction(catalog: AdminCatalog, id: string) {
-  return catalog.actions.find((a) => a.id === id);
+  return allActions(catalog).find((a) => a.id === id);
 }
 
 /** Net revenue (halalas) for calendar month `monthsAgo` (0 = this month, 1 = last month) —

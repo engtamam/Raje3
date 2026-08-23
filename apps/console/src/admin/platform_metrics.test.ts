@@ -5,12 +5,22 @@ import type { AdminSession } from './api';
 
 const SESSION: AdminSession = { access_token: 'tok-1' };
 
+const EMPTY_CATALOG: AdminCatalog = { services: [], unreachable: [] };
+
+// REAL SHAPE — grouped by service, per admin_catalog.py::build_catalog. Two different services
+// on purpose, matching production: billing.platform_invoices comes from billing-service,
+// tenant.list from tenant-service.
 const CATALOG: AdminCatalog = {
-  actions: [
-    { id: 'billing.platform_invoices', label: 'x', method: 'GET',
-     path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
-    { id: 'tenant.list', label: 'x', method: 'GET', path: '/api/v1/tenants', capability: 'platform.tenants' },
+  services: [
+    { service: 'billing-service', actions: [
+      { id: 'billing.platform_invoices', label: 'x', method: 'GET',
+       path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
+    ] },
+    { service: 'tenant-service', actions: [
+      { id: 'tenant.list', label: 'x', method: 'GET', path: '/api/v1/tenants', capability: 'platform.tenants' },
+    ] },
   ],
+  unreachable: [],
 };
 
 let reqMock: ReturnType<typeof vi.fn>;
@@ -46,7 +56,7 @@ describe('monthRevenueHalalas', () => {
 
   it('refuses honestly when the caller has no billing action in their catalog', async () => {
     reqMock = vi.fn();
-    const out = await monthRevenueHalalas(SESSION, { actions: [] }, 0);
+    const out = await monthRevenueHalalas(SESSION, EMPTY_CATALOG, 0);
     expect(out.ok).toBe(false);
     expect(reqMock).not.toHaveBeenCalled();
   });
@@ -73,7 +83,7 @@ describe('tenantCounts', () => {
 
   it('refuses honestly when the caller has no tenant action in their catalog', async () => {
     reqMock = vi.fn();
-    const out = await tenantCounts(SESSION, { actions: [] });
+    const out = await tenantCounts(SESSION, EMPTY_CATALOG);
     expect(out.ok).toBe(false);
     expect(reqMock).not.toHaveBeenCalled();
   });

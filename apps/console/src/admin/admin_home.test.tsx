@@ -19,12 +19,19 @@ vi.mock('./api', async (importOriginal) => {
 
 afterEach(() => vi.clearAllMocks());
 
+// REAL SHAPE — grouped by service (admin_catalog.py::build_catalog), two different services on
+// purpose, matching production.
 const FULL_CATALOG = {
-  actions: [
-    { id: 'billing.platform_invoices', label: 'x', method: 'GET' as const,
-     path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
-    { id: 'tenant.list', label: 'x', method: 'GET' as const, path: '/api/v1/tenants', capability: 'platform.tenants' },
+  services: [
+    { service: 'billing-service', actions: [
+      { id: 'billing.platform_invoices', label: 'x', method: 'GET' as const,
+       path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
+    ] },
+    { service: 'tenant-service', actions: [
+      { id: 'tenant.list', label: 'x', method: 'GET' as const, path: '/api/v1/tenants', capability: 'platform.tenants' },
+    ] },
   ],
+  unreachable: [],
 };
 
 describe('AdminHome', () => {
@@ -42,7 +49,7 @@ describe('AdminHome', () => {
   });
 
   it('a caller with neither capability sees an honest sentence, not blank tiles', async () => {
-    fetchCatalogMock = vi.fn().mockResolvedValue({ actions: [] });
+    fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     reqMock = vi.fn();
 
     render(<AdminHome session={SESSION} />);
