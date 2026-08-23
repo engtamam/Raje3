@@ -597,9 +597,10 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
     }
   }
 
-  // FilterMenu ONLY KNOWS "the new full selection", NOT which one box was clicked — eligibility
-  // is stored per SERVICE, not per operator, so the actual write is a diff against what was
-  // selected a moment ago, applied to whichever one service actually changed.
+  // FilterMenu ONLY KNOWS "the new full selection", NOT which box(es) changed — eligibility is
+  // stored per SERVICE, not per operator, so the actual write is a diff against what was selected
+  // a moment ago, applied to EVERY service that changed (one call each — "مسح الكل" alone can
+  // change every box at once, not just the first one a naive single-diff would catch).
   function isEligible(svc: ServiceLite): boolean {
     return svc.eligible_staff_ids && svc.eligible_staff_ids.length > 0
       ? svc.eligible_staff_ids.includes(o.id)
@@ -607,11 +608,15 @@ function OperatorRow({ session, o, allOperators, branches, edit, setHours, clear
   }
   const activeServices = (services ?? []).filter((s) => s.active !== false);
   const eligibleServiceIds = activeServices.filter(isEligible).map((s) => s.id);
-  function onServicesChange(next: string[]) {
-    const changedId = next.find((id) => !eligibleServiceIds.includes(id))
-      ?? eligibleServiceIds.find((id) => !next.includes(id));
-    const svc = changedId ? activeServices.find((s) => s.id === changedId) : undefined;
-    if (svc) toggleService(svc);
+  async function onServicesChange(next: string[]) {
+    const changedIds = [
+      ...next.filter((id) => !eligibleServiceIds.includes(id)),
+      ...eligibleServiceIds.filter((id) => !next.includes(id)),
+    ];
+    for (const id of changedIds) {
+      const svc = activeServices.find((s) => s.id === id);
+      if (svc) await toggleService(svc);
+    }
   }
 
   async function save() {
