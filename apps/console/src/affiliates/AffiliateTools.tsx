@@ -401,8 +401,16 @@ function CitationLibrary({ session, isManager, onBack }: {
               <p className="text-sm text-text-secondary">{c.body}</p>
               {c.source_label ? (
                 <div className="flex items-center gap-1">
-                  <a href={c.source_url || undefined} target="_blank" rel="noreferrer"
-                     className="text-xs text-accent">المصدر: {c.source_label}</a>
+                  {/* A LINK ONLY WHEN THERE IS SOMEWHERE TO GO — an `<a>` with no `href` still
+                      renders in link-blue and is not clickable, which is indistinguishable from
+                      a broken link to a manager reading it. An internal calculation (no external
+                      report to point at) shows as plain text instead of a fake link. */}
+                  {c.source_url ? (
+                    <a href={c.source_url} target="_blank" rel="noreferrer"
+                       className="text-xs text-accent underline">المصدر: {c.source_label}</a>
+                  ) : (
+                    <span className="text-xs text-text-secondary">المصدر: {c.source_label}</span>
+                  )}
                   {c.source_url ? (
                     <CopyButton text={c.source_url} label="نسخ رابط المصدر" />
                   ) : null}

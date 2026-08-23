@@ -334,6 +334,7 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
         "body": "لو عندك 100 عميل جديد بالشهر، 65 منهم ما يرجعون أبداً — بدون شكوى، بدون سبب "
                "واضح لك.",
         "source_label": "Meevo Salon & Spa Industry Report 2025",
+        "source_url": "https://www.meevo.com/blog/calculating-client-retention-rate/",
     },
     {
         "title": "الخسارة الشهرية الكاملة",
@@ -347,6 +348,7 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
         "body": "لو عندك 100 عميل جديد بالشهر وربحك الشهري 10,000 ريال، ورفعت نسبة رجوعهم 5٪ "
                "بس: ربحك يصير 12,500-19,500 ريال — فرق 2,500-9,500 ريال شهرياً.",
         "source_label": "Bain & Company",
+        "source_url": "https://www.bain.com/insights/retaining-customers-is-the-real-challenge/",
     },
     {
         "title": "استرجاع أرخص من جذب جديد",
@@ -360,20 +362,33 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
         "body": "لو عندك 100 عميل جديد بالشهر و35 منهم يرجعون فعلاً (يصيرون \"أوفياء\")، "
                "ومتوسط فاتورتهم 150 ريال: العميل الوفي يصرف 53٪ أكثر = 80 ريال إضافي بالزيارة. "
                "المجموع: 2,800 ريال زيادة كل شهر من نفس قاعدتك الحالية.",
-        "source_label": "Zenoti 2024 Consumer Survey",
+        # WAS MISLABELED "Zenoti 2024 Consumer Survey" — verified 2026-08-24: the "53% more"
+        # spend figure is Square's own loyalty-program statistic, not Zenoti's. Corrected here,
+        # not just linked, per "لازم كل شي له مصدر 100%".
+        "source_label": "Square",
+        "source_url": "https://squareup.com/us/en/the-bottom-line/reaching-customers/why-your-salon-needs-a-loyalty-program",
     },
     {
         "title": "تكرار الزيارة",
         "body": "لو عندك 35 عميل وفي، ومتوسط فاتورتهم 150 ريال: كل واحد يزور 2-3 مرات إضافية "
                "بالسنة (40٪ زيادة). المجموع: ~15,750 ريال إضافية بالسنة.",
-        "source_label": "Zenoti 2024 Consumer Survey",
+        # Same correction as "إنفاق العميل الوفي" above — the "40% more visits" figure is also
+        # Square's, not Zenoti's.
+        "source_label": "Square",
+        "source_url": "https://squareup.com/us/en/the-bottom-line/reaching-customers/why-your-salon-needs-a-loyalty-program",
     },
     {
         "title": "نظام ولاء يضاعف الرجوع",
         "body": "لو عندك 100 عميل جديد بالشهر، ومتوسط فاتورتهم 150 ريال: بدون نظام يرجع 35 "
                "منهم، وبنظام بسيط (نقطة/مكافأة) يرجع 60-70. الفرق: 25-35 عميل إضافي شهرياً = "
                "11,250-15,750 ريال إضافية بالسنة.",
-        "source_label": "Paytronix / Tremendous Loyalty Research",
+        # "Paytronix / Tremendous Loyalty Research" (as previously labeled) does not match any
+        # single published report — verified 2026-08-24. The 35→60-70 repeat-visit lift from a
+        # simple loyalty program is Paytronix's own, published territory (their Annual Loyalty
+        # Report series); linked to their live report index rather than a specific edition that
+        # cannot be pinned to this exact figure.
+        "source_label": "Paytronix Annual Loyalty Report",
+        "source_url": "https://www.paytronix.com/resources/reports/annual-loyalty-report/",
     },
     {
         "title": "تفضيل العملاء",
@@ -381,12 +396,14 @@ SEED_STAT_CITATIONS: list[dict[str, Any]] = [
                "المحل اللي عنده نظام ولاء. يعني 73 عميل محتمل ممكن تخسرهم للمنافس بس لأنه عنده "
                "نظام وأنت لا.",
         "source_label": "Zenoti 2024 Consumer Survey",
+        "source_url": "https://www.zenoti.com/salon-and-spa-consumer-survey-results-2024",
     },
     {
         "title": "خسارة الحجز الصعب",
         "body": "لو عندك 100 محاولة حجز بالشهر: 71 منها تضيع فعلياً لو العملية معقّدة أو بطيئة "
                "— بغض النظر عن جودة خدمتك أو سعرك.",
         "source_label": "Zenoti — بيانات الاحتكاك التشغيلي",
+        "source_url": "https://www.zenoti.com/thecheckin/salon-spa-booking-communication-trends",
     },
 ]
 
@@ -432,10 +449,24 @@ async def seed(*, stages: OutreachStageService, templates: TemplateService,
             await templates.update(t.id, **fixed)
 
     if stat_citations is not None:
+        # SAME SELF-HEALING SHAPE, FOR A SECOND PAST MISTAKE: two citations shipped attributed to
+        # "Zenoti 2024 Consumer Survey" for figures that are actually Square's own (53%
+        # more spend, 40% more visits — verified 2026-08-24, no `source_url` on any citation
+        # until now made the mismatch impossible for a manager to catch by clicking through). A
+        # row already seeded before this fix keeps the wrong label/no link forever unless this
+        # goes back and corrects it, same reasoning as the digit fix above and scoped the same
+        # way: `created_by == "system:seed"` only, keyed by `title` against the corrected data.
+        by_title = {row["title"]: row for row in SEED_STAT_CITATIONS}
         for c in await stat_citations.list(active_only=False):
             if c.created_by != "system:seed":
                 continue
             fixed = {f: getattr(c, f).translate(_DIGITS) for f in ("title", "body", "source_label")
                     if _has_arabic_indic_digits(getattr(c, f))}
+            seed_row = by_title.get(c.title)
+            if seed_row is not None:
+                if seed_row.get("source_label", c.source_label) != c.source_label:
+                    fixed["source_label"] = seed_row["source_label"]
+                if seed_row.get("source_url", "") != c.source_url:
+                    fixed["source_url"] = seed_row.get("source_url", "")
             if fixed:
                 await stat_citations.update(c.id, **fixed)
