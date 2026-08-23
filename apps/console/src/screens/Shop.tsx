@@ -426,6 +426,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const staffBlocked = notEnabled.find((b) => b.indicator === 'staff_performance');
   const associationsBlocked = notEnabled.find((b) => b.indicator === 'associations');
 
+  // ONE SLOT, ALWAYS SOMETHING IN IT — Tamam, direct and repeated: «always render لكل المكونات في
+  // محلي ضروري لازم ما تجلس تخفي شي ابدا». Every card below either draws itself (real data,
+  // even a single real row) or draws THIS — muted, stamped, honestly explained — never nothing.
+  const muted = (title: string, note: string) => <MutedIndicator title={title} note={note} />;
+
   return (
     <div className="flex flex-col gap-3">
       {typeof returnRate === 'number' ? (
@@ -434,9 +439,18 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           series={series && !series.learning ? series : undefined}
           sampleSize={typeof data.values['active_customers'] === 'number' ? data.values['active_customers'] as number : undefined}
         />
-      ) : null}
+      ) : muted('نسبة عودة عملائك', 'ما نقدر نحسبها بعد — تحتاج زيارات حقيقية أولاً.')}
 
-      {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} /> : null}
+      {atRisk && atRisk.length > 0 ? <AtRiskCard session={session} catalog={catalog} rows={atRisk} />
+        // A REAL EMPTY LIST HERE IS GOOD NEWS, NOT "NOT ACTIVE YET" — the muted/stamped language
+        // means "pending", and applying it to «ولا عميل متأخر» would tell an owner in great shape
+        // that something on his own screen is still forming. A plain, undecorated reassurance line
+        // instead — still always shown, never a silently missing card.
+        : atRisk ? (
+          <div className="rounded-2xl p-4" style={{ background: 'var(--sh-teal-soft)', color: 'var(--sh-teal-deep)' }}>
+            <p className="text-[12.5px] font-medium">ولا عميل متأخر عن دورته المعتادة الآن — وضعك جيد.</p>
+          </div>
+        ) : null}
 
       {/* EVERYTHING BELOW THE TWO LEAD CARDS FLOWS INTO TWO COLUMNS PAST `lg` — a `flex-col` stack
           here was still one long vertical scroll no matter how wide محلّي's own outer column got;
@@ -447,9 +461,11 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
       <div className="flex flex-col gap-3 lg:block lg:columns-2 lg:gap-4">
         <div className="mb-3 break-inside-avoid"><SurroundingKpis values={data.values} /></div>
 
-        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div> : null}
+        {week ? <div className="mb-3 break-inside-avoid"><WeekPulse week={week} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('زياراتك آخر أيام', 'ما نقدر نقرأ نافذة الأسبوع الآن.')}</div>}
         {split && (split.new + split.returning) > 0
-          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} /></div> : null}
+          ? <div className="mb-3 break-inside-avoid"><NewVsReturning split={split} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('عملاء جدد وعائدون', 'ما فيه زيارات كافية هذا الشهر لنقسمها بعد.')}</div>}
 
         {(typeof perVisit === 'number' || typeof flow === 'number' || typeof cycleCompletion === 'number') ? (
           <div className="mb-3 grid gap-2 break-inside-avoid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
@@ -461,46 +477,51 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
             {typeof flow === 'number' ? <Tile label="متوقّع الأسبوع الجاي" value={String(Math.round(flow))} tone="violet" /> : null}
             {typeof cycleCompletion === 'number' ? <Tile label="التزام الدورة الدورية" value={`${Math.round(cycleCompletion * 100)}%`} tone="teal" /> : null}
           </div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('خدماتك لكل زيارة، والالتزام بالدورة', 'تحتاج زياراتٍ حقيقية أولاً لتُحسب.')}</div>
+        )}
 
-        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div> : null}
-        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div> : null}
+        {(eff || opt) ? <div className="mb-3 break-inside-avoid"><MessageFlow eff={eff} opt={opt} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('أثر رسائلك', 'ما وصلنا سجل الرسائل بعد.')}</div>}
+        {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div>
+          : <div className="mb-3 break-inside-avoid">{muted('أثر الرسائل، مقيساً', 'يحتاج مجموعتين حقيقيتين للمقارنة — لسا ما تكوّنتا.')}</div>}
 
         {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison Tamam
-            asked for by name. And when there is not yet enough to rank, THE SAME SLOT holds a
-            stamp explaining exactly why, instead of the card just being absent with no
-            explanation anywhere on the page (his own words on that gap: «ما زال في مؤشرات ماهي
-            ظاهر … كلها تظهر بشكل رمادي … مع رابط لو في حاجة يسويها»). */}
-        {branches && (branches.rows ?? []).length > 1 ? (
-          <div className="mb-3 break-inside-avoid"><BranchCompare branches={branches} /></div>
-        ) : branchBlocked ? (
-          <div className="mb-3 break-inside-avoid"><BlockedStamp b={branchBlocked} /></div>
-        ) : null}
-        {operatorRows && operatorRows.length > 1 ? (
-          <div className="mb-3 break-inside-avoid">
+            asked for by name, and it must ALWAYS draw itself, muted when thin (never absent —
+            his own words: «always render لكل المكونات … لازم ما تجلس تخفي شي ابدا»).
+            `BranchCompare`/`StaffCompare` now handle the thin case internally; `branchBlocked`/
+            `staffBlocked` (coverage.py's own signal) is the richer explanation when we HAVE it,
+            and the plain muted fallback covers the rest. */}
+        <div className="mb-3 break-inside-avoid">
+          {branches ? <BranchCompare branches={branches} />
+            : branchBlocked ? <BlockedStamp b={branchBlocked} />
+            : muted('مقارنة الفروع', 'ما نقدر نقرأ فروعك الآن.')}
+        </div>
+        <div className="mb-3 break-inside-avoid">
+          {operatorRows ? (
             <StaffCompare rows={operatorRows} unknown={operatorUnknown} canRank={operatorCanRank} />
-          </div>
-        ) : staffBlocked ? (
-          <div className="mb-3 break-inside-avoid">
-            {/* THE ONE STAMP WITH A REAL LINK — a team he can invite into the product is the actual
-                fix for "visits arrive with nobody's name on them", unlike the other two (both
-                `owner: 'time'`, which genuinely have nowhere to send him). */}
+          ) : staffBlocked ? (
+            // THE ONE STAMP WITH A REAL LINK — a team he can invite into the product is the actual
+            // fix for "visits arrive with nobody's name on them", unlike the other two (both
+            // `owner: 'time'`, which genuinely have nowhere to send him).
             <BlockedStamp b={staffBlocked} cta={action(catalog, 'operations.list_operators') ? { label: 'فريقي', href: '/team' } : undefined} />
-          </div>
-        ) : null}
+          ) : muted('مقارنة الموظفين', 'ما نقدر نقارن الموظفين بهذا العرض الآن.')}
+        </div>
 
-        {(popularity && popularity.length > 0) || (weak && weak.length > 0) ? (
-          <div className="mb-3 break-inside-avoid">
-            <Section title="خدماتك">
-              {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
-              {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
-            </Section>
-          </div>
-        ) : null}
+        <div className="mb-3 break-inside-avoid">
+          <Section title="خدماتك">
+            {popularity && popularity.length > 0 ? <ServicePopularity rows={popularity} names={serviceNames} /> : null}
+            {weak && weak.length > 0 ? <WeakServices ids={weak} names={serviceNames} /> : null}
+            {!(popularity && popularity.length > 0) && !(weak && weak.length > 0)
+              ? muted('خدماتك', 'ما فيه بيانات خدمات كافية بعد — سجّل بضع زيارات وتبدأ تظهر.') : null}
+          </Section>
+        </div>
 
         {peak?.grid && Object.keys(peak.grid).length > 0 ? (
           <div className="mb-3 break-inside-avoid"><PeakHeatmap grid={peak.grid} busiest={peak.busiest} /></div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('أكثر أوقاتك ازدحامًا', 'تحتاج زياراتٍ موزّعة على أيام وساعات كافية لنرسمها.')}</div>
+        )}
 
         {serviceDayRows.length > 0 ? (
           <div className="mb-3 break-inside-avoid">
@@ -511,7 +532,9 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               hint="أي خدمة تُطلب بيوم معيّن أكثر — يساعدك تجهّز الطاقم المناسب ذاك اليوم."
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('خدماتك حسب يوم الأسبوع', 'تحتاج زياراتٍ موزّعة على أيام كافية لنرسمها.')}</div>
+        )}
 
         {/* واحدة تتصدّر دائماً، من محرك حقيقي (services/insights/app/core/next_step.py) — لا
             سلسلة if/else يدوية. أي قاعدة تختارها المنصة تُعرض كما هي، بلا اختراع نص هنا. */}
@@ -523,7 +546,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           </Section>
         </div>
 
-        {branches && (branches.rows ?? []).length > 1 && branchDayRows.length > 0 ? (
+        {branchDayRows.length > 0 ? (
           <div className="mb-3 break-inside-avoid">
             <EntityDayHeatmap
               title="فروعك حسب يوم الأسبوع"
@@ -532,7 +555,9 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               hint="فروعك ما تشترك بالضرورة بنفس الإيقاع — فرع بمول يزدحم بعطلة، وفرع حيّ يزدحم بعد الدوام."
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="mb-3 break-inside-avoid">{muted('فروعك حسب يوم الأسبوع', 'تحتاج فرعاً ثانياً وزياراتٍ موزّعة على أيام كافية لنرسمها.')}</div>
+        )}
 
         {/* ما يُطلب معًا وباقاته — كل حالة بمكانها، لا قائمة منفصلة مجمّعة آخر الصفحة. باقات مقترحة
             نفسها مبنية من نفس الاقترانات (`_bundles.build(pairs, …)` في insights.py)، فسكوتها هو
@@ -553,6 +578,8 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
               </div>
             ))}
           </div>
+        ) : bundles ? (
+          <div className="mb-3 break-inside-avoid">{muted('باقات مقترحة', 'ما فيه اقترانات كافية بعد لنقترح باقة منها.')}</div>
         ) : null}
 
         {locked.associations ? (
@@ -595,6 +622,8 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
           <div className="mb-3 break-inside-avoid">
             <MissedOpportunities session={session} catalog={catalog} rows={missed} names={serviceNames} />
           </div>
+        ) : missed ? (
+          <div className="mb-3 break-inside-avoid">{muted('فرص فائتة', 'لا عملاء واضحين بعد ناقصين خدمة تُشترى عادة مع خدماتهم.')}</div>
         ) : null}
       </div>
 
@@ -1272,11 +1301,47 @@ function LockedLine({ title, text }: { title: string; text: string }) {
   );
 }
 
+/** THE ROTATED CORNER BADGE every "not active yet" surface on this screen now shares — the real
+ *  chart/list card AND the standalone placeholder alike (Tamam: «كلها تظهر بشكلها الفعلي بالكامل
+ *  بس بلون باهت شوية … زي الختم»). One visual vocabulary for "this is real, just not full yet". */
+function StampBadge() {
+  return (
+    <span dir="ltr" className="absolute -top-1 left-3 z-10 rotate-[-6deg] rounded-b-md px-2.5 py-1 text-[9.5px] font-bold tracking-wide" style={{ background: 'var(--sh-ink-faint)', color: 'var(--sh-surface)' }}>
+      قيد التكوّن
+    </span>
+  );
+}
+
+/** THE FALLBACK FOR A CARD WITH LITERALLY NOTHING TO PLOT YET — no series, no rows, not even one.
+ *  Same muted/stamped language as `BranchCompare`/`StaffCompare` above, so an owner reads "not
+ *  active yet" the same way everywhere on the screen rather than the card just being missing with
+ *  no trace it was ever meant to be there. NEVER a fabricated number — a plain, honest sentence
+ *  naming the section, standing exactly where the real card would draw itself once it can. */
+function MutedIndicator({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="relative flex flex-col gap-1.5 overflow-hidden rounded-2xl p-4" style={{
+      background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)',
+      opacity: 0.6, filter: 'grayscale(0.35)',
+    }}>
+      <StampBadge />
+      <h3 className="pt-2 text-[13px] font-semibold" style={{ color: 'var(--sh-ink-soft)' }}>{title}</h3>
+      <p className="text-[12px]" style={{ color: 'var(--sh-ink-faint)' }}>{note}</p>
+    </div>
+  );
+}
+
 /** A "قيد التكوّن" STAMP, standing IN THE INDICATOR'S OWN PLACE — not collected into a separate
  *  list elsewhere on the page (Tamam's own words on that list: «اغبى تصميم بالكامل»). The dashed
  *  border and rotated corner badge read as "not active yet" at a glance, the same way the empty
  *  `Tile` treatment already does — real explanation, real progress when there is one, a real link
- *  when there is somewhere on the platform that actually finishes it, never an invented one. */
+ *  when there is somewhere on the platform that actually finishes it, never an invented one.
+ *
+ *  ONLY USED WHEN THE REAL CARD HAS NOTHING AT ALL TO SHOW (`associations`, no pairs learned yet).
+ *  `BranchCompare`/`StaffCompare` below take the other path — the real chart, muted — for exactly
+ *  the case Tamam caught: a shop WITH visits but one operator still went completely silent on
+ *  staff, because the real component's own render guard (`rows.length > 1`) hid it outright while
+ *  this stamp's own trigger (a coverage RATIO) never fired for a single, fully-attributed
+ *  operator. Two different thresholds guarding the same missing card is how it went dark twice. */
 function BlockedStamp({ b, cta }: { b: Blocked; cta?: { label: string; href: string } }) {
   const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
   const headline = (b.lost ?? '').trim() || blockedSentence(b);
@@ -1352,14 +1417,41 @@ function RatePill({ rate, label }: { rate: number; label: string }) {
   );
 }
 
+/** THE EMPTY ROW BOTH COMPARISON CARDS FALL BACK TO — same skeleton bar shape as a real row, at
+ *  0%, so the card's OWN SHAPE is what says "nothing recorded here yet", never a sentence standing
+ *  in for a chart that simply isn't drawn. */
+function GhostRow({ label }: { label: string }) {
+  return (
+    <li className="flex flex-col gap-1">
+      <div className="flex items-center justify-between text-[12.5px]">
+        <span className="font-medium" style={{ color: 'var(--sh-ink-faint)' }}>{label}</span>
+        <span dir="ltr" style={{ color: 'var(--sh-ink-faint)' }}>—</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full" style={{ background: 'var(--sh-surface-2)' }} />
+    </li>
+  );
+}
+
+/** ALWAYS RENDERED, NEVER SWAPPED FOR A DIFFERENT CARD — the earlier version hid this ENTIRELY
+ *  below `rows.length > 1`, and `BlockedStamp` elsewhere on the page only fires off a SEPARATE
+ *  coverage signal that does not cover every reason a chart is thin. The two thresholds disagreeing
+ *  is exactly how a shop WITH real visits saw neither the real chart nor any placeholder for staff
+ *  (Tamam: «متأكد في مؤشرات اساسا؟»). Now: real rows always show at full colour; below two rows the
+ *  WHOLE CARD mutes (opacity + a touch of grayscale) and carries the stamp + a plain explanation,
+ *  its real shape still fully visible underneath — «تظهر بشكلها الفعلي بالكامل بس بلون باهت شوية». */
 function BranchCompare({ branches }: { branches: Branches }) {
   const rows = (branches.rows ?? []).slice(0, 6);
   const max = Math.max(1, ...rows.map((r) => r.visits ?? 0));
+  const thin = rows.length < 2;
   return (
-    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)' }}>
-      <h3 className="text-[13px] font-semibold">مقارنة الفروع</h3>
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl p-4 transition-opacity" style={{
+      background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)',
+      opacity: thin ? 0.6 : 1, filter: thin ? 'grayscale(0.35)' : undefined,
+    }}>
+      {thin ? <StampBadge /> : null}
+      <h3 className="text-[13px] font-semibold pt-2">مقارنة الفروع</h3>
       <ul className="flex flex-col gap-2.5">
-        {rows.map((r, i) => {
+        {rows.length ? rows.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
           return (
             <li key={r.branch_id} className="flex flex-col gap-1">
@@ -1379,26 +1471,39 @@ function BranchCompare({ branches }: { branches: Branches }) {
               </div>
             </li>
           );
-        })}
+        }) : <GhostRow label="لا فروع مسجَّلة بعد" />}
       </ul>
       {branches.unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{branches.unknown} زيارة بلا فرع محدَّد — لا تُحتسب لأي فرع.</p> : null}
-      {branches.can_rank === false ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p> : null}
+      {thin ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          {rows.length === 0 ? 'لا نقارن الفروع بعد — يحتاج فرعان فأكثر بزيارات حقيقية.'
+            : 'فرع واحد فعّال حتى الآن — المقارنة تحتاج فرعاً ثانياً بزيارات حقيقية.'}
+        </p>
+      ) : branches.can_rank === false ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الفروع بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p>
+      ) : null}
     </div>
   );
 }
 
-/** THE STAFF EQUIVALENT OF `BranchCompare` ABOVE, same shape and same treatment — the metric
- *  Tamam chose is visits + distinct customers PLUS a return rate computed on the EMPLOYEE'S OWN
- *  slice of visits (`operator_rows` in tick.py), so "72% عودة" here means the customer came back
- *  to THIS person specifically, not to the shop in general. Fairness was the point of asking. */
+/** THE STAFF EQUIVALENT OF `BranchCompare` ABOVE, same shape, same always-visible/muted treatment —
+ *  the metric Tamam chose is visits + distinct customers PLUS a return rate computed on the
+ *  EMPLOYEE'S OWN slice of visits (`operator_rows` in tick.py), so "72% عودة" here means the
+ *  customer came back to THIS person specifically, not to the shop in general. Fairness was the
+ *  point of asking. */
 function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown?: number; canRank?: boolean }) {
   const top = [...rows].sort((a, b) => (b.visits ?? 0) - (a.visits ?? 0)).slice(0, 6);
   const max = Math.max(1, ...top.map((r) => r.visits ?? 0));
+  const thin = top.length < 2;
   return (
-    <div className="flex flex-col gap-3 rounded-2xl p-4" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)' }}>
-      <h3 className="text-[13px] font-semibold">مقارنة الموظفين</h3>
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl p-4 transition-opacity" style={{
+      background: 'var(--sh-surface)', boxShadow: cardShadow, border: '1px solid var(--sh-line)',
+      opacity: thin ? 0.6 : 1, filter: thin ? 'grayscale(0.35)' : undefined,
+    }}>
+      {thin ? <StampBadge /> : null}
+      <h3 className="text-[13px] font-semibold pt-2">مقارنة الموظفين</h3>
       <ul className="flex flex-col gap-2.5">
-        {top.map((r, i) => {
+        {top.length ? top.map((r, i) => {
           const pct = Math.round(((r.visits ?? 0) / max) * 100);
           const label = (r.name || r.operator_id || 'بلا اسم').trim();
           const initial = label ? label[0] : '؟';
@@ -1421,10 +1526,17 @@ function StaffCompare({ rows, unknown, canRank }: { rows: OperatorRow[]; unknown
               </div>
             </li>
           );
-        })}
+        }) : <GhostRow label="لا موظفون منسوبون بعد" />}
       </ul>
       {unknown ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>{unknown} زيارة بلا موظف محدَّد — لا تُحتسب لأحد.</p> : null}
-      {canRank === false ? <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p> : null}
+      {thin ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>
+          {top.length === 0 ? 'لا نقارن الموظفين بعد — يحتاج موظفان فأكثر بزيارات منسوبة لهم.'
+            : 'موظف واحد منسوب حتى الآن — المقارنة تحتاج موظفاً ثانياً بزيارات حقيقية.'}
+        </p>
+      ) : canRank === false ? (
+        <p className="text-[11px]" style={{ color: 'var(--sh-ink-faint)' }}>لا نرتّب الموظفين بعد — الفترة قصيرة، والمقارنة الآن تظلم الأحدث.</p>
+      ) : null}
     </div>
   );
 }
