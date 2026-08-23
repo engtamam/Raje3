@@ -20,6 +20,7 @@
  * platform-wide palette, which stays a separate decision for a separate day.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Button } from '../rj-ui/Button';
 import { EmptyState } from '../rj-ui/EmptyState';
 import { Skeleton } from '../rj-ui/Skeleton';
@@ -1400,9 +1401,13 @@ function Section({ title, hint, children, folded = false }: { title: string; hin
   if (empty) return null;
   if (folded) {
     return (
-      <details className="rounded-2xl" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
+      <details className="group rounded-2xl" style={{ background: 'var(--sh-surface)', boxShadow: cardShadow }}>
         <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-[13px] font-semibold">
           <span>{title}{hint ? <span className="mr-2 text-[11px] font-normal" style={{ color: 'var(--sh-ink-soft)' }}>{hint}</span> : null}</span>
+          {/* THE ONLY VISUAL CUE THIS WAS EXPANDABLE AT ALL used to be the cursor on hover — a
+              chevron is the one universal signal for "there is more below", and it turns with the
+              element's own open state via `group`, no extra state to keep in sync. */}
+          <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" style={{ color: 'var(--sh-ink-faint)' }} />
         </summary>
         <div className="flex flex-col gap-3 p-4 pt-0">{children}</div>
       </details>
