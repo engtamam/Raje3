@@ -47,6 +47,14 @@ function WhatsAppMark() {
   );
 }
 
+// MODULE-LEVEL, ON PURPOSE — Meta's popup message arrives on `window`, and in per_branch mode
+// several `<Connect>` cards (one per branch) are mounted at once, each with its own listener.
+// Without this, pressing «اربط واتساب» on ONE branch's card would have every OTHER mounted
+// card's listener react to the same message too — several branches racing to claim one popup's
+// result. Only one popup can realistically be open at a time, so a single shared flag naming
+// which card's button opened it is enough; each listener ignores a message that is not its own.
+let pendingConnectBranch: string | undefined;
+
 interface ConnectState {
   state: string;
   message: string;
@@ -72,7 +80,7 @@ interface SignupMessage {
 }
 
 export function Connect({
-  session, catalog, state, onChange,
+  session, catalog, state, onChange, branchId, branchLabel,
 }: {
   session: Session;
   catalog: Catalog;
@@ -82,6 +90,13 @@ export function Connect({
    *  connection that was working. */
   state: ConnectState | null | undefined;
   onChange: (s: ConnectState) => void;
+  /** ABSENT FOR EVERY SHOP IN THE DEFAULT MODE — one card, the establishment's own number, byte
+   *  for byte what this screen has always been. Set only by `AccountPanes`'s per-branch list once
+   *  a chain has deliberately moved to `shop_mode: per_branch` (core/shop_mode.py on the server);
+   *  threaded into every call below exactly as the backend routes already expect it
+   *  (`SignupResultIn.branch_id`, `RegisterIn.branch_id`, `GET /connect?branch_id=`). */
+  branchId?: string;
+  branchLabel?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -121,6 +136,9 @@ export function Connect({
         return;
       }
       if (msg?.type !== 'WA_EMBEDDED_SIGNUP') return;
+      // NOT MY POPUP — a different branch's card (or none, in the ordinary single-card case)
+      // opened it; this listener stays out of the way and lets the right one claim it.
+      if (pendingConnectBranch !== (branchId ?? '')) return;
 
       setBusy(true);
       setError('');
@@ -138,6 +156,10 @@ export function Connect({
           detail: msg.data?.error_message
             ? `${msg.data.error_code ?? ''} ${msg.data.error_message}`.trim().slice(0, 400)
             : '',
+          // EMPTY IS THE ESTABLISHMENT'S OWN NUMBER — `sending_identity.resolve` drops it anyway
+          // while the shop is central, so sending it unconditionally changes nothing for the
+          // shop this screen has always served.
+          branch_id: branchId ?? '',
         });
         onChange(answer);
       } catch (e) {
@@ -149,7 +171,7 @@ export function Connect({
 
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [session, catalog, onChange]);
+  }, [session, catalog, onChange, branchId]);
 
   const connected = state?.state === 'connected';
   // CONNECTED IS NOT THE SAME AS SENDING. A shop can hold a perfectly good connection while our
@@ -168,8 +190,10 @@ export function Connect({
       <div className="flex items-center gap-3">
         <WhatsAppMark />
         <span className="flex flex-col">
-          <span className="font-medium">واتساب أعمالك</span>
-          <span className="text-xs text-text-secondary">قناة التذكيرات والحملات لعملائك</span>
+          <span className="font-medium">{branchLabel ? `واتساب ${branchLabel}` : 'واتساب أعمالك'}</span>
+          <span className="text-xs text-text-secondary">
+            {branchLabel ? 'رقم هذا الفرع وحده — عملاؤه يراسلونه مباشرة' : 'قناة التذكيرات والحملات لعملائك'}
+          </span>
         </span>
         {/* ONE STATUS VOCABULARY, NOT TWO — this used to say the same fact the top summary card
             already states, in raw `text-warning`/`text-success` Tailwind classes instead of the
@@ -222,13 +246,13 @@ export function Connect({
             setRegisterNote('');
             try {
               const out = await call<{ registered: boolean; message: string }>(
-                session, registerAction, { pin });
+                session, registerAction, { pin, branch_id: branchId ?? '' });
               setRegisterNote(out.message || '');
               if (out.registered) {
                 setPin('');
                 // The sentence above is the server's, so it is re-read rather than rewritten here.
                 const fresh = statusAction
-                  ? await call<ConnectState>(session, statusAction)
+                  ? await call<ConnectState>(session, statusAction, branchId ? { branch_id: branchId } : {})
                   : null;
                 if (fresh) onChange(fresh);
               }
@@ -281,6 +305,10 @@ export function Connect({
                   : 'تعذّر فتح نافذة واتساب. تأكد من اتصالك وحاول مرة أخرى.');
                 return;
               }
+              // CLAIMED, BEFORE THE POPUP EVEN OPENS — see `pendingConnectBranch`'s own note. This
+              // card's button is the one that opened it, so this card's listener is the one that
+              // may act on whatever message comes back.
+              pendingConnectBranch = branchId ?? '';
               fb.login(() => { /* the answer arrives on the message listener, never here */ }, {
                 config_id: import.meta.env.VITE_META_CONFIG_ID,
                 response_type: 'code',
@@ -309,6 +337,90 @@ export function Connect({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** ONE CARD PER BRANCH, ONLY WHEN THIS CHAIN HAS DELIBERATELY MOVED TO `per_branch`
+ *  (core/shop_mode.py) — every shop in the default `central` mode sees exactly the single card
+ *  this screen has always shown, unchanged.
+ *
+ *  BEFORE THIS, THERE WAS NO WAY TO CONNECT A SECOND NUMBER AT ALL — `Connect` was mounted once,
+ *  establishment-wide, no matter how the shop was configured. A chain that switched to per_branch
+ *  (`Team.tsx`'s own `ModeCard`) had a mode with nowhere to act on it.
+ */
+export function ConnectByBranch({ session, catalog }: { session: Session; catalog: Catalog }) {
+  const [mode, setMode] = useState<{ mode: string; available?: boolean } | null | undefined>(undefined);
+  const [branches, setBranches] = useState<{ id: string; name?: string }[] | null>(null);
+  // ONE INDEPENDENT STATUS PER BRANCH — a Map, not one shared `ConnectState`, because a chain's
+  // three branches are three unrelated connections and reading one must never repaint another.
+  const [states, setStates] = useState<Record<string, ConnectState | null | undefined>>({});
+  // THE ESTABLISHMENT-WIDE CARD'S OWN STATE — held here too, ALWAYS (never behind an `if`), so
+  // every hook below runs in the same order on every render regardless of which mode this shop is
+  // in. `central` is the only branch that ever reads or writes it.
+  const [connected, setConnected] = useState<ConnectState | null | undefined>(undefined);
+
+  useEffect(() => {
+    const m = action(catalog, 'operations.shop_mode');
+    if (m) call<{ mode: string; available?: boolean }>(session, m).then(setMode).catch(() => setMode(null));
+    else setMode(null);
+  }, [session, catalog]);
+
+  useEffect(() => {
+    if (mode?.mode !== 'per_branch') return;
+    const b = action(catalog, 'operations.list_branches');
+    if (!b) { setBranches([]); return; }
+    call<{ branches?: { id: string; name?: string }[] }>(session, b)
+      .then((x) => setBranches(x.branches ?? []))
+      .catch(() => setBranches([]));
+  }, [session, catalog, mode?.mode]);
+
+  useEffect(() => {
+    if (!branches || !branches.length) return;
+    const statusAction = action(catalog, 'whatsapp.connect_status');
+    if (!statusAction) return;
+    branches.forEach((br) => {
+      call<ConnectState>(session, statusAction, { branch_id: br.id })
+        .then((s) => setStates((was) => ({ ...was, [br.id]: s })))
+        .catch(() => setStates((was) => ({ ...was, [br.id]: null })));
+    });
+  }, [session, catalog, branches]);
+
+  useEffect(() => {
+    if (mode?.mode === 'per_branch') return;
+    const w = action(catalog, 'whatsapp.connect_status');
+    if (w) call<ConnectState>(session, w).then(setConnected).catch(() => setConnected(null));
+  }, [session, catalog, mode?.mode]);
+
+  // STILL DECIDING, OR THE READ FAILED — the single establishment-wide card is the safe default
+  // in both cases: it is what this screen has always shown, and a shop in `central` mode (every
+  // shop that never touched `Team.tsx`'s own mode card) must see exactly that, unconditionally.
+  if (mode?.mode !== 'per_branch') {
+    return <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />;
+  }
+
+  if (!branches) return null;
+  if (!branches.length) {
+    return (
+      <p className="rounded-card bg-surface-1 p-4 text-sm text-text-secondary shadow-sm">
+        محلّك بلا فروع بعد — أضِف فرعاً من «منشأتي» لتربط رقم واتساب له.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {branches.map((br) => (
+        <Connect
+          key={br.id}
+          session={session}
+          catalog={catalog}
+          branchId={br.id}
+          branchLabel={br.name || br.id}
+          state={states[br.id]}
+          onChange={(s) => setStates((was) => ({ ...was, [br.id]: s }))}
+        />
+      ))}
     </div>
   );
 }

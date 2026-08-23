@@ -27,7 +27,7 @@ import { Segmented } from '../rj-ui/Segmented';
 import { Skeleton } from '../rj-ui/Skeleton';
 import { action, call, type Catalog } from '../catalog';
 import type { Session } from '../session';
-import { Connect } from './Connect';
+import { ConnectByBranch } from './Connect';
 import { DataPane, InvoicesPane, KeysPane, ShopPane } from './AccountPanes';
 import { PlansPane } from './Plans';
 import { TeamScreen } from './Team';
@@ -282,7 +282,11 @@ export function AccountScreen(
               behind two taps, and nobody remembers which one they were on. */}
           <ShopPane session={session} catalog={catalog} />
           <TeamScreen session={session} catalog={catalog} />
-          <Connect session={session} catalog={catalog} state={connected} onChange={setConnected} />
+          {/* PER_BRANCH SHOPS GET ONE CARD A BRANCH — `ConnectByBranch` itself decides between the
+              single establishment-wide card (every shop that never left `central` mode, the
+              overwhelming default) and a list, by reading `shop_mode`; nothing here needs to know
+              which one it is. */}
+          <ConnectByBranch session={session} catalog={catalog} />
           <KeysPane session={session} catalog={catalog} />
         </div>
       ) : null}
