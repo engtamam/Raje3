@@ -7,10 +7,10 @@
 # NOTHING about which rows he may touch — that is still, and only, the ownership/role DATA check
 # baked into each route (the same shape as operations.hire(): a shop owner needs no platform
 # capability to hire his own staff; the question is "is this HIS shop", never "may owners in
-# general do this"). `invite()` below is the clearest example: `_SELF` only proves he is signed
-# in as an affiliate; onboarding.invite() still checks his own person_id resolves to an ACTIVE
-# manager before anything happens — a capability would answer "may marketers in general invite",
-# which is the wrong question.
+# general do this"). `update_application()` below is the clearest example: `_SELF` only proves he
+# is signed in as an affiliate; onboarding.update_application() still checks the application's own
+# `parent_id` matches his — a capability would answer "may marketers in general edit
+# applications", which is the wrong question.
 #
 # WHY THIS EXISTS AT ALL: before 2026-08-22 no route here checked a capability, because no role
 # in this tenant had ever been bootstrapped with one (`onboarding.py::_ensure_tenant_ready` minted
@@ -44,9 +44,9 @@ router = APIRouter(prefix="/api/v1/affiliates/me", tags=["affiliates-self"])
 _SELF = require_capability(AFFILIATE_SELF)
 
 
-class InviteIn(BaseModel):
-    phone: str = Field(min_length=6, max_length=32)
-    name: str = Field(min_length=1, max_length=200)
+class UpdateApplicationIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    cv_url: str | None = Field(default=None, max_length=500)
 
 
 class PayoutMethodIn(BaseModel):
@@ -142,16 +142,18 @@ async def change_password(request: Request, body: ChangePasswordIn,
     return {"ok": True}
 
 
-@router.post("/invite", dependencies=[Depends(_SELF), Depends(rate_limit)])
-async def invite(request: Request, body: InviteIn,
-                 principal: Principal = Depends(require_user)) -> Any:
-    """A manager names somebody he wants on his team — still goes through the admin gate (spec
-    §2); see onboarding.invite() for the whole reasoning. `principal.subject` is the token's
-    `sub`, which — for this service's tenant — IS the identity person_id the affiliate row was
-    minted under; there is no separate lookup table to keep in step."""
+@router.patch("/applications/{application_id}", dependencies=[Depends(_SELF), Depends(rate_limit)])
+async def update_application(request: Request, application_id: str, body: UpdateApplicationIn,
+                             principal: Principal = Depends(require_user)) -> Any:
+    """A manager correcting what a person who used his referral link submitted — only while
+    there is still a decision to correct BEFORE (Tamam: "التعديل يكون قبل القبول من الادارة
+    وليس بعده"); see onboarding.update_application() for the whole reasoning. `principal.subject`
+    is the token's `sub`, which — for this service's tenant — IS the identity person_id the
+    affiliate row was minted under; there is no separate lookup table to keep in step."""
     try:
-        out = await _svc(request).invite(
-            inviter_person_id=principal.subject, phone=body.phone, name=body.name)
+        out = await _svc(request).update_application(
+            application_id, editor_person_id=principal.subject,
+            name=body.name, cv_url=body.cv_url)
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
@@ -178,9 +180,9 @@ async def commissions(request: Request, principal: Principal = Depends(require_u
 @router.get("/team", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def team(request: Request, principal: Principal = Depends(require_user)) -> Any:
     """spec §10: a manager's real revenue transparency — who is on his team AND what each of them
-    actually earned, not just the roster invite() already let him build. A promoter calling this
-    is not a manager: he simply has no children (parent_id never points AT him), so this answers
-    an honest empty team rather than needing a role check to refuse anything."""
+    actually earned, not just the roster his own referral link already let him build. A promoter
+    calling this is not a manager: he simply has no children (parent_id never points AT him), so
+    this answers an honest empty team rather than needing a role check to refuse anything."""
     onboarding = _svc(request)
     affiliate = await onboarding.me(principal.subject)
     if affiliate is None:
@@ -429,9 +431,8 @@ def _leads_keys(request: Request) -> LeadSourcingKeys:
 
 async def _my_manager_affiliate(request: Request, principal: Principal) -> dict[str, Any]:
     """§٦: "للمدير فقط" — lead sourcing (and the API key that powers it) is not a promoter's
-    concern. A data check on the caller's own role, same shape as invite()'s own
-    `managers_only` — never a capability, since the question is "is the caller himself a
-    manager", not "may managers in general do this"."""
+    concern. A data check on the caller's own role — never a capability, since the question is
+    "is the caller himself a manager", not "may managers in general do this"."""
     affiliate = await _svc(request).me(principal.subject)
     if affiliate is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "NOT_AN_AFFILIATE")
@@ -888,9 +889,9 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
     is_manager = affiliate["role"] == get_settings().AFFILIATE_MANAGER_ROLE
     c = request.app.state.container
 
-    # `onboarding.me()` deliberately answers with NAMED FIELDS ONLY (its own docstring: never
-    # `.to_dict()`, which carries `invite_token`) — `payout_channel` is not one of them, so it is
-    # read here straight off the row, the same way `set_payout_method`'s own route would.
+    # `onboarding.me()` deliberately answers with NAMED FIELDS ONLY (its own docstring) —
+    # `payout_channel` is not one of them, so it is read here straight off the row, the same way
+    # `set_payout_method`'s own route would.
     raw = await c.datastore.get(AFFILIATES, aff_id)
     payout_channel = Affiliate.from_dict(raw).payout_channel if raw else ""
 

@@ -70,31 +70,37 @@ export interface AffiliateSession {
 }
 
 /** «سجّل كمسوّق» — writes a ROW an admin has to look at first. No account, no token comes back;
- *  see services/affiliate-service/app/core/onboarding.py::apply for the whole reasoning. */
+ *  see services/affiliate-service/app/core/onboarding.py::apply for the whole reasoning. A
+ *  referral link's own applicant proves he owns the number via `code` — empty on a deployment
+ *  where AFFILIATE_REQUIRE_OTP is still off, which apply() itself accepts either way. */
 export async function apply(input: {
   phone: string; name: string; password: string; referralCode?: string; agreed: boolean;
+  cvUrl?: string; code?: string;
 }): Promise<{ application_id: string; status: string }> {
   return req('/api/v1/affiliates/apply', 'POST', {
     phone: input.phone, name: input.name, password: input.password,
     referral_code: input.referralCode || '', agreed: input.agreed,
+    cv_url: input.cvUrl || '', code: input.code || '',
   });
+}
+
+/** The phone-ownership code — a no-op refusal (`reason: 'undeliverable'`) on a deployment where
+ *  AFFILIATE_OTP_DELIVERABLE is still off, i.e. every deployment today. */
+export async function requestApplyOtp(phone: string): Promise<{ sent: boolean; expires_in: number }> {
+  return req('/api/v1/affiliates/apply/request-otp', 'POST', { phone });
 }
 
 export async function signIn(phone: string, password: string): Promise<AffiliateSession> {
   return req('/api/v1/affiliates/signin', 'POST', { phone, password });
 }
 
-/** The other half of a manager's invite — no token yet, same reason `apply` has none. */
-export async function acceptInvite(token: string, password: string, agreed: boolean):
-    Promise<{ affiliate_id: string }> {
-  return req('/api/v1/affiliates/accept-invite', 'POST', { token, password, agreed });
-}
-
-/** A manager naming somebody for his own team. Needs a signed-in manager's own token; the server
- *  is the one place that actually decides whether the caller may (see api/v1/affiliate_self.py). */
-export async function invite(session: AffiliateSession, phone: string, name: string):
-    Promise<{ application_id: string; status: string }> {
-  return req('/api/v1/affiliates/me/invite', 'POST', { phone, name }, session.access_token);
+/** The referring manager correcting what a person under him submitted — only while there is
+ *  still a decision to correct BEFORE (server-enforced; see onboarding.py::update_application). */
+export async function updateApplication(session: AffiliateSession, applicationId: string,
+    patch: { name?: string; cvUrl?: string }): Promise<{ application_id: string; status: string }> {
+  return req(`/api/v1/affiliates/me/applications/${applicationId}`, 'PATCH', {
+    name: patch.name, cv_url: patch.cvUrl,
+  }, session.access_token);
 }
 
 export interface Me {

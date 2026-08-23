@@ -11,18 +11,17 @@
  * (`tabsFor(isManager)`) rather than reopening that decision for the promoter majority who would
  * never use it.
  */
-import { useEffect, useState, type FormEvent } from 'react';
-import { Users, CheckCircle2, XCircle, UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Users, CheckCircle2, XCircle, QrCode } from 'lucide-react';
+import QRCode from 'qrcode';
 import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
-import { Field, Input } from '@base-ui/design-system/Field';
 import { riyalsLabel } from '../money';
-import { western } from '../digits';
 import { PerformanceStats } from './AffiliateEarnings';
 import {
-  team, teamWafaRequests, decideTeamWafaRequest, invite, AffiliateRefused,
+  me, team, teamWafaRequests, decideTeamWafaRequest,
   type AffiliateSession, type Team, type WafaRequest,
 } from './api';
 
@@ -30,89 +29,79 @@ export function AffiliateTeam({ session }: { session: AffiliateSession }) {
   return (
     <div className="flex flex-col gap-5 p-6">
       <h1 className="text-2xl leading-tight tracking-tight">فريقي</h1>
-      <AddMemberSection session={session} />
+      <ReferralLinkSection session={session} />
       <TeamWafaQueue session={session} />
       <TeamRoster session={session} />
     </div>
   );
 }
 
-/** زر يفتح نموذج الدعوة — لا نموذج دائم الظهور. الدعوة نفسها فعل نادر (عكس مراجعة الفريق اليومية)،
- *  فلا تستحق أول ما يفتح المدير الصفحة. */
-function AddMemberSection({ session }: { session: AffiliateSession }) {
-  const [open, setOpen] = useState(false);
+/** لا دعوة تُرسَل من عندنا بعد الآن (تمام، 2026-08-23: "رابط للمدير مافي اي ارسال المدير راح
+ *  يرسل له الرابط") — المدير يشارك رابطه الخاص بنفسه (واتساب، شخصيًا)، ومن يستخدمه يقدّم طلبه
+ *  العادي ويُربَط تحت المدير تلقائيًا عبر كود الإحالة، بعد تأكيد رقم جواله. */
+function ReferralLinkSection({ session }: { session: AffiliateSession }) {
+  const [selfId, setSelfId] = useState<string | 'loading' | 'failed'>('loading');
+  const [copied, setCopied] = useState(false);
 
-  if (!open) {
-    return (
-      <Button type="button" onClick={() => setOpen(true)}
-             className="flex items-center justify-center gap-2 self-start">
-        <UserPlus size={16} /> إضافة عضو لفريقك
-      </Button>
-    );
-  }
+  useEffect(() => {
+    let cancelled = false;
+    me(session).then((m) => { if (!cancelled) setSelfId(m.id); })
+      .catch(() => { if (!cancelled) setSelfId('failed'); });
+    return () => { cancelled = true; };
+  }, [session]);
 
-  return <InviteForm session={session} onDone={() => setOpen(false)} />;
+  if (selfId === 'loading') return <Skeleton height={100} />;
+  if (selfId === 'failed') return null;
+
+  const link = `${window.location.origin}/affiliates?ref=${selfId}`;
+  const copy = () => {
+    navigator.clipboard?.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-5 shadow-sm">
+      <div>
+        <h2 className="text-lg">أضف عضواً لفريقك</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          شارك رابطك مع المسوّق — طلبه يمر بالمراجعة ثم يُربَط تحتك تلقائيًا.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <input readOnly dir="ltr" value={link}
+               className="w-full rounded-md border border-border-strong bg-surface-0 px-3 py-2 text-sm text-text-primary" />
+        <Button type="button" onClick={copy}>{copied ? 'تم النسخ' : 'نسخ'}</Button>
+        <QrDownloadButton link={link} />
+      </div>
+    </div>
+  );
 }
 
-function InviteForm({ session, onDone }: { session: AffiliateSession; onDone: () => void }) {
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
+function QrDownloadButton({ link }: { link: string }) {
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!phone.trim() || !name.trim()) {
-      setError('أدخل الاسم ورقم الجوال.');
-      return;
-    }
+  async function download() {
     setBusy(true);
-    setError('');
     try {
-      await invite(session, phone, name);
-      setSent(true);
-      setPhone('');
-      setName('');
-    } catch (err) {
-      setError(err instanceof AffiliateRefused ? err.message : 'تعذّرت الدعوة.');
+      const dataUrl = await QRCode.toDataURL(link, { width: 512, margin: 2 });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'رابط-دعوة-مسوّق.png';
+      a.click();
+    } catch {
+      // الرابط نفسه لسا قابل للنسخ عادي، الباركود مجرد تسهيل إضافي.
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4 rounded-card bg-surface-1 p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-lg">ادعُ مسوّقاً لفريقك</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            يمر طلبه على مراجعة فريقنا قبل التفعيل — نفس الخطوة لأي طلب جديد.
-          </p>
-        </div>
-        <Button type="button" variant="ghost" onClick={onDone}>إغلاق</Button>
-      </div>
-
-      <Field label="اسمه" required htmlFor="inv-name">
-        <Input id="inv-name" value={name}
-               onChange={(e) => { setName(e.target.value); setError(''); setSent(false); }} />
-      </Field>
-
-      <Field label="رقم جواله" required htmlFor="inv-phone">
-        <Input id="inv-phone" value={phone} type="tel" inputMode="tel" dir="ltr"
-               placeholder="05XXXXXXXX"
-               onChange={(e) => {
-                 setPhone(western(e.target.value)); setError(''); setSent(false);
-               }} />
-      </Field>
-
-      {error ? <p role="alert" className="text-danger">{error}</p> : null}
-      {sent ? <p className="text-success">أُرسلت الدعوة — بانتظار المراجعة.</p> : null}
-
-      <Button type="submit" disabled={busy || !phone.trim() || !name.trim()}>
-        {busy ? 'جارٍ الإرسال…' : 'إرسال الدعوة'}
-      </Button>
-    </form>
+    <Button type="button" variant="ghost" size="icon" aria-label="تنزيل كباركود"
+           disabled={busy} onClick={download}>
+      <QrCode size={16} />
+    </Button>
   );
 }
 

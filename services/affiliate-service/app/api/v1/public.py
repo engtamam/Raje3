@@ -1,11 +1,13 @@
 # =============================================================================
-# affiliate-service — the two unauthenticated routes («بوابة القبول», spec §2)
+# affiliate-service — the unauthenticated routes («بوابة القبول», spec §2)
 # -----------------------------------------------------------------------------
 # Mirrors operations' own api/v1/signup.py exactly on purpose: same shape, same reasons.
 #
 #   /apply is the ONLY door with no token — it creates the request the token would later come
 #   from, so it cannot itself require one. Rate-limited, and refusals answer with a body an
 #   applicant can act on rather than a stripped 400 (see errors.py's own reasoning on that strip).
+#   A referral_code applicant proves he owns the number he is applying with via /request-otp +
+#   /apply's own `code` — see onboarding.py's own note on the two dormant-by-default flags.
 #
 #   /signin is ordinary sign-in with nothing invented here: identity does every real check
 #   (password, lockout, MFA). This file only resolves WHICH tenant, since an applicant does not
@@ -40,6 +42,11 @@ class ApplyIn(BaseModel):
     #: spec §2 — required True or the application is refused. A checkbox the console renders,
     #: never assumed on the applicant's behalf.
     agreed: bool = False
+    #: Optional, never required — a pasted résumé/portfolio link.
+    cv_url: str = Field(default="", max_length=500)
+    #: The phone-ownership code — empty unless onboarding's own AFFILIATE_REQUIRE_OTP is on, in
+    #: which case apply() itself refuses without a real one. See /request-otp below.
+    code: str = Field(default="", max_length=16)
 
 
 class SignInIn(BaseModel):
@@ -48,10 +55,8 @@ class SignInIn(BaseModel):
     code: str = Field(default="", max_length=16)
 
 
-class AcceptInviteIn(BaseModel):
-    token: str = Field(min_length=1, max_length=512)
-    password: str = Field(min_length=1, max_length=256)
-    agreed: bool = False
+class RequestOtpIn(BaseModel):
+    phone: str = Field(min_length=6, max_length=32)
 
 
 def _svc(request: Request):
@@ -70,7 +75,17 @@ async def apply(request: Request, body: ApplyIn) -> Any:
     try:
         out = await _svc(request).apply(
             phone=body.phone, name=body.name, password=body.password,
-            referral_code=body.referral_code, agreed=body.agreed)
+            referral_code=body.referral_code, agreed=body.agreed,
+            cv_url=body.cv_url, code=body.code)
+    except OnboardingRefused as exc:
+        return _refused(exc)
+    return {"ok": True, **out}
+
+
+@router.post("/apply/request-otp", dependencies=[Depends(rate_limit)])
+async def request_otp(request: Request, body: RequestOtpIn) -> Any:
+    try:
+        out = await _svc(request).request_otp(body.phone)
     except OnboardingRefused as exc:
         return _refused(exc)
     return {"ok": True, **out}
@@ -82,16 +97,3 @@ async def sign_in(request: Request, body: SignInIn) -> Any:
         return await _svc(request).sign_in(body.phone, body.password, body.code)
     except OnboardingRefused as exc:
         return _refused(exc)
-
-
-@router.post("/accept-invite", dependencies=[Depends(rate_limit)])
-async def accept_invite(request: Request, body: AcceptInviteIn) -> Any:
-    """The other half of a manager's invite() — no token yet, same reason /apply has none: the
-    invited person holds nothing identity or we would authenticate with until this call sets his
-    own password."""
-    try:
-        out = await _svc(request).accept_invite(
-            token=body.token, password=body.password, agreed=body.agreed)
-    except OnboardingRefused as exc:
-        return _refused(exc)
-    return {"ok": True, **out}

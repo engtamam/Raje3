@@ -160,29 +160,27 @@ def test_approving_an_unknown_application_id_is_a_clean_400(client):
     assert r.json()["reason"] == "not_found"
 
 
-def test_invite_refuses_a_token_with_no_capability_at_all(client):
+def test_update_application_refuses_a_token_with_no_capability_at_all(client):
     # `affiliates.self` (2026-08-22) now gates the route itself — a token with NO caps never
     # reaches the service layer at all.
-    r = client.post("/api/v1/affiliates/me/invite",
-                    json={"phone": "0501234599", "name": "مدعو"},
-                    headers={"Authorization": f"Bearer {_token(caps=[])}"})
+    r = client.patch("/api/v1/affiliates/me/applications/does-not-exist",
+                     json={"name": "محاولة"},
+                     headers={"Authorization": f"Bearer {_token(caps=[])}"})
     assert r.status_code == 403
 
 
-def test_invite_needs_no_role_specific_capability_beyond_self(client):
-    # Once past that baseline, eligibility is still a DATA check (is this caller an active
-    # manager affiliate), not an RBAC one — see api/v1/affiliate_self.py's own note. A token
-    # holding only `affiliates.self`, for a subject with no matching affiliate row at all,
-    # reaches the service layer, which is what actually refuses it.
-    r = client.post("/api/v1/affiliates/me/invite",
-                    json={"phone": "0501234599", "name": "مدعو"},
-                    headers={"Authorization": f"Bearer {_token(sub='nobody-at-all')}"})
-    assert r.status_code == 403
-    assert r.json()["reason"] == "not_an_active_affiliate"
+def test_update_application_needs_no_role_specific_capability_beyond_self(client):
+    # Once past that baseline, eligibility is still a DATA check (is the application ours to
+    # touch), not an RBAC one — see api/v1/affiliate_self.py's own note.
+    r = client.patch("/api/v1/affiliates/me/applications/does-not-exist",
+                     json={"name": "محاولة"},
+                     headers={"Authorization": f"Bearer {_token(sub='nobody-at-all')}"})
+    assert r.status_code == 400
+    assert r.json()["reason"] == "not_found"
 
 
-def test_invite_refuses_with_no_token_at_all(client):
-    r = client.post("/api/v1/affiliates/me/invite", json={"phone": "0501234599", "name": "مدعو"})
+def test_update_application_refuses_with_no_token_at_all(client):
+    r = client.patch("/api/v1/affiliates/me/applications/does-not-exist", json={"name": "محاولة"})
     assert r.status_code == 401
 
 
@@ -257,14 +255,6 @@ def test_my_commissions_is_404_for_a_token_with_no_matching_affiliate_row(client
                    headers={"Authorization": f"Bearer {_token(sub='nobody')}"})
     assert r.status_code == 404
 
-
-
-
-def test_accept_invite_with_an_unknown_token_is_a_clean_400(client):
-    r = client.post("/api/v1/affiliates/accept-invite",
-                    json={"token": "never-issued", "password": "hunter2hunter2"})
-    assert r.status_code == 400
-    assert r.json()["reason"] == "invalid_invite"
 
 
 # ── spec §10: a manager's own team, with what it actually earned ────────────────────────────────
@@ -363,3 +353,31 @@ def test_platform_revenue_toggle_is_off_by_default_then_flips_the_team_route(cli
     after = client.get("/api/v1/affiliates/me/team", headers=headers)
     assert after.json()["platform_revenue_enabled"] is True
     assert "platform_net_revenue_minor" in after.json()
+
+
+# ── the manager's own edit window, before an admin decides ──────────────────────────────────────
+
+def test_update_application_lets_the_referring_manager_correct_it(client):
+    import asyncio
+
+    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+
+    async def seed():
+        c = client.app.state.container
+        mgr = Affiliate(id="mgr-edit-1", person_id="p-mgr-edit-1", phone="+966505550020",
+                        name="مدير", role="affiliate_manager", status=ACTIVE)
+        await c.datastore.put(AFFILIATES, mgr.id, mgr.to_dict())
+
+    asyncio.run(seed())
+    apply_r = client.post("/api/v1/affiliates/apply",
+                          json={"phone": "0501234777", "name": "قبل التعديل",
+                               "password": "hunter2hunter2", "agreed": True,
+                               "referral_code": "mgr-edit-1"})
+    application_id = apply_r.json()["application_id"]
+
+    r = client.patch(f"/api/v1/affiliates/me/applications/{application_id}",
+                     json={"name": "بعد التعديل", "cv_url": "https://example.com/cv.pdf"},
+                     headers={"Authorization": f"Bearer {_token(sub='p-mgr-edit-1')}"})
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "بعد التعديل"
+    assert r.json()["cv_url"] == "https://example.com/cv.pdf"

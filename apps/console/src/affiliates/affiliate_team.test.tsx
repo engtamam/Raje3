@@ -3,19 +3,25 @@
  * بشكل ذكي كل شي عن فريقه هناك"): the roster + its earnings, the pending WAFA queue, and — new —
  * each member's own performance numbers (retention/refund/support KPIs), previously computed by
  * the backend and silently discarded by the frontend.
+ *
+ * NO MORE INVITE FORM (2026-08-23) — the manager shares his OWN referral link himself; see this
+ * file's own ReferralLinkSection.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AffiliateTeam } from './AffiliateTeam';
-import type { AffiliateSession, Team, WafaRequest } from './api';
+import type { AffiliateSession, Me, Team, WafaRequest } from './api';
+
+vi.mock('qrcode', () => ({
+  default: { toDataURL: vi.fn(async (text: string) => `data:image/png;base64,QR(${text})`) },
+}));
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
 
 let teamMock: () => Promise<Team>;
 let teamWafaMock: () => Promise<{ wafa_requests: WafaRequest[] }>;
+let meMock: () => Promise<Me>;
 const decideCalls: { id: string; decision: string }[] = [];
-const inviteCalls: { phone: string; name: string }[] = [];
-let inviteShouldFail = false;
 
 vi.mock('./api', async (importOriginal) => {
   const real = await importOriginal<typeof import('./api')>();
@@ -23,14 +29,10 @@ vi.mock('./api', async (importOriginal) => {
     ...real,
     team: (...args: unknown[]) => teamMock(),
     teamWafaRequests: (...args: unknown[]) => teamWafaMock(),
+    me: (...args: unknown[]) => meMock(),
     decideTeamWafaRequest: async (_s: unknown, id: string, decision: string) => {
       decideCalls.push({ id, decision });
       return { ok: true };
-    },
-    invite: async (_s: unknown, phone: string, name: string) => {
-      if (inviteShouldFail) throw new real.AffiliateRefused('هناك طلب سابق لهذا الرقم قيد المراجعة.');
-      inviteCalls.push({ phone, name });
-      return { application_id: 'app-1', status: 'pending' };
     },
   };
 });
@@ -41,66 +43,35 @@ const EMPTY_TEAM: Team = {
   team_revenue_partial: false, platform_revenue_enabled: false,
 };
 
-afterEach(() => {
-  vi.clearAllMocks(); decideCalls.length = 0; inviteCalls.length = 0; inviteShouldFail = false;
-});
+const SELF: Me = { id: 'mgr-1', role: 'affiliate_manager', name: 'عبدالله', parent_id: '',
+                   status: 'active' };
 
-describe('AffiliateTeam — add a member', () => {
-  it('the form is closed by default — the button opens it', async () => {
+afterEach(() => { vi.clearAllMocks(); decideCalls.length = 0; });
+
+describe('AffiliateTeam — referral link', () => {
+  it('shows the manager\'s own referral link, ready to copy or download as a QR code', async () => {
     teamMock = () => Promise.resolve(EMPTY_TEAM);
     teamWafaMock = () => Promise.resolve({ wafa_requests: [] });
+    meMock = () => Promise.resolve(SELF);
     render(<AffiliateTeam session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('إضافة عضو لفريقك')).toBeTruthy());
-    expect(screen.queryByText('ادعُ مسوّقاً لفريقك')).toBeFalsy();
-
-    fireEvent.click(screen.getByText('إضافة عضو لفريقك'));
-    expect(screen.getByText('ادعُ مسوّقاً لفريقك')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('أضف عضواً لفريقك')).toBeTruthy());
+    const input = screen.getByDisplayValue(/\/affiliates\?ref=mgr-1$/);
+    expect(input).toBeTruthy();
+    expect(screen.getByLabelText('تنزيل كباركود')).toBeTruthy();
   });
 
-  it('submitting invites the marketer and shows the confirmation', async () => {
+  it('copying writes the exact link to the clipboard', async () => {
     teamMock = () => Promise.resolve(EMPTY_TEAM);
     teamWafaMock = () => Promise.resolve({ wafa_requests: [] });
+    meMock = () => Promise.resolve(SELF);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
     render(<AffiliateTeam session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('إضافة عضو لفريقك')).toBeTruthy());
-    fireEvent.click(screen.getByText('إضافة عضو لفريقك'));
+    await waitFor(() => expect(screen.getByText('أضف عضواً لفريقك')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('اسمه', { exact: false }), { target: { value: 'خالد' } });
-    fireEvent.change(screen.getByLabelText('رقم جواله', { exact: false }),
-                     { target: { value: '0501234567' } });
-    fireEvent.click(screen.getByText('إرسال الدعوة'));
-
-    await waitFor(() => expect(inviteCalls).toEqual([{ phone: '0501234567', name: 'خالد' }]));
-    await waitFor(() => expect(screen.getByText(/أُرسلت الدعوة/)).toBeTruthy());
-  });
-
-  it('a refused invite shows the real reason, not a generic failure', async () => {
-    teamMock = () => Promise.resolve(EMPTY_TEAM);
-    teamWafaMock = () => Promise.resolve({ wafa_requests: [] });
-    inviteShouldFail = true;
-    render(<AffiliateTeam session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('إضافة عضو لفريقك')).toBeTruthy());
-    fireEvent.click(screen.getByText('إضافة عضو لفريقك'));
-
-    fireEvent.change(screen.getByLabelText('اسمه', { exact: false }), { target: { value: 'خالد' } });
-    fireEvent.change(screen.getByLabelText('رقم جواله', { exact: false }),
-                     { target: { value: '0501234567' } });
-    fireEvent.click(screen.getByText('إرسال الدعوة'));
-
-    await waitFor(() => expect(screen.getByRole('alert').textContent)
-      .toBe('هناك طلب سابق لهذا الرقم قيد المراجعة.'));
-  });
-
-  it('closing the form goes back to the button', async () => {
-    teamMock = () => Promise.resolve(EMPTY_TEAM);
-    teamWafaMock = () => Promise.resolve({ wafa_requests: [] });
-    render(<AffiliateTeam session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('إضافة عضو لفريقك')).toBeTruthy());
-    fireEvent.click(screen.getByText('إضافة عضو لفريقك'));
-    expect(screen.getByText('ادعُ مسوّقاً لفريقك')).toBeTruthy();
-
-    fireEvent.click(screen.getByText('إغلاق'));
-    expect(screen.queryByText('ادعُ مسوّقاً لفريقك')).toBeFalsy();
-    expect(screen.getByText('إضافة عضو لفريقك')).toBeTruthy();
+    fireEvent.click(screen.getByText('نسخ'));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(
+      `${window.location.origin}/affiliates?ref=mgr-1`));
   });
 });
 

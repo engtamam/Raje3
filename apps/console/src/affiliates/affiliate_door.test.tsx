@@ -27,13 +27,6 @@ describe('AffiliateDoor', () => {
     expect(screen.getByText('انضم كمسوّق')).toBeTruthy();
   });
 
-  it('opens straight on «قبول دعوة» when the link carries ?invite=, no segmented control shown', () => {
-    setSearch('?invite=tok-abc');
-    render(<AffiliateDoor onSignedIn={() => {}} />);
-    expect(screen.getByText('دُعيت للانضمام')).toBeTruthy();
-    expect(screen.queryByText('تسجيل الدخول')).toBeFalsy();
-  });
-
   it('the apply pane keeps «إرسال الطلب» disabled until every field and the consent box are set', () => {
     setSearch('');
     const { container } = render(<AffiliateDoor onSignedIn={() => {}} />);

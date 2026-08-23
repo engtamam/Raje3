@@ -148,7 +148,6 @@ env:
 
       {"prefix":"/api/v1/affiliates/apply","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/affiliates/signin","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
-      {"prefix":"/api/v1/affiliates/accept-invite","upstream":"http://affiliate-service:8000","auth":"none","strip_prefix":false},
       {"prefix":"/api/v1/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false},
       {"prefix":"/api/v1/admin/affiliates","upstream":"http://affiliate-service:8000","auth":"required","strip_prefix":false}
     ]

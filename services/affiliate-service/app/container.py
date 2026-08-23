@@ -261,6 +261,8 @@ def build_container(settings: Settings) -> Container:
         terms_version=settings.AFFILIATE_TERMS_VERSION,
         tenants_url=settings.TENANT_SERVICE_URL,
         authz_url=settings.AUTHZ_SERVICE_URL,
+        otp_deliverable=settings.AFFILIATE_OTP_DELIVERABLE,
+        require_otp=settings.AFFILIATE_REQUIRE_OTP,
     )
     # Which establishment this affiliate brought (spec §4) — see core/referrals.py for why this
     # is not operations' own partners.py reused.

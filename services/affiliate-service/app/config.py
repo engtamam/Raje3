@@ -148,6 +148,14 @@ class Settings(BaseSettings):
     # dispute has an answer ("he agreed to v1 on this date") rather than nothing at all. A config
     # value, never hardcoded, so a real wording change is a value bump an admin makes on purpose.
     AFFILIATE_TERMS_VERSION: str = "v1"
+    # ── phone-ownership OTP (Tamam, 2026-08-23) — same two-knob shape as operations' own
+    # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP, deliberately: DELIVERABLE is "can a code actually
+    # reach a phone" (false everywhere today — notification-service's own WHATSAPP_CHAIN/
+    # SMS_CHAIN are still the no-op `console` driver), REQUIRE is "does apply() refuse without
+    # one". Independent knobs so the moment real WhatsApp/SMS credentials exist, flipping both to
+    # true turns this into a hard gate with no further code change — see onboarding.py's own note.
+    AFFILIATE_OTP_DELIVERABLE: bool = False
+    AFFILIATE_REQUIRE_OTP: bool = False
 
     # ── referral commission (spec §4 — a FLAT amount, not a percentage) ────────────────────────
     # Halalas, never riyals-as-float: money as a float is how "40.10" becomes "40.099999999999994"

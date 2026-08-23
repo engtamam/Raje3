@@ -57,6 +57,12 @@ env:
   # 2026-08-23: change THIS value alone when the policy changes — the API (/me/home, /me/balance)
   # and both screens read it live, nothing else to touch.
   AFFILIATE_WITHDRAWAL_MIN_HALALAS: "40000"
+  # PHONE-OWNERSHIP OTP (Tamam, 2026-08-23) — DORMANT ON PURPOSE, same shape as operations'
+  # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP just below. Both stay "false" until a real
+  # WhatsApp/SMS channel is wired (notification-service's WHATSAPP_CHAIN/SMS_CHAIN are still the
+  # no-op `console` driver) — flip both together the same day that happens, no code change needed.
+  AFFILIATE_OTP_DELIVERABLE: "false"
+  AFFILIATE_REQUIRE_OTP: "false"
   # MISSING UNTIL NOW — TOKEN_VERIFIER_DRIVER defaults to "null" (app/config.py), which denies
   # every bearer token. Every authenticated route on this service (/me, /team, and the whole
   # /api/v1/admin/affiliates queue) has been 401ing in production since this service was first

@@ -37,7 +37,6 @@ vi.mock('./api', async (importOriginal) => {
   return {
     ...real,
     home: (...args: unknown[]) => homeMock(),
-    invite: vi.fn(),
   };
 });
 
