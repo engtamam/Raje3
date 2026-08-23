@@ -23,30 +23,38 @@
  * already uses for the same rail-vs-drawer split (`AppShell.tsx`'s own `md:` classes).
  */
 import type { ReactNode } from 'react';
-import { Home as HomeIcon, Users, Wrench, Wallet, CircleUserRound } from 'lucide-react';
+import { Home as HomeIcon, Users, Wrench, Wallet, CircleUserRound, UsersRound } from 'lucide-react';
 
-export type Tab = 'home' | 'leads' | 'tools' | 'earnings' | 'account';
+export type Tab = 'home' | 'leads' | 'tools' | 'earnings' | 'team' | 'account';
 
-const TABS: { id: Tab; label: string; icon: ReactNode; ready: boolean }[] = [
-  { id: 'home', label: 'الرئيسية', icon: <HomeIcon size={20} />, ready: true },
-  { id: 'leads', label: 'عملائي', icon: <Users size={20} />, ready: true },
-  { id: 'tools', label: 'أدواتي', icon: <Wrench size={20} />, ready: true },
-  { id: 'earnings', label: 'أرباحي', icon: <Wallet size={20} />, ready: true },
-  { id: 'account', label: 'حسابي', icon: <CircleUserRound size={20} />, ready: true },
-];
+/** SIX SLOTS FOR A MANAGER, STILL FIVE FOR A PROMOTER. «فريقي» is the one ADDITIONAL thing a
+ *  manager gets on top of everything a promoter already has (Tamam, 2026-08-23) — not a sixth
+ *  slot reopened for everybody, which is exactly what this file's own header note fixed the bar
+ *  against. Inserted after «أرباحي»: team management is a business concern, closest to money. */
+function tabsFor(isManager: boolean): { id: Tab; label: string; icon: ReactNode; ready: boolean }[] {
+  const base: { id: Tab; label: string; icon: ReactNode; ready: boolean }[] = [
+    { id: 'home', label: 'الرئيسية', icon: <HomeIcon size={20} />, ready: true },
+    { id: 'leads', label: 'عملائي', icon: <Users size={20} />, ready: true },
+    { id: 'tools', label: 'أدواتي', icon: <Wrench size={20} />, ready: true },
+    { id: 'earnings', label: 'أرباحي', icon: <Wallet size={20} />, ready: true },
+  ];
+  if (isManager) base.push({ id: 'team', label: 'فريقي', icon: <UsersRound size={20} />, ready: true });
+  base.push({ id: 'account', label: 'حسابي', icon: <CircleUserRound size={20} />, ready: true });
+  return base;
+}
 
-interface NavProps { active: Tab; onChange: (t: Tab) => void }
+interface NavProps { active: Tab; onChange: (t: Tab) => void; isManager: boolean }
 
 /** DESKTOP/TABLET (md and up) — a side rail, rendered FIRST in `AffiliatePortal`'s markup so the
  *  browser's own RTL row-reversal puts it on the start (right) edge, exactly where `AppShell`'s
  *  own `<aside>` sits in the shop console — same convention, not reinvented. */
-export function AffiliateSidebar({ active, onChange }: NavProps) {
+export function AffiliateSidebar({ active, onChange, isManager }: NavProps) {
   return (
     <aside
       aria-label="أقسام بوابة المسوّق"
       className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-0.5 border-e border-border-subtle bg-surface-1 p-3 md:flex"
     >
-      {TABS.map((t) => (
+      {tabsFor(isManager).map((t) => (
         <button
           key={t.id}
           type="button"
@@ -68,13 +76,13 @@ export function AffiliateSidebar({ active, onChange }: NavProps) {
 
 /** PHONE (below md) — a bottom bar, rendered LAST after the content column so it sits at the foot
  *  of the mobile column layout, sticky to the viewport's bottom edge, thumb-reachable. */
-export function AffiliateBottomNav({ active, onChange }: NavProps) {
+export function AffiliateBottomNav({ active, onChange, isManager }: NavProps) {
   return (
     <nav
       aria-label="أقسام بوابة المسوّق"
       className="sticky bottom-0 z-20 flex border-t border-border-subtle bg-surface-1/95 backdrop-blur md:hidden"
     >
-      {TABS.map((t) => (
+      {tabsFor(isManager).map((t) => (
         <button
           key={t.id}
           type="button"

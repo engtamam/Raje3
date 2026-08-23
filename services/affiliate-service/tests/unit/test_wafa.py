@@ -95,6 +95,19 @@ async def test_eligibility_preview_with_zero_shops():
 
 
 @pytest.mark.anyio
+async def test_eligibility_preview_now_carries_support_kpis_for_himself():
+    """Tamam, 2026-08-23: "مدير التسويق يعتبر مسوّي، عنده نفس المؤشرات لنفسه" — `performance_for`
+    already computed `support_kpis`; `eligibility_preview` dropped it before this fix, so a
+    marketer's own home/earnings screen had no way to show it, even though `GET /me/team` showed
+    the SAME numbers about his team members all along."""
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, _ = build(store)   # no TicketReader configured in this test's build()
+    out = await wafa.eligibility_preview("mgr-1")
+    assert out["support_kpis"] == {"available": False, "reason": "tickets_not_configured"}
+
+
+@pytest.mark.anyio
 async def test_below_threshold_is_refused_before_any_recommendation_is_computed():
     store = MemoryDataStore()
     await _seed_manager(store)

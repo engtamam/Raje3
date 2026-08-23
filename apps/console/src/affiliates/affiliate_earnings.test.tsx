@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AffiliateEarnings } from './AffiliateEarnings';
 import type {
-  AffiliateSession, Me, Balance, Commission, WithdrawalRequest, Team,
+  AffiliateSession, Me, Balance, Commission, WithdrawalRequest,
 } from './api';
 
 const SESSION: AffiliateSession = { access_token: 'tok-1' };
@@ -17,6 +17,7 @@ const ZERO_BALANCE: Balance = {
 const NO_ELIGIBILITY = {
   active_shops: 0, tier_shops: 50, shops_until_next_tier: 50, eligible: false,
   current_tier_amount_halalas: 0, retention_rate: 1, refund_rate: 0,
+  support_kpis: { available: false, reason: 'no_shared_tickets' },
 };
 const NO_EMPLOYMENT_ELIGIBILITY = {
   converted_customers: 0, threshold: 500, eligible: false, customers_until_eligible: 500,
@@ -28,8 +29,6 @@ let commissionsMock: () => Promise<{ commissions: Commission[] }>;
 let withdrawalsMock: () => Promise<{ withdrawals: WithdrawalRequest[] }>;
 let wafaEligibilityMock: () => Promise<typeof NO_ELIGIBILITY>;
 let wafaRequestsMock: () => Promise<{ wafa_requests: [] }>;
-let teamMock: () => Promise<Team>;
-let teamWafaMock: () => Promise<{ wafa_requests: [] }>;
 let employmentEligibilityMock: () => Promise<typeof NO_EMPLOYMENT_ELIGIBILITY>;
 let employmentRequestsMock: () => Promise<{ employment_requests: [] }>;
 
@@ -43,8 +42,6 @@ vi.mock('./api', async (importOriginal) => {
     myWithdrawals: (...args: unknown[]) => withdrawalsMock(),
     wafaEligibility: (...args: unknown[]) => wafaEligibilityMock(),
     myWafaRequests: (...args: unknown[]) => wafaRequestsMock(),
-    team: (...args: unknown[]) => teamMock(),
-    teamWafaRequests: (...args: unknown[]) => teamWafaMock(),
     employmentEligibility: (...args: unknown[]) => employmentEligibilityMock(),
     myEmploymentRequests: (...args: unknown[]) => employmentRequestsMock(),
   };
@@ -59,7 +56,6 @@ function stubCommon() {
   withdrawalsMock = () => Promise.resolve({ withdrawals: [] });
   wafaEligibilityMock = () => Promise.resolve(NO_ELIGIBILITY);
   wafaRequestsMock = () => Promise.resolve({ wafa_requests: [] });
-  teamWafaMock = () => Promise.resolve({ wafa_requests: [] });
   employmentEligibilityMock = () => Promise.resolve(NO_EMPLOYMENT_ELIGIBILITY);
   employmentRequestsMock = () => Promise.resolve({ employment_requests: [] });
 }
@@ -91,28 +87,29 @@ describe('AffiliateEarnings', () => {
     expect(screen.queryByText('اسحب أرباحك')).toBeFalsy();
   });
 
-  it('a promoter never sees the team-earnings card', async () => {
-    meMock = () => Promise.resolve(PROMOTER);
-    stubCommon();
-    render(<AffiliateEarnings session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('رصيدك الجاهز للسحب')).toBeTruthy());
-    expect(screen.queryByText('أرباح فريقك')).toBeFalsy();
-  });
-
-  it('a manager sees the team-earnings card with real member figures', async () => {
+  it('shows his OWN performance numbers on the wafa card — a manager included, same as any marketer', async () => {
+    // Tamam, 2026-08-23: "مدير التسويق يعتبر مسوّي، عنده نفس المؤشرات لنفسه" — this used to be the
+    // ONE thing a manager could see about his TEAM (GET /me/team) but never about himself.
     meMock = () => Promise.resolve(MANAGER);
     stubCommon();
-    teamMock = () => Promise.resolve({
-      my_shops: 2, my_net_revenue_minor: 0, my_revenue_partial: false,
-      members: [{ id: 'm1', name: 'فيصل', status: 'active', confirmed_halalas: 10000,
-                 pending_halalas: 0, commission_count: 2, shops: 3, total_net_revenue_minor: 0,
-                 revenue_partial: false }],
-      team_confirmed_halalas: 10000, team_pending_halalas: 0, team_net_revenue_minor: 0,
-      team_revenue_partial: false, platform_revenue_enabled: false,
+    wafaEligibilityMock = () => Promise.resolve({
+      ...NO_ELIGIBILITY, retention_rate: 0.82, refund_rate: 0.05,
+      support_kpis: { available: true, avg_first_response_seconds: 300,
+                     avg_resolution_seconds: 7200, escalation_rate: 0.1 },
     });
     render(<AffiliateEarnings session={SESSION} />);
-    await waitFor(() => expect(screen.getByText('أرباح فريقك')).toBeTruthy());
-    expect(screen.getByText('فيصل')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('معدّل الاحتفاظ')).toBeTruthy());
+    expect(screen.getByText('82٪')).toBeTruthy();
+    expect(screen.getByText('5 دقيقة')).toBeTruthy();   // avg_first_response_seconds: 300
+    expect(screen.getByText('2 ساعة')).toBeTruthy();     // avg_resolution_seconds: 7200
+  });
+
+  it('says support kpis are not in yet, rather than a blank or a fabricated zero', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    stubCommon();   // NO_ELIGIBILITY's own support_kpis: { available: false }
+    render(<AffiliateEarnings session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('معدّل الاحتفاظ')).toBeTruthy());
+    expect(screen.getByText(/تظهر أول ما محل يشارك تذاكره/)).toBeTruthy();
   });
 
   it('lists a commission with its real status label', async () => {

@@ -117,9 +117,23 @@ export interface Balance {
 export async function balance(session: AffiliateSession): Promise<Balance> {
   return req('/api/v1/affiliates/me/balance', 'GET', undefined, session.access_token);
 }
+/** `WafaService._aggregate_support_kpis`'s own return shape — real support performance read
+ *  through ticket-service's own consent-scoped share, best-effort per shop (`available: false`
+ *  is the honest common case before a shop has shared its tickets, never an error). */
+export interface SupportKpis {
+  available: boolean;
+  reason?: string;
+  shops_with_shared_tickets?: number;
+  ticket_count?: number;
+  avg_first_response_seconds?: number | null;
+  avg_resolution_seconds?: number | null;
+  escalation_rate?: number;
+}
+
 export interface WafaEligibility {
   active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
   current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
+  support_kpis: SupportKpis;
 }
 export interface EmploymentEligibility {
   converted_customers: number; threshold: number; eligible: boolean;
@@ -457,6 +471,9 @@ export async function withdrawalReceiptUrl(session: AffiliateSession, withdrawal
 export interface TeamMember {
   id: string; name: string; status: string; confirmed_halalas: number; pending_halalas: number;
   commission_count: number; shops: number; total_net_revenue_minor: number; revenue_partial: boolean;
+  // `GET /me/team` merges the SAME `performance_for()` dict `/me/wafa-eligibility` returns for
+  // the manager himself — sent all along, just never typed or rendered until now (2026-08-23).
+  active_shops?: number; retention_rate?: number; refund_rate?: number; support_kpis?: SupportKpis;
 }
 export interface Team {
   my_shops: number; my_net_revenue_minor: number; my_revenue_partial: boolean;
@@ -478,11 +495,8 @@ export interface WafaRequest {
   manager_decided_by: string; manager_decided_at: number; manager_reason: string;
   decided_by: string; decided_at: number; reason: string; granted_at: number;
 }
-export async function wafaEligibility(session: AffiliateSession) {
-  return req<{
-    active_shops: number; tier_shops: number; shops_until_next_tier: number; eligible: boolean;
-    current_tier_amount_halalas: number; retention_rate: number; refund_rate: number;
-  }>('/api/v1/affiliates/me/wafa-eligibility', 'GET', undefined, session.access_token);
+export async function wafaEligibility(session: AffiliateSession): Promise<WafaEligibility> {
+  return req('/api/v1/affiliates/me/wafa-eligibility', 'GET', undefined, session.access_token);
 }
 export async function requestWafa(session: AffiliateSession): Promise<WafaRequest> {
   return req('/api/v1/affiliates/me/wafa-requests', 'POST', undefined, session.access_token);

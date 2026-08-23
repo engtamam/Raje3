@@ -151,6 +151,12 @@ class WafaService:
             "eligible": active >= self._tier_shops,
             "current_tier_amount_halalas": self.tier_amount(active),
             "retention_rate": perf["retention_rate"], "refund_rate": perf["refund_rate"],
+            # SAME NUMBERS `performance_for` COMPUTES FOR HIM ALREADY, dropped from this response
+            # until now — a manager could see his OWN team's support KPIs (GET /me/team) but never
+            # his own, even though he is a marketer himself (Tamam, 2026-08-23: "مدير التسويق
+            # يعتبر مسوّي، عنده نفس المؤشرات لنفسه"). Same best-effort shape (`available: False`
+            # when no shop has shared its tickets yet, never a missing key).
+            "support_kpis": perf["support_kpis"],
         }
 
     def _recommend(self, perf: dict[str, Any]) -> str:

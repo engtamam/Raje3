@@ -18,7 +18,7 @@
  * that looks broken because nothing has happened yet.
  */
 import { useEffect, useState } from 'react';
-import { Wallet, TrendingUp, FileText, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { Wallet, TrendingUp, FileText } from 'lucide-react';
 import { Button } from '@base-ui/design-system/Button';
 import { Badge } from '@base-ui/design-system/Badge';
 import { EmptyState } from '@base-ui/design-system/EmptyState';
@@ -26,10 +26,10 @@ import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { riyalsLabel } from '../money';
 import {
   AffiliateRefused, me, balance, commissions, requestWithdrawal, myWithdrawals,
-  withdrawalReceiptUrl, team, wafaEligibility, requestWafa, myWafaRequests, teamWafaRequests,
-  decideTeamWafaRequest, employmentEligibility, requestEmployment, myEmploymentRequests,
+  withdrawalReceiptUrl, wafaEligibility, requestWafa, myWafaRequests,
+  employmentEligibility, requestEmployment, myEmploymentRequests,
   type AffiliateSession, type Me, type Balance, type Commission, type WithdrawalRequest,
-  type Team, type WafaRequest, type EmploymentRequest,
+  type WafaRequest, type EmploymentRequest, type SupportKpis,
 } from './api';
 
 const COMMISSION_STATUS_LABEL: Record<string, string> = {
@@ -57,7 +57,6 @@ export function AffiliateEarnings({ session }: { session: AffiliateSession }) {
   if (who === 'loading') {
     return <div className="flex flex-col gap-4 p-6"><h1 className="text-2xl">أرباحي</h1><Skeleton height={400} /></div>;
   }
-  const isManager = who.role === 'affiliate_manager';
 
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -65,8 +64,6 @@ export function AffiliateEarnings({ session }: { session: AffiliateSession }) {
       <BalanceSection session={session} />
       <WafaCard session={session} />
       <EmploymentCard session={session} />
-      {isManager ? <TeamEarningsCard session={session} /> : null}
-      {isManager ? <TeamWafaQueue session={session} /> : null}
       <CommissionHistory session={session} />
       <WithdrawalHistory session={session} />
     </div>
@@ -193,8 +190,70 @@ function WafaCard({ session }: { session: AffiliateSession }) {
       ) : hasOpenRequest ? (
         <span className="text-xs text-text-secondary">طلبك الحالي {WAFA_STATUS_LABEL.requested}.</span>
       ) : null}
+
+      {/* أدائك أنت — نفس الأرقام اللي القرار الملزم يُبنى عليها (retention/refund)، ونفس مؤشرات
+          الدعم اللي مديرك يشوفها عنك من «فريقي». Tamam, 2026-08-23: "مدير التسويق يعتبر مسوّي،
+          عنده نفس المؤشرات لنفسه" — هذي البطاقة تصير صحيحة لأي مسوّق، لا المدير فقط. */}
+      <div className="mt-1 border-t border-accent/20 pt-3">
+        <PerformanceStats retentionRate={elig.retention_rate} refundRate={elig.refund_rate}
+                         supportKpis={elig.support_kpis} />
+      </div>
     </div>
   );
+}
+
+/** أرقام أداء مسوّق واحد — تُستخدم هنا لنفسه («دعم الوفاء») وبـ«فريقي» لكل عضو، نفس الشكل بالضبط
+ *  حتى يتعلّم عضو الفريق قراءتها مرة واحدة ويفهمها بالمكانين. */
+export function PerformanceStats({ retentionRate, refundRate, supportKpis }: {
+  retentionRate: number; refundRate: number; supportKpis: SupportKpis;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <div className="flex-1 rounded-md bg-surface-0 p-2">
+          <span className="block text-xs text-text-secondary">معدّل الاحتفاظ</span>
+          <span className="tabular-nums font-medium">{Math.round(retentionRate * 100)}٪</span>
+        </div>
+        <div className="flex-1 rounded-md bg-surface-0 p-2">
+          <span className="block text-xs text-text-secondary">معدّل الاسترجاع</span>
+          <span className="tabular-nums font-medium">{Math.round(refundRate * 100)}٪</span>
+        </div>
+      </div>
+      {supportKpis.available ? (
+        <div className="flex gap-2">
+          <div className="flex-1 rounded-md bg-surface-0 p-2">
+            <span className="block text-xs text-text-secondary">سرعة أول ردّ</span>
+            <span className="tabular-nums font-medium">
+              {formatDuration(supportKpis.avg_first_response_seconds)}
+            </span>
+          </div>
+          <div className="flex-1 rounded-md bg-surface-0 p-2">
+            <span className="block text-xs text-text-secondary">سرعة الحل</span>
+            <span className="tabular-nums font-medium">
+              {formatDuration(supportKpis.avg_resolution_seconds)}
+            </span>
+          </div>
+          <div className="flex-1 rounded-md bg-surface-0 p-2">
+            <span className="block text-xs text-text-secondary">نسبة التصعيد</span>
+            <span className="tabular-nums font-medium">
+              {Math.round((supportKpis.escalation_rate ?? 0) * 100)}٪
+            </span>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-text-muted">
+          مؤشرات الدعم تظهر أول ما محل يشارك تذاكره معك.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** ثانية خام → «س دقيقة» أو «س ساعة» — نفس فكرة `timeAgo` بـ TicketCarousel.tsx، هنا لمدّة لا لتاريخ. */
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null) return '—';
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))} دقيقة`;
+  return `${Math.round(seconds / 3600)} ساعة`;
 }
 
 /** «رشّح نفسك لوظيفة» — نفس الشكل بالضبط، بطاقة منفصلة لأنه برنامج مختلف بعتبة مختلفة (عملاء
@@ -244,93 +303,6 @@ function EmploymentCard({ session }: { session: AffiliateSession }) {
       ) : hasOpenRequest ? (
         <span className="text-xs text-text-secondary">طلبك الحالي {EMPLOYMENT_STATUS_LABEL.requested}.</span>
       ) : null}
-    </div>
-  );
-}
-
-/* ── ملخص أرباح الفريق — مدير فقط ─────────────────────────────────────────────────────────────── */
-function TeamEarningsCard({ session }: { session: AffiliateSession }) {
-  const [data, setData] = useState<Team | 'loading' | 'failed'>('loading');
-
-  useEffect(() => {
-    team(session).then(setData).catch(() => setData('failed'));
-  }, [session]);
-
-  if (data === 'loading') return <Skeleton height={140} />;
-  if (data === 'failed') return null;
-
-  return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
-        <Users size={16} /> أرباح فريقك
-      </div>
-      <div className="flex gap-2">
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">مؤكَّد</span>
-          <span className="tabular-nums font-medium">{riyalsLabel(data.team_confirmed_halalas)}</span>
-        </div>
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">قيد المراجعة</span>
-          <span className="tabular-nums font-medium">{riyalsLabel(data.team_pending_halalas)}</span>
-        </div>
-      </div>
-      {data.members.length === 0 ? (
-        <p className="text-sm text-text-secondary">لا أعضاء بفريقك بعد.</p>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {data.members.map((m) => (
-            <li key={m.id} className="flex items-center justify-between text-sm">
-              <span>{m.name}</span>
-              <span className="tabular-nums text-text-secondary">
-                {riyalsLabel(m.confirmed_halalas)} — {m.shops} محل
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function TeamWafaQueue({ session }: { session: AffiliateSession }) {
-  const [rows, setRows] = useState<WafaRequest[] | 'loading'>('loading');
-  const [busy, setBusy] = useState<string | null>(null);
-
-  const load = () => { teamWafaRequests(session).then((r) => setRows(r.wafa_requests)).catch(() => setRows([])); };
-  useEffect(load, [session]);
-
-  if (rows === 'loading') return <Skeleton height={60} />;
-  if (rows.length === 0) return null;
-
-  async function decide(id: string, decision: 'approve' | 'reject') {
-    setBusy(id);
-    try { await decideTeamWafaRequest(session, id, decision); } catch { /* row stays as-is */ }
-    finally { setBusy(null); load(); }
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-text-secondary">طلبات دعم الوفاء بانتظارك</span>
-        <Badge tone="warning">{rows.length}</Badge>
-      </div>
-      <ul className="flex flex-col gap-2">
-        {rows.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-0 px-3 py-2 text-sm">
-            <span>{r.active_shops} محل — {riyalsLabel(r.tier_amount_halalas)}</span>
-            <div className="flex gap-1">
-              <Button type="button" variant="ghost" size="icon" aria-label="موافقة" disabled={busy === r.id}
-                     onClick={() => decide(r.id, 'approve')}>
-                <CheckCircle2 size={16} className="text-success" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" aria-label="رفض" disabled={busy === r.id}
-                     onClick={() => decide(r.id, 'reject')}>
-                <XCircle size={16} className="text-danger" />
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
