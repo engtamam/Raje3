@@ -73,6 +73,91 @@ export async function monthRevenueHalalas(
   return { ok: true, halalas };
 }
 
+/** Which services answered the catalog build and which didn't (١١.٩) — free, no new backend: the
+ *  gateway's own `admin_catalog.py::build_catalog` already tried every declared service and
+ *  reports the ones that failed to answer, right in the response this whole panel already reads
+ *  on every load. A service missing here means it did not answer AT catalog time, not "is down
+ *  right now" — the honest freshness bound is stated by the caller, not invented here. */
+export function unreachableServices(catalog: AdminCatalog): string[] {
+  return catalog.unreachable;
+}
+
+interface AuditEvent {
+  id: string; ts: string; actor: string; tenant: string;
+}
+
+/** Repeated failed sign-ins in the last `hours` (default 24) — a real audited action
+ *  (`auth.login_failed`, identity-service) read through the already-declared `audit.query`, never
+ *  a new backend surface. Grouped by actor because ONE failure is a typo; a burst from the SAME
+ *  actor is the brute-force signal `auth.login_failed`'s own docstring names it as. */
+export async function suspiciousLogins(
+  session: AdminSession, catalog: AdminCatalog, hours = 24, threshold = 5,
+): Promise<{ ok: true; actors: { actor: string; count: number }[] } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'audit.query');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة سجل التدقيق.' };
+
+  const since = new Date(Date.now() - hours * 3600_000).toISOString();
+  const qs = new URLSearchParams({ action: 'auth.login_failed', since, limit: '1000' });
+  const body: { events: AuditEvent[] } = await req(`${action.path}?${qs}`, 'GET', undefined, session.access_token);
+  const counts = new Map<string, number>();
+  for (const e of body.events) {
+    counts.set(e.actor, (counts.get(e.actor) ?? 0) + 1);
+  }
+  const actors = Array.from(counts.entries())
+    .filter(([, count]) => count >= threshold)
+    .map(([actor, count]) => ({ actor, count }))
+    .sort((a, b) => b.count - a.count);
+  return { ok: true, actors };
+}
+
+/** Affiliate applications waiting for a decision (١١.٧) — same action `AdminCustomers.tsx`
+ *  already renders as a list; this is only the count for the dashboard tile. */
+export async function pendingAffiliateApplications(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; count: number } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'affiliates.list_pending');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة طلبات المسوّقين.' };
+  const body: { applications: unknown[] } = await req(action.path, 'GET', undefined, session.access_token);
+  return { ok: true, count: body.applications.length };
+}
+
+interface TicketRow { status: string }
+
+/** Open tickets right now (١١.٨, half of it) — `tickets.inbox` has no aggregate count route, only
+ *  a raw paginated list (`limit` capped at 200 server-side), so this reads ONE page and reports
+ *  honestly: `atLeast: true` when a `cursor` came back, meaning the true count is higher, never a
+ *  number presented as final when it isn't. Average response time is NOT computed here — the raw
+ *  ticket row's own field names for first-response/created timestamps were not confirmed against
+ *  real code, and a guessed field name would silently compute nonsense instead of failing loudly. */
+export async function openTicketsCount(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; count: number; atLeast: boolean } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'tickets.inbox');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة التذاكر.' };
+  const body: { tickets: TicketRow[]; cursor: string | null } = await req(
+    `${action.path}?status=open&limit=200`, 'GET', undefined, session.access_token,
+  );
+  return { ok: true, count: body.tickets.length, atLeast: Boolean(body.cursor) };
+}
+
+interface BackupAlert { service: string; severity: 'degraded' | 'critical'; reason: string }
+interface BackupHealthBody {
+  status: 'healthy' | 'degraded' | 'critical';
+  alerts: BackupAlert[];
+  summary: { total: number; healthy: number; degraded: number; critical: number };
+}
+
+/** Backup health across every registered target (١١.١٢) — `backup.health`'s own summary/alerts,
+ *  never recomputed here. */
+export async function backupHealth(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; body: BackupHealthBody } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'backup.health');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة صحة النسخ الاحتياطي.' };
+  const body: BackupHealthBody = await req(action.path, 'GET', undefined, session.access_token);
+  return { ok: true, body };
+}
+
 export interface TenantCounts {
   total: number;
   active: number;

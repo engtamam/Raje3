@@ -5,11 +5,15 @@
  * أن يكون له مصدر حقيقي.
  */
 import { useEffect, useState } from 'react';
-import { DollarSign, TrendingUp, Store, Sparkles } from 'lucide-react';
+import { AlertTriangle, DollarSign, ShieldAlert, TrendingUp, Store, Sparkles } from 'lucide-react';
+import { Badge } from '../rj-ui/Badge';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { riyalsLabel } from '../money';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
-import { monthRevenueHalalas, tenantCounts, type TenantCounts } from './platformMetrics';
+import {
+  backupHealth, monthRevenueHalalas, openTicketsCount, pendingAffiliateApplications,
+  suspiciousLogins, tenantCounts, unreachableServices, type TenantCounts,
+} from './platformMetrics';
 import type { AdminSession } from './api';
 
 interface Loaded {
@@ -17,6 +21,12 @@ interface Loaded {
   revenueLastMonth: number | null;
   tenants: TenantCounts | null;       // null when the caller lacks platform.tenants
   actionCount: number;
+  unreachable: string[];
+  suspiciousActors: { actor: string; count: number }[] | null;   // null = no audit.query capability
+  pendingApplications: number | null;
+  openTickets: { count: number; atLeast: boolean } | null;
+  backupCritical: number | null;    // count of services in critical backup state
+  backupAlerts: { service: string; severity: 'degraded' | 'critical'; reason: string }[];
 }
 
 export function AdminHome({ session }: { session: AdminSession }) {
@@ -33,10 +43,14 @@ export function AdminHome({ session }: { session: AdminSession }) {
         return;
       }
 
-      const [revNow, revBefore, tenants] = await Promise.all([
+      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup] = await Promise.all([
         monthRevenueHalalas(session, catalog, 0),
         monthRevenueHalalas(session, catalog, 1),
         tenantCounts(session, catalog),
+        suspiciousLogins(session, catalog),
+        pendingAffiliateApplications(session, catalog),
+        openTicketsCount(session, catalog),
+        backupHealth(session, catalog),
       ]);
       if (cancelled) return;
       setState({
@@ -44,6 +58,12 @@ export function AdminHome({ session }: { session: AdminSession }) {
         revenueLastMonth: revBefore.ok ? revBefore.halalas : null,
         tenants: tenants.ok ? tenants.counts : null,
         actionCount: allActions(catalog).length,
+        unreachable: unreachableServices(catalog),
+        suspiciousActors: suspicious.ok ? suspicious.actors : null,
+        pendingApplications: pending.ok ? pending.count : null,
+        openTickets: tickets.ok ? { count: tickets.count, atLeast: tickets.atLeast } : null,
+        backupCritical: backup.ok ? backup.body.summary.critical + backup.body.summary.degraded : null,
+        backupAlerts: backup.ok ? backup.body.alerts : [],
       });
     })();
     return () => { cancelled = true; };
@@ -73,7 +93,41 @@ export function AdminHome({ session }: { session: AdminSession }) {
                         value={String(state.tenants.newThisMonth)} />
               </>
             ) : null}
+            {state.pendingApplications != null ? (
+              <KpiCard icon={<TrendingUp size={18} />} tone="accent" label="طلبات مسوّقين معلّقة"
+                      value={String(state.pendingApplications)} />
+            ) : null}
+            {state.openTickets != null ? (
+              <KpiCard icon={<AlertTriangle size={18} />} tone="warning" label="تذاكر مفتوحة"
+                      value={`${state.openTickets.count}${state.openTickets.atLeast ? '+' : ''}`} />
+            ) : null}
           </div>
+
+          {state.unreachable.length > 0 || (state.backupCritical ?? 0) > 0 || (state.suspiciousActors?.length ?? 0) > 0 ? (
+            <div className="flex flex-col gap-2 rounded-card border border-danger/30 bg-danger-soft p-4">
+              <h2 className="flex items-center gap-1.5 font-semibold text-danger-on-soft">
+                <ShieldAlert size={16} /> تنبيهات فورية
+              </h2>
+              <ul className="flex flex-col gap-1.5 text-sm">
+                {state.unreachable.map((svc) => (
+                  <li key={svc} className="flex items-center gap-1.5">
+                    <Badge tone="danger">خدمة</Badge> {svc} لم تُجب عند بناء الكتالوج.
+                  </li>
+                ))}
+                {state.backupAlerts.map((a, i) => (
+                  <li key={i} className="flex items-center gap-1.5">
+                    <Badge tone={a.severity === 'critical' ? 'danger' : 'warning'}>نسخة احتياطية</Badge>
+                    {a.service} — {a.reason}
+                  </li>
+                ))}
+                {(state.suspiciousActors ?? []).map((s) => (
+                  <li key={s.actor} className="flex items-center gap-1.5">
+                    <Badge tone="danger">دخول</Badge> {s.count} محاولة دخول فاشلة من {s.actor} آخر ٢٤ ساعة.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {state.revenueThisMonth == null && state.tenants == null ? (
             <p className="text-sm text-text-secondary">

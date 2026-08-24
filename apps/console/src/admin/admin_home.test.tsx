@@ -62,4 +62,39 @@ describe('AdminHome', () => {
     render(<AdminHome session={SESSION} />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
   });
+
+  it('an unreachable service from the catalog itself surfaces in the alert band', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: ['notification-service'] });
+    reqMock = vi.fn();
+
+    render(<AdminHome session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('تنبيهات فورية')).toBeTruthy());
+    expect(screen.getByText(/notification-service/)).toBeTruthy();
+  });
+
+  it('a critical backup alert surfaces by service and reason', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue({
+      services: [{ service: 'backup-service', actions: [
+        { id: 'backup.health', label: 'x', method: 'GET', path: '/api/v1/operator/backup/health', capability: 'platform.restore' },
+      ] }],
+      unreachable: [],
+    });
+    reqMock = vi.fn().mockResolvedValue({
+      status: 'critical',
+      alerts: [{ service: 'billing-service', severity: 'critical', reason: 'missed run' }],
+      summary: { total: 3, healthy: 2, degraded: 0, critical: 1 },
+    });
+
+    render(<AdminHome session={SESSION} />);
+    await waitFor(() => expect(screen.getByText(/missed run/)).toBeTruthy());
+  });
+
+  it('no alert band at all when nothing is wrong', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
+    reqMock = vi.fn();
+
+    render(<AdminHome session={SESSION} />);
+    await waitFor(() => expect(screen.getByText(/لا أرقام مالية لعرضها لك/)).toBeTruthy());
+    expect(screen.queryByText('تنبيهات فورية')).toBeFalsy();
+  });
 });
