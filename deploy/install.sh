@@ -24,7 +24,7 @@
 #       theoretical concern: it happened today, one wiped the namespace under the other, and the
 #       wreckage read exactly like a product defect.
 #
-#  Env that skips a prompt: DOMAIN · ACME_EMAIL · ADMIN_EMAIL · ADMIN_PASSWORD · GHCR_USER ·
+#  Env that skips a prompt: DOMAIN · ACME_EMAIL · ADMIN_PHONE · ADMIN_PASSWORD · GHCR_USER ·
 #                           GHCR_TOKEN · OSS_BUCKET · OSS_ENDPOINT ·
 #                           WIPE=1 (destructive) · ASSUME_YES=1 · REUSE_ARCHIVE_BUCKET=1
 # ==================================================================================================
@@ -80,7 +80,11 @@ _asks(){ # hidden
 phase "0 · what only you know"
 [ -z "${DOMAIN:-}" ]      && DOMAIN="$(_ask 'النطاق (مثال kobo-cloud.com) — اتركه فارغاً لتثبيت محلي' "${DOMAIN_SAVED:-}")"
 [ -z "${ACME_EMAIL:-}" ]  && ACME_EMAIL="$(_ask 'بريد شهادات TLS' "${ACME_EMAIL_SAVED:-admin@${DOMAIN:-localhost}}")"
-[ -z "${ADMIN_EMAIL:-}" ] && ADMIN_EMAIL="$(_ask 'بريد حساب الإدارة (حسابنا نحن)' "${ADMIN_EMAIL_SAVED:-}")"
+# A PHONE, NOT AN EMAIL — deploy/services/identity-service.values.yaml pins
+# IDENTITY_LOGIN_FIELD=phone for this product, so an email here would be accepted as a string and
+# then simply never work as a login identifier. Was ADMIN_EMAIL until this line lied about what
+# it actually needed.
+[ -z "${ADMIN_PHONE:-}" ] && ADMIN_PHONE="$(_ask 'جوال حساب الإدارة (حسابنا نحن)' "${ADMIN_PHONE_SAVED:-}")"
 
 # THE PASSWORD IS GENERATED WHEN LEFT BLANK, AND SHOWN ONCE.
 # A weak one here is not a small risk: this account can connect a WhatsApp number and message
@@ -124,7 +128,7 @@ if [ -z "$OSS_BUCKET" ] && [ "${REUSE_ARCHIVE_BUCKET:-0}" != "1" ]; then
        (نفس الخادم يُثبَّت من جديد) شغّل بـ REUSE_ARCHIVE_BUCKET=1"
 fi
 
-[ -n "${ADMIN_EMAIL:-}" ] || warn "بلا حساب إدارة — يمكن إنشاؤه لاحقاً"
+[ -n "${ADMIN_PHONE:-}" ] || warn "بلا حساب إدارة — يمكن إنشاؤه لاحقاً"
 [ -n "${GHCR_TOKEN:-}" ]  || warn "بلا رمز صور — السحب سيفشل إن كانت الصور خاصة"
 
 # REMEMBERED: everything except the secrets. Root-only, and it is why the second run is three
@@ -133,7 +137,7 @@ cat > "$CONF" <<CONFEOF
 # راجِع — answers kept so a re-run does not ask again. NO SECRETS ARE STORED HERE.
 DOMAIN_SAVED="${DOMAIN:-}"
 ACME_EMAIL_SAVED="${ACME_EMAIL:-}"
-ADMIN_EMAIL_SAVED="${ADMIN_EMAIL:-}"
+ADMIN_PHONE_SAVED="${ADMIN_PHONE:-}"
 GHCR_USER_SAVED="${GHCR_USER:-}"
 OSS_BUCKET_SAVED="${OSS_BUCKET:-}"
 OSS_ENDPOINT_SAVED="${OSS_ENDPOINT:-}"
@@ -143,7 +147,7 @@ chmod 600 "$CONF"
 echo
 echo -e "  النطاق        ${C_B}${DOMAIN:-—(محلي)}${C_N}"
 echo -e "  شهادات        ${C_B}${ACME_EMAIL}${C_N}"
-echo -e "  حساب الإدارة  ${C_B}${ADMIN_EMAIL:-—}${C_N}"
+echo -e "  حساب الإدارة  ${C_B}${ADMIN_PHONE:-—}${C_N}"
 echo -e "  الصور         ${C_B}${GHCR_USER:-—}${C_N} ${C_D}(الرمز لا يُعرض ولا يُحفظ)${C_N}"
 echo -e "  حاوية الأرشيف ${C_B}${OSS_BUCKET:-—(ما في الملف)}${C_N}"
 if [ "${ASSUME_YES:-0}" != "1" ] && _tty; then
@@ -151,7 +155,7 @@ if [ "${ASSUME_YES:-0}" != "1" ] && _tty; then
   case "${go:-}" in y|Y|yes|نعم) ;; *) die "أُلغي — لم يُمسّ شيء";; esac
 fi
 
-export DOMAIN ACME_EMAIL ADMIN_EMAIL ADMIN_PASSWORD GHCR_USER GHCR_TOKEN OSS_BUCKET OSS_ENDPOINT
+export DOMAIN ACME_EMAIL ADMIN_PHONE ADMIN_PASSWORD GHCR_USER GHCR_TOKEN OSS_BUCKET OSS_ENDPOINT
 
 # ── 1 · the registry credential, before k3s starts ────────────────────────────────────────────
 # ONLY THE FILE HERE — the cluster-side secret is minted by bring-up.sh, in the first second a

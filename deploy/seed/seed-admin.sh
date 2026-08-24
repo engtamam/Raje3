@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Create the administration account the installer asked for — ours, not an establishment's.
 #
-#   ADMIN_EMAIL=… ADMIN_PASSWORD=… ./deploy/seed/seed-admin.sh
+#   ADMIN_PHONE=… ADMIN_PASSWORD=… ./deploy/seed/seed-admin.sh
 #   ./deploy/seed/seed-admin.sh --dry-run     # say what it would do, change nothing
 #
 # WHY THIS EXISTS, AND IT IS THE WHOLE DEFECT (ل-2). `install.sh` asks the operator for an
-# administration email and password. It enforces a twelve-character floor. It generates one when
+# administration phone number and password. It enforces a twelve-character floor. It generates one when
 # the field is left blank. It exports both. It prints the password under «تُعرض مرة واحدة فقط».
 #
 # And nothing read either value. No account was created — not by bring-up.sh, not by any seeder.
@@ -38,16 +38,16 @@ ok(){   echo -e "  ${C_G}✔${C_N} $*"; }
 red(){  echo -e "  ${C_R}✖${C_N} $*" >&2; }
 warn(){ echo -e "  ${C_Y}!${C_N} $*"; }
 
-# NO ADMIN ASKED FOR IS NOT A FAILURE. install.sh lets the operator skip the email («بلا حساب
+# NO ADMIN ASKED FOR IS NOT A FAILURE. install.sh lets the operator skip the phone («بلا حساب
 # إدارة — يمكن إنشاؤه لاحقاً»), and a bring-up that refused on that would be refusing a choice we
-# offered. But a password with no email, or an email with no password, is a HALF answer — that is
+# offered. But a password with no phone, or a phone with no password, is a HALF answer — that is
 # the installer and this script disagreeing about what was collected, and it fails loudly.
-if [ -z "${ADMIN_EMAIL:-}" ] && [ -z "${ADMIN_PASSWORD:-}" ]; then
+if [ -z "${ADMIN_PHONE:-}" ] && [ -z "${ADMIN_PASSWORD:-}" ]; then
   warn "no administration account was asked for — skipping (install.sh said it can be created later)"
   exit 0
 fi
-if [ -z "${ADMIN_EMAIL:-}" ] || [ -z "${ADMIN_PASSWORD:-}" ]; then
-  red "half an administration account: email=${ADMIN_EMAIL:+set}${ADMIN_EMAIL:-EMPTY}, password=${ADMIN_PASSWORD:+set}${ADMIN_PASSWORD:-EMPTY}"
+if [ -z "${ADMIN_PHONE:-}" ] || [ -z "${ADMIN_PASSWORD:-}" ]; then
+  red "half an administration account: phone=${ADMIN_PHONE:+set}${ADMIN_PHONE:-EMPTY}, password=${ADMIN_PASSWORD:+set}${ADMIN_PASSWORD:-EMPTY}"
   red "both or neither — a password with nobody to hold it is the defect this script exists to end"
   exit 1
 fi
@@ -64,14 +64,14 @@ TOKEN=$(kubectl -n "$NS" get secret identity-service-secrets \
 [ -n "$TOKEN" ] || { red "no INTERNAL_SERVICE_TOKEN in identity-service-secrets"; exit 1; }
 
 if [ $DRY -eq 1 ]; then
-  echo -e "${C_D}  would seed owner ${ADMIN_EMAIL} on tenant ${TENANT} with role ${ROLE}${C_N}"
+  echo -e "${C_D}  would seed owner ${ADMIN_PHONE} on tenant ${TENANT} with role ${ROLE}${C_N}"
   exit 0
 fi
 
 # THE PASSWORD TRAVELS ON STDIN, NEVER ON A COMMAND LINE. An argument is visible in `ps` to every
 # process on the node for as long as the call runs, and this is the credential that opens every
 # establishment we host.
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$TENANT" "$ADMIN_EMAIL" "$ROLE" <<'PY'
+kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$TENANT" "$ADMIN_PHONE" "$ROLE" <<'PY'
 import json
 import sys
 import urllib.error
