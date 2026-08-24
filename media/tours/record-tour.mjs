@@ -268,7 +268,7 @@ async function runStep(page, step, index, tour, baseURL) {
   if (target) {
     const locator = locate(page, target).first();
     await locator.scrollIntoViewIfNeeded().catch(() => undefined);
-    const box = await locator.boundingBox().catch(() => null);
+    const box = await stableBoundingBox(locator);
     if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
     await page.evaluate((r) => window.__tour?.spotlight(r), box);
   } else {
@@ -317,6 +317,32 @@ async function runStep(page, step, index, tour, baseURL) {
   // A tour that ends on a targeted step leaves that ring showing in the final frames, which is
   // correct: the last thing pressed is exactly what should still be marked. A tour ending on a
   // bare `say` step already cleared it above, on entry to this step.
+}
+
+/**
+ * Waits for a locator's own boundingBox() to stop moving before returning it — the actual fix
+ * for a ring caught mid-transition: a target element that just appeared (a form opening after a
+ * click, a row that just mounted) can report a real, valid boundingBox() the very first instant
+ * it exists, then shift as React finishes laying out ITS OWN SIBLINGS around it a frame or two
+ * later. A fixed sleep before reading it is a guess about how long that settling takes on THIS
+ * element, THIS action, THIS network — sometimes too short (the exact bug this fixes: a real
+ * screenshot showed the ring on an empty box, mid-layout, before the field's own label had even
+ * painted), sometimes wastefully long. Polling until two consecutive reads agree needs no
+ * guessed number at all — it asks the actual page whether it has settled, the same category of
+ * fix Playwright's own actionability checks already are for clicks.
+ */
+async function stableBoundingBox(locator, { intervalMs = 60, timeoutMs = 5_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let last = null;
+  while (Date.now() < deadline) {
+    const box = await locator.boundingBox().catch(() => null);
+    if (box && last && box.x === last.x && box.y === last.y && box.width === last.width && box.height === last.height) {
+      return box;
+    }
+    last = box;
+    await sleep(intervalMs);
+  }
+  return last; // best effort — a target that never truly stabilizes still gets its last known position, not nothing.
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
