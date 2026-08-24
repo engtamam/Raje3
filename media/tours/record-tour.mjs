@@ -266,15 +266,21 @@ async function runStep(page, step, index, tour, baseURL) {
 
   const target = step.click ?? step.type ?? step.check;
   if (target) {
-    // HIDDEN THROUGH THE WHOLE WAIT, NOT LEFT SHOWING WHILE IT SETTLES. stableBoundingBox()
-    // already waits out a moving target — but the PREVIOUS step's ring stayed visible the entire
-    // time it did, pointing at a now-stale position for however long settling actually took.
-    // Clearing first means the viewer only ever sees one of two things during any transition:
-    // nothing, or the ring already in its final, correct place — never a ring that's technically
-    // real but momentarily wrong, which is what "the same problem" kept coming back as no matter
-    // how the stability check itself was tuned.
-    await page.evaluate(() => window.__tour?.spotlight(null)).catch(() => undefined);
+    // BOTH THE RING AND THE CAPTION, HIDDEN THROUGH THE WHOLE WAIT — not left showing while it
+    // settles. Clearing only the ring still let the PREVIOUS step's CAPTION sit on screen over an
+    // already-changed screen underneath it (the new screen fully rendered, the old sentence still
+    // talking about the click that opened it) — the same class of stale-state bug, just the other
+    // half of the overlay. clear() hides both, so a viewer only ever sees one of two things during
+    // any transition: nothing, or the ring AND its caption already in their final, correct place.
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     const locator = locate(page, target).first();
+    // THE WHOLE SCREEN, NOT JUST THE ONE ELEMENT. stableBoundingBox() alone still wasn't enough —
+    // a field that mounts at its FINAL position immediately (its own box never moves) reads as
+    // "stable" on the very first poll even while its SIBLINGS — the rest of the form, still being
+    // added around it by the same re-render — are still appearing. The target was right; the
+    // screen around it wasn't finished. This waits for the DOM ITSELF to go quiet — no mutations
+    // anywhere on the page for a short window — before trusting anything on it enough to measure.
+    await waitForDomQuiet(page);
     await locator.scrollIntoViewIfNeeded().catch(() => undefined);
     const box = await stableBoundingBox(locator);
     if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
@@ -325,6 +331,37 @@ async function runStep(page, step, index, tour, baseURL) {
   // A tour that ends on a targeted step leaves that ring showing in the final frames, which is
   // correct: the last thing pressed is exactly what should still be marked. A tour ending on a
   // bare `say` step already cleared it above, on entry to this step.
+}
+
+/**
+ * Waits until nothing on the page has changed for a short quiet window — a MutationObserver
+ * watching the whole document, not one element. stableBoundingBox() alone still let a real bug
+ * through: a field that mounts at its FINAL position immediately reads as "stable" on its very
+ * first poll even while its own SIBLINGS (the rest of a form the same click just opened) are
+ * still being added around it — the element was right, the screen it lives on wasn't finished.
+ * This is the general fix underneath that specific one: don't trust ANY measurement until the
+ * DOM as a whole has stopped mutating, the same category of signal `waitForLoadState('networkidle')`
+ * gives for a full navigation, applied here to a client-side re-render that has no network
+ * request of its own to wait on.
+ */
+async function waitForDomQuiet(page, { quietMs = 150, timeoutMs = 5_000 } = {}) {
+  await page.evaluate(({ quietMs, timeoutMs }) => new Promise((resolve) => {
+    let timer;
+    const done = () => { observer.disconnect(); clearTimeout(timer); clearTimeout(deadline); resolve(); };
+    const observer = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(done, quietMs);
+    });
+    // STRUCTURE ONLY — childList/subtree (elements actually appearing or leaving), not attributes
+    // or characterData. Those two are noisy in a way unrelated to "is new content still arriving":
+    // a focus ring's own class toggling, a blinking caret, a hover state — none of it means the
+    // screen has more to render, and watching them made real recordings take nearly twice as long
+    // waiting out quiet windows that a genuinely finished screen kept re-triggering on its own.
+    observer.observe(document.body, { childList: true, subtree: true });
+    timer = setTimeout(done, quietMs); // already quiet when we started watching
+    const deadline = setTimeout(done, timeoutMs); // a page that never truly settles (a live poll, a
+                                                    // ticking clock) still gets released, not stuck forever
+  }), { quietMs, timeoutMs });
 }
 
 /**
