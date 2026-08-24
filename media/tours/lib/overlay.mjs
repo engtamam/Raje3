@@ -84,11 +84,14 @@ export function installOverlay(cfg) {
   });
 
   // ── the fingertip ─────────────────────────────────────────────────────────────────────────
-  // A small filled dot standing in for a real touch — this app is a phone app, tapped with a
-  // finger, not clicked with a mouse pointer. Real feedback: "حركة الاصبع لو في اسكرول او شي
-  // معين" — a viewer needs to SEE where the next tap or swipe is heading, not just see the
-  // frame appear at its destination. `left`/`top` transition (not transform) so record-tour.mjs
-  // can await a real CSS transitionend and know the move actually finished before it acts.
+  // A small filled dot, SCROLL-SWIPES ONLY, not a click target's own frame — it stood on a
+  // button's own label too, covering the very text the frame was drawn to highlight, on a real
+  // recording ("الضغطة تغطي الكلام… يكفي التحديد"). Kept for animatedScrollIntoView's swipe
+  // gesture in record-tour.mjs, where it moves ACROSS the screen between two points rather than
+  // sitting still on top of something meant to be read — the original ask this answers
+  // ("حركة الاصبع لو في اسكرول او شي معين") was about scrolling specifically. `left`/`top`
+  // transition (not transform) so record-tour.mjs can await a real CSS transitionend and know
+  // the move actually finished before it acts.
   const finger = document.createElement('div');
   Object.assign(finger.style, {
     position: 'fixed', width: '30px', height: '30px', marginLeft: '-15px', marginTop: '-15px',

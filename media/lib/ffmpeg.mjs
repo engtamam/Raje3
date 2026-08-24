@@ -53,7 +53,11 @@ export function mixSfx({ ffmpeg, videoIn, sfxFile, atSeconds, videoOut, run }) {
   atSeconds.forEach((s, i) => {
     inputs.push('-i', sfxFile);
     const ms = Math.max(0, Math.round(s * 1000));
-    branches.push(`[${i + 1}:a]adelay=${ms}|${ms}[a${i}]`);
+    // volume=0.35 (~-9dB) — click.ogg's OWN recorded level, played raw, read as "too loud" on a
+    // real watch (real feedback: "صوته مرة عالي"). Applied per branch, before the mix, so it
+    // stays correct however many clicks end up in a tour — a single global gain after amix would
+    // have needed retuning any time atSeconds.length changed.
+    branches.push(`[${i + 1}:a]adelay=${ms}|${ms},volume=0.35[a${i}]`);
   });
   const mixed = atSeconds.map((_, i) => `[a${i}]`).join('');
   // duration=longest, NOT first. `adelay` only pads silence BEFORE a click starts — it does not

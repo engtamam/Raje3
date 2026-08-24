@@ -28,7 +28,7 @@
  *   CONSOLE=http://localhost:5174 node media/tours/record-tour.mjs <script> [--seconds-cap 90]
  */
 import { mkdir, rm, rename } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname, basename, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -127,6 +127,24 @@ async function main() {
     await page.goto(baseURL);
     await page.evaluate((s) => localStorage.setItem('raje3.session', JSON.stringify(s)), demoSession);
     await page.reload();
+    // WRITE THE ROTATED SESSION BACK OUT, EVERY RUN — the saved access token is only ever good
+    // for 15 minutes (renew.ts's own token lifetime), so almost every recording lands after it
+    // has expired. The app's own renew.ts silently rotates it on the first 401 it sees (a refresh
+    // token is single-use — "the old one is dead the moment it's spent", renew.ts's own words) —
+    // fine for a live user's browser, which just keeps going, but this recorder used to read
+    // localStorage once and never write it back, so the FILE went stale within 15 minutes of
+    // every single run while the refresh token it held got silently spent underneath it. The next
+    // run's stored refresh token was then already dead, and nothing short of a full reseed could
+    // recover it. Reading it back here, unconditionally, after the one navigation that would have
+    // already triggered a renewal if one was due, keeps the file in sync with reality forever.
+    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
+    const liveSession = await page.evaluate(() => {
+      const raw = localStorage.getItem('raje3.session');
+      return raw ? JSON.parse(raw) : null;
+    });
+    if (liveSession && JSON.stringify(liveSession) !== JSON.stringify(demoSession)) {
+      writeFileSync(demoSessionFile, JSON.stringify(liveSession, null, 2));
+    }
   } else if (!tour.skipAutoSignIn) {
     await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
     await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
@@ -341,11 +359,12 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     await animatedScrollIntoView(page, locator);
     const box = await stableBoundingBox(locator);
     if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
-    // THE FINGER ARRIVES BEFORE THE FRAME DOES — a real tap is preceded by a real hand moving
-    // there; drawing the frame first and the finger never would show a target lighting up with
-    // nothing visibly having reached for it. pointTo() itself resolves only once the move has
-    // actually finished on screen (see overlay.mjs), so the frame never appears mid-glide.
-    await page.evaluate((r) => window.__tour?.pointTo(r.x + r.width / 2, r.y + r.height / 2), box);
+    // NO FINGERTIP DOT ON A CLICK TARGET — tried, then dropped on a real screenshot: the dot's
+    // own glow sat exactly over a short button's label and covered the very text the frame was
+    // drawn to highlight ("الضغطة تغطي الكلام… يكفي التحديد" — the press covers the words, the
+    // frame alone is enough). The frame still marks the target unambiguously by itself; the
+    // fingertip stays reserved for animatedScrollIntoView's swipe below, where it moves ACROSS
+    // the screen rather than sitting still on top of something meant to be read.
     await page.evaluate((r) => window.__tour?.spotlight(r), box);
   } else {
     // A STEP WITH NO TARGET CLEARS THE RING, IT DOESN'T INHERIT THE LAST ONE. Leaving the
