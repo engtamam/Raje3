@@ -179,6 +179,134 @@ export async function activeTeamCount(
   };
 }
 
+interface RetentionPoint { at: number | null; value: number | null }
+export interface PlatformInsights {
+  returnRate: number | null;
+  peakGrid: { day: string; hour: string; value: number }[];
+  atRiskTenantCount: number | null;
+  retentionSeries: RetentionPoint[] | null;   // null = learning (too little data platform-wide)
+  tenantsWithSnapshot: number;
+}
+
+const DAY_LABELS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+/** The platform-wide rollup (11.1-11.4) — `insights.platform_summary` reads a PRECOMPUTED row
+ *  (`services/insights`'s own scheduled pass, never computed on this request) — never re-derived
+ *  here, only reshaped for the chart components. */
+export async function platformInsights(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; computing: true } | { ok: true; computing: false; data: PlatformInsights }
+         | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'insights.platform_summary');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة ملخص المنصّة.' };
+  const body: {
+    computing: boolean;
+    values: {
+      return_rate?: number | null;
+      peak_map?: { grid: Record<string, number>; busiest: string };
+      at_risk_tenant_count?: number;
+      retention_series?: { points?: RetentionPoint[]; learning: boolean };
+    };
+    tenants_with_snapshot?: number;
+  } = await req(action.path, 'GET', undefined, session.access_token);
+  if (body.computing) return { ok: true, computing: true };
+  const v = body.values || {};
+  const peakGrid = Object.entries(v.peak_map?.grid ?? {}).map(([slot, value]) => {
+    const [day, hour] = slot.split(':');
+    return { day: DAY_LABELS[Number(day)] ?? day, hour: `${hour}:00`, value };
+  });
+  return {
+    ok: true, computing: false,
+    data: {
+      returnRate: v.return_rate ?? null,
+      peakGrid,
+      atRiskTenantCount: v.at_risk_tenant_count ?? null,
+      retentionSeries: v.retention_series && !v.retention_series.learning
+        ? (v.retention_series.points ?? []) : null,
+      tenantsWithSnapshot: body.tenants_with_snapshot ?? 0,
+    },
+  };
+}
+
+export interface AffiliateStats {
+  activeAffiliates: number; totalAffiliates: number;
+  totalNetRevenueMinor: number; revenuePartial: boolean;
+}
+
+/** (16)(17) active affiliates + platform-wide referred revenue — `affiliates.platform_stats`. */
+export async function affiliateStats(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; data: AffiliateStats } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'affiliates.platform_stats');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة إحصائيات المسوّقين.' };
+  const body: {
+    active_affiliates: number; total_affiliates: number;
+    total_net_revenue_minor: number; revenue_partial: boolean;
+  } = await req(action.path, 'GET', undefined, session.access_token);
+  return {
+    ok: true,
+    data: { activeAffiliates: body.active_affiliates, totalAffiliates: body.total_affiliates,
+            totalNetRevenueMinor: body.total_net_revenue_minor, revenuePartial: body.revenue_partial },
+  };
+}
+
+export interface LeaderboardRow {
+  affiliateId: string; name: string; activeShops: number;
+  retentionRate: number; totalReferrals: number; totalCommissions: number;
+}
+
+/** (19) أفضل المسوّقين أداءً — `affiliates.leaderboard`. */
+export async function affiliateLeaderboard(
+  session: AdminSession, catalog: AdminCatalog, limit = 10,
+): Promise<{ ok: true; rows: LeaderboardRow[] } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'affiliates.leaderboard');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة أفضل المسوّقين.' };
+  const body: { leaderboard: Array<{
+    affiliate_id: string; name: string; active_shops: number;
+    retention_rate: number; total_referrals: number; total_commissions: number;
+  }> } = await req(`${action.path}?limit=${limit}`, 'GET', undefined, session.access_token);
+  return {
+    ok: true,
+    rows: body.leaderboard.map((r) => ({
+      affiliateId: r.affiliate_id, name: r.name, activeShops: r.active_shops,
+      retentionRate: r.retention_rate, totalReferrals: r.total_referrals,
+      totalCommissions: r.total_commissions,
+    })),
+  };
+}
+
+export interface GeoPointOut { id: string; lat: number; lng: number; label: string; group?: string }
+
+/** (18) خريطة العملاء المحتملين — `leads.geo_map`، بلا أي بيانات تواصل (id/lat/lng/city/sector
+ *  فقط، مؤكَّد بالخلفية). */
+export async function leadsGeoPoints(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; points: GeoPointOut[] } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'leads.geo_map');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة خريطة العملاء المحتملين.' };
+  const body: { points: Array<{ id: string; lat: number; lng: number; city: string; sector_code: string }> } =
+    await req(action.path, 'GET', undefined, session.access_token);
+  return {
+    ok: true,
+    points: body.points.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, label: p.city, group: p.sector_code || undefined })),
+  };
+}
+
+/** خريطة المحلات الفعلية عبر كل تينانت — `operations.branch_locations` (مبنية بالمرحلة 5،
+ *  تُستهلَك أخيراً هنا). */
+export async function branchGeoPoints(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; points: GeoPointOut[] } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'operations.branch_locations');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة خريطة المحلات.' };
+  const body: { branches: Array<{ id: string; name: string; lat: number; lng: number; city: string }> } =
+    await req(`${action.path}?limit=200`, 'GET', undefined, session.access_token);
+  return {
+    ok: true,
+    points: body.branches.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng, label: b.name, group: b.city || undefined })),
+  };
+}
+
 export interface TenantCounts {
   total: number;
   active: number;

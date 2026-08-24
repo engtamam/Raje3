@@ -9,6 +9,7 @@ import { AlertTriangle, DollarSign, ShieldAlert, TrendingUp, Store, Sparkles } f
 import { Badge } from '../rj-ui/Badge';
 import { KpiCard } from '../rj-ui/KpiCard';
 import { riyalsLabel } from '../money';
+import { AdminAnalytics } from './AdminAnalytics';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import {
   activeTeamCount, backupHealth, monthRevenueHalalas, openTicketsCount,
@@ -143,6 +144,8 @@ export function AdminHome({ session }: { session: AdminSession }) {
               لا أرقام مالية لعرضها لك.
             </p>
           ) : null}
+
+          <AdminAnalytics session={session} />
 
           <p className="flex items-center gap-1.5 text-sm text-text-secondary">
             <TrendingUp size={14} /> {state.actionCount} إجراء إداري متاح لصلاحياتك الحالية.
