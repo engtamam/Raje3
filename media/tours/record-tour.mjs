@@ -271,6 +271,15 @@ async function runStep(page, step, index, tour, baseURL) {
     const box = await locator.boundingBox().catch(() => null);
     if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
     await page.evaluate((r) => window.__tour?.spotlight(r), box);
+  } else {
+    // A STEP WITH NO TARGET CLEARS THE RING, IT DOESN'T INHERIT THE LAST ONE. Leaving the
+    // previous step's ring up was tried deliberately (comment used to live here) on the theory
+    // that "what was just pressed" stays worth marking through its own settle — but a real
+    // recording showed the actual failure mode: a caption-only step narrating something on a
+    // DIFFERENT part of the screen (or a different topic entirely) with a stale ring still
+    // circling an unrelated field from two steps back, which reads as a sync bug because it is
+    // one. A step that wants the ring to stay names the same selector again explicitly.
+    await page.evaluate(() => window.__tour?.spotlight(null)).catch(() => undefined);
   }
 
   if (step.say) {
@@ -305,11 +314,9 @@ async function runStep(page, step, index, tour, baseURL) {
     await sleep(step.wait);
   }
 
-  // THE RING IS LEFT UP, DELIBERATELY. It stays on the just-pressed control through the settle
-  // above — so the viewer sees what was pressed and where — and only moves because the NEXT
-  // step's spotlight() call retargets it, via the CSS transition already declared in overlay.mjs.
-  // A tour that ends on this step (no next one) leaves the ring showing in the final frames,
-  // which is correct: the last thing pressed is exactly what should still be marked.
+  // A tour that ends on a targeted step leaves that ring showing in the final frames, which is
+  // correct: the last thing pressed is exactly what should still be marked. A tour ending on a
+  // bare `say` step already cleared it above, on entry to this step.
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }

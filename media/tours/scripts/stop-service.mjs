@@ -51,11 +51,43 @@ export default {
     {
       type: 'label=الاسم',
       text: 'قص شعر',
-      say: 'اكتب اسمها — الباقي اختياري، يُملأ لاحقاً وقته',
+      say: 'اكتب اسمها — الاسم وحده كافٍ',
+    },
+    // EACH REMAINING FIELD NAMED, NOT SKIPPED — a tutorial that highlights an empty form and
+    // says "the rest is default" without saying what any of it MEANS teaches nothing about it;
+    // a viewer who actually needs one of these later has no idea it was even here. Selectors are
+    // the real `name` attributes from Services.tsx's own add-form (`css=`, not `label=` — the
+    // `Row` wrapper these fields use doesn't associate a `<label>` the way the plain name field
+    // does, unconfirmed to work with getByLabel).
+    {
+      click: 'css=input[name="cycle_days"]',
+      say: 'دورة التذكير — كل كم يوم يحتاجها؟ اتركها 0',
+    },
+    {
+      click: 'css=input[name="duration_minutes"]',
+      say: 'المدة — تحتاجها الحجوزات. افتراضي 15',
+    },
+    {
+      click: 'css=input[name="price"]',
+      say: 'السعر اختياري — اتركه فاضياً إن لم تسعّر من هنا',
+    },
+    {
+      click: 'css=input[name="follow_up_days"]',
+      say: 'الاطمئنان — سؤال بعد الزيارة. اتركه 0 فلا نسأل',
+    },
+    {
+      click: 'css=input[name="points"]',
+      say: 'نقاطها — فاضٍ يتبع إعدادك العام تلقائياً',
+    },
+    // A native <select>, not clicked here — opening it would show the browser's own dropdown
+    // chrome mid-recording, which isn't part of the app's own screen. Named without a spotlight
+    // rather than skipped silently.
+    {
+      say: 'المجموعة — تجمع خدمات بإعداد واحد، اختياري',
     },
     {
       click: 'role=button:إضافة',
-      say: 'اضغط «إضافة» — والباقي افتراضي',
+      say: 'اضغط «إضافة» — الاسم وحده وصل',
     },
     {
       click: 'role=button:إيقاف',
