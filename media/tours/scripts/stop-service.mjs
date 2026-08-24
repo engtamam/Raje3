@@ -20,7 +20,7 @@ export default {
   steps: [
     {
       goto: '/services',
-      say: 'هذي شاشة «خدماتي ومنتجاتي» — من هنا تتحكم بكل خدمة تقدّمها محلك',
+      say: 'شاشة «خدماتي ومنتجاتي»',
     },
     // A BRAND-NEW SHOP HAS NO SERVICES YET — confirmed live, not assumed: the starter catalogue
     // some shops seed in the background is soft-fail by design (door.spec.ts's own comment) and,
@@ -39,17 +39,18 @@ export default {
     },
     {
       click: 'role=button:إضافة',
-      say: 'اضغط «إضافة» — والباقي كتب افتراضاته وحده',
+      say: 'اضغط «إضافة» — والباقي افتراضي',
     },
     {
       click: 'role=button:إيقاف',
       say: 'اضغط «إيقاف» — الخدمة تتوقف، ما تُحذف',
     },
+    // ONE TWO-LINE CAPTION, NOT TWO SEQUENTIAL ONES — CAPTION.maxLines is 2 for exactly this: a
+    // single thought that needs a beat longer than one line shouldn't cost a second full
+    // read-and-hold cycle. Merging these two cut real, needless dead time between stop and
+    // reactivate — the first thing a viewer flagged watching the actual recording.
     {
-      say: 'الآن اختفت من شاشة «تسجيل زيارة»، وتذكيراتها سكتت',
-    },
-    {
-      say: 'وتاريخها القديم كله باقٍ كما هو، بلا أي فقدان',
+      say: 'اختفت من «تسجيل زيارة» — وتاريخها باقٍ',
     },
     // SHE MOVED, NOT DISAPPEARED — stopping a service takes it off the «المفعّلة» (active) tab
     // entirely and onto a separate «الموقوفة» (stopped) one, which only appears once at least one
@@ -62,9 +63,6 @@ export default {
     {
       click: 'role=button:تفعيل',
       say: 'حابب ترجعها؟ اضغط «تفعيل»',
-    },
-    {
-      say: 'ترجع فورًا لشاشة الزيارة، بنفس إعداداتها القديمة',
     },
   ],
 };

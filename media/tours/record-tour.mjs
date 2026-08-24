@@ -37,7 +37,7 @@ import { findFfmpeg, assembleMp4, run } from '../lib/ffmpeg.mjs';
 import { readConfig } from '../lib/read-config.mjs';
 import { locate } from './lib/locate.mjs';
 import { installOverlay } from './lib/overlay.mjs';
-import { wrapCaption, captionHoldMs } from './lib/caption.mjs';
+import { captionHoldMs } from './lib/caption.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -246,8 +246,11 @@ async function runStep(page, step, index, tour, baseURL) {
     // leading slash keeps every step's path inside the app no matter where the page currently is.
     await page.goto(new URL(step.goto.replace(/^\//, ''), baseURL).href);
     await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
-    await sleep(CONFIG.PACE.settleMs);
-    return;
+    // NO EARLY RETURN — a `goto` step falls through to the shared caption block below like every
+    // other step. It used to return here directly, which meant a goto's own `say` was silently
+    // never shown at all: found by watching a recorded tour with no captions anywhere and
+    // checking a real frame, not by reading the code and spotting it.
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
   }
 
   if (step.waitFor) {
@@ -271,8 +274,16 @@ async function runStep(page, step, index, tour, baseURL) {
   }
 
   if (step.say) {
-    const wrapped = wrapCaption(step.say, CONFIG.CAPTION);
-    await page.evaluate((t) => window.__tour?.say(t), wrapped);
+    // THE RAW SENTENCE, NOT A NODE-SIDE PRE-WRAPPED ONE. overlay.mjs's own say() measures against
+    // the caption bar's REAL rendered width in the actual browser and wraps to that — a
+    // character-count guess here produced five lines instead of two the first time this ran at
+    // the tour frame's real (narrower, portrait) width; see overlay.mjs's own note. The boolean
+    // it returns is the ONLY trustworthy answer to "does this fit two lines" — surfaced as a
+    // thrown error naming the exact step, not a silently overflowing caption bar.
+    const fit = await page.evaluate((t) => window.__tour?.say(t), step.say);
+    if (fit === false) {
+      throw new Error(`step ${index + 1}: caption "${step.say}" doesn't fit CAPTION.maxLines (${CONFIG.CAPTION.maxLines}) at this frame's real width — shorten it or split it into two steps`);
+    }
     await sleep(step.holdMs ?? captionHoldMs(step.say, CONFIG.CAPTION));
   } else {
     await sleep(CONFIG.PACE.betweenStepsMs);

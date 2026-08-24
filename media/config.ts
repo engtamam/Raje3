@@ -51,9 +51,14 @@ export const BRAND = {
 } as const;
 
 export const CAPTION = {
-  /** يُقرأ ولا يُلاحَق: سطران على الأكثر، وسطرٌ لا يتجاوز أربعين حرفاً. */
+  /** يُقرأ ولا يُلاحَق: سطران على الأكثر. */
   maxLines: 2,
-  maxCharsPerLine: 40,
+  // NO maxCharsPerLine HERE. It was a character-count guess calibrated against the ad's
+  // landscape frame (1920px) and produced five lines instead of two the first time a real tour
+  // ran at the portrait tour frame's actual width (430px) -- 40 Arabic characters don't fit 82%
+  // of that at any legible size. tours/lib/overlay.mjs's say() measures the caption bar's real
+  // rendered width in the browser itself instead, so it stays correct at whatever frame width
+  // either VIDEO.deviceWidth or VIDEO.width ends up being.
   /** أقل زمنٍ يبقى فيه السطر مهما قصر. */
   minMs: 1200,
   /** زمن القراءة: نحو 14 حرفاً في الثانية للعربية. */
