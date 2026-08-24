@@ -56,7 +56,14 @@ export function mixSfx({ ffmpeg, videoIn, sfxFile, atSeconds, videoOut, run }) {
     branches.push(`[${i + 1}:a]adelay=${ms}|${ms}[a${i}]`);
   });
   const mixed = atSeconds.map((_, i) => `[a${i}]`).join('');
-  const filter = `${branches.join(';')};${mixed}amix=inputs=${atSeconds.length}:duration=first:dropout_transition=0[aout]`;
+  // duration=longest, NOT first. `adelay` only pads silence BEFORE a click starts — it does not
+  // extend the stream with trailing silence after the click ends, so each branch's own duration
+  // is just its delay plus the click's own ~90ms, nothing more. `duration=first` sets the WHOLE
+  // mixed output's length to the FIRST branch alone — the very first click's own short stream —
+  // cutting off every later one outright. This was the exact bug: sound on the first click only,
+  // silence for the rest of the tour. `longest` extends to the LAST (latest-delayed) branch
+  // instead, and the outer `-shortest` flag already caps the true final length against the video.
+  const filter = `${branches.join(';')};${mixed}amix=inputs=${atSeconds.length}:duration=longest:dropout_transition=0[aout]`;
   return run(ffmpeg, [
     '-y', ...inputs,
     '-filter_complex', filter,

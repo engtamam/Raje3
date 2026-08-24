@@ -61,23 +61,31 @@ export default {
     // WelcomeTrial.tsx: a full-screen dialog, no click-outside, only «لنبدأ». It carries the
     // REAL trial end date on screen — not scripted here as text, since the actual dialog already
     // shows it and a caption repeating a date risks drifting from whatever trial_days is set to.
+    // NO CHAPTER MARK — a 40s video can't fit YouTube's 10s-minimum spacing between more than
+    // two or three of these beats; see the note below on «متجر التطبيقات» for which two won out.
     {
       waitFor: 'role=button:لنبدأ',
-      chapter: 'تجربتك المجانية',
       say: 'تجربتك المجانية بدأت الآن — شهر كامل',
     },
     {
       click: 'role=button:لنبدأ',
       say: 'اضغط «لنبدأ»',
     },
+    // NO CHAPTER MARK HERE — it would land under 10s after «تجربتك المجانية» (the welcome dialog
+    // + this glimpse both happen in quick succession), and YouTube silently drops the ENTIRE
+    // chapter list if any two are closer than that. Folded into the same chapter instead of
+    // getting its own; the caption itself is unaffected.
     {
-      chapter: 'أول لقطة للوحتك',
       say: 'محلك جاهز — فاضي الآن، وهذا طبيعي أول يوم',
     },
     {
       click: 'role=button:فتح القائمة',
       say: 'من هنا تفتح كل أقسام محلك',
     },
+    // THE ONE OTHER CHAPTER — this video's total length only supports two or three of these
+    // marks at YouTube's 10s minimum; «متجر التطبيقات» is the fact Tamam's own brief singled
+    // out ("كل شي مفعل تجريبي"), so it's the one that earns the second mark. «وباقي محلك»
+    // dropped its own mark too — a handful of seconds later is still under the floor.
     {
       click: 'role=link:متجر التطبيقات',
       chapter: 'متجر التطبيقات',
@@ -93,7 +101,6 @@ export default {
     // rest of the console gets its own tours, one screen at a time, once each is studied deeply.
     {
       click: 'role=button:فتح القائمة',
-      chapter: 'وباقي محلك',
       say: 'وهذا شريطك — زيارتك، عملاؤك، رسائلك، كلها هنا',
     },
   ],
