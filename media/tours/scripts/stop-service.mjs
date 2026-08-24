@@ -18,10 +18,26 @@ export default {
   id: 'stop-service',
   title: 'إيقاف خدمة وإعادة تفعيلها',
   steps: [
+    // NAVIGATED, NOT LOADED — a `goto` step is a full page reload, which wipes the overlay
+    // entirely until the new document re-installs it (Playwright's addInitScript re-fires, but
+    // only once the new page has a <body> again). That gap is exactly the several seconds of
+    // nothing-on-screen a real viewer flagged watching the first working recording. Real client-
+    // side SPA navigation never reloads at all, so the overlay — and the ring/caption on it —
+    // stays alive continuously. At this viewport (430×932, below AppShell.tsx's `md` breakpoint)
+    // the nav lives in a drawer behind a hamburger button, not directly on screen; opening it is
+    // itself the tour's first real beat, not a step to hide.
     {
-      goto: '/services',
+      click: 'role=button:فتح القائمة',
       say: 'شاشة «خدماتي ومنتجاتي»',
     },
+    {
+      click: 'role=link:خدماتي ومنتجاتي',
+    },
+    // A goto step's own waitForLoadState('networkidle') used to give the destination screen's
+    // async data fetch time to land before the next step acted on it — client-side navigation has
+    // no equivalent free wait, so this names the actual thing the tour needs to exist before it
+    // touches anything on the new screen.
+    { waitFor: 'role=button:أضف خدمتك الأولى', timeoutMs: 30_000 },
     // A BRAND-NEW SHOP HAS NO SERVICES YET — confirmed live, not assumed: the starter catalogue
     // some shops seed in the background is soft-fail by design (door.spec.ts's own comment) and,
     // on the account this tour opens for itself, never arrives at all. Rather than wait on a
