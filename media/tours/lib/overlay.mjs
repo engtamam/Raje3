@@ -11,10 +11,10 @@
  * except here the tour re-generates and either still finds the target or fails loudly, instead
  * of quietly filming the wrong spot forever.
  *
- * NOTHING HERE NAMES A SCREEN. This module knows how to dim, ring, and caption — never which
- * button on which page. Every call takes coordinates or text handed to it by record-tour.mjs,
- * which in turn takes them from a tour script's data. Teaching this file a new SHAPE of overlay
- * (say, an arrow instead of a ring) helps every tour; teaching it a screen's name would not.
+ * NOTHING HERE NAMES A SCREEN. This module knows how to frame and caption — never which button
+ * on which page. Every call takes coordinates or text handed to it by record-tour.mjs, which in
+ * turn takes them from a tour script's data. Teaching this file a new SHAPE of overlay (say, an
+ * arrow instead of a ring) helps every tour; teaching it a screen's name would not.
  */
 
 /**
@@ -39,7 +39,6 @@ export function installOverlay(cfg) {
   else document.addEventListener('DOMContentLoaded', build, { once: true });
 
   function build() {
-  const NS = 'http://www.w3.org/2000/svg';
   const root = document.createElement('div');
   root.id = '__tour_overlay';
   Object.assign(root.style, {
@@ -47,34 +46,22 @@ export function installOverlay(cfg) {
     pointerEvents: 'none', opacity: '0', transition: 'opacity 260ms ease',
   });
 
-  // ── the dim mask ──────────────────────────────────────────────────────────────────────────
-  // One full-viewport rect, minus a rounded-rect hole over the target — an SVG mask rather than
-  // four positioned divs (top/bottom/left/right bars), because a mask survives the target moving
-  // or resizing between frames without four separate rectangles to keep in sync by hand.
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '100%');
-  Object.assign(svg.style, { position: 'absolute', inset: '0' });
-  const mask = document.createElementNS(NS, 'mask');
-  mask.id = '__tour_mask';
-  const maskBg = document.createElementNS(NS, 'rect');
-  maskBg.setAttribute('width', '100%'); maskBg.setAttribute('height', '100%'); maskBg.setAttribute('fill', 'white');
-  const hole = document.createElementNS(NS, 'rect');
-  hole.setAttribute('fill', 'black'); hole.setAttribute('rx', '14');
-  mask.append(maskBg, hole);
-  const dimRect = document.createElementNS(NS, 'rect');
-  dimRect.setAttribute('width', '100%'); dimRect.setAttribute('height', '100%');
-  dimRect.setAttribute('fill', 'rgba(27,42,58,0.55)'); // BRAND.ink at low opacity — dims toward the brand, not to flat black.
-  dimRect.setAttribute('mask', 'url(#__tour_mask)');
-  const defs = document.createElementNS(NS, 'defs');
-  defs.append(mask);
-  svg.append(defs, dimRect);
-
-  // ── the ring ──────────────────────────────────────────────────────────────────────────────
+  // ── the frame ─────────────────────────────────────────────────────────────────────────────
+  // A COLORED BORDER, NOTHING DIMMED. A full-screen dim mask was here originally — real feedback
+  // on a real recording: "المنصة تتغطى برمادي… أبغى لون المنصة يبين فعلاً" (the platform's own
+  // colors need to actually show, not read through a gray wash). The product's real palette is
+  // the whole point of a product tour; a viewer who can't see it clearly because half the screen
+  // is dimmed learns less about what raJa'i actually looks like, not more about where to click.
+  // A clean border in the brand's own accent color marks the target just as unambiguously without
+  // touching a single pixel of the real screen around it — double-bordered (an inner accent line,
+  // an outer paper line) so it reads clearly against both light and dark real backgrounds, which
+  // a single thin line often didn't.
   const ring = document.createElement('div');
   Object.assign(ring.style, {
-    position: 'fixed', border: `3px solid ${cfg.BRAND.accent}`, borderRadius: '14px',
-    boxShadow: `0 0 0 4px ${cfg.BRAND.accent}33`, transition: 'all 220ms ease',
+    position: 'fixed', borderRadius: '14px',
+    border: `3px solid ${cfg.BRAND.accent}`,
+    boxShadow: `0 0 0 2px ${cfg.BRAND.paper}, 0 0 0 5px ${cfg.BRAND.accent}, 0 2px 10px rgba(0,0,0,.25)`,
+    transition: 'all 220ms ease',
     opacity: '0',
   });
 
@@ -96,28 +83,22 @@ export function installOverlay(cfg) {
     boxShadow: '0 8px 28px rgba(0,0,0,.28)',
   });
 
-  root.append(svg, ring, caption);
+  root.append(ring, caption);
   document.body.appendChild(root);
   requestAnimationFrame(() => { root.style.opacity = '1'; });
 
   /**
-   * Point the ring/mask hole at a live rect (already computed on the Node side from the real
-   * Playwright locator's own boundingBox() — this file never resolves a selector itself, so it
-   * never needs to know Playwright's query vocabulary at all).
+   * Point the ring at a live rect (already computed on the Node side from the real Playwright
+   * locator's own boundingBox() — this file never resolves a selector itself, so it never needs
+   * to know Playwright's query vocabulary at all).
    */
   function spotlight(rect) {
-    if (!rect) {
-      ring.style.opacity = '0';
-      hole.setAttribute('width', '0'); hole.setAttribute('height', '0');
-      return;
-    }
+    if (!rect) { ring.style.opacity = '0'; return; }
     const pad = 8;
     const x = rect.x - pad, y = rect.y - pad, w = rect.width + pad * 2, h = rect.height + pad * 2;
     ring.style.opacity = '1';
     ring.style.left = `${x}px`; ring.style.top = `${y}px`;
     ring.style.width = `${w}px`; ring.style.height = `${h}px`;
-    hole.setAttribute('x', String(x)); hole.setAttribute('y', String(y));
-    hole.setAttribute('width', String(w)); hole.setAttribute('height', String(h));
   }
 
   /**

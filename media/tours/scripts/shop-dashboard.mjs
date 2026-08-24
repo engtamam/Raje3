@@ -27,7 +27,11 @@ export default {
   id: 'shop-dashboard',
   title: 'محلّي — تقرأ مؤشراتك ببساطة',
   useDemoSession: true,
-  sfx: true,
+  // NO SFX ON THIS TOUR, DELIBERATELY — every "click" step here spotlights a read-only number
+  // or chart, never a real button a viewer could actually press. A click sound on something that
+  // isn't clickable teaches the wrong lesson (real feedback: "ما في ضغطات فعلية… الصوت غير
+  // مناسب"). sfx stays opt-in per tour for exactly this reason — a screen that's genuinely all
+  // reading, not doing, should sound like one.
   steps: [
     {
       goto: '/',
