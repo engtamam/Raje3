@@ -28,7 +28,7 @@
  *   CONSOLE=http://localhost:5174 node media/tours/record-tour.mjs <script> [--seconds-cap 90]
  */
 import { mkdir, rm, rename } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname, basename, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -111,7 +111,23 @@ async function main() {
       : await browser.newContext(contextOpts);
   const page = await context.newPage();
 
-  if (!tour.skipAutoSignIn) {
+  if (tour.useDemoSession) {
+    // A RICH ACCOUNT, NOT A FRESH EMPTY ONE — some tours (اليوم's real numbers, نقاطي's real
+    // balances, الحجوزات' real grid) need a shop that already has months of history; a fresh
+    // signup can never show that regardless of how long the recording waits. seed-demo-
+    // account.mjs builds that account once, over the real API; this just signs into it, the same
+    // way a real returning owner's browser would — localStorage holding the session, not a
+    // Playwright storageState file, because that's the raw shape the seed script saved
+    // (`localStorage.getItem('raje3.session')`, parsed), not a full browser storage snapshot.
+    const demoSessionFile = join(HERE, '.demo-session.json');
+    if (!existsSync(demoSessionFile)) {
+      throw new Error(`tour "${tour.id}" needs useDemoSession, but ${demoSessionFile} doesn't exist — run: node media/tours/seed-demo-account.mjs`);
+    }
+    const demoSession = JSON.parse(readFileSync(demoSessionFile, 'utf8'));
+    await page.goto(baseURL);
+    await page.evaluate((s) => localStorage.setItem('raje3.session', JSON.stringify(s)), demoSession);
+    await page.reload();
+  } else if (!tour.skipAutoSignIn) {
     await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
     await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
   }
