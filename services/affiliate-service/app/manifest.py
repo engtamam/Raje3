@@ -180,6 +180,9 @@ def build_manifest(
              "method": "POST"},
             # The admin's queue over that gate.
             {"path": "/api/v1/admin/affiliates", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/affiliates/stats", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/affiliates/leaderboard", "tier": "user", "method": "GET"},
+            {"path": "/api/v1/admin/leads/geo", "tier": "user", "method": "GET"},
             {"path": "/api/v1/admin/affiliates/{}/approve", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/affiliates/{}/reject", "tier": "user", "method": "POST"},
             {"path": "/api/v1/admin/affiliates/{}/suspend", "tier": "user", "method": "POST"},
