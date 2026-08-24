@@ -27,13 +27,13 @@
  *   node media/tours/record-tour.mjs media/tours/scripts/stop-service.mjs
  *   CONSOLE=http://localhost:5174 node media/tours/record-tour.mjs <script> [--seconds-cap 90]
  */
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve, dirname, basename, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { chromiumModule } from '../lib/browser.mjs';
-import { findFfmpeg, assembleMp4, run } from '../lib/ffmpeg.mjs';
+import { findFfmpeg, assembleMp4, mixSfx, run } from '../lib/ffmpeg.mjs';
 import { readConfig } from '../lib/read-config.mjs';
 import { locate } from './lib/locate.mjs';
 import { installOverlay } from './lib/overlay.mjs';
@@ -155,6 +155,10 @@ async function main() {
   // behind its caption). Nothing here calls a TTS API — this only writes down the placement data
   // so that whichever script eventually does needs no change to this recorder to use it.
   const captionTimeline = [];
+  // EVERY CLICK'S EXACT MOMENT — for the sound-effect pass, opt-in per tour (`tour.sfx`). Kept
+  // generic and always collected (cheap — a handful of numbers) rather than gated behind the
+  // flag, so turning sfx on for a tour that already exists never needs a second recording pass.
+  const clickTimeline = [];
   const elapsedSeconds = () => frameIndex / FPS;
 
   const deadline = Date.now() + SECONDS_CAP * 1000;
@@ -166,7 +170,7 @@ async function main() {
       }
       if (step.chapter) chapters.push({ seconds: elapsedSeconds(), title: step.chapter });
       const startSeconds = elapsedSeconds();
-      await runStep(page, step, i, tour, baseURL);
+      await runStep(page, step, i, tour, baseURL, () => clickTimeline.push(elapsedSeconds()));
       if (step.say) {
         captionTimeline.push({
           text: step.say, // the RAW sentence, never the display-wrapped version — this is what TTS should read
@@ -186,6 +190,19 @@ async function main() {
   await rm(framesDir, { recursive: true, force: true });
   const seconds = frameIndex / FPS;
   console.log(`✔ ${out} · ${seconds.toFixed(1)}s · ${frameIndex} frames`);
+
+  // SOUND EFFECTS ONLY — NEVER MUSIC. A click cue at each real click, opt-in per tour
+  // (`tour.sfx`) rather than on by default, since every tour recorded before this existed should
+  // stay exactly as it already is until someone deliberately turns it on. CC0 (Kenney's UI Audio
+  // set, no attribution required) — see media/lib/sfx/README.md for the license file itself.
+  if (tour.sfx && clickTimeline.length) {
+    const sfxFile = join(HERE, '../lib/sfx/click.ogg');
+    const withSfx = join(outDir, `.${filenameBase}-sfx.mp4`);
+    await mixSfx({ ffmpeg, videoIn: out, sfxFile, atSeconds: clickTimeline, videoOut: withSfx, run });
+    await rm(out);
+    await rename(withSfx, out);
+    console.log(`✔ ${out} · ${clickTimeline.length} click cue(s) mixed in`);
+  }
 
   if (chapters.length) await writeChapters(join(metaDir, `${tour.id}.chapters.txt`), chapters);
   const { writeFile } = await import('node:fs/promises');
@@ -257,7 +274,7 @@ async function ensureSignedIn(page, baseURL, openShop, sessionFile) {
   }
 }
 
-async function runStep(page, step, index, tour, baseURL) {
+async function runStep(page, step, index, tour, baseURL, onAction) {
   const label = `  ${index + 1}/${tour.steps.length}`;
 
   if (step.goto) {
@@ -350,6 +367,7 @@ async function runStep(page, step, index, tour, baseURL) {
   if (step.click) {
     console.log(`${label} click ${step.click}`);
     await locate(page, step.click).first().click();
+    onAction?.(); // the exact moment this fired — a click sound (if this tour opts in) is timed against this, not a guess
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
@@ -362,12 +380,14 @@ async function runStep(page, step, index, tour, baseURL) {
     // script trying to be its own random-data generator in static data.
     const text = typeof step.text === 'function' ? step.text() : step.text;
     await locate(page, step.type).first().pressSequentially(text, { delay: CONFIG.PACE.typeDelayMs });
+    onAction?.();
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
   } else if (step.check) {
     console.log(`${label} check ${step.check}`);
     await locate(page, step.check).first().check();
+    onAction?.();
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);

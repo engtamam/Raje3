@@ -17,6 +17,7 @@
 export default {
   id: 'stop-service',
   title: 'إيقاف خدمة وإعادة تفعيلها',
+  sfx: true,
   steps: [
     // NAVIGATED, NOT LOADED — a `goto` step is a full page reload, which wipes the overlay
     // entirely until the new document re-installs it (Playwright's addInitScript re-fires, but

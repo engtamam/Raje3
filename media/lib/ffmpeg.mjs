@@ -38,6 +38,34 @@ export function assembleMp4({ ffmpeg, framesDir, fps, out, run }) {
   ]);
 }
 
+/**
+ * Mixes a click sound in at each given timestamp, in place — no background music, ever (the
+ * brief was explicit: sound effects only, matching each action, nothing playing underneath).
+ * `sfxFile` plays once per entry in `atSeconds`; `-shortest` caps the result at the SILENT
+ * video's own length so a click landing near the very end can never extend the file by even a
+ * frame. Re-encodes audio only (`-c:v copy`) — the video stream itself, already correct, is
+ * never touched a second time.
+ */
+export function mixSfx({ ffmpeg, videoIn, sfxFile, atSeconds, videoOut, run }) {
+  if (!atSeconds.length) return Promise.resolve();
+  const inputs = ['-i', videoIn];
+  const branches = [];
+  atSeconds.forEach((s, i) => {
+    inputs.push('-i', sfxFile);
+    const ms = Math.max(0, Math.round(s * 1000));
+    branches.push(`[${i + 1}:a]adelay=${ms}|${ms}[a${i}]`);
+  });
+  const mixed = atSeconds.map((_, i) => `[a${i}]`).join('');
+  const filter = `${branches.join(';')};${mixed}amix=inputs=${atSeconds.length}:duration=first:dropout_transition=0[aout]`;
+  return run(ffmpeg, [
+    '-y', ...inputs,
+    '-filter_complex', filter,
+    '-map', '0:v', '-map', '[aout]',
+    '-c:v', 'copy', '-c:a', 'aac', '-shortest',
+    videoOut,
+  ]);
+}
+
 export function run(cmd, argv) {
   return import('node:child_process').then(({ spawn }) => new Promise((ok, no) => {
     const p = spawn(cmd, argv, { stdio: ['ignore', 'ignore', 'inherit'] });
