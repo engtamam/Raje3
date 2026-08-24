@@ -90,7 +90,13 @@ export default {
       say: 'رسائلك فعلاً ترجّع عملاء؟ هذا دليلك',
     },
     {
-      click: 'text=أثر الرسائل، مقيساً',
+      // "text=أثر الرسائل" ONLY, NOT ", مقيساً" — HoldoutCard renders three real states with
+      // three different sentences (off, still-measuring, ready), only one of which carries the
+      // ", مقيساً" title at all. "أثر الرسائل" is the one substring common to all three — verified
+      // live against the seeded demo account, which sits in the "off" state (Holdout.py's own
+      // `holdout_off` reason) and shows the plain paragraph, no title. This selector keeps
+      // working the day someone turns holdout measurement on for this account too.
+      click: 'text=أثر الرسائل',
       say: 'ونقارنها بمن ما وصلته رسالة أصلاً — بالعدل',
     },
   ],
