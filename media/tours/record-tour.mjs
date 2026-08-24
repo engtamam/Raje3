@@ -197,28 +197,33 @@ async function main() {
   } finally {
     capturing = false;
     await captureLoop;
-  }
 
-  if (tour.useDemoSession) {
-    // WRITE THE ROTATED SESSION BACK OUT, EVERY RUN, HERE — NOT RIGHT AFTER THE INITIAL RELOAD.
-    // Tried there first: a bare page.reload() with no data mounted yet doesn't necessarily fire
-    // any authenticated request, so renew.ts's own 401-triggered rotation hadn't happened yet by
-    // the time that read-back ran — it kept saving back the SAME (soon to be stale) token,
-    // solving nothing. By now every real step has actually called the API (dashboard fetches,
-    // clicks, the works) — if a renewal was going to fire this run, it already did. The saved
-    // access token is only ever good for 15 minutes (renew.ts's own token lifetime), so almost
-    // every recording lands after it has expired; the refresh token is single-use ("the old
-    // one is dead the moment it's spent", renew.ts's own words), so reading the CURRENT
-    // localStorage back out here — after the tour, not before it — is the only point that
-    // actually reflects what's live.
-    const demoSessionFile = join(HERE, '.demo-session.json');
-    const before = existsSync(demoSessionFile) ? readFileSync(demoSessionFile, 'utf8') : null;
-    const liveSession = await page.evaluate(() => {
-      const raw = localStorage.getItem('raje3.session');
-      return raw ? JSON.parse(raw) : null;
-    }).catch(() => null);
-    if (liveSession && JSON.stringify(liveSession, null, 2) !== before) {
-      writeFileSync(demoSessionFile, JSON.stringify(liveSession, null, 2));
+    if (tour.useDemoSession) {
+      // WRITE THE ROTATED SESSION BACK OUT, EVERY RUN — INSIDE THIS `finally`, NOT AFTER THE
+      // `try` BLOCK. A step throwing (a selector never resolving, the exact failure this was
+      // hit chasing) skips everything textually after the try/finally entirely — the exception
+      // propagates straight past it. But the app's own renew.ts fires from INSIDE THE BROWSER
+      // the moment any step's fetch hits a 401, rotating the refresh token, REGARDLESS of
+      // whether the step that triggered it then goes on to fail for an unrelated reason (a
+      // selector genuinely missing). A failed recording still silently spent the refresh token
+      // it was holding — putting the write-back outside `finally` meant that rotation was lost
+      // on every failed run too, not just successful ones, which is exactly the run where the
+      // file most needed to end up correct for whatever gets tried next.
+      //
+      // ALSO TRIED RIGHT AFTER THE INITIAL page.reload() — before this. A bare reload with no
+      // data mounted yet doesn't necessarily fire any authenticated request, so renew.ts's own
+      // rotation hadn't happened yet by the time that read-back ran; it kept saving back the
+      // SAME soon-to-be-stale token, solving nothing. By now, real or thrown, every step that
+      // got to run already made its own API calls — if a renewal was going to fire, it did.
+      const demoSessionFile = join(HERE, '.demo-session.json');
+      const before = existsSync(demoSessionFile) ? readFileSync(demoSessionFile, 'utf8') : null;
+      const liveSession = await page.evaluate(() => {
+        const raw = localStorage.getItem('raje3.session');
+        return raw ? JSON.parse(raw) : null;
+      }).catch(() => null);
+      if (liveSession && JSON.stringify(liveSession, null, 2) !== before) {
+        writeFileSync(demoSessionFile, JSON.stringify(liveSession, null, 2));
+      }
     }
   }
 

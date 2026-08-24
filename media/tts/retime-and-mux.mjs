@@ -21,11 +21,10 @@
  * Usage:
  *   node media/tts/retime-and-mux.mjs <tour-id>
  */
-import { existsSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
 import { findFfmpeg } from '../lib/ffmpeg.mjs';
@@ -70,7 +69,6 @@ async function main() {
   }
 
   const ffmpeg = findFfmpeg();
-  const tmp = mkdtempSync(join(tmpdir(), 'raje3-retime-'));
   const videoDur = probeDuration(ffmpeg, videoIn);
 
   // ── build the ordered interval list: gap, caption, gap, caption, …, gap ────────────────────
@@ -101,7 +99,10 @@ async function main() {
     if (iv.kind === 'caption' && iv.hold > 0) {
       filterVideo.push(`[${trimmed}]tpad=stop_mode=clone:stop_duration=${iv.hold.toFixed(3)}[${label}]`);
     } else {
-      filterVideo.push(`[${trimmed}]copy[${label}]`);
+      // `null` — the actual no-op passthrough filter-graph NODE. `copy` is a codec option
+      // (`-c:v copy`), not a filter; using it here as a filter name is a real ffmpeg error
+      // ("No such filter: 'copy'"), caught only by actually running this against real output.
+      filterVideo.push(`[${trimmed}]null[${label}]`);
     }
     videoParts.push(`[${label}]`);
   });
@@ -141,7 +142,6 @@ async function main() {
     finalOut,
   ];
   const res = spawnSync(ffmpeg, argv, { stdio: 'inherit' });
-  rmSync(tmp, { recursive: true, force: true });
   if (res.status !== 0) throw new Error(`ffmpeg exited ${res.status}`);
 
   const originalHold = intervals.filter((iv) => iv.kind === 'caption' && iv.hold > 0);
