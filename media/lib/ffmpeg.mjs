@@ -63,7 +63,16 @@ export function mixSfx({ ffmpeg, videoIn, sfxFile, atSeconds, videoOut, run }) {
   // cutting off every later one outright. This was the exact bug: sound on the first click only,
   // silence for the rest of the tour. `longest` extends to the LAST (latest-delayed) branch
   // instead, and the outer `-shortest` flag already caps the true final length against the video.
-  const filter = `${branches.join(';')};${mixed}amix=inputs=${atSeconds.length}:duration=longest:dropout_transition=0[aout]`;
+  // normalize=0, EXPLICITLY. amix's default (normalize=1) divides the mixed volume by however
+  // many input streams are still "active" at each moment, to prevent clipping when several play
+  // at once — but each click here is a short, staggered, NON-overlapping burst, so ffmpeg counts
+  // fewer streams as "still active" the further into the timeline a click lands (earlier ones
+  // have already ended), and progressively divides by less. The real, measured result: clicks
+  // got audibly louder every few seconds, from -20.7dB up to -1.7dB across one recording, purely
+  // from this automatic compensation — nothing else changed between them. Turning it off means
+  // every click plays at the source file's own single, unscaled volume throughout, which is
+  // correct here precisely because they never overlap and there is nothing to compensate for.
+  const filter = `${branches.join(';')};${mixed}amix=inputs=${atSeconds.length}:duration=longest:dropout_transition=0:normalize=0[aout]`;
   return run(ffmpeg, [
     '-y', ...inputs,
     '-filter_complex', filter,
