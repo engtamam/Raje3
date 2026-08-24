@@ -48,8 +48,14 @@ test('the password rules are shown while he types, not after he presses', async 
   // Twelve characters is a long password. Announcing it after the button is how a signup is
   // abandoned — and he has already invented one by then.
   await page.goto('/');
-  await page.getByRole('radio', { name: 'محل جديد' }).click();
-  await page.getByLabel('كلمة المرور').fill('short');
+  // «محل جديد» NO LONGER EXISTS — Door.tsx's «new» mode (switched to via the OUTER «تسجيل جديد»
+  // radio) renders the sign-up form directly now; see fixtures.ts's openShop() for the fuller
+  // account of this drift.
+  await page.getByRole('radio', { name: 'تسجيل جديد' }).click();
+  // BY ROLE, NOT BY LABEL — see fixtures.ts's openShop() for why: the password field's show/hide
+  // toggle button's own aria-label contains «كلمة المرور» too, and `textbox` is the one role only
+  // the input itself carries.
+  await page.getByRole('textbox', { name: 'كلمة المرور' }).fill('short');
 
   await expect(page.getByText('12 حرفاً على الأقل')).toBeVisible();
 });
@@ -64,9 +70,9 @@ test('nothing is created without the consent box', async ({ page }) => {
    * box — otherwise this would pass on a form that was simply incomplete.
    */
   await page.goto('/');
-  await page.getByRole('radio', { name: 'محل جديد' }).click();
+  await page.getByRole('radio', { name: 'تسجيل جديد' }).click();
   await page.getByLabel('رقم الجوال').fill('0512345678');
-  await page.getByLabel('كلمة المرور').fill(PASSWORD);
+  await page.getByRole('textbox', { name: 'كلمة المرور' }).fill(PASSWORD);
   await page.getByLabel('اسم المحل').fill('محل بلا موافقة');
 
   // DISABLED, AND HERE THAT IS SAFE — which it is not on the sign-in pane. The autofill trap needs

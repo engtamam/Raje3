@@ -60,23 +60,62 @@ export async function openShop(page: Page): Promise<string> {
   // THE DOOR IS THE WHOLE PAGE when signed out. If this finds the nav instead, a previous run left
   // a session behind and everything after it would be testing a shop we did not create.
   //
+  // TWO RADIOGROUPS, NOT ONE — Door.tsx defaults to «تسجيل الدخول» (sign IN), and «محل جديد» lives
+  // inside the sign-UP pane that only mounts once the OUTER mode radio is switched to «تسجيل جديد».
+  // Asking for «محل جديد» straight away found nothing on a door that had never shown it yet, which
+  // reads as a page that failed to load rather than as a tab that was never opened.
+  //
   // A RADIO, NOT A BUTTON — the kit's `Segmented` renders `role="radiogroup"` with `role="radio"`
   // children. Asking for a button found nothing and reported "element not found", which reads as a
   // page that failed to load rather than as a name for the same control.
-  await expect(page.getByRole('radio', { name: 'محل جديد' })).toBeVisible();
-  await page.getByRole('radio', { name: 'محل جديد' }).click();
+  //
+  // NO SECOND RADIO AFTER THIS ONE. Door.tsx's «new» mode renders `NewShopPane` directly — phone,
+  // password, shop name, right on the pane, no further "محل جديد" choice to make. An earlier
+  // version of this fixture waited for and clicked a second radio by that name; it no longer
+  // exists anywhere in Door.tsx, and that wait always failed once the pane it was ever going to
+  // find had already been removed — silently, since nothing runs this fixture outside an actual
+  // e2e pass to notice.
+  //
+  // AN EXPLICIT TIMEOUT, NOT THE BARE DEFAULT. `expect()`'s own default is 5s; playwright.config.ts
+  // widens it to 15s project-wide ("anything here is slow by design" — its own comment, about
+  // exactly the first-compile/cold-tunnel delay a fresh signup hits). That widened value is read
+  // by the TEST RUNNER's config loader — a caller outside the runner (media/tours/record-tour.mjs
+  // borrows this function directly, not through `playwright test`) never sees it, and would
+  // otherwise fail this exact assertion on the same slowness the config was written to tolerate.
+  // Stating the timeout here instead of relying on ambient config makes openShop() correct for
+  // every caller, not just ones that happen to load this project's config.
+  await expect(page.getByRole('radio', { name: 'تسجيل جديد' })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('radio', { name: 'تسجيل جديد' }).click();
 
   await page.getByLabel('رقم الجوال').fill(phone);
-  await page.getByLabel('كلمة المرور').fill(PASSWORD);
+  // BY ROLE, NOT BY LABEL — the password field's show/hide toggle button (added since) carries its
+  // own `aria-label="إظهار كلمة المرور"`, which contains «كلمة المرور» as a substring and matches
+  // getByLabel's default non-exact search just as well as the field itself; `exact: true` doesn't
+  // fix it either, because the FIELD's own label carries a required-marker suffix (the rendered
+  // «كلمة المرور *») so it no longer equals the bare string exactly. `textbox` is the one role that
+  // is only ever true of the input, never of the toggle button beside it.
+  await page.getByRole('textbox', { name: 'كلمة المرور' }).fill(PASSWORD);
   await page.getByLabel('اسم المحل').fill(SHOP_NAME);
   // THREE VALUES AND A BOX. The form once had a fourth control — a card per trade — and this
   // fixture clicked whichever came first. Nothing asks a shop its trade any more.
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'ابدأ' }).click();
 
+  // A FULL-SCREEN WELCOME DIALOG COVERS THE APP NEXT (WelcomeTrial.tsx, `role="dialog"
+  // aria-modal="true"`) — it fires the moment a brand-new shop first lands inside, with no
+  // click-outside and no separate close button, only «لنبدأ». Everything behind it — including
+  // «حسابي» — cannot be reached until it's dismissed. `.catch()` because this is the ONE-TIME
+  // welcome: a re-run that reused a still-alive session would never see it at all, and that must
+  // not fail here.
+  await page.getByRole('button', { name: 'لنبدأ' }).click({ timeout: 15_000 }).catch(() => undefined);
+
   // HE IS INSIDE, not "signup returned 200". The response carries no token; the app signs in
   // behind it, and the only proof that worked is a screen only a session can render.
-  await expect(page.getByRole('link', { name: 'حسابي' })).toBeVisible({ timeout: 45_000 });
+  //
+  // A BUTTON, NOT A LINK — AppShell.tsx renders «حسابي» as `<Button variant="ghost" size="icon"
+  // onClick={onAccount}>`, an icon control that opens the account screen rather than navigating
+  // to it by href. It was never an `<a>`, so `role: 'link'` never matched regardless of the name.
+  await expect(page.getByRole('button', { name: 'حسابي' })).toBeVisible({ timeout: 45_000 });
 
   await page.context().storageState({ path: SESSION_FILE });
   return phone;
