@@ -17,6 +17,7 @@ export default {
   id: 'getting-started',
   title: 'فتح حساب وفترة التجربة',
   skipAutoSignIn: true,
+  sfx: true,
   steps: [
     {
       goto: '/',
