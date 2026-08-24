@@ -94,8 +94,17 @@ function InvoicesPanel({ session, action, settleAction, settlementsAction, rever
   const [until, setUntil] = useState('');
   const [rows, setRows] = useState<Invoice[] | 'idle' | 'loading' | 'failed'>('idle');
   const [error, setError] = useState('');
+  // AT MOST ONE OF THESE THREE IS EVER NON-NULL — `Modal` (rj-ui) explicitly documents it does
+  // NOT support stacking a second instance (no shared registry, both would bind Escape and
+  // scroll-lock independently). Opening any one of the three closes the other two, so only a
+  // single `ConfirmDialog`/`Modal` is ever mounted at once — see `open*` below.
   const [settleFor, setSettleFor] = useState<Invoice | null>(null);
   const [settlementsFor, setSettlementsFor] = useState<Invoice | null>(null);
+  const [reverseFor, setReverseFor] = useState<Settlement | null>(null);
+
+  function openSettle(inv: Invoice) { setSettlementsFor(null); setReverseFor(null); setSettleFor(inv); }
+  function openSettlements(inv: Invoice) { setSettleFor(null); setReverseFor(null); setSettlementsFor(inv); }
+  function openReverse(s: Settlement) { setSettleFor(null); setSettlementsFor(null); setReverseFor(s); }
 
   async function search(overrides?: Partial<{ status: string; tenant: string; since: string; until: string }>) {
     const f = { status, tenant, since, until, ...overrides };
@@ -139,9 +148,9 @@ function InvoicesPanel({ session, action, settleAction, settlementsAction, rever
       key: 'actions', header: '',
       render: (r) => (
         <div className="flex gap-1.5">
-          <Button type="button" size="sm" variant="ghost" onClick={() => setSettleFor(r)}>تسوية</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => openSettle(r)}>تسوية</Button>
           {settlementsAction ? (
-            <Button type="button" size="sm" variant="ghost" onClick={() => setSettlementsFor(r)}>التسويات</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => openSettlements(r)}>التسويات</Button>
           ) : null}
         </div>
       ),
@@ -201,8 +210,13 @@ function InvoicesPanel({ session, action, settleAction, settlementsAction, rever
                      onClose={() => setSettleFor(null)} onSettled={() => search()} />
       ) : null}
       {settlementsAction ? (
-        <SettlementsDialog session={session} listAction={settlementsAction} reverseAction={reverseAction}
-                           invoice={settlementsFor} onClose={() => setSettlementsFor(null)} />
+        <SettlementsDialog session={session} listAction={settlementsAction}
+                           canReverse={Boolean(reverseAction)} invoice={settlementsFor}
+                           onClose={() => setSettlementsFor(null)} onRequestReverse={openReverse} />
+      ) : null}
+      {reverseAction ? (
+        <ReverseSettlementDialog session={session} action={reverseAction} settlement={reverseFor}
+                                 onClose={() => setReverseFor(null)} />
       ) : null}
     </div>
   );
@@ -224,7 +238,6 @@ function SettleDialog({ session, action, invoice, onClose, onSettled }: {
   const [reference, setReference] = useState('');
   const [amount, setAmount] = useState('');
   const [paidAt, setPaidAt] = useState(TODAY());
-  const [arm, setArm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -253,13 +266,18 @@ function SettleDialog({ session, action, invoice, onClose, onSettled }: {
       setError(err instanceof Error ? err.message : 'تعذّرت التسوية.');
     } finally {
       setBusy(false);
-      setArm(false);
     }
   }
 
+  // ONE Modal, not two — `submit` fires only once the operator types the invoice's own number
+  // into `ConfirmDialog`'s built-in arm field (`confirmText`), the same single-dialog pattern
+  // `AdminSecrets.tsx`/`PaymentTools` already use, instead of nesting a second `ConfirmDialog`
+  // (which `rj-ui/Modal` documents it does not support stacking).
   return (
-    <ConfirmDialog open onClose={onClose} onConfirm={() => setArm(true)}
-                  title={`تسوية الفاتورة ${invoice.number}`} confirmLabel="متابعة">
+    <ConfirmDialog open onClose={onClose} onConfirm={submit} busy={busy} danger={false}
+                  confirmLabel="تسجيل التسوية" confirmText={invoice.number}
+                  title={`تسوية الفاتورة ${invoice.number}`}
+                  body="سيُسجَّل هذا كدفع فعلي على الفاتورة — اكتب رقم الفاتورة للتأكيد.">
       <div className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-label font-medium text-text-secondary">الطريقة</span>
@@ -286,9 +304,6 @@ function SettleDialog({ session, action, invoice, onClose, onSettled }: {
         </label>
         {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
       </div>
-      <ConfirmDialog open={arm} onClose={() => setArm(false)} onConfirm={submit} busy={busy} danger={false}
-                    title={`تأكيد تسوية ${invoice.number} بمرجع "${reference}"؟`}
-                    body="سيُسجَّل هذا كدفع فعلي على الفاتورة." />
     </ConfirmDialog>
   );
 }
@@ -297,15 +312,11 @@ interface Settlement {
   id: string; method: string; reference: string; amount_minor: number; paid_at: number;
 }
 
-function SettlementsDialog({ session, listAction, reverseAction, invoice, onClose }: {
-  session: AdminSession; listAction: AdminAction; reverseAction?: AdminAction;
-  invoice: Invoice | null; onClose: () => void;
+function SettlementsDialog({ session, listAction, canReverse, invoice, onClose, onRequestReverse }: {
+  session: AdminSession; listAction: AdminAction; canReverse: boolean;
+  invoice: Invoice | null; onClose: () => void; onRequestReverse: (s: Settlement) => void;
 }) {
   const [rows, setRows] = useState<Settlement[] | 'loading' | 'failed'>('loading');
-  const [reverseFor, setReverseFor] = useState<Settlement | null>(null);
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!invoice) return;
@@ -317,22 +328,9 @@ function SettlementsDialog({ session, listAction, reverseAction, invoice, onClos
 
   if (!invoice) return null;
 
-  async function reverse() {
-    if (!reverseAction || !reverseFor) return;
-    setBusy(true);
-    setError('');
-    try {
-      await req(reverseAction.path.replace('{settlement_id}', reverseFor.id), 'POST',
-                { reason: reason.trim(), actor: '' }, session.access_token);
-      setReverseFor(null);
-      setReason('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'تعذّر عكس التسوية.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
+  // ONE Modal — reversing a settlement opens a SEPARATE top-level dialog (`ReverseSettlementDialog`,
+  // rendered by `InvoicesPanel`) instead of nesting a second `ConfirmDialog` here; `onRequestReverse`
+  // closes this one first (see `openReverse` in `InvoicesPanel`).
   return (
     <ConfirmDialog open onClose={onClose} onConfirm={onClose}
                   title={`تسويات الفاتورة ${invoice.number}`} confirmLabel="إغلاق" danger={false}>
@@ -346,23 +344,53 @@ function SettlementsDialog({ session, listAction, reverseAction, invoice, onClos
             {rows.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-2 rounded-input border border-border-subtle p-2 text-sm">
                 <span>{s.method} — {s.reference} — {riyalsLabel(s.amount_minor)}</span>
-                {reverseAction ? (
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setReverseFor(s)}>عكس</Button>
+                {canReverse ? (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => onRequestReverse(s)}>عكس</Button>
                 ) : null}
               </li>
             ))}
           </ul>
         )
       ) : null}
-      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
+    </ConfirmDialog>
+  );
+}
 
-      <ConfirmDialog open={reverseFor !== null} onClose={() => setReverseFor(null)} onConfirm={reverse} busy={busy}
-                    title="عكس التسوية؟" body="سيُلغى أثرها على حالة الفاتورة، ولا تُحذف من السجلّ.">
-        <label className="flex flex-col gap-1">
-          <span className="text-label font-medium text-text-secondary">السبب</span>
-          <Input dir="rtl" value={reason} onChange={(e) => setReason(e.target.value)} />
-        </label>
-      </ConfirmDialog>
+function ReverseSettlementDialog({ session, action, settlement, onClose }: {
+  session: AdminSession; action: AdminAction; settlement: Settlement | null; onClose: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { if (settlement) { setReason(''); setError(''); } }, [settlement]);
+
+  if (!settlement) return null;
+
+  async function reverse() {
+    if (!reason.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await req(action.path.replace('{settlement_id}', settlement!.id), 'POST',
+                { reason: reason.trim(), actor: '' }, session.access_token);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر عكس التسوية.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ConfirmDialog open onClose={onClose} onConfirm={reverse} busy={busy}
+                  title={`عكس تسوية "${settlement.reference}"؟`}
+                  body="سيُلغى أثرها على حالة الفاتورة، ولا تُحذف من السجلّ.">
+      <label className="flex flex-col gap-1">
+        <span className="text-label font-medium text-text-secondary">السبب</span>
+        <Input dir="rtl" value={reason} onChange={(e) => setReason(e.target.value)} />
+      </label>
+      {error ? <p role="alert" className="text-danger text-sm">{error}</p> : null}
     </ConfirmDialog>
   );
 }

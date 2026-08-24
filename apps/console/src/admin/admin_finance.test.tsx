@@ -99,13 +99,66 @@ describe('AdminFinance — invoices', () => {
 
     fireEvent.click(screen.getAllByText('تسوية')[0]);
     fireEvent.change(await screen.findByLabelText('رقم المرجع'), { target: { value: 'REF-1' } });
-    fireEvent.click(screen.getByText('متابعة'));
-    await screen.findByText(/تأكيد تسوية/);
-    fireEvent.click(screen.getByText('تأكيد'));
+    fireEvent.change(screen.getByLabelText(/اكتب/), { target: { value: 'INV-001' } });
+    fireEvent.click(screen.getByText('تسجيل التسوية'));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
       '/api/v1/billing/invoices/inv-1/settle', 'POST',
       expect.objectContaining({ reference: 'REF-1', amount_minor: 10000 }), 'tok-1',
+    ));
+  });
+
+  it('the settle dialog\'s confirm stays disabled until the invoice number is typed', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn().mockResolvedValueOnce({
+      invoices: [{ id: 'inv-1', tenant: 'tnt_a', number: 'INV-001', subscription_id: '',
+                  status: 'open', subtotal_minor: 10000, tax_minor: 0, total_minor: 10000,
+                  refunded_minor: 0, currency: 'SAR', created: '2026-08-01T00:00:00Z', paid_at: null }],
+      next_cursor: null,
+    });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('تجديدات لم تتم'));
+    await waitFor(() => expect(screen.getAllByText('INV-001').length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByText('تسوية')[0]);
+
+    await screen.findByLabelText(/اكتب/);
+    const confirmBtn = screen.getByText('تسجيل التسوية').closest('button') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+  });
+
+  it('viewing settlements then reversing one opens a single dialog at a time, never two stacked', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({
+        invoices: [{ id: 'inv-1', tenant: 'tnt_a', number: 'INV-001', subscription_id: '',
+                    status: 'paid', subtotal_minor: 10000, tax_minor: 0, total_minor: 10000,
+                    refunded_minor: 0, currency: 'SAR', created: '2026-08-01T00:00:00Z', paid_at: null }],
+        next_cursor: null,
+      })
+      .mockResolvedValueOnce({ settlements: [{ id: 's1', method: 'bank_transfer', reference: 'REF-9', amount_minor: 10000, paid_at: 0 }] })
+      .mockResolvedValueOnce({ settlement: { id: 's1' } });
+
+    render(<AdminFinance session={SESSION} />);
+    fireEvent.click(await screen.findByText('مدفوعات اليوم'));
+    await waitFor(() => expect(screen.getAllByText('INV-001').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByText('التسويات')[0]);
+    await waitFor(() => expect(screen.getByText(/REF-9/)).toBeTruthy());
+    // Only ONE dialog title present so far — the settlements list, not a stacked reverse dialog.
+    expect(screen.queryByText(/عكس تسوية/)).toBeFalsy();
+
+    fireEvent.click(screen.getByText('عكس'));
+    // The settlements-list dialog closes; exactly one dialog (the reverse confirm) is now open.
+    await waitFor(() => expect(screen.getByText(/عكس تسوية/)).toBeTruthy());
+    expect(screen.queryByText(`تسويات الفاتورة INV-001`)).toBeFalsy();
+
+    fireEvent.change(screen.getByLabelText('السبب'), { target: { value: 'حوالة استُرجعت من البنك' } });
+    fireEvent.click(screen.getByText('تأكيد'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/settlements/s1/reverse', 'POST',
+      { reason: 'حوالة استُرجعت من البنك', actor: '' }, 'tok-1',
     ));
   });
 });
