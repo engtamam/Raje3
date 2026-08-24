@@ -89,14 +89,24 @@ async function main() {
   // context-level baseURL. Without one it throws "Cannot navigate to invalid URL" — a context
   // built for standalone use (this script), unlike Playwright's own test runner, does not set
   // this automatically from anywhere.
+  // A TOUR ABOUT SIGNING UP CAN'T HAVE SIGNUP HAPPEN OFFSCREEN FIRST. Every other tour wants
+  // ensureSignedIn() to make signup someone else's problem — silent, before capture even starts,
+  // exactly the convenience it exists for. A tour whose own subject IS that flow needs the
+  // opposite: `skipAutoSignIn: true` skips this call entirely and leaves the door on screen as
+  // the tour's own first frame, so its own steps (goto, type, click «ابدأ») are what the
+  // recording actually shows happening, not a fait accompli.
   const contextOpts = { baseURL, viewport: deviceViewport(tour) };
-  const context = existsSync(SESSION_FILE)
-    ? await browser.newContext({ ...contextOpts, storageState: SESSION_FILE })
-    : await browser.newContext(contextOpts);
+  const context = tour.skipAutoSignIn
+    ? await browser.newContext(contextOpts)
+    : existsSync(SESSION_FILE)
+      ? await browser.newContext({ ...contextOpts, storageState: SESSION_FILE })
+      : await browser.newContext(contextOpts);
   const page = await context.newPage();
 
-  await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
-  await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
+  if (!tour.skipAutoSignIn) {
+    await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
+    await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
+  }
 
   await page.addInitScript(installOverlay, CONFIG);
   await page.evaluate(installOverlay, CONFIG).catch(() => undefined); // in case the page was already loaded by ensureSignedIn.
@@ -331,7 +341,13 @@ async function runStep(page, step, index, tour, baseURL) {
     await sleep(CONFIG.PACE.afterActionMs);
   } else if (step.type) {
     console.log(`${label} type ${step.type}`);
-    await locate(page, step.type).first().pressSequentially(step.text, { delay: CONFIG.PACE.typeDelayMs });
+    // A FUNCTION, NOT ONLY A STRING — most tour text is fixed and belongs in the script verbatim,
+    // but a signup tour needs a phone number that's different every run (the real backend refuses
+    // a second signup on one already registered) or it can never be re-recorded. `text` as a
+    // function generates that once, at the moment this step actually runs, instead of a tour
+    // script trying to be its own random-data generator in static data.
+    const text = typeof step.text === 'function' ? step.text() : step.text;
+    await locate(page, step.type).first().pressSequentially(text, { delay: CONFIG.PACE.typeDelayMs });
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
