@@ -2,30 +2,29 @@
  * «محلّي» — the merged اليوم+محلّي screen (Shop.tsx's own header comment confirms the merge;
  * there is no separate «اليوم» anymore, corrected live after first assuming otherwise).
  *
+ * PART 1 OF 2. Tamam's own review of the first cut («محلي ما غطى كل شي») was correct — Shop.tsx's
+ * IndicatorsPanel renders well over a dozen real cards, not four. Splitting the FULL coverage into
+ * two clips (this one: the top of the page, daily tiles through أثر الرسائل مقيساً; part 2 —
+ * shop-dashboard-more.mjs — everything from خدمات لكل زيارة down to آخر الزيارات) keeps each clip
+ * inside this project's own established pacing rather than one long silent-narration marathon,
+ * while still walking every real card on the screen across the pair. Order here follows the page's
+ * own DOM order top to bottom — never an invented sequence.
+ *
  * WHY SIMPLE LANGUAGE IS THE WHOLE POINT HERE, EXPLICITLY. Tamam's own brief: «صاحب المحل بسيط،
- * ما يفهم في أمور زي كذا» — the harder analytics indicators (return rate, churn, trend charts)
- * are exactly the ones a non-technical owner glazes over without ever using. Every caption below
+ * ما يفهم في أمور زي كذا» — the harder analytics indicators (return rate, churn, holdout) are
+ * exactly the ones a non-technical owner glazes over without ever using. Every caption below
  * translates the METRIC into the QUESTION it actually answers, in plain words, not the label
  * Shop.tsx prints on screen (which this tour still points at — the plain-language caption is a
  * translation OF it, not a replacement for reading it).
  *
- * WHY FOUR INDICATORS, NOT ALL FIFTEEN-PLUS ON THIS SCREEN. Shop.tsx's IndicatorsPanel renders a
- * long list (return rate, churn, active customers, 7-day trend, cycle adherence, next week
- * forecast, services per visit, message impact, branch/staff comparison, peak times, missed
- * opportunities...). Walking all of them contradicts the tour's own methodology (short, one
- * objective, no silent-narration marathon) and Tamam's own brief was to simplify, not enumerate.
- * The four chosen are the ones an owner actually needs day to day: is anyone coming back, who's
- * at risk of leaving, is the shop trending up or down, and what should I do about any of it —
- * the last one (النظام يقترح) is the product's OWN plain-language answer to the other three.
- *
- * SELECTORS ARE text= MATCHES CONFIRMED AGAINST A REAL RENDERED SCREENSHOT of the seeded demo
- * account (media/tours/seed-demo-account.mjs), not guessed from source alone — Shop.tsx's own
- * labels for these cards are read here from Shop.tsx directly AND cross-checked against what
- * actually rendered live.
+ * SELECTORS ARE text= MATCHES READ DIRECTLY FROM Shop.tsx's OWN JSX (never guessed) — the h3/h2/
+ * Tile label strings, quoted exactly as this file's IndicatorsPanel/SurroundingKpis/MessageFlow/
+ * HoldoutCard/WeekPulse/NewVsReturning/AtRiskCard render them today — cross-checked live against
+ * the seeded demo account (media/tours/seed-demo-account.mjs) before recording.
  */
 export default {
   id: 'shop-dashboard',
-  title: 'محلّي — تقرأ مؤشراتك ببساطة',
+  title: 'محلّي ١ — أرقامك اليومية وعملاؤك',
   useDemoSession: true,
   // NO SFX ON THIS TOUR, DELIBERATELY — every "click" step here spotlights a read-only number
   // or chart, never a real button a viewer could actually press. A click sound on something that
@@ -46,9 +45,6 @@ export default {
       click: 'text=بانتظار الإرسال',
       say: 'وكم لسه بالطريق — تخرج تلقائيًا',
     },
-    // NO CHAPTER MARK HERE — 9.0s after «أرقامك اليومية» at this tour's real length, under
-    // YouTube's 10s floor (confirmed live, the same lesson as getting-started.mjs). The harder
-    // indicators still start here in content, just without their own chapter stop.
     {
       click: 'text=نسبة عودة',
       say: 'من كل عميل جاك، كم يرجع لك تاني؟',
@@ -56,8 +52,16 @@ export default {
     {
       say: 'رقم كبير = عملاؤك راضين ويرجعون وحدهم',
     },
-    // NO CHAPTER MARK HERE — this and the previous section land too close together at this
-    // tour's length for YouTube's 10s-minimum spacing (the same lesson from getting-started.mjs).
+    {
+      click: 'text=عملاء نشطون',
+      say: 'كم عميل تعامل معك خلال المدة الأخيرة',
+    },
+    {
+      click: 'text=دورة العودة',
+      say: 'وكل كم يوم يرجع عميلك عادةً',
+    },
+    // NO CHAPTER MARK HERE — spacing under YouTube's 10s floor at this tour's real length
+    // (the same lesson learned live in getting-started.mjs and the first cut of this tour).
     {
       click: 'text=التسرّب',
       say: 'عملاء تأخروا عن وقتهم المعتاد',
@@ -66,13 +70,28 @@ export default {
       say: 'لو ما تواصلت معهم، ممكن ما يرجعون',
     },
     {
+      click: 'text=متابعتك الآن',
+      chapter: 'عملاؤك يحتاجون منك خطوة',
+      say: 'وهذي أسماؤهم بالضبط — مو مجرد نسبة',
+    },
+    {
+      say: 'اضغط «أرسل رسالة رجوع» تراسلهم بضغطة',
+    },
+    {
       click: 'text=زياراتك آخر',
       say: 'رسمة بسيطة — زياراتك تزيد ولا تنقص؟',
     },
     {
-      click: 'text=الخطوة التالية',
-      chapter: 'وش أسوي الحين؟',
-      say: 'النظام نفسه يقترح عليك — أسهل مكان تبدأ منه',
+      click: 'text=عملاء جدد هذا الشهر',
+      say: 'وين عملاؤك — جداد ولا يرجعون لك؟',
+    },
+    {
+      click: 'text=أثر رسائلك',
+      say: 'رسائلك فعلاً ترجّع عملاء؟ هذا دليلك',
+    },
+    {
+      click: 'text=أثر الرسائل، مقيساً',
+      say: 'ونقارنها بمن ما وصلته رسالة أصلاً — بالعدل',
     },
   ],
 };
