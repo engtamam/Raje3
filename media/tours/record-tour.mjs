@@ -338,9 +338,14 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     // screen around it wasn't finished. This waits for the DOM ITSELF to go quiet — no mutations
     // anywhere on the page for a short window — before trusting anything on it enough to measure.
     await waitForDomQuiet(page);
-    await locator.scrollIntoViewIfNeeded().catch(() => undefined);
+    await animatedScrollIntoView(page, locator);
     const box = await stableBoundingBox(locator);
     if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
+    // THE FINGER ARRIVES BEFORE THE FRAME DOES — a real tap is preceded by a real hand moving
+    // there; drawing the frame first and the finger never would show a target lighting up with
+    // nothing visibly having reached for it. pointTo() itself resolves only once the move has
+    // actually finished on screen (see overlay.mjs), so the frame never appears mid-glide.
+    await page.evaluate((r) => window.__tour?.pointTo(r.x + r.width / 2, r.y + r.height / 2), box);
     await page.evaluate((r) => window.__tour?.spotlight(r), box);
   } else {
     // A STEP WITH NO TARGET CLEARS THE RING, IT DOESN'T INHERIT THE LAST ONE. Leaving the
@@ -481,5 +486,37 @@ async function stableBoundingBox(locator, { intervalMs = 60, timeoutMs = 5_000 }
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+/**
+ * Scrolls a target into view the way a person actually would — a visible finger sliding up the
+ * screen, THEN the page settling under it — instead of Playwright's own scrollIntoViewIfNeeded(),
+ * which jumps instantly with nothing on screen to explain why the content just moved. Real
+ * feedback: "حركة الاصبع لو في اسكرول او شي معين" — a scroll is exactly the gesture a silent
+ * tutorial most needs to narrate, because there is no click sound and no button to point at, only
+ * the screen sliding.
+ *
+ * Only draws the swipe when a scroll is actually needed — an already-visible target gets no
+ * gesture at all, matching what a real hand would do.
+ */
+async function animatedScrollIntoView(page, locator) {
+  const before = await locator.boundingBox().catch(() => null);
+  const viewport = page.viewportSize();
+  const offscreen = !before || !viewport
+    || before.y < 0 || before.y + before.height > viewport.height;
+  if (!offscreen) return;
+
+  // A SWIPE FROM LOW ON SCREEN TO HIGH (content below moving up), or the reverse when the target
+  // sits ABOVE the current view — whichever direction actually matches the scroll about to happen.
+  const goingDown = before.y >= viewport.height; // target is below the fold → content slides up
+  const cx = viewport.width / 2;
+  const startY = goingDown ? viewport.height * 0.78 : viewport.height * 0.22;
+  const endY = goingDown ? viewport.height * 0.22 : viewport.height * 0.78;
+  await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: startY });
+  await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: endY });
+
+  await locator.scrollIntoViewIfNeeded().catch(() => undefined);
+  await waitForDomQuiet(page, { quietMs: 120, timeoutMs: 2_000 });
+  await page.evaluate(() => window.__tour?.hidePointer());
+}
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

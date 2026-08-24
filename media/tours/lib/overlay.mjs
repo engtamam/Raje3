@@ -83,9 +83,47 @@ export function installOverlay(cfg) {
     boxShadow: '0 8px 28px rgba(0,0,0,.28)',
   });
 
-  root.append(ring, caption);
+  // ── the fingertip ─────────────────────────────────────────────────────────────────────────
+  // A small filled dot standing in for a real touch — this app is a phone app, tapped with a
+  // finger, not clicked with a mouse pointer. Real feedback: "حركة الاصبع لو في اسكرول او شي
+  // معين" — a viewer needs to SEE where the next tap or swipe is heading, not just see the
+  // frame appear at its destination. `left`/`top` transition (not transform) so record-tour.mjs
+  // can await a real CSS transitionend and know the move actually finished before it acts.
+  const finger = document.createElement('div');
+  Object.assign(finger.style, {
+    position: 'fixed', width: '30px', height: '30px', marginLeft: '-15px', marginTop: '-15px',
+    borderRadius: '50%', background: cfg.BRAND.accent, opacity: '0',
+    boxShadow: `0 0 0 6px ${cfg.BRAND.accent}33, 0 2px 8px rgba(0,0,0,.35)`,
+    border: `2px solid ${cfg.BRAND.paper}`,
+    transition: 'left 480ms ease, top 480ms ease, opacity 180ms ease',
+  });
+
+  root.append(ring, finger, caption);
   document.body.appendChild(root);
   requestAnimationFrame(() => { root.style.opacity = '1'; });
+
+  /**
+   * Moves the fingertip to (x, y) and resolves once the move has actually finished — a real
+   * `transitionend` on whichever CSS property changed, not a guessed sleep, so record-tour.mjs
+   * never acts before the viewer has actually seen the finger arrive.
+   */
+  function pointTo(x, y) {
+    return new Promise((resolve) => {
+      const wasAt = finger.style.left;
+      finger.style.opacity = '1';
+      if (wasAt === `${x}px` && finger.style.top === `${y}px`) { resolve(); return; }
+      const done = () => { finger.removeEventListener('transitionend', done); resolve(); };
+      finger.addEventListener('transitionend', done, { once: true });
+      finger.style.left = `${x}px`;
+      finger.style.top = `${y}px`;
+      // FALLBACK TIMER — a transitionend can be missed entirely (e.g. the property was already
+      // at its target value and the browser never fires one), which would otherwise hang the
+      // tour forever waiting on an event that isn't coming.
+      setTimeout(resolve, 600);
+    });
+  }
+
+  function hidePointer() { finger.style.opacity = '0'; }
 
   /**
    * Point the ring at a live rect (already computed on the Node side from the real Playwright
@@ -136,8 +174,8 @@ export function installOverlay(cfg) {
     return true;
   }
 
-  function clear() { spotlight(null); say(null); }
+  function clear() { spotlight(null); say(null); hidePointer(); }
 
-  window.__tour = { spotlight, say, clear };
+  window.__tour = { spotlight, say, clear, pointTo, hidePointer };
   } // end build()
 }
