@@ -312,25 +312,38 @@ async function runStep(page, step, index, tour, baseURL) {
     await sleep(CONFIG.PACE.betweenStepsMs);
   }
 
+  // THE RING IS A FROZEN PIXEL SNAPSHOT, NOT A LIVE TRACK — spotlight(box) draws at the
+  // coordinates it was given ONCE; it never re-queries the element it was drawn for. This is the
+  // actual root of the bug that survived every earlier fix in this function: click a button that
+  // then DISAPPEARS (replaced by a form, a table row, whatever the click reveals), and the ring
+  // stays exactly where that button used to be — circling WHATEVER new content the re-render
+  // happens to place at that same screen position. A field that lands there reads, correctly,
+  // as "the ring is on an empty box" — because by then it genuinely is, just not the box anyone
+  // meant. Clearing both ring and caption the MOMENT the action fires (not after settling, not
+  // after the pace pause — immediately) means nothing is ever left pointing at stale coordinates
+  // while the screen underneath changes shape. The next step spotlights fresh, at a live-read
+  // position, once it actually has one to show.
   if (step.click) {
     console.log(`${label} click ${step.click}`);
     await locate(page, step.click).first().click();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
   } else if (step.type) {
     console.log(`${label} type ${step.type}`);
     await locate(page, step.type).first().pressSequentially(step.text, { delay: CONFIG.PACE.typeDelayMs });
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
   } else if (step.check) {
     console.log(`${label} check ${step.check}`);
     await locate(page, step.check).first().check();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
   } else if (step.wait) {
     await sleep(step.wait);
   }
-
-  // A tour that ends on a targeted step leaves that ring showing in the final frames, which is
-  // correct: the last thing pressed is exactly what should still be marked. A tour ending on a
-  // bare `say` step already cleared it above, on entry to this step.
 }
 
 /**
