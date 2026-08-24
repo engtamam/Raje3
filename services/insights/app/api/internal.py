@@ -210,6 +210,26 @@ async def tick(request: Request, body: TickIn | None = None) -> dict:
     return await c.tick.run(now=now, tenants=tenants, since=body.since)
 
 
+@router.post("/insights/platform-rollup", dependencies=[Depends(require_internal_token)])
+async def platform_rollup(request: Request, body: TickIn | None = None) -> dict:
+    """The admin panel's cross-tenant summary (spec: admin plan phase 11.1-11.4).
+
+    RUNS AFTER TICK, NOT INSTEAD OF IT — it only reads snapshots tick already wrote (see
+    `core/rollup.py`'s own module note), so scheduling it right after a tick pass means it reads
+    freshly-updated numbers rather than racing the sweep. `body.tenant` is accepted for symmetry
+    with `tick`/`digest` but ignored beyond narrowing the tenant list to one — a rollup scoped to
+    a single tenant is really just a check that ONE tenant's snapshot got picked up.
+    """
+    body = body or TickIn()
+
+    import time as _time
+
+    c = request.app.state.container
+    now = int(_time.time())
+    tenants = [body.tenant] if body.tenant else await c.peers.tenants(since=body.since)
+    return await c.rollup.run(now=now, tenants=tenants)
+
+
 @router.post("/insights/digest", dependencies=[Depends(require_internal_token)])
 async def digest(request: Request, body: TickIn | None = None) -> dict:
     """The weekly report, through reminders' gate.

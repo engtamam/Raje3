@@ -237,5 +237,11 @@ def build_container(settings: Settings) -> Container:
                           reserve_weeks=settings.RESERVE_WEEKS,
                           reserve_percentile=settings.RESERVE_PERCENTILE,
                           reserve_floor=settings.RESERVE_FLOOR)
+    from app.core.rollup import PlatformRollup
+
+    # THE ADMIN PANEL'S CROSS-TENANT ROLLUP — reads what `container.tick` already wrote, never
+    # raw visits itself (see rollup.py's own module note on why this is a separate pass).
+    container.rollup = PlatformRollup(container.datastore, container.peers,
+                                      batch=settings.PLATFORM_ROLLUP_BATCH)
     container.subscriptions = Subscriptions(container.datastore)
     return container

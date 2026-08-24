@@ -474,3 +474,19 @@ async def platform_recompute(request: Request, principal: Principal = Depends(_P
         resource="snapshot", ip=request.client.host if request.client else "")
     snap = await c.tick.compute(tenant, now=int(time.time()))
     return {"tenant": tenant, "computed_at": snap.computed_at, "visits": snap.visits}
+
+
+@router.get("/platform/summary", dependencies=[Depends(rate_limit)])
+async def platform_summary(request: Request, principal: Principal = Depends(_PLATFORM)) -> dict:
+    """The admin panel's cross-tenant rollup — READS the stored row, never computes (see
+    `core/rollup.py`'s own module note, and this module's own rule for the per-tenant dashboard:
+    "no route computes an indicator on the request path"). `computing: true` when the very first
+    pass hasn't landed yet — an honest "not ready", never a 404 or an empty-looking zero."""
+    from app.core.models import PLATFORM_SUMMARY
+
+    c = request.app.state.container
+    row = await c.datastore.get(PLATFORM_SUMMARY, "platform")
+    if not row:
+        return {"computing": True, "values": {}, "computed_at": 0,
+               "tenants_seen": 0, "tenants_with_snapshot": 0}
+    return {"computing": False, **row}

@@ -51,6 +51,12 @@ ADMIN_ACTIONS: list[dict[str, Any]] = [
         # OURS. Support answering "why does my dashboard say that?" for a shop not theirs.
     },
     {
+        "id": "insights.platform_summary", "label": "ملخص المنصّة الكلي", "method": "GET",
+        "path": "/api/v1/insights/platform/summary", "capability": "platform.insights",
+        "group": "المنصة",
+        # A stored row, read as-is — never computed on this request (core/rollup.py).
+    },
+    {
         "id": "insights.ping", "label": "فحص الاتصال", "method": "GET",
         "path": "/api/v1/admin/ping", "capability": "platform.secrets", "group": "المنصة",
         # From the generated scaffold and kept: what a client calls to confirm its token is accepted

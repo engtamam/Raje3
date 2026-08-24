@@ -188,6 +188,12 @@ cronJobs:
   - name: digest
     schedule: "0 9 * * 0"
     path: /internal/insights/digest
+  - name: platform-rollup
+    # 20 MINUTES AFTER EVERY TICK PASS, not on its own schedule — the rollup only reads snapshots
+    # tick already wrote (core/rollup.py), so running it right after a pass means it reads
+    # freshly-updated numbers instead of racing the sweep.
+    schedule: "20 1,4,7,10,13,16,19,22 * * *"
+    path: /internal/insights/platform-rollup
 
 # No ingress: reached service-to-service on the internal tier only.
 ingress:
