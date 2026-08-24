@@ -40,7 +40,8 @@ describe('AdminHome', () => {
     reqMock = vi.fn()
       .mockResolvedValueOnce({ invoices: [{ total_minor: 500000, refunded_minor: 0, created: 'x' }], next_cursor: null })
       .mockResolvedValueOnce({ invoices: [], next_cursor: null })
-      .mockResolvedValueOnce({ tenants: [{ id: 't1', status: 'active', created_at: '2000-01-01T00:00:00Z' }] });
+      .mockResolvedValueOnce({ tenants: [{ id: 't1', status: 'active', created_at: '2000-01-01T00:00:00Z' }] })
+      .mockResolvedValueOnce({ invoices: [], next_cursor: null });
 
     render(<AdminHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText('إجمالي المحلات النشطة')).toBeTruthy());
@@ -87,6 +88,23 @@ describe('AdminHome', () => {
 
     render(<AdminHome session={SESSION} />);
     await waitFor(() => expect(screen.getByText(/missed run/)).toBeTruthy());
+  });
+
+  it('shops whose payment failed surface in the alert band (10.5)', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue({
+      services: [{ service: 'billing-service', actions: [
+        { id: 'billing.platform_invoices', label: 'x', method: 'GET',
+         path: '/api/v1/billing/admin/invoices', capability: 'platform.billing' },
+      ] }],
+      unreachable: [],
+    });
+    reqMock = vi.fn().mockResolvedValue({
+      invoices: [{ tenant: 'tnt_a', total_minor: 10000, refunded_minor: 0, created: 'x' }],
+      next_cursor: null,
+    });
+
+    render(<AdminHome session={SESSION} />);
+    await waitFor(() => expect(screen.getByText(/توقّفت خدمته لعدم الدفع/)).toBeTruthy());
   });
 
   it('no alert band at all when nothing is wrong', async () => {

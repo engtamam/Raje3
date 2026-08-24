@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   activeTeamCount, affiliateLeaderboard, affiliateStats, backupHealth, branchGeoPoints,
-  leadsGeoPoints, monthRevenueHalalas, openTicketsCount, pendingAffiliateApplications,
-  platformInsights, suspiciousLogins, tenantCounts, unreachableServices,
+  failedPaymentTenants, leadsGeoPoints, monthRevenueHalalas, openTicketsCount,
+  pendingAffiliateApplications, platformInsights, suspiciousLogins, tenantCounts,
+  unreachableServices,
 } from './platformMetrics';
 import type { AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
@@ -68,6 +69,40 @@ describe('monthRevenueHalalas', () => {
   it('refuses honestly when the caller has no billing action in their catalog', async () => {
     reqMock = vi.fn();
     const out = await monthRevenueHalalas(SESSION, EMPTY_CATALOG, 0);
+    expect(out.ok).toBe(false);
+    expect(reqMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('failedPaymentTenants', () => {
+  it('counts unique tenants with an open invoice, not invoice rows', async () => {
+    reqMock = vi.fn().mockResolvedValue({
+      invoices: [
+        { tenant: 'tnt_a', total_minor: 100, refunded_minor: 0, created: 'x' },
+        { tenant: 'tnt_a', total_minor: 200, refunded_minor: 0, created: 'x' },
+        { tenant: 'tnt_b', total_minor: 300, refunded_minor: 0, created: 'x' },
+      ],
+      next_cursor: null,
+    });
+    const out = await failedPaymentTenants(SESSION, CATALOG);
+    expect(out).toEqual({ ok: true, count: 2, atLeast: false });
+    expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/billing/admin/invoices?status=open&limit=1000', 'GET', undefined, 'tok-1',
+    );
+  });
+
+  it('flags atLeast honestly when a next_cursor came back', async () => {
+    reqMock = vi.fn().mockResolvedValue({
+      invoices: [{ tenant: 'tnt_a', total_minor: 100, refunded_minor: 0, created: 'x' }],
+      next_cursor: 'more',
+    });
+    const out = await failedPaymentTenants(SESSION, CATALOG);
+    expect(out).toEqual({ ok: true, count: 1, atLeast: true });
+  });
+
+  it('refuses honestly when the caller has no billing action in their catalog', async () => {
+    reqMock = vi.fn();
+    const out = await failedPaymentTenants(SESSION, EMPTY_CATALOG);
     expect(out.ok).toBe(false);
     expect(reqMock).not.toHaveBeenCalled();
   });

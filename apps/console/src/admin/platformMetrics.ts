@@ -14,6 +14,7 @@ import { req, type AdminSession } from './api';
 import { allActions, type AdminCatalog } from './catalog';
 
 interface InvoiceRow {
+  tenant: string;
   total_minor: number;
   refunded_minor: number;
   created: string;
@@ -305,6 +306,22 @@ export async function branchGeoPoints(
     ok: true,
     points: body.branches.map((b) => ({ id: b.id, lat: b.lat, lng: b.lng, label: b.name, group: b.city || undefined })),
   };
+}
+
+/** (32) محلات دفعها فشل — بلوحة القيادة (10.5). فواتير `status=open` — النموذج التجاري مسبوق
+ *  الدفع بالكامل (لا حالة "متأخرة")، فأي فاتورة `open` تعني توقّف خدمة المحل فعلياً الآن، لا
+ *  مجرّد تذكير. صفحة واحدة محدودة (1000)، بعلم `atLeast` صادق لو تجاوز الحد — لا رقم نهائي
+ *  مزيَّف. عدّ محلات فريدة، لا فواتير — محل بفاتورتين مفتوحتين يظهر مرّة واحدة. */
+export async function failedPaymentTenants(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; count: number; atLeast: boolean } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'billing.platform_invoices');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة الفواتير عبر المنصّة.' };
+  const body: InvoicesPage = await req(
+    `${action.path}?status=open&limit=1000`, 'GET', undefined, session.access_token,
+  );
+  const tenants = new Set(body.invoices.map((inv) => inv.tenant).filter(Boolean));
+  return { ok: true, count: tenants.size, atLeast: Boolean(body.next_cursor) };
 }
 
 export interface TenantCounts {

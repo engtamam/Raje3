@@ -12,7 +12,7 @@ import { riyalsLabel } from '../money';
 import { AdminAnalytics } from './AdminAnalytics';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import {
-  activeTeamCount, backupHealth, monthRevenueHalalas, openTicketsCount,
+  activeTeamCount, backupHealth, failedPaymentTenants, monthRevenueHalalas, openTicketsCount,
   pendingAffiliateApplications, suspiciousLogins, tenantCounts, unreachableServices,
   type TenantCounts,
 } from './platformMetrics';
@@ -30,6 +30,7 @@ interface Loaded {
   backupCritical: number | null;    // count of services in critical backup state
   backupAlerts: { service: string; severity: 'degraded' | 'critical'; reason: string }[];
   activeTeam: { count: number; atLeast: boolean } | null;
+  failedPayments: { count: number; atLeast: boolean } | null;
 }
 
 export function AdminHome({ session }: { session: AdminSession }) {
@@ -46,7 +47,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         return;
       }
 
-      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup, team] = await Promise.all([
+      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup, team, failedPayments] = await Promise.all([
         monthRevenueHalalas(session, catalog, 0),
         monthRevenueHalalas(session, catalog, 1),
         tenantCounts(session, catalog),
@@ -55,6 +56,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         openTicketsCount(session, catalog),
         backupHealth(session, catalog),
         activeTeamCount(session, catalog),
+        failedPaymentTenants(session, catalog),
       ]);
       if (cancelled) return;
       setState({
@@ -69,6 +71,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         backupCritical: backup.ok ? backup.body.summary.critical + backup.body.summary.degraded : null,
         backupAlerts: backup.ok ? backup.body.alerts : [],
         activeTeam: team.ok ? { count: team.count, atLeast: team.atLeast } : null,
+        failedPayments: failedPayments.ok ? { count: failedPayments.count, atLeast: failedPayments.atLeast } : null,
       });
     })();
     return () => { cancelled = true; };
@@ -112,12 +115,19 @@ export function AdminHome({ session }: { session: AdminSession }) {
             ) : null}
           </div>
 
-          {state.unreachable.length > 0 || (state.backupCritical ?? 0) > 0 || (state.suspiciousActors?.length ?? 0) > 0 ? (
+          {state.unreachable.length > 0 || (state.backupCritical ?? 0) > 0 || (state.suspiciousActors?.length ?? 0) > 0
+            || (state.failedPayments?.count ?? 0) > 0 ? (
             <div className="flex flex-col gap-2 rounded-card border border-danger/30 bg-danger-soft p-4">
               <h2 className="flex items-center gap-1.5 font-semibold text-danger-on-soft">
                 <ShieldAlert size={16} /> تنبيهات فورية
               </h2>
               <ul className="flex flex-col gap-1.5 text-sm">
+                {state.failedPayments && state.failedPayments.count > 0 ? (
+                  <li className="flex items-center gap-1.5">
+                    <Badge tone="danger">دفع</Badge>
+                    {state.failedPayments.count}{state.failedPayments.atLeast ? '+' : ''} محل توقّفت خدمته لعدم الدفع.
+                  </li>
+                ) : null}
                 {state.unreachable.map((svc) => (
                   <li key={svc} className="flex items-center gap-1.5">
                     <Badge tone="danger">خدمة</Badge> {svc} لم تُجب عند بناء الكتالوج.
