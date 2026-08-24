@@ -357,8 +357,19 @@ async function waitForDomQuiet(page, { quietMs = 150, timeoutMs = 5_000 } = {}) 
     // a focus ring's own class toggling, a blinking caret, a hover state — none of it means the
     // screen has more to render, and watching them made real recordings take nearly twice as long
     // waiting out quiet windows that a genuinely finished screen kept re-triggering on its own.
-    observer.observe(document.body, { childList: true, subtree: true });
-    timer = setTimeout(done, quietMs); // already quiet when we started watching
+    //
+    // TWO ANIMATION FRAMES BEFORE THE OBSERVER EVEN STARTS ITS FIRST TIMER — the actual race this
+    // fixes. React batches a click's state update asynchronously; the click handler itself
+    // returns before React has scheduled, let alone started, the re-render it triggers. Arming
+    // the "already quiet" timer immediately on observe() could win that race outright — the timer
+    // firing before the mutation it's supposed to be watching for has even happened yet, reporting
+    // "settled" on a screen that hasn't started changing. Two rAFs guarantee at least one real
+    // paint has occurred first, so the observer starts watching AFTER whatever the click set in
+    // motion has had a real chance to begin.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      observer.observe(document.body, { childList: true, subtree: true });
+      timer = setTimeout(done, quietMs); // already quiet by the time we actually start watching
+    }));
     const deadline = setTimeout(done, timeoutMs); // a page that never truly settles (a live poll, a
                                                     // ticking clock) still gets released, not stuck forever
   }), { quietMs, timeoutMs });
