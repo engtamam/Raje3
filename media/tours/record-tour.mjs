@@ -75,10 +75,18 @@ async function main() {
   // than replace the last path segment of base, and a tour script shouldn't have to know that.
   const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
   const baseURL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  // out/ HOLDS ONLY VIDEOS, NAMED IN ARABIC — the file that actually gets uploaded to YouTube
+  // should already carry the title it uploads under, not an internal kebab-case id someone has
+  // to rename by hand every time. `tour.title` (every script already carries one, for exactly
+  // this) becomes the filename directly, sanitized only for the handful of characters Windows
+  // actually forbids in a filename — Arabic text, spaces and «» are all fine as they are.
   const outDir = join(HERE, 'out');
+  const metaDir = join(outDir, 'meta'); // chapters.txt / captions.json — production data, not the deliverable
   await mkdir(outDir, { recursive: true });
-  const out = join(outDir, `${tour.id}.mp4`);
-  const framesDir = join(outDir, `.${tour.id}-frames`);
+  await mkdir(metaDir, { recursive: true });
+  const filenameBase = sanitizeFilename(tour.title || tour.id);
+  const out = join(outDir, `${filenameBase}.mp4`);
+  const framesDir = join(outDir, `.${tour.id}-frames`); // internal working dir — the id is fine here, nobody uploads this
   await rm(framesDir, { recursive: true, force: true });
   await mkdir(framesDir, { recursive: true });
 
@@ -179,10 +187,16 @@ async function main() {
   const seconds = frameIndex / FPS;
   console.log(`✔ ${out} · ${seconds.toFixed(1)}s · ${frameIndex} frames`);
 
-  if (chapters.length) await writeChapters(join(outDir, `${tour.id}.chapters.txt`), chapters);
+  if (chapters.length) await writeChapters(join(metaDir, `${tour.id}.chapters.txt`), chapters);
   const { writeFile } = await import('node:fs/promises');
-  await writeFile(join(outDir, `${tour.id}.captions.json`), JSON.stringify(captionTimeline, null, 2), 'utf8');
-  console.log(`✔ ${join(outDir, `${tour.id}.captions.json`)} · ${captionTimeline.length} line(s) timed — ready for a future TTS pass`);
+  await writeFile(join(metaDir, `${tour.id}.captions.json`), JSON.stringify(captionTimeline, null, 2), 'utf8');
+  console.log(`✔ ${join(metaDir, `${tour.id}.captions.json`)} · ${captionTimeline.length} line(s) timed — ready for a future TTS pass`);
+}
+
+/** Windows forbids `< > : " / \ | ? *` in a filename, plus trailing dots/spaces — everything
+ *  else (Arabic text, spaces, «» included) is left exactly as the tour's own title reads. */
+function sanitizeFilename(name) {
+  return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/[\s.]+$/, '');
 }
 
 /**
