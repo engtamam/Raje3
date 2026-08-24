@@ -244,8 +244,11 @@ fi
 # carries ONE domain and routes by path, so an operator who followed this line reached a redirect
 # to https and then a certificate error: a browser refusal, not a warning.
 #
-# affiliates.$DOMAIN IS THE ONE REAL EXCEPTION — bring-up.sh puts it on the same certificate as
-# an alias (see edge.json's `aliases`), so unlike `my.` or `api.` above, this one is actually
-# served the moment the operator's own DNS answers for it.
+# affiliates.$DOMAIN AND admin.$DOMAIN ARE THE REAL EXCEPTIONS — bring-up.sh puts both on the
+# same certificate as aliases (see edge.json's `aliases`), so unlike `my.` or `api.` above, both
+# are actually served the moment the operator's own DNS answers for them. The console image is
+# still what answers on either — its own router reads the hostname and mounts the right tree
+# (see main.tsx) — so there is nothing extra to build or deploy for either one.
 [ -n "${DOMAIN:-}" ] && echo -e "${C_D}  اللوحة: https://${DOMAIN}   ·   صفحة العميل: https://${DOMAIN}/p/…   ·   الواجهة: https://${DOMAIN}/api${C_N}"
 [ -n "${DOMAIN:-}" ] && echo -e "${C_D}  بوابة المسوّقين: https://affiliates.${DOMAIN}   ${C_N}(أضِف سجل DNS من نوع A لهذا النطاق الفرعي يشير لنفس عنوان ${DOMAIN})"
+[ -n "${DOMAIN:-}" ] && echo -e "${C_D}  لوحة الإدارة: https://admin.${DOMAIN}   ${C_N}(أضِف سجل DNS من نوع A لهذا النطاق الفرعي يشير لنفس عنوان ${DOMAIN})"
