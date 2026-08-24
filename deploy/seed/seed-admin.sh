@@ -71,7 +71,17 @@ fi
 # THE PASSWORD TRAVELS ON STDIN, NEVER ON A COMMAND LINE. An argument is visible in `ps` to every
 # process on the node for as long as the call runs, and this is the credential that opens every
 # establishment we host.
-kubectl -n "$NS" exec -i "$POD" -- python - "$TOKEN" "$TENANT" "$ADMIN_PHONE" "$ROLE" <<'PY'
+#
+# THE SCRIPT ITSELF CANNOT ALSO BE ON STDIN — `python -` reads its ENTIRE stdin as the program's
+# own source, to EOF, before running a line of it; a heredoc feeding both the script AND the
+# password on one stream leaves nothing for the running script's own `sys.stdin.read()` to see.
+# That was this file's actual bug for as long as it existed: `-i` connected fine, the exec
+# succeeded, and every single seed attempt still died on "the password did not reach the pod" —
+# because it structurally could not, regardless of what ADMIN_PASSWORD held. The fix keeps the
+# same guarantee (the credential itself touches no argv, no `ps`, nowhere but a pipe) by moving
+# the SCRIPT off stdin instead: base64 is not a secret, so it travels as a `-c` argument, and
+# stdin is then free to carry the one thing that actually needs the protection.
+PY_B64="$(base64 -w0 <<'PY'
 import json
 import sys
 import urllib.error
@@ -111,3 +121,6 @@ except (urllib.error.URLError, OSError) as exc:
 # believes a fresh password was set will use one that was never accepted.
 print("SEEDED" if out.get("seeded") else "ALREADY_OWNED")
 PY
+)"
+printf '%s' "$ADMIN_PASSWORD" | kubectl -n "$NS" exec -i "$POD" -- \
+  python -c "import base64; exec(base64.b64decode('$PY_B64'))" "$TOKEN" "$TENANT" "$ADMIN_PHONE" "$ROLE"
