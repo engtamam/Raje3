@@ -266,6 +266,14 @@ async function runStep(page, step, index, tour, baseURL) {
 
   const target = step.click ?? step.type ?? step.check;
   if (target) {
+    // HIDDEN THROUGH THE WHOLE WAIT, NOT LEFT SHOWING WHILE IT SETTLES. stableBoundingBox()
+    // already waits out a moving target — but the PREVIOUS step's ring stayed visible the entire
+    // time it did, pointing at a now-stale position for however long settling actually took.
+    // Clearing first means the viewer only ever sees one of two things during any transition:
+    // nothing, or the ring already in its final, correct place — never a ring that's technically
+    // real but momentarily wrong, which is what "the same problem" kept coming back as no matter
+    // how the stability check itself was tuned.
+    await page.evaluate(() => window.__tour?.spotlight(null)).catch(() => undefined);
     const locator = locate(page, target).first();
     await locator.scrollIntoViewIfNeeded().catch(() => undefined);
     const box = await stableBoundingBox(locator);
