@@ -1,0 +1,306 @@
+/**
+ * Turns a tour SCRIPT (data — what to find, what to say, in what order) into an mp4, by driving
+ * the real console app in a real browser and recording it in real time.
+ *
+ * WHY REAL TIME, NOT THE AD'S FROZEN CLOCK. record.mjs freezes Date.now()/performance.now() and
+ * steps it forward one rendered frame at a time — perfect for the ad, because the ad's every
+ * animation is OUR OWN JS reading that clock. The console app is not ours to rewrite: its
+ * transitions are the browser's own CSS engine running on the real compositor clock, which does
+ * not read window.performance at all. Freezing JS time around it would not freeze those
+ * transitions — it would just make our OWN capture loop's timing unpredictable relative to them,
+ * which is worse than plain real-time capture, not better. So this recorder does what a screen
+ * recorder does: grab a frame on a fixed real-time cadence while real actions happen, the same
+ * way a person would show someone else their own screen.
+ *
+ * WHY A SCRIPT IS DATA. Every screen-specific decision — which button, what to say about it,
+ * whether it has a reverse — lives in one small file per tour under tours/scripts/. This engine
+ * reads that file and does not know or care which screen it describes; a tour that names the
+ * wrong selector fails loudly and names the step, and a tour that needs a new KIND of step (an
+ * upload, a drag) is a new step handler added once here, immediately available to every tour.
+ *
+ * WHY LOGIN IS BORROWED, NOT REWRITTEN. apps/console/e2e/fixtures.ts already owns "how to open a
+ * shop and keep a session alive across runs" — token rotation, expiry, all of it. A second copy
+ * of that logic here would drift from the first the moment either one changed. This recorder
+ * imports openShop/SESSION_FILE from that exact file instead: one login, wherever it's needed.
+ *
+ * Usage:
+ *   node media/tours/record-tour.mjs media/tours/scripts/stop-service.mjs
+ *   CONSOLE=http://localhost:5174 node media/tours/record-tour.mjs <script> [--seconds-cap 90]
+ */
+import { mkdir, rm } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { join, resolve, dirname, basename, extname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { chromiumModule } from '../lib/browser.mjs';
+import { findFfmpeg, assembleMp4, run } from '../lib/ffmpeg.mjs';
+import { readConfig } from '../lib/read-config.mjs';
+import { locate } from './lib/locate.mjs';
+import { installOverlay } from './lib/overlay.mjs';
+import { wrapCaption, captionHoldMs } from './lib/caption.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..');
+const CONSOLE_DIR = resolve(ROOT, '../apps/console');
+
+const args = process.argv.slice(2);
+const scriptPath = args.find((a) => !a.startsWith('--'));
+if (!scriptPath) {
+  console.error('usage: node media/tours/record-tour.mjs <tour-script.mjs> [--seconds-cap N]');
+  process.exit(1);
+}
+const flag = (name, fallback) => {
+  const i = args.indexOf(`--${name}`);
+  return i === -1 ? fallback : Number(args[i + 1]);
+};
+// A CIRCUIT BREAKER, NOT A TARGET LENGTH. Same philosophy as config.ts's LENGTH.maxSeconds: a
+// tour whose steps run away (a selector that never resolves, a wait loop with no exit) should
+// stop and say so rather than record for an hour and produce a file nobody uploads.
+const SECONDS_CAP = flag('seconds-cap', 180);
+
+const CONFIG = readConfig(join(ROOT, 'config.ts'));
+const FPS = CONFIG.VIDEO.fps;
+
+async function main() {
+  const tourModule = await import(pathToFileURL(resolve(scriptPath)).href);
+  const tour = tourModule.default;
+  if (!tour?.id || !Array.isArray(tour.steps)) {
+    throw new Error(`${scriptPath} must default-export { id, steps: [...] }`);
+  }
+
+  const { openShop, SESSION_FILE } = await import(pathToFileURL(join(CONSOLE_DIR, 'e2e/fixtures.ts')).href)
+    .catch(() => { throw new Error('could not import apps/console/e2e/fixtures.ts — is the console app checked out?'); });
+
+  // Trailing slash enforced here, once — new URL(relativePath, base) needs it to APPEND rather
+  // than replace the last path segment of base, and a tour script shouldn't have to know that.
+  const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
+  const baseURL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  const outDir = join(HERE, 'out');
+  await mkdir(outDir, { recursive: true });
+  const out = join(outDir, `${tour.id}.mp4`);
+  const framesDir = join(outDir, `.${tour.id}-frames`);
+  await rm(framesDir, { recursive: true, force: true });
+  await mkdir(framesDir, { recursive: true });
+
+  const chromium = chromiumModule();
+  const browser = await chromium.launch();
+  // baseURL IS REQUIRED, NOT OPTIONAL — openShop() (borrowed verbatim from e2e/fixtures.ts) does
+  // `page.goto('/')` itself, a relative navigation Playwright can only resolve against a
+  // context-level baseURL. Without one it throws "Cannot navigate to invalid URL" — a context
+  // built for standalone use (this script), unlike Playwright's own test runner, does not set
+  // this automatically from anywhere.
+  const contextOpts = { baseURL, viewport: deviceViewport(tour) };
+  const context = existsSync(SESSION_FILE)
+    ? await browser.newContext({ ...contextOpts, storageState: SESSION_FILE })
+    : await browser.newContext(contextOpts);
+  const page = await context.newPage();
+
+  await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
+  await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
+
+  await page.addInitScript(installOverlay, CONFIG);
+  await page.evaluate(installOverlay, CONFIG).catch(() => undefined); // in case the page was already loaded by ensureSignedIn.
+
+  let frameIndex = 0;
+  const frameFile = () => join(framesDir, String(frameIndex++).padStart(6, '0') + '.png');
+  const shoot = () => page.screenshot({ path: frameFile(), animations: 'disabled' }).catch(() => undefined);
+
+  // ── the real-time capture loop ─────────────────────────────────────────────────────────────
+  // A fixed cadence corrected against a running target time (`next += stepMs`), not `setTimeout`
+  // chained naively — the latter drifts by however long each screenshot itself takes, and over a
+  // minute-long tour that drift is seconds, not milliseconds.
+  let capturing = true;
+  const stepMs = 1000 / FPS;
+  const captureLoop = (async () => {
+    let next = Date.now();
+    while (capturing) {
+      await shoot();
+      next += stepMs;
+      const delay = next - Date.now();
+      if (delay > 0) await sleep(delay);
+    }
+  })();
+
+  // ── chapter marks ──────────────────────────────────────────────────────────────────────────
+  // YOUTUBE'S OWN RESEARCH-BACKED ADVICE ("a chapter per real sub-topic, not per technical step")
+  // maps onto this project's own vocabulary exactly: a STATION on tours/PLAN.md's table, not
+  // every click. So a step only becomes a chapter mark when its data explicitly says `chapter:
+  // 'title'` — most steps (a click, a caption between two chapter-marked ones) contribute
+  // nothing here, which is the point: the tour author decides what counts as a station, this
+  // engine only ever timestamps what it's told to.
+  const chapters = [];
+  // EVERY CAPTION'S EXACT PLACEMENT, WRITTEN OUT — the piece VOICE.enabled's own comment in
+  // config.ts calls "activated the day the key arrives": when that day comes, a TTS pass needs
+  // to know exactly WHEN each line started and how long the engine actually held it (not the
+  // config-estimated read time — the real, lived duration this specific run gave it, which is
+  // what audio must be timed against so a synthesized line neither races ahead of nor lags
+  // behind its caption). Nothing here calls a TTS API — this only writes down the placement data
+  // so that whichever script eventually does needs no change to this recorder to use it.
+  const captionTimeline = [];
+  const elapsedSeconds = () => frameIndex / FPS;
+
+  const deadline = Date.now() + SECONDS_CAP * 1000;
+  console.log(`${tour.id} · recording ${tour.steps.length} step(s) live from ${baseURL}`);
+  try {
+    for (const [i, step] of tour.steps.entries()) {
+      if (Date.now() > deadline) {
+        throw new Error(`exceeded --seconds-cap ${SECONDS_CAP}s at step ${i + 1}/${tour.steps.length} — a selector likely never resolved`);
+      }
+      if (step.chapter) chapters.push({ seconds: elapsedSeconds(), title: step.chapter });
+      const startSeconds = elapsedSeconds();
+      await runStep(page, step, i, tour, baseURL);
+      if (step.say) {
+        captionTimeline.push({
+          text: step.say, // the RAW sentence, never the display-wrapped version — this is what TTS should read
+          startSeconds, endSeconds: elapsedSeconds(),
+        });
+      }
+    }
+  } finally {
+    capturing = false;
+    await captureLoop;
+  }
+
+  await browser.close();
+
+  const ffmpeg = findFfmpeg();
+  await assembleMp4({ ffmpeg, framesDir, fps: FPS, out, run });
+  await rm(framesDir, { recursive: true, force: true });
+  const seconds = frameIndex / FPS;
+  console.log(`✔ ${out} · ${seconds.toFixed(1)}s · ${frameIndex} frames`);
+
+  if (chapters.length) await writeChapters(join(outDir, `${tour.id}.chapters.txt`), chapters);
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile(join(outDir, `${tour.id}.captions.json`), JSON.stringify(captionTimeline, null, 2), 'utf8');
+  console.log(`✔ ${join(outDir, `${tour.id}.captions.json`)} · ${captionTimeline.length} line(s) timed — ready for a future TTS pass`);
+}
+
+/**
+ * YouTube's own required format, pasted straight into a video's description: the FIRST line
+ * MUST read exactly `0:00`, each following line `M:SS` or `H:MM:SS` ascending, each at least
+ * ten seconds after the last. YouTube silently ignores the whole chapter list if any of that is
+ * violated — so this checks the same rules here, where a wrong tour script fails loudly instead
+ * of uploading a video that looks chaptered locally and shows no chapters at all once live.
+ */
+async function writeChapters(path, chapters) {
+  if (chapters[0].seconds > 0.05) {
+    throw new Error(`first chapter "${chapters[0].title}" starts at ${chapters[0].seconds.toFixed(1)}s — YouTube requires the first chapter at 0:00, or it drops the whole list. Add \`chapter\` to the tour's very first step.`);
+  }
+  for (let i = 1; i < chapters.length; i++) {
+    const gap = chapters[i].seconds - chapters[i - 1].seconds;
+    if (gap < 10) {
+      throw new Error(`chapters "${chapters[i - 1].title}" and "${chapters[i].title}" are only ${gap.toFixed(1)}s apart — YouTube requires at least 10s between chapters, or it drops the whole list.`);
+    }
+  }
+  const lines = chapters.map((c) => `${formatChapterTime(c.seconds)} ${c.title}`);
+  const { writeFile } = await import('node:fs/promises');
+  await writeFile(path, lines.join('\n') + '\n', 'utf8');
+  console.log(`✔ ${path} · ${chapters.length} chapter(s) — paste into the YouTube description as-is`);
+}
+
+function formatChapterTime(totalSeconds) {
+  const s = Math.floor(totalSeconds);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+  const ss = String(sec).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+function deviceViewport(tour) {
+  if (tour.orientation === 'landscape') return { width: CONFIG.VIDEO.width, height: CONFIG.VIDEO.height };
+  return { width: CONFIG.VIDEO.deviceWidth, height: CONFIG.VIDEO.deviceHeight };
+}
+
+/** Borrowed wholesale from e2e/fixtures.ts's own `shop` fixture logic: race the door against the
+ *  shell, repair with a fresh openShop() only if genuinely signed out. Kept here instead of
+ *  imported directly because that logic lives inside a Playwright `test.extend` fixture, not a
+ *  standalone function — but the STEPS are copied verbatim from it, not reinvented. */
+async function ensureSignedIn(page, baseURL, openShop, sessionFile) {
+  await page.goto(baseURL);
+  // «محل جديد» ONLY EXISTS AFTER SWITCHING TABS — Door.tsx defaults to «تسجيل الدخول» (sign in),
+  // and the sign-up pane (where «محل جديد» lives) only mounts once «تسجيل جديد» is clicked. The
+  // OUTER mode radio is what's actually on the door immediately either way, so THAT is the door
+  // signal — checking for the inner one here was the exact bug openShop() itself had, fixed in
+  // e2e/fixtures.ts, and it lived here too as a second, separate copy of the same wrong check.
+  await Promise.race([
+    page.getByRole('radio', { name: 'تسجيل جديد' }).waitFor({ timeout: 45_000 }),
+    page.getByRole('navigation').first().waitFor({ timeout: 45_000 }),
+  ]).catch(() => undefined);
+  const onTheDoor = await page.getByRole('radio', { name: 'تسجيل جديد' }).isVisible().catch(() => false);
+  if (onTheDoor) {
+    console.log('  no live session — opening a fresh shop (this becomes the tour\'s demo data)');
+    await openShop(page);
+  }
+}
+
+async function runStep(page, step, index, tour, baseURL) {
+  const label = `  ${index + 1}/${tour.steps.length}`;
+
+  if (step.goto) {
+    console.log(`${label} goto ${step.goto}`);
+    // AGAINST baseURL, NEVER page.url(). The app is served under a base path (vite.config.ts's
+    // `base: '/app/'`), and an absolute-path reference like "/services" resolved against the
+    // CURRENT page's URL discards that prefix outright — WHATWG URL resolution replaces the
+    // whole path for a leading slash, it does not append. Resolving relative to baseURL (which
+    // already carries the base path, trailing slash and all) and stripping the tour script's own
+    // leading slash keeps every step's path inside the app no matter where the page currently is.
+    await page.goto(new URL(step.goto.replace(/^\//, ''), baseURL).href);
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
+    await sleep(CONFIG.PACE.settleMs);
+    return;
+  }
+
+  if (step.waitFor) {
+    // FOR ASYNC CONTENT A GOTO ALONE CANNOT GUARANTEE — a freshly opened shop's starter
+    // catalogue seeds in the BACKGROUND and fails soft by design (see door.spec.ts's own
+    // assertion on this exact point), so a tour landing on «خدماتي» right after signup can find
+    // it genuinely empty for a few seconds. This is a generic wait, not a workaround local to
+    // one tour: any script whose target appears asynchronously reaches for it the same way.
+    console.log(`${label} waitFor ${step.waitFor}`);
+    await locate(page, step.waitFor).first().waitFor({ state: 'visible', timeout: step.timeoutMs ?? 30_000 });
+    return;
+  }
+
+  const target = step.click ?? step.type ?? step.check;
+  if (target) {
+    const locator = locate(page, target).first();
+    await locator.scrollIntoViewIfNeeded().catch(() => undefined);
+    const box = await locator.boundingBox().catch(() => null);
+    if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
+    await page.evaluate((r) => window.__tour?.spotlight(r), box);
+  }
+
+  if (step.say) {
+    const wrapped = wrapCaption(step.say, CONFIG.CAPTION);
+    await page.evaluate((t) => window.__tour?.say(t), wrapped);
+    await sleep(step.holdMs ?? captionHoldMs(step.say, CONFIG.CAPTION));
+  } else {
+    await sleep(CONFIG.PACE.betweenStepsMs);
+  }
+
+  if (step.click) {
+    console.log(`${label} click ${step.click}`);
+    await locate(page, step.click).first().click();
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.type) {
+    console.log(`${label} type ${step.type}`);
+    await locate(page, step.type).first().pressSequentially(step.text, { delay: CONFIG.PACE.typeDelayMs });
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.check) {
+    console.log(`${label} check ${step.check}`);
+    await locate(page, step.check).first().check();
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.wait) {
+    await sleep(step.wait);
+  }
+
+  // THE RING IS LEFT UP, DELIBERATELY. It stays on the just-pressed control through the settle
+  // above — so the viewer sees what was pressed and where — and only moves because the NEXT
+  // step's spotlight() call retargets it, via the CSS transition already declared in overlay.mjs.
+  // A tour that ends on this step (no next one) leaves the ring showing in the final frames,
+  // which is correct: the last thing pressed is exactly what should still be marked.
+}
+
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+main().catch((e) => { console.error(e.message); process.exit(1); });
