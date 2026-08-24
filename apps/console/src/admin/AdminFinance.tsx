@@ -1,5 +1,5 @@
 /**
- * المالية — القسم ٤. مبنية يدوياً: `billing.platform_invoices`/`billing.platform_subscriptions`
+ * المالية — القسم 4. مبنية يدوياً: `billing.platform_invoices`/`billing.platform_subscriptions`
  * ترفض بلا فلتر واحد على الأقل (لا مسح غير مفلتَر عبر كل العملاء)، والتسوية/العكس/الاسترجاع
  * حقول إلزامية مركّبة — لا يلائم أياً منها زر "قائمة" واحد بالمحرّك العام.
  *

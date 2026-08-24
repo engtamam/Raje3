@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  backupHealth, monthRevenueHalalas, openTicketsCount, pendingAffiliateApplications,
-  suspiciousLogins, tenantCounts, unreachableServices,
+  activeTeamCount, backupHealth, monthRevenueHalalas, openTicketsCount,
+  pendingAffiliateApplications, suspiciousLogins, tenantCounts, unreachableServices,
 } from './platformMetrics';
 import type { AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
@@ -189,6 +189,37 @@ const BACKUP_CATALOG: AdminCatalog = {
   ] }],
   unreachable: [],
 };
+
+const IDENTITY_CATALOG: AdminCatalog = {
+  services: [{ service: 'identity-service', actions: [
+    { id: 'identity.list_members', label: 'x', method: 'GET', path: '/api/v1/tenancy/members', capability: 'members:read' },
+  ] }],
+  unreachable: [],
+};
+
+describe('activeTeamCount', () => {
+  it('counts only active members, ignoring suspended ones', async () => {
+    reqMock = vi.fn().mockResolvedValue({
+      tenant: '_platform', next: null,
+      members: [{ status: 'active' }, { status: 'active' }, { status: 'suspended' }],
+    });
+    const out = await activeTeamCount(SESSION, IDENTITY_CATALOG);
+    expect(out).toEqual({ ok: true, count: 2, atLeast: false });
+  });
+
+  it('flags atLeast when a next cursor came back', async () => {
+    reqMock = vi.fn().mockResolvedValue({ tenant: '_platform', next: 'cursor2', members: [{ status: 'active' }] });
+    const out = await activeTeamCount(SESSION, IDENTITY_CATALOG);
+    expect(out).toEqual({ ok: true, count: 1, atLeast: true });
+  });
+
+  it('refuses honestly with no capability', async () => {
+    reqMock = vi.fn();
+    const out = await activeTeamCount(SESSION, EMPTY_CATALOG);
+    expect(out.ok).toBe(false);
+    expect(reqMock).not.toHaveBeenCalled();
+  });
+});
 
 describe('backupHealth', () => {
   it('passes the peer\'s own summary/alerts through untouched', async () => {

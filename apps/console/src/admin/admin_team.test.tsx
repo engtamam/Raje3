@@ -1,6 +1,6 @@
 /**
- * فريق الإدارة — لا مسار "اعرض كل الحسابات"، فقط بحث بمعرّف معروف ثم تعديل مصفوفة الأدوار
- * كاملة (لا منح/سحب ذرّي)، وهذا بالضبط سبب أن الشاشة بحث لا قائمة.
+ * فريق الإدارة — أُعيد بناؤها فوق دليل أعضاء حقيقي (`identity.list_members` وما حوله)، تينانت
+ * المستدعي نفسه (`_platform`) لا معامِل صريح — القائمة كاملة، لا بحث بمعرّف معروف مسبقاً.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -10,13 +10,17 @@ import type { AdminSession } from './api';
 const SESSION: AdminSession = { access_token: 'tok-1' };
 
 const CATALOG = {
-  services: [{ service: 'authz-service', actions: [
-    { id: 'authz.get_subject_roles', label: 'x', method: 'GET' as const,
-     path: '/api/v1/subjects/{subject}/roles', capability: 'platform.authz',
-     params: [{ name: 'subject', in: 'path' as const, type: 'string', required: true }] },
-    { id: 'authz.assign_roles', label: 'x', method: 'PUT' as const,
-     path: '/api/v1/subjects/{subject}/roles', capability: 'platform.authz', confirm: true,
-     params: [{ name: 'subject', in: 'path' as const, type: 'string', required: true }] },
+  services: [{ service: 'identity-service', actions: [
+    { id: 'identity.list_members', label: 'x', method: 'GET' as const,
+     path: '/api/v1/tenancy/members', capability: 'members:read' },
+    { id: 'identity.add_member', label: 'x', method: 'POST' as const,
+     path: '/api/v1/tenancy/members', capability: 'members:write', confirm: true },
+    { id: 'identity.update_member', label: 'x', method: 'PUT' as const,
+     path: '/api/v1/tenancy/members/{person_id}', capability: 'members:write', confirm: true },
+    { id: 'identity.set_member_status', label: 'x', method: 'POST' as const,
+     path: '/api/v1/tenancy/members/{person_id}/status', capability: 'members:write', confirm: true },
+    { id: 'identity.remove_member', label: 'x', method: 'DELETE' as const,
+     path: '/api/v1/tenancy/members/{person_id}', capability: 'members:write', danger: true, confirm: true },
   ] }],
   unreachable: [],
 };
@@ -36,48 +40,113 @@ vi.mock('./api', async (importOriginal) => {
 afterEach(() => vi.clearAllMocks());
 
 describe('AdminTeam', () => {
-  it('looks up a subject and shows its current roles checked', async () => {
+  it('lists the whole roster with roles and status badges', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn().mockResolvedValue({
-      subject: 'ops@raje3.sa', tenant: '_platform', roles: ['platform-support'], capabilities: [],
+      tenant: '_platform', next: null,
+      members: [
+        { person_id: 'p1', identifier: 'ops@raje3.sa', roles: ['platform-support'], caps: [], status: 'active', since: 0 },
+        { person_id: 'p2', identifier: 'fin@raje3.sa', roles: ['platform-finance'], caps: [], status: 'suspended', since: 0 },
+      ],
     });
 
     render(<AdminTeam session={SESSION} />);
-    fireEvent.change(await screen.findByPlaceholderText('subject id (بريد أو معرّف الحساب)'),
-                     { target: { value: 'ops@raje3.sa' } });
-    fireEvent.click(screen.getByText('بحث'));
-
-    await waitFor(() => expect(screen.getByText('ops@raje3.sa')).toBeTruthy());
-    const supportBox = screen.getByLabelText(/الدعم/) as HTMLInputElement;
-    expect(supportBox.checked).toBe(true);
-    const ownerBox = screen.getByLabelText(/مالك المنصّة/) as HTMLInputElement;
-    expect(ownerBox.checked).toBe(false);
+    await waitFor(() => expect(screen.getAllByText('ops@raje3.sa').length).toBeGreaterThan(0));
+    expect(screen.getAllByText('fin@raje3.sa').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('الدعم (قراءة فقط)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('موقوف').length).toBeGreaterThan(0);
   });
 
-  it('toggling a role and saving PUTs the whole replaced roles array', async () => {
+  it('suspending an active member posts status=suspended after confirm', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
     reqMock = vi.fn()
-      .mockResolvedValueOnce({ subject: 'ops@raje3.sa', tenant: '_platform', roles: [], capabilities: [] })
-      .mockResolvedValueOnce({ subject: 'ops@raje3.sa', tenant: '_platform', roles: ['platform-finance'], capabilities: [] });
+      .mockResolvedValueOnce({
+        tenant: '_platform', next: null,
+        members: [{ person_id: 'p1', identifier: 'ops@raje3.sa', roles: [], caps: [], status: 'active', since: 0 }],
+      })
+      .mockResolvedValueOnce({ member: { person_id: 'p1', status: 'suspended' } })
+      .mockResolvedValueOnce({ tenant: '_platform', next: null, members: [] });
 
     render(<AdminTeam session={SESSION} />);
-    fireEvent.change(await screen.findByPlaceholderText('subject id (بريد أو معرّف الحساب)'),
-                     { target: { value: 'ops@raje3.sa' } });
-    fireEvent.click(screen.getByText('بحث'));
-    await waitFor(() => expect(screen.getByText('ops@raje3.sa')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('ops@raje3.sa').length).toBeGreaterThan(0));
 
-    fireEvent.click(screen.getByLabelText(/المالية/));
-    fireEvent.click(screen.getByText('حفظ الأدوار'));
-    await screen.findAllByText(/تعديل أدوار/);
+    fireEvent.click(screen.getAllByText('إيقاف')[0]);
+    await screen.findByText(/إيقاف "ops@raje3.sa"؟/);
     fireEvent.click(screen.getByText('تأكيد'));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
-      '/api/v1/subjects/ops%40raje3.sa/roles', 'PUT',
-      { roles: ['platform-finance'], capabilities: [] }, 'tok-1',
+      '/api/v1/tenancy/members/p1/status', 'POST', { status: 'suspended' }, 'tok-1',
     ));
   });
 
-  it('an honest empty state when the caller has no authz capability', async () => {
+  it('editing roles PUTs the full replaced roles array', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({
+        tenant: '_platform', next: null,
+        members: [{ person_id: 'p1', identifier: 'ops@raje3.sa', roles: ['platform-support'], caps: [], status: 'active', since: 0 }],
+      })
+      .mockResolvedValueOnce({ member: { person_id: 'p1', roles: ['platform-support', 'platform-finance'] } })
+      .mockResolvedValueOnce({ tenant: '_platform', next: null, members: [] });
+
+    render(<AdminTeam session={SESSION} />);
+    await waitFor(() => expect(screen.getAllByText('ops@raje3.sa').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByText('تعديل الأدوار')[0]);
+    fireEvent.click(await screen.findByLabelText(/المالية/));
+    fireEvent.click(screen.getByText('حفظ الأدوار'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/tenancy/members/p1', 'PUT',
+      { roles: ['platform-support', 'platform-finance'] }, 'tok-1',
+    ));
+  });
+
+  it('adding a member posts identifier and roles, and shows an invite token once', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({ tenant: '_platform', next: null, members: [] })
+      .mockResolvedValueOnce({ member: { person_id: 'p9' }, invite_token: 'inv_abc123' });
+
+    render(<AdminTeam session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('لا أعضاء بفريق الإدارة بعد')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('دعوة عضو'));
+    fireEvent.change(await screen.findByLabelText('البريد الإلكتروني'), { target: { value: 'new@raje3.sa' } });
+    fireEvent.click(screen.getByText('دعوة'));
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/tenancy/members', 'POST', { identifier: 'new@raje3.sa', roles: [] }, 'tok-1',
+    ));
+    await waitFor(() => expect(screen.getByText('inv_abc123')).toBeTruthy());
+  });
+
+  it('removing a member is armed by typing their identifier', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue(CATALOG);
+    reqMock = vi.fn()
+      .mockResolvedValueOnce({
+        tenant: '_platform', next: null,
+        members: [{ person_id: 'p1', identifier: 'ops@raje3.sa', roles: [], caps: [], status: 'active', since: 0 }],
+      })
+      .mockResolvedValueOnce({ removed: true, person_id: 'p1', tenant: '_platform' })
+      .mockResolvedValueOnce({ tenant: '_platform', next: null, members: [] });
+
+    render(<AdminTeam session={SESSION} />);
+    await waitFor(() => expect(screen.getAllByText('ops@raje3.sa').length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getAllByText('إزالة')[0]);
+    const armInput = await screen.findByLabelText(/اكتب/);
+    const confirmBtn = screen.getByText('تأكيد').closest('button') as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+    fireEvent.change(armInput, { target: { value: 'ops@raje3.sa' } });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
+      '/api/v1/tenancy/members/p1', 'DELETE', undefined, 'tok-1',
+    ));
+  });
+
+  it('an honest empty state when the caller has no members:read capability', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     render(<AdminTeam session={SESSION} />);
     await waitFor(() => expect(screen.getByText('لا صلاحية لديك لإدارة فريق الإدارة')).toBeTruthy());

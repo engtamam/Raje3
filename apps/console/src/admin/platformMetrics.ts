@@ -73,7 +73,7 @@ export async function monthRevenueHalalas(
   return { ok: true, halalas };
 }
 
-/** Which services answered the catalog build and which didn't (١١.٩) — free, no new backend: the
+/** Which services answered the catalog build and which didn't (11.9) — free, no new backend: the
  *  gateway's own `admin_catalog.py::build_catalog` already tried every declared service and
  *  reports the ones that failed to answer, right in the response this whole panel already reads
  *  on every load. A service missing here means it did not answer AT catalog time, not "is down
@@ -110,7 +110,7 @@ export async function suspiciousLogins(
   return { ok: true, actors };
 }
 
-/** Affiliate applications waiting for a decision (١١.٧) — same action `AdminCustomers.tsx`
+/** Affiliate applications waiting for a decision (11.7) — same action `AdminCustomers.tsx`
  *  already renders as a list; this is only the count for the dashboard tile. */
 export async function pendingAffiliateApplications(
   session: AdminSession, catalog: AdminCatalog,
@@ -123,7 +123,7 @@ export async function pendingAffiliateApplications(
 
 interface TicketRow { status: string }
 
-/** Open tickets right now (١١.٨, half of it) — `tickets.inbox` has no aggregate count route, only
+/** Open tickets right now (11.8, half of it) — `tickets.inbox` has no aggregate count route, only
  *  a raw paginated list (`limit` capped at 200 server-side), so this reads ONE page and reports
  *  honestly: `atLeast: true` when a `cursor` came back, meaning the true count is higher, never a
  *  number presented as final when it isn't. Average response time is NOT computed here — the raw
@@ -147,7 +147,7 @@ interface BackupHealthBody {
   summary: { total: number; healthy: number; degraded: number; critical: number };
 }
 
-/** Backup health across every registered target (١١.١٢) — `backup.health`'s own summary/alerts,
+/** Backup health across every registered target (11.12) — `backup.health`'s own summary/alerts,
  *  never recomputed here. */
 export async function backupHealth(
   session: AdminSession, catalog: AdminCatalog,
@@ -156,6 +156,27 @@ export async function backupHealth(
   if (!action) return { ok: false, reason: 'لا صلاحية لقراءة صحة النسخ الاحتياطي.' };
   const body: BackupHealthBody = await req(action.path, 'GET', undefined, session.access_token);
   return { ok: true, body };
+}
+
+interface MemberRow { status: 'active' | 'suspended' }
+
+/** Active admin team members right now (9.5) — `identity.list_members`, tenant read straight off
+ *  the caller's own token claim (no `?tenant=`, confirmed against the route's own code — there is
+ *  no way to target a tenant other than the caller's from this route), one bounded page (200, the
+ *  service's own max page size) — honest `atLeast` flag if a bigger team ever exists than that. */
+export async function activeTeamCount(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; count: number; atLeast: boolean } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'identity.list_members');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة فريق الإدارة.' };
+  const body: { members: MemberRow[]; next: string | null } = await req(
+    `${action.path}?limit=200`, 'GET', undefined, session.access_token,
+  );
+  return {
+    ok: true,
+    count: body.members.filter((m) => m.status === 'active').length,
+    atLeast: Boolean(body.next),
+  };
 }
 
 export interface TenantCounts {

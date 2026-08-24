@@ -1,7 +1,7 @@
 /**
- * الرئيسية (لوحة القيادة) — المرحلة ٤: أول أرقام حقيقية غير مُخترعة، محسوبة من إجراءين معلَنَين
+ * الرئيسية (لوحة القيادة) — المرحلة 4: أول أرقام حقيقية غير مُخترعة، محسوبة من إجراءين معلَنَين
  * أصلاً (`billing.platform_invoices`, `tenant.list`) — انظر `platformMetrics.ts`. باقي البنود
- * الـ٣٥ (الاحتفاظ المجمَّع، صحة واتساب، تنبيهات...) تُبنى بمراحل لاحقة، ولا رقم يُعرَض هنا قبل
+ * الـ35 (الاحتفاظ المجمَّع، صحة واتساب، تنبيهات...) تُبنى بمراحل لاحقة، ولا رقم يُعرَض هنا قبل
  * أن يكون له مصدر حقيقي.
  */
 import { useEffect, useState } from 'react';
@@ -11,8 +11,9 @@ import { KpiCard } from '../rj-ui/KpiCard';
 import { riyalsLabel } from '../money';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import {
-  backupHealth, monthRevenueHalalas, openTicketsCount, pendingAffiliateApplications,
-  suspiciousLogins, tenantCounts, unreachableServices, type TenantCounts,
+  activeTeamCount, backupHealth, monthRevenueHalalas, openTicketsCount,
+  pendingAffiliateApplications, suspiciousLogins, tenantCounts, unreachableServices,
+  type TenantCounts,
 } from './platformMetrics';
 import type { AdminSession } from './api';
 
@@ -27,6 +28,7 @@ interface Loaded {
   openTickets: { count: number; atLeast: boolean } | null;
   backupCritical: number | null;    // count of services in critical backup state
   backupAlerts: { service: string; severity: 'degraded' | 'critical'; reason: string }[];
+  activeTeam: { count: number; atLeast: boolean } | null;
 }
 
 export function AdminHome({ session }: { session: AdminSession }) {
@@ -43,7 +45,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         return;
       }
 
-      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup] = await Promise.all([
+      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup, team] = await Promise.all([
         monthRevenueHalalas(session, catalog, 0),
         monthRevenueHalalas(session, catalog, 1),
         tenantCounts(session, catalog),
@@ -51,6 +53,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         pendingAffiliateApplications(session, catalog),
         openTicketsCount(session, catalog),
         backupHealth(session, catalog),
+        activeTeamCount(session, catalog),
       ]);
       if (cancelled) return;
       setState({
@@ -64,6 +67,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
         openTickets: tickets.ok ? { count: tickets.count, atLeast: tickets.atLeast } : null,
         backupCritical: backup.ok ? backup.body.summary.critical + backup.body.summary.degraded : null,
         backupAlerts: backup.ok ? backup.body.alerts : [],
+        activeTeam: team.ok ? { count: team.count, atLeast: team.atLeast } : null,
       });
     })();
     return () => { cancelled = true; };
@@ -101,6 +105,10 @@ export function AdminHome({ session }: { session: AdminSession }) {
               <KpiCard icon={<AlertTriangle size={18} />} tone="warning" label="تذاكر مفتوحة"
                       value={`${state.openTickets.count}${state.openTickets.atLeast ? '+' : ''}`} />
             ) : null}
+            {state.activeTeam != null ? (
+              <KpiCard icon={<Sparkles size={18} />} tone="neutral" label="أعضاء فريق الإدارة النشطين"
+                      value={`${state.activeTeam.count}${state.activeTeam.atLeast ? '+' : ''}`} />
+            ) : null}
           </div>
 
           {state.unreachable.length > 0 || (state.backupCritical ?? 0) > 0 || (state.suspiciousActors?.length ?? 0) > 0 ? (
@@ -122,7 +130,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
                 ))}
                 {(state.suspiciousActors ?? []).map((s) => (
                   <li key={s.actor} className="flex items-center gap-1.5">
-                    <Badge tone="danger">دخول</Badge> {s.count} محاولة دخول فاشلة من {s.actor} آخر ٢٤ ساعة.
+                    <Badge tone="danger">دخول</Badge> {s.count} محاولة دخول فاشلة من {s.actor} آخر 24 ساعة.
                   </li>
                 ))}
               </ul>
