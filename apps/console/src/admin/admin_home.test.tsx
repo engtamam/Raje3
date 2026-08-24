@@ -107,6 +107,26 @@ describe('AdminHome', () => {
     await waitFor(() => expect(screen.getByText(/توقّفت خدمته لعدم الدفع/)).toBeTruthy());
   });
 
+  it('shows average first-response time and hides unresolved-48h until the backend embeds kpis', async () => {
+    fetchCatalogMock = vi.fn().mockResolvedValue({
+      services: [{ service: 'ticket-service', actions: [
+        { id: 'tickets.inbox', label: 'x', method: 'GET', path: '/api/v1/operator/tickets', capability: 'tickets.manage' },
+      ] }],
+      unreachable: [],
+    });
+    reqMock = vi.fn().mockResolvedValue({
+      tickets: [{ status: 'open', created: 'x', kpis: { first_response_seconds: 600, resolution_seconds: null } }],
+      cursor: null,
+    });
+
+    render(<AdminHome session={SESSION} />);
+    await waitFor(() => expect(screen.getByText('متوسط وقت أول رد')).toBeTruthy());
+    expect(screen.getByText('10 د')).toBeTruthy();
+    // resolution_seconds is null but created is 'x' (unparseable) — never counted as unresolved-48h
+    // on bad data, so no alert band appears for it.
+    expect(screen.queryByText(/تذكرة بلا حل/)).toBeFalsy();
+  });
+
   it('no alert band at all when nothing is wrong', async () => {
     fetchCatalogMock = vi.fn().mockResolvedValue({ services: [], unreachable: [] });
     reqMock = vi.fn();

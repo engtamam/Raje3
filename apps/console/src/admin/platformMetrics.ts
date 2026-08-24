@@ -122,14 +122,16 @@ export async function pendingAffiliateApplications(
   return { ok: true, count: body.applications.length };
 }
 
-interface TicketRow { status: string }
+interface TicketKpis {
+  first_response_seconds: number | null;
+  resolution_seconds: number | null;
+}
+interface TicketRow { status: string; created: string; kpis?: TicketKpis }
 
 /** Open tickets right now (11.8, half of it) — `tickets.inbox` has no aggregate count route, only
  *  a raw paginated list (`limit` capped at 200 server-side), so this reads ONE page and reports
  *  honestly: `atLeast: true` when a `cursor` came back, meaning the true count is higher, never a
- *  number presented as final when it isn't. Average response time is NOT computed here — the raw
- *  ticket row's own field names for first-response/created timestamps were not confirmed against
- *  real code, and a guessed field name would silently compute nonsense instead of failing loudly. */
+ *  number presented as final when it isn't. */
 export async function openTicketsCount(
   session: AdminSession, catalog: AdminCatalog,
 ): Promise<{ ok: true; count: number; atLeast: boolean } | { ok: false; reason: string }> {
@@ -139,6 +141,52 @@ export async function openTicketsCount(
     `${action.path}?status=open&limit=200`, 'GET', undefined, session.access_token,
   );
   return { ok: true, count: body.tickets.length, atLeast: Boolean(body.cursor) };
+}
+
+/** متوسط وقت أول رد (11.8، النصف الثاني) — `tickets.inbox` يُضمِّن الآن `kpis.first_response_seconds`
+ *  لكل صفّ (تصعيد أجابه `base-services-72`، `ticket_kpis` نفس الدالة النقيّة المستخدَمة بالقراءة
+ *  الداخلية للتذكرة الواحدة — لا حساب جديد، فقط تُضمَّن بالقائمة الآن). **لم يُنشَر بعد** — يحتاج
+ *  إصدار `ticket-service` جديد لم يُثبَّت رقمه بعد بـ`platform/`؛ الدالة صحيحة اليوم لكنها تُرجع
+ *  `sampleSize: 0` حتى يصل الإصدار (كل الصفوف بلا `kpis` تُستبعَد من المتوسط بصمت، لا تُحسَب
+ *  كصفر). تذكرة بلا ردّ عامل بعد = `null`، تُستبعَد من المقام لا تُحسَب كرد فوري. */
+export async function avgFirstResponseSeconds(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; avgSeconds: number | null; sampleSize: number; atLeast: boolean } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'tickets.inbox');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة التذاكر.' };
+  const body: { tickets: TicketRow[]; cursor: string | null } = await req(
+    `${action.path}?limit=200`, 'GET', undefined, session.access_token,
+  );
+  const values = body.tickets
+    .map((t) => t.kpis?.first_response_seconds)
+    .filter((v): v is number => typeof v === 'number');
+  return {
+    ok: true,
+    avgSeconds: values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null,
+    sampleSize: values.length,
+    atLeast: Boolean(body.cursor),
+  };
+}
+
+/** (33) تذاكر غير محلولة منذ أكثر من ٤٨ ساعة — نفس التضمين الجديد (`kpis.resolution_seconds`).
+ *  **لم يُنشَر بعد**، نفس ملاحظة الدالة أعلاه. غير محصورة بنوع "شكوى" تحديداً — قيم أنواع
+ *  التذاكر الحقيقية لم تُؤكَّد بالكود، وتخمين قيمة `type` قد يُرجع صفراً صامتاً بدل رفض واضح؛
+ *  تُعرَض كـ"تذاكر غير محلولة" عموماً حتى تتأكد قيمة النوع. */
+export async function unresolvedTicketsOver48h(
+  session: AdminSession, catalog: AdminCatalog,
+): Promise<{ ok: true; count: number; atLeast: boolean } | { ok: false; reason: string }> {
+  const action = findAction(catalog, 'tickets.inbox');
+  if (!action) return { ok: false, reason: 'لا صلاحية لقراءة التذاكر.' };
+  const body: { tickets: TicketRow[]; cursor: string | null } = await req(
+    `${action.path}?limit=200`, 'GET', undefined, session.access_token,
+  );
+  const cutoffMs = Date.now() - 48 * 3600_000;
+  const count = body.tickets.filter((t) => {
+    if (!t.kpis || t.kpis.resolution_seconds !== null) return false;
+    const createdMs = Date.parse(t.created);
+    return Number.isFinite(createdMs) && createdMs < cutoffMs;
+  }).length;
+  return { ok: true, count, atLeast: Boolean(body.cursor) };
 }
 
 interface BackupAlert { service: string; severity: 'degraded' | 'critical'; reason: string }

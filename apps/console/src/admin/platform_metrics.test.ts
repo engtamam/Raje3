@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  activeTeamCount, affiliateLeaderboard, affiliateStats, backupHealth, branchGeoPoints,
-  failedPaymentTenants, leadsGeoPoints, monthRevenueHalalas, openTicketsCount,
+  activeTeamCount, affiliateLeaderboard, affiliateStats, avgFirstResponseSeconds, backupHealth,
+  branchGeoPoints, failedPaymentTenants, leadsGeoPoints, monthRevenueHalalas, openTicketsCount,
   pendingAffiliateApplications, platformInsights, suspiciousLogins, tenantCounts,
-  unreachableServices,
+  unreachableServices, unresolvedTicketsOver48h,
 } from './platformMetrics';
 import type { AdminCatalog } from './catalog';
 import type { AdminSession } from './api';
@@ -214,6 +214,64 @@ describe('openTicketsCount', () => {
   it('refuses honestly with no capability', async () => {
     reqMock = vi.fn();
     const out = await openTicketsCount(SESSION, EMPTY_CATALOG);
+    expect(out.ok).toBe(false);
+    expect(reqMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('avgFirstResponseSeconds', () => {
+  it('averages only rows with a real (non-null) first_response_seconds', async () => {
+    reqMock = vi.fn().mockResolvedValue({
+      tickets: [
+        { status: 'closed', created: 'x', kpis: { first_response_seconds: 100, resolution_seconds: 200 } },
+        { status: 'open', created: 'x', kpis: { first_response_seconds: 300, resolution_seconds: null } },
+        { status: 'open', created: 'x', kpis: { first_response_seconds: null, resolution_seconds: null } },
+      ],
+      cursor: null,
+    });
+    const out = await avgFirstResponseSeconds(SESSION, TICKETS_CATALOG);
+    expect(out).toEqual({ ok: true, avgSeconds: 200, sampleSize: 2, atLeast: false });
+  });
+
+  it('rows with no kpis field at all (the not-yet-released backend) yield an honest empty sample', async () => {
+    reqMock = vi.fn().mockResolvedValue({ tickets: [{ status: 'open', created: 'x' }], cursor: null });
+    const out = await avgFirstResponseSeconds(SESSION, TICKETS_CATALOG);
+    expect(out).toEqual({ ok: true, avgSeconds: null, sampleSize: 0, atLeast: false });
+  });
+
+  it('refuses honestly with no capability', async () => {
+    reqMock = vi.fn();
+    const out = await avgFirstResponseSeconds(SESSION, EMPTY_CATALOG);
+    expect(out.ok).toBe(false);
+    expect(reqMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('unresolvedTicketsOver48h', () => {
+  it('counts unresolved tickets created more than 48h ago', async () => {
+    const old = new Date(Date.now() - 72 * 3600_000).toISOString();
+    const recent = new Date(Date.now() - 1 * 3600_000).toISOString();
+    reqMock = vi.fn().mockResolvedValue({
+      tickets: [
+        { status: 'open', created: old, kpis: { first_response_seconds: 10, resolution_seconds: null } },
+        { status: 'open', created: recent, kpis: { first_response_seconds: 10, resolution_seconds: null } },
+        { status: 'closed', created: old, kpis: { first_response_seconds: 10, resolution_seconds: 999 } },
+      ],
+      cursor: null,
+    });
+    const out = await unresolvedTicketsOver48h(SESSION, TICKETS_CATALOG);
+    expect(out).toEqual({ ok: true, count: 1, atLeast: false });
+  });
+
+  it('rows with no kpis field yield an honest zero, not a crash', async () => {
+    reqMock = vi.fn().mockResolvedValue({ tickets: [{ status: 'open', created: 'x' }], cursor: null });
+    const out = await unresolvedTicketsOver48h(SESSION, TICKETS_CATALOG);
+    expect(out).toEqual({ ok: true, count: 0, atLeast: false });
+  });
+
+  it('refuses honestly with no capability', async () => {
+    reqMock = vi.fn();
+    const out = await unresolvedTicketsOver48h(SESSION, EMPTY_CATALOG);
     expect(out.ok).toBe(false);
     expect(reqMock).not.toHaveBeenCalled();
   });

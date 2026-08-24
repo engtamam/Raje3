@@ -12,9 +12,9 @@ import { riyalsLabel } from '../money';
 import { AdminAnalytics } from './AdminAnalytics';
 import { allActions, fetchCatalog, type AdminCatalog } from './catalog';
 import {
-  activeTeamCount, backupHealth, failedPaymentTenants, monthRevenueHalalas, openTicketsCount,
-  pendingAffiliateApplications, suspiciousLogins, tenantCounts, unreachableServices,
-  type TenantCounts,
+  activeTeamCount, avgFirstResponseSeconds, backupHealth, failedPaymentTenants,
+  monthRevenueHalalas, openTicketsCount, pendingAffiliateApplications, suspiciousLogins,
+  tenantCounts, unreachableServices, unresolvedTicketsOver48h, type TenantCounts,
 } from './platformMetrics';
 import type { AdminSession } from './api';
 
@@ -31,6 +31,8 @@ interface Loaded {
   backupAlerts: { service: string; severity: 'degraded' | 'critical'; reason: string }[];
   activeTeam: { count: number; atLeast: boolean } | null;
   failedPayments: { count: number; atLeast: boolean } | null;
+  avgFirstResponse: number | null;   // seconds, null = no sample yet (kpis not embedded, or none real)
+  unresolvedOver48h: number | null;
 }
 
 export function AdminHome({ session }: { session: AdminSession }) {
@@ -47,7 +49,8 @@ export function AdminHome({ session }: { session: AdminSession }) {
         return;
       }
 
-      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup, team, failedPayments] = await Promise.all([
+      const [revNow, revBefore, tenants, suspicious, pending, tickets, backup, team, failedPayments,
+             firstResponse, unresolved] = await Promise.all([
         monthRevenueHalalas(session, catalog, 0),
         monthRevenueHalalas(session, catalog, 1),
         tenantCounts(session, catalog),
@@ -57,6 +60,8 @@ export function AdminHome({ session }: { session: AdminSession }) {
         backupHealth(session, catalog),
         activeTeamCount(session, catalog),
         failedPaymentTenants(session, catalog),
+        avgFirstResponseSeconds(session, catalog),
+        unresolvedTicketsOver48h(session, catalog),
       ]);
       if (cancelled) return;
       setState({
@@ -72,6 +77,8 @@ export function AdminHome({ session }: { session: AdminSession }) {
         backupAlerts: backup.ok ? backup.body.alerts : [],
         activeTeam: team.ok ? { count: team.count, atLeast: team.atLeast } : null,
         failedPayments: failedPayments.ok ? { count: failedPayments.count, atLeast: failedPayments.atLeast } : null,
+        avgFirstResponse: firstResponse.ok ? firstResponse.avgSeconds : null,
+        unresolvedOver48h: unresolved.ok ? unresolved.count : null,
       });
     })();
     return () => { cancelled = true; };
@@ -109,6 +116,10 @@ export function AdminHome({ session }: { session: AdminSession }) {
               <KpiCard icon={<AlertTriangle size={18} />} tone="warning" label="تذاكر مفتوحة"
                       value={`${state.openTickets.count}${state.openTickets.atLeast ? '+' : ''}`} />
             ) : null}
+            {state.avgFirstResponse != null ? (
+              <KpiCard icon={<TrendingUp size={18} />} tone="neutral" label="متوسط وقت أول رد"
+                      value={formatDuration(state.avgFirstResponse)} />
+            ) : null}
             {state.activeTeam != null ? (
               <KpiCard icon={<Sparkles size={18} />} tone="neutral" label="أعضاء فريق الإدارة النشطين"
                       value={`${state.activeTeam.count}${state.activeTeam.atLeast ? '+' : ''}`} />
@@ -116,7 +127,7 @@ export function AdminHome({ session }: { session: AdminSession }) {
           </div>
 
           {state.unreachable.length > 0 || (state.backupCritical ?? 0) > 0 || (state.suspiciousActors?.length ?? 0) > 0
-            || (state.failedPayments?.count ?? 0) > 0 ? (
+            || (state.failedPayments?.count ?? 0) > 0 || (state.unresolvedOver48h ?? 0) > 0 ? (
             <div className="flex flex-col gap-2 rounded-card border border-danger/30 bg-danger-soft p-4">
               <h2 className="flex items-center gap-1.5 font-semibold text-danger-on-soft">
                 <ShieldAlert size={16} /> تنبيهات فورية
@@ -126,6 +137,12 @@ export function AdminHome({ session }: { session: AdminSession }) {
                   <li className="flex items-center gap-1.5">
                     <Badge tone="danger">دفع</Badge>
                     {state.failedPayments.count}{state.failedPayments.atLeast ? '+' : ''} محل توقّفت خدمته لعدم الدفع.
+                  </li>
+                ) : null}
+                {(state.unresolvedOver48h ?? 0) > 0 ? (
+                  <li className="flex items-center gap-1.5">
+                    <Badge tone="warning">تذاكر</Badge>
+                    {state.unresolvedOver48h} تذكرة بلا حل منذ أكثر من 48 ساعة.
                   </li>
                 ) : null}
                 {state.unreachable.map((svc) => (
@@ -172,4 +189,13 @@ function revenueDelta(nowHalalas: number, beforeHalalas: number | null): string 
   const pct = Math.round(((nowHalalas - beforeHalalas) / beforeHalalas) * 100);
   const sign = pct > 0 ? '+' : '';
   return `${sign}${pct}٪ عن الشهر الماضي`;
+}
+
+/** ثانية → "س:د" مختصرة — لا رقم ثوانٍ خام على شاشة يقرأها بشر. */
+function formatDuration(seconds: number): string {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} د`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hours} س ${remMins} د` : `${hours} س`;
 }
