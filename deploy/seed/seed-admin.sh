@@ -122,5 +122,17 @@ except (urllib.error.URLError, OSError) as exc:
 print("SEEDED" if out.get("seeded") else "ALREADY_OWNED")
 PY
 )"
-printf '%s' "$ADMIN_PASSWORD" | kubectl -n "$NS" exec -i "$POD" -- \
-  python -c "import base64; exec(base64.b64decode('$PY_B64'))" "$TOKEN" "$TENANT" "$ADMIN_PHONE" "$ROLE"
+# A FEW RETRIES, BECAUSE THIS RACES A ROLLING RESTART. update.sh gates identity-service on its own
+# readiness before this script ever runs, and still: on a freshly wiped, heavily loaded node this
+# exec has been seen to die instantly with SIGPIPE and print nothing at all — no kubectl error, no
+# python traceback, just the pipe closing under load before either side said anything. Retrying is
+# correct here for the same reason preflight-netpol.sh's own header gives: a transport that can
+# fail independently of what it is carrying should not be the thing that decides the outcome.
+attempt=0
+until printf '%s' "$ADMIN_PASSWORD" | kubectl -n "$NS" exec -i "$POD" -- \
+  python -c "import base64; exec(base64.b64decode('$PY_B64'))" "$TOKEN" "$TENANT" "$ADMIN_PHONE" "$ROLE"; do
+  attempt=$((attempt + 1))
+  [ $attempt -ge 3 ] && exit 1
+  warn "seed attempt $attempt failed (likely a transient exec hiccup) — retrying"
+  sleep 3
+done
