@@ -501,8 +501,12 @@ function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 async function animatedScrollIntoView(page, locator) {
   const before = await locator.boundingBox().catch(() => null);
   const viewport = page.viewportSize();
-  const offscreen = !before || !viewport
-    || before.y < 0 || before.y + before.height > viewport.height;
+  // NO KNOWN POSITION YET (not mounted, still loading) IS NOT THE SAME AS "off screen, needs a
+  // swipe" — there are no real coordinates to swipe between. Fall through to a plain scroll
+  // attempt with no gesture; the caller's own stableBoundingBox() right after this is what
+  // actually decides whether the target ever showed up at all, and throws its own clear error.
+  if (!before || !viewport) { await locator.scrollIntoViewIfNeeded().catch(() => undefined); return; }
+  const offscreen = before.y < 0 || before.y + before.height > viewport.height;
   if (!offscreen) return;
 
   // A SWIPE FROM LOW ON SCREEN TO HIGH (content below moving up), or the reverse when the target
