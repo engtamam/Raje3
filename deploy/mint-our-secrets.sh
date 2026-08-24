@@ -26,6 +26,19 @@
 #
 #  WHAT IS OURS ALONE is the DSN: one database per service, because a migration in one service must
 #  not lock a table in another. pre-deploy.sh creates them.
+#
+#  EXCEPT TWO, WHICH NEVER GET THAT TREATMENT. affiliate-service and portal are genuinely new
+#  services (2026-08-20) that gen-secrets.py's own schema already covers end to end, database
+#  included — both were deliberately put on the platform's shared `base_services` database rather
+#  than a same-named one of their own, and gen-secrets.py's dsn_for() already sets that correctly
+#  the first time either secret is minted. This script used to put them through the same
+#  create-secret-then-patch loop as the six that DO get their own database, and that `kubectl
+#  create ... | kubectl apply` REPLACES the whole secret — silently overwriting the correct
+#  base_services DSN gen-secrets.py had just set with a wrong same-named one
+#  (`InvalidCatalogNameError: database "affiliate-service" does not exist`, reproduced on every
+#  single fresh install because this script always runs after gen-secrets.py). They still need the
+#  shared values below (PII_SALT etc.), so they get ONLY the patch — never the secret recreation
+#  that would touch DATASTORE_DSN.
 # ==================================================================================================
 set -euo pipefail
 # shellcheck disable=SC1091
@@ -36,7 +49,8 @@ info(){ echo -e "${C_C}  ▸ $*${C_N}"; }
 ok(){   echo -e "${C_G}  ✔ $*${C_N}"; }
 warn(){ echo -e "${C_Y}  ! $*${C_N}"; }
 
-OURS="affiliate-service bookings campaigns insights loyalty operations portal reminders"
+OURS="bookings campaigns insights loyalty operations reminders"
+SHARED_ONLY="affiliate-service portal"
 SHARED="PII_SALT INTERNAL_SERVICE_TOKEN BACKUP_KEK SECRETS_KEK CACHE_URL EVENTBUS_URL QUEUE_URL RATELIMIT_URL TOKEN_PUBLIC_KEY"
 
 # READ EACH SHARED VALUE FROM WHOEVER ALREADY HOLDS IT. They are byte-identical across the fleet by
@@ -84,3 +98,24 @@ for svc in $OURS; do
   [ $first -eq 0 ] && kubectl -n "$NS" patch secret "$svc-secrets" --type=merge -p "$patch" >/dev/null
 done
 ok "six secrets present — shared values identical to the platform's"
+
+# affiliate-service and portal: PATCH ONLY, never recreate — see the header. gen-secrets.py must
+# have already minted the secret (DSN included) for there to be anything to patch onto.
+info "patching shared values onto ${SHARED_ONLY// /, } (DSN left untouched — gen-secrets.py owns it)"
+for svc in $SHARED_ONLY; do
+  if ! kubectl -n "$NS" get secret "$svc-secrets" >/dev/null 2>&1; then
+    warn "$svc-secrets does not exist yet — run gen-secrets.py first, skipping"
+    continue
+  fi
+  patch='{"data":{'
+  first=1
+  for k in $SHARED; do
+    [ -n "${VAL[$k]:-}" ] || continue
+    [ $first -eq 1 ] || patch+=','
+    patch+="\"$k\":\"${VAL[$k]}\""
+    first=0
+  done
+  patch+='}}'
+  [ $first -eq 0 ] && kubectl -n "$NS" patch secret "$svc-secrets" --type=merge -p "$patch" >/dev/null
+done
+ok "shared values patched onto ${SHARED_ONLY// /, } — their own DSN was never touched"
