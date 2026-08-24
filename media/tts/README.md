@@ -29,6 +29,33 @@ for TTS research. Picked over an HTTP range-request read of the corpus zip's cen
 (never downloaded the full 1.2GB archive) for a clean, undashed, 6–9 second single sentence. Full
 provenance and required attribution: `media/tts/reference/SOURCE.md`.
 
+## THE AUDIO IS THE CLOCK, NOT THE VIDEO — Tamam's own requirement, explicit
+
+Every caption's `startSeconds`/`endSeconds` in `captions.json` today comes from how long the
+RECORDING happened to take at each step — real, but incidental; nothing about it was ever tuned
+against how long a sentence takes to actually SAY. Once real narration exists, that stops being
+good enough: **a caption must appear the instant its narration starts and disappear the instant it
+ends, and the video itself must stretch or hold to match — never the other way around.** A fast
+sentence keeps the pace it already has; a slow one holds the frame (freeze the last one, or slow
+the step's own settle wait) until the narration actually finishes, rather than cutting audio off
+or racing text ahead of a voice still speaking.
+
+Concretely, once synthesis exists: **`captions.json`'s recorded seconds become a fallback/minimum,
+never the final timing.** The real per-tour build order becomes:
+
+1. Synthesize every caption's audio first (SILMA, against `reference/voice.wav`).
+2. Measure each clip's REAL rendered duration (not estimated — read the actual generated WAV).
+3. Re-derive the tour's frame timeline from those durations, not from the original capture: a
+   caption's on-screen window becomes exactly its audio's length; wherever narration outlasts the
+   original recorded segment, insert a hold (frozen final frame of that segment) rather than
+   letting the caption vanish mid-sentence or the audio play into silent screen.
+4. Only THEN mux — narration audio replaces/joins the sfx track, and the final mp4's total length
+   is whatever step 3 actually produced, not the original recording's own length.
+
+This is a real second pass over `record-tour.mjs`'s output, not a detail inside the synthesis
+script alone — flagging it here now so it isn't rediscovered as a surprise once SILMA is actually
+generating audio.
+
 ## Resuming — everything below is ready to run
 
 1. `media/tts/.venv/Scripts/pip install silma-tts`
@@ -36,3 +63,5 @@ provenance and required attribution: `media/tts/reference/SOURCE.md`.
    against `reference/voice.wav` + `reference/voice.txt`, writes timed WAV segments, done — no
    tour-specific knowledge belongs in that script, same as every other engine file under
    `media/tours/`.
+3. Write the audio-is-the-clock retiming pass described above, BEFORE muxing narration into any
+   real tour's video — skipping it ships captions/frames timed against the wrong clock.

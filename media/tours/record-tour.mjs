@@ -127,24 +127,6 @@ async function main() {
     await page.goto(baseURL);
     await page.evaluate((s) => localStorage.setItem('raje3.session', JSON.stringify(s)), demoSession);
     await page.reload();
-    // WRITE THE ROTATED SESSION BACK OUT, EVERY RUN — the saved access token is only ever good
-    // for 15 minutes (renew.ts's own token lifetime), so almost every recording lands after it
-    // has expired. The app's own renew.ts silently rotates it on the first 401 it sees (a refresh
-    // token is single-use — "the old one is dead the moment it's spent", renew.ts's own words) —
-    // fine for a live user's browser, which just keeps going, but this recorder used to read
-    // localStorage once and never write it back, so the FILE went stale within 15 minutes of
-    // every single run while the refresh token it held got silently spent underneath it. The next
-    // run's stored refresh token was then already dead, and nothing short of a full reseed could
-    // recover it. Reading it back here, unconditionally, after the one navigation that would have
-    // already triggered a renewal if one was due, keeps the file in sync with reality forever.
-    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined);
-    const liveSession = await page.evaluate(() => {
-      const raw = localStorage.getItem('raje3.session');
-      return raw ? JSON.parse(raw) : null;
-    });
-    if (liveSession && JSON.stringify(liveSession) !== JSON.stringify(demoSession)) {
-      writeFileSync(demoSessionFile, JSON.stringify(liveSession, null, 2));
-    }
   } else if (!tour.skipAutoSignIn) {
     await ensureSignedIn(page, baseURL, openShop, SESSION_FILE);
     await context.storageState({ path: SESSION_FILE }).catch(() => undefined); // save any rotation from ensureSignedIn back out.
@@ -215,6 +197,29 @@ async function main() {
   } finally {
     capturing = false;
     await captureLoop;
+  }
+
+  if (tour.useDemoSession) {
+    // WRITE THE ROTATED SESSION BACK OUT, EVERY RUN, HERE — NOT RIGHT AFTER THE INITIAL RELOAD.
+    // Tried there first: a bare page.reload() with no data mounted yet doesn't necessarily fire
+    // any authenticated request, so renew.ts's own 401-triggered rotation hadn't happened yet by
+    // the time that read-back ran — it kept saving back the SAME (soon to be stale) token,
+    // solving nothing. By now every real step has actually called the API (dashboard fetches,
+    // clicks, the works) — if a renewal was going to fire this run, it already did. The saved
+    // access token is only ever good for 15 minutes (renew.ts's own token lifetime), so almost
+    // every recording lands after it has expired; the refresh token is single-use ("the old
+    // one is dead the moment it's spent", renew.ts's own words), so reading the CURRENT
+    // localStorage back out here — after the tour, not before it — is the only point that
+    // actually reflects what's live.
+    const demoSessionFile = join(HERE, '.demo-session.json');
+    const before = existsSync(demoSessionFile) ? readFileSync(demoSessionFile, 'utf8') : null;
+    const liveSession = await page.evaluate(() => {
+      const raw = localStorage.getItem('raje3.session');
+      return raw ? JSON.parse(raw) : null;
+    }).catch(() => null);
+    if (liveSession && JSON.stringify(liveSession, null, 2) !== before) {
+      writeFileSync(demoSessionFile, JSON.stringify(liveSession, null, 2));
+    }
   }
 
   await browser.close();

@@ -28,7 +28,7 @@ export default {
     // See e2e/fixtures.ts's openShop() for the fuller account of this exact control.
     {
       click: 'role=radio:تسجيل جديد',
-      say: 'اضغط «تسجيل جديد»',
+      say: 'طيب، أول شي اضغط «تسجيل جديد»',
     },
     {
       type: 'label=رقم الجوال',
@@ -36,19 +36,19 @@ export default {
       // registered, so a fixed string here would make this tour un-recordable a second time.
       // Same shape e2e/fixtures.ts's own newPhone() uses: 05 then eight digits.
       text: () => `05${Math.floor(Math.random() * 90_000_000) + 10_000_000}`,
-      say: 'رقم جوالك — يدخل فيه لاحقًا',
+      say: 'بعدين اكتب رقم جوالك — بيدخل فيه لاحقًا',
     },
     // BY ROLE, NOT BY LABEL — see e2e/fixtures.ts's openShop() for why: the password field's
     // show/hide toggle button's own aria-label also contains «كلمة المرور».
     {
       type: 'role=textbox:كلمة المرور',
       text: 'Kobo2026$Demo',
-      say: 'كلمة مرور — 12 حرفًا على الأقل',
+      say: 'وحطّ كلمة مرور — 12 حرفًا على الأقل',
     },
     {
       type: 'label=اسم المحل',
       text: 'محل تجريبي',
-      say: 'اسم محلك — هذا اللي يراه عملاؤك',
+      say: 'وأخيرًا اسم محلك — هذا اللي يشوفه عملاؤك',
     },
     {
       click: 'role=checkbox',
@@ -56,7 +56,7 @@ export default {
     },
     {
       click: 'role=button:ابدأ',
-      say: 'اضغط «ابدأ» — وحسابك جاهز',
+      say: 'اضغط «ابدأ»... وخلاص، حسابك جاهز',
     },
     // WelcomeTrial.tsx: a full-screen dialog, no click-outside, only «لنبدأ». It carries the
     // REAL trial end date on screen — not scripted here as text, since the actual dialog already
@@ -65,22 +65,22 @@ export default {
     // two or three of these beats; see the note below on «متجر التطبيقات» for which two won out.
     {
       waitFor: 'role=button:لنبدأ',
-      say: 'تجربتك المجانية بدأت الآن — شهر كامل',
+      say: 'شوف، تجربتك المجانية بدأت الآن — شهر كامل',
     },
     {
       click: 'role=button:لنبدأ',
-      say: 'اضغط «لنبدأ»',
+      say: 'اضغط «لنبدأ» ونشوف محلك',
     },
     // NO CHAPTER MARK HERE — it would land under 10s after «تجربتك المجانية» (the welcome dialog
     // + this glimpse both happen in quick succession), and YouTube silently drops the ENTIRE
     // chapter list if any two are closer than that. Folded into the same chapter instead of
     // getting its own; the caption itself is unaffected.
     {
-      say: 'محلك جاهز — فاضي الآن، وهذا طبيعي أول يوم',
+      say: 'هذا محلك — فاضي الآن، وهذا طبيعي أول يوم',
     },
     {
       click: 'role=button:فتح القائمة',
-      say: 'من هنا تفتح كل أقسام محلك',
+      say: 'تعال أوريك من وين تفتح كل أقسامه',
     },
     // THE ONE OTHER CHAPTER — this video's total length only supports two or three of these
     // marks at YouTube's 10s minimum; «متجر التطبيقات» is the fact Tamam's own brief singled
@@ -89,7 +89,7 @@ export default {
     {
       click: 'role=link:متجر التطبيقات',
       chapter: 'متجر التطبيقات',
-      say: 'اضغط «متجر التطبيقات»',
+      say: 'تعال نشوف متجر التطبيقات',
     },
     {
       say: 'كل التطبيقات مفعّلة تجريبيًا الآن — بلا أي دفع',
@@ -101,7 +101,7 @@ export default {
     // rest of the console gets its own tours, one screen at a time, once each is studied deeply.
     {
       click: 'role=button:فتح القائمة',
-      say: 'وهذا شريطك — زيارتك، عملاؤك، رسائلك، كلها هنا',
+      say: 'وأخيرًا، شريطك هذا فيه زيارتك وعملاؤك ورسائلك',
     },
   ],
 };
