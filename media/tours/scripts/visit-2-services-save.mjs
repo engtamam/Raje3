@@ -30,7 +30,7 @@ export default {
     {
       goto: '/visit',
       chapter: 'من عروضه ونقاطه إلى الخدمات',
-      say: 'كملنا من الجزء اللي فات — لقينا عميلتنا',
+      say: 'كملنا من اللي فات — عميلتنا جاهزة، والمنصّة تتذكرها',
     },
     { waitFor: 'label=رقم الجوال', timeoutMs: 30_000 },
     { type: 'label=رقم الجوال', text: HERO_PHONE },
@@ -44,13 +44,13 @@ export default {
       // (same fix, same reason, as visit-1-search-perks.mjs's own note).
       click: 'role=button:الخدمات',
       ringSelector: 'css=button[aria-label="الخدمات"] span',
-      say: 'الحين ندخل صفحة الخدمات مباشرة',
+      say: 'صفحة الخدمات — اختر أي شغلة تسوّيها له اليوم',
     },
     {
       // EXTRA CAPTION-ONLY MARGIN — the 10s chapter-gap check still failed at 9.8s on a real run
       // even after moving the chapter mark past the network wait below; this buys the missing
       // margin honestly (real narration, not a bare pause).
-      say: 'كل خدمة تعرض سعرها ومدتها مباشرة',
+      say: 'المنصّة تعرض سعر ومدة كل خدمة — صفر تخمين',
     },
     {
       // THE GRID'S OWN LIST (and each card's offer/points badges) is fetched, same real-cluster
@@ -66,35 +66,35 @@ export default {
       // network wait just above buys back the needed real time before this chapter fires.
       click: `text=${REDEEMABLE_SERVICE}`,
       chapter: 'اختر الخدمة',
-      say: 'عليها عرض ونقاط — شايف العلامتين؟',
+      say: 'شايف العلامتين؟ عرض ونقاط على نفس الخدمة',
     },
     {
-      say: 'التاج 🏷 عرض، والنجمة ⭐ تستبدلها بنقاطه',
+      say: 'التاج 🏷 عرض، والنجمة ⭐ استبدال فوري بنقاطه',
     },
     {
       click: `text=${PLAIN_SERVICE}`,
-      say: 'وممكن تختار أكثر من خدمة بنفس الزيارة — عادي',
+      say: 'واختر أكثر من خدمة بنفس الزيارة — بلا أي قيد',
     },
     {
-      say: 'وفوق شريط: طبّق العرض واستبدل، زي قبل',
+      say: 'وفوق شريط: طبّق العرض واستبدل، بنفس البساطة',
     },
     {
       // NO aria-label AND NO <label> ON THIS INPUT — checked in Visit.tsx: only a `placeholder`.
       // `label=` (Playwright's getByLabel) never matches a placeholder, so this uses the css
       // escape hatch on purpose, not by default.
       click: 'css=input[placeholder="الاسم (اختياري)"]',
-      say: 'اسم العميل اختياري، تقدر تكتبه لو تعرفه',
+      say: 'اسمه اختياري — تكتبه فيحس محلك يعرفه شخصياً',
     },
     {
-      say: 'وأخيرًا — زر حفظ وإرسال تحت',
+      say: 'وأخيراً — زر حفظ وإرسال، وخلصت الزيارة',
     },
     {
       click: 'role=button:حفظ وإرسال',
       chapter: 'تم الحفظ',
-      say: 'ضغطة وحدة، والزيارة تسجّلت — وتصله رسالة تلقائيًا',
+      say: 'ضغطة وحدة — تسجيل، ورسالة تلقائية توصله فوراً',
     },
     {
-      say: 'كذا خلصنا زيارة كاملة — أقل من دقيقة فعليًا',
+      say: 'زيارة كاملة، أقل من دقيقة — هذي قوة منصّة راجِع',
     },
   ],
 };
