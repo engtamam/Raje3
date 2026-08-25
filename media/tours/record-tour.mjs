@@ -38,6 +38,7 @@ import { readConfig } from '../lib/read-config.mjs';
 import { locate } from './lib/locate.mjs';
 import { installOverlay } from './lib/overlay.mjs';
 import { captionHoldMs } from './lib/caption.mjs';
+import { ensureFreshDemoSession } from './lib/demo-session.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -138,7 +139,15 @@ async function main() {
     if (!existsSync(demoSessionFile)) {
       throw new Error(`tour "${tour.id}" needs useDemoSession, but ${demoSessionFile} doesn't exist — run: node media/tours/seed-demo-account.mjs`);
     }
-    const demoSession = JSON.parse(readFileSync(demoSessionFile, 'utf8'));
+    // MINTED FRESH BEFORE A SINGLE FRAME IS CAPTURED, NOT LEFT TO THE APP'S OWN RENEWAL. The saved
+    // access token lives fifteen minutes; a recording started on a spent one used to depend
+    // entirely on renew.ts rescuing it from inside the browser, and the day that call itself
+    // stopped answering, every tour recorded a signed-out door instead — after paying the full
+    // recording time to find out. This asks first, signs in again if needed, and fails loudly
+    // here rather than silently filming the wrong screen. See lib/demo-session.mjs.
+    const apiBase = baseURL.replace(/\/app\/?$/, '').replace(/\/$/, '');
+    const demoSession = await ensureFreshDemoSession(apiBase);
+    if (!demoSession) throw new Error(`could not read ${demoSessionFile}`);
     await page.goto(baseURL);
     await page.evaluate((s) => localStorage.setItem('raje3.session', JSON.stringify(s)), demoSession);
     await page.reload();
@@ -149,6 +158,26 @@ async function main() {
 
   await page.addInitScript(installOverlay, CONFIG);
   await page.evaluate(installOverlay, CONFIG).catch(() => undefined); // in case the page was already loaded by ensureSignedIn.
+
+  // ── the pre-roll ───────────────────────────────────────────────────────────────────────────
+  // THE FIRST SCREEN IS ALREADY THERE WHEN FRAME ZERO IS TAKEN. A tour whose first step is a
+  // `goto` used to spend its opening seconds filming a skeleton and a «يُحمَّل الجدول…» — five and
+  // a half of them on a real recording of الحجوزات, because that screen fires four reads before it
+  // can draw anything. tours/PLAN.md's own first rule is that a clip opens on the thing itself,
+  // with no preamble; a loading spinner is a worse preamble than a logo, because it also looks
+  // broken.
+  //
+  // OPT-IN (`preload: true`), NOT AUTOMATIC — a tour whose SUBJECT is the arrival itself (the
+  // signup tour opening on the door) must still film the navigation happening. When it is on, the
+  // first step's navigation is performed HERE, before a single frame exists, and the step itself
+  // then runs as an ordinary caption step over the screen it already landed on.
+  const preloading = Boolean(tour.preload) && Boolean(tour.steps[0]?.goto);
+  if (preloading) {
+    await page.goto(new URL(tour.steps[0].goto.replace(/^\//, ''), baseURL).href);
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
+    await waitForDomQuiet(page, { quietMs: 400, timeoutMs: 15_000 });
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+  }
 
   let frameIndex = 0;
   const frameFile = () => join(framesDir, String(frameIndex++).padStart(6, '0') + '.png');
@@ -225,7 +254,11 @@ async function main() {
       }
       if (step.chapter) chapters.push({ seconds: elapsedSeconds(), title: step.chapter });
       const startSeconds = elapsedSeconds();
-      await runStep(page, step, i, tour, baseURL, () => clickTimeline.push(elapsedSeconds()));
+      // THE PRE-ROLL ALREADY NAVIGATED — running the same `goto` again would reload the app and
+      // re-fetch everything, putting back the exact loading seconds the pre-roll exists to remove.
+      // The step still runs, and still says its own line over the screen already on display.
+      const toRun = preloading && i === 0 ? { ...step, goto: undefined } : step;
+      await runStep(page, toRun, i, tour, baseURL, () => clickTimeline.push(elapsedSeconds()));
       if (step.say) {
         captionTimeline.push({
           text: step.say, // the RAW sentence, never the display-wrapped version — this is what TTS should read
@@ -414,7 +447,14 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     // frame alone is enough). The frame still marks the target unambiguously by itself; the
     // fingertip stays reserved for animatedScrollIntoView's swipe below, where it moves ACROSS
     // the screen rather than sitting still on top of something meant to be read.
-    await page.evaluate((r) => window.__tour?.spotlight(r), box);
+    // SOME REAL TARGETS ARE NOT THINGS A VIEWER CAN SEE. A dismiss-on-tap-outside scrim (this
+    // product renders one as a real `<button class="fixed inset-0">`) is the honest element to
+    // click for "tap outside to close" — but framing it draws the ring around the ENTIRE viewport,
+    // which reads as pointing at everything and therefore at nothing (seen in a real recording of
+    // الحجوزات's filter panel). `noFrame` performs the same real click and lets the caption alone
+    // carry it. Everything else about the step is unchanged.
+    if (step.noFrame) await page.evaluate(() => window.__tour?.spotlight(null)).catch(() => undefined);
+    else await page.evaluate((r) => window.__tour?.spotlight(r), box);
   } else {
     // A STEP WITH NO TARGET CLEARS THE RING, IT DOESN'T INHERIT THE LAST ONE. Leaving the
     // previous step's ring up was tried deliberately (comment used to live here) on the theory
@@ -591,17 +631,38 @@ async function animatedScrollIntoView(page, locator) {
   // attempt with no gesture; the caller's own stableBoundingBox() right after this is what
   // actually decides whether the target ever showed up at all, and throws its own clear error.
   if (!before || !viewport) { await locator.scrollIntoViewIfNeeded().catch(() => undefined); return; }
-  const offscreen = before.y < 0 || before.y + before.height > viewport.height;
-  if (!offscreen) return;
+  const offVertically = before.y < 0 || before.y + before.height > viewport.height;
+  // SIDEWAYS COUNTS TOO — this used to test the Y axis alone, and a target parked outside a
+  // horizontally scrolling container (this product has several: the bookings list's own six-column
+  // table, the day grid's staff columns, every wide table it draws on a phone) read as "already
+  // visible" because its Y was fine. Nothing scrolled, and the ring was then drawn at a live X
+  // that sat off the side of the frame — a highlight on nothing at all, in a recording that
+  // otherwise looked correct.
+  const offHorizontally = before.x < 0 || before.x + before.width > viewport.width;
+  if (!offVertically && !offHorizontally) return;
 
-  // A SWIPE FROM LOW ON SCREEN TO HIGH (content below moving up), or the reverse when the target
-  // sits ABOVE the current view — whichever direction actually matches the scroll about to happen.
-  const goingDown = before.y >= viewport.height; // target is below the fold → content slides up
   const cx = viewport.width / 2;
-  const startY = goingDown ? viewport.height * 0.78 : viewport.height * 0.22;
-  const endY = goingDown ? viewport.height * 0.22 : viewport.height * 0.78;
-  await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: startY });
-  await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: endY });
+  const cy = viewport.height / 2;
+  if (offVertically) {
+    // A SWIPE FROM LOW ON SCREEN TO HIGH (content below moving up), or the reverse when the target
+    // sits ABOVE the current view — whichever direction actually matches the scroll about to happen.
+    const goingDown = before.y >= viewport.height; // target is below the fold → content slides up
+    const startY = goingDown ? viewport.height * 0.78 : viewport.height * 0.22;
+    const endY = goingDown ? viewport.height * 0.22 : viewport.height * 0.78;
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: startY });
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: cx, y: endY });
+  }
+  if (offHorizontally) {
+    // THE FINGER DRAGS THE CONTENT, so it travels the way the CONTENT must travel: a target off
+    // the left edge is pulled rightwards into view, one off the right edge leftwards. Written in
+    // plain screen coordinates rather than "start/end" so it stays correct in an RTL page, where
+    // "forward" is the opposite direction from the one the same table would scroll in LTR.
+    const towardRight = before.x < 0;
+    const startX = towardRight ? viewport.width * 0.22 : viewport.width * 0.78;
+    const endX = towardRight ? viewport.width * 0.78 : viewport.width * 0.22;
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: startX, y: cy });
+    await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x: endX, y: cy });
+  }
 
   await locator.scrollIntoViewIfNeeded().catch(() => undefined);
   await waitForDomQuiet(page, { quietMs: 120, timeoutMs: 2_000 });

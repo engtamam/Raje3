@@ -68,7 +68,14 @@ export function WorkingHoursDialog({ session, weekly, onClose, onSaved }: {
         {DISPLAY_ORDER.map((day) => {
           const d = draft[day] ?? { closed: false, start_minute: 480, end_minute: 1320 };
           return (
-            <div key={day} className="flex items-center gap-3 rounded-xl bg-surface-1 px-3 py-2">
+            // A ROW THAT WRAPS INSTEAD OF SPILLING. On a 430px phone the day label, the «مفتوح» box
+            // and two `type="time"` inputs need more width than the dialog has, and a plain
+            // non-wrapping row simply pushed the CLOSING time off the edge of the screen — the
+            // second of the two numbers this dialog exists to set was unreadable and untappable
+            // (seen on a real 430×932 render, not predicted). Wrapping moves the pair onto its own
+            // line only when it genuinely cannot fit; anything wider keeps the single-line row it
+            // always had.
+            <div key={day} className="flex flex-wrap items-center gap-3 rounded-xl bg-surface-1 px-3 py-2">
               <span className="w-16 shrink-0 text-sm font-semibold">{DAY_LABEL[day]}</span>
               <label className="flex shrink-0 items-center gap-1.5 text-xs text-text-secondary">
                 <input type="checkbox" checked={!d.closed}
@@ -76,7 +83,11 @@ export function WorkingHoursDialog({ session, weekly, onClose, onSaved }: {
                 مفتوح
               </label>
               {!d.closed ? (
-                <div className="flex flex-1 items-center gap-2">
+                // A REAL MINIMUM, OR THE WRAP ABOVE NEVER FIRES — `flex-1` alone means a basis of
+                // 0, so this group would shrink to nothing rather than move to the next line, and
+                // the times would stay clipped exactly as before. This is the width two time
+                // inputs and the word «إلى» actually need.
+                <div className="flex min-w-[220px] flex-1 items-center gap-2">
                   <input type="time" value={minutesToTime(d.start_minute)}
                         onChange={(e) => set(day, { start_minute: timeToMinutes(e.target.value) })}
                         className="h-9 rounded-lg bg-surface-2 px-2 text-sm" dir="ltr" />

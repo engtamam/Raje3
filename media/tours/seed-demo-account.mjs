@@ -31,10 +31,20 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { chromiumModule } from '../lib/browser.mjs';
+import { ensureFreshDemoSession, saveDemoCredentials } from './lib/demo-session.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONSOLE_DIR = resolve(HERE, '../../apps/console');
 const SESSION_FILE = join(HERE, '.demo-session.json');
+// THE ONE THING THE SESSION FILE ALONE CANNOT SURVIVE. The saved access token lives fifteen
+// minutes and is meant to be replaced by the refresh token beside it — but a refresh is a single
+// platform call away from being unavailable (it was, live: identity's own /auth/refresh hung past
+// every timeout while ordinary sign-in answered in under a second), and a demo shop's signup phone
+// is RANDOM and was never written down anywhere. That combination made a fully seeded account —
+// a thousand customers, months of visits — permanently unreachable over one expired token. The
+// phone and password that opened the shop are what re-mint a session from nothing, so they are
+// saved beside it, gitignored the same way and for the same reason.
+const CREDENTIALS_FILE = join(HERE, '.demo-credentials.json');
 
 const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
 const BASE_URL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
@@ -96,7 +106,10 @@ async function pool(items, n, worker) {
 async function main() {
   let session;
   if (existsSync(SESSION_FILE)) {
-    session = JSON.parse(readFileSync(SESSION_FILE, 'utf8'));
+    // RE-MINTED IF IT IS SPENT, NOT ASSUMED ALIVE — seeding makes thousands of calls over many
+    // minutes on a token that lives fifteen, and a demo account is far too expensive to rebuild
+    // over one. See lib/demo-session.mjs for why this can't lean on the refresh token.
+    session = await ensureFreshDemoSession(API);
     console.log(`reusing existing demo session (tenant already has a shop) — adding more data on top`);
   } else {
     session = await signUpFreshDemoShop();
@@ -122,6 +135,19 @@ async function main() {
   const extraOperatorIds = await ensureExtraOperators(session, act);
   console.log(`  ✔ ${1 + extraOperatorIds.length} operators ready`);
 
+  // THE BOOKINGS BOARD ALONE, WITHOUT REBUILDING A WHOLE SHOP. A الحجوزات recording needs TODAY to
+  // look like a real salon's day, and today only stays that way for one day — but re-running the
+  // full seed to refresh it would add another thousand customers and another few months of visits
+  // to an account that already has them, every single time. This flag runs the one step that
+  // actually goes stale.
+  if (process.env.BOOKINGS_ONLY === '1') {
+    console.log('▸ bookings only (BOOKINGS_ONLY=1)');
+    const onlyBranch = await getBranchId(session, act);
+    await seedWeekBoard(session, onlyBranch, [operatorId, ...extraOperatorIds]);
+    console.log('✔ bookings board refreshed');
+    return;
+  }
+
   console.log('▸ hero customer (real points + real rewards, for the visit/offers tour)');
   await seedHeroCustomer(session, act, serviceIds, operatorId, ticket);
 
@@ -137,6 +163,7 @@ async function main() {
   console.log('▸ bookings');
   const branchId = await getBranchId(session, act);
   await seedBookings(session, serviceIds, [operatorId, ...extraOperatorIds], branchId);
+  await seedWeekBoard(session, branchId, [operatorId, ...extraOperatorIds]);
   console.log('  ✔ bookings seeded');
 
   console.log('✔ demo account ready');
@@ -147,9 +174,15 @@ async function signUpFreshDemoShop() {
   const browser = await chromium.launch();
   const context = await browser.newContext({ baseURL: BASE_URL, viewport: { width: 430, height: 932 } });
   const page = await context.newPage();
-  const { openShop } = await import(pathToFileURL(join(CONSOLE_DIR, 'e2e/fixtures.ts')).href);
+  const { openShop, PASSWORD } = await import(pathToFileURL(join(CONSOLE_DIR, 'e2e/fixtures.ts')).href);
   await page.goto(BASE_URL);
-  await openShop(page);
+  // THE PHONE IT PICKED, WRITTEN DOWN — `openShop()` generates a random one and returns it, and
+  // for a long time nothing here kept it. That number plus the fixture's own password is the ONLY
+  // way back into this shop once an access token ages out; without it a fully seeded account is
+  // one expired token away from being unreachable for good (it was, live — see
+  // lib/demo-session.mjs).
+  const phone = await openShop(page);
+  saveDemoCredentials(phone, PASSWORD);
   const raw = await page.evaluate(() => localStorage.getItem('raje3.session'));
   await browser.close();
   return JSON.parse(raw);
@@ -449,6 +482,159 @@ async function seedBookings(session, serviceIds, operatorIds, branchId) {
     else if (outcome < 0.85) await callAction(session, NO_SHOW_BOOKING(booking.id)).catch(() => {});
     else await callAction(session, CANCEL_BOOKING(booking.id)).catch(() => {});
   });
+}
+
+// ── a week that looks like a real salon's week ────────────────────────────────────────────────
+//
+// WHY THE RANDOM SPREAD ABOVE ISN'T ENOUGH. `seedBookings` scatters 60 bookings over 60 days —
+// roughly one a day — which is honest volume for "this shop has history" but is NOT what the
+// الحجوزات screen exists to show: a board. Recorded as-is, the day view showed a single card in
+// one of three columns and the week view showed two, so the one screen whose whole subject is a
+// full day of appointments demonstrated an empty one (seen live, in a real recording, not
+// predicted). This lays a real working day over the top of it — every staff member with her own
+// column of appointments, spaced so nothing collides, at the hours a salon actually works.
+//
+// STILL EVERY WRITE THROUGH THE REAL API, same rule as the rest of this file: real customers
+// resolved through `ensure`, real bookings created through `POST /api/v1/bookings`, real
+// attendance closed through the real attend/no-show routes. Nothing is inserted behind the
+// service's back, so the board a tour films is one the product could actually have produced.
+
+const LIST_BOOKINGS = (branchId, date) => ({ path: `/api/v1/bookings?branch_id=${encodeURIComponent(branchId)}&date=${date}`, method: 'GET' });
+const LIST_STAFF = { path: '/api/v1/staff/operators', method: 'GET' };
+const CATALOGUE = { path: '/api/v1/field/catalogue', method: 'GET' };
+
+/** Riyadh is the shop's own clock — the same `+03:00` every epoch on the bookings screen is built
+ *  against (`epochAt` in Bookings.tsx). Never the recording machine's local zone, which can and
+ *  does differ and would place a "10:00 appointment" an hour off the column it was meant for. */
+function riyadhToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }); // YYYY-MM-DD
+}
+function addDaysStr(dateStr, delta) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  return dt.toISOString().slice(0, 10);
+}
+function epochAtRiyadh(dateStr, minutes) {
+  const h = String(Math.floor(minutes / 60)).padStart(2, '0');
+  const mm = String(minutes % 60).padStart(2, '0');
+  return Math.floor(Date.parse(`${dateStr}T${h}:${mm}:00+03:00`) / 1000);
+}
+
+/** Which specialities a name implies — the three staff this script hires are named for real salon
+ *  specialities, so their columns should hold the work those specialities actually do rather than
+ *  a shuffle of the whole catalogue across all three. */
+const STAFF_SERVICES = [
+  { match: 'الشعر', names: ['قص شعر', 'صبغة جذور', 'غسيل وتنشيف', 'تسريحة سهرة'] },
+  { match: 'الأظافر', names: ['مانيكير', 'باديكير', 'أظافر جل'] },
+  { match: '', names: ['تنظيف بشرة عميق', 'تقشير وترطيب', 'ماسك ذهب', 'مكياج يومي'] },
+];
+
+// STAGGERED PER COLUMN, NOT THE SAME FOUR HOURS THREE TIMES — a board where every staff member
+// starts and finishes together reads as generated data. Spacing inside each column is 2½ hours
+// against services of at most 60 minutes, so no booking can ever collide with the next one in its
+// own column (the server would refuse it, correctly, and the seed would silently come up short).
+const DAY_SLOTS = [
+  [540, 690, 840, 1050],   //  9:00 · 11:30 · 14:00 · 17:30
+  [570, 720, 900, 1080],   //  9:30 · 12:00 · 15:00 · 18:00
+  [600, 780, 960, 1140],   // 10:00 · 13:00 · 16:00 · 19:00
+];
+
+async function seedWeekBoard(session, branchId, operatorIds) {
+  if (!branchId || !operatorIds?.length) return;
+  const [{ services = [] }, staffAnswer, hoursAnswer] = await Promise.all([
+    callAction(session, CATALOGUE).catch(() => ({ services: [] })),
+    callAction(session, LIST_STAFF).catch(() => ({ operators: [] })),
+    callAction(session, { path: '/api/v1/bookings/working-hours', method: 'GET' }).catch(() => ({ weekly: {} })),
+  ]);
+  const staff = (staffAnswer.operators ?? []).filter((o) => operatorIds.includes(o.id));
+  if (staff.length === 0 || services.length === 0) return;
+
+  const byName = new Map(services.map((s) => [s.name, s]));
+  const poolFor = (name) => {
+    const spec = STAFF_SERVICES.find((s) => s.match && name.includes(s.match)) ?? STAFF_SERVICES[2];
+    const picked = spec.names.map((n) => byName.get(n)).filter((s) => s && s.duration_minutes > 0);
+    // A SHOP THAT RENAMED OR REMOVED THOSE SERVICES STILL GETS A BOARD — anything short enough not
+    // to collide with the next slot is a fine stand-in; only a catalogue with nothing at all under
+    // an hour leaves a column empty, and that is a true fact about the catalogue.
+    return picked.length ? picked : services.filter((s) => s.duration_minutes > 0 && s.duration_minutes <= 60);
+  };
+
+  const today = riyadhToday();
+  const weekStart = addDaysStr(today, -new Date(`${today}T00:00:00Z`).getUTCDay()); // Sunday first
+  const now = Math.floor(Date.now() / 1000);
+  let created = 0;
+
+  for (let d = 0; d < 7; d++) {
+    const date = addDaysStr(weekStart, d);
+    const jsDay = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const hours = hoursAnswer.weekly?.[String((jsDay + 6) % 7)];   // 0=Monday..6=Sunday, server's own numbering
+    if (hours?.closed) continue;
+    const open = hours?.start_minute ?? 480;
+    const close = hours?.end_minute ?? 1320;
+
+    // WHAT IS ALREADY THERE, READ FIRST — this runs against an account that already has bookings
+    // (the random spread above, or yesterday's run of this same function), and a slot that
+    // overlaps one of them would simply be refused by the server's own conflict lock. Reading the
+    // day and skipping those slots means the board fills up instead of silently coming up short.
+    const existing = await callAction(session, LIST_BOOKINGS(branchId, date)).catch(() => ({ bookings: [] }));
+    const busy = new Map();   // operator id → [[startMinute, endMinute], …]
+    for (const b of existing.bookings ?? []) {
+      if (b.status === 'cancelled') continue;
+      const start = Math.round((b.starts_at - epochAtRiyadh(date, 0)) / 60);
+      if (!busy.has(b.operator_id)) busy.set(b.operator_id, []);
+      busy.get(b.operator_id).push([start, start + b.duration_minutes]);
+      // AND CLOSED OUT IF ITS TIME HAS PASSED — a booking still «محجوز» hours after it ended is
+      // what the screen's own overdue banner is for, and a demo day left full of them shows that
+      // alarm permanently rather than a shop that closes its day out. Today's genuinely unclosed
+      // ones are closed here the same way a receptionist would: attended.
+      if (b.status === 'booked' && b.starts_at + b.duration_minutes * 60 < now) {
+        await callAction(session, ATTEND_BOOKING(b.id)).catch(() => {});
+      }
+    }
+
+    const isFuture = date > today;
+    for (const [i, operator] of staff.entries()) {
+      const pool = poolFor(operator.name || '');
+      if (pool.length === 0) continue;
+      const slots = DAY_SLOTS[i % DAY_SLOTS.length].slice(0, date === today ? 4 : 3);
+      for (const [k, minute] of slots.entries()) {
+        const service = pool[(d + k) % pool.length];
+        if (minute < open || minute + service.duration_minutes > close) continue;
+        const mine = busy.get(operator.id) ?? [];
+        if (mine.some(([s, e]) => minute < e && s < minute + service.duration_minutes)) continue;
+
+        const phone = randomPhone();
+        const ensured = await callAction(session, ENSURE_CUSTOMER, { phone, name: randomName() })
+          .catch(() => ({}));
+        const customerId = ensured.customer?.id;
+        if (!customerId) continue;
+        // A REAL MIX OF PAYMENT STATES — the screen's own payment filter and its deposit/paid
+        // pills have nothing to show on a board where every booking was «بدون». Rotated rather
+        // than randomised so a re-run produces the same recognisable shape.
+        const pay = ['deposit', 'paid', 'none', 'deposit'][(d + k) % 4];
+        const startsAt = epochAtRiyadh(date, minute);
+        const booking = await callAction(session, CREATE_BOOKING, {
+          branch_id: branchId, operator_id: operator.id, customer_id: customerId,
+          service_ids: [service.id], starts_at: startsAt,
+          payment_status: pay,
+          deposit_amount_minor: pay === 'deposit' ? (k % 2 ? 10000 : 5000) : undefined,
+        }).catch(() => null);
+        if (!booking?.id) continue;
+        created += 1;
+        mine.push([minute, minute + service.duration_minutes]);
+        busy.set(operator.id, mine);
+        // ALREADY OVER BY NOW → CLOSED, exactly as the day would really have gone. A no-show every
+        // so often, because a board with none is a shop that has never had one.
+        if (!isFuture && startsAt + service.duration_minutes * 60 < now) {
+          const noShow = (d + k) % 7 === 3;
+          await callAction(session, noShow ? NO_SHOW_BOOKING(booking.id) : ATTEND_BOOKING(booking.id))
+            .catch(() => {});
+        }
+      }
+    }
+  }
+  console.log(`  ✔ week board: ${created} booking(s) across ${staff.length} staff, ${weekStart} → ${addDaysStr(weekStart, 6)}`);
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });
