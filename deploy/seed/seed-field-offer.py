@@ -1,6 +1,7 @@
 """Put ONE live offer on a known customer, so the counter screen can be checked against it.
 
-    kubectl -n base-services exec -i deploy/reminders -- python - < deploy/seed/seed-field-offer.py
+    TENANT=<tenant> SUBJECT=<subject_ref> BRANCH=<branch_id> \
+      kubectl -n base-services exec -i deploy/reminders -- python - < deploy/seed/seed-field-offer.py
 
 WHY A SEED AND NOT A TEST FIXTURE. An offer is created by a SEND — it is the send log that records
 the entitlement (§5.6.2), which is the whole reason the offer cannot be forged by a screen. So the
@@ -29,6 +30,7 @@ from app.core.stores import SendLogStore     # noqa: E402
 
 TENANT = os.environ.get("TENANT", "")
 SUBJECT = os.environ.get("SUBJECT", "")
+BRANCH = os.environ.get("BRANCH", "")
 TEXT = os.environ.get("OFFER_TEXT", "غسلة مجانية مع أول زيارة هذا الشهر")
 DAYS = int(os.environ.get("OFFER_DAYS", "14"))
 
@@ -61,14 +63,18 @@ async def main() -> int:
         "subject_ref": SUBJECT,
         "kind": "campaign",
         "template": "mkt_offer",
-        "state": "sent",
-        "sent_at": now,
+        "outcome": "sent",  # active_offer()/live_offers() query on THIS field, not "state"
+        "at": now,
         "created": now,
         # THE THREE FIELDS THAT MAKE IT AN ENTITLEMENT: the sentence that persuades, the end that
         # makes it urgent, and the scope that decides what it actually applies to.
         "offer_text": TEXT,
         "offer_expires_at": expires,
         "offer_services": [],
+        # THE OWNER-FACING ROUTE FILTERS EVERY SEND-LOG ROW BY BRANCH SCOPE — a row with no
+        # branch_id is invisible to a caller scoped to one, exactly like a real send would be
+        # if it forgot to stamp its branch.
+        "branch_id": BRANCH,
     })
     print(f"offer written, expires in {DAYS} days: «{TEXT}»")
     return 0
