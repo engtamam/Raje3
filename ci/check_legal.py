@@ -25,7 +25,8 @@ WHAT IT CHECKS, IN THE ORDER A FAILURE MATTERS:
      public (read, never signed) · accept (gates) · internal (produced on request) · reference;
   4. the two agreements carry the same VERSION, because they describe one engagement and a shop
      bound to v1.0 of one and v1.1 of the other is bound to two different sets of instructions;
-  5. the annexes are sourced from one file rather than written twice.
+  5. the annexes are sourced from one file rather than written twice;
+  6. the affiliate onboarding gate's own deploy-time version pin matches the affiliate agreement.
 
 DELIBERATELY BLANK VALUES ARE ALLOWED TO STAY BLANK — and are reported as WAITING rather than as
 failing. The registered company name and the effective date are facts we do not yet hold, and
@@ -206,6 +207,28 @@ try:
 except OSError as exc:
     problems.append(f"processing-agreement.yaml could not be read ({exc}) — the annex-sourcing "
                     f"rule cannot be confirmed, and unconfirmed is not satisfied")
+
+# 6 — the affiliate onboarding gate is pinned to THIS version, not a copy of it.
+#
+# services/affiliate-service ships app/ alone (see its Dockerfile) — it cannot read this file at
+# runtime, so its own deploy value is where the pin actually lives (config.py's own comment says
+# so). A value here bumping without that pin following it is exactly the drift that would let a
+# marketer's "agreement" stay pinned to a retired version forever, silently.
+try:
+    doc_version = values_of(
+        (OURS / "affiliate-agreement.yaml").read_text(encoding="utf-8")).get("VERSION")
+    values_path = ROOT / "deploy" / "services" / "affiliate-service.values.yaml"
+    m = re.search(r'^\s*AFFILIATE_TERMS_VERSION:\s*"([^"]*)"', values_path.read_text(encoding="utf-8"), re.M)
+    deploy_version = m.group(1) if m else None
+    if doc_version != deploy_version:
+        problems.append(
+            f"affiliate-agreement.yaml is VERSION {doc_version!r} but "
+            f"deploy/services/affiliate-service.values.yaml pins AFFILIATE_TERMS_VERSION to "
+            f"{deploy_version!r} — a marketer's acceptance would be checked against the wrong one")
+except OSError as exc:
+    problems.append(f"could not compare the affiliate agreement's version to its deploy pin "
+                    f"({exc}) — this check makes a claim about both and cannot make it about a "
+                    f"file that is not there")
 
 for w in waiting:
     print(f"  {C_Y}…{C_N} {w}")

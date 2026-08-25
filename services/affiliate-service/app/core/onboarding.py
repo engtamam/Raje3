@@ -376,6 +376,19 @@ class OnboardingService:
         if app_row.status == REJECTED:
             raise OnboardingRefused("هذا الطلب مرفوض بالفعل.", reason="already_rejected")
 
+        # RE-ACCEPTANCE, THE SAME SHAPE AS compliance-service's own LegalGate (see
+        # platform/services/compliance-service/app/core/legal_gate.py::outstanding): acceptance is
+        # pinned to the version in force AT apply() TIME, so a terms bump while this application
+        # sat PENDING leaves it stale — the applicant agreed to a document that is no longer the
+        # one governing this engagement. Approving it anyway would mint an account whose consent
+        # answers a question nobody is asking any more. He must apply again, and re-agree, to the
+        # version now in force — the same "no sweep, no flag to flip" property LegalGate gets from
+        # a version bump alone.
+        if app_row.agreed_terms_version != self._terms_version:
+            raise OnboardingRefused(
+                "تغيّرت شروط برنامج المسوّقين منذ تقديم الطلب — على المتقدّم إعادة التقديم "
+                "والموافقة على النسخة الحالية.", reason="terms_changed")
+
         role = self._promoter_role if app_row.parent_id else self._manager_role
         affiliate = await self._mint_self_applied(app_row, role=role)
 
