@@ -22,6 +22,14 @@ export default {
     {
       goto: '/',
       chapter: 'فتح الحساب',
+      // HOOK-STYLE OPENER — a question, not a greeting. Tamam's own note: intros shouldn't all
+      // use the same formula (a repeated "أهلاً بك في راجِع" across every tour reads as a jingle,
+      // not a lesson) — this one suits a signup tour specifically because there's a real, fast
+      // payoff to promise up front ("أقل من دقيقة"), which a slower, curiosity-style opener
+      // (better suited to a read-only screen like محلّي) would undersell here.
+      say: 'تبي تفتح حسابك بأقل من دقيقة؟ تعال أوريك',
+    },
+    {
       say: 'نفتح حسابًا جديدًا براجِع',
     },
     // Door.tsx defaults to «تسجيل الدخول» (sign in) — «تسجيل جديد» switches to the sign-up pane.

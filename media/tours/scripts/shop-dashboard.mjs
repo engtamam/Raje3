@@ -46,6 +46,13 @@ export default {
     {
       goto: '/',
       chapter: 'أرقامك اليومية',
+      // CURIOSITY-STYLE OPENER, DELIBERATELY DIFFERENT FROM getting-started.mjs's HOOK-STYLE ONE
+      // — Tamam's own note: intros shouldn't all use the same formula. A read-only "understand
+      // your numbers" tour suits a genuine question about the viewer's own knowledge better than
+      // a speed-promise hook (that style fits a task with a real finish line, which this isn't).
+      say: 'تعرف تقرأ أرقام محلك صح؟ خلّك معايا',
+    },
+    {
       say: 'هذي شاشة «محلّي» — أرقامك اليومية أولاً',
     },
     {
