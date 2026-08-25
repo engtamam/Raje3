@@ -49,6 +49,9 @@ export default {
   // UNIFIED ACROSS EVERY affiliate-*.mjs SCRIPT — see affiliate-account-1-overview.mjs's own note.
   section: 'منصة المسوّقين',
   skipAutoSignIn: true,
+  // A REAL RECORDING CAUGHT FRAME 1 AS BLANK WHITE — the bundle loading before React's first
+  // paint, the same bug affiliate-earnings-1-overview.mjs's own `preload` comment documents.
+  preload: true,
   secondsCap: 480,
   steps: [
     // ── تسجيل الدخول ────────────────────────────────────────────────────────────────────────
@@ -426,7 +429,8 @@ export default {
     },
     { waitFor: 'text=المحل لم يمنحك صلاحية' },
     {
-      chapter: 'رفض حقيقي: بلا صلاحية كتابة',
+      // NOT a chapter mark — a real recording landed the NEXT chapter («خلاصة أدواتي») only 8.8s
+      // after this beat; same 10s YouTube rule this file's own other notes already document.
       say: 'وهذا محل ما منحه إذن الكتابة — فقط المشاهدة',
     },
     {
