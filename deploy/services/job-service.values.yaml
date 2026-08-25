@@ -72,7 +72,8 @@ env:
   # so any schedule we write must be converted deliberately — a "9am" reminder written as
   # `0 9 * * *` fires at noon Riyadh. Kept explicit so nobody has to rediscover it.
 
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
