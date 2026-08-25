@@ -38,7 +38,7 @@ import { Button } from '../rj-ui/Button';
 import { Modal } from '../rj-ui/Modal';
 import { Skeleton } from '../rj-ui/Skeleton';
 import {
-  CalendarClock, Check, Gift, Layers, Megaphone, Sparkles, type LucideIcon,
+  CalendarClock, Check, Gift, Layers, Megaphone, MessageCircle, Sparkles, type LucideIcon,
 } from 'lucide-react';
 import { action, call, type Catalog } from '../catalog';
 import { isReady, type Loading } from '../loading';
@@ -517,6 +517,54 @@ function AppCard({
   );
 }
 
+
+/**
+ * «قريباً» — an app announced ahead of the plan row that will one day sell it.
+ *
+ * NOT A ROW IN `billing.plans`. It has no backend yet, so this is static copy shipped in the
+ * console itself rather than an invented endpoint pretending to be a real one — the day it does
+ * exist, this constant is deleted and a real plan row takes its place, same as every other app.
+ * IT NEVER TOUCHES `plans`, `bases`, `apps` OR `capacity` — those all come from the server, and
+ * this stays outside every one of them so no count, filter or `kindOf` call ever sees it.
+ */
+const COMING_SOON: { id: string; name: string; what: string } = {
+  id: 'ai-whatsapp-assistant',
+  name: 'مساعد راجِع الذكي',
+  what: 'مساعد ذكاء اصطناعي يرد على عملائك في واتساب — حجوزات واستفسارات، بلا تدخّل منك.',
+};
+
+/**
+ * THE CARD FOR AN APP THAT DOES NOT SELL YET.
+ *
+ * DELIBERATELY A DIFFERENT SHAPE FROM `AppCard`, not the same card with a disabled button. A
+ * greyed-out button still reads as «press me later»; a dashed border and a «قريباً» badge read as
+ * «this is not a product yet», which is the true fact. NO BUTTON AT ALL — nothing here fires a
+ * request, opens a form, or looks pressable, because pressing it could do nothing anyway.
+ */
+export function ComingSoonCard({ name, what }: { name: string; what: string }) {
+  return (
+    <article
+      className={[
+        'flex h-full flex-col gap-3 rounded-card border border-dashed border-border-subtle',
+        'bg-surface-2/50 p-5 opacity-80',
+      ].join(' ')}
+    >
+      <header className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-2 text-text-secondary"
+          >
+            <MessageCircle size={18} />
+          </span>
+          <h3 className="text-base font-medium leading-tight">{name}</h3>
+        </div>
+        <Badge tone="info">قريباً</Badge>
+      </header>
+      <p className="text-sm leading-relaxed text-text-secondary">{what}</p>
+    </article>
+  );
+}
 
 export function PlansPane({
   session, catalog, onGoConnect, owned,
@@ -1298,6 +1346,17 @@ export function PlansPane({
           </ul>
         </section>
       ) : null}
+
+      {/* «قادم» — announced, not sold. Its own section rather than a fifth card in the grid above,
+          so «التطبيقات» keeps meaning «ما تشتريه اليوم» and this stays visibly a different claim. */}
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm text-text-secondary">قادم</h2>
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <li key={COMING_SOON.id}>
+            <ComingSoonCard name={COMING_SOON.name} what={COMING_SOON.what} />
+          </li>
+        </ul>
+      </section>
 
     </div>
   );
