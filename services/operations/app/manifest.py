@@ -126,6 +126,10 @@ def build_manifest(
             # One customer's own history, shaped for their page: service names and a date, and
             # nothing else. Everything omitted is something a forwarded link could otherwise show.
             {"path": "/internal/operations/customer-visits", "tier": "internal", "method": "POST"},
+            # ADDED for services/whatsapp-assistant — resolve an inbound WhatsApp number to a
+            # pseudonym and a visit-count pattern, never a name or the number back. See the
+            # route's own docstring in api/internal.py for why nothing like this existed before.
+            {"path": "/internal/operations/customer-by-phone", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/partner-stamp", "tier": "internal", "method": "POST"},
             {"path": "/internal/operations/partner-stamp/{}", "tier": "internal", "method": "GET"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",

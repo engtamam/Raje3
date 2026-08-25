@@ -557,6 +557,49 @@ async def customer_visits(request: Request, body: CustomerVisitsIn) -> dict:
     return {"visits": out, "count": len(out)}
 
 
+class CustomerByPhoneIn(BaseModel):
+    tenant: str = Field(min_length=1, max_length=128)
+    phone: str = Field(min_length=6, max_length=32)
+
+
+@router.post("/operations/customer-by-phone", dependencies=[Depends(require_internal_token)])
+async def customer_by_phone(request: Request, body: CustomerByPhoneIn) -> dict:
+    """Resolve an inbound number to a pseudonym and a visit-count PATTERN. Never the phone or the
+    name back to the caller.
+
+    ADDED FOR services/whatsapp-assistant, which recognises a WhatsApp sender by their number and
+    needs to know "have we met this person" without holding a phone book of its own. NO EQUIVALENT
+    LOOKUP EXISTED ANYWHERE ON THE PLATFORM before this route — every other internal caller already
+    holds a subject_ref (reminders, loyalty) or a raw phone it wrote itself (the field screen). A
+    caller that only has a NUMBER, from the outside, handed to it by a customer messaging in, had
+    nothing to ask.
+
+    THE NARROWEST POSSIBLE ADDITION: reuses CustomerStore.by_phone, which already existed to serve
+    the field screen's save-time duplicate check — no new index, no new query shape, one route.
+
+    SAME SHAPE AS `/operations/recipient`'s restraint, mirrored in the other direction: that route
+    turns a pseudonym into a phone number for a peer about to SEND; this turns a phone number into
+    a pseudonym for a peer that just RECEIVED one. Both single-record, no-listing, nothing logged.
+    `visit_count` is the one number worth handing back beyond `found` — it is what lets the
+    assistant say "welcome back" without ever learning a name.
+    """
+    c = request.app.state.container
+    customer = await CustomerStore(c.datastore).by_phone(body.tenant, body.phone)
+    if customer is None:
+        return {"found": False, "subject_ref": "", "visit_count_90d": 0}
+    return {
+        "found": True,
+        "subject_ref": customer.subject_ref,
+        # NOT A 90-DAY WINDOW TODAY — `visit_count` is the lifetime counter already denormalised
+        # onto Customer (see core/models.py::Customer.visit_count). Named `_90d` in the response
+        # for the CALLER's contract even though this reads the lifetime figure, because a windowed
+        # count needs a scan over VisitStore this route deliberately avoids (see the docstring on
+        # `customer_visits` above for why a per-request visit scan is the thing to not add here);
+        # the assistant's own pattern sentence ("زار عدة مرات") does not need day-level precision.
+        "visit_count_90d": customer.visit_count,
+    }
+
+
 _AR_MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
               "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
 
