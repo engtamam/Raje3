@@ -439,14 +439,14 @@ clauses:
   governing_law:
     title: { ar: "النظام الواجب التطبيق", en: "Governing law" }
     ar: >-
-      تخضع هذه الاتفاقية لأنظمة المملكة العربية السعودية، وتختصّ الجهات القضائية المختصة فيها
-      بالفصل في أي نزاع ينشأ عنها. وإذا وُجد بندٌ باطلاً أو غير قابل للنفاذ بقيت بقية البنود نافذة،
-      وحلّ محلّ الباطل أقرب ما يمكن إنفاذه إلى قصد الطرفين.
+      تخضع هذه الاتفاقية لأنظمة المملكة العربية السعودية، وتختصّ المحاكم المختصة في مدينة مكة
+      المكرمة دون غيرها بالفصل في أي نزاع ينشأ عنها. وإذا وُجد بندٌ باطلاً أو غير قابل للنفاذ بقيت
+      بقية البنود نافذة، وحلّ محلّ الباطل أقرب ما يمكن إنفاذه إلى قصد الطرفين.
     en: >-
-      This Agreement is governed by the laws of the Kingdom of Saudi Arabia, and its competent
-      judicial authorities have jurisdiction over any dispute arising from it. If any provision is
-      void or unenforceable the remainder continues in force, and the void provision is replaced
-      by the closest enforceable expression of the parties' intent.
+      This Agreement is governed by the laws of the Kingdom of Saudi Arabia, and the competent
+      courts of Makkah al-Mukarramah alone have jurisdiction over any dispute arising from it. If
+      any provision is void or unenforceable the remainder continues in force, and the void
+      provision is replaced by the closest enforceable expression of the parties' intent.
 
   # ── 16 · أحكام عامة، بما فيها عدم المنافسة ─────────────────────────────────────────────────
   #
