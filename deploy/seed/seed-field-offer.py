@@ -44,8 +44,10 @@ async def main() -> int:
     expires = now + DAYS * 86400
 
     # `now` IS REQUIRED — 'live' is a question about a moment, and a store that assumed one
-    # would be deciding on its own clock what the caller meant by expired.
-    live = await log.live_offers(TENANT, SUBJECT, now=now)
+    # would be deciding on its own clock what the caller meant by expired. `used_refs` is
+    # required too now — an offer already redeemed on a past send is not "live" even if its
+    # expiry hasn't passed, and this seed has no such history to exclude.
+    live = await log.live_offers(TENANT, SUBJECT, used_refs=set(), now=now)
     if live:
         print(f"already holds {len(live)} live offer(s) — left alone")
         print(f"  «{live[0].get('offer_text', '')}»")
