@@ -46,6 +46,7 @@ PACK = ROOT / "platform" / "services" / "compliance-service" / "app" / "data" / 
 DOCS = {
     "terms.yaml": "",           # ours entirely — the PDPL pack has no service contract
     "affiliate-agreement.yaml": "",  # ours entirely — gates a different engagement (see rule 3)
+    "affiliate-privacy-policy.yaml": "",  # ours entirely — public disclosure, no PDPL template fills it
     "processor-dpa.yaml": "doc14_processor_dpa.yaml",
     "processing-agreement.yaml": "doc13_processing_agreement.yaml",
     "ropa.yaml": "doc04_ropa.yaml",
