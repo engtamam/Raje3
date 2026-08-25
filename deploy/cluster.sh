@@ -79,7 +79,14 @@ elif [ -n "${REMOTE:-}" ]; then
   # let the far side re-split them, and a jsonpath or a python snippet is nothing but characters a
   # shell would love to interpret.
   kubectl() {
-    local cmd="kubectl" a
+    # SUDO, AND KUBECONFIG NAMED EXPLICITLY — the node's kubeconfig
+    # (/etc/rancher/k3s/k3s.yaml) is root:root 600 by k3s's own default install, unreadable to
+    # the ordinary login this ssh connects as. Without both, kubectl finds nothing, falls back
+    # to localhost:8080, and every caller of this wrapper — rollout waits included — reads
+    # "connection refused" as if the cluster were down. `ship.sh`'s own 4/4 verify step waited
+    # out a full ten-minute rollout timeout per service against exactly this, eight times in a
+    # row, before the real cause (this line, not the fleet) was found.
+    local cmd="sudo KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl" a
     for a in "$@"; do cmd+=" $(printf '%q' "$a")"; done
     ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 \
         -p "${PORT:-22}" "$REMOTE" "$cmd"
