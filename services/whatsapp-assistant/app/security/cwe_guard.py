@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — CweGuard: pre/post-step self-check engine
+# whatsapp-assistant — CweGuard: pre/post-step self-check engine
 # -----------------------------------------------------------------------------
 # Every risky step runs its mapped CWE checks BEFORE (preconditions) and AFTER
 # (postconditions). A violated precondition FAILS CLOSED (raises CweViolation),

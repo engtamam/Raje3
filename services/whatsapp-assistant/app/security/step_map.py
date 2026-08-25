@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Step->CWE map loader (stdlib tomllib, no extra dependency)
+# whatsapp-assistant — Step->CWE map loader (stdlib tomllib, no extra dependency)
 # =============================================================================
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =============================================================================
-# reminders — License gate (permissive-only, stdlib)
+# whatsapp-assistant — License gate (permissive-only, stdlib)
 # -----------------------------------------------------------------------------
 # Enforces the project rule: dependencies must be PERMISSIVE. Strong/network
 # copyleft and source-available/non-commercial licenses FAIL the build. Weak

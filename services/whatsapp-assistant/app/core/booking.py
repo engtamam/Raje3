@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from app.adapters.datastore.drain import drain
 from app.core.models import BOOKINGS, Booking, as_row
 from app.ports.booking_provider import Slot
 
@@ -90,11 +91,15 @@ class ConfigDrivenAvailabilityProvider:
         step = self._cfg.slot_granularity_minutes
         start_dt = datetime.fromtimestamp(max(earliest, int(time.time())), self._tz)
 
-        # Confirmed bookings in the whole horizon, read once — O(1) datastore calls regardless of
-        # how many slots are walked, rather than one `find` per candidate slot.
-        rows, _ = await self._store.find(
-            BOOKINGS, {"tenant": tenant, "service_id": service_id, "state": "confirmed"},
-            limit=1000)
+        # Confirmed bookings in the whole horizon, read once — O(rows/page) datastore calls
+        # regardless of how many slots are walked, rather than one `find` per candidate slot.
+        # DRAINED, not a single `find(..., limit=1000)`: a shop with more than 1,000 confirmed
+        # bookings for one service would have silently had its oldest/newest rows fall out of the
+        # busy set, and every slot computed from the truncated set would be confidently wrong —
+        # ci/check_a_read_that_meant_everything_admits_it_stopped.py is what caught this.
+        rows = await drain(
+            self._store, BOOKINGS, {"tenant": tenant, "service_id": service_id, "state": "confirmed"},
+            sort=("starts_at", "asc"))
         busy = [(int(r["starts_at"]), int(r["starts_at"]) + int(r["duration_minutes"]) * 60)
                for r in rows]
 
@@ -124,9 +129,12 @@ class ConfigDrivenAvailabilityProvider:
 
         duration = self._cfg.duration_for(service_id)
         end = starts_at + duration * 60
-        rows, _ = await self._store.find(
-            BOOKINGS, {"tenant": tenant, "service_id": service_id, "state": "confirmed"},
-            limit=1000)
+        # DRAINED — same reasoning as availability() above: this is the write-time re-check that
+        # decides whether a booking is created at all, so a truncated read here does not just
+        # offer a wrong slot, it double-books one.
+        rows = await drain(
+            self._store, BOOKINGS, {"tenant": tenant, "service_id": service_id, "state": "confirmed"},
+            sort=("starts_at", "asc"))
         overlapping = sum(1 for r in rows
                           if int(r["starts_at"]) < end
                           and int(r["starts_at"]) + int(r["duration_minutes"]) * 60 > starts_at)

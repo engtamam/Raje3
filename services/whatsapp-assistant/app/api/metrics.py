@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Prometheus metrics (public, no auth)
+# whatsapp-assistant — Prometheus metrics (public, no auth)
 # -----------------------------------------------------------------------------
 # Exposes the default process/registry metrics in Prometheus text format.
 # =============================================================================

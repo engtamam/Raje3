@@ -49,7 +49,29 @@ class ConversationState:
     tenant: str
     subject_ref: str
     from_number: str = ""            # held ONLY long enough to send a reply; never in the summary
-    state: str = "idle"              # idle | batching | thinking | awaiting_confirmation | closed
+    # idle | awaiting_triage | batching | awaiting_confirmation | closed. `awaiting_triage` is
+    # entered on every FRESH session (see `handle_inbound_text`) and free text there never reaches
+    # `on_inbound_text`/the LLM — only a `triage:*` list-reply id can leave it (core/conversation.py
+    # module docstring, "mandatory first-message triage gate").
+    state: str = "idle"
+    # How many times this SESSION has actually called the LLM (compose_reply). Reset to 0 whenever
+    # a fresh session opens (handle_inbound_text). Config ceiling: CONVERSATION_MAX_AUTO_REPLY_TURNS.
+    auto_reply_turns: int = 0
+    # How many times compose_reply ran with a proposal STILL sitting unconfirmed on this
+    # conversation — the customer typed again instead of pressing a button. Reset on any
+    # button_reply (confirm or cancel) that resolves the outstanding proposal. Feeds
+    # core/frustration.py's early-escalation signal; see that module.
+    unconfirmed_proposal_attempts: int = 0
+    # This conversation has already been handed to a human (ticket opened). Set once, never
+    # unset — prevents a second ticket for the same session on a re-entrant tick or a stray
+    # message arriving after the handoff text was sent but before the session actually closes.
+    escalated: bool = False
+    # Has THIS session already answered the triage gate? `state` alone cannot carry this: a
+    # resolved triage pick sets `state` back to "idle" so `on_inbound_text`'s own idle/closed
+    # session-open branch still runs unmodified — but "idle" is ALSO a brand-new conversation's
+    # default, and `handle_inbound_text` cannot tell those two "idle"s apart without this flag.
+    # Reset to False only when a fresh session actually opens (handle_inbound_text).
+    triage_resolved: bool = False
     # RAW WINDOW: the last N messages verbatim (config: CONVERSATION_RAW_WINDOW_MESSAGES). Trimmed
     # into `summary` once it grows past that, so LLM context/cost stay bounded (design point 3c).
     raw_window: list[dict[str, Any]] = field(default_factory=list)
@@ -62,6 +84,13 @@ class ConversationState:
     batch_started_at: int = 0
     session_started_at: int = 0
     last_activity_at: int = 0
+    # WHEN THIS SESSION LAST CLOSED — intent completion (state -> "idle") or silence timeout
+    # (state -> "closed"). Retention (app/core/retention.py) counts CHAT_RETENTION_DAYS from here,
+    # never from a per-message timestamp: a long-running back-and-forth must not have its early
+    # messages purged mid-conversation just because they are individually old. Reset to 0 the
+    # moment a new message reopens the session — a purge clock only ticks while the session is
+    # actually closed.
+    session_closed_at: int = 0
     # The pending model tool-call this conversation is waiting on a button reply for, if any — see
     # PendingProposal. Never a state-changing action itself; see core/tools.py.
     pending_proposal_id: str = ""

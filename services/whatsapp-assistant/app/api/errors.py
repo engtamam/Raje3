@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Safe error handling
+# whatsapp-assistant — Safe error handling
 # -----------------------------------------------------------------------------
 # Clients receive GENERIC error codes only — never an exception message or stack
 # trace (CWE-209: information exposure through error messages). Full detail is

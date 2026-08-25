@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Structured JSON logging with redaction (stdlib only)
+# whatsapp-assistant — Structured JSON logging with redaction (stdlib only)
 # -----------------------------------------------------------------------------
 # One JSON object per line, ISO timestamps, service/env tags, and a request_id
 # when present. Sensitive fields are REDACTED (CWE-532: information exposure

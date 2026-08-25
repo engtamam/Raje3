@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Built-in CweGuard checks
+# whatsapp-assistant — Built-in CweGuard checks
 # -----------------------------------------------------------------------------
 # Concrete, real defenses (not theater). Allowlists/markers come from config
 # (zero-hardcoded). Each check names the exact CWE it enforces.

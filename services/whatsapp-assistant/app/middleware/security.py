@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Security & hardening middleware
+# whatsapp-assistant — Security & hardening middleware
 # -----------------------------------------------------------------------------
 #   SecurityHeadersMiddleware — CSP, HSTS, Permissions-Policy, nosniff, referrer,
 #                               frame-ancestors; hides server banner.

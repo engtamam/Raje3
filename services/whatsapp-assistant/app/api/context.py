@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Request principal / tenant context
+# whatsapp-assistant — Request principal / tenant context
 # =============================================================================
 from __future__ import annotations
 

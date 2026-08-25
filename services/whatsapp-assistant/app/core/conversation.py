@@ -25,6 +25,27 @@ instructions"). The output filter (`_sanitize_reply`) runs on every model text r
 ever sent, stripping/rejecting any claim of having performed an action, any cross-tenant reference
 pattern, or any sentence that names a phone number or personal name pattern the model was never
 given (it could only have hallucinated or leaked one).
+
+MANDATORY FIRST-MESSAGE TRIAGE GATE: a fourth state, `awaiting_triage`, sits IN FRONT of the three
+above for every fresh session. `handle_inbound_text` — not `on_inbound_text` — is the entry point a
+caller (app/main.py's bus subscription, the tick) uses for free text; it is the one place that
+decides whether a message may even reach the batching/LLM machinery. A message arriving while the
+conversation is `awaiting_triage` is NEVER forwarded to `on_inbound_text` — enforced here in code
+(the list is simply re-sent), not by an instruction the model could be talked out of. Only a
+`triage:*` list-reply id, resolved through `handle_triage_selection`, can leave that state. The
+list carries exactly TWO rows — inquiry/booking (normal engine) and complaint/suggestion (straight
+to a human) — neither label names what runs behind it. "triage:complaint" skips the
+LLM/tool-allowlist path entirely and goes straight to `_escalate_to_human` — see that method and
+app/adapters/ticket_client.py.
+
+AUTO-REPLY CEILING, FRUSTRATION & DIRECT REQUEST ESCALATION: `compose_reply` checks, before every
+LLM call, whether the customer's own latest message asks for a human (`_requests_human` — pattern
+match, no model call), whether this session has hit its raw turn ceiling
+(CONVERSATION_MAX_AUTO_REPLY_TURNS), or an earlier frustration signal (app/core/frustration.py —
+repeated unconfirmed proposals, near-duplicate questions). All three are computed from data already
+on `ConversationState` or the current message, no extra LLM call, and all three route to the SAME
+`_escalate_to_human` instead of the model — one escalation mechanism, checked at every turn of an
+active conversation, not only at the first message.
 """
 from __future__ import annotations
 
@@ -34,9 +55,49 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.frustration import detect_frustration
 from app.core.models import CONVERSATIONS, ConversationState, PendingProposal, PENDING_PROPOSALS, as_row
 from app.core import tools as T
 from app.ports.llm import LlmReply
+
+# ── mandatory first-message triage — fixed product copy, same convention as SYSTEM_PROMPT above
+# and the sanitizer's Arabic strings: customer-facing copy this service ships lives as a module
+# constant, not config (config is for numbers/toggles an operator tunes, not house tone). ─────────
+TRIAGE_PROMPT = "أهلاً بك! لأقدر أساعدك بأسرع وأدق طريقة، اختر أحد الخيارات التالية:"
+TRIAGE_LIST_BUTTON_TEXT = "اختر"
+# TWO OPTIONS ONLY — collapsed from an earlier five-row draft. "Inquiry/booking" covers every
+# question and every state-changing request through the normal engine; "complaint/suggestion" is
+# the one case this service must never touch, so it goes straight to a human. Neither label names
+# what runs behind it ("AI", "موظف") — customer-facing copy describes what the customer gets, not
+# how it is produced.
+TRIAGE_ROWS: tuple[dict[str, str], ...] = (
+    {"id": "triage:inquiry", "title": "استفسار / حجز موعد"},
+    {"id": "triage:complaint", "title": "شكوى / اقتراح"},
+)
+_TRIAGE_NORMAL_CHOICES = ("inquiry",)
+_TRIAGE_ESCALATE_CHOICES = ("complaint",)
+_TRIAGE_PROMPT_BY_CHOICE = {
+    "inquiry": "تفضل، كيف أقدر أساعدك؟ يمكنك سؤالي عن الخدمات، حجز موعد، أو رصيدك من النقاط.",
+}
+_HUMAN_HANDOVER_TEXT = "تم تحويلك إلى أحد موظفينا وسيتواصل معك قريبًا لمتابعة طلبك."
+
+# ── mid-conversation human-handover intent ──────────────────────────────────────────────────────
+# A customer may ask for a human at ANY point, not just at the triage gate. This is intent
+# detection on the customer's own words BEFORE anything reaches the LLM/tool path this turn — a
+# cheap pattern match, not a model call, so it costs nothing extra per message and cannot itself be
+# argued out of firing the way an instruction to the model could be. It feeds the SAME
+# `_escalate_to_human` path as the ceiling and frustration triggers — one escalation mechanism,
+# not a parallel one.
+_HUMAN_REQUEST_PATTERNS = (
+    re.compile(r"موظف\s*(بشري|حقيقي)?"), re.compile(r"شخص\s+حقيقي"),
+    re.compile(r"تحويل(ي|ني)?\s+ل(موظف|شخص|إنسان)"), re.compile(r"(أبغى|أريد|ابي)\s+أتكلم\s+مع"),
+    re.compile(r"\bhuman\s+agent\b", re.IGNORECASE), re.compile(r"\btalk\s+to\s+(a\s+)?human\b", re.IGNORECASE),
+    re.compile(r"\bspeak\s+to\s+(a\s+)?person\b", re.IGNORECASE),
+)
+
+
+def _requests_human(text: str) -> bool:
+    return bool(text) and any(pat.search(text) for pat in _HUMAN_REQUEST_PATTERNS)
 
 SYSTEM_PROMPT = (
     "أنت مساعد استقبال آلي لمحل عبر واتساب. لا تدّعِ أبدًا أنك نفّذت حجزًا أو استبدال نقاط — "
@@ -80,16 +141,33 @@ def opaque_reference(subject_ref: str) -> str:
 class ReplyPlan:
     """What core/conversation.py decided to send, for the caller (main.py's tick, or the button-
     reply handler) to actually dispatch through a WhatsAppSender."""
-    kind: str                       # "text" | "interactive" | "none"
+    kind: str                       # "text" | "interactive" | "list" | "none"
     text: str = ""
     proposal: T.RenderedProposal | None = None
+    # Populated only when kind == "list" — the mandatory triage gate's WhatsApp List Message.
+    list_button_text: str = ""
+    list_rows: list[dict[str, str]] | None = None
+
+
+class _NoTicketClient:
+    """The default when no ticket_client is wired (existing test constructors that predate this
+    feature). Fails LOUD rather than silently pretending an escalation succeeded."""
+    driver = "none"
+
+    async def open_ticket(self, **kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError(
+            "ConversationEngine was asked to escalate to a human but no ticket_client was "
+            "configured — wire app.adapters.ticket_client.build(settings) in app/container.py")
 
 
 class ConversationEngine:
     def __init__(self, *, store: Any, llm: Any, booking_provider: Any, points_summary: Any,
                 debounce_seconds: int, session_timeout_seconds: int,
                 raw_window_messages: int, allowed_tools: frozenset[str],
-                proposal_ttl_seconds: int = 1800) -> None:
+                proposal_ttl_seconds: int = 1800, ticket_client: Any = None, auditor: Any = None,
+                max_auto_reply_turns: int = 12,
+                frustration_unconfirmed_proposals_threshold: int = 2,
+                frustration_duplicate_messages_threshold: int = 3) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -99,6 +177,18 @@ class ConversationEngine:
         self._raw_window = max(2, raw_window_messages)
         self._allowed_tools = allowed_tools
         self._proposal_ttl = proposal_ttl_seconds
+        self._ticket_client = ticket_client if ticket_client is not None else _NoTicketClient()
+        # NOT constructor-required: app/main.py builds the Auditor AFTER build_container() (it
+        # needs the container to build), so this is wired via `set_auditor` right after — see
+        # app/main.py::create_app. Optional here only so pre-existing test constructors that never
+        # exercise escalation keep working unmodified.
+        self._auditor = auditor
+        self._max_auto_reply_turns = max(1, int(max_auto_reply_turns))
+        self._frustration_unconfirmed_threshold = max(1, int(frustration_unconfirmed_proposals_threshold))
+        self._frustration_duplicate_threshold = max(1, int(frustration_duplicate_messages_threshold))
+
+    def set_auditor(self, auditor: Any) -> None:
+        self._auditor = auditor
 
     def _key(self, tenant: str, subject_ref: str) -> str:
         return f"{tenant}|{subject_ref}"
@@ -115,6 +205,126 @@ class ConversationEngine:
         conv.updated = int(time.time())
         await self._store.put(CONVERSATIONS, self._key(conv.tenant, conv.subject_ref), as_row(conv))
 
+    def _triage_list_plan(self) -> ReplyPlan:
+        return ReplyPlan(kind="list", text=TRIAGE_PROMPT, list_button_text=TRIAGE_LIST_BUTTON_TEXT,
+                         list_rows=[dict(row) for row in TRIAGE_ROWS])
+
+    async def handle_inbound_text(self, *, tenant: str, subject_ref: str, from_number: str,
+                                  text: str, now: int | None = None) -> ReplyPlan:
+        """THE entry point for free text (app/main.py's bus subscription uses this, never
+        `on_inbound_text` directly) — the one place the mandatory triage gate is enforced. A fresh
+        session (state idle/closed/never-seen) is put into `awaiting_triage` and answered with the
+        list; free text arriving while already `awaiting_triage` gets the SAME list again and is
+        NEVER passed to `on_inbound_text` — it never touches the batching/LLM machinery at all.
+        Only once triage is resolved (`handle_triage_selection`) does text start reaching the
+        model.
+        """
+        now = now if now is not None else int(time.time())
+        conv = await self._get(tenant, subject_ref)
+
+        # NOT `conv.state in ("idle", "closed")` alone — a resolved triage pick also leaves the
+        # conversation "idle" (see ConversationState.triage_resolved's docstring), and that must
+        # NOT be re-gated as if it were a brand-new session.
+        if conv.state in ("idle", "closed") and not conv.triage_resolved:
+            conv.from_number = from_number or conv.from_number
+            conv.state = "awaiting_triage"
+            conv.session_started_at = now
+            conv.session_closed_at = 0
+            conv.last_activity_at = now
+            # A fresh session resets the per-session ceiling/frustration counters and the
+            # escalation flag — a customer who was handed to a human LAST session must be able to
+            # start a NEW one and reach the assistant again.
+            conv.auto_reply_turns = 0
+            conv.unconfirmed_proposal_attempts = 0
+            conv.escalated = False
+            await self._save(conv)
+            return self._triage_list_plan()
+
+        if conv.state == "awaiting_triage":
+            conv.from_number = from_number or conv.from_number
+            conv.last_activity_at = now
+            await self._save(conv)
+            return self._triage_list_plan()
+
+        # Triage already resolved for this session — normal debounce/batching path.
+        await self.on_inbound_text(tenant=tenant, subject_ref=subject_ref,
+                                   from_number=from_number, text=text, now=now)
+        return ReplyPlan(kind="none")
+
+    async def handle_triage_selection(self, *, tenant: str, subject_ref: str, reply_id: str,
+                                      now: int | None = None) -> ReplyPlan:
+        """The ONLY way out of `awaiting_triage` — reached exclusively from a `triage:*` list-reply
+        id, never free text and never a model decision (same button-only discipline as
+        `handle_button_reply`). "complaint"/"other" go straight to `_escalate_to_human` and never
+        touch the LLM/tool-allowlist path at all.
+        """
+        now = now if now is not None else int(time.time())
+        conv = await self._get(tenant, subject_ref)
+
+        if conv.state != "awaiting_triage" or not reply_id.startswith("triage:"):
+            # A stale/replayed/forged id, or one that arrived for a conversation not actually
+            # waiting on a triage pick — refused rather than trusted because it happens to parse,
+            # same posture as handle_button_reply's proposal-id check.
+            return self._triage_list_plan()
+
+        choice = reply_id.split(":", 1)[1]
+
+        if choice in _TRIAGE_NORMAL_CHOICES:
+            conv.state = "idle"
+            conv.triage_resolved = True
+            await self._save(conv)
+            return ReplyPlan(kind="text", text=_TRIAGE_PROMPT_BY_CHOICE[choice])
+
+        if choice in _TRIAGE_ESCALATE_CHOICES:
+            return await self._escalate_to_human(
+                conv, tenant=tenant, subject_ref=subject_ref, reason=f"triage_{choice}", now=now)
+
+        return self._triage_list_plan()
+
+    async def _escalate_to_human(self, conv: ConversationState, *, tenant: str, subject_ref: str,
+                                 reason: str, now: int) -> ReplyPlan:
+        """THE single path every escalation trigger (triage complaint/other, the auto-reply
+        ceiling, the frustration heuristic) funnels through. Opens a ticket, records the CRITICAL
+        `whatsapp_assistant.escalated_to_human` audit action (fail-closed — see app/core/audit.py;
+        an AuditUnavailable here is allowed to propagate, exactly like booking_confirmed/
+        points_redeemed in core/tools.py, rather than being swallowed into a false "you were
+        escalated"), then returns the handover text for the caller to send.
+        """
+        if conv.escalated:
+            # Already handed off this session — do not open a second ticket for a re-entrant tick
+            # or a stray message that slipped in before the session actually closed.
+            return ReplyPlan(kind="text", text=_HUMAN_HANDOVER_TEXT)
+
+        conversation_ref = self._key(tenant, subject_ref)
+        subject_line = f"واتساب - طلب تحويل لموظف ({reason})"
+        # THE ROLLING SUMMARY, NEVER THE RAW TRANSCRIPT — same "never a second transcript" rule
+        # this module already applies to what the LLM sees (module docstring, clock 3c). A human
+        # agent reads a synopsis, not every message verbatim.
+        body = conv.summary or "لا يوجد ملخص محادثة متاح بعد — تم التحويل مبكرًا."
+        priority = "high" if reason in ("ceiling", "frustration", "human_requested") else "normal"
+
+        await self._ticket_client.open_ticket(
+            tenant=tenant, subject=subject_line, body=body, ref_id=conversation_ref,
+            contact=conv.from_number, priority=priority)
+
+        if self._auditor is not None:
+            await self._auditor.record(
+                "whatsapp_assistant.escalated_to_human", actor="whatsapp-assistant", tenant=tenant,
+                resource=f"conversation:{conversation_ref}",
+                metadata={"subject_ref": subject_ref, "reason": reason})
+
+        conv.escalated = True
+        conv.state = "closed"
+        conv.pending_proposal_id = ""
+        conv.batch_deadline = 0
+        conv.session_closed_at = now
+        # The session is genuinely OVER, not merely resting between turns — the next message from
+        # this customer (whenever it comes) is a NEW conversation and must be gated by triage
+        # again, exactly like any other fresh session.
+        conv.triage_resolved = False
+        await self._save(conv)
+        return ReplyPlan(kind="text", text=_HUMAN_HANDOVER_TEXT)
+
     async def on_inbound_text(self, *, tenant: str, subject_ref: str, from_number: str,
                               text: str, now: int | None = None) -> None:
         """Record one inbound message and (re-)arm the debounce window. Does NOT call the LLM —
@@ -125,6 +335,10 @@ class ConversationEngine:
         conv.from_number = from_number or conv.from_number
         if conv.state in ("idle", "closed"):
             conv.session_started_at = now
+            # A new message reopens a closed session — the retention clock (session_closed_at)
+            # must stop ticking on content that is now active again, not still counting toward a
+            # purge that no longer applies to a live conversation.
+            conv.session_closed_at = 0
         if conv.state != "batching":
             conv.batch_started_at = now
         conv.state = "batching"
@@ -166,6 +380,32 @@ class ConversationEngine:
         if conv.state != "batching":
             return ReplyPlan(kind="none")
 
+        # A proposal is STILL sitting unconfirmed while the customer typed again instead of
+        # pressing a button — counted BEFORE the ceiling/frustration check below reads it, so this
+        # very turn can trip the early-escalation signal. Cleared in `handle_button_reply` the
+        # moment a confirm/cancel actually resolves it.
+        if conv.pending_proposal_id:
+            conv.unconfirmed_proposal_attempts += 1
+
+        if not conv.escalated:
+            # THE CUSTOMER'S OWN WORDS, CHECKED FIRST — a direct request for a human overrides the
+            # ceiling/frustration heuristics below rather than waiting on them; someone who asks
+            # plainly should not have to also trip a turn count or a repetition pattern first.
+            latest_user_text = next(
+                (m["text"] for m in reversed(conv.raw_window) if m.get("role") == "user"), "")
+            should_human_request = _requests_human(latest_user_text)
+            should_ceiling = not should_human_request and conv.auto_reply_turns >= self._max_auto_reply_turns
+            should_frustration = not (should_human_request or should_ceiling) and detect_frustration(
+                unconfirmed_proposal_attempts=conv.unconfirmed_proposal_attempts,
+                recent_user_texts=[m["text"] for m in conv.raw_window if m.get("role") == "user"],
+                unconfirmed_proposals_threshold=self._frustration_unconfirmed_threshold,
+                duplicate_messages_threshold=self._frustration_duplicate_threshold)
+            if should_human_request or should_ceiling or should_frustration:
+                reason = ("human_requested" if should_human_request
+                         else "ceiling" if should_ceiling else "frustration")
+                return await self._escalate_to_human(
+                    conv, tenant=tenant, subject_ref=subject_ref, reason=reason, now=now)
+
         user_turn = " ".join(m["text"] for m in conv.raw_window if m.get("role") == "user"
                              and m.get("at", 0) >= conv.batch_started_at)
         recent = [{"role": m["role"], "text": m["text"]} for m in conv.raw_window[:-1]]
@@ -178,6 +418,7 @@ class ConversationEngine:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer"))
 
+        conv.auto_reply_turns += 1
         reply: LlmReply = await self._llm.respond(
             system_prompt=SYSTEM_PROMPT, summary=conv.summary, recent_messages=recent,
             user_message=user_turn, allowed_tools=allowed)
@@ -195,6 +436,7 @@ class ConversationEngine:
                 conv.raw_window.append({"role": "assistant",
                                         "text": "تعذّر تنفيذ ذلك الآن.", "at": now})
                 conv.state = "idle"
+                conv.session_closed_at = now
                 conv.batch_deadline = 0
                 await self._save(conv)
                 return ReplyPlan(kind="text", text=f"تعذّر تنفيذ ذلك الآن: {exc}"[:200])
@@ -210,6 +452,7 @@ class ConversationEngine:
             text = _sanitize_reply(str(result))
             conv.raw_window.append({"role": "assistant", "text": text, "at": now})
             conv.state = "idle"
+            conv.session_closed_at = now
             conv.batch_deadline = 0
             await self._save(conv)
             return ReplyPlan(kind="text", text=text)
@@ -217,6 +460,7 @@ class ConversationEngine:
         text = _sanitize_reply(reply.text)
         conv.raw_window.append({"role": "assistant", "text": text, "at": now})
         conv.state = "idle"
+        conv.session_closed_at = now
         conv.batch_deadline = 0
         await self._save(conv)
         return ReplyPlan(kind="text", text=text)
@@ -243,6 +487,10 @@ class ConversationEngine:
         if action == "cancel":
             conv.pending_proposal_id = ""
             conv.state = "idle"
+            conv.session_closed_at = now
+            # A button reply — confirm OR cancel — RESOLVES the outstanding proposal either way;
+            # only "kept typing instead of clicking anything" is the frustration signal.
+            conv.unconfirmed_proposal_attempts = 0
             await self._save(conv)
             return ReplyPlan(kind="text", text="تم الإلغاء.")
 
@@ -258,11 +506,15 @@ class ConversationEngine:
         except T.ToolValidationError as exc:
             conv.pending_proposal_id = ""
             conv.state = "idle"
+            conv.session_closed_at = now
+            conv.unconfirmed_proposal_attempts = 0
             await self._save(conv)
             return ReplyPlan(kind="text", text=f"تعذّر التأكيد: {exc}"[:200])
 
         conv.pending_proposal_id = ""
         conv.state = "idle"
+        conv.session_closed_at = now
+        conv.unconfirmed_proposal_attempts = 0
         await self._save(conv)
         if result["kind"] == "booking":
             return ReplyPlan(kind="text", text="تم تأكيد موعدك.")
@@ -291,6 +543,10 @@ class ConversationEngine:
             if now - int(r.get("last_activity_at") or 0) >= self._session_timeout:
                 r["state"] = "closed"
                 r["pending_proposal_id"] = ""
+                r["session_closed_at"] = now
+                # This session is genuinely over — the next message is a NEW session and must be
+                # gated by triage again (see `handle_inbound_text` / `triage_resolved`'s docstring).
+                r["triage_resolved"] = False
                 await self._store.put(CONVERSATIONS, self._key(r["tenant"], r["subject_ref"]), r)
                 closed.append(r["subject_ref"])
         return closed

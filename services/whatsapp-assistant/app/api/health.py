@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Health & readiness (public, no auth)
+# whatsapp-assistant — Health & readiness (public, no auth)
 # -----------------------------------------------------------------------------
 #   /healthz — liveness: is the process up? Always cheap, never touches deps.
 #   /readyz  — readiness: are dependencies reachable? Phase 1 has none, so it is

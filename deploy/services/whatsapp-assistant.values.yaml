@@ -25,20 +25,20 @@ replicas: 1
 drivers:
   datastore: postgres
   cache: redis
-  # THE INBOUND MESSAGE EVENT IS THIS SERVICE'S ONLY LIVE INPUT, and the bus is at-most-once by
+  # THE INBOUND MESSAGE EVENT IS THIS SERVICE'S FAST PATH, and the bus is at-most-once by
   # contract (platform's EventBus port says so in capitals — see
   # platform/services/notification-service/app/ports/event_bus.py). Redis here is what makes
   # cross-process pub/sub work at all: notification-service and this service must point at the
   # SAME Redis instance/URL, or the subscription in app/main.py's lifespan simply never fires.
   #
-  # ESCALATED: there is no catch-up read for inbound WhatsApp messages on notification-service —
-  # only for delivery receipts (GET /internal/notifications/receipts). A missed `whatsapp.message`
-  # event today means a customer's message is never answered, silently, with no symptom anywhere.
-  # Our OWN mitigation is the wamid-keyed InboundMessageStore (app/ports/inbound_store.py), which
-  # closes the DUPLICATE-DELIVERY half of the risk; it cannot close the MISSED-DELIVERY half — that
-  # needs a durable/replayable inbound feed on notification-service's side, which does not exist
-  # today. Flagged here rather than demanded, because a low-volume WhatsApp bus missing an event is
-  # a real but currently-tolerable gap, not (yet) a platform-blocking one.
+  # RESOLVED (platform v0.16.38, commit 31e556e): a missed `whatsapp.message` event no longer
+  # means a customer's message is silently never answered. notification-service now exposes a
+  # durable, replayable catch-up read, `GET /internal/whatsapp/inbound?after=&limit=` — the same
+  # cursored shape as its delivery-receipts feed — and app/core/inbound_poll.py sweeps it every
+  # tick (app/api/internal.py). The bus subscription stays for latency; the poll sweep is the
+  # reconciliation path that closes the gap. Both dedup identically by wamid through the same
+  # InboundMessageStore (app/ports/inbound_store.py) — a message delivered via both is processed
+  # once. See app/main.py's `_on_whatsapp_message` docstring for the full design.
   eventbus: redis
   queue: redis
   ratelimiter: redis
@@ -56,13 +56,20 @@ autoscaling:
   # set — same caution as reminders' tick claim. Stay at one replica until that is atomic, or two
   # replicas racing on the same customer's debounce window can each compose a reply.
 
-# INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT, SECRETS_KEK,
-# GEMINI_API_KEY (dev/test only — production seals it the same way, see the LLM section below).
+# secretRefs: INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
+# SECRETS_KEK, BACKUP_KEK, GEMINI_API_KEY (dev/test only — production seals it the same way, see
+# the LLM section below).
 #
 # PII_SALT is SHARED — the same value in every service (see reminders.values.yaml's note; not
-# repeated here). SECRETS_KEK seals the per-tenant WhatsApp Cloud API tokens this service stores
-# through app/core/secret_store.py — the SAME class services/reminders and services/loyalty import
-# unmodified, not a new credential system.
+# repeated here). SECRETS_KEK seals any operator-managed credential this service holds through
+# app/core/secret_store.py — the SAME class services/reminders and services/loyalty import
+# unmodified, not a new credential system; nothing sealed under it today (the one credential that
+# used to live here, a per-tenant WhatsApp Cloud API token, was retired with InteractiveNotifySender
+# — see the NOTIFICATION_INTERACTIVE_SEND_PATH note below). BACKUP_KEK is REQUIRED and SHARED — the same value
+# backup-service holds — for /internal/backup/export|verify|import (app/core/backup.py,
+# app/backup_manifest.py); without it those routes answer a bare 503 while the nightly archive
+# looks complete, and the wa_conversations/wa_bookings/... rows this service holds are never
+# actually recoverable.
 existingSecret: whatsapp-assistant-secrets
 
 networkPolicy:
@@ -72,9 +79,10 @@ networkPolicy:
     dns: true
     datastore: true
     # THE ONE SERVICE IN THIS CHART THAT NEEDS THE OPEN INTERNET, and it is a deliberate, narrow
-    # exception: Gemini's API and Meta's Graph API (for DirectCloudApiSender, see below) are both
-    # external. EGRESS_ALLOWED_HOSTS below is the actual allowlist the CWE self-guard enforces —
-    # this flag only opens the door the chart's NetworkPolicy would otherwise close outright.
+    # exception: Gemini's API is external. (Meta's Graph API is no longer called directly — since
+    # InteractiveNotifySender/platform v0.16.38, every WhatsApp send goes through notification-
+    # service instead.) EGRESS_ALLOWED_HOSTS below is the actual allowlist the CWE self-guard
+    # enforces — this flag only opens the door the chart's NetworkPolicy would otherwise close.
     internet: true
 
 metrics:
@@ -88,20 +96,25 @@ env:
   TOKEN_AUDIENCE: "raje3"
 
   # ── the CWE self-guard's SSRF allowlist — THE actual egress control ───────────────────────────
-  EGRESS_ALLOWED_HOSTS: "generativelanguage.googleapis.com,graph.facebook.com,notification-service,operations,loyalty"
+  EGRESS_ALLOWED_HOSTS: "generativelanguage.googleapis.com,notification-service,operations,loyalty"
 
   # ── peers ───────────────────────────────────────────────────────────────────────────────────
   NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
   NOTIFICATION_SEND_PATH: "/internal/notify"
-  # ESCALATED: /internal/notify is TEMPLATE-ONLY — an approved Meta template plus positional
-  # variables, with no field or code path for an interactive button/list message. This service
-  # needs interactive messages for every booking proposal and every redeemable-offer suggestion
-  # (design requires confirmation to be button-only, never free text), so
-  # app/adapters/whatsapp_sender/direct.py::DirectCloudApiSender calls Meta's Graph API DIRECTLY,
-  # inside the 24h customer-service window a customer's own message opens, using a per-tenant
-  # token sealed in this service's own SecretStore. Retire DirectCloudApiSender the day
-  # /internal/notify grows interactive-message support — one audited, rate-limited, ceiling-aware
-  # peer for every outbound WhatsApp send on the platform, instead of two.
+  # RESOLVED (platform v0.16.38, commit 0c54f5e): every booking proposal and every redeemable-
+  # offer suggestion needs an interactive (button/list) message, inside the 24h customer-service
+  # window a customer's own message opens (design requires confirmation to be button-only, never
+  # free text). notification-service now has that route —
+  # `POST /internal/notify/whatsapp/interactive` — so
+  # app/adapters/whatsapp_sender/direct.py::InteractiveNotifySender posts there, through the SAME
+  # audited, rate-limited, ceiling-aware peer as every other outbound WhatsApp send on the
+  # platform. This service no longer holds a WhatsApp send credential of its own.
+  NOTIFICATION_INTERACTIVE_SEND_PATH: "/internal/notify/whatsapp/interactive"
+  # RESOLVED (platform v0.16.38, commit 31e556e): the durable, replayable catch-up read for
+  # inbound WhatsApp messages — see the `eventbus: redis` note above for the full design.
+  NOTIFICATION_INBOUND_PATH: "/internal/whatsapp/inbound"
+  INBOUND_POLL_PAGE_SIZE: "200"
+  INBOUND_POLL_MAX_PAGES: "20"
   OPERATIONS_SERVICE_URL: "http://operations:8000"
   OPERATIONS_CUSTOMER_BY_PHONE_PATH: "/internal/operations/customer-by-phone"
   OPERATIONS_CUSTOMER_VISITS_PATH: "/internal/operations/customer-visits"

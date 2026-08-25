@@ -50,6 +50,38 @@ class DataStoreInboundMessageStore:
     async def get(self, tenant: str, wamid: str) -> dict[str, Any] | None:
         return await self._store.get(INBOUND_MESSAGES, self._key(tenant, wamid))
 
+    async def attach_subject_ref(self, tenant: str, wamid: str, subject_ref: str) -> None:
+        key = self._key(tenant, wamid)
+        row = await self._store.get(INBOUND_MESSAGES, key)
+        if row is None:
+            return
+        row["subject_ref"] = subject_ref
+        await self._store.put(INBOUND_MESSAGES, key, row)
+
+    async def purge_for_subject(self, tenant: str, subject_ref: str, *, max_scan: int = 5000
+                                ) -> tuple[int, bool]:
+        deleted = 0
+        after: str | None = None
+        scanned = 0
+        while True:
+            rows, after = await self._store.find(
+                INBOUND_MESSAGES, {"tenant": tenant, "subject_ref": subject_ref},
+                limit=200, after=after, sort=("wamid", "asc"))
+            if not rows:
+                return deleted, False
+            for row in rows:
+                wamid = str(row.get("wamid") or "")
+                if wamid and await self._store.delete(INBOUND_MESSAGES, self._key(tenant, wamid)):
+                    deleted += 1
+            scanned += len(rows)
+            if scanned >= max_scan:
+                # Truncated is surfaced, not swallowed — a partial purge reported as complete is
+                # the false ack this bound exists to prevent (same convention as reminders'
+                # RemindersErasure._delete_where).
+                return deleted, True
+            if not after:
+                return deleted, False
+
 
 def build(store: Any) -> DataStoreInboundMessageStore:
     return DataStoreInboundMessageStore(store)

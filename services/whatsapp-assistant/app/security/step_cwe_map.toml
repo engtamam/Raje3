@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Step -> CWE map (self-guard configuration)
+# whatsapp-assistant — Step -> CWE map (self-guard configuration)
 # Which CWE weakness classes + checks apply to each kind of step. This is DATA,
 # not code (zero-hardcoded): tune a service's risk posture without touching code.
 # Override path via CWE_STEP_MAP_FILE; otherwise this bundled default is used.

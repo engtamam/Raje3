@@ -64,3 +64,65 @@ async def test_a_conversation_row_never_leaks_across_tenants_for_the_same_subjec
     rows_a, _ = await store.find(CONVERSATIONS, {"tenant": "tenant-A"}, limit=10)
     assert len(rows_a) == 1
     assert rows_a[0]["summary"] == "tenant A's data"
+
+
+async def test_purge_for_subject_never_deletes_another_tenants_messages_for_the_same_subject_ref():
+    """The DSAR/retention purge (app/adapters/inbound_store/datastore_backed.py) must scope by
+    tenant exactly like every other query in this service — two shops' customers colliding on
+    subject_ref (or one deliberately reused for a test) must not let erasing one tenant's subject
+    delete the other tenant's messages for the same subject_ref."""
+    store = MemoryDataStore()
+    inbound = DataStoreInboundMessageStore(store)
+    await inbound.record_if_new("tenant-A", "wamidA1", {"text": "a"})
+    await inbound.attach_subject_ref("tenant-A", "wamidA1", "subX")
+    await inbound.record_if_new("tenant-B", "wamidB1", {"text": "b"})
+    await inbound.attach_subject_ref("tenant-B", "wamidB1", "subX")
+
+    deleted, truncated = await inbound.purge_for_subject("tenant-A", "subX")
+
+    assert deleted == 1
+    assert truncated is False
+    assert await inbound.get("tenant-A", "wamidA1") is None
+    assert await inbound.get("tenant-B", "wamidB1") is not None
+
+
+async def test_escalation_ticket_carries_only_its_own_tenants_summary_never_another_tenants():
+    """A human-escalation ticket must never leak another tenant's conversation content — the
+    minted service token (app/adapters/ticket_client.py) carries exactly ONE tenant claim per
+    call, and the ticket body is THIS conversation's own rolling summary, sourced from THIS
+    tenant's own datastore row, never a cross-tenant read."""
+    from app.adapters.datastore.memory import MemoryDataStore
+    from app.adapters.llm.stub import StubLlm
+    from app.adapters.ticket_client import NullTicketClient
+    from app.core.booking import BookingConfig, ConfigDrivenAvailabilityProvider
+    from app.core.conversation import ConversationEngine
+    from app.core.points import NullPointsSummary
+
+    store = MemoryDataStore()
+    provider = ConfigDrivenAvailabilityProvider(
+        store=store, cfg=BookingConfig(business_hours={}, default_duration_minutes=30,
+                                       concurrency=1, max_lead_days=7,
+                                       slot_granularity_minutes=15, service_durations={}))
+    ticket_client = NullTicketClient()
+    engine = ConversationEngine(
+        store=store, llm=StubLlm(), booking_provider=provider, points_summary=NullPointsSummary(),
+        debounce_seconds=180, session_timeout_seconds=2400, raw_window_messages=12,
+        allowed_tools=frozenset({"check_availability"}), ticket_client=ticket_client)
+
+    # Two DIFFERENT tenants, same subject_ref (the collision this whole suite tests for elsewhere).
+    for tenant, secret in (("tenant-A", "شكوى تخص المستأجر A فقط"),
+                          ("tenant-B", "شكوى تخص المستأجر B فقط")):
+        await engine.handle_inbound_text(tenant=tenant, subject_ref="subX",
+                                         from_number="+9665", text="hi", now=1000)
+        conv = await engine._get(tenant, "subX")
+        conv.summary = secret
+        await engine._save(conv)
+        await engine.handle_triage_selection(
+            tenant=tenant, subject_ref="subX", reply_id="triage:complaint", now=1010)
+
+    assert len(ticket_client.opened) == 2
+    for ticket in ticket_client.opened:
+        # Each ticket's body carries ONLY its own tenant's secret — never the other tenant's.
+        other = "B" if ticket["tenant"] == "tenant-A" else "A"
+        assert f"المستأجر {other}" not in ticket["body"]
+        assert ticket["ref_id"].startswith(ticket["tenant"] + "|")

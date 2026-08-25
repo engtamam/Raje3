@@ -35,3 +35,26 @@ class InboundMessageStore(Protocol):
     async def mark_processed(self, tenant: str, wamid: str) -> None: ...
 
     async def get(self, tenant: str, wamid: str) -> dict[str, Any] | None: ...
+
+    async def attach_subject_ref(self, tenant: str, wamid: str, subject_ref: str) -> None:
+        """Stamp the resolved subject_ref onto an already-recorded message.
+
+        The message is persisted (record_if_new) BEFORE the customer lookup that resolves
+        subject_ref runs — see app/main.py — so this is a second, best-effort write that makes the
+        row findable by subject for retention (purge_for_subject) and DSAR erasure. A message that
+        never gets this stamp (a crash between record and lookup) ages out anyway once
+        CHAT_RETENTION_DAYS decides its whole conversation is due — it is not silently retained
+        forever, only unreachable by subject_ref until then.
+        """
+        ...
+
+    async def purge_for_subject(self, tenant: str, subject_ref: str, *, max_scan: int = 5000
+                                ) -> tuple[int, bool]:
+        """Delete every stored inbound message for one (tenant, subject_ref).
+
+        Used by BOTH the retention tick (app/core/retention.py) and DSAR erasure (app/core/
+        erasure.py) — the same purge, one on a schedule and one on request. Bounded by `max_scan`
+        and REPORTS hitting it (the second element of the tuple) rather than silently leaving
+        messages behind and claiming completion. Returns (deleted_count, truncated).
+        """
+        ...

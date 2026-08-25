@@ -54,62 +54,41 @@ def create_app() -> FastAPI:
                                       "version": settings.SERVICE_VERSION,
                                       "ports": container.describe()})
 
-        # ── inbound WhatsApp: the FAST path, and it is NOT the only path ─────────────────────
+        # ── inbound WhatsApp: the FAST path, and it is DELIBERATELY not the only path ─────────
         #
         # notification-service's EventBus is explicitly at-most-once and non-durable (its own
-        # docstring says so). This subscription is a hint that makes a reply faster when it
-        # arrives; it is never the only way a message can be learned about, because there is no
-        # catch-up read for inbound messages on that peer (only for delivery receipts) — see
-        # deploy/services/whatsapp-assistant.values.yaml's ESCALATED note.
-        #
-        # The mitigation THIS service owns: every event is persisted into inbound_store, keyed by
-        # Meta's wamid, BEFORE anything is processed — see app/ports/inbound_store.py. A
-        # redelivery of the same wamid (this subscription firing twice, or a future durable
-        # replay mechanism landing the same message again) is dropped here, not double-processed.
+        # docstring says so): a pod restarting through this subscription hears a message never,
+        # with no symptom anywhere. We keep it anyway, for latency — a customer who just messaged
+        # a shop should not wait for a poll cadence to get a reply. What closes the missed-event
+        # gap is api/internal.py's tick-driven sweep against notification-service's durable
+        # GET /internal/whatsapp/inbound (platform v0.16.38, commit 31e556e): same message, same
+        # dedup, just found later if the bus ever drops it. Both paths call
+        # core/inbound_ingest.py::ingest_inbound_message, which persists into inbound_store keyed
+        # by Meta's wamid BEFORE anything is processed — whichever path sees a wamid first wins;
+        # the other finds `record_if_new` already False and stops. A message delivered by BOTH the
+        # bus and the catch-up sweep is therefore processed exactly once, not twice.
         async def _on_whatsapp_message(event) -> None:
             payload = getattr(event, "payload", None) or {}
             tenant = str(payload.get("tenant") or "")
             wamid = str(payload.get("wamid") or payload.get("id") or "")
             from_number = str(payload.get("from") or payload.get("from_number") or "")
-            if not tenant or not wamid or not from_number:
-                return
-            is_new = await container.inbound_store.record_if_new(tenant, wamid, payload)
-            if not is_new:
-                return
-            try:
-                lookup = await container.customer_lookup.resolve(tenant, from_number)
-                subject_ref = str(lookup.get("subject_ref") or "")
-                if not subject_ref:
-                    # UNKNOWN CUSTOMER. Rather than invent a pseudonym (which would collide with
-                    # a real one the day this number does become a customer), the conversation is
-                    # keyed on a per-number-per-tenant hash derived the same way core/pii.py
-                    # derives subject_ref, so an unrecognised sender can still hold a session.
-                    from app.core.pii import subject_ref as derive_ref
-                    subject_ref = derive_ref(settings.PII_SALT or "dev-salt", tenant, from_number)
+            kind = str(payload.get("kind") or "")
+            text = str(payload.get("text") or "")
+            reply_id = str(payload.get("reply_id") or payload.get("id_reply") or "")
+            if not kind and isinstance(payload.get("message"), dict):
+                # notification-service's real bus payload carries Meta's RAW message object under
+                # `message`, not pre-flattened fields — see core/inbound_parse.py.
+                from app.core.inbound_parse import parse_message
+                kind, text, reply_id = parse_message(payload["message"])
+                wamid = wamid or str(payload["message"].get("id") or "")
+                from_number = from_number or str(payload["message"].get("from") or "")
+            kind = kind or "text"
 
-                kind = str(payload.get("kind") or "text")
-                if kind in ("button_reply", "list_reply"):
-                    reply_id = str(payload.get("reply_id") or payload.get("id_reply") or "")
-                    from app.core import points as P
-
-                    plan = await container.engine.handle_button_reply(
-                        tenant=tenant, subject_ref=subject_ref, reply_id=reply_id,
-                        redeemer=container.points_summary, auditor=_app.state.auditor)
-                else:
-                    text = str(payload.get("text") or "")
-                    await container.engine.on_inbound_text(
-                        tenant=tenant, subject_ref=subject_ref, from_number=from_number, text=text)
-                    plan = None
-
-                if plan is not None and plan.kind == "text" and plan.text:
-                    await container.sender.send_template(
-                        tenant=tenant, to=from_number, template_name="wa_assistant_reply",
-                        variables=[plan.text], idempotency_key=f"{wamid}:reply")
-            except Exception as exc:                                        # noqa: BLE001
-                logger.warning("whatsapp_message_handling_failed",
-                               extra={"error": str(exc)[:200], "tenant": tenant, "wamid": wamid})
-            finally:
-                await container.inbound_store.mark_processed(tenant, wamid)
+            from app.core.inbound_ingest import ingest_inbound_message
+            await ingest_inbound_message(
+                container=container, logger=logger, settings=settings,
+                auditor=_app.state.auditor, tenant=tenant, wamid=wamid, from_number=from_number,
+                kind=kind, text=text, reply_id=reply_id, raw_payload=payload)
 
         try:
             await container.event_bus.subscribe("whatsapp.message", _on_whatsapp_message)
@@ -128,6 +107,9 @@ def create_app() -> FastAPI:
         openapi_url=None if settings.is_production else "/openapi.json")
     app.state.container = container
     app.state.auditor = build_auditor(settings, container)
+    # Wired here rather than in build_container(): the Auditor needs the CONTAINER to build, so
+    # the engine cannot hold it at construction time — see ConversationEngine.__init__'s comment.
+    container.engine.set_auditor(app.state.auditor)
     app.state.cwe_guard = cwe_guard
 
     for name, probe in container.health_probes().items():

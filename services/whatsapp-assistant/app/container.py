@@ -138,6 +138,8 @@ class Container:
     customer_lookup: Any = None
     sender: Any = None
     secret_store: Any = None
+    ticket_client: Any = None
+    inbound_feed: Any = None
     engine: Any = None
 
     def describe(self) -> list[dict[str, str]]:
@@ -193,6 +195,7 @@ def build_container(settings: Settings) -> Container:
     # ── this service's own domain, assembled from settings ────────────────────────────────────
     from app.adapters.inbound_store.datastore_backed import build as build_inbound_store
     from app.adapters.llm import build as build_llm
+    from app.adapters.ticket_client import build as build_ticket_client
     from app.adapters.whatsapp_sender import build as build_sender
     from app.core import booking as B
     from app.core import customer_lookup as CL
@@ -201,9 +204,8 @@ def build_container(settings: Settings) -> Container:
     from app.core.secret_store import SecretStore
 
     # NO KEK, NO SECRET STORE. Rather than construct one that would raise on first use, this
-    # stays None — DirectCloudApiSender then falls back to NullDirectSender (adapters/
-    # whatsapp_sender/__init__.py::build), correct for local/test runs with no operator-sealed
-    # per-tenant WhatsApp credentials configured yet.
+    # stays None until a future operator credential actually needs sealing — nothing in this
+    # service's send path holds one any more (see app/adapters/whatsapp_sender/direct.py).
     container.secret_store = SecretStore(container.datastore, settings.SECRETS_KEK) \
         if settings.SECRETS_KEK else None
     container.inbound_store = build_inbound_store(container.datastore)
@@ -211,12 +213,36 @@ def build_container(settings: Settings) -> Container:
     container.booking_provider = B.build(settings, store=container.datastore)
     container.points_summary = P.build(settings)
     container.customer_lookup = CL.build(settings)
-    container.sender = build_sender(settings, secret_store=container.secret_store)
+    container.sender = build_sender(settings)
+    container.ticket_client = build_ticket_client(settings)
+
+    from app.adapters.inbound_feed import build as build_inbound_feed
+
+    # The catch-up half of the "missed bus event" mitigation — see app/main.py's
+    # `_on_whatsapp_message` docstring and app/core/inbound_poll.py for the full design.
+    container.inbound_feed = build_inbound_feed(settings)
     container.engine = ConversationEngine(
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
         points_summary=container.points_summary,
         debounce_seconds=settings.CONVERSATION_DEBOUNCE_SECONDS,
         session_timeout_seconds=settings.CONVERSATION_SESSION_TIMEOUT_SECONDS,
         raw_window_messages=settings.CONVERSATION_RAW_WINDOW_MESSAGES,
-        allowed_tools=settings.llm_tool_allowlist)
+        allowed_tools=settings.llm_tool_allowlist,
+        ticket_client=container.ticket_client,
+        max_auto_reply_turns=settings.CONVERSATION_MAX_AUTO_REPLY_TURNS,
+        frustration_unconfirmed_proposals_threshold=settings.FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD,
+        frustration_duplicate_messages_threshold=settings.FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD)
+    # `auditor` is NOT passed here — app/main.py builds it AFTER build_container() (it needs the
+    # container) and wires it in with `container.engine.set_auditor(...)` right after. See
+    # app/core/conversation.py::ConversationEngine.__init__ for why.
+    # NO container.licence HERE — deliberately, unlike loyalty/campaigns' core/licence.py.
+    # docs/adding-a-new-app.md §2 requires a licence gate "if this is a sold app", and this one
+    # plausibly will be, but the gate's whole design turns on a read/write asymmetry decision
+    # (what fails closed when billing is unreachable vs. what must never ask at all) that nobody
+    # has made for this product yet — deploy/seed/plans.json has no "feature.whatsapp_assistant"
+    # row, and ci/check_entitlements.py passes today precisely because nothing here claims to be
+    # a sold feature. Writing licence.py now would mean guessing that decision to satisfy a gate,
+    # which is the opposite of what §2 asks for ("write that decision as the module's own
+    # docstring, because it is the whole design"). Add it the day the business makes that call,
+    # mirroring loyalty's core/licence.py — not before.
     return container

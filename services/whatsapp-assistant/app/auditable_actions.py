@@ -29,6 +29,40 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
                "one thing a dispute months later cannot be resolved without",
     },
     {
+        "action": "whatsapp_assistant.chat_retention_purged",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "a bulk, irreversible delete of a customer's raw chat content past "
+               "CHAT_RETENTION_DAYS (app/core/retention.py). Critical for the same reason "
+               "erasure is: once the content is gone there is nothing left to show a purge "
+               "happened at all, or that it happened for the reason (age, not something else) "
+               "the retention policy claims — an unprovable bulk delete of chat history is "
+               "indistinguishable from a bug that ate a shop's conversations",
+    },
+    {
+        "action": "subject.erased",
+        "source": "system",
+        "critical": True,
+        "resource": "subject",
+        "why": "this service's leg of a DSAR fan-out (app/core/erasure.py) — same action name as "
+               "every other service's leg (see services/reminders/app/auditable_actions.py), so "
+               "compliance-service's fan-out can be shown to have completed everywhere rather "
+               "than assumed. Erasure is irreversible; without a record we cannot prove we "
+               "honoured the request, and the data itself is gone so nothing else can show it",
+    },
+    {
+        "action": "whatsapp_assistant.escalated_to_human",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "a customer was handed off to a human agent (mandatory triage complaint/other "
+               "pick, the auto-reply turn ceiling, or the frustration heuristic) and a ticket was "
+               "opened on their behalf in ticket-service. If this cannot be recorded there is no "
+               "way to prove the handoff happened or why — which matters most exactly when a "
+               "customer later says nobody ever got back to them",
+    },
+    {
         "action": "whatsapp_assistant.proposal_rejected",
         "source": "system",
         "critical": False,

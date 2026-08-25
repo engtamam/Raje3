@@ -59,7 +59,22 @@ class Settings(BaseSettings):
     # ── Internal service-to-service auth (REQUIRED) ─────────────────────────
     INTERNAL_SERVICE_TOKEN: str = Field(min_length=32)
     PII_SALT: str = ""
+    # Seals any operator-managed per-tenant credential this service holds through SecretStore
+    # (app/core/secret_store.py — same class services/reminders and services/loyalty import
+    # unmodified). Nothing sealed under it today: the one credential that used to live here — a
+    # per-tenant WhatsApp Cloud API token — was retired with InteractiveNotifySender (see
+    # app/adapters/whatsapp_sender/direct.py); kept as a general facility for the next operator
+    # credential this service needs to hold.
     SECRETS_KEK: str = ""
+    # Seals backup archives at rest. SEPARATE from SECRETS_KEK by design: restoring must not
+    # require the key this service uses for its own sealed operator credentials.
+    # Empty means this service cannot produce a backup, and its export endpoint refuses rather
+    # than writing one in the clear. SHARED: it must be the SAME value backup-service holds (in
+    # the class of PII_SALT / INTERNAL_SERVICE_TOKEN) — see services/loyalty/app/config.py.
+    BACKUP_KEK: str = ""
+    # The most rows a single collection may hold before a backup FAILS rather than reads on
+    # unbounded — same convention as loyalty/reminders, not a number chosen for this service.
+    BACKUP_MAX_ROWS_PER_COLLECTION: int = 5_000_000
 
     @field_validator("INTERNAL_SERVICE_TOKEN")
     @classmethod
@@ -102,11 +117,18 @@ class Settings(BaseSettings):
     # published (`whatsapp.message`, `whatsapp.status`) and where TEMPLATE-ONLY outbound sends go.
     NOTIFICATION_SERVICE_URL: str = ""
     NOTIFICATION_SEND_PATH: str = "/internal/notify"
-    # ESCALATED: /internal/notify is template-only — no field or code path for an interactive
-    # button/list message. DirectCloudApiSender (adapters/whatsapp_sender/direct.py) exists solely
-    # to cover that gap by calling Meta's Graph API directly within the 24h customer-service
-    # window. Retire it the day /internal/notify grows interactive-message support.
-    NOTIFICATION_INTERACTIVE_GAP_ACK: bool = True
+    # Interactive button/list sends (app/adapters/whatsapp_sender/direct.py::InteractiveNotifySender)
+    # — resolved via platform v0.16.38, commit 0c54f5e. See app/ports/whatsapp_sender.py.
+    NOTIFICATION_INTERACTIVE_SEND_PATH: str = "/internal/notify/whatsapp/interactive"
+    # The durable, replayable catch-up read for inbound WhatsApp messages (app/core/inbound_poll.py)
+    # — resolved via platform v0.16.38, commit 31e556e. See app/api/internal.py's tick route.
+    NOTIFICATION_INBOUND_PATH: str = "/internal/whatsapp/inbound"
+    # Rows requested per catch-up page. Same bound-per-request reasoning as reminders'
+    # HttpReceiptFeed's `page` — a page too large turns one tick into a slow, unbounded fetch.
+    INBOUND_POLL_PAGE_SIZE: int = 200
+    # Pages walked per tick before the sweep yields — bounds one tenant's backlog from starving
+    # every other tenant's tick, same convention as reminders' Receipts._max_pages.
+    INBOUND_POLL_MAX_PAGES: int = 20
 
     # operations — customer recognition (phone -> subject_ref) and visit-pattern summaries.
     OPERATIONS_SERVICE_URL: str = ""
@@ -122,14 +144,30 @@ class Settings(BaseSettings):
     LOYALTY_BALANCE_PATH: str = "/internal/loyalty/portal/balance"
     LOYALTY_REDEEM_PATH: str = "/internal/loyalty/redeem"
 
-    PEER_TIMEOUT_SECONDS: int = 8
+    # ticket-service — human escalation (triage complaint/other, auto-reply ceiling, frustration
+    # heuristic). ESCALATED: ticket-service has no /internal/* ticket-creation route (only
+    # backup/erase/notify-drain — see platform/services/ticket-service/app/api/internal.py).
+    # Ticket creation is on its v1 tier (POST /api/v1/tickets) behind a real capability-bearing
+    # Bearer token, not X-Internal-Token, so this service mints its own short-lived HS256 service
+    # token rather than reusing the X-Internal-Token peer shape — see
+    # app/adapters/ticket_client.py's module docstring for the full reasoning.
+    TICKET_SERVICE_URL: str = ""
+    TICKET_SERVICE_TICKETS_PATH: str = "/api/v1/tickets"
+    # THE SAME shared secret ticket-service's own TOKEN_HS256_SECRET holds (class of
+    # INTERNAL_SERVICE_TOKEN/PII_SALT) — empty means this service cannot mint a token
+    # ticket-service will accept, and TicketClient.build() falls back to NullTicketClient.
+    TICKET_SERVICE_JWT_SECRET: str = ""
+    TICKET_SERVICE_JWT_ISSUER: str = ""
+    TICKET_SERVICE_JWT_AUDIENCE: str = ""
+    TICKET_SERVICE_JWT_TTL_SECONDS: int = 120
+    # Must be a type declared in ticket-service's TICKET_TYPES_JSON with no required fields beyond
+    # what we can supply — "support" ships with `required_fields: []`.
+    TICKET_SERVICE_TICKET_TYPE: str = "support"
+    # The capability claim this service's minted token carries — "tickets.self" is the narrowest
+    # that can open a ticket (see ticket-service's app/api/v1/tickets.py::_SELF).
+    TICKET_SERVICE_CAPABILITY: str = "tickets.self"
 
-    # ── Meta WhatsApp Cloud API (DirectCloudApiSender) ───────────────────────
-    # Per-tenant access tokens are NOT env vars — they are operator-managed credentials sealed by
-    # SecretStore (app/core/secret_store.py, same convention as every other service's operator
-    # credential), keyed "whatsapp_cloud_api_token:{tenant}". This is only the API version/base.
-    META_GRAPH_API_BASE: str = "https://graph.facebook.com"
-    META_GRAPH_API_VERSION: str = "v19.0"
+    PEER_TIMEOUT_SECONDS: int = 8
 
     # ── LLM (Gemini function calling) ────────────────────────────────────────
     LLM_DRIVER: str = "null"                 # null | gemini
@@ -168,6 +206,30 @@ class Settings(BaseSettings):
     # A tick (see core/conversation.py Ticker) sweeps for debounce-window-elapsed and
     # session-timeout-elapsed conversations at this cadence.
     CONVERSATION_TICK_SECONDS: int = 30
+
+    # ── auto-reply ceiling & frustration escalation (core/frustration.py) ────
+    # The RAW ceiling on automated LLM turns in one conversation before it is forced to a human —
+    # a receptionist that never once hands off is the failure this exists to prevent regardless of
+    # how well the frustration heuristic below performs.
+    CONVERSATION_MAX_AUTO_REPLY_TURNS: int = 12
+    # EARLY escalation signal #1: a tool-proposal (propose_booking/suggest_redeemable_offer) still
+    # sitting unconfirmed while the customer keeps typing instead of pressing a button, this many
+    # times, reads as the assistant offering something the customer will not accept.
+    FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD: int = 2
+    # EARLY escalation signal #2: the same (normalized) customer message appearing this many times
+    # in the raw window reads as "the bot did not understand me the first time".
+    FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD: int = 3
+
+    @field_validator("CONVERSATION_MAX_AUTO_REPLY_TURNS", "FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD",
+                     "FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD")
+    @classmethod
+    def _reject_nonpositive_escalation_thresholds(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError(
+                "escalation thresholds must be positive — zero or negative would escalate every "
+                "single turn (or never validate at all), neither of which is the tunable ceiling "
+                "this field exists to be")
+        return v
 
     # ── availability / booking (ConfigDrivenAvailabilityProvider) ────────────
     # THE DEFAULT ADAPTER, self-contained — no external booking service. JSON so shape can vary
@@ -209,6 +271,30 @@ class Settings(BaseSettings):
     # Longest a single conversation may run before it is forcibly closed regardless of activity —
     # a safety ceiling under the session timeout, not a replacement for it.
     CONVERSATION_MAX_DURATION_SECONDS: int = 14_400
+
+    # ── chat data retention (app/core/retention.py) ──────────────────────────
+    # How long a closed conversation's raw text (inbound messages + conversation state/summary) is
+    # kept before being purged, counted from SESSION CLOSE — not per message. 30 days is the
+    # DEFAULT: long enough to resolve a booking dispute raised after the visit, short enough that
+    # this service does not become an indefinite store of customer chat content. See LegalGate/
+    # privacy text for the customer-facing statement of this same number.
+    CHAT_RETENTION_DAYS: int = 30
+    # Bounded work per retention tick, same reasoning as CONVERSATION_TICK_BATCH_SIZE — an
+    # unbounded purge sweep is how one tenant's backlog starves every other tenant's tick.
+    CHAT_RETENTION_TICK_BATCH_SIZE: int = 200
+    # Ceiling on rows scanned/deleted in one DSAR erasure pass (app/core/erasure.py) — a DSAR is
+    # rare but must never become an unbounded read, same convention as reminders' ERASURE_MAX_SCAN.
+    ERASURE_MAX_SCAN: int = 100_000
+
+    @field_validator("CHAT_RETENTION_DAYS")
+    @classmethod
+    def _reject_nonsensical_retention(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError(
+                "CHAT_RETENTION_DAYS must be positive — zero or negative would purge a "
+                "conversation's raw content before (or as) it closes, defeating the dispute-"
+                "resolution window this retention period exists for")
+        return v
 
     # ── Ports & adapters — driver selection, ZERO-INFRA defaults ────────────
     DATASTORE_DRIVER: str = "memory"

@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Authentication (real token verification)
+# whatsapp-assistant — Authentication (real token verification)
 # -----------------------------------------------------------------------------
 # require_user verifies the Bearer token via the configured TokenVerifier port
 # (deny-by-default: the 'null' driver rejects everything until real auth is set).

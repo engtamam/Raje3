@@ -1,5 +1,5 @@
 # =============================================================================
-# reminders — Request-ID tracing
+# whatsapp-assistant — Request-ID tracing
 # -----------------------------------------------------------------------------
 # Accepts an inbound X-Request-Id (validated) or generates a fresh UUID4, stores
 # it in a contextvar so logs can attach it, and echoes it on the response.
