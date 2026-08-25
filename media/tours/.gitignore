@@ -7,3 +7,18 @@
 # only ever be re-minted from it — a demo account's own signup phone is random and, once lost, the
 # whole account is unreachable no matter how much data it holds.
 .demo-credentials.json
+
+# The affiliate manager's own signed-in session — seed-affiliate-team.mjs's own real bearer
+# token, same class of secret as the shop's .demo-session.json above and never committed for the
+# same reason. Unlike the shop, this account's phone/password are fixed constants in that script
+# itself (never randomly generated), so there is no matching .demo-affiliate-credentials.json —
+# nothing here can ever become unrecoverable the way a random shop signup phone could.
+.demo-affiliate-session.json
+
+# Same class of secret, for seed-demo-affiliate.mjs's marketer account instead of the shop's own.
+.demo-affiliate-credentials.json
+
+# seed-affiliate-tools.mjs's own manager account — a THIRD affiliate demo account, deliberately
+# seeded with real templates/citations/a Places key/a referred shop, unlike the earnings tour's
+# deliberately-empty one and the team tour's manager-plus-promoters one. Same secret class.
+.demo-affiliate-tools-session.json
