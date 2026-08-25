@@ -15,6 +15,7 @@ import { Button } from '@base-ui/design-system/Button';
 import { DENIED, hasFailed, isLoading, isDenied, isReady, type Loading } from '../loading';
 import { Skeleton } from '@base-ui/design-system/Skeleton';
 import { action, call, type Catalog } from '../catalog';
+import { legalUrl } from '../legal/url';
 import type { Session } from '../session';
 
 interface Tenant {
@@ -457,9 +458,12 @@ export function DataPane({ session, catalog }: { session: Session; catalog: Cata
           وهي متاحة لك في أي وقت.
         </p>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
-          <a className="underline" href="/legal/terms" target="_blank" rel="noreferrer">شروط الاستخدام</a>
-          <a className="underline" href="/legal/privacy" target="_blank" rel="noreferrer">سياسة الخصوصية</a>
-          <a className="underline" href="/legal/dpa" target="_blank" rel="noreferrer">اتفاقية معالجة البيانات</a>
+          <a className="underline" href={legalUrl('terms')} target="_blank" rel="noreferrer">شروط الاستخدام</a>
+          <a className="underline" href={legalUrl('privacy-policy')} target="_blank" rel="noreferrer">سياسة الخصوصية</a>
+          {/* THE DPA HAS NO PAGE OF ITS OWN — it is an annex to the Terms (`publication: reference`,
+              never published standalone) and accepting the Terms accepts it, so its text lives at
+              the same URL rather than at a route that would otherwise 404. */}
+          <a className="underline" href={legalUrl('terms')} target="_blank" rel="noreferrer">اتفاقية معالجة البيانات (ضمن الشروط)</a>
         </div>
       </Card>
     </div>

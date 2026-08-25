@@ -4,6 +4,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { legalDocsPlugin } from './scripts/legalDocsPlugin';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -13,7 +14,7 @@ export default defineConfig({
   // and the owner gets a blank screen with no error but a MIME complaint in a console he will
   // never open. Vite exposes it back as import.meta.env.BASE_URL, which is what the router reads.
   base: '/app/',
-  plugins: [react()],
+  plugins: [react(), legalDocsPlugin()],
   resolve: {
     alias: {
       '@base-ui': here('../../platform/ui/packages/ui/src'),
