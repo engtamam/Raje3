@@ -119,7 +119,8 @@ async function main() {
 
   console.log('▸ operator');
   const { operatorId, ticket } = await ensureOperator(session, act);
-  console.log(`  ✔ operator ready`);
+  const extraOperatorIds = await ensureExtraOperators(session, act);
+  console.log(`  ✔ ${1 + extraOperatorIds.length} operators ready`);
 
   console.log('▸ hero customer (real points + real rewards, for the visit/offers tour)');
   await seedHeroCustomer(session, act, serviceIds, operatorId, ticket);
@@ -135,7 +136,7 @@ async function main() {
 
   console.log('▸ bookings');
   const branchId = await getBranchId(session, act);
-  await seedBookings(session, serviceIds, operatorId, branchId);
+  await seedBookings(session, serviceIds, [operatorId, ...extraOperatorIds], branchId);
   console.log('  ✔ bookings seeded');
 
   console.log('✔ demo account ready');
@@ -249,6 +250,32 @@ async function ensureOperator(session, act) {
     });
   }
   return { operatorId: operator.id, ticket: undefined };
+}
+
+// THREE STAFF, NOT ONE — a single operator means the desktop grid's own multi-column layout
+// (Bookings.tsx: one column per operator in day view) always shows one lane, indistinguishable
+// from the mobile grid it is meant to look richer than. Named for real specialities a salon
+// actually staffs, not "Staff 2"/"Staff 3".
+const EXTRA_STAFF_NAMES = ['أخصائية الشعر', 'أخصائية الأظافر'];
+
+async function ensureExtraOperators(session, act) {
+  const listAction = act('operations.list_operators');
+  const existing = await callAction(session, listAction).catch(() => ({ operators: [] }));
+  const branchesAction = act('operations.list_branches');
+  const branches = await callAction(session, branchesAction).catch(() => ({ branches: [] }));
+  const branchId = branches.branches?.[0]?.id;
+  const ids = [];
+  for (const name of EXTRA_STAFF_NAMES) {
+    let operator = (existing.operators ?? []).find((o) => o.name === name);
+    if (!operator) {
+      const hireAction = act('operations.hire_member');
+      operator = await callAction(session, hireAction, {
+        name, phone: randomPhone(), password: 'Kobo2026$Staff', role: 'operator', branch_id: branchId,
+      });
+    }
+    if (operator?.id) ids.push(operator.id);
+  }
+  return ids;
 }
 
 async function getBranchId(session, act) {
@@ -377,14 +404,15 @@ function shuffle(arr) {
 
 /** A mix of booking states — booked (future), attended, no-show, cancelled — so the bookings
  *  grid and the no-show risk indicator both have something real to show, not an empty week. */
-async function seedBookings(session, serviceIds, operatorId, branchId) {
+async function seedBookings(session, serviceIds, operatorIds, branchId) {
   if (!branchId) return; // no branch resolvable — skip rather than guess one
+  const ids = Array.isArray(operatorIds) ? operatorIds : [operatorIds]; // callers pre-dating multi-staff still work
   const now = Math.floor(Date.now() / 1000);
 
   const drafts = Array.from({ length: 60 }, (_, i) => {
     const futureDays = -14 + i; // half past, half upcoming — realistic mixed grid
     return {
-      branch_id: branchId, operator_id: operatorId,
+      branch_id: branchId, operator_id: pick(ids),
       service_ids: shuffle(serviceIds).slice(0, 1 + Math.floor(Math.random() * 2)),
       starts_at: now + futureDays * 86400 + Math.floor(Math.random() * 8) * 3600,
     };
@@ -394,14 +422,17 @@ async function seedBookings(session, serviceIds, operatorId, branchId) {
   // guaranteed slots close to the seeding moment itself (not a UTC/local day-boundary
   // calculation, which would risk landing on the wrong calendar day for the shop's own timezone)
   // keep the default view from ever being a coin flip — safe as long as recording follows seeding
-  // the same day, which is how this script is actually used.
-  for (const offsetHours of [-3, -1, 1, 3]) {
+  // the same day, which is how this script is actually used. ONE PER STAFF MEMBER, explicitly (not
+  // `pick`) — the whole point of seeding more than one operator is a desktop grid with more than
+  // one populated column; leaving this to chance could still land all four on the same person.
+  const todayOffsets = [-3, -1, 1, 3];
+  todayOffsets.forEach((offsetHours, i) => {
     drafts.push({
-      branch_id: branchId, operator_id: operatorId,
+      branch_id: branchId, operator_id: ids[i % ids.length],
       service_ids: shuffle(serviceIds).slice(0, 1 + Math.floor(Math.random() * 2)),
       starts_at: now + offsetHours * 3600,
     });
-  }
+  });
 
   await pool(drafts, CONCURRENCY, async (draft) => {
     // Each booking needs its own real customer, resolved the same way the booking dialog does.
