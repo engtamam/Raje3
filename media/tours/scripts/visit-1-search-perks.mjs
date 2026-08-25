@@ -37,7 +37,7 @@ export default {
     {
       goto: '/visit',
       chapter: 'دوّر عن عميلك',
-      say: 'تعرف كيف تسجّل زيارة بأقل من دقيقة؟ تعال أوريك',
+      say: 'منصّة راجِع تخلّي تسجيل الزيارة أقل من دقيقة — شوف!',
     },
     {
       // TodayBookingsStrip.tsx — a strip of TODAY's remaining bookings for this branch, above
@@ -46,10 +46,10 @@ export default {
       // so this hovers (never clicks — «حضر» is a REAL action that would attend this demo
       // booking) the first card by its own «حضر» button's parent.
       hover: 'css=div:has(> button[aria-label="حضر"])',
-      say: 'عنده حجز اليوم؟ هذي بطاقته فوق',
+      say: 'المنصّة تعرض حجوزات اليوم جاهزة، فوق الشاشة مباشرة',
     },
     {
-      say: 'ضغطة «حضر» وحدة تسجّل زيارته كاملة — بلا ما تدوّر عليه',
+      say: 'ضغطة «حضر» توفّرها المنصّة — وحجزه صار زيارة، بلا بحث',
     },
     {
       // SHOULD BE A PARTIAL PREFIX (spec 4.3 — Visit.tsx's own matches list appears while he
@@ -61,7 +61,7 @@ export default {
       // typing a prefix and hoping — so this types the full number, honestly, until it's fixed.
       type: 'label=رقم الجوال',
       text: HERO_PHONE,
-      say: 'اكتب رقم جواله — والنتائج تطلع وأنت تكتب',
+      say: 'تكتب رقمه، والمنصّة تدوّر عليه بذكاء — فوراً',
     },
     {
       // Steps.tsx's own «التالي» arrow — a real, solidly-filled 44×44 button (Tamam's own catch:
@@ -71,7 +71,7 @@ export default {
       // own bounding box IS its visible content — no separate ring target required.
       click: 'role=button:التالي',
       chapter: 'عروضه ونقاطه',
-      say: 'هذي أهم صفحة بكل الزيارة — عروضه ونقاطه',
+      say: 'عروضه ونقاطه بصفحة وحدة — تنظيم يوفّر وقتك',
     },
     {
       // THE OFFER/BALANCE FETCH IS DEBOUNCED (220ms) THEN NETWORKED — Visit.tsx's own effect.
@@ -83,17 +83,17 @@ export default {
     },
     {
       click: 'text=عرضٌ خاص بهذا العميل',
-      say: 'عنده عرض خاص — يعرضه النظام نفسه',
+      say: 'عرض خاص؟ المنصّة تنبّهك فيه — ما تفوتك بيعة',
     },
     {
-      say: 'اقرأه بصوت عالي — يطمّن العميل إنه موثّق',
+      say: 'اقرأه له بصوت عالي — يحس إن محلك يهتم فيه شخصياً',
     },
     {
       click: 'label=طبّقتُ العرض على هذه الزيارة',
-      say: 'مهم: العرض ما يُطبَّق نفسه — لازم تعلّم هنا إنك طبّقته فعليًا',
+      say: 'المنصّة توثّق تطبيق العرض باسمك — حماية كاملة لمحلك',
     },
     {
-      say: 'ليه؟ عشان ما ناخذ منه عرض يبيه يحفظه لزيارة ثانية',
+      say: 'كذا عرضه ما يتكرر على زيارة ثانية بالغلط أبداً',
     },
     {
       // SAME OFFER/BALANCE FETCH, SAME REAL-CLUSTER LATENCY as the offer step above — the
@@ -103,24 +103,20 @@ export default {
     },
     {
       click: 'text=رصيده',
-      say: 'وتحت العرض — رصيد نقاطه، وكم يقدر يستبدل بيها الحين',
+      say: 'المنصّة تعرض رصيد نقاطه فوراً — يشوف قربه من مكافأته',
     },
     {
       click: 'text=قهوة مجانية',
-      say: 'مكافأة عادية — ضغطة وحدة وتستبدلها له مباشرة',
+      say: 'مكافآت تخصّصها إنت — ضغطة وحدة تسعد زبونك',
     },
     {
-      click: 'text=جلسة مجانية VIP',
-      say: 'وهذي أكبر — تحتاج اعتماد المدير قبل ما تُستبدل',
-    },
-    {
-      type: 'label=اسم المدير المعتمِد',
-      text: 'مدير الفرع',
-      say: 'يكتب اسم المدير المعتمِد هنا فقط',
-    },
-    {
-      click: 'role=button:اعتمد واستبدل',
-      say: 'وبعدها تقدر تستبدلها — كل شي موثّق باسم صاحبه',
+      // UNRESOLVED, REAL, FLAGGED SEPARATELY: «جلسة مجانية VIP» (the one reward with
+      // needs_approval: true) is confirmed present via a direct API call — active, 600 cost,
+      // balance well above it — yet a click never finds it visible on the page after redeeming
+      // «قهوة مجانية», timed out at 30s repeatedly on a real recorded run, for reasons not yet
+      // root-caused (reproduced even attempted FIRST, with nothing redeemed before it). Narrated
+      // instead of clicked, so the tour stays reliable while this is investigated separately.
+      say: 'ومكافآت أكبر؟ تحدد إنت أيها يحتاج اعتماد المدير',
     },
   ],
 };
