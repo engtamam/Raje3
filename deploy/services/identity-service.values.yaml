@@ -11,6 +11,20 @@ service:
   name: identity-service
   port: 8000
 
+# TEMPORARY MITIGATION, NOT A ROOT-CAUSE FIX — identity-service is repeatedly failing its own
+# /healthz within the chart's shared 30s budget (periodSeconds=5 × livenessFailureThreshold=6),
+# getting SIGKILL'd/restarted every 1-2 minutes, confirmed live via `kubectl describe pod` and
+# `--previous` logs the day the fleet-wide jwks rotation fix shipped (2026-08-25). The log line
+# right after every restart — "signing_key_rotation_active … jwks refresh every 45s" — lines up
+# suspiciously with the crash cadence, but this is OUR values layer, not platform/, and the
+# actual rotation code lives in the submodule: this buys headroom rather than touching it.
+# ESCALATE TO base-services-dc: identity-service's periodic signing-key-rotation refresh appears
+# to block long enough, often enough, to fail /healthz under ordinary node load — worth their own
+# look at whether that refresh runs on the same event loop as request handling.
+probes:
+  timeoutSeconds: 10
+  livenessFailureThreshold: 10
+
 image:
   repository: ghcr.io/engtamam/identity-service
   digest: "sha256:4323df120343e3732f2cc9bcdecc3f5c4f539d4ccda4d504b0d59f39b4618359"   # v0.16.37
