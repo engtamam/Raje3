@@ -100,23 +100,8 @@ env:
   # owner thrown back to the login screen every 15 minutes: the access TTL, with the 31-day refresh
   # token beside it that could never be spent.
   #
-  # THE SECOND BUG THIS SAME SETTING'S NEIGHBOUR CAUSED — 2026-08-25, found live. This used to
-  # read `TOKEN_VERIFIER_DRIVER: "rs256"` everywhere in the fleet, the STATIC single-key verifier
-  # (one PEM, read once at pod start, never refreshed). TOKEN_KEY_ROTATION_ENABLED above was
-  # turned on two days before this without switching the fleet to a driver that actually knows
-  # about rotation — so every 03:30 rotation immediately made every service's cached static key
-  # stale, and every request everywhere started failing UNAUTHORIZED, including identity-service's
-  # own /auth/refresh verifying a token it had just signed itself. Nothing crashed and nothing
-  # alerted: /readyz stayed green, sign-up/sign-in kept working (password auth, not token auth),
-  # and the only symptom was every authenticated call in the product returning 401 at once, fleet-
-  # wide, silently, every single night — reproduced by installing fresh and watching signup itself
-  # fail. `jwks` is the driver the platform actually built for this (see
-  # platform/services/*/app/adapters/token_verifier/jwks.py's own header: "REFRESH-ON-MISS is what
-  # makes SIGNING-KEY ROTATION work here… That is a self-inflicted outage on every rotation" — it
-  # names this exact failure). Every one of the 26 services in deploy/services/ carries the same
-  # two lines now, all pointed at this service's own published JWKS.
-  TOKEN_VERIFIER_DRIVER: "jwks"
-  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
+  # The public half of TOKEN_PRIVATE_KEY, the same value every verifying service already holds.
+  TOKEN_VERIFIER_DRIVER: "rs256"
   # ── how long a session lives, and why it is this long ─────────────────────────────────────
   # ACCESS 15 MINUTES, unchanged. It is also what "instant suspension" (spec §11.1) actually
   # means: a suspended person keeps their access token until it expires, and is then refused at

@@ -64,8 +64,7 @@ env:
   # ── Token verification ────────────────────────────────────────────────────────────────────
   # Same trap that cost us a debugging session in Wave 1: this defaults to `null`, which denies
   # every token while /readyz stays green. Here it would 401 the entire product.
-  TOKEN_VERIFIER_DRIVER: "jwks"
-  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
+  TOKEN_VERIFIER_DRIVER: "rs256"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
 
