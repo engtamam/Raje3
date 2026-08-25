@@ -161,20 +161,27 @@ sync_and_roll() {
 # what config digest is the pod running. Two names for one manifest agree; two manifests do not.
 verify_running() {
   local svc="$1" digest="$2" running="" live=""
+  # SUDO, AND KUBECONFIG NAMED EXPLICITLY — the same fix cluster.sh's own ssh kubectl() wrapper
+  # needed and got, but this function builds its remote command strings by hand rather than
+  # going through that wrapper, so it needed the fix a second time. Without it the node's
+  # kubeconfig (root:root 600 by k3s's own default) is unreadable to the login this ssh connects
+  # as, kubectl falls back to localhost:8080, and this loop burns the full ten-minute wait
+  # reading "connection refused" as "no ready pod" — on a rollout that had, in fact, succeeded.
+  local KCTL="sudo -n KUBECONFIG=/etc/rancher/k3s/k3s.yaml kubectl"
   for _ in $(seq 1 40); do
-    running="$("${SSH[@]}" "kubectl -n $NS get pods --no-headers 2>/dev/null \
+    running="$("${SSH[@]}" "$KCTL -n $NS get pods --no-headers 2>/dev/null \
       | awk '/^$svc-[0-9a-f]/ && \$3==\"Running\" && \$2==\"1/1\" {print \$1; exit}'")"
     [ -n "$running" ] && break
     sleep 15
   done
   if [ -z "$running" ]; then
     red "$svc: no ready pod after 10 minutes"
-    "${SSH[@]}" "kubectl -n $NS get pods --no-headers | grep '^$svc-'; \
-      kubectl -n $NS logs \$(kubectl -n $NS get pods --no-headers | awk '/^$svc-/{print \$1;exit}') \
+    "${SSH[@]}" "$KCTL -n $NS get pods --no-headers | grep '^$svc-'; \
+      $KCTL -n $NS logs \$($KCTL -n $NS get pods --no-headers | awk '/^$svc-/{print \$1;exit}') \
       --tail=20 2>&1 | tail -12"
     return 1
   fi
-  live="$("${SSH[@]}" "kubectl -n $NS get pod $running \
+  live="$("${SSH[@]}" "$KCTL -n $NS get pod $running \
       -o jsonpath='{.status.containerStatuses[0].imageID}'" | sed 's/.*@//')"
   if [ "$live" = "$digest" ]; then
     grn "$svc is running the digest its values file names"
@@ -214,7 +221,9 @@ verify_running() {
 resolve_config() {
   local d="$1"
   [ -n "$d" ] || return 0
-  "${SSH[@]}" "python3 - $d <<'RESOLVE'
+  # `k3s ctr` reads containerd's own socket — root only, same reason every other node-side read
+  # in this file now carries sudo explicitly rather than relying on the login's own permissions.
+  "${SSH[@]}" "sudo -n python3 - $d <<'RESOLVE'
 import json, subprocess, sys
 
 def blob(digest):
