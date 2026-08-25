@@ -40,6 +40,28 @@ export default {
       say: 'منصّة راجِع تخلّي تسجيل الزيارة أقل من دقيقة — شوف!',
     },
     {
+      // THE CONCEPT, BEFORE ANY STEP — this screen and «الحجوزات» both end in a recorded visit,
+      // and without this distinction a viewer walks away not knowing which one his shop should
+      // actually use for what. «تسجيل الزيارة» is SELF-SERVICE: the staff member doing the work
+      // logs his own visit directly, no appointment needed. Real business reason for the other
+      // path: only a booking distributes work across the team AND feeds per-operator analytics —
+      // a receptionist logging a walk-in through this screen instead still works (the balance/
+      // credit simply goes to whichever operator's name is on it), it just skips that.
+      say: 'عميل جا مباشرة من الباب،',
+    },
+    {
+      say: 'والموظف نفسه هو اللي يسجّل له زيارته',
+    },
+    {
+      say: 'لكن لو الاستقبال هو اللي يسجّل عن الموظف،',
+    },
+    {
+      say: 'الأفضل «الحجوزات» — عشان توزيع الشغل على الفريق،',
+    },
+    {
+      say: 'وصاحب المحل يشوف أداء كل موظف بوضوح',
+    },
+    {
       // TodayBookingsStrip.tsx — a strip of TODAY's remaining bookings for this branch, above
       // the ordinary search field. Never explained before (caught live: a viewer watching the
       // recorded clip has no idea what these cards are). No unique wrapper on the strip itself,
