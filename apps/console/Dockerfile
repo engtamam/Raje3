@@ -34,6 +34,15 @@ COPY ui /build/ui
 # (../../config/product.json from apps/console/) to inject __PRODUCT_ACCENT__. Missing this COPY
 # fails the build with an ENOENT rather than a wrong colour, which is the right kind of loud.
 COPY config/product.json /build/config/product.json
+
+# THE PUBLIC LEGAL PAGES' TWO SOURCES — legalDocsPlugin.ts reads both at BUILD time, not at
+# runtime, so a fresh server's console image has to carry them into the builder stage same as
+# ui/ above, or the /legal/:slug route ships empty on a brand-new install with no error anyone
+# would see (the plugin's own read failure, not a screen anyone opens by hand). Our own values
+# (deploy/seed/legal) and the PDPL pack's clause templates (platform/, requires
+# `git submodule update --init platform` — scripts/setup.sh does the full, non-sparse checkout).
+COPY deploy/seed/legal /build/deploy/seed/legal
+COPY platform/services/compliance-service/app/data/pdpl-templates /build/platform/services/compliance-service/app/data/pdpl-templates
 COPY apps/console/ ./
 
 # META'S IDENTIFIERS ARE BAKED AT BUILD TIME, because vite resolves import.meta.env when it
