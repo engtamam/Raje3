@@ -8,7 +8,21 @@
  * teaches with the goal picker, the same one messages-4 already walked, never with an invented
  * "campaign in progress" this tenant does not have).
  *
- * FOUR LESSONS, EACH GROUNDED:
+ * REWRITTEN FROM ZERO — the first cut opened on ten-plus real seconds of the skeleton drawn by
+ * Messages.tsx's own three loading gates (`isLoading(today)`, `isLoading(reasons)`,
+ * `isLoading(schedule)`) because its `goto` step ran live inside the capture loop with no
+ * `preload`. Frame-by-frame inspection of the recorded file (ffprobe + extracted frames) showed
+ * the real screen — the Segmented tabs, the health card, the thirteen reasons — hadn't painted
+ * until past twenty seconds into that particular run. record-tour.mjs already carries the fix for
+ * exactly this (`preload: true`, see its own "the pre-roll" comment, and every بانتظار/services
+ * clip already uses it) — it was simply never turned on here. It is now.
+ *
+ * AND THE OPENING BEAT ITSELF WAS WEAK EVEN AT ZERO LOAD TIME: the first two lines used to be
+ * bare `say` steps with no selector at all, narrating over a screen with nothing new to look at.
+ * The rewrite opens on the first real click (switching to «حملاتي») instead, so the very first
+ * frame this clip owns is already an action, not a wait.
+ *
+ * FOUR LESSONS, EACH GROUNDED (unchanged from the first pass — this is a re-cut, not a re-think):
  *
  *   1. متى تُطلق. Every goal here answers a DIFFERENT "when" — win_back fires on its own once a
  *      customer passes 1.5× his own visit rhythm (audience.py's own multiplier and comment: late
@@ -42,25 +56,29 @@ export default {
   section: 'رسائلي',
   useDemoSession: true,
   sfx: true,
+  // THE SCREEN IS ALREADY DRAWN AT FRAME ZERO. Messages.tsx fires three independent reads before
+  // it can show anything real (`reminders.today`, `reminders.reasons`, `reminders.list_schedule`
+  // + `campaigns.list`) — without the pre-roll, this clip opened on a blank shell and a skeleton
+  // card for as long as the slowest of those happened to take on the particular run being
+  // recorded. See record-tour.mjs's own note on `preload`.
+  preload: true,
   steps: [
     {
       goto: '/messages',
       chapter: 'قبل ما تطلق حملة',
+      click: 'role=radio:حملاتي',
       say: 'قبل «أطلق حملة» — أربع أسئلة تجاوبها أول',
     },
     {
+      click: 'role=button:أطلق حملة',
       say: 'أول سؤال: ليش تطلقها الحين؟',
     },
     {
-      click: 'role=radio:حملاتي',
-      say: 'كل هدف هنا جوابه مختلف على «ليش الحين»',
-    },
-    {
-      click: 'role=button:أطلق حملة',
+      chapter: 'اختر الهدف المناسب لا المناسبة',
+      hover: 'role=button:رجّع اللي غابوا',
       say: 'رجّع اللي غابوا يشتغل وحده — ما تطلقه أنت',
     },
     {
-      chapter: 'اختر الهدف المناسب لا المناسبة',
       hover: 'role=button:أعلن جديدك',
       say: 'أعلن جديدك وحده يوصل الكل بلا شرط',
     },
@@ -94,9 +112,11 @@ export default {
     },
     {
       chapter: 'الجمهور — على مستوى المحل كله',
+      hover: 'role=button:رجّع اللي غابوا',
       say: 'ثاني سؤال: مين يوصله؟',
     },
     {
+      hover: 'role=button:رجّع اللي غابوا',
       say: 'وهذا يقرره الهدف، لا أنت',
     },
     {
@@ -109,7 +129,12 @@ export default {
       say: 'بكل فروعه — فرع واحد لو اخترته أنت بنفسك',
     },
     {
+      // NOT A CLICK. Every goal on this tenant is still template-locked (`available: false` —
+      // confirmed live against `campaigns.goals`, same fact the header comment states), so a
+      // click here just times out on a disabled button. A hover marks the same card without
+      // depending on it being pressable.
       chapter: 'رسالة جيدة مقابل رسالة ضعيفة',
+      hover: 'role=button:أعلن جديدك',
       say: 'ثالث سؤال: شو تكتب؟',
     },
     {
@@ -135,10 +160,10 @@ export default {
     },
     {
       chapter: 'التوقيت والسقف اليومي',
+      click: 'role=radio:متى نرسل',
       say: 'رابع سؤال: أي وقت؟',
     },
     {
-      click: 'role=radio:متى نرسل',
       say: 'ارجع لـ«متى نرسل» — فيه رسائل تسويقية',
     },
     {
