@@ -130,6 +130,14 @@ mapfile -t targets < <(ls "$VALUES_DIR"/*.values.yaml 2>/dev/null | xargs -r -n1
 prepull() {
   command -v k3s >/dev/null 2>&1 || return 0
   local cred=""
+  # `|| true` — THIS COMMENT PROMISED "failure here is not fatal" AND THE CODE DID NOT KEEP THAT
+  # PROMISE. `kubectl get secret ghcr` failing (the secret was simply missing from the namespace,
+  # a real state hit live) makes the whole pipeline exit non-zero; under this script's own
+  # `set -Eeuo pipefail`, an unguarded assignment from a failing command substitution is fatal —
+  # so the entire rollout died right here, silently, before the per-service loop ever printed a
+  # line, on EVERY ship for as long as the secret was missing. `cred` staying empty is already
+  # the correct, handled case two lines below (falls through to an anonymous pull); this only
+  # needed to stop being allowed to kill the script over it.
   cred="$(kubectl -n "$NS" get secret ghcr -o jsonpath='{.data.\.dockerconfigjson}' 2>/dev/null \
           | base64 -d 2>/dev/null \
           | python3 -c 'import sys,json,base64
@@ -137,7 +145,7 @@ try:
     d = json.load(sys.stdin)["auths"]
     print(base64.b64decode(d[list(d)[0]].get("auth","")).decode())
 except Exception:
-    pass' 2>/dev/null)"
+    pass' 2>/dev/null)" || true
 
   local pulled=0 pids=()
   for svc in "${targets[@]}"; do
