@@ -160,8 +160,8 @@ function AffiliatesSection({ stats, leaderboard }: {
       {leaderboard.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {leaderboard.map((r, i) => (
-            <li key={r.affiliateId} className="flex items-center justify-between gap-2 rounded-input border border-border-subtle p-2 text-sm">
-              <span className="font-medium">{i + 1}. {r.name || r.affiliateId}</span>
+            <li key={r.affiliateId} className="flex flex-wrap items-center justify-between gap-2 rounded-input border border-border-subtle p-2 text-sm">
+              <span className="min-w-0 break-words font-medium">{i + 1}. {r.name || r.affiliateId}</span>
               <span className="text-text-secondary">
                 {r.totalReferrals} إحالة · احتفاظ {Math.round(r.retentionRate * 100)}٪
               </span>

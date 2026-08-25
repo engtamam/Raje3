@@ -112,11 +112,11 @@ describe('AdminTeam', () => {
     await waitFor(() => expect(screen.getByText('لا أعضاء بفريق الإدارة بعد')).toBeTruthy());
 
     fireEvent.click(screen.getByText('دعوة عضو'));
-    fireEvent.change(await screen.findByLabelText('البريد الإلكتروني'), { target: { value: 'new@raje3.sa' } });
+    fireEvent.change(await screen.findByLabelText('رقم جوال العضو'), { target: { value: '0500000905' } });
     fireEvent.click(screen.getByText('دعوة'));
 
     await waitFor(() => expect(reqMock).toHaveBeenCalledWith(
-      '/api/v1/tenancy/members', 'POST', { identifier: 'new@raje3.sa', roles: [] }, 'tok-1',
+      '/api/v1/tenancy/members', 'POST', { identifier: '0500000905', roles: [] }, 'tok-1',
     ));
     await waitFor(() => expect(screen.getByText('inv_abc123')).toBeTruthy());
   });

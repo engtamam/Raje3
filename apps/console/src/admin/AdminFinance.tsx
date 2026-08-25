@@ -342,8 +342,8 @@ function SettlementsDialog({ session, listAction, canReverse, invoice, onClose, 
         ) : (
           <ul className="flex flex-col gap-2">
             {rows.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2 rounded-input border border-border-subtle p-2 text-sm">
-                <span>{s.method} — {s.reference} — {riyalsLabel(s.amount_minor)}</span>
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-input border border-border-subtle p-2 text-sm">
+                <span className="min-w-0 break-words">{s.method} — {s.reference} — {riyalsLabel(s.amount_minor)}</span>
                 {canReverse ? (
                   <Button type="button" size="sm" variant="ghost" onClick={() => onRequestReverse(s)}>عكس</Button>
                 ) : null}

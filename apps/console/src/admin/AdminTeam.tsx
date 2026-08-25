@@ -227,8 +227,12 @@ function AddMemberDialog({ session, action, open, onClose, onAdded }: {
       ) : (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-label font-medium text-text-secondary">البريد الإلكتروني</span>
-            <Input dir="ltr" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
+            {/* PHONE, NOT EMAIL — every account on this platform (including this one's own
+             *  seed-admin.sh) is identified by phone number; this used to say "email" while
+             *  sending the exact same phone-shaped identifier every login door already expects. */}
+            <span className="text-label font-medium text-text-secondary">رقم جوال العضو</span>
+            <Input dir="ltr" type="tel" inputMode="tel" placeholder="05XXXXXXXX"
+                  value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </label>
           <div className="flex flex-col gap-2">
             {PLATFORM_ROLES.map((r) => (
