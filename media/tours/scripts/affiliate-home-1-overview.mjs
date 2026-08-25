@@ -18,25 +18,37 @@
  * real form, the same door any marketer actually uses, rather than borrowing the shop's demo
  * session mechanism, which cannot hold this portal's token shape at all.
  *
- * THE DEMO ACCOUNT — A FRESHLY APPROVED MANAGER, VERIFIED LIVE BY A REAL `/me/home` READ BEFORE
- * THIS SCRIPT WAS FINALIZED, NOT ASSUMED. `سارة المسوّقة` applied and was approved through the
- * real `/api/v1/affiliates/apply` → admin `/approve` path (the same one `onboarding.py` documents
- * — no shortcut, no invented row), with one promoter approved under her referral code so
- * `team.member_count` reads 1, not a fabricated fleet. Every OTHER widget on her home screen reads
- * a genuine, honest zero: no payout method set yet, no lead ever searched, no ticket ever opened,
- * no template ever used, both eligibility meters at their real starting line. AffiliateHome.tsx's
- * own module comment calls this exact shape "the common case, not the edge case" — a day-one
- * screen has to read honestly at zero, and this clip narrates it exactly that way: the widgets
- * that have nothing to show are SPOKEN OVER, never clicked, the same discipline messages-1's own
- * WhatsApp-ceiling line already set for a control that genuinely is not there on its own demo
- * account.
+ * THE DEMO ACCOUNT — `سارة المسوّقة` (0549900110), applied and approved through the real
+ * `/api/v1/affiliates/apply` → admin `/approve` path, the same as ever. Originally left at a
+ * genuine day-one zero on purpose; re-seeded by `media/tours/seed-affiliate-rich-demo.mjs`
+ * (real `/api/v1/signup` per referred shop, real `apply()`/`approve()` per team member, real
+ * tickets) once that empty-state clip had done its job and a SECOND clip narrating a busy,
+ * populated marketer became the more useful one to have. Every number this clip speaks over is
+ * real and earned through those same calls — never hand-typed to match a screenshot — so no
+ * script step below matches an exact count (a re-seed changes it); only the stable widget labels
+ * are selected on, same discipline affiliate-earnings-1-overview.mjs's own header already set.
+ *
+ * PREVIOUSLY BROKEN LOGIN, FIXED HERE. This step used to type a phone/password
+ * (`+966555010001` / `DemoTour2026x!`) that exists nowhere else in this whole seed-* family — no
+ * script ever created that account, so this clip's own sign-in step could never have succeeded
+ * against a real backend. Replaced with the same `PHONE`/`PASSWORD` constants every sibling
+ * affiliate-*.mjs script already uses for her.
  */
+const PHONE = '0549900110';
+const PASSWORD = 'Raje3-Affiliate-Tour!1';
 export default {
   id: 'affiliate-home-1-overview',
   title: 'الرئيسية 1 — فهم شاشة بوابة المسوّق كاملة',
-  section: 'الرئيسية', // AffiliateNav.tsx's own tab label
+  // UNIFIED ACROSS EVERY affiliate-*.mjs SCRIPT — see affiliate-account-1-overview.mjs's own note.
+  section: 'منصة المسوّقين',
   useDemoSession: false, // a separate door, a separate session key — see this file's own header
   skipAutoSignIn: true,  // the sign-in itself is this clip's own first real beat, not hidden setup
+  // A REAL RECORDING CAUGHT FRAME 1 AS BLANK WHITE — the bundle loading before React's first
+  // paint, the exact bug affiliate-earnings-1-overview.mjs's own `preload` comment already
+  // documents. The door itself, not a blank page, is still meant to be this clip's own first
+  // beat — `preload: true` performs step 0's own `goto` before capture starts and waits for the
+  // page to settle, so frame 1 is the door already drawn, never a blank white paint.
+  preload: true,
   sfx: true, // real clicks throughout (sign-in, every widget) — earns a click sound
   steps: [
     {
@@ -53,12 +65,12 @@ export default {
     },
     {
       type: 'label=رقم الجوال',
-      text: '+966555010001',
+      text: PHONE,
       say: 'يكتب رقم جواله',
     },
     {
       type: 'label=كلمة المرور',
-      text: 'DemoTour2026x!',
+      text: PASSWORD,
       say: 'وكلمة مروره',
     },
     {
@@ -94,7 +106,7 @@ export default {
     {
       say: 'وما تظهر «كله تمام» بدلها — صمتها هو الرسالة',
     },
-    // ── تذاكر المحلات — نفس المبدأ، غائبة لأنه ما فتح تذكرة بعد ─────────────────────────────────
+    // ── تذاكر المحلات — still absent: none of her referred shops granted her write consent ───────
     {
       say: 'وتحتها بانر تذاكر المحلات المفتوحة',
     },
@@ -146,9 +158,12 @@ export default {
       say: 'أساس الترشّح لوظيفة عندنا',
     },
     {
-      say: 'حسابه جديد، فالمقياسان على بدايتهما الحقيقية',
+      say: 'ومع محلاتها الكثيرة، شريط «الوفاء» يتقدّم فعلاً',
     },
-    // ── أفضل قالب — غائب لعدم وجود أي استخدام بعد ───────────────────────────────────────────────
+    {
+      say: 'مو صفر هالمرة',
+    },
+    // ── أفضل قالب — غائب: هي شخصياً ما استخدمت قالباً بعد، حتى لو فريقها نشيط ───────────────────
     {
       say: 'وكان بينزل هنا أفضل قالب يشتغل معه',
     },
@@ -156,24 +171,33 @@ export default {
       say: 'لو استخدم قالباً ولو مرة',
     },
     {
-      say: 'ما استخدم قالباً بعد، فالبطاقة غائبة',
+      say: 'هي شخصياً ما استخدمت قالباً بعد، فالبطاقة غائبة',
     },
-    // ── فريقه — يظهر فقط للمدير، وعنده فرد واحد فعلي الآن ────────────────────────────────────────
+    {
+      say: 'حتى لو فريقها نشيط تحتها',
+    },
+    // ── فريقه — يظهر فقط للمدير، وعنده فريق حقيقي متفاوت الأداء الآن ─────────────────────────────
     {
       click: 'text=فريقك',
-      chapter: 'فريقه',
+      chapter: 'فريقها',
       say: 'تظهر لمدير التسويق بس — مسوّقون تحته يتابعهم',
     },
     {
       click: 'text=عدد الفريق',
-      say: 'عدد من ضمّهم لفريقه حتى الآن',
+      say: 'عدد من ضمّتهم لفريقها حتى الآن — أكثر من واحد',
     },
     {
       click: 'text=إيراد مؤكَّد',
-      say: 'وإيراد فريقه المؤكَّد مجموعاً، لا فرد فرد',
+      say: 'وإيراد فريقها المؤكَّد مجموعاً، لا فرد فرد',
     },
     {
-      say: 'ولو عنده قرار وفاء ينتظره، بادج أحمر يذكّره هنا',
+      say: 'أداؤهم متفاوت فعلاً',
+    },
+    {
+      say: 'بعضهم أحال عشرات المحلات، وبعضهم بدأ للتو',
+    },
+    {
+      say: 'ولو عندها قرار وفاء ينتظرها، بادج أحمر يذكّرها هنا',
     },
     // ── رابطه: الأداة الفعلية للتجنيد ────────────────────────────────────────────────────────────
     {
@@ -211,7 +235,7 @@ export default {
       say: 'من ينتظره، رصيده، برنامجاه، فريقه، ورابطه',
     },
     {
-      say: 'شاشة يوم واحد صادقة — كل رقم فيها حقيقي',
+      say: 'مسوّقة شغّالة فعلاً — كل رقم فيها حقيقي، لا معروض',
     },
   ],
 };

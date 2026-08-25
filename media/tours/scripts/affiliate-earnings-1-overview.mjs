@@ -20,15 +20,17 @@
  * `Raje3-Affiliate-Tour!1` is not a secret worth protecting either — no real referral, no real
  * money behind it.
  *
- * EMPTY-STATE-FIRST, ON PURPOSE, NOT A RECORDING SHORTCUT. This account has zero referred shops,
- * zero commissions, zero withdrawals — the exact state AffiliateEarnings.tsx's own header
- * comment says was checked against the live server and is the honest common case. So every
- * screen this tour shows is the REAL empty state a brand-new marketer actually sees, not a
- * seeded fiction of one — the balance hero renders an honest "0 ريال", «دعم الوفاء» and
- * «رشّح نفسك لوظيفة» both show real progress bars at zero, and both ledgers show their real
- * EmptyState copy. Nothing here is staged data; it is what the screen actually does with nothing
- * yet behind it, which is worth narrating exactly because a first-day marketer is who watches
- * this the most.
+ * RE-SEEDED PAST THE DAY-ONE EMPTY STATE (see `media/tours/seed-affiliate-rich-demo.mjs`) —
+ * hundreds of real referred shops now, a real team, real tickets. Two things stay a genuine zero
+ * even so, and this clip says exactly why rather than pretending otherwise: the commission and
+ * withdrawal LEDGERS, because CommissionEngine.sync() only ever creates a row from
+ * billing-service's own paid-invoice history, and no billing-service is reachable from this dev
+ * cluster (checked directly — `BILLING_SERVICE_URL` is blank everywhere it's read). A referred
+ * shop existing is real; that shop's first invoice being PAID is a fact only a real billing
+ * integration can produce, and this deployment has none. So the balance hero, both ledgers, still
+ * render their honest zero/EmptyState — but «دعم الوفاء»'s progress bar and its retention/refund
+ * figures are no longer at their starting line, because those read off REFERRAL counts and
+ * shared-ticket KPIs, not paid invoices, and both are real and populated now.
  *
  * SELECTORS ARE STABLE LABELS, NEVER A LIVE NUMBER — «رصيدك الجاهز للسحب», «برنامج دعم الوفاء»,
  * «رشّح نفسك لوظيفة», «سجل العمولات», «سجل السحوبات» are all fixed strings the component always
@@ -42,7 +44,8 @@ const PASSWORD = 'Raje3-Affiliate-Tour!1';
 export default {
   id: 'affiliate-earnings-1-overview',
   title: 'أرباحي — الرصيد ودعم الوفاء وسجل العمولات كاملة',
-  section: 'أرباحي',
+  // UNIFIED ACROSS EVERY affiliate-*.mjs SCRIPT — see affiliate-account-1-overview.mjs's own note.
+  section: 'منصة المسوّقين',
   skipAutoSignIn: true,
   // THE FIRST FRAME MUST ALREADY SHOW THE DOOR, NOT A BLANK WHITE PAINT WHILE THE APP BOOTS — a
   // real recording caught frame 0 white for ~9 frames (the bundle loading before React's first
@@ -91,10 +94,13 @@ export default {
       say: 'رقم واحد بس — ما يتزاحم مع أي رقم ثاني',
     },
     {
-      say: 'حساب جديد بلا محلات محالة، فالرصيد صفر',
+      say: 'مع كل محلاتها المحالة، رصيدها لسه صفر',
     },
     {
-      say: 'صريح — لا رقم مزيّف مكانه',
+      say: 'مو لأنها ما جابت شي',
+    },
+    {
+      say: 'بس ما فيه اشتراك مدفوع حقيقي يفعّل العمولة بعد',
     },
     {
       say: 'وتحته: كم يتبقى بالضبط لتقدر تسحب',
@@ -129,25 +135,31 @@ export default {
       say: 'ومحلات نشِطة كم من كم بالضبط',
     },
     {
-      say: 'وحساب جديد يبدأ من صفر — الشريط فاضي',
+      say: 'ومع محلاتها الكثيرة، الشريط يتقدّم فعلاً — مو فاضي',
     },
     {
-      say: 'والجملة تحته توضّح كم محل ينقصك',
+      say: 'والجملة تحته توضّح كم محل ينقصها للعتبة القادمة',
     },
     {
-      say: 'وتحتها أداؤك أنت: الاحتفاظ والاسترجاع',
+      say: 'وتحتها أداؤها هي: الاحتفاظ والاسترجاع',
     },
     {
-      say: 'وبلا عملاء محالين، تطلع شرطة لا نسبة',
+      say: 'ومع هالعدد من المحلات المحالة، النسب صارت حقيقية',
     },
     {
-      say: 'نسبة بلا بيانات وراءها كذب — والشرطة صدق',
+      say: 'لا شرطة فاضية هالمرة',
     },
     {
-      say: 'ومؤشرات دعم لو محل شارك تذاكره معك',
+      say: 'نسبة مبنية على بيانات فعلية الآن',
     },
     {
-      say: 'وحسابك الجديد لسه ما وصله شي',
+      say: 'ومؤشرات دعم من المحلات اللي شاركت تذاكرها معها',
+    },
+    {
+      say: 'ما وصلها بعد إذن كتابة على تذاكر أي محل',
+    },
+    {
+      say: 'فهذي لسه غائبة',
     },
 
     // ── رشّح نفسك لوظيفة ────────────────────────────────────────────────────────────────────

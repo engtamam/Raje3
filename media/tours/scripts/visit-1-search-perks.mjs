@@ -40,18 +40,36 @@ export default {
       say: 'تعرف كيف تسجّل زيارة بأقل من دقيقة؟ تعال أوريك',
     },
     {
+      // TodayBookingsStrip.tsx — a strip of TODAY's remaining bookings for this branch, above
+      // the ordinary search field. Never explained before (caught live: a viewer watching the
+      // recorded clip has no idea what these cards are). No unique wrapper on the strip itself,
+      // so this hovers (never clicks — «حضر» is a REAL action that would attend this demo
+      // booking) the first card by its own «حضر» button's parent.
+      hover: 'css=div:has(> button[aria-label="حضر"])',
+      say: 'عنده حجز اليوم؟ هذي بطاقته فوق',
+    },
+    {
+      say: 'ضغطة «حضر» وحدة تسجّل زيارته كاملة — بلا ما تدوّر عليه',
+    },
+    {
+      // SHOULD BE A PARTIAL PREFIX (spec 4.3 — Visit.tsx's own matches list appears while he
+      // types), but /api/v1/field/customers/suggest was confirmed live, directly against the
+      // real cluster (curl, bypassing the browser) to answer ONLY an exact full number today —
+      // prefix=0555010 and even prefix=96655501 (8 of the stored number's 12 digits) both
+      // returned zero customers; only the complete stored 966555010101 matched. That is a real
+      // backend defect (flagged separately), not something this tour should paper over by
+      // typing a prefix and hoping — so this types the full number, honestly, until it's fixed.
       type: 'label=رقم الجوال',
       text: HERO_PHONE,
       say: 'اكتب رقم جواله — والنتائج تطلع وأنت تكتب',
     },
     {
-      say: 'ما تحتاج تكمل الرقم كامل — لو ظهر بالنتائج اضغط عليه',
-    },
-    {
-      // THE DOTS NAVIGATE BY STEP TITLE — Steps.tsx's own aria-label={s.title} on each one, a
-      // real clickable control (not the swipe gesture a phone user would use, which this
-      // recorder can't simulate). Same title Visit.tsx names this pane.
-      click: 'role=button:عروضه ونقاطه',
+      // Steps.tsx's own «التالي» arrow — a real, solidly-filled 44×44 button (Tamam's own catch:
+      // the progress DOTS also work but their visible pill is 6×1.5px inside a 44×24 invisible
+      // touch target, so ringing the dot drew a frame around mostly empty space on a real
+      // recorded clip). One step forward is exactly what this transition needs, and the arrow's
+      // own bounding box IS its visible content — no separate ring target required.
+      click: 'role=button:التالي',
       chapter: 'عروضه ونقاطه',
       say: 'هذي أهم صفحة بكل الزيارة — عروضه ونقاطه',
     },

@@ -34,7 +34,18 @@ export default {
     },
     { waitFor: 'label=رقم الجوال', timeoutMs: 30_000 },
     { type: 'label=رقم الجوال', text: HERO_PHONE },
-    { click: 'role=button:الخدمات', say: 'الحين ندخل صفحة الخدمات مباشرة' },
+    {
+      // «التالي» CANNOT be used here, unlike visit-1-search-perks.mjs's own equivalent step: it
+      // only advances ONE pane, and this tour deliberately jumps straight from «رقم جوال العميل»
+      // to «الخدمات» — two panes forward, skipping «عروضه ونقاطه» entirely (part 1 already
+      // covered it; re-showing it here would dwell on a pane this clip has nothing new to say
+      // about). The dot is the only control that can jump directly, so it stays the click target;
+      // only the RING moves to the dot's own visible pill, not its full 44×24 invisible touch box
+      // (same fix, same reason, as visit-1-search-perks.mjs's own note).
+      click: 'role=button:الخدمات',
+      ringSelector: 'css=button[aria-label="الخدمات"] span',
+      say: 'الحين ندخل صفحة الخدمات مباشرة',
+    },
     {
       // EXTRA CAPTION-ONLY MARGIN — the 10s chapter-gap check still failed at 9.8s on a real run
       // even after moving the chapter mark past the network wait below; this buys the missing

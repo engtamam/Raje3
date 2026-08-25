@@ -470,8 +470,18 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     // printing its time, a row tinting — and the ring already says which element that is. The
     // fingertip stays for gestures that TRAVEL: a scroll swipe, a card being dragged.
     if (step.hover) await movePointerTo(page, locator, { draw: false });
-    const box = await stableBoundingBox(locator);
-    if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
+    // SOME REAL TARGETS ARE THE WRONG THING TO DRAW A RING AROUND, EVEN THOUGH THEY ARE THE RIGHT
+    // THING TO CLICK. Steps.tsx's own progress dots are the concrete case: `aria-label={s.title}`
+    // sits on a 44×24px button (a real touch target, deliberately oversized for a thumb), but the
+    // VISIBLE dot inside it is a 6×1.5px pill — spotlighting the button's own boundingBox() draws
+    // an 8px-padded ring around mostly empty space with a barely-visible sliver inside, which a
+    // real recording showed reading as "the ring is on the wrong thing" (تسجيل الزيارة's own step
+    // navigation, caught live). `ringSelector` lets a step click one element and ring a DIFFERENT
+    // one — the visible content inside it — without touching overlay.mjs, which stays screen-
+    // agnostic; every other step is unaffected since this is opt-in.
+    const ringLocator = step.ringSelector ? locate(page, step.ringSelector).first() : locator;
+    const box = await stableBoundingBox(ringLocator);
+    if (!box) throw new Error(`step ${index + 1}: selector "${step.ringSelector ?? target}" resolved to nothing visible`);
     // NO FINGERTIP DOT ON A CLICK TARGET — tried, then dropped on a real screenshot: the dot's
     // own glow sat exactly over a short button's label and covered the very text the frame was
     // drawn to highlight ("الضغطة تغطي الكلام… يكفي التحديد" — the press covers the words, the
