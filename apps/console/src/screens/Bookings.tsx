@@ -759,9 +759,17 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                     style={{ background: 'var(--rj-surface)', border: '1px solid var(--rj-line)' }}>
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>جوّال العميل</span>
+                    {/* PICKING A CUSTOMER CLOSES THIS PANEL, unlike every other control in it. A
+                        service or a payment chip NARROWS the board he can already see behind the
+                        popover, so staying open to pick a second one is right. A phone number does
+                        something else entirely: it replaces the whole screen underneath with that
+                        customer's own cross-date history — and on a phone this panel is wide enough
+                        to cover the «القادمة»/«السابقة» toggle and the first rows of that answer, so
+                        the one act whose result he asked for was the one act whose result he could
+                        not see until he dismissed the panel by hand. */}
                     <PhoneLookup phoneQuery={phoneQuery} setPhoneQuery={setPhoneQuery}
                                 phoneMatches={phoneMatches} filterCustomer={filterCustomer}
-                                setFilterCustomer={setFilterCustomer} full />
+                                setFilterCustomer={(c) => { setFilterCustomer(c); if (c) setFiltersOpen(false); }} full />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: 'var(--rj-ink-soft)' }}>الخدمة</span>

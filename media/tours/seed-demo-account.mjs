@@ -48,7 +48,14 @@ const CREDENTIALS_FILE = join(HERE, '.demo-credentials.json');
 
 const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
 const BASE_URL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
-const API = BASE_URL.replace(/\/app\/?$/, ''); // the app is served under /app/, the API is at the root
+// THE APP IS SERVED UNDER /app/, THE API AT THE ROOT — and the root must carry NO trailing slash
+// of its own, because every call below builds its URL as `${API}${path}` with `path` already
+// starting with one. A `CONSOLE` given as a bare origin (`http://host:5173`, which is exactly how
+// a tunnel is usually named) is the case that breaks: the `/app/` strip finds nothing to remove,
+// BASE_URL's own trailing slash survives, and every request goes to `//api/v1/…` — a path the
+// gateway answers 404 to, which reads as "this account has no catalogue" rather than "the URL has
+// two slashes in it" (a full seeding run was lost to exactly that reading).
+const API = BASE_URL.replace(/\/app\/?$/, '').replace(/\/$/, '');
 
 const N_CUSTOMERS = Number(process.env.CUSTOMERS ?? 1000);
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 12);
@@ -145,6 +152,8 @@ async function main() {
     const onlyBranch = await getBranchId(session, act);
     await seedWeekBoard(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     await seedDenseDay(session, onlyBranch, [operatorId, ...extraOperatorIds]);
+    await seedTouchMoveCard(session, onlyBranch, [operatorId, ...extraOperatorIds]);
+    await seedHeroBookings(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     console.log('✔ bookings board refreshed');
     return;
   }
@@ -166,6 +175,8 @@ async function main() {
   await seedBookings(session, serviceIds, [operatorId, ...extraOperatorIds], branchId);
   await seedWeekBoard(session, branchId, [operatorId, ...extraOperatorIds]);
   await seedDenseDay(session, branchId, [operatorId, ...extraOperatorIds]);
+  await seedTouchMoveCard(session, branchId, [operatorId, ...extraOperatorIds]);
+  await seedHeroBookings(session, branchId, [operatorId, ...extraOperatorIds]);
   console.log('  ✔ bookings seeded');
 
   console.log('✔ demo account ready');
@@ -734,6 +745,11 @@ async function seedDenseDay(session, branchId, operatorIds) {
   for (const [i, operator] of staff.entries()) {
     const pool = poolFor(operator.name || '');
     if (pool.length === 0) continue;
+    // ONE COLUMN'S LAST NINETY MINUTES ARE NOT THIS PASS'S TO FILL — they belong to
+    // `seedTouchMoveCard` below, which needs a still-booked card with real room behind it for the
+    // mobile clip's long-press reschedule. Reserved here rather than cleaned up afterwards, so the
+    // day is laid out right the first time instead of being cancelled back open.
+    const closeHere = (operator.name || '').includes(TOUR_OPERATOR_NAME) ? close - TOUR_TAIL_MINUTES : close;
     const mine = busy.get(operator.id) ?? [];
     // STAGGERED STARTS — three columns all beginning on the hour reads as generated data.
     let minute = open + i * 45;
@@ -742,10 +758,10 @@ async function seedDenseDay(session, branchId, operatorIds) {
     // with a few existing bookings in it exhausted its own iteration budget on collisions and
     // stopped filling less than half way down the day.
     let k = 0;
-    while (minute + 30 <= close && k < 14) {
+    while (minute + 30 <= closeHere && k < 14) {
       const service = pool[(i + k) % pool.length];
       const end = minute + service.duration_minutes;
-      if (end > close) break;
+      if (end > closeHere) break;
       if (mine.some(([s, e]) => minute < e && s < end)) { minute += 15; continue; }
       k += 1;
 
@@ -779,6 +795,152 @@ async function seedDenseDay(session, branchId, operatorIds) {
     }
   }
   console.log(`  ✔ today (${date}): ${created} more booking(s) across ${staff.length} staff`);
+}
+
+// ── one appointment kept movable, on purpose ─────────────────────────────────────────────────
+//
+// WHAT THE TOUCH RESCHEDULE ACTUALLY NEEDS, AND WHY THE DENSE BOARD CANNOT PROVIDE IT. The mobile
+// clip's own subject is a long press on a card followed by a tap on an empty quarter-hour — so it
+// needs a card that is (a) still «محجوز», which on a real board means its time has not passed yet,
+// and (b) followed by a run of empty quarter-hours long enough to actually hold it. `seedDenseDay`
+// fills each column from opening forward and closes out everything already over, so by late
+// afternoon every remaining booked card is a long evening one wedged between its neighbours: the
+// clip's own gesture had nowhere to land, and the card it aimed at was `draggable="false"` because
+// the day had moved on past it (found by recording, not by reading).
+//
+// SO THE LAST NINETY MINUTES OF ONE OPERATOR'S DAY ARE RESERVED. `seedDenseDay` stops short of
+// them for her alone, and this places one short appointment at the head of that window, leaving
+// the hour behind it genuinely empty. Everything else on the board is untouched — this is one
+// column's last hour and a half, not a hole in the day.
+const TOUR_OPERATOR_NAME = 'موظفة الاستقبال';
+const TOUR_TAIL_MINUTES = 90;
+const TOUR_MOVE_SERVICE = 'قص شعر';
+
+async function seedTouchMoveCard(session, branchId, operatorIds) {
+  if (!branchId || !operatorIds?.length) return;
+  const [{ services = [] }, staffAnswer, hoursAnswer] = await Promise.all([
+    callAction(session, CATALOGUE).catch(() => ({ services: [] })),
+    callAction(session, LIST_STAFF).catch(() => ({ operators: [] })),
+    callAction(session, { path: '/api/v1/bookings/working-hours', method: 'GET' }).catch(() => ({ weekly: {} })),
+  ]);
+  const operator = (staffAnswer.operators ?? [])
+    .filter((o) => operatorIds.includes(o.id))
+    .find((o) => (o.name || '').includes(TOUR_OPERATOR_NAME));
+  if (!operator) return;
+
+  const date = riyadhToday();
+  const jsDay = new Date(`${date}T00:00:00Z`).getUTCDay();
+  const hours = hoursAnswer.weekly?.[String((jsDay + 6) % 7)];
+  if (hours?.closed) return;
+  const close = hours?.end_minute ?? 1320;
+  const start = close - TOUR_TAIL_MINUTES;
+  const service = services.find((s) => s.name === TOUR_MOVE_SERVICE && s.duration_minutes > 0)
+    ?? services.find((s) => s.duration_minutes > 0 && s.duration_minutes <= 30);
+  if (!service) return;
+  // A TAIL THAT IS TRULY EMPTY, NOT ONE THAT HAPPENS TO BE. Earlier runs of this same script (and
+  // the dense pass before it learned to stop short) can already have filled these ninety minutes;
+  // whatever is in them is cancelled through the real cancel route, the same act a receptionist
+  // performs, rather than left to collide with what goes in next.
+  const midnight = epochAtRiyadh(date, 0);
+  const existing = await callAction(session, LIST_BOOKINGS(branchId, date)).catch(() => ({ bookings: [] }));
+  for (const b of existing.bookings ?? []) {
+    if (b.status === 'cancelled' || b.operator_id !== operator.id) continue;
+    const s = Math.round((b.starts_at - midnight) / 60);
+    if (s + b.duration_minutes > start && s < close) {
+      if (b.starts_at === epochAtRiyadh(date, start) && b.status === 'booked'
+          && b.duration_minutes === service.duration_minutes) return;   // already exactly this one
+      await callAction(session, CANCEL_BOOKING(b.id)).catch(() => {});
+    }
+  }
+
+  const phone = randomPhone();
+  const ensured = await callAction(session, ENSURE_CUSTOMER, { phone, name: randomName() }).catch(() => ({}));
+  const customerId = ensured.customer?.id;
+  if (!customerId) return;
+  const booking = await callAction(session, CREATE_BOOKING, {
+    branch_id: branchId, operator_id: operator.id, customer_id: customerId,
+    service_ids: [service.id], starts_at: epochAtRiyadh(date, start),
+    payment_status: 'deposit', deposit_amount_minor: 5000,
+  }).catch(() => null);
+  console.log(booking?.id
+    ? `  ✔ movable card at ${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')} for ${operator.name}, ${TOUR_TAIL_MINUTES - service.duration_minutes} free minutes behind it`
+    : '  · movable card not created');
+}
+
+// ── the hero customer's OWN appointments ─────────────────────────────────────────────────────
+//
+// WHY SHE NEEDS ANY. Every booking `seedWeekBoard`/`seedDenseDay` create belongs to a customer
+// with a RANDOM phone — deliberately, so the board looks like a real day rather than one person's
+// diary. But the screen's phone lookup is a lookup: you type a number, and it answers with that
+// customer's own appointments across every date and branch. Filmed against a board of random
+// numbers there is nothing typeable on camera, and the one memorable number in this whole file
+// (HERO_PHONE, «عميلة العرض») had bookings only by accident — a clip searching for her showed
+// «ما عندها أي موعد قادم», which demonstrates the empty state, not the feature.
+//
+// SPREAD ACROSS SEVERAL DAYS ON PURPOSE — the lookup's whole point is that it is NOT the day
+// currently on the board, so an answer that happens to be entirely today would prove nothing.
+// Her PAST half needs no seeding at all: `seedHeroCustomer`'s forty real visits are already the
+// «السابقة» tab's own merged timeline.
+const HERO_BOOKING_DAYS = [1, 3, 6];
+
+async function seedHeroBookings(session, branchId, operatorIds) {
+  if (!branchId || !operatorIds?.length) return;
+  const [{ services = [] }, staffAnswer, hoursAnswer] = await Promise.all([
+    callAction(session, CATALOGUE).catch(() => ({ services: [] })),
+    callAction(session, LIST_STAFF).catch(() => ({ operators: [] })),
+    callAction(session, { path: '/api/v1/bookings/working-hours', method: 'GET' }).catch(() => ({ weekly: {} })),
+  ]);
+  const staff = (staffAnswer.operators ?? []).filter((o) => operatorIds.includes(o.id));
+  if (staff.length === 0 || services.length === 0) return;
+
+  const ensured = await callAction(session, ENSURE_CUSTOMER, { phone: HERO_PHONE, name: HERO_NAME })
+    .catch(() => ({}));
+  const customerId = ensured.customer?.id;
+  if (!customerId) { console.log('  · hero customer unresolvable — skipping her bookings'); return; }
+
+  const today = riyadhToday();
+  let created = 0;
+  for (const [i, delta] of HERO_BOOKING_DAYS.entries()) {
+    const date = addDaysStr(today, delta);
+    const jsDay = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const hours = hoursAnswer.weekly?.[String((jsDay + 6) % 7)];
+    if (hours?.closed) continue;
+    const open = hours?.start_minute ?? 480;
+    const close = hours?.end_minute ?? 1320;
+
+    const existing = await callAction(session, LIST_BOOKINGS(branchId, date)).catch(() => ({ bookings: [] }));
+    const live = (existing.bookings ?? []).filter((b) => b.status !== 'cancelled');
+    // ALREADY HERS, ALREADY THERE — this script is re-run before every recording, and a second
+    // appointment a day for the same woman would pile up into a diary no salon would produce.
+    if (live.some((b) => b.customer_id === customerId)) continue;
+
+    const operator = staff[i % staff.length];
+    const service = services.find((s) => s.name === (['قص شعر', 'مانيكير', 'تنظيف بشرة عميق'][i % 3]))
+      ?? services.find((s) => s.duration_minutes > 0);
+    if (!service) continue;
+    const busy = live.filter((b) => b.operator_id === operator.id).map((b) => {
+      const start = Math.round((b.starts_at - epochAtRiyadh(date, 0)) / 60);
+      return [start, start + b.duration_minutes];
+    });
+    // THE FIRST QUARTER-HOUR THAT ACTUALLY FITS, walked from opening — never a fixed hour, which
+    // would collide with whatever the dense pass already put in that column and be refused by the
+    // server's own conflict lock (a silent nothing, since this catches its own failure).
+    let minute = open + 60;
+    while (minute + service.duration_minutes <= close
+           && busy.some(([s, e]) => minute < e && s < minute + service.duration_minutes)) {
+      minute += 15;
+    }
+    if (minute + service.duration_minutes > close) continue;
+
+    const booking = await callAction(session, CREATE_BOOKING, {
+      branch_id: branchId, operator_id: operator.id, customer_id: customerId,
+      service_ids: [service.id], starts_at: epochAtRiyadh(date, minute),
+      payment_status: i === 0 ? 'deposit' : 'none',
+      deposit_amount_minor: i === 0 ? 5000 : undefined,
+    }).catch(() => null);
+    if (booking?.id) created += 1;
+  }
+  console.log(`  ✔ hero customer (${HERO_PHONE}): ${created} upcoming booking(s)`);
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

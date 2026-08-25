@@ -172,8 +172,16 @@ export function installOverlay(cfg) {
    * this exact element under its exact real conditions and then reading back what it did removes
    * the gap by construction — there is nothing left to disagree with.
    */
-  async function say(text) {
+  async function say(text, atTop) {
     if (!text) { caption.style.opacity = '0'; return true; }
+    // THE BAR MOVES OUT OF THE WAY WHEN THE SCREEN'S OWN CONTENT IS DOWN THERE. A phone's action
+    // sheet rises from the bottom edge — which is exactly where this bar sits — so a caption
+    // describing that sheet covered the very details it was describing, leaving a viewer looking
+    // at a dark box over a grey scrim (seen frame-by-frame on a real recording of الحجوزات on a
+    // phone). Asked for per step by the tour, never guessed here: the recorder knows nothing about
+    // which screens open from which edge, and the tour author is watching the frames.
+    if (atTop) { caption.style.top = `${cfg.CAPTION.positionFromBottom * 100}%`; caption.style.bottom = 'auto'; }
+    else { caption.style.bottom = `${cfg.CAPTION.positionFromBottom * 100}%`; caption.style.top = 'auto'; }
     // FONTS MUST BE LOADED FIRST, NOT JUST BEFORE THE FIRST CAPTURED FRAME. record.mjs's own
     // header already documents the general lesson for the ad ("capturing before fonts are ready
     // gives the first second a fallback font"); it applies to LAYOUT here too — text set before

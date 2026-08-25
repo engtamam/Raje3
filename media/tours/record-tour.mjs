@@ -504,7 +504,11 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     // the tour frame's real (narrower, portrait) width; see overlay.mjs's own note. The boolean
     // it returns is the ONLY trustworthy answer to "does this fit two lines" — surfaced as a
     // thrown error naming the exact step, not a silently overflowing caption bar.
-    const fit = await page.evaluate((t) => window.__tour?.say(t), step.say);
+    // `captionTop` — THE BAR ABOVE INSTEAD OF BELOW, for a step whose own screen owns the bottom
+    // of the phone (this product's action sheet slides up from that edge and fills it). See
+    // overlay.mjs's say().
+    const fit = await page.evaluate(({ t, atTop }) => window.__tour?.say(t, atTop),
+      { t: step.say, atTop: Boolean(step.captionTop) });
     if (fit === false) {
       throw new Error(`step ${index + 1}: caption "${step.say}" doesn't fit CAPTION.maxLines (${CONFIG.CAPTION.maxLines}) at this frame's real width — shorten it or split it into two steps`);
     }
