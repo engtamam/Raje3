@@ -1,46 +1,39 @@
 """TicketClient — opens a human-escalation ticket in platform's ticket-service.
 
-# ESCALATED: ticket-service has no /internal/* ticket-creation route — its internal tier
-(platform/services/ticket-service/app/api/internal.py) only carries backup/erase/notification-
-drain, the exact same shape services/reminders and services/loyalty's internal tiers carry. Ticket
-creation lives on the v1 tier instead (`POST /api/v1/tickets`, app/api/v1/tickets.py there), behind
-a real capability-bearing Bearer token (tickets.self / tickets.manage / platform.tickets) verified
-by ticket-service's own TokenVerifier — never X-Internal-Token. So this client cannot reuse the
-X-Internal-Token peer shape `core/customer_lookup.py` / `core/points.py` use against operations and
-loyalty's internal tiers.
+CORRECTED: an earlier version of this module believed ticket-service's internal tier carried no
+ticket-creation route and worked around that with a self-minted HS256 machine credential. That was
+a verification error, not a real platform gap — `POST /internal/tickets`
+(platform/services/ticket-service/app/api/internal.py) exists and takes the exact same
+X-Internal-Token peer shape `core/customer_lookup.py`/`core/points.py` already use against
+operations/loyalty. No escalation, no shared secret, no locally-minted token.
 
-Instead it mints its own short-lived HS256 service token — the SAME posture
-services/operations/app/adapters/settlements.py already takes against billing-service's admin
-tier (a machine credential minted for exactly one cross-service call, because the peer's internal
-tier does not cover it), except HS256 needs no round trip: it is signed locally with
-TICKET_SERVICE_JWT_SECRET, which must be the SAME shared secret ticket-service's own
-TOKEN_HS256_SECRET holds (class of INTERNAL_SERVICE_TOKEN / PII_SALT — a fleet-wide shared value,
-not this service's own). The narrowest real fix is an `/internal/tickets` route on ticket-service
-accepting X-Internal-Token like every other peer call this service makes; that is platform/, and
-out of scope here — tracked in this comment the way settlements.py tracks its own equivalent gap.
+THAT ROUTE IS THE "GRANTEE" WRITE PATH, not a bare internal-service call — ticket-service's own
+design (spec §13) treats every writer other than the tenant's own staff as a consented third
+party with a scoped grant, and this service is exactly that shape from ticket-service's point of
+view: an outside actor opening tickets on the tenant's behalf, attributed to ITS OWN pseudonym in
+the append-only log (never the shop's raiser_ref) so the log always answers who really acted.
+`_ensure_grant` upserts a (tenant, "whatsapp-assistant") write grant before the first ticket per
+tenant per process — idempotent on ticket-service's side (`shares.upsert`), cached here the same
+way `core/conversation.py::_shop_name` caches a per-tenant peer read, so this is a real network
+call once per tenant per process lifetime, not once per escalation.
 
 PII AT THIS BOUNDARY (documented per the design point that asked for the reasoning, not just the
 code): the ticket body carries the conversation's ROLLING SUMMARY, never the raw transcript — the
 same "never a second transcript" rule `core/conversation.py` already applies to what the LLM sees.
 The customer's real phone number DOES go in `metadata.contact`, and that is a deliberate boundary
 decision, not an oversight: a human agent assigned this ticket needs a real way to call the
-customer back, and ticket-service is reached only by staff already authenticated with a
-capability-gated Bearer token — the same class of "trusted internal surface that legitimately
-handles real PII" `DirectCloudApiSender` already treats a WhatsApp send destination as (see
-app/adapters/whatsapp_sender/direct.py). It is NOT the LLM prompt, which per `core/conversation.py`
-::opaque_reference never sees a real name or number at all. Withholding the number here would only
-mean the human agent who inherits this conversation cannot do the one thing they were escalated in
-to do.
+customer back, and ticket-service is reached only by staff who hold a grant-checked, capability-
+gated read on the tenant's tickets — the same class of "trusted internal surface that legitimately
+handles real PII" `DirectCloudApiSender`'s successor already treats a WhatsApp send destination as.
+It is NOT the LLM prompt, which per `core/conversation.py::opaque_reference` never sees a real
+name or number at all.
 """
 from __future__ import annotations
 
 import json
-import time
 import urllib.error
 import urllib.request
 from typing import Any
-
-import jwt
 
 
 class TicketOpenFailed(Exception):
@@ -67,55 +60,55 @@ class NullTicketClient:
 class HttpTicketClient:
     driver = "http"
 
-    def __init__(self, *, url: str, path: str, secret: str, issuer: str, audience: str,
-                ttl_seconds: int, ticket_type: str, capability: str, timeout: int = 8) -> None:
-        self._url = url.rstrip("/") + path
-        self._secret = secret
-        self._issuer = issuer
-        self._audience = audience
-        self._ttl = max(1, ttl_seconds)
+    def __init__(self, *, url: str, tickets_path: str, shares_path: str, token: str,
+                grantee: str, ticket_type: str, share_ttl_seconds: int,
+                timeout: int = 8) -> None:
+        self._tickets_url = url.rstrip("/") + tickets_path
+        self._shares_url = url.rstrip("/") + shares_path
+        self._token = token
+        self._grantee = grantee
         self._type = ticket_type
-        self._capability = capability
+        self._share_ttl = share_ttl_seconds
         self._timeout = timeout
+        # Per-tenant, per-process: a write grant does not change turn to turn, and re-upserting it
+        # before every single escalation would add a second peer call to the one action this
+        # module exists to perform reliably.
+        self._granted_tenants: set[str] = set()
 
-    def _mint(self, tenant: str) -> str:
-        # Minted PER CALL, per tenant — the claim ticket-service reads its tenant scope from
-        # (`Principal.tenant`) varies by call, so this cannot be cached across tenants the way
-        # settlements.py caches its single-tenant admin credential. Cheap: a local HMAC sign, no
-        # network round trip, unlike an OAuth client-credentials exchange.
-        now = int(time.time())
-        claims: dict[str, Any] = {
-            "sub": "whatsapp-assistant", "tenant": tenant, "caps": [self._capability],
-            "iat": now, "exp": now + self._ttl,
-        }
-        if self._issuer:
-            claims["iss"] = self._issuer
-        if self._audience:
-            claims["aud"] = self._audience
-        return jwt.encode(claims, self._secret, algorithm="HS256")
+    def _post(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode(), method="POST",
+            headers={"Content-Type": "application/json", "X-Internal-Token": self._token})
+        with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
+            if not 200 <= resp.status < 300:
+                raise TicketOpenFailed(f"ticket-service returned {resp.status}")
+            return json.loads(resp.read() or b"{}")
+
+    def _ensure_grant(self, tenant: str) -> None:
+        if tenant in self._granted_tenants:
+            return
+        # {} scope = every type/status this grantee might ever need to raise — narrowing it to
+        # `self._type` alone would mean adding a second ticket type later requires a platform-side
+        # re-grant instead of a config change on this side.
+        self._post(self._shares_url, {
+            "tenant": tenant, "grantee": self._grantee, "permissions": ["read", "write"],
+            "scope": {}, "ttl_seconds": self._share_ttl})
+        self._granted_tenants.add(tenant)
 
     async def open_ticket(self, *, tenant: str, subject: str, body: str, ref_id: str,
                           contact: str = "", priority: str = "normal") -> dict[str, Any]:
-        token = self._mint(tenant)
         metadata: dict[str, Any] = {"channel": "whatsapp"}
         if contact:
             metadata["contact"] = contact
         payload = {
-            "type": self._type,
-            "subject": subject[:512],
-            "body": body[:20_000],
+            "tenant": tenant, "grantee": self._grantee, "type": self._type,
+            "subject": subject[:512], "body": body[:20_000],
             "ref": {"kind": "whatsapp_conversation", "id": ref_id[:256]},
-            "priority": priority,
-            "metadata": metadata,
+            "priority": priority, "metadata": metadata,
         }
-        req = urllib.request.Request(
-            self._url, data=json.dumps(payload).encode(), method="POST",
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:   # nosec B310
-                if not 200 <= resp.status < 300:
-                    raise TicketOpenFailed(f"ticket-service returned {resp.status}")
-                return json.loads(resp.read() or b"{}")
+            self._ensure_grant(tenant)
+            return self._post(self._tickets_url, payload)
         except urllib.error.HTTPError as exc:
             raise TicketOpenFailed(f"ticket-service returned {exc.code}") from exc
         except (urllib.error.URLError, OSError, ValueError) as exc:
@@ -123,13 +116,11 @@ class HttpTicketClient:
 
 
 def build(settings: Any) -> Any:
-    if not settings.TICKET_SERVICE_URL or not settings.TICKET_SERVICE_JWT_SECRET:
+    if not settings.TICKET_SERVICE_URL:
         return NullTicketClient()
     return HttpTicketClient(
-        url=settings.TICKET_SERVICE_URL, path=settings.TICKET_SERVICE_TICKETS_PATH,
-        secret=settings.TICKET_SERVICE_JWT_SECRET, issuer=settings.TICKET_SERVICE_JWT_ISSUER,
-        audience=settings.TICKET_SERVICE_JWT_AUDIENCE,
-        ttl_seconds=settings.TICKET_SERVICE_JWT_TTL_SECONDS,
-        ticket_type=settings.TICKET_SERVICE_TICKET_TYPE,
-        capability=settings.TICKET_SERVICE_CAPABILITY,
+        url=settings.TICKET_SERVICE_URL, tickets_path=settings.TICKET_SERVICE_TICKETS_PATH,
+        shares_path=settings.TICKET_SERVICE_SHARES_PATH, token=settings.INTERNAL_SERVICE_TOKEN,
+        grantee=settings.TICKET_SERVICE_GRANTEE, ticket_type=settings.TICKET_SERVICE_TICKET_TYPE,
+        share_ttl_seconds=settings.TICKET_SERVICE_SHARE_TTL_SECONDS,
         timeout=settings.PEER_TIMEOUT_SECONDS)

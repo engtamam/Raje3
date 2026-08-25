@@ -163,27 +163,25 @@ class Settings(BaseSettings):
     INSIGHTS_ASSOCIATED_SERVICES_PATH: str = "/internal/insights/associated-services"
 
     # ticket-service — human escalation (triage complaint/other, auto-reply ceiling, frustration
-    # heuristic). ESCALATED: ticket-service has no /internal/* ticket-creation route (only
-    # backup/erase/notify-drain — see platform/services/ticket-service/app/api/internal.py).
-    # Ticket creation is on its v1 tier (POST /api/v1/tickets) behind a real capability-bearing
-    # Bearer token, not X-Internal-Token, so this service mints its own short-lived HS256 service
-    # token rather than reusing the X-Internal-Token peer shape — see
-    # app/adapters/ticket_client.py's module docstring for the full reasoning.
+    # heuristic, a mid-conversation request for a human). POST /internal/tickets, same
+    # X-Internal-Token peer shape as every other internal call this service makes — see
+    # app/adapters/ticket_client.py's module docstring for why this is the "grantee write" path
+    # rather than a bare internal call, and for the correction of an earlier verification error
+    # that believed no such route existed.
     TICKET_SERVICE_URL: str = ""
-    TICKET_SERVICE_TICKETS_PATH: str = "/api/v1/tickets"
-    # THE SAME shared secret ticket-service's own TOKEN_HS256_SECRET holds (class of
-    # INTERNAL_SERVICE_TOKEN/PII_SALT) — empty means this service cannot mint a token
-    # ticket-service will accept, and TicketClient.build() falls back to NullTicketClient.
-    TICKET_SERVICE_JWT_SECRET: str = ""
-    TICKET_SERVICE_JWT_ISSUER: str = ""
-    TICKET_SERVICE_JWT_AUDIENCE: str = ""
-    TICKET_SERVICE_JWT_TTL_SECONDS: int = 120
+    TICKET_SERVICE_TICKETS_PATH: str = "/internal/tickets"
+    TICKET_SERVICE_SHARES_PATH: str = "/internal/tickets/shares"
+    # A stable, opaque handle for THIS service as a consented third-party writer of a tenant's
+    # tickets — ticket-service's own model (spec §13); every ticket this service opens is
+    # attributed to this grantee's own pseudonym, never the shop's raiser_ref.
+    TICKET_SERVICE_GRANTEE: str = "whatsapp-assistant"
     # Must be a type declared in ticket-service's TICKET_TYPES_JSON with no required fields beyond
     # what we can supply — "support" ships with `required_fields: []`.
     TICKET_SERVICE_TICKET_TYPE: str = "support"
-    # The capability claim this service's minted token carries — "tickets.self" is the narrowest
-    # that can open a ticket (see ticket-service's app/api/v1/tickets.py::_SELF).
-    TICKET_SERVICE_CAPABILITY: str = "tickets.self"
+    # 0 = ticket-service's own configured default TTL for a write grant. A grant that outlives the
+    # shop relationship is a stale credential; 0 defers that call entirely to the peer that owns
+    # the policy rather than this service guessing a number.
+    TICKET_SERVICE_SHARE_TTL_SECONDS: int = 0
 
     PEER_TIMEOUT_SECONDS: int = 8
 
