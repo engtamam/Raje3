@@ -161,8 +161,9 @@ export interface StaleLead {
   id: string; name: string; city: string; status: string; found_at: number;
 }
 export interface TeamSummary {
-  member_count: number; team_confirmed_halalas: number; team_pending_halalas: number;
-  pending_wafa_requests_count: number;
+  member_count: number; pending_wafa_requests_count: number;
+  // Absent when AFFILIATE_TEAM_FINANCIALS_VISIBLE is off (the default).
+  team_confirmed_halalas?: number; team_pending_halalas?: number;
 }
 export interface Home {
   affiliate: { id: string; name: string; role: string };
@@ -483,17 +484,23 @@ export async function withdrawalReceiptUrl(session: AffiliateSession, withdrawal
 /** The manager's own team-earnings view — richer than `Home`'s `TeamSummary` teaser, one member
  *  row at a time. */
 export interface TeamMember {
-  id: string; name: string; status: string; confirmed_halalas: number; pending_halalas: number;
-  commission_count: number; shops: number; total_net_revenue_minor: number; revenue_partial: boolean;
+  id: string; name: string; status: string; commission_count: number; shops: number;
+  // AFFILIATE_TEAM_FINANCIALS_VISIBLE (off by default) — absent, not zero, when the switch is
+  // off: a manager's team revenue moved to the admin panel, so the server strips these rather
+  // than sending a number the screen must then hide.
+  confirmed_halalas?: number; pending_halalas?: number; total_net_revenue_minor?: number;
+  revenue_partial?: boolean;
   // `GET /me/team` merges the SAME `performance_for()` dict `/me/wafa-eligibility` returns for
   // the manager himself — sent all along, just never typed or rendered until now (2026-08-23).
   active_shops?: number; retention_rate?: number; refund_rate?: number; support_kpis?: SupportKpis;
   total_referrals?: number; total_commissions?: number;
 }
 export interface Team {
-  my_shops: number; my_net_revenue_minor: number; my_revenue_partial: boolean;
-  members: TeamMember[]; team_confirmed_halalas: number; team_pending_halalas: number;
-  team_net_revenue_minor: number; team_revenue_partial: boolean; platform_revenue_enabled: boolean;
+  my_shops: number; members: TeamMember[]; platform_revenue_enabled: boolean;
+  // Same AFFILIATE_TEAM_FINANCIALS_VISIBLE gate as TeamMember's own money fields above.
+  my_net_revenue_minor?: number; my_revenue_partial?: boolean;
+  team_confirmed_halalas?: number; team_pending_halalas?: number;
+  team_net_revenue_minor?: number; team_revenue_partial?: boolean;
   platform_net_revenue_minor?: number; platform_revenue_partial?: boolean;
 }
 export async function team(session: AffiliateSession): Promise<Team> {
@@ -504,7 +511,10 @@ export async function team(session: AffiliateSession): Promise<Team> {
  *  `manager_decision` استشاري فقط؛ `status` هو قرار المنصة الملزِم — لا يُخلَط بينهما بالواجهة. */
 export const WAFA_STATUSES = ['requested', 'granted', 'rejected'] as const;
 export interface WafaRequest {
-  id: string; affiliate_id: string; active_shops: number; tier_amount_halalas: number;
+  id: string; affiliate_id: string; active_shops: number;
+  // Absent on a manager's team queue when AFFILIATE_TEAM_FINANCIALS_VISIBLE is off; still present
+  // on a marketer's own requests (`myWafaRequests`) — that is HIS money, this flag never touches it.
+  tier_amount_halalas?: number;
   status: string; requested_at: number; system_recommendation: string;
   system_retention_rate: number; system_refund_rate: number; manager_decision: string;
   manager_decided_by: string; manager_decided_at: number; manager_reason: string;

@@ -177,6 +177,35 @@ async def commissions(request: Request, principal: Principal = Depends(require_u
     return {"commissions": [c.to_dict() for c in confirmed if c is not None]}
 
 
+_TEAM_MONEY_FIELDS = (
+    "confirmed_halalas", "pending_halalas", "total_net_revenue_minor", "revenue_partial",
+)
+
+
+async def _team_financials_visible(request: Request) -> bool:
+    """AFFILIATE_TEAM_FINANCIALS_VISIBLE, read live — off by default (config.py). See
+    runtime_policy.py for why this is a platform-wide switch rather than a per-manager grant."""
+    from app.api.v1.operator import _runtime_config
+    from app.config import Settings
+    return bool(await _runtime_config(request).get(
+        tenant="", key="AFFILIATE_TEAM_FINANCIALS_VISIBLE",
+        default=Settings().AFFILIATE_TEAM_FINANCIALS_VISIBLE))
+
+
+def _strip_team_money(out: dict[str, Any]) -> None:
+    """Removes every riyal figure GET /me/team would otherwise carry — his own personal balance
+    (a DIFFERENT route, GET /me/balance) is never touched by this. Non-money performance figures
+    (retention_rate, refund_rate, total_referrals, support_kpis) stay: those answer "is this
+    person doing well", not "how much money did this make" — a manager still needs them to back
+    a «دعم الوفاء» call."""
+    for key in ("my_net_revenue_minor", "my_revenue_partial", "team_confirmed_halalas",
+                "team_pending_halalas", "team_net_revenue_minor", "team_revenue_partial"):
+        out.pop(key, None)
+    for member in out.get("members", []):
+        for key in _TEAM_MONEY_FIELDS:
+            member.pop(key, None)
+
+
 @router.get("/team", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def team(request: Request, principal: Principal = Depends(require_user)) -> Any:
     """spec §10: a manager's real revenue transparency — who is on his team AND what each of them
@@ -216,6 +245,8 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
         platform = await engine.platform_revenue()
         out["platform_net_revenue_minor"] = platform["total_net_revenue_minor"]
         out["platform_revenue_partial"] = platform["revenue_partial"]
+    if not await _team_financials_visible(request):
+        _strip_team_money(out)
     return out
 
 
@@ -356,7 +387,11 @@ async def team_wafa_requests(request: Request,
     wafa = request.app.state.container.wafa
     pending = await wafa.list_pending(limit=500)
     mine = [r for r in pending if r.affiliate_id in member_ids]
-    return {"wafa_requests": [r.to_dict() for r in mine]}
+    rows = [r.to_dict() for r in mine]
+    if not await _team_financials_visible(request):
+        for row in rows:
+            row.pop("tier_amount_halalas", None)
+    return {"wafa_requests": rows}
 
 
 @router.post("/team/wafa-requests/{wafa_id}/decision", dependencies=[Depends(_SELF), Depends(rate_limit)])
@@ -929,11 +964,12 @@ async def home(request: Request, principal: Principal = Depends(require_user)) -
         member_ids = {m["id"] for m in members}
         out["team"] = {
             "member_count": len(members),
-            "team_confirmed_halalas": summary["team_confirmed_halalas"],
-            "team_pending_halalas": summary["team_pending_halalas"],
             "pending_wafa_requests_count": sum(1 for r in pending_wafa
                                                if r.affiliate_id in member_ids),
         }
+        if await _team_financials_visible(request):
+            out["team"]["team_confirmed_halalas"] = summary["team_confirmed_halalas"]
+            out["team"]["team_pending_halalas"] = summary["team_pending_halalas"]
         # NEVER 503 THE WHOLE HOME SCREEN over an unconfigured Places API key subsystem — the
         # same reason _leads_keys() itself was written to refuse loudly on its OWN dedicated
         # route (no KEK means nothing to seal a key with), but a home screen's job is to degrade,

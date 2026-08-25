@@ -116,21 +116,26 @@ function TeamRoster({ session }: { session: AffiliateSession }) {
   if (data === 'loading') return <Skeleton height={220} />;
   if (data === 'failed') return <EmptyState title="تعذّرت قراءة الفريق" />;
 
+  // Absent, not zero, when AFFILIATE_TEAM_FINANCIALS_VISIBLE is off — that oversight is the
+  // admin panel's job now, not his; the roster below (names, status, shop counts) stays his.
+  const showMoney = data.team_confirmed_halalas != null;
   return (
     <div className="flex flex-col gap-3 rounded-card bg-surface-1 p-4 shadow-sm">
       <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
-        <Users size={16} /> أرباح فريقك
+        <Users size={16} /> {showMoney ? 'أرباح فريقك' : 'فريقك'}
       </div>
-      <div className="flex gap-2">
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">مؤكَّد</span>
-          <span className="tabular-nums font-medium">{riyalsLabel(data.team_confirmed_halalas)}</span>
+      {showMoney ? (
+        <div className="flex gap-2">
+          <div className="flex-1 rounded-md bg-surface-0 p-2.5">
+            <span className="block text-xs text-text-secondary">مؤكَّد</span>
+            <span className="tabular-nums font-medium">{riyalsLabel(data.team_confirmed_halalas!)}</span>
+          </div>
+          <div className="flex-1 rounded-md bg-surface-0 p-2.5">
+            <span className="block text-xs text-text-secondary">قيد المراجعة</span>
+            <span className="tabular-nums font-medium">{riyalsLabel(data.team_pending_halalas!)}</span>
+          </div>
         </div>
-        <div className="flex-1 rounded-md bg-surface-0 p-2.5">
-          <span className="block text-xs text-text-secondary">قيد المراجعة</span>
-          <span className="tabular-nums font-medium">{riyalsLabel(data.team_pending_halalas)}</span>
-        </div>
-      </div>
+      ) : null}
 
       {data.members.length === 0 ? (
         <p className="text-sm text-text-secondary">لا أعضاء بفريقك بعد.</p>
@@ -150,7 +155,8 @@ function TeamRoster({ session }: { session: AffiliateSession }) {
                     {m.status !== 'active' ? <Badge tone="neutral">{m.status}</Badge> : null}
                   </div>
                   <span className="tabular-nums text-text-secondary">
-                    {riyalsLabel(m.confirmed_halalas)} — {m.shops} محل
+                    {m.confirmed_halalas != null ? `${riyalsLabel(m.confirmed_halalas)} — ` : ''}
+                    {m.shops} محل
                   </span>
                 </button>
                 {expanded && hasPerf ? (
@@ -195,7 +201,10 @@ function TeamWafaQueue({ session }: { session: AffiliateSession }) {
       <ul className="flex flex-col gap-2">
         {rows.map((r) => (
           <li key={r.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-0 px-3 py-2 text-sm">
-            <span>{r.active_shops} محل — {riyalsLabel(r.tier_amount_halalas)}</span>
+            <span>
+              {r.active_shops} محل
+              {r.tier_amount_halalas != null ? ` — ${riyalsLabel(r.tier_amount_halalas)}` : ''}
+            </span>
             <div className="flex gap-1">
               <Button type="button" variant="ghost" size="icon" aria-label="موافقة" disabled={busy === r.id}
                      onClick={() => decide(r.id, 'approve')}>

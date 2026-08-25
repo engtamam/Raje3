@@ -245,6 +245,16 @@ class Settings(BaseSettings):
     # 0 disables the floor (any confirmed balance may be withdrawn) — an explicit choice, not a
     # missing config: a deployment that wants no minimum should not have to fake one.
     AFFILIATE_WITHDRAWAL_MIN_HALALAS: int = 0
+
+    # ── manager team-revenue visibility ─────────────────────────────────────────────────────
+    # A manager is a marketer first — his own money stays on /me/balance and /me/commissions,
+    # untouched by this. What this gates is the SEPARATE revenue-transparency layer GET /me/team
+    # used to expose unconditionally: team totals, per-member confirmed/pending halalas, and the
+    # riyal amount on each pending «دعم الوفاء» decision. That oversight now belongs to the admin
+    # panel, not to the manager himself — off by default. A platform-wide switch, not per-manager:
+    # unlike `sees_platform_revenue` (an admin's per-manager grant for the platform-wide rollup),
+    # this is a blanket policy decision with no establishment or individual to scope it to.
+    AFFILIATE_TEAM_FINANCIALS_VISIBLE: bool = False
     # THE RECEIPT ITSELF ("كل الطرق ممكنة" — an admin may either upload the
     # actual file or just paste a link; both write to the SAME `receipt_reference` field, so
     # completing a withdrawal never has to know which one happened). Bounded well under
