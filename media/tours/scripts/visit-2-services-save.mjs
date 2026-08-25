@@ -27,23 +27,30 @@ export default {
     {
       goto: '/visit',
       chapter: 'من عروضه ونقاطه إلى الخدمات',
-      say: 'كملنا من الجزء اللي فات — لقينا عميلتنا وشفنا عروضها ونقاطها',
+      say: 'كملنا من الجزء اللي فات — لقينا عميلتنا',
     },
+    { waitFor: 'label=رقم الجوال', timeoutMs: 30_000 },
     { type: 'label=رقم الجوال', text: HERO_PHONE },
     { click: 'role=button:الخدمات', chapter: 'اختر الخدمة', say: 'الحين ندخل صفحة الخدمات مباشرة' },
     {
-      click: `text=${REDEEMABLE_SERVICE}`,
-      say: 'هذي الخدمة عليها عرض ونقاط — شايف العلامتين فوق البطاقة؟',
+      // THE GRID'S OWN LIST (and each card's offer/points badges) is fetched, same real-cluster
+      // latency as part 1's offer/balance — wait for the actual card before touching it.
+      waitFor: `text=${REDEEMABLE_SERVICE}`,
+      timeoutMs: 30_000,
     },
     {
-      say: 'التاج 🏷 يعني عليها عرض، والنجمة ⭐ تعني تقدر تستبدلها بنقاطه',
+      click: `text=${REDEEMABLE_SERVICE}`,
+      say: 'عليها عرض ونقاط — شايف العلامتين؟',
+    },
+    {
+      say: 'التاج 🏷 عرض، والنجمة ⭐ تستبدلها بنقاطه',
     },
     {
       click: `text=${PLAIN_SERVICE}`,
       say: 'وممكن تختار أكثر من خدمة بنفس الزيارة — عادي',
     },
     {
-      say: 'وفوق تختار، بيّن لك شريط فيه طبّق العرض واستبدل مباشرة — نفس الخيارات اللي شفناها قبل شوي',
+      say: 'وفوق شريط: طبّق العرض واستبدل، زي قبل',
     },
     {
       // NO aria-label AND NO <label> ON THIS INPUT — checked in Visit.tsx: only a `placeholder`.
@@ -58,10 +65,10 @@ export default {
     {
       click: 'role=button:حفظ وإرسال',
       chapter: 'تم الحفظ',
-      say: 'ضغطة وحدة، والزيارة تسجّلت — وتصله رسالة تذكير تلقائيًا لو رقمه سعودي',
+      say: 'ضغطة وحدة، والزيارة تسجّلت — وتصله رسالة تلقائيًا',
     },
     {
-      say: 'كذا خلصنا تسجيل زيارة كاملة، من البحث عنه إلى حفظ زيارته — أقل من دقيقة فعليًا',
+      say: 'كذا خلصنا زيارة كاملة — أقل من دقيقة فعليًا',
     },
   ],
 };
