@@ -166,6 +166,40 @@ annex_c:
     location:
       ar: "داخل المملكة العربية السعودية"
       en: "Inside the Kingdom of Saudi Arabia"
+  # ADDED WITH THE AI FEATURE, NOT BEFORE IT — this entry did not exist while the platform had no AI
+  # feature to name it for, and its addition here is itself the "prior acceptance" Art. 17-5-c
+  # requires before that feature may process any Establishment's customer's data. NAMED BY ROLE, NOT
+  # BY PRODUCT — the same "referenced, never restated" rule the Terms apply to operational
+  # parameters (§ the rule at the top of terms.yaml): today's provider is a commercial/technical
+  # choice we may change, and freezing its brand name into a signed agreement would make switching
+  # providers a fresh acceptance event for every Establishment over a fact this Annex already covers
+  # by role. The CURRENT provider's name is published on the platform's technical documentation page,
+  # kept in step with what the code actually calls. What reaches it is never a raw phone number or
+  # name: `core/pii.py`'s subject_ref (an HMAC pseudonym) and a context block built from the
+  # establishment's own catalogue/offers — never the identity fields this Annex's other rows are read
+  # alongside.
+  - name:
+      ar: "مزوّد خدمة الذكاء الاصطناعي المُشغِّل لميزات الذكاء الاصطناعي بالمنصة (الاسم الحالي منشور في وثائق المنصة الفنية، ويُحدَّث بتحديثها)"
+      en: "The AI service provider powering the platform's AI features (the current name is published on the platform's technical documentation and kept current with it)"
+    purpose:
+      ar: >-
+        توليد الردود الآلية لميزة الذكاء الاصطناعي عند تفعيل المنشأة لها (كمساعد واتساب)، على
+        معرّف مستعار لعميل المنشأة لا رقمه أو اسمه الحقيقي، مع سياق كتالوج الخدمات وعروض ذلك
+        العميل وحده.
+      en: >-
+        Generating automated replies for the AI feature when the Establishment activates it (such
+        as a WhatsApp assistant), against a pseudonymous identifier for the Establishment's customer
+        rather than his real number or name, together with the service catalogue and that
+        customer's own offers as context.
+    location:
+      ar: >-
+        خارج المملكة غالباً، وقد يتغيّر بتغيّر المزوّد — وتُعامَل البيانات الشخصية في كل الأحوال
+        وفق ما تقضي به الأنظمة السعودية لنقل البيانات خارج المملكة (المادة 29)، أياً كان المزوّد
+        أو موقعه.
+      en: >-
+        Usually outside the Kingdom, and may change with the provider — Personal Data is in every
+        case handled as Saudi regulations governing the transfer of data outside the Kingdom
+        require (Article 29), whichever provider it is or wherever it is located.
 
 # ── THE CLAUSES THAT ARE OURS TO WRITE ────────────────────────────────────────────────────────
 #
