@@ -1,0 +1,87 @@
+"""whatsapp-assistant — auditable actions: what this service must be able to PROVE it did.
+
+See services/loyalty/app/auditable_actions.py for the full house-style explanation of this file's
+format and the four action sources. The two CRITICAL actions here are exactly the two state-
+changing tools this service can ever fire on a customer's behalf (app/core/tools.py) — both reached
+only from a button_reply match, never from the model's own decision.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+AUDITABLE_ACTIONS: list[dict[str, Any]] = [
+    {
+        "action": "whatsapp_assistant.booking_confirmed",
+        "source": "internal",
+        "critical": True,
+        "resource": "booking",
+        "why": "a booking made on a customer's behalf with nobody standing at a counter to "
+               "witness it. If the audit log cannot record it, the action must not happen — an "
+               "unprovable auto-booking is indistinguishable from a bug that double-booked a slot",
+    },
+    {
+        "action": "whatsapp_assistant.points_redeemed",
+        "source": "internal",
+        "critical": True,
+        "resource": "reward",
+        "why": "spends something the customer owns, with no cashier present. Same reasoning as "
+               "loyalty's till redemption: an unattributable spend of a customer's balance is the "
+               "one thing a dispute months later cannot be resolved without",
+    },
+    {
+        "action": "whatsapp_assistant.chat_retention_purged",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "a bulk, irreversible delete of a customer's raw chat content past "
+               "CHAT_RETENTION_DAYS (app/core/retention.py). Critical for the same reason "
+               "erasure is: once the content is gone there is nothing left to show a purge "
+               "happened at all, or that it happened for the reason (age, not something else) "
+               "the retention policy claims — an unprovable bulk delete of chat history is "
+               "indistinguishable from a bug that ate a shop's conversations",
+    },
+    {
+        "action": "subject.erased",
+        "source": "system",
+        "critical": True,
+        "resource": "subject",
+        "why": "this service's leg of a DSAR fan-out (app/core/erasure.py) — same action name as "
+               "every other service's leg (see services/reminders/app/auditable_actions.py), so "
+               "compliance-service's fan-out can be shown to have completed everywhere rather "
+               "than assumed. Erasure is irreversible; without a record we cannot prove we "
+               "honoured the request, and the data itself is gone so nothing else can show it",
+    },
+    {
+        "action": "whatsapp_assistant.escalated_to_human",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "the AI stopped replying and handed a customer off to a human (mandatory triage "
+               "complaint pick, the frustration heuristic, or a direct mid-conversation request) "
+               "— the shop's own staff already see the same WhatsApp thread via Meta coexistence, "
+               "so nothing further is sent anywhere else. If this cannot be recorded there is no "
+               "way to prove the handoff happened or why — which matters most exactly when a "
+               "customer later says nobody ever got back to them",
+    },
+    {
+        "action": "whatsapp_assistant.stopped_wallet_depleted",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "the AI stopped replying to a customer because the shop's wallet has no funds "
+               "beyond its plan's included quota — a real operational stop, not a human "
+               "escalation (it is true for every customer of this shop at once, not about how "
+               "this one conversation went). If this cannot be recorded there is no way to later "
+               "show a shop owner exactly when and why their customers stopped getting answers",
+    },
+    {
+        "action": "whatsapp_assistant.proposal_rejected",
+        "source": "system",
+        "critical": False,
+        "resource": "proposal",
+        "why": "the server-side re-validation gate (core/tools.py) refused a model's proposal — "
+               "a slot that filled, a reward that no longer qualifies. Not critical: refusing to "
+               "record a REFUSAL because the log is down protects nothing, and the refusal itself "
+               "already means nothing was spent or booked",
+    },
+]

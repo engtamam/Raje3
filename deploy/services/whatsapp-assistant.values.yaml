@@ -1,0 +1,217 @@
+# whatsapp-assistant — Raje3 deployment values.
+#
+# AI-powered WhatsApp receptionist/booking assistant. It reads inbound messages notification-
+# service already receives and publishes on its internal bus, converses within a tenant's own
+# service catalogue and points balance, and proposes bookings/redemptions that only ever become
+# real when a customer taps a button — never from free text, never from the model's own decision.
+#
+# WHAT IT HOLDS: conversation state (a rolling summary, not a full transcript), the wamid-keyed
+# inbound dedup store, pending proposals, and confirmed bookings — all keyed by `subject_ref`. NOT
+# a phone book: a phone number is read only for the length of one live conversation and is never
+# written to a column of its own.
+service:
+  name: whatsapp-assistant
+  port: 8000
+
+image:
+  repository: ghcr.io/engtamam/raje3/whatsapp-assistant
+  # Placeholder — set to the real digest by publish-images.sh once this service ships. A moving tag
+  # is a rollback that is only a hope; every other service in this chart is pinned by digest and
+  # this one should not be the exception the day it goes to production.
+  digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+replicas: 1
+
+drivers:
+  datastore: postgres
+  cache: redis
+  # THE INBOUND MESSAGE EVENT IS THIS SERVICE'S FAST PATH, and the bus is at-most-once by
+  # contract (platform's EventBus port says so in capitals — see
+  # platform/services/notification-service/app/ports/event_bus.py). Redis here is what makes
+  # cross-process pub/sub work at all: notification-service and this service must point at the
+  # SAME Redis instance/URL, or the subscription in app/main.py's lifespan simply never fires.
+  #
+  # RESOLVED (platform v0.16.38, commit 31e556e): a missed `whatsapp.message` event no longer
+  # means a customer's message is silently never answered. notification-service now exposes a
+  # durable, replayable catch-up read, `GET /internal/whatsapp/inbound?after=&limit=` — the same
+  # cursored shape as its delivery-receipts feed — and app/core/inbound_poll.py sweeps it every
+  # tick (app/api/internal.py). The bus subscription stays for latency; the poll sweep is the
+  # reconciliation path that closes the gap. Both dedup identically by wamid through the same
+  # InboundMessageStore (app/ports/inbound_store.py) — a message delivered via both is processed
+  # once. See app/main.py's `_on_whatsapp_message` docstring for the full design.
+  eventbus: redis
+  queue: redis
+  ratelimiter: redis
+
+resources:
+  requests:
+    cpu: 200m       # higher than reminders' — an LLM call per debounced turn is real CPU/latency
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  # Conversation state is read-then-write per subject (core/conversation.py), not a compare-and-
+  # set — same caution as reminders' tick claim. Stay at one replica until that is atomic, or two
+  # replicas racing on the same customer's debounce window can each compose a reply.
+
+# secretRefs: INTERNAL_SERVICE_TOKEN, DATASTORE_DSN, CACHE_URL, TOKEN_PUBLIC_KEY, PII_SALT,
+# SECRETS_KEK, BACKUP_KEK, GEMINI_API_KEY (dev/test only — production seals it the same way, see
+# the LLM section below).
+#
+# PII_SALT is SHARED — the same value in every service (see reminders.values.yaml's note; not
+# repeated here). SECRETS_KEK seals any operator-managed credential this service holds through
+# app/core/secret_store.py — the SAME class services/reminders and services/loyalty import
+# unmodified, not a new credential system; nothing sealed under it today (the one credential that
+# used to live here, a per-tenant WhatsApp Cloud API token, was retired with InteractiveNotifySender
+# — see the NOTIFICATION_INTERACTIVE_SEND_PATH note below). BACKUP_KEK is REQUIRED and SHARED — the same value
+# backup-service holds — for /internal/backup/export|verify|import (app/core/backup.py,
+# app/backup_manifest.py); without it those routes answer a bare 503 while the nightly archive
+# looks complete, and the wa_conversations/wa_bookings/... rows this service holds are never
+# actually recoverable.
+existingSecret: whatsapp-assistant-secrets
+
+networkPolicy:
+  enabled: true
+  ingressFromNamespace: ""
+  egress:
+    dns: true
+    datastore: true
+    # THE ONE SERVICE IN THIS CHART THAT NEEDS THE OPEN INTERNET, and it is a deliberate, narrow
+    # exception: Gemini's API is external. (Meta's Graph API is no longer called directly — since
+    # InteractiveNotifySender/platform v0.16.38, every WhatsApp send goes through notification-
+    # service instead.) EGRESS_ALLOWED_HOSTS below is the actual allowlist the CWE self-guard
+    # enforces — this flag only opens the door the chart's NetworkPolicy would otherwise close.
+    internet: true
+
+metrics:
+  serviceMonitor: false
+
+env:
+  RATELIMIT_MAX: "300"
+  RATELIMIT_WINDOW_SECONDS: "60"
+  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_ISSUER: "raje3"
+  TOKEN_AUDIENCE: "raje3"
+
+  # ── the CWE self-guard's SSRF allowlist — THE actual egress control ───────────────────────────
+  EGRESS_ALLOWED_HOSTS: "generativelanguage.googleapis.com,notification-service,operations,loyalty"
+
+  # ── peers ───────────────────────────────────────────────────────────────────────────────────
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  NOTIFICATION_SEND_PATH: "/internal/notify"
+  # RESOLVED (platform v0.16.38, commit 0c54f5e): every booking proposal and every redeemable-
+  # offer suggestion needs an interactive (button/list) message, inside the 24h customer-service
+  # window a customer's own message opens (design requires confirmation to be button-only, never
+  # free text). notification-service now has that route —
+  # `POST /internal/notify/whatsapp/interactive` — so
+  # app/adapters/whatsapp_sender/direct.py::InteractiveNotifySender posts there, through the SAME
+  # audited, rate-limited, ceiling-aware peer as every other outbound WhatsApp send on the
+  # platform. This service no longer holds a WhatsApp send credential of its own.
+  NOTIFICATION_INTERACTIVE_SEND_PATH: "/internal/notify/whatsapp/interactive"
+  # RESOLVED (platform v0.16.38, commit 31e556e): the durable, replayable catch-up read for
+  # inbound WhatsApp messages — see the `eventbus: redis` note above for the full design.
+  NOTIFICATION_INBOUND_PATH: "/internal/whatsapp/inbound"
+  INBOUND_POLL_PAGE_SIZE: "200"
+  INBOUND_POLL_MAX_PAGES: "20"
+  OPERATIONS_SERVICE_URL: "http://operations:8000"
+  OPERATIONS_CUSTOMER_BY_PHONE_PATH: "/internal/operations/customer-by-phone"
+  OPERATIONS_CUSTOMER_VISITS_PATH: "/internal/operations/customer-visits"
+  # ESCALATED: no phone->customer lookup existed anywhere in operations before this service needed
+  # one — every existing internal caller already held a subject_ref (reminders, loyalty) or a raw
+  # phone it wrote itself (the field screen). We added the narrowest possible route,
+  # /internal/operations/customer-by-phone (services/operations/app/api/internal.py), reusing the
+  # existing CustomerStore.by_phone rather than building anything new. It returns a pseudonym and a
+  # visit-count PATTERN — never the phone or name back to this service.
+  LOYALTY_SERVICE_URL: "http://loyalty:8000"
+  LOYALTY_BALANCE_PATH: "/internal/loyalty/portal/balance"
+  LOYALTY_REDEEM_PATH: "/internal/loyalty/redeem"
+  # operations' priced catalogue — sent to the model IN FULL every turn (never trimmed) so it can
+  # answer "how much" honestly and never invent a price. Separate route from the one insights
+  # calls, which deliberately carries no prices — see operations' own route docstring.
+  OPERATIONS_CATALOGUE_WITH_PRICES_PATH: "/internal/operations/catalogue-with-prices"
+  # insights' association engine (services/insights/app/core/associations.py) — the SAME
+  # "frequently requested together" logic staff already see, reused for the AI's cross-sell
+  # suggestion tool rather than a new recommendation algorithm. Respects insights' own plan gate:
+  # a tenant without the paid "associations" feature gets no suggestions here either.
+  INSIGHTS_SERVICE_URL: "http://insights:8000"
+  INSIGHTS_ASSOCIATED_SERVICES_PATH: "/internal/insights/associated-services"
+  # wallet-service — the REAL operational stop condition. A shop with no available funds beyond
+  # its plan's included quota gets the AI stopped entirely, not handed to a human (that is a
+  # different thing — see app/core/wallet_balance.py and core/conversation.py's
+  # _stop_wallet_depleted). Authorization-HOLD pattern (reserve before the LLM call, confirm
+  # after) — the balance can never go negative, even under concurrent turns, because
+  # wallet-service's own reserve is atomic. Empty URL means this check is skipped
+  # (NullWalletBalance: never blocks), the right zero-infra default for a deployment that has not
+  # wired billing yet.
+  WALLET_SERVICE_URL: "http://wallet-service:8000"
+  WALLET_SERVICE_RESERVE_PATH: "/internal/wallet/reserve"
+  WALLET_SERVICE_CONFIRM_PATH: "/internal/wallet/confirm"
+  WALLET_SERVICE_RELEASE_PATH: "/internal/wallet/release"
+  # A generous per-turn token ceiling, priced at the real usage rate below, plus a fixed 1 SAR
+  # (100 halalas) safety margin on TOP — so a misestimate or a mid-flight rate wobble can never
+  # itself be what pushes a confirm past the true available balance.
+  WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: "4000"
+  WALLET_SAFETY_MARGIN_HALALAS: "100"
+  PEER_TIMEOUT_SECONDS: "8"
+
+  # ── LLM ─────────────────────────────────────────────────────────────────────────────────────
+  LLM_DRIVER: "gemini"
+  # gemini-3.5-flash-lite, not the stronger/pricier 3.7-flash: this service's model calls are
+  # intent classification, a handful of allowlisted tool calls, and short replies — none of it
+  # needs 3.7's extra capability. Same price as the old 2.5-flash default it replaces ($0.30/$2.50
+  # per million input/output tokens) but current-generation, since the whole 2.5 family (Flash and
+  # Flash-Lite) retires 2026-10-16 and building on it now would mean an unnecessary near-term
+  # migration.
+  GEMINI_MODEL: "gemini-3.5-flash-lite"
+  GEMINI_TIMEOUT_SECONDS: "20"
+  # THE ALLOWLIST. `confirm_booking` is deliberately absent and always will be — confirmation is
+  # button-only (app/core/conversation.py::handle_button_reply is the ONLY path that can fire a
+  # state-changing action), never a name the model is even offered.
+  # suggest_related_service: a natural cross-sell during a customer-initiated conversation — a
+  # personal-assistant recommendation, not marketing, so it carries no opt-in gate (see
+  # app/core/tools.py's own docstring). It NEVER adds a service to a booking directly — that still
+  # goes through propose_booking/button-confirm — and it never carries a discount field (see
+  # app/core/conversation.py's `_DISCOUNT_CLAIM_PATTERNS` backstop).
+  LLM_TOOL_ALLOWLIST: "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,suggest_related_service"
+
+  # ── conversation engine — batching, session, summary (design point 3) ─────────────────────────
+  # A DEFAULT worth revisiting once real usage exists, not a number derived from anything. 180s is
+  # long enough to catch someone typing a sentence across three messages, short enough that the
+  # customer is not left reading "..." for three minutes.
+  CONVERSATION_DEBOUNCE_SECONDS: "180"
+  # 40 minutes — long enough for someone to step away and check their calendar and come back,
+  # short enough that a conversation is not "open" a week later with a stale summary.
+  CONVERSATION_SESSION_TIMEOUT_SECONDS: "2400"
+  CONVERSATION_RAW_WINDOW_MESSAGES: "12"
+  CONVERSATION_TICK_SECONDS: "30"
+  CONVERSATION_TICK_BATCH_SIZE: "200"
+  CONVERSATION_MAX_DURATION_SECONDS: "14400"
+  OUTBOUND_MAX_PER_TENANT_PER_HOUR: "200"
+
+  # ── availability (ConfigDrivenAvailabilityProvider — design point 6) ──────────────────────────
+  # PLACEHOLDER, DOCUMENTED AS ONE: no bookings/availability/slots domain service exists anywhere
+  # on this platform. This is a self-contained, zero-infra default reading business hours/duration/
+  # concurrency from config+this service's own DB, behind app/ports/booking_provider.py — swap it
+  # for a real bookings service later by implementing the same port; nothing above it changes.
+  BOOKING_DEFAULT_BUSINESS_HOURS_JSON: >-
+    {"sun":["09:00-21:00"],"mon":["09:00-21:00"],"tue":["09:00-21:00"],"wed":["09:00-21:00"],
+    "thu":["09:00-21:00"],"fri":["14:00-21:00"],"sat":["09:00-21:00"]}
+  BOOKING_DEFAULT_SERVICE_DURATION_MINUTES: "30"
+  BOOKING_DEFAULT_CONCURRENCY: "1"
+  BOOKING_MAX_LEAD_DAYS: "30"
+  BOOKING_SLOT_GRANULARITY_MINUTES: "15"
+
+  # ── pricing (app/core/pricing.py) — SHAPE, NOT A DECISION ─────────────────────────────────────
+  # Every number below is zero, which means every computed price is zero until this business has
+  # actually decided what this product costs a shop. See core/pricing.py's module docstring for
+  # the three named strategies this shape supports; PRICING_STRATEGY only selects WHICH arithmetic
+  # runs, it does not imply any of the halalas figures below are real prices.
+  PRICING_STRATEGY: "tier_plus_cap"
+  PRICING_TIER_BASE_HALALAS: "0"
+  PRICING_TIER_INCLUDED_CONVERSATIONS: "0"
+  PRICING_TIER_OVERAGE_HALALAS_PER_CONVERSATION: "0"
+  PRICING_ADDON_FLAT_HALALAS: "0"
+  PRICING_USAGE_HALALAS_PER_1K_TOKENS: "0"
+  PRICING_USAGE_HALALAS_PER_CONVERSATION: "0"
