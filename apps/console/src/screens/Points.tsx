@@ -206,9 +206,12 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
   const setEarnFor = async (serviceId: string, points: number) => {
     if (!canSetService) return;
     setSaving(true);
+    setError('');
     try {
       await call(session, canSetService, { service_id: serviceId, points });
       load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
     } finally {
       setSaving(false);
     }
@@ -535,9 +538,13 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                     const raw = e.target.value.trim();
                     if (raw === '' || Number(raw) === (earn?.general?.points ?? 0)) return;
                     setSaving(true);
+                    setError('');
                     try {
                       await call(session, canSetGeneral, { points: Number(raw) });
                       load();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+                      e.target.value = String(earn?.general?.points ?? 0);
                     } finally {
                       setSaving(false);
                     }
@@ -570,6 +577,7 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                     const was = Number(earn?.general?.manager_threshold ?? 0);
                     if (raw === '' || Number(raw) === was) return;
                     setSaving(true);
+                    setError('');
                     try {
                       // BOTH FIELDS, because the route rewrites the general row from what it is
                       // sent: posting the threshold alone would set the shop's points-per-visit
@@ -580,6 +588,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                         manager_threshold: Number(raw),
                       });
                       load();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+                      e.target.value = String(was);
                     } finally {
                       setSaving(false);
                     }
@@ -617,8 +628,10 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                         const raw = e.target.value.trim();
                         if (raw === '') return;
                         const n = Number(raw);
-                        if (n === (earn?.groups?.[g]?.points ?? -1)) return;
+                        const was = earn?.groups?.[g]?.points ?? -1;
+                        if (n === was) return;
                         setSaving(true);
+                        setError('');
                         try {
                           // THE MEMBERS COME FROM THE TREE, not from this screen. Sending our own
                           // list would let a group that changed in «خدماتي» be silently rewritten
@@ -631,6 +644,9 @@ export function PointsScreen({ session, catalog }: { session: Session; catalog: 
                               .map(([id]) => id),
                           });
                           load();
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'تعذّر الحفظ.');
+                          e.target.value = String(was === -1 ? (earn?.general?.points ?? 0) : was);
                         } finally {
                           setSaving(false);
                         }
