@@ -34,7 +34,13 @@ export default {
     },
     { waitFor: 'label=رقم الجوال', timeoutMs: 30_000 },
     { type: 'label=رقم الجوال', text: HERO_PHONE },
-    { click: 'role=button:الخدمات', chapter: 'اختر الخدمة', say: 'الحين ندخل صفحة الخدمات مباشرة' },
+    { click: 'role=button:الخدمات', say: 'الحين ندخل صفحة الخدمات مباشرة' },
+    {
+      // EXTRA CAPTION-ONLY MARGIN — the 10s chapter-gap check still failed at 9.8s on a real run
+      // even after moving the chapter mark past the network wait below; this buys the missing
+      // margin honestly (real narration, not a bare pause).
+      say: 'كل خدمة تعرض سعرها ومدتها مباشرة',
+    },
     {
       // THE GRID'S OWN LIST (and each card's offer/points badges) is fetched, same real-cluster
       // latency as part 1's offer/balance — wait for the actual card before touching it.
@@ -42,7 +48,13 @@ export default {
       timeoutMs: 30_000,
     },
     {
+      // CHAPTER MOVED HERE, NOT ON THE CLICK ABOVE — with `preload: true` (this tour's own fix
+      // for the blank-first-frame bug) the app is already loaded before capture starts, so the
+      // opening chapter-to-here gap shrank under YouTube's 10s minimum on a real run (verified
+      // live: exactly the trap services-1-overview.mjs's own header warns about). The real
+      // network wait just above buys back the needed real time before this chapter fires.
       click: `text=${REDEEMABLE_SERVICE}`,
+      chapter: 'اختر الخدمة',
       say: 'عليها عرض ونقاط — شايف العلامتين؟',
     },
     {
