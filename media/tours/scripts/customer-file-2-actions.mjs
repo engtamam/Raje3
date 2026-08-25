@@ -29,6 +29,9 @@ export default {
   title: 'عملائي 2 — تعديل بيانات العميل وحالات حافة',
   section: 'عملائي',
   useDemoSession: true,
+  // See visit-1-search-perks.mjs's own note: without this, the opening `goto` records several
+  // seconds of blank/white frame before the page actually finishes loading.
+  preload: true,
   steps: [
     {
       goto: '/customers',

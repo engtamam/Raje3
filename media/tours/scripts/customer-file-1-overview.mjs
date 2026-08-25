@@ -34,6 +34,9 @@ export default {
   title: 'عملائي 1 — القائمة وملف العميل',
   section: 'عملائي', // nav.ts's own label
   useDemoSession: true,
+  // See visit-1-search-perks.mjs's own note: without this, the opening `goto` records several
+  // seconds of blank/white frame before the page actually finishes loading.
+  preload: true,
   steps: [
     {
       goto: '/customers',

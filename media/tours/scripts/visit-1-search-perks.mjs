@@ -27,6 +27,12 @@ export default {
   title: 'تسجيل الزيارة 1 — دوّر عن عميلك وعروضه ونقاطه',
   section: 'تسجيل زيارة', // nav.ts's own label
   useDemoSession: true,
+  // WITHOUT THIS the first step's `goto` runs inside the capture loop itself, so frame 0 (and
+  // several seconds after it) is a blank/white screen while the page navigates and loads —
+  // confirmed by pulling the actual first frame with ffmpeg. `preload: true` makes record-tour.mjs
+  // perform this navigation BEFORE capture starts, the same fix services-1-overview.mjs already
+  // uses for the same reason.
+  preload: true,
   steps: [
     {
       goto: '/visit',
