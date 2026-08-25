@@ -609,7 +609,7 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
 
   // `&& !adding` — WITHOUT IT THIS WAS A DEAD END. The button and form that actually create a
   // service live in the render below, past this guard; a shop with zero services never reached
-  // them, so a brand-new account had literally no way to add its first one (Tamam's screenshot —
+  // them, so a brand-new account had literally no way to add its first one (a screenshot showed
   // an empty screen with no button anywhere). Falling through once he asks to add keeps this
   // exact branch the true first state of the product while still letting him leave it.
   if (services.length === 0 && !adding) {

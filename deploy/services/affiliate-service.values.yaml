@@ -10,7 +10,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/affiliate-service
-  digest: "sha256:72f772c01e7e2b1478939d77c64530ce57903708e0d5ab25b0c57ff9d7a6dbfc"   # 19e4e48, published by publish-images.sh
+  digest: "sha256:798b518be858db92844a541dd6ba52611755fbb3606122849966dc704022e69d"   # 3c19bd1, published by publish-images.sh
 
 replicas: 1
 
@@ -53,11 +53,11 @@ env:
   # THE REAL NUMBER, ONE PLACE. `PayoutService.min_withdrawal_halalas` (core/payouts.py) defaults
   # to 0 with nothing set — which is exactly what silently hid the whole feature: the earnings
   # card only shows a threshold caption when it's > 0 (AffiliateEarnings.tsx/AffiliateHome.tsx),
-  # so a real policy of 400 ريال was invisible because this file never named it. Tamam,
-  # 2026-08-23: change THIS value alone when the policy changes — the API (/me/home, /me/balance)
+  # so a real policy of 400 ريال was invisible because this file never named it.
+  # Change THIS value alone when the policy changes — the API (/me/home, /me/balance)
   # and both screens read it live, nothing else to touch.
   AFFILIATE_WITHDRAWAL_MIN_HALALAS: "40000"
-  # PHONE-OWNERSHIP OTP (Tamam, 2026-08-23) — DORMANT ON PURPOSE, same shape as operations'
+  # PHONE-OWNERSHIP OTP — DORMANT ON PURPOSE, same shape as operations'
   # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP just below. Both stay "false" until a real
   # WhatsApp/SMS channel is wired (notification-service's WHATSAPP_CHAIN/SMS_CHAIN are still the
   # no-op `console` driver) — flip both together the same day that happens, no code change needed.
@@ -120,7 +120,7 @@ cronJobs:
   - name: leads-tick
     schedule: "* * * * *"
     path: /internal/leads/tick
-  # §١٣'s auto-escalation (Tamam, 2026-08-20) — no response within
+  # §١٣'s auto-escalation — no response within
   # AFFILIATE_TICKET_ESCALATION_HOURS (default 24), or an escalation for a suspended marketer's
   # own open tickets, moved to his manager automatically. Every 15 minutes, not hourly: a 24h
   # SLA measured in whole-hour increments is still honest at this granularity, and a suspended

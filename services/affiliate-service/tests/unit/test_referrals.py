@@ -86,7 +86,7 @@ async def test_a_conversion_inside_the_window_stays_referred_and_payable():
 
 @pytest.mark.anyio
 async def test_a_conversion_after_the_window_lapses_but_the_record_survives():
-    """spec/Tamam, 2026-08-19: a shop that registered through an affiliate and converts two
+    """Per spec: a shop that registered through an affiliate and converts two
     years later must not be an open-ended, undocumented claim — the referral itself (who brought
     whom, when) stays true forever; only the money stops being possible."""
     reg, store = build(window_days=90)

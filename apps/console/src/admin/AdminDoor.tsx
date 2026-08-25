@@ -7,7 +7,7 @@
  * first place.
  *
  * Reuses `DoorLayout` (product-agnostic canvas) and `rj-ui`'s own Field/Input/Button — never
- * `@base-ui/design-system` (Tamam's standing decision: those components are not developed enough
+ * `@base-ui/design-system` (a standing decision: those components are not developed enough
  * — see the plan's own note).
  */
 import { useState, type FormEvent } from 'react';

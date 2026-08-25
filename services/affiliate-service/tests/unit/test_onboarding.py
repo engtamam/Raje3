@@ -532,7 +532,7 @@ async def test_change_password_refuses_a_weak_new_password_distinctly():
     assert exc.value.reason == "weak_password"
 
 
-# ── phone-ownership OTP (Tamam, 2026-08-23) — dormant until both flags are on ──────────────────
+# ── phone-ownership OTP — dormant until both flags are on ──────────────────────────────────────
 @pytest.mark.anyio
 async def test_apply_needs_no_code_while_the_gate_is_off():
     http = FakeHttp([("/members", (201, {"person_id": "p1"}))])

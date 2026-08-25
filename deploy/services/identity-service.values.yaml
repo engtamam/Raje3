@@ -92,8 +92,8 @@ env:
   # symmetric secret any service holding it could mint a token for any subject, so one
   # compromised service is a platform-wide forgery. Asymmetric keeps the private key here.
   TOKEN_ISSUER_DRIVER: "rs256"
-  # DAILY SIGNING-KEY ROTATION (opt-in upstream, v0.16.35's JWKS overlap design) -- Tamam,
-  # 2026-08-23: TOKEN_PRIVATE_KEY is adopted as the first key on the ring; SECRETS_KEK (already in
+  # DAILY SIGNING-KEY ROTATION (opt-in upstream, v0.16.35's JWKS overlap design):
+  # TOKEN_PRIVATE_KEY is adopted as the first key on the ring; SECRETS_KEK (already in
   # identity-service-secrets, shared by every service) seals the ring at rest. The cron below
   # fires the rotation daily; the endpoint is idempotent below the min-age, so a retry/repeat is a
   # safe no-op. A retired public key stays in the JWKS for an overlap window sized off the 7-day

@@ -144,7 +144,7 @@ def test_a_second_write_without_naming_the_old_one_destroys_the_approved_text(st
 
 # ── the address he cannot forget, because forgetting is not an option he has ───────────────────
 def test_a_marketing_text_that_never_mentioned_a_stop_link_gets_one(store):
-    """Tamam's decision: he writes it, Meta approves it under HIS name, the fine lands on HIM.
+    """The decision: he writes it, Meta approves it under HIS name, the fine lands on HIM.
 
     So the stop link is not a field he can leave empty. He is never asked for it — the server puts
     it at the end — and PDPL §8.3 is satisfied by a text whose author never thought about PDPL.

@@ -15,7 +15,7 @@ THE TWO LINES ARE NOT THE SAME KIND OF THING:
   · the invitation is an offer to opt in. A visit confirmation is lawful without it, and a shop
     whose customers hear nothing because we could not address an invitation has been failed by us.
 
-Tamam's decision, in his words: «ما يحتاج رابط او ايقاف للخدمية … نبغاه رابط التسويقية هو الوحيد».
+The decision: «ما يحتاج رابط او ايقاف للخدمية … نبغاه رابط التسويقية هو الوحيد».
 """
 from __future__ import annotations
 

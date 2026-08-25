@@ -1,5 +1,5 @@
 # =============================================================================
-# affiliate-service — «برنامج دعم الوفاء» (Tamam, 2026-08-20): a monthly stipend for marketers who
+# affiliate-service — «برنامج دعم الوفاء»: a monthly stipend for marketers who
 # keep SERVICING the shops they brought, replacing the retired RENEWAL commission (see
 # core/commission.py's own note on why a flat cut on elapsed time was removed).
 # -----------------------------------------------------------------------------
@@ -17,7 +17,7 @@
 #             refuse DESPITE a manager's approval. The manager's decision rides along on the row
 #             as a documented input, never silently overridden without a trace.
 #
-# THE COOLDOWN ANCHORS TO THE REQUEST, NEVER THE DECISION (Tamam, 2026-08-20). If it anchored to
+# THE COOLDOWN ANCHORS TO THE REQUEST, NEVER THE DECISION. If it anchored to
 # `granted_at`, an admin one week slow to decide would push every future cycle a week later,
 # compounding — a "monthly" stipend that drifts later every month is not a salary, it is a queue.
 # Anchoring to `requested_at` of the LAST GRANTED request means the admin's review speed has ZERO
@@ -71,7 +71,7 @@ class WafaService:
         self._cooldown_days = cooldown_days
         self._retention_min = retention_min
         self._refund_max = refund_max
-        #: core/tickets.py's TicketReader, or None (spec §13, Tamam 2026-08-20). Optional and
+        #: core/tickets.py's TicketReader, or None (spec §13). Optional and
         #: additive on purpose — see performance_for's own note on why it never changes
         #: `_recommend`'s formula yet.
         self._tickets = tickets
@@ -102,7 +102,7 @@ class WafaService:
         support = await self._aggregate_support_kpis(affiliate_id, referrals)
         return {"active_shops": active, "retention_rate": round(retention_rate, 4),
                "refund_rate": round(refund_rate, 4), "support_kpis": support,
-               # THE SAMPLE SIZE BEHIND EACH RATE — added 2026-08-23, Tamam: "كيف كذا وهو صفر
+               # THE SAMPLE SIZE BEHIND EACH RATE — "كيف كذا وهو صفر
                # اساس! في غلط في المعادلة" (a marketer with ZERO referred shops showing "100%
                # retention"). The math above is correct FOR `_recommend`'s OWN purpose (no
                # referral has failed yet, so nothing argues against him) — the bug was a screen
@@ -161,7 +161,7 @@ class WafaService:
             "retention_rate": perf["retention_rate"], "refund_rate": perf["refund_rate"],
             # SAME NUMBERS `performance_for` COMPUTES FOR HIM ALREADY, dropped from this response
             # until now — a manager could see his OWN team's support KPIs (GET /me/team) but never
-            # his own, even though he is a marketer himself (Tamam, 2026-08-23: "مدير التسويق
+            # his own, even though he is a marketer himself ("مدير التسويق
             # يعتبر مسوّي، عنده نفس المؤشرات لنفسه"). Same best-effort shape (`available: False`
             # when no shop has shared its tickets yet, never a missing key).
             "support_kpis": perf["support_kpis"],

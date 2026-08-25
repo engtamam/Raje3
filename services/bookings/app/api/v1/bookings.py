@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
 
 _READ = require_capability("bookings.read")
 _WRITE = require_capability("bookings.write")
-# A THIRD CAPABILITY, NOT bookings.write (Tamam, 2026-08-19: "مو اي موظف يقدر يعدل لازم صلاحيات
+# A THIRD CAPABILITY, NOT bookings.write ("مو اي موظف يقدر يعدل لازم صلاحيات
 # معينة") — working hours are a POLICY every branch and every operator's own schedule reads from,
 # the same distance `operations.manage` keeps from `operations.record`: an operator who may take
 # a booking must not thereby be able to redefine when the shop is open. Owner and manager hold it
@@ -128,7 +128,7 @@ async def bookings_for_customer(request: Request, customer_id: str,
 @router.get("/working-hours", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def read_working_hours(request: Request,
                              principal: Principal = Depends(require_user)) -> dict:
-    """The shop's own weekly policy — every branch shares it (Tamam, 2026-08-19). Anyone who can
+    """The shop's own weekly policy — every branch shares it. Anyone who can
     read the grid may read this; only `bookings.manage` may change it (see `_MANAGE` above)."""
     tenant = _tenant(principal)
     c = request.app.state.container
@@ -190,7 +190,7 @@ class CreateIn(BaseModel):
     idempotency_key: str = Field(default="", max_length=128)
     series_id: str | None = None
     series_seq: int | None = None
-    # "بدون عربون بعربون او مدفوع" (Tamam, 2026-08-19) — one of PAYMENT_STATES.
+    # "بدون عربون بعربون او مدفوع" — one of PAYMENT_STATES.
     payment_status: str = Field(default="none", pattern=r"^(none|deposit|paid)$")
     # Required by operations.py when payment_status is "deposit"; ignored otherwise.
     deposit_amount_minor: int | None = Field(default=None, ge=0)

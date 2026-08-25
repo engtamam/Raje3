@@ -1,7 +1,7 @@
 /**
- * «فريقي» — مدير التسويق فقط (2026-08-23).
+ * «فريقي» — مدير التسويق فقط.
  *
- * Tamam's own framing: a manager IS a marketer — everything a promoter has, he has too (his own
+ * The framing: a manager IS a marketer — everything a promoter has, he has too (his own
  * KPIs live on «أرباحي»'s own WafaCard, `PerformanceStats`, same component both places read). This
  * screen is the ADDITIONAL thing a manager gets on top: tracking and running his team, moved out
  * of «أرباحي» entirely into its own place — money stays about HIS OWN money, this is about them.
@@ -36,7 +36,7 @@ export function AffiliateTeam({ session }: { session: AffiliateSession }) {
   );
 }
 
-/** لا دعوة تُرسَل من عندنا بعد الآن (تمام، 2026-08-23: "رابط للمدير مافي اي ارسال المدير راح
+/** لا دعوة تُرسَل من عندنا بعد الآن ("رابط للمدير مافي اي ارسال المدير راح
  *  يرسل له الرابط") — المدير يشارك رابطه الخاص بنفسه (واتساب، شخصيًا)، ومن يستخدمه يقدّم طلبه
  *  العادي ويُربَط تحت المدير تلقائيًا عبر كود الإحالة، بعد تأكيد رقم جواله. */
 function ReferralLinkSection({ session }: { session: AffiliateSession }) {

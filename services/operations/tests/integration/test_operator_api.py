@@ -280,7 +280,7 @@ def test_a_switched_off_pin_employee_is_refused_by_the_route_not_only_the_screen
     assert listing.json()["pin_operators_enabled"] is False
 
 
-# ── every operator now names a real branch (Tamam, 2026-08-22) ─────────────────────────────────
+# ── every operator now names a real branch ──────────────────────────────────────────────────────
 def test_creating_an_operator_with_no_branch_is_a_clean_400_not_a_silent_unassigned(
         client, monkeypatch):
     """The model itself refuses a missing/empty branch_id (Field(min_length=1)) — this proves the

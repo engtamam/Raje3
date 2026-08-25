@@ -88,8 +88,8 @@ export function Door({ onSignedIn, onWelcome }: {
   // first page load, well before a person still on this screen has typed anything: its
   // `useState` initializer (the thing that reads that flag) already ran with nothing in
   // sessionStorage yet, and React does not re-run an initializer on a later render. Without this
-  // callback the welcome only ever appeared after a manual refresh remounted App — Tamam's own
-  // report: no welcome right after signup, a full page of it after F5.
+  // callback the welcome only ever appeared after a manual refresh remounted App: no welcome
+  // right after signup, a full page of it after F5.
   onWelcome?: (end: number) => void;
 }) {
   const [mode, setMode] = useState<'in' | 'new'>('in');

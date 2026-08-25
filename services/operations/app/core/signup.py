@@ -358,7 +358,7 @@ class SignupService:
         # «فعّل الأساس» himself first. Every write in the product (`subscribed_write`) refuses
         # until the base subscription (or its trial) is live, and until this call a fresh signup
         # held NEITHER — so a shop that had just registered was told «انتهى اشتراكك» (the exact
-        # sentence for a LAPSED month) on the very first thing he tried to do. Tamam, on seeing it:
+        # sentence for a LAPSED month) on the very first thing he tried to do, even though
         # «وهو عنده فترة تجربة شهر كامل».
         #
         # NEVER UNDONE ON FAILURE, same trade as the data map and the two stamps below: an account
@@ -530,7 +530,7 @@ class SignupService:
                     pass    # a telemetry failure must not fail a signup
             return False, error, 0.0
 
-        # AND EVERY APP THAT ALSO CARRIES A TRIAL, THE SAME MONTH — Tamam: «كل التطبيقات تُفعَّل
+        # AND EVERY APP THAT ALSO CARRIES A TRIAL, THE SAME MONTH — «كل التطبيقات تُفعَّل
         # تجريبياً تلقائياً عند التسجيل». Best-effort and never reflected in this call's own
         # return value: the welcome screen answers for the BASE alone (one date, one sentence),
         # and one app's subscribe failing must not read as "your trial did not start" when it

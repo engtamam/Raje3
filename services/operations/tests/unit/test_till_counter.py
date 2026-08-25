@@ -274,7 +274,7 @@ def test_the_two_fields_a_redemption_cannot_be_without(field):
 
 def _visit(**kw):
     # THE BRANCH IS PART OF EVERY SALE NOW, so the shared builder carries one: a register that
-    # does not name a place is refused at the door (§12.2, Tamam 18 Aug 2026), and a fixture
+    # does not name a place is refused at the door (§12.2), and a fixture
     # without it would be testing a request no till can send.
     base = {"phone": "0500000000", "occurred_at": 1_750_000_000, "branch_id": "brn-main"}
     base.update(kw)

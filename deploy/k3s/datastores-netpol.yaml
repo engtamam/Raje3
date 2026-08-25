@@ -21,7 +21,7 @@
 #  `app` label and nothing else. So «a pod that is one of our services» is expressible exactly, and
 #  a 25th service is covered the day it is installed — with no list here to fall behind.
 #
-#  ⚠ NOT APPLIED BY THIS FILE. Applying it changes a running cluster, which is Tamam's call. It is
+#  ⚠ NOT APPLIED BY THIS FILE. Applying it changes a running cluster, which needs a deliberate call. It is
 #  written here so `install.sh` carries it on the next deploy and so the repository stops being
 #  silent about a hole it knows the shape of.
 # ==================================================================================================

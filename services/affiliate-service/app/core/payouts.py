@@ -1,14 +1,14 @@
 # =============================================================================
 # affiliate-service — the withdrawal itself (spec §5)
 # -----------------------------------------------------------------------------
-# TWO PAYOUT CHANNELS, ONE MECHANISM (Tamam, 2026-08-20). A marketer who does not want to hand
+# TWO PAYOUT CHANNELS, ONE MECHANISM. A marketer who does not want to hand
 # over an IBAN can be paid through an intermediary payment platform instead (بحر, or whatever
 # exists tomorrow — `payout_channel_name` is free text precisely so a new one never needs a code
 # change). What matters to this file is identical either way: WHO gets paid, HOW MUCH, and a
 # RECEIPT an admin attaches once the transfer actually happened. The channel is metadata riding
 # along on the same request, never a second withdrawal flow.
 #
-# THE RECEIPT ITSELF, EITHER WAY (Tamam, 2026-08-20: "كل الطرق ممكنة"). An admin may paste a
+# THE RECEIPT ITSELF, EITHER WAY ("كل الطرق ممكنة"). An admin may paste a
 # link OR upload the actual file — both write the SAME `receipt_reference` field
 # (`WithdrawalRequest`'s own note explains why), so `complete()` never has to know which
 # happened. An uploaded file is stored under `receipt_key()` and referenced as
@@ -86,7 +86,7 @@ class PayoutService:
         return self._min
 
     async def effective_min_withdrawal_halalas(self, runtime_config: Any) -> int:
-        """The LIVE threshold — Tamam, 2026-08-23: "400 ريال، وممكن يتغير، أتوقع فيه مكان لتعديلها"
+        """The LIVE threshold — "400 ريال، وممكن يتغير، أتوقع فيه مكان لتعديلها"
         — read through RuntimeConfig, which already exists and is already audited, same pattern as
         `operations/app/core/retention.py`'s own `policy_for`: an operator's admin-panel override
         (`PUT /api/v1/operator/config`) if one was ever set, `self._min` (this deploy's own

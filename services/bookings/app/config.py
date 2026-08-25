@@ -182,7 +182,7 @@ class Settings(BaseSettings):
     PEER_TIMEOUT_SECONDS: int = 8
 
     # ── no-show risk (§2.6/§6.2): a number beside her name, never a verdict — configured, not
-    # hardcoded (Tamam, 2026-08-19), so a shop that finds these too strict or too loose changes
+    # hardcoded, so a shop that finds these too strict or too loose changes
     # one number here, not a release. See core/operations.py::no_show_risk.
     NO_SHOW_RISK_WINDOW: int = 5           # of her last N closed appointments…
     NO_SHOW_RISK_THRESHOLD_PERCENT: int = 60  # …this % or more missed marks her "risky"
@@ -200,8 +200,8 @@ class Settings(BaseSettings):
     OPERATIONS_SUBJECT_REF_PATH: str = "/internal/operations/customers/subject-ref"
     # Which branch a caller may act for (§6, Stage 6) — the fourth peer question, same URL.
     OPERATIONS_SCOPE_PATH: str = "/internal/operations/branch-scope"
-    # The reward a customer INTENDED at booking time, actually spent at attend() (Tamam,
-    # 2026-08-19: "نية استبدال, لا استبدال فوري") — the fifth peer question, same URL. Empty
+    # The reward a customer INTENDED at booking time, actually spent at attend() ("نية استبدال,
+    # لا استبدال فوري") — the fifth peer question, same URL. Empty
     # means an intended reward is simply never redeemed automatically; attendance itself is
     # never blocked by it either way (see RewardGateway's own note in core/operations.py).
     OPERATIONS_REWARD_REDEEM_PATH: str = "/internal/operations/bookings/redeem"

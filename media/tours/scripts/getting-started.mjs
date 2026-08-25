@@ -1,6 +1,6 @@
 /**
- * The overview tour — signup, the free trial, and a first glance at the shop. The one Tamam
- * asked for explicitly: "كيف يسوي حساب وفترة التجربة... يعني overview" — short, smart, the
+ * The overview tour — signup, the free trial, and a first glance at the shop. The one asked
+ * for explicitly: "كيف يسوي حساب وفترة التجربة... يعني overview" — short, smart, the
  * moment a new owner actually lives through, not a feature tour.
  *
  * WHY THE SIGNUP ITSELF IS RECORDED, NOT SKIPPED. Every other tour uses `ensureSignedIn()`'s
@@ -9,20 +9,23 @@
  * subject IS that moment, so `skipAutoSignIn: true` leaves the door on screen as this tour's own
  * first frame — the door.spec.ts / e2e/fixtures.ts flow, this time actually on camera.
  *
- * WHY IT ENDS AT THE STORE, NOT A FULL TOUR OF EVERY TAB. Tamam's own brief: mention a few things
+ * WHY IT ENDS AT THE STORE, NOT A FULL TOUR OF EVERY TAB. The brief: mention a few things
  * generally and stop — "كل شي مفعل تجريبي" is the one fact worth landing on, not a full catalogue
  * walk (that's what the individual per-screen tours are for, once written).
  */
 export default {
   id: 'getting-started',
   title: 'فتح حساب وفترة التجربة',
+  // NOT ONE OF nav.ts's SECTIONS — signup happens before any sidebar tab exists to open, so it
+  // gets its own top-level folder rather than being forced into a tab it isn't about.
+  section: 'فتح حساب',
   skipAutoSignIn: true,
   sfx: true,
   steps: [
     {
       goto: '/',
       chapter: 'فتح الحساب',
-      // HOOK-STYLE OPENER — a question, not a greeting. Tamam's own note: intros shouldn't all
+      // HOOK-STYLE OPENER — a question, not a greeting. Intros shouldn't all
       // use the same formula (a repeated "أهلاً بك في راجِع" across every tour reads as a jingle,
       // not a lesson) — this one suits a signup tour specifically because there's a real, fast
       // payoff to promise up front ("أقل من دقيقة"), which a slower, curiosity-style opener
@@ -91,7 +94,7 @@ export default {
       say: 'تعال أوريك من وين تفتح كل أقسامه',
     },
     // THE ONE OTHER CHAPTER — this video's total length only supports two or three of these
-    // marks at YouTube's 10s minimum; «متجر التطبيقات» is the fact Tamam's own brief singled
+    // marks at YouTube's 10s minimum; «متجر التطبيقات» is the fact the brief singled
     // out ("كل شي مفعل تجريبي"), so it's the one that earns the second mark. «وباقي محلك»
     // dropped its own mark too — a handful of seconds later is still under the floor.
     {
@@ -105,7 +108,7 @@ export default {
     {
       say: 'وتقدر توسّع أو توقف أي تطبيق وقتها',
     },
-    // A GENERAL POINTER, NOT A FULL TOUR — Tamam's own brief: mention what exists and stop. The
+    // A GENERAL POINTER, NOT A FULL TOUR — the brief: mention what exists and stop. The
     // rest of the console gets its own tours, one screen at a time, once each is studied deeply.
     {
       click: 'role=button:فتح القائمة',

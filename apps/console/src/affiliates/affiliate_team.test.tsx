@@ -1,5 +1,5 @@
 /**
- * «فريقي» — moved out of «أرباحي» entirely (2026-08-23, Tamam: "فريقه خلاص ننقلها لتبويب مختلف
+ * «فريقي» — moved out of «أرباحي» entirely ("فريقه خلاص ننقلها لتبويب مختلف
  * بشكل ذكي كل شي عن فريقه هناك"): the roster + its earnings, the pending WAFA queue, and — new —
  * each member's own performance numbers (retention/refund/support KPIs), previously computed by
  * the backend and silently discarded by the frontend.

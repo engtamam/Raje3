@@ -2,14 +2,14 @@
  * «محلّي» — the merged اليوم+محلّي screen (Shop.tsx's own header comment confirms the merge;
  * there is no separate «اليوم» anymore, corrected live after first assuming otherwise).
  *
- * ONE CLIP, FULL COVERAGE. Tamam's own review of the first cut («محلي ما غطى كل شي») was
+ * ONE CLIP, FULL COVERAGE. A review of the first cut («محلي ما غطى كل شي») was
  * correct — Shop.tsx's IndicatorsPanel renders well over a dozen real cards, not four. This was
  * briefly split into two clips to stay inside this project's usual pacing, then merged back on
- * Tamam's explicit call («عادي مقطع طويل لهذا») — محلّي is the one screen dense enough that one
+ * an explicit call («عادي مقطع طويل لهذا») — محلّي is the one screen dense enough that one
  * long, complete walkthrough beats two short ones a viewer has to find and watch in order. Order
  * follows the page's own DOM order top to bottom — never an invented sequence.
  *
- * WHY SIMPLE LANGUAGE IS THE WHOLE POINT HERE, EXPLICITLY. Tamam's own brief: «صاحب المحل بسيط،
+ * WHY SIMPLE LANGUAGE IS THE WHOLE POINT HERE, EXPLICITLY. The brief: «صاحب المحل بسيط،
  * ما يفهم في أمور زي كذا» — the harder analytics indicators (return rate, churn, holdout) are
  * exactly the ones a non-technical owner glazes over without ever using. Every caption below
  * translates the METRIC into the QUESTION it actually answers, in plain words, not the label
@@ -36,6 +36,7 @@
 export default {
   id: 'shop-dashboard',
   title: 'محلّي — كل مؤشراتك بالتفصيل',
+  section: 'محلّي', // nav.ts's own label — this is the index route, sections[0]
   useDemoSession: true,
   // NO SFX ON THIS TOUR, DELIBERATELY — every "click" step here spotlights a read-only number
   // or chart, never a real button a viewer could actually press. A click sound on something that
@@ -47,7 +48,7 @@ export default {
       goto: '/',
       chapter: 'أرقامك اليومية',
       // CURIOSITY-STYLE OPENER, DELIBERATELY DIFFERENT FROM getting-started.mjs's HOOK-STYLE ONE
-      // — Tamam's own note: intros shouldn't all use the same formula. A read-only "understand
+      // — intros shouldn't all use the same formula. A read-only "understand
       // your numbers" tour suits a genuine question about the viewer's own knowledge better than
       // a speed-promise hook (that style fits a task with a real finish line, which this isn't).
       say: 'تعرف تقرأ أرقام محلك صح؟ خلّك معايا',

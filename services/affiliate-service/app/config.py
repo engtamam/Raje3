@@ -148,7 +148,7 @@ class Settings(BaseSettings):
     # dispute has an answer ("he agreed to v1 on this date") rather than nothing at all. A config
     # value, never hardcoded, so a real wording change is a value bump an admin makes on purpose.
     AFFILIATE_TERMS_VERSION: str = "v1"
-    # ── phone-ownership OTP (Tamam, 2026-08-23) — same two-knob shape as operations' own
+    # ── phone-ownership OTP — same two-knob shape as operations' own
     # SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP, deliberately: DELIVERABLE is "can a code actually
     # reach a phone" (false everywhere today — notification-service's own WHATSAPP_CHAIN/
     # SMS_CHAIN are still the no-op `console` driver), REQUIRE is "does apply() refuse without
@@ -164,7 +164,7 @@ class Settings(BaseSettings):
     # the change, never ones already promised a rate.
     AFFILIATE_COMMISSION_AMOUNT_HALALAS: int = 0
 
-    # THE CONVERSION WINDOW — Tamam, 2026-08-19: bounds our liability to a written, known
+    # THE CONVERSION WINDOW — bounds our liability to a written, known
     # duration rather than an open-ended one. A shop can register through an affiliate's link
     # today and subscribe two years from now; without a limit that is still a live, disputable
     # claim two years later. From `stamped_at`, NOT from any click — this product has no click
@@ -179,12 +179,12 @@ class Settings(BaseSettings):
     # "مُستحقة" ليست "مؤكدة" — a commission holds this many days from the invoice's own paid_at
     # before it is withdrawable, in case that payment is refunded within the window.
     AFFILIATE_COMMISSION_HOLD_DAYS: int = 7
-    # RENEWAL COMMISSIONS RETIRED (Tamam, 2026-08-20): a flat cut on every Nth renewal paid
+    # RENEWAL COMMISSIONS RETIRED: a flat cut on every Nth renewal paid
     # indefinitely for revenue nobody was servicing — see core/models.py's own note on
     # COMMISSION_KINDS. Real ongoing team involvement belongs to a separate program (a shop-count
     # threshold + actual support work, its own KPI), not a recurring commission here.
 
-    # ── «برنامج دعم الوفاء» (spec §8, Tamam, 2026-08-20) — see core/wafa.py's own module docstring
+    # ── «برنامج دعم الوفاء» (spec §8) — see core/wafa.py's own module docstring
     # for the full reasoning behind every one of these.
     # floor(active_shops / WAFA_TIER_SHOPS) * WAFA_TIER_AMOUNT_HALALAS — 50 shops = 500 SAR.
     WAFA_TIER_SHOPS: int = 50
@@ -216,7 +216,7 @@ class Settings(BaseSettings):
     # Blank means "not wired yet" — WafaService.performance_for degrades support_kpis to
     # available:False rather than failing.
     TICKET_SERVICE_URL: str = ""
-    # §١٣'s auto-escalation (Tamam, 2026-08-20) — see core/escalation.py's own module docstring.
+    # §١٣'s auto-escalation — see core/escalation.py's own module docstring.
     # No response within this many hours -> escalated to the promoter's own manager. Config, not
     # a hardcoded 24 — a deployment may want a different SLA.
     AFFILIATE_TICKET_ESCALATION_HOURS: int = 24
@@ -238,7 +238,7 @@ class Settings(BaseSettings):
     # 0 disables the floor (any confirmed balance may be withdrawn) — an explicit choice, not a
     # missing config: a deployment that wants no minimum should not have to fake one.
     AFFILIATE_WITHDRAWAL_MIN_HALALAS: int = 0
-    # THE RECEIPT ITSELF (Tamam, 2026-08-20: "كل الطرق ممكنة" — an admin may either upload the
+    # THE RECEIPT ITSELF ("كل الطرق ممكنة" — an admin may either upload the
     # actual file or just paste a link; both write to the SAME `receipt_reference` field, so
     # completing a withdrawal never has to know which one happened). Bounded well under
     # BODY_LIMIT_BYTES's own default (1 MiB) is wrong for a real photo of a transfer

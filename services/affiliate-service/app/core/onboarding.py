@@ -109,7 +109,7 @@ class OnboardingService:
         self._cc = default_cc
         self._salt = pii_salt
         self._terms_version = terms_version
-        # THE PHONE-OWNERSHIP GATE (Tamam, 2026-08-23: "لما يجي يسجل... النظام يعرف انه هذا الحساب
+        # THE PHONE-OWNERSHIP GATE ("لما يجي يسجل... النظام يعرف انه هذا الحساب
         # هو نفس من رقم الجوال ويربط على طول تحت المدير"). Two independent knobs, same shape as
         # operations' own SIGNUP_OTP_DELIVERABLE/SIGNUP_REQUIRE_OTP: `_can_deliver` is whether a
         # code can actually reach a phone (false everywhere today — see notification-service's own
@@ -275,7 +275,7 @@ class OnboardingService:
     # ── a manager correcting what a person under him submitted, before an admin decides ────────
     async def update_application(self, application_id: str, *, editor_person_id: str,
                                  name: str | None = None, cv_url: str | None = None) -> dict[str, Any]:
-        """Tamam, 2026-08-23: "امكانية التعديل من المدير... التعديل يكون قبل القبول من الادارة
+        """"امكانية التعديل من المدير... التعديل يكون قبل القبول من الادارة
         وليس بعده." — the manager who referred this applicant may correct his name or attach a
         CV link, but only while there is still a decision to correct it BEFORE. `decided_at`
         being set is what closes the window (models.py's own note on `Application`), not a
@@ -506,7 +506,7 @@ class OnboardingService:
         return {"already_active": False}
 
     async def set_platform_revenue_visibility(self, affiliate_id: str, *, enabled: bool) -> dict[str, Any]:
-        """spec §10's optional whole-platform view (Tamam, 2026-08-20) — admin-only, OFF by
+        """spec §10's optional whole-platform view — admin-only, OFF by
         default (Affiliate.sees_platform_revenue). No identity call here at all: this changes
         what a route READS, not who can sign in or what he can do — the same reasoning
         set_payout_method draws between "what he wants" and "who he is". The moment this flips

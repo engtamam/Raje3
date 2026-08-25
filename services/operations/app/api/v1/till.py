@@ -80,9 +80,9 @@ class TillVisitIn(BaseModel):
     # It was optional until now, and most registers accordingly never sent it: every branch's
     # visits landed in one heap, «قارن فروعك» was switched off for exactly the chains that bought
     # the product for it, and no later report could take the heap apart — nothing in the record
-    # says where any of it happened. Made mandatory while there is no integrated register to break
-    # (Tamam, 18 Aug 2026), because after launch this same line costs an outage instead of a
-    # paragraph in the integration guide.
+    # says where any of it happened. Made mandatory while there is no integrated register to break,
+    # because after launch this same line costs an outage instead of a paragraph in the
+    # integration guide.
     branch_id: str = Field(min_length=1, max_length=64)
     operator_id: str = Field(default="", max_length=64)
     meter: int = Field(default=0, ge=0, le=10_000_000)

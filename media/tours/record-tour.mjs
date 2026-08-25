@@ -80,8 +80,17 @@ async function main() {
   // to rename by hand every time. `tour.title` (every script already carries one, for exactly
   // this) becomes the filename directly, sanitized only for the handful of characters Windows
   // actually forbids in a filename — Arabic text, spaces and «» are all fine as they are.
-  const outDir = join(HERE, 'out');
-  const metaDir = join(outDir, 'meta'); // chapters.txt / captions.json — production data, not the deliverable
+  // GROUPED BY THE SIDEBAR TAB THE TOUR IS ABOUT, NOT DUMPED FLAT — `tour.section` names the
+  // real sidebar label (apps/console/src/nav.ts's own SECTIONS, e.g. 'محلّي', 'تسجيل زيارة',
+  // 'الحجوزات') so every clip that teaches the same tab lands in the same folder, in the order
+  // that folder's own clips were recorded in. A tour that isn't about any one sidebar tab (the
+  // signup/onboarding tour, which happens before a tab exists to open) names its own folder
+  // instead — 'فتح حساب' — rather than being forced into a tab it isn't about. Falling back to
+  // 'عام' rather than throwing keeps an old or in-progress script recordable while it's being
+  // written, but every FINISHED script names its real section explicitly.
+  const outDir = join(HERE, 'out', tour.section || 'عام');
+  const metaDir = join(HERE, 'out', 'meta'); // chapters.txt / captions.json — production data,
+  // not the deliverable, and not tab-specific viewing material — stays flat, unlike the videos.
   await mkdir(outDir, { recursive: true });
   await mkdir(metaDir, { recursive: true });
   const filenameBase = sanitizeFilename(tour.title || tour.id);

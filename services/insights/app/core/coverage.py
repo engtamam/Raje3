@@ -93,7 +93,7 @@ def can_rank(ordered: list[tuple[str, int]], unknown: int) -> bool:
 BLOCKED_REASONS = {
     "branch_comparison": {
         "lost": "لا تقدر تقارن فروعك",
-        # SHORT, AND WITH THE NUMBER IN IT — Tamam's own reading, on a shop that had just signed
+        # SHORT, AND WITH THE NUMBER IN IT — the reading on a shop that had just signed
         # up: «احذفها، ايش هذا الكلام؟ هو مسوي حساب جديد يشوف هذا قدامه! ولازم يعرف الارقام».
         #
         # Two long sentences stood here, explaining our own history to a man on his first day:

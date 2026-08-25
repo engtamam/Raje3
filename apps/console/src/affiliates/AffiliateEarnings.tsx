@@ -192,7 +192,7 @@ function WafaCard({ session }: { session: AffiliateSession }) {
       ) : null}
 
       {/* أدائك أنت — نفس الأرقام اللي القرار الملزم يُبنى عليها (retention/refund)، ونفس مؤشرات
-          الدعم اللي مديرك يشوفها عنك من «فريقي». Tamam, 2026-08-23: "مدير التسويق يعتبر مسوّي،
+          الدعم اللي مديرك يشوفها عنك من «فريقي». "مدير التسويق يعتبر مسوّي،
           عنده نفس المؤشرات لنفسه" — هذي البطاقة تصير صحيحة لأي مسوّق، لا المدير فقط. */}
       <div className="mt-1 border-t border-accent/20 pt-3">
         <PerformanceStats retentionRate={elig.retention_rate} refundRate={elig.refund_rate}
@@ -208,7 +208,7 @@ function WafaCard({ session }: { session: AffiliateSession }) {
  *
  *  totalReferrals/totalCommissions هي حجم العيّنة وراء كل نسبة — بلا محلات محالة أو عمولات، الرقم
  *  اللي ترجعه المعادلة (١٠٠٪ احتفاظ، ٠٪ استرجاع) قيمة افتراضية للحساب لا رقماً مُكتسَباً، وعرضه
- *  كنسبة حقيقية بلا أي بيانات وراءها هو بالضبط ما اعترض عليه تمام (٢٠٢٦-٠٨-٢٣: "كيف كذا وهو صفر
+ *  كنسبة حقيقية بلا أي بيانات وراءها هو بالضبط ما اعتُرض عليه ("كيف كذا وهو صفر
  *  اساس! في غلط في المعادلة"). المعادلة نفسها صحيحة لغرضها الأصلي (توصية الاستحقاق) — العرض هو
  *  اللي كان يكذب. */
 export function PerformanceStats({ retentionRate, refundRate, supportKpis,

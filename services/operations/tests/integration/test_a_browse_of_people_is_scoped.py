@@ -175,7 +175,7 @@ def test_an_unbranched_colleague_stays_visible_to_everybody(client):
 
 
 def test_a_field_operator_with_only_bookings_caps_can_read_his_own_team(client):
-    """Tamam, 2026-08-20: the Bookings screen calls `/staff/operators` unconditionally on mount to
+    """The Bookings screen calls `/staff/operators` unconditionally on mount to
     attribute a booking and draw the staff picker. A plain field operator holds `bookings.read`/
     `bookings.write` but never `operations.read`, so this exact route answered him 403 — the
     console read that as «تعذّرت قراءة فريق العمل», an outage, when he simply held neither

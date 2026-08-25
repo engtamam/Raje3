@@ -17,6 +17,9 @@
 export default {
   id: 'stop-service',
   title: 'إيقاف خدمة وإعادة تفعيلها',
+  // apps/console/src/nav.ts's own SECTIONS label, verbatim — «خدماتي ومنتجاتي» is the screen
+  // this tour is entirely about, confirmed by its own goto/click steps below.
+  section: 'خدماتي ومنتجاتي',
   sfx: true,
   steps: [
     // NAVIGATED, NOT LOADED — a `goto` step is a full page reload, which wipes the overlay

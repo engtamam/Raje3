@@ -28,7 +28,7 @@ import { Home as HomeIcon, Users, Wrench, Wallet, CircleUserRound, UsersRound } 
 export type Tab = 'home' | 'leads' | 'tools' | 'earnings' | 'team' | 'account';
 
 /** SIX SLOTS FOR A MANAGER, STILL FIVE FOR A PROMOTER. «فريقي» is the one ADDITIONAL thing a
- *  manager gets on top of everything a promoter already has (Tamam, 2026-08-23) — not a sixth
+ *  manager gets on top of everything a promoter already has — not a sixth
  *  slot reopened for everybody, which is exactly what this file's own header note fixed the bar
  *  against. Inserted after «أرباحي»: team management is a business concern, closest to money. */
 function tabsFor(isManager: boolean): { id: Tab; label: string; icon: ReactNode; ready: boolean }[] {

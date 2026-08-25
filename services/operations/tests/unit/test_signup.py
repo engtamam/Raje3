@@ -218,7 +218,7 @@ async def test_an_ambiguous_catalogue_skips_the_trial_rather_than_guessing():
 
 @pytest.mark.anyio
 async def test_every_app_that_carries_a_trial_is_subscribed_alongside_the_base():
-    """Tamam: «كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل» — not just the base plan."""
+    """«كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل» — not just the base plan."""
     http = FakeHttp(list(_HAPPY_PATH))
     plans = FakePlans(trial_plan_ids=["plan_base", "plan_bookings", "plan_loyalty"])
     out = await build_with_plans(http, plans).open_shop(

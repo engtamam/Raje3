@@ -96,7 +96,7 @@ async def test_eligibility_preview_with_zero_shops():
 
 @pytest.mark.anyio
 async def test_eligibility_preview_now_carries_support_kpis_for_himself():
-    """Tamam, 2026-08-23: "مدير التسويق يعتبر مسوّي، عنده نفس المؤشرات لنفسه" — `performance_for`
+    """"مدير التسويق يعتبر مسوّي، عنده نفس المؤشرات لنفسه" — `performance_for`
     already computed `support_kpis`; `eligibility_preview` dropped it before this fix, so a
     marketer's own home/earnings screen had no way to show it, even though `GET /me/team` showed
     the SAME numbers about his team members all along."""
@@ -285,7 +285,7 @@ async def test_performance_for_reports_full_retention_and_zero_refund_with_no_hi
                    "total_referrals": 0, "total_commissions": 0}
     # THE POINT OF THIS TEST'S OWN NAME, made explicit: retention_rate/refund_rate are formula
     # DEFAULTS with no referral or commission behind them — a caller must read total_referrals/
-    # total_commissions to tell "no evidence yet" from "a real 100%/0%" (2026-08-23, Tamam: "كيف
+    # total_commissions to tell "no evidence yet" from "a real 100%/0%" ("كيف
     # كذا وهو صفر اساس! في غلط في المعادلة").
     assert out["total_referrals"] == 0 and out["total_commissions"] == 0
 

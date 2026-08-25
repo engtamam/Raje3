@@ -323,7 +323,7 @@ def test_erasure_removes_the_balance_and_is_idempotent(client, owner, operator):
 
 
 def test_erasure_keeps_the_redemption_receipt_pseudonymous_not_deleted(client, owner, operator):
-    # Tamam, 2026-08-19: a redemption is a receipt (reward, cost, branch, when) — deleting it on
+    # A redemption is a receipt (reward, cost, branch, when) — deleting it on
     # an erasure request leaves the shop with no defence if the customer later disputes what he
     # was given, and breaks /report's own aggregate, which reads these rows directly.
     rid = _reward(client, owner, name="غسلة مجانية", cost=20)

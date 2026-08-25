@@ -1,6 +1,6 @@
 """Erasing one person's points — and NOT the receipt of what he redeemed.
 
-Tamam, 2026-08-19: a customer redeems a real reward — cost, branch, when, who approved it — asks
+A customer redeems a real reward — cost, branch, when, who approved it — asks
 to be forgotten, and later disputes something ("I was never given that free wash", or the shop's
 own bookkeeping needs to explain a discount it gave). Answering that dispute needs the receipt to
 still exist. This file used to argue the opposite ("the aggregate is what is retained") and then

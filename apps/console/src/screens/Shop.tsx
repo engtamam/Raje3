@@ -235,7 +235,7 @@ export function TodayPulse({ session, catalog }: { session: Session; catalog: Ca
  *
  *  A SOFT-TINTED SURFACE, NOT A WHITE CARD WITH A COLOURED HAIRLINE — the earlier version put the
  *  same near-white background on every tile regardless of tone, so a screen of six or eight tiles
- *  read as identical boxes distinguished only by a 2px line most eyes never register (Tamam's own
+ *  read as identical boxes distinguished only by a 2px line most eyes never register (a
  *  screenshot of a fresh shop: "كلها مربعات… مافي أشكال احترافية"). Each tone now owns its own
  *  panel colour, so the eye sorts the row by shape/colour before it ever reads a number — the same
  *  move `MessageFlow`/`HoldoutCard` already make with their own tinted panels, applied here too. A
@@ -422,8 +422,8 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const operatorCanRank = data.values['operator_can_rank'] as boolean | undefined;
   const serviceDayRows = topEntitiesByDay(serviceDayGrid, serviceNames, 6);
   const branchDayRows = topEntitiesByDay(branchDayGrid, branchNames, 6);
-  // EACH ONE RENDERED IN ITS OWN INDICATOR'S SLOT NOW, NOT COLLECTED INTO A SEPARATE LIST — Tamam's
-  // own words on the old block: «اغبى تصميم بالكامل … كل مؤشر بمكانه المناسب». `not_enabled` still
+  // EACH ONE RENDERED IN ITS OWN INDICATOR'S SLOT NOW, NOT COLLECTED INTO A SEPARATE LIST — direct
+  // feedback on the old block: «اغبى تصميم بالكامل … كل مؤشر بمكانه المناسب». `not_enabled` still
   // names exactly the same three indicators (`coverage.py`'s own `BLOCKED_REASONS`); only where
   // each one is READ changed, right beside the real card it stands in for.
   const notEnabled = data.not_enabled ?? [];
@@ -431,7 +431,7 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
   const staffBlocked = notEnabled.find((b) => b.indicator === 'staff_performance');
   const associationsBlocked = notEnabled.find((b) => b.indicator === 'associations');
 
-  // ONE SLOT, ALWAYS SOMETHING IN IT — Tamam, direct and repeated: «always render لكل المكونات في
+  // ONE SLOT, ALWAYS SOMETHING IN IT — direct and repeated: «always render لكل المكونات في
   // محلي ضروري لازم ما تجلس تخفي شي ابدا». Every card below either draws itself (real data,
   // even a single real row) or draws THIS — muted, stamped, honestly explained — never nothing.
   const muted = (title: string, note: string) => <MutedIndicator title={title} note={note} />;
@@ -491,9 +491,9 @@ export function IndicatorsPanel({ session, catalog, branch, onBranch }: {
         {holdout ? <div className="mb-3 break-inside-avoid"><HoldoutCard h={holdout} /></div>
           : <div className="mb-3 break-inside-avoid">{muted('أثر الرسائل، مقيساً', 'يحتاج مجموعتين حقيقيتين للمقارنة — لسا ما تكوّنتا.')}</div>}
 
-        {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison Tamam
+        {/* A RANKING OF HIS OWN BRANCHES AND STAFF IS NOT A DETAIL — it is the comparison
             asked for by name, and it must ALWAYS draw itself, muted when thin (never absent —
-            his own words: «always render لكل المكونات … لازم ما تجلس تخفي شي ابدا»).
+            «always render لكل المكونات … لازم ما تجلس تخفي شي ابدا»).
             `BranchCompare`/`StaffCompare` now handle the thin case internally; `branchBlocked`/
             `staffBlocked` (coverage.py's own signal) is the richer explanation when we HAVE it,
             and the plain muted fallback covers the rest. */}
@@ -712,7 +712,7 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
         // A WHOLE NUMBER, NOT A DECIMAL — the previous version kept one decimal place
         // («7.8 يرجعون») for extra precision, but this sentence counts PEOPLE: «7.8 عميل يرجعون»
         // reads as a fraction of a person, which is exactly the kind of thing this screen exists
-        // to make simple for a non-technical owner (Tamam, watching the recorded tour built
+        // to make simple for a non-technical owner (feedback while watching the recorded tour built
         // around it: «صاحب المحل بسيط، الرقم 7.8 غلط لازم يكون رقم صحيح»). The small-sample
         // honesty concern this hero already handles separately (SAMPLE_FLOOR, above) — rounding
         // the projected-to-ten sentence to a whole person loses a sliver of precision nobody was
@@ -756,7 +756,7 @@ function RetentionHero({ pct, series, sampleSize }: { pct: number; series?: Seri
           real customers churn underneath it and new ones backfill the count. The badge above says
           only «up» or «down» over the whole span; the shape says WHEN, which is the question an
           owner asking «متى» actually has. Given its own full-width row and real presence now — a
-          128×34 sliver squeezed beside the badge was there but invisible; Tamam asked for it to be
+          128×34 sliver squeezed beside the badge was there but invisible; the ask was for it to be
           worth opening the page for: «سويها بشكل احترافي عالي الجمال ويخليه ينبسط منها». */}
       {series?.points && series.points.length > 1 ? (
         <div className="mt-4 -mx-1"><RetentionTrend points={series.points} /></div>
@@ -1294,7 +1294,7 @@ function NextStepView({ step, onDismiss, busy }: {
   busy: boolean;
 }) {
   // «info» USED TO STAY PLAIN WHITE — the one card the screen guarantees always has something to
-  // say read as the flattest one on it (Tamam's own words: "الشاشة كلها بياض"). It now takes the
+  // say read as the flattest one on it ("الشاشة كلها بياض"). It now takes the
   // same tint language every other card on the screen already uses.
   const TONE_BG: Record<string, string> = {
     warning: 'var(--sh-coral-soft)', success: 'var(--sh-teal-soft)', info: 'var(--sh-violet-soft)',
@@ -1352,7 +1352,7 @@ function LockedLine({ title, text }: { title: string; text: string }) {
 }
 
 /** THE ROTATED CORNER BADGE every "not active yet" surface on this screen now shares — the real
- *  chart/list card AND the standalone placeholder alike (Tamam: «كلها تظهر بشكلها الفعلي بالكامل
+ *  chart/list card AND the standalone placeholder alike («كلها تظهر بشكلها الفعلي بالكامل
  *  بس بلون باهت شوية … زي الختم»). One visual vocabulary for "this is real, just not full yet". */
 function StampBadge() {
   return (
@@ -1381,14 +1381,14 @@ function MutedIndicator({ title, note }: { title: string; note: string }) {
 }
 
 /** A "قيد التكوّن" STAMP, standing IN THE INDICATOR'S OWN PLACE — not collected into a separate
- *  list elsewhere on the page (Tamam's own words on that list: «اغبى تصميم بالكامل»). The dashed
+ *  list elsewhere on the page (feedback on that list: «اغبى تصميم بالكامل»). The dashed
  *  border and rotated corner badge read as "not active yet" at a glance, the same way the empty
  *  `Tile` treatment already does — real explanation, real progress when there is one, a real link
  *  when there is somewhere on the platform that actually finishes it, never an invented one.
  *
  *  ONLY USED WHEN THE REAL CARD HAS NOTHING AT ALL TO SHOW (`associations`, no pairs learned yet).
  *  `BranchCompare`/`StaffCompare` below take the other path — the real chart, muted — for exactly
- *  the case Tamam caught: a shop WITH visits but one operator still went completely silent on
+ *  the case caught in review: a shop WITH visits but one operator still went completely silent on
  *  staff, because the real component's own render guard (`rows.length > 1`) hid it outright while
  *  this stamp's own trigger (a coverage RATIO) never fired for a single, fully-attributed
  *  operator. Two different thresholds guarding the same missing card is how it went dark twice. */
@@ -1486,7 +1486,7 @@ function GhostRow({ label }: { label: string }) {
  *  below `rows.length > 1`, and `BlockedStamp` elsewhere on the page only fires off a SEPARATE
  *  coverage signal that does not cover every reason a chart is thin. The two thresholds disagreeing
  *  is exactly how a shop WITH real visits saw neither the real chart nor any placeholder for staff
- *  (Tamam: «متأكد في مؤشرات اساسا؟»). Now: real rows always show at full colour; below two rows the
+ *  («متأكد في مؤشرات اساسا؟»). Now: real rows always show at full colour; below two rows the
  *  WHOLE CARD mutes (opacity + a touch of grayscale) and carries the stamp + a plain explanation,
  *  its real shape still fully visible underneath — «تظهر بشكلها الفعلي بالكامل بس بلون باهت شوية». */
 function BranchCompare({ branches }: { branches: Branches }) {
@@ -1537,7 +1537,7 @@ function BranchCompare({ branches }: { branches: Branches }) {
 }
 
 /** THE STAFF EQUIVALENT OF `BranchCompare` ABOVE, same shape, same always-visible/muted treatment —
- *  the metric Tamam chose is visits + distinct customers PLUS a return rate computed on the
+ *  the metric chosen is visits + distinct customers PLUS a return rate computed on the
  *  EMPLOYEE'S OWN slice of visits (`operator_rows` in tick.py), so "72% عودة" here means the
  *  customer came back to THIS person specifically, not to the shop in general. Fairness was the
  *  point of asking. */

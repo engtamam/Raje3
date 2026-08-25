@@ -20,8 +20,8 @@ documented Saudi dialect) is the one that is actually free to use here.
 
 **Every model in this class — SILMA included — is voice CLONING, not a fixed built-in voice.**
 There is no "pick a voice and go" option among the models good enough to sound real; each one
-needs a genuine reference clip to clone from, every time it generates anything. Tamam's own call:
-never his voice, never anyone at Raje3's — a licensed clip from a corpus built for exactly this.
+needs a genuine reference clip to clone from, every time it generates anything. Decided:
+never anyone at Raje3's own voice — a licensed clip from a corpus built for exactly this.
 
 `media/tts/reference/voice.wav` is utterance `ARA NORM 0033` from the **Arabic Speech Corpus**
 (Nawar Halabi) — CC BY 4.0, a single professional speaker recorded in a real studio specifically
@@ -29,7 +29,7 @@ for TTS research. Picked over an HTTP range-request read of the corpus zip's cen
 (never downloaded the full 1.2GB archive) for a clean, undashed, 6–9 second single sentence. Full
 provenance and required attribution: `media/tts/reference/SOURCE.md`.
 
-## THE AUDIO IS THE CLOCK, NOT THE VIDEO — Tamam's own requirement, explicit
+## THE AUDIO IS THE CLOCK, NOT THE VIDEO — an explicit requirement
 
 Every caption's `startSeconds`/`endSeconds` in `captions.json` today comes from how long the
 RECORDING happened to take at each step — real, but incidental; nothing about it was ever tuned

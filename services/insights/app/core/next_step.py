@@ -85,7 +85,7 @@ class NextStepCtx:
     # `snap["coverage"]["staff_performance"]` (tick.py's `_coverage()`) — attribution completeness,
     # not a workload number (see the module's own note on why الموظفين carries one rule).
     staff_coverage: dict[str, Any]
-    # `snap["visits"]` — THE ONE GUARD AGAINST A REAL BUG (Tamam, screenshot: a brand-new shop
+    # `snap["visits"]` — THE ONE GUARD AGAINST A REAL BUG (a screenshot showed a brand-new shop
     # with zero real activity was told a service was "rarely requested"). `weak_services()` ranks
     # a shop's OWN catalogue and is correct to call every service equally weak when they are all
     # genuinely tied at zero visits over real history — but a shop that has never recorded a
@@ -177,8 +177,8 @@ def _too_few_sends_to_measure(ctx: NextStepCtx) -> NextStepResult | None:
     if o.get("ready") is False and o.get("reason") == "too_few_sends":
         sent = int(o.get("sent") or 0)
         # A SHOP THAT HAS NEVER SENT A MESSAGE HAS NOTHING TO MEASURE YET, PERIOD — this rule is
-        # about a partial sample ("you're on your way, keep going"), not a zero one. The exact bug
-        # Tamam reported: a brand-new tenant with `sent=0` still got "أرسل 200 رسالة أخرى" — "أخرى"
+        # about a partial sample ("you're on your way, keep going"), not a zero one. The exact bug:
+        # a brand-new tenant with `sent=0` still got "أرسل 200 رسالة أخرى" — "أخرى"
         # (MORE) claims a baseline that never existed. `_no_messages_sent_yet` below owns the
         # zero case with its own, honest wording.
         if sent <= 0:
@@ -361,7 +361,7 @@ def _bundles_locked(ctx: NextStepCtx) -> NextStepResult | None:
 # ── ⑩ الصحة العامة — الحارسة الأخيرة، تطابق دائماً ────────────────────────────────────────────
 def _all_is_well(ctx: NextStepCtx) -> NextStepResult | None:
     # "وضعك ثابت" (things are stable) is a verdict on HISTORY — said to a shop with zero visits
-    # ever recorded, it claims a track record that does not exist yet. Tamam's screenshot: a
+    # ever recorded, it claims a track record that does not exist yet. A screenshot showed a
     # brand-new tenant, nothing but zeros, still got told it was "stable". A shop that has not
     # started needs a start line, not a compliment.
     if ctx.total_visits <= 0:

@@ -423,7 +423,7 @@ class HttpPlans:
 
     async def list_trial_plans(self) -> list[str]:
         """Every LISTED plan carrying a trial — base and app alike, whatever the price list says
-        today (Tamam: «كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل»).
+        today («كل التطبيقات تُفعَّل تجريبياً تلقائياً عند التسجيل»).
 
         NOT A SEPARATE "IS THIS AN APP" RULE. `trial_days` is the one fact each row already
         states about itself; a plan not meant to be tried simply carries 0, and this reads that

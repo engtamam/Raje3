@@ -19,7 +19,7 @@ a stale staging domain, or a partner's origin added in a hurry and never removed
 a browser we did not mean to trust, in a file nobody re-reads.
 
 WHY A LIST HERE RATHER THAN A LOOKUP. These four strings are the product's public identity. They
-change when Tamam buys a domain, which is a decision, not a deployment — and a check that read them
+change when a domain is bought, which is a decision, not a deployment — and a check that read them
 from the same files it is checking would agree with any value it found, including a typo.
 
 WHAT THIS CANNOT SEE, said plainly:

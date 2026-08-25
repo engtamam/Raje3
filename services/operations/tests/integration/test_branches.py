@@ -625,7 +625,7 @@ def test_a_supervisor_is_offered_only_the_branches_he_may_read(client):
 
 
 def test_a_field_operator_with_only_bookings_caps_can_now_read_his_own_branch(client):
-    """Tamam, 2026-08-20: a plain field operator holds `bookings.read`/`bookings.write` but
+    """A plain field operator holds `bookings.read`/`bookings.write` but
     never `operations.read` — so this exact route used to answer him 403, and the console read
     that as «لا فروع بعد» (no branches EXIST), which was false. He simply held neither
     capability the route required. `_READ_BRANCHES` (staff.py) reopens this one self-narrowing

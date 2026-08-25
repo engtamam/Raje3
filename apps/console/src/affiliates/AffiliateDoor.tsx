@@ -13,7 +13,7 @@
  *   obligations to ITS customers, and a person agreeing to the wrong document agreed to nothing.
  *
  *   TWO DOORS, NOT THREE ANY LONGER (2026-08-23): «قبول دعوة» is gone — a manager no longer
- *   invites through us at all (Tamam: "رابط للمدير مافي اي ارسال المدير راح يرسل له الرابط").
+ *   invites through us at all ("رابط للمدير مافي اي ارسال المدير راح يرسل له الرابط").
  *   He shares his own referral link himself, and whoever uses it lands right here, on «تقديم
  *   طلب», with `?ref=` pre-filling the same field a self-applicant fills by hand.
  *
@@ -262,7 +262,7 @@ function ApplyPane() {
                onChange={(e) => setReferralCode(e.target.value.trim())} dir="ltr" />
       </Field>
 
-      {/* Optional, never required — a pasted résumé/portfolio link (Tamam, 2026-08-23). */}
+      {/* Optional, never required — a pasted résumé/portfolio link. */}
       <Field label="رابط سيرتك الذاتية (اختياري)" htmlFor="aff-cv">
         <Input id="aff-cv" name="cv_url" value={cvUrl}
                onChange={(e) => setCvUrl(e.target.value.trim())} dir="ltr"

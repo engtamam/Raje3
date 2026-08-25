@@ -2,7 +2,7 @@
 real WAV file at `out_path` and returns nothing else. `synthesize.py` never imports a provider by
 name; it reads `TTS_PROVIDER` (default "silma") and asks THIS file for whichever one that names.
 
-WHY THIS EXISTS: Tamam's own ask, direct — "تجهّز البنية التحتية بحيث تبديل سريع مباشر" (set up
+WHY THIS EXISTS: a direct ask — "تجهّز البنية التحتية بحيث تبديل سريع مباشر" (set up
 the plumbing so switching is fast and direct). Today there's one working provider (SILMA, local,
 free, already verified end to end). ElevenLabs is wired the same way, ready the moment a paid
 subscription with API access to library voices exists — switching providers for every future

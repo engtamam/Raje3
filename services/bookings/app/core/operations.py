@@ -152,7 +152,7 @@ class BookingOperations:
         # OPTIONAL, LIKE `events.publish` ABOVE — a test or a local run with no loyalty desk wired
         # simply never redeems; `attend()` below treats a missing gateway the same as a failed one.
         self._rewards = rewards
-        # CONFIG, NOT A CONSTANT (Tamam, 2026-08-19) — of the last `risk_window` CLOSED
+        # CONFIG, NOT A CONSTANT — of the last `risk_window` CLOSED
         # appointments, `risk_threshold_percent` or more missed marks her "risky". See
         # `no_show_risk`'s own docstring below.
         self._risk_window = risk_window
@@ -226,7 +226,7 @@ class BookingOperations:
             raise OperationError("وقت الحجز مطلوب")
         if payment_status not in PAYMENT_STATES:
             raise OperationError("حالة دفع غير معروفة")
-        # "عربون اجباري ولكن مدفوع السعر غير اجباري" (Tamam, 2026-08-19) — a deposit with no
+        # "عربون اجباري ولكن مدفوع السعر غير اجباري" — a deposit with no
         # amount is not a fact anyone can act on later; «مدفوع» has the booking's own price to
         # stand for it and needs nothing extra. Never carried over from a different state either:
         # a booking that was never a deposit has no deposit amount to remember.
@@ -419,7 +419,7 @@ class BookingOperations:
         expected = booking.rev
         booking.status = STATUS_ATTENDED
         booking.visit_id = str(result["visit_id"])
-        # THE SPEND, NOW — THE ONE MOMENT THE VISIT IS REAL (Tamam, 2026-08-19: "نية استبدال, لا
+        # THE SPEND, NOW — THE ONE MOMENT THE VISIT IS REAL ("نية استبدال, لا
         # استبدال فوري"). `intended_reward_id` only ever meant "he asked for this at booking
         # time" — a customer's points were never touched until this exact line. Best-effort, like
         # every other secondary write hung off an attend: a failed redemption must not undo an
@@ -458,7 +458,7 @@ class BookingOperations:
 
     async def no_show_risk(self, tenant: str, customer_id: str) -> dict[str, int | bool]:
         """A number, never a judgement (§2.6): how many of her last N CLOSED appointments she did
-        not attend, N and the risky-percentage both configured (Tamam, 2026-08-19: "خليه config
+        not attend, N and the risky-percentage both configured ("خليه config
         ما ابغ هاردكود") rather than fixed in code — a shop that finds 60% too strict or too loose
         changes ONE number, not a release. `booked` (still pending) and `cancelled` (never
         happened) are excluded — neither is an attendance outcome. The staff member decides what
@@ -482,7 +482,7 @@ class BookingOperations:
                "threshold_percent": self._risk_threshold_percent}
 
     # ── working hours (docs/وصف-تطبيق-الحجوزات.md §4: "working hours… a real, still-missing
-    # input", Tamam, 2026-08-19) — ONE policy per tenant, every branch shares it. ────────────────
+    # input") — ONE policy per tenant, every branch shares it. ────────────────
 
     async def working_hours(self, tenant: str) -> dict[str, dict[str, int | bool]]:
         """The shop's own weekly policy, always all 7 days (0=Monday..6=Sunday, `date.weekday()`'s

@@ -302,7 +302,7 @@ class Tick:
             values["branch_names"] = {r["key"]: names.get(r["key"], "")
                                       for r in table["rows"]}
 
-            # THE STAFF TABLE — same shape, same reasoning, one grouping over (Tamam: «مقارنة
+            # THE STAFF TABLE — same shape, same reasoning, one grouping over («مقارنة
             # الموظفين على نفس أساس الفروع — عدد الزيارات، عدد العملاء المميزين، ونسبة عودة
             # العميل للموظف نفسه»). `return_rate` computed on the OPERATOR'S OWN SLICE of visits
             # means exactly that last one: a customer's second visit only counts here if it ALSO

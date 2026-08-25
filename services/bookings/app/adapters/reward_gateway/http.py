@@ -1,5 +1,5 @@
 """The reward `attend()` spends — docs/خطة-تنفيذ-الحجوزات.md's §ADR on "نية استبدال, لا استبدال
-فوري" (Tamam, 2026-08-19). A stdlib urllib client of `operations`' `POST
+فوري". A stdlib urllib client of `operations`' `POST
 /internal/operations/bookings/redeem`, same shape as `visit_gateway/http.py`.
 
 NEVER called from `create()` or `set_intended_reward()` — see `RewardGateway`'s own docstring in

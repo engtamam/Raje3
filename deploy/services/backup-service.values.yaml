@@ -165,10 +165,10 @@ env:
   # POINTED AT OSS, OUTSIDE THE FLEET (#329) — FOURTH ATTEMPT, AND THE LAST BUG WAS PLATFORM'S,
   # NOT OURS. Three real, independent causes blocked this over one night, each verified live and
   # fixed in turn: the egress NetworkPolicy said `internet: false`; the RAM role's policy lacked
-  # bucket-level permission (fixed by Tamam attaching AliyunOSSFullAccess to the role itself);
+  # bucket-level permission (fixed by attaching AliyunOSSFullAccess to the role itself);
   # and the S3 adapter's `force_path_style=false` left addressing style to botocore's ambient
   # guess, which resolved wrong against a non-AWS endpoint. That last one was platform code —
-  # escalated, and Tamam shipped the fix in v0.16.22 (services/backup-service/app/adapters/
+  # escalated, and the fix shipped in v0.16.22 (services/backup-service/app/adapters/
   # object_store/s3.py: the false branch now explicitly requests virtual-hosted addressing
   # instead of leaving Config unset). Repinned; this is the one-line flip back the prior comment
   # promised, with nothing left to re-diagnose.
@@ -178,7 +178,7 @@ env:
   OBJECTSTORE_REGION: "me-central-1"
   OBJECTSTORE_FORCE_PATH_STYLE: "false"
   # CREDENTIALS COME FROM THE NODE'S OWN IDENTITY, NOT A SECRET. An Instance RAM Role is attached
-  # (Tamam, 2026-08-18) instead of static keys. `alibaba-ecs-ram` is a refreshable botocore
+  # instead of static keys. `alibaba-ecs-ram` is a refreshable botocore
   # provider reading Alibaba's own metadata dialect (AccessKeySecret/SecurityToken at
   # OBJECTSTORE_METADATA_ENDPOINT, not AWS's 169.254.169.254). A role name is left unset — the
   # provider auto-discovers the one role attached to this node.
@@ -219,8 +219,8 @@ env:
   # 20 runs, and the last VERIFIED backup of every target is kept regardless of age — the sweep
   # can never delete a service's only working archive. 30 days as a second bound so a target that
   # stopped being backed up does not keep 20 stale runs forever: at one run a night the two limits
-  # agree with each other on a healthy target, so neither one is the surprise (Tamam, 2026-08-18 —
-  # narrowed from 30 runs / 90 days: the old bound outlived any use a shop's data has that far back).
+  # agree with each other on a healthy target, so neither one is the surprise —
+  # narrowed from 30 runs / 90 days: the old bound outlived any use a shop's data has that far back.
   BACKUP_RETENTION_RUNS: "20"
   BACKUP_RETENTION_MAX_AGE_SECONDS: "2592000"
 

@@ -5,10 +5,10 @@
   would render black on every tab. The square gives the mark its own ground, because a tab strip
   may be light or dark and a bare accent stroke disappears into one of them. Any change to Mark.tsx
   belongs here too.
-  REBRANDED 2026-08-22, gold (#B8862B) → violet (#6a4cf5, config/product.json's brand.accent.light)
+  REBRANDED gold (#B8862B) → violet (#6a4cf5, config/product.json's brand.accent.light)
   — this file was missed in that pass; a browser tab kept the old identity after every screen in
   the product had already moved on.
-  GROUND SWITCHED TO WHITE THE SAME DAY (Tamam, by screenshot): dark ink read heavier in a tab
+  GROUND SWITCHED TO WHITE (confirmed by screenshot): dark ink read heavier in a tab
   strip than the mark warranted, and violet-on-white is the pairing every other surface in the
   product already uses for it — the dark ink square was never about the accent, only about
   contrast, and white gives that just as well.</desc>

@@ -21,7 +21,7 @@
 #                only while the Referral it is keyed on is still within its conversion window
 #                (ReferralRegistry.expires_at) — see _sync_conversion for the lapse check.
 #
-# RENEWAL retired (Tamam, 2026-08-20): a flat commission on every Nth renewal paid indefinitely
+# RENEWAL retired: a flat commission on every Nth renewal paid indefinitely
 # for revenue nobody was servicing. Real, ongoing team involvement now belongs to a separate
 # program (a shop-count threshold + actual support work, its own KPI) rather than a recurring cut
 # baked into this engine. See app/core/models.py's own note on COMMISSION_KINDS.
@@ -216,7 +216,7 @@ class CommissionEngine:
         return await self._net_revenue(referrals)
 
     async def platform_revenue(self) -> dict[str, Any]:
-        """Tamam, 2026-08-20: an OPT-IN, per-manager view (Affiliate.sees_platform_revenue,
+        """An OPT-IN, per-manager view (Affiliate.sees_platform_revenue,
         default False, admin-granted only) — what the AFFILIATE CHANNEL AS A WHOLE has brought
         the platform, every referral ever stamped regardless of status or whose tree it is in
         (ReferralRegistry.all_ever — a lapsed/revoked referral still made real money, it just

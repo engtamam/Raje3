@@ -245,7 +245,7 @@ def test_home_open_tickets_is_empty_with_no_ticket_service_configured():
 
 
 def test_an_operators_config_override_changes_the_withdrawal_threshold_live_on_home():
-    """The end-to-end proof for Tamam's own question (2026-08-23): "400 ريال، وممكن يتغير — أتوقع
+    """The end-to-end proof for the question: "400 ريال، وممكن يتغير — أتوقع
     فيه مكان لتعديلها" — an operator's PUT /api/v1/operator/config takes effect on the NEXT
     /me/home read, no redeploy, exactly the surface `platform.config` already exists for."""
     client = _make_app(tickets_http=None)

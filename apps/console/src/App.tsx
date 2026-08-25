@@ -149,7 +149,7 @@ export function App() {
   // opened, cleared the instant he presses through. session-scoped, so it cannot survive past this
   // tab or replay on an ordinary sign-in from another device.
   //
-  // A DIALOG OVER WHATEVER RENDERS BELOW, NOT A REPLACEMENT FOR IT — Tamam's own words: «نافذة
+  // A DIALOG OVER WHATEVER RENDERS BELOW, NOT A REPLACEMENT FOR IT — «نافذة
   // منبثقة مو صفحة كامله». `WelcomeTrial` portals itself to `document.body`, so it is appended as
   // a sibling to every branch below (loading skeleton, outage screen, the real shell) rather than
   // being one more early return that discards whichever of them was about to render.

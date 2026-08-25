@@ -142,7 +142,7 @@ export interface WafaEligibility {
   support_kpis: SupportKpis;
   // THE SAMPLE SIZE BEHIND retention_rate/refund_rate — 0 referrals/commissions means the rate is
   // a formula default (100%/0%), not an earned number; PerformanceStats reads these to say "no
-  // data yet" instead of a real-looking percentage (2026-08-23, Tamam: "كيف كذا وهو صفر اساس").
+  // data yet" instead of a real-looking percentage ("كيف كذا وهو صفر اساس").
   total_referrals: number; total_commissions: number;
 }
 export interface EmploymentEligibility {

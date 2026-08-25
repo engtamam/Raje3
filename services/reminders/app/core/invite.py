@@ -67,8 +67,8 @@ WITHDRAWN = "نتشرّف بخدمتك دائماً 🌿"
 #: A VISIT CONFIRMATION IS LAWFUL WITHOUT AN INVITATION. So the line steps back to an ASK with no
 #: address in it, and the difference between an ask and a claim is the whole of this note.
 #:
-#: THE FIRST VERSION SAID «ولك عندنا مزايا خاصة» — you have special benefits with us — and Tamam
-#: caught it: we do not know that. The shop may run no offer at all, and then a message in the
+#: THE FIRST VERSION SAID «ولك عندنا مزايا خاصة» — you have special benefits with us — but
+#: we do not know that. The shop may run no offer at all, and then a message in the
 #: shop's name has told his customer something untrue, and told it at the moment the customer
 #: trusts it most, right after a visit. It is the defect family this whole repository chases,
 #: arriving in the friendliest possible sentence.

@@ -279,7 +279,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/operators", "capability": "operations.read", "group": "الفريق",
     },
     {
-        # SAME ROUTE, A SECOND DOOR (Tamam, 2026-08-20) — same shape as list_branches_for_bookings
+        # SAME ROUTE, A SECOND DOOR — same shape as list_branches_for_bookings
         # right above: the Bookings screen calls `/staff/operators` unconditionally on mount to
         # attribute a booking and draw the staff picker, and a field operator holds `bookings.read`
         # but not `operations.read`. See staff.py::_READ_OPERATORS_FOR_BOOKINGS's own note.
@@ -343,7 +343,7 @@ USER_ACTIONS: list[dict[str, Any]] = [
         "path": "/api/v1/staff/branches", "capability": "operations.read", "group": "الفروع",
     },
     {
-        # SAME ROUTE, A SECOND DOOR (Tamam, 2026-08-20) — a field operator holds `bookings.read`
+        # SAME ROUTE, A SECOND DOOR — a field operator holds `bookings.read`
         # but not `operations.read`, and the Bookings screen genuinely needs his own branch to
         # even ask the server for a day's schedule (see staff.py::_READ_BRANCHES's own note on
         # why this is a real bug, not a missing feature). The gateway's own catalogue filter is a

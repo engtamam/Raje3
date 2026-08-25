@@ -121,6 +121,9 @@ async function main() {
   const { operatorId, ticket } = await ensureOperator(session, act);
   console.log(`  ✔ operator ready`);
 
+  console.log('▸ hero customer (real points + real rewards, for the visit/offers tour)');
+  await seedHeroCustomer(session, act, serviceIds, operatorId, ticket);
+
   console.log(`▸ ${N_CUSTOMERS} customers with visits`);
   let done = 0;
   await pool(Array.from({ length: N_CUSTOMERS }), CONCURRENCY, async () => {
@@ -252,6 +255,91 @@ async function getBranchId(session, act) {
   const branchesAction = act('operations.list_branches');
   const branches = await callAction(session, branchesAction).catch(() => ({ branches: [] }));
   return branches.branches?.[0]?.id;
+}
+
+// A FIXED, MEMORABLE NUMBER — every other customer in this file gets a random one, deliberately;
+// this ONE needs to be typeable on camera and identical every time this script runs, since the
+// visit/offers tour's own selectors and captions are built around finding HER specifically.
+const HERO_PHONE = '0555010101';
+const HERO_NAME = 'عميلة العرض';
+// The highest-points service in the catalogue — 120/visit; 40 visits (below) clears both seeded rewards with a large, re-recording-safe
+// manager-approval reward at cost 600 for real, not by inventing a smaller reward to fit fewer
+// visits. Matched by NAME, not a hardcoded id — service ids are minted fresh every signup.
+const HERO_SERVICE_NAME = 'بروتين شعر';
+
+/**
+ * ONE customer with real points, a real cheap reward, and a real manager-approval reward — built
+ * for the visit-screen tour's own «عروضه ونقاطه» chapter, which needs actual non-empty state to
+ * show, not the honest-but-empty "لا عروض ولا نقاط مستحقّة" every other seeded customer gets.
+ *
+ * EVERYTHING HERE IS THE REAL API, same discipline as the rest of this file — points accrue from
+ * real recordVisit calls, never a direct balance write. The one thing this canNOT do the same
+ * way is the customer's OFFER: there is no owner-facing "grant an offer" action by design (see
+ * deploy/seed/seed-field-offer.py's own header — an offer is created by a SEND, and forging one
+ * from a screen would let the screen prove an entitlement nothing ever sent). This function seeds
+ * everything reachable over plain HTTP and prints the one command + values a human (or an ops-mcp
+ * call) still has to run inside the cluster for the offer itself.
+ */
+async function seedHeroCustomer(session, act, serviceIds, operatorId, ticket) {
+  // A REAL MANAGER-APPROVAL THRESHOLD — without this, `needs_approval` never appears and the
+  // whole "باعتماد المدير" chapter has nothing real to point at. `points` MUST be resent as
+  // whatever it already is — this endpoint takes the whole general-settings row, not a patch, so
+  // reading it first and writing it straight back (only `manager_threshold` actually changing)
+  // avoids silently resetting a value this script never meant to touch.
+  const generalAction = catalogAction(session, act, 'loyalty.settings.general');
+  const readGeneralAction = catalogAction(session, act, 'loyalty.settings.read');
+  if (generalAction && readGeneralAction) {
+    const current = await callAction(session, readGeneralAction).catch(() => ({}));
+    await callAction(session, generalAction, {
+      points: current.points ?? true, manager_threshold: 500,
+    }).catch(() => {});
+  }
+
+  // TWO REAL REWARDS — one anyone can redeem alone, one that needs a manager's name typed in,
+  // matching the two real code paths Visit.tsx renders (`needs_approval` true/false).
+  const rewardsAction = catalogAction(session, act, 'loyalty.rewards.create');
+  if (rewardsAction) {
+    await callAction(session, rewardsAction, { name: 'قهوة مجانية', cost: 100, type: 'gift' }).catch(() => {});
+    await callAction(session, rewardsAction, { name: 'جلسة مجانية VIP', cost: 600, type: 'gift' }).catch(() => {});
+  }
+
+  // WHICH SERVICE ID IS "بروتين شعر" THIS RUN — service ids are minted fresh every signup, so this
+  // is resolved by name every time rather than assumed from SERVICES' own array order.
+  const listAction = act('operations.list_services');
+  const listed = await callAction(session, listAction).catch(() => ({ services: [] }));
+  const heroServiceId = (listed.services ?? []).find((s) => s.name === HERO_SERVICE_NAME)?.id
+    ?? serviceIds[0];
+
+  // FORTY REAL VISITS, EVERY FEW DAYS — a genuinely regular customer (a salon regular every 3
+  // days is realistic, not a once-a-year one), and a BIG point buffer on purpose: the visit
+  // tour's own redeem steps are REAL spends (loyalty.redeem is not reversible the way stop-
+  // service.mjs's إيقاف↔تفعيل toggle is) — every re-recording of that tour spends real points off
+  // this real balance. 120 × 40 = 4800, enough for many, many re-recordings before either seeded
+  // reward (100, 600) needs a fresh reseed to keep affording.
+  const now = Math.floor(Date.now() / 1000);
+  for (let v = 0; v < 40; v++) {
+    await callAction(session, RECORD_VISIT, {
+      phone: HERO_PHONE, name: v === 0 ? HERO_NAME : undefined,
+      service_ids: [heroServiceId],
+      idempotency_key: `seed-hero-${v}`,
+      occurred_at: now - v * 3 * 86400,
+      operator_id: operatorId, operator_ticket: ticket,
+    }).catch(() => {});
+  }
+
+  // THE PSEUDONYM SHE'S ACTUALLY KNOWN BY — the one piece an offer seed needs and this script
+  // cannot invent (reminders holds no phone numbers, only this HMAC-derived ref).
+  const byPhone = await getJson(
+    `/api/v1/field/customers/by-phone?phone=${encodeURIComponent(HERO_PHONE)}`, session.token,
+  ).catch(() => null);
+  const subjectRef = byPhone?.customer?.subject_ref;
+  console.log(`  ✔ ${HERO_PHONE} — 40 visits on "${HERO_SERVICE_NAME}", 2 real rewards, subject_ref=${subjectRef ?? '(unresolved)'}`);
+  if (subjectRef) {
+    console.log(`  ▸ her OFFER still needs one in-cluster step (no HTTP action creates one by design):`);
+    console.log(`    TENANT=${session.tenant} SUBJECT=${subjectRef} kubectl -n base-services exec -i deploy/reminders -- python - < deploy/seed/seed-field-offer.py`);
+  } else {
+    console.log(`  ⚠ could not resolve her subject_ref — the offer step can't run without it`);
+  }
 }
 
 /** One customer, with a REALISTIC visit history — not one visit each, which would make every

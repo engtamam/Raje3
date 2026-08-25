@@ -53,7 +53,7 @@ REGISTRY = re.compile(r"^_([A-Z][A-Z0-9_]*)\s*:\s*dict\[str,\s*Builder\]", re.M)
 #:
 #: `secrets` FOLLOWED IT, and answered a different question on the way. Writing its contract
 #: is what surfaced that `vault` was selectable and chosen by nobody — no values file, no
-#: VAULT_* setting, not even its extra installed. Tamam's decision was to remove it rather
+#: VAULT_* setting, not even its extra installed. The decision was to remove it rather
 #: than to describe it, so the port is `env` and `file`, which is what we actually ship.
 #:
 #: WHAT THIS GATE STILL DOES NOT COVER, SAID OUT LOUD SO ITS GREEN IS NOT READ FOR MORE THAN

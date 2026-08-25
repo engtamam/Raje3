@@ -64,7 +64,7 @@ def env_guard():
 
 
 def test_ensuring_a_customer_indexes_him_for_search_too(client):
-    # Tamam, 2026-08-19: a customer created via the booking dialog (this route) could not be
+    # A customer created via the booking dialog (this route) could not be
     # FOUND by his own phone number until his first visit was confirmed — `index_customer_row`
     # used to run only from `after_visit`. This proves the ensure route is the second caller its
     # own docstring ("TWO CALLERS, ONE SHAPE") already anticipated.

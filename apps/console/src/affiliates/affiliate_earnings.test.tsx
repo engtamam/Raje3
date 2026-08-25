@@ -89,7 +89,7 @@ describe('AffiliateEarnings', () => {
   });
 
   it('shows his OWN performance numbers on the wafa card — a manager included, same as any marketer', async () => {
-    // Tamam, 2026-08-23: "مدير التسويق يعتبر مسوّي، عنده نفس المؤشرات لنفسه" — this used to be the
+    // "مدير التسويق يعتبر مسوّي، عنده نفس المؤشرات لنفسه" — this used to be the
     // ONE thing a manager could see about his TEAM (GET /me/team) but never about himself.
     meMock = () => Promise.resolve(MANAGER);
     stubCommon();
@@ -115,7 +115,7 @@ describe('AffiliateEarnings', () => {
   });
 
   it('never shows a fabricated 100% retention with zero referred shops behind it', async () => {
-    // Tamam, 2026-08-23: "كيف كذا وهو صفر اساس! في غلط في المعادلة" — retention_rate defaults to
+    // "كيف كذا وهو صفر اساس! في غلط في المعادلة" — retention_rate defaults to
     // 1.0 with no referral history at all (correct for the eligibility FORMULA, wrong to present
     // as an earned 100%). NO_ELIGIBILITY's own retention_rate is already 1 with total_referrals: 0.
     meMock = () => Promise.resolve(PROMOTER);

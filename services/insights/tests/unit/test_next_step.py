@@ -24,7 +24,7 @@ def test_an_empty_shop_still_gets_the_health_catch_all():
     assert out["primary"]["category"] == ns.CATEGORY_HEALTH
 
 
-# ── the exact bug Tamam reported: a genuinely brand-new shop, told nonsense ───────────────────────
+# ── the exact bug: a genuinely brand-new shop, told nonsense ──────────────────────────────────────
 def test_a_zero_history_shop_gets_a_start_line_not_a_compliment_on_its_stability():
     """"وضعك ثابت" (things are stable) is a claim about a track record — a shop with zero visits
     ever has none, so the catch-all must say "get started", not "stable"."""
@@ -151,7 +151,7 @@ def test_branch_rules_are_silent_on_a_single_branch_shop():
     assert out["primary"]["id"] != "branch_gap_wide"
 
 
-# ── the exact bug Tamam reported: a brand-new shop got an invented-looking verdict ───────────────
+# ── the exact bug: a brand-new shop got an invented-looking verdict ───────────────────────────────
 def test_a_brand_new_shop_with_a_catalogue_but_zero_visits_gets_no_weak_services_verdict():
     """`weak_services()` itself is CORRECT to rank a real, tied-at-zero distribution — the bug was
     this rule treating "the list is non-empty" as evidence, when a shop that has never recorded a

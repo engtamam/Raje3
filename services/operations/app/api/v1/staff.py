@@ -54,7 +54,7 @@ router = APIRouter(prefix="/staff", tags=["staff"])
 
 _MANAGE = require_capability("operations.manage")
 _READ = require_capability("operations.read")
-# A NARROWER DOOR, ONLY FOR THE CATALOGUE (Tamam, 2026-08-19: "سوي للخدمات وحدة تهتم بالخدمات من
+# A NARROWER DOOR, ONLY FOR THE CATALOGUE ("سوي للخدمات وحدة تهتم بالخدمات من
 # تعديل وانشاء وغيرها") — `operations.manage` also creates staff and branches and renames the
 # shop, which is why it stayed owner/manager-only. A role that should touch the SERVICE catalogue
 # and nothing else now can, without inheriting the rest of what `operations.manage` grants. A
@@ -62,7 +62,7 @@ _READ = require_capability("operations.read")
 # route, so owner/manager hold `operations.manage_services` explicitly too (roles.json), same
 # shape as `bookings.manage` sitting beside `bookings.write`.
 _MANAGE_SERVICES = require_capability("operations.manage_services")
-# Tamam, 2026-08-20: a plain field operator ("الموظف الميداني") holds `bookings.read`/
+# A plain field operator ("الموظف الميداني") holds `bookings.read`/
 # `bookings.write` but not `operations.read` — so /staff/branches (this route's OWN body already
 # narrows by branch_scope, exactly like every other scoped read) answered him 403, and the
 # console's Bookings screen — which genuinely needs a branch_id, the server refuses `list_bookings`
@@ -77,7 +77,7 @@ _MANAGE_SERVICES = require_capability("operations.manage_services")
 # ci/check_capability_truth.py's single-capability check (see that gate's own docstring — it only
 # tracks bare `require_capability`).
 _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "bookings.write")
-# THE SAME BUG, ONE ROUTE OVER (Tamam, 2026-08-20): the Bookings screen's day view needs the
+# THE SAME BUG, ONE ROUTE OVER: the Bookings screen's day view needs the
 # BRANCH'S TEAM to attribute a booking and to draw the week-view staff picker — it calls
 # `/staff/operators` unconditionally on mount, same as it does `/staff/branches`. This comment
 # above claimed "none of which a field operator needs" the day it was written; it was wrong about
@@ -85,7 +85,7 @@ _READ_BRANCHES = require_any_capability("operations.read", "bookings.read", "boo
 # branch list used to fail for. `list_operators` already narrows by `branch_scope`/`SCOPE.visible`
 # on its own — the gate was the only thing standing between a field operator and his own team.
 _READ_OPERATORS_FOR_BOOKINGS = require_any_capability("operations.read", "bookings.read", "bookings.write")
-# STALE AS OF THE SAME DAY (Tamam, 2026-08-20, same conversation, later): the seeded "operator"
+# STALE AS OF THE SAME DAY, same conversation, later: the seeded "operator"
 # role above no longer HOLDS `bookings.read`/`bookings.write` at all — two operators sharing one
 # schedule could edit or cancel each other's booking, and the fix was to take booking away from
 # the role entirely (roles.seed.json / deploy/seed/roles.json), not to keep narrowing who can read
@@ -121,7 +121,7 @@ class OperatorIn(BaseModel):
     # whether the product gets used.
     pin: str = Field(min_length=4, max_length=4, pattern=r"^\d{4}$")
     role: str = Field(default="operator", max_length=32)
-    # REQUIRED, NOT DESCRIPTIVE (Tamam, 2026-08-22) — every operator now names a real branch at
+    # REQUIRED, NOT DESCRIPTIVE — every operator now names a real branch at
     # the moment he is added, the same way `till.py`'s own door already requires one on a sale.
     # No silent «كل الفروع» default: an owner with one branch still picks «الفرع الرئيسي»
     # explicitly, so the choice is a fact he made rather than one we guessed for him.
@@ -211,7 +211,7 @@ class MemberIn(BaseModel):
     # short one anyway, and refusing here means he is told before the round trip.
     password: str = Field(min_length=8, max_length=256)
     role: str = Field(min_length=1, max_length=32)
-    # REQUIRED — see OperatorIn's own note (Tamam, 2026-08-22).
+    # REQUIRED — see OperatorIn's own note.
     branch_id: str = Field(min_length=1, max_length=64)
 
 
@@ -995,7 +995,7 @@ async def list_services(request: Request, include_retired: bool = False,
     nothing left to act on. The same shape of bug as the rewards table, found the same way: by
     stopping something and looking for it.
 
-    Gated on `operations.manage` OR `operations.manage_services` (Tamam, 2026-08-19) — not read:
+    Gated on `operations.manage` OR `operations.manage_services` — not read:
     this is the list you edit, and an operator has no business seeing what the shop has retired.
     """
     rows = await ServiceStore(request.app.state.container.datastore).list(

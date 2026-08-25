@@ -2,7 +2,7 @@
 
 WHAT THIS WAS WRITTEN AFTER, AND IT IS THE MOST EXPENSIVE SILENCE THIS PRODUCT HAS PRODUCED.
 
-Tamam opened a trigger's preview and read «لا توجد صيغة جاهزة لهذه الرسالة بعد». The library was
+A trigger's preview was opened and read «لا توجد صيغة جاهزة لهذه الرسالة بعد». The library was
 fine: 66 templates on the cluster, three of them for that exact trigger. All three failed to
 render, with one sentence:
 

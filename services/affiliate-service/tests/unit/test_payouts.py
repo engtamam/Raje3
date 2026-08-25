@@ -156,7 +156,7 @@ async def test_below_the_minimum_is_refused():
 @pytest.mark.anyio
 async def test_min_halalas_override_replaces_the_boot_time_default_for_one_call():
     """`request_withdrawal`'s own `min_halalas` — the live RuntimeConfig read a route resolves
-    before calling in (Tamam, 2026-08-23: an admin-changeable threshold). This unit only proves
+    before calling in (an admin-changeable threshold). This unit only proves
     the SERVICE honours the override; effective_min_withdrawal_halalas's own RuntimeConfig
     plumbing is proven separately below."""
     svc, store = build(min_withdrawal=10000)   # booted with 100 ريال

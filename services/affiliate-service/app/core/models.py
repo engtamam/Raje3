@@ -133,7 +133,7 @@ class Affiliate:
     #: at approval; he already agreed at apply() time, and there is no other way onto this row.
     agreed_terms_version: str = ""
     agreed_at: int = 0
-    #: HOW HE WANTS TO BE PAID — spec §5, extended (Tamam, 2026-08-20) to accept an intermediary
+    #: HOW HE WANTS TO BE PAID — spec §5, extended to accept an intermediary
     #: payment platform (e.g. بحر) as a real alternative to a bank IBAN, not just a fallback.
     #: `payout_channel` is "bank_iban" | "intermediary"; `payout_channel_name` is free text for
     #: the intermediary case (never hardcoded to one provider — a new one tomorrow needs no code
@@ -143,7 +143,7 @@ class Affiliate:
     payout_channel: str = ""
     payout_channel_name: str = ""
     payout_account_ref: str = ""
-    #: spec §10's optional whole-platform revenue view (Tamam, 2026-08-20) — OFF by default for
+    #: spec §10's optional whole-platform revenue view — OFF by default for
     #: every manager. An admin-only grant (see api/v1/admin.py), never self-service: seeing what
     #: the affiliate channel earns platform-wide is a broader window than "my own tree", and
     #: nobody grants that to himself. The moment it is set True, /me/team simply starts returning
@@ -193,8 +193,8 @@ REFERRED = "referred"
 #: everything else in this file — a reversed commission is still a decision that happened.
 REVOKED = "revoked"
 #: The shop registered through this affiliate but never converted to a paid subscription within
-#: the CONVERSION WINDOW (Settings.AFFILIATE_CONVERSION_WINDOW_DAYS from `stamped_at` — Tamam,
-#: 2026-08-19: bounding this is what stops "a marketer we haven't heard from in two years shows
+#: the CONVERSION WINDOW (Settings.AFFILIATE_CONVERSION_WINDOW_DAYS from `stamped_at` —
+#: bounding this is what stops "a marketer we haven't heard from in two years shows
 #: up demanding commission on a shop that just converted" from being an open-ended, undocumented
 #: argument instead of a written rule). NOT revoked — nobody did anything wrong, the window
 #: simply lapsed. The row (who referred whom, when) stays exactly as true as it always was; only
@@ -252,7 +252,7 @@ class Referral:
 COMMISSIONS = "affiliate_commissions"
 
 CONVERSION = "conversion"     # the FIRST paid invoice — billing's own paid_sequence == 1
-#: RENEWAL retired (Tamam, 2026-08-20): paying a marketer on every Nth renewal was one flat
+#: RENEWAL retired: paying a marketer on every Nth renewal was one flat
 #: commission for indefinite, un-serviced revenue — replaced by a separate program (a threshold
 #: of shops brought + real support/ticket work, its own KPI) rather than a recurring cut here.
 #: `COMMISSION_KINDS` keeps only what this engine still creates; a "renewal" string can still
@@ -394,7 +394,7 @@ class WithdrawalRequest:
         )
 
 
-# ── «برنامج دعم الوفاء» — spec §8's optional monthly stipend (Tamam, 2026-08-20) ────────────────
+# ── «برنامج دعم الوفاء» — spec §8's optional monthly stipend ────────────────────────────────────
 #: NOT a commission — RENEWAL was retired for exactly this reason (see commission.py's own note).
 #: A recurring monthly amount for a marketer who keeps SERVICING the shops he brought, gated by a
 #: real measurable performance check, never by shop count alone.
@@ -527,14 +527,14 @@ class EmploymentRequest:
 
 
 # ── §٦ Lead Sourcing — ported from places_scraper_v2.py, CLI→CSV turned into a resumable job
-# that writes straight to this table (Tamam's own conversion plan) ─────────────────────────────
+# that writes straight to this table ─────────────────────────────────────────────────────────
 LEADS = "affiliate_leads"
 LEAD_SEARCH_JOBS = "affiliate_lead_search_jobs"
 SECTORS = "affiliate_sectors"
 
 LEAD_NEW = "new"
 LEAD_ASSIGNED = "assigned"
-#: Tamam, 2026-08-20: "المهم عشان يعرفون يتبعون المحلات ويتواصلون معاهم" — a real follow-up
+#: "المهم عشان يعرفون يتبعون المحلات ويتواصلون معاهم" — a real follow-up
 #: pipeline, not just found/assigned/registered. Only the assigned promoter or his own manager
 #: may move a lead through these (core/lead_sourcing.py::set_status) — never a capability, same
 #: ownership shape as assign()/link_registration().
@@ -542,7 +542,7 @@ LEAD_CONTACTED = "contacted"
 LEAD_INTERESTED = "interested"
 LEAD_NOT_INTERESTED = "not_interested"
 LEAD_FOLLOW_UP = "follow_up"
-#: Tamam, 2026-08-20: a shop sometimes signs up with a DIFFERENT phone than the one Google has —
+#: A shop sometimes signs up with a DIFFERENT phone than the one Google has —
 #: the automatic place_id/phone dedup can never catch that, so a marketer links it BY HAND to one
 #: of his own real referrals (core/lead_sourcing.py::link_registration). A fact he asserts, not
 #: one the system infers.
@@ -584,7 +584,7 @@ JOB_STATUSES = (JOB_QUEUED, JOB_RUNNING, JOB_COMPLETED, JOB_FAILED)
 
 @dataclass
 class Sector:
-    """A MANAGED taxonomy, spec's own point (Tamam, 2026-08-20): "قطاعات... ما لها دخل
+    """A MANAGED taxonomy, spec's own point: "قطاعات... ما لها دخل
     بالمرادفات" — deliberately separate from LeadSearchJob.keywords. Keywords are search-coverage
     plumbing chosen fresh per search (today's synonyms, radius, cities); a sector is a stable
     label an admin defines ONCE so every Lead ever found under it stays comparable across
@@ -799,7 +799,7 @@ class Lead:
     #: inferred. See LEAD_REGISTERED's own note: the phone on a real signup often differs from
     #: what Google has, so no automatic match is possible or attempted.
     converted_tenant: str = ""
-    #: APPEND-ONLY — Tamam, 2026-08-20: "خانة ملاحظات عشان ما ينسى وش سار أو لو تم تعديل
+    #: APPEND-ONLY — "خانة ملاحظات عشان ما ينسى وش سار أو لو تم تعديل
     #: الإسناد". Every status change AND every reassignment writes its own entry here
     #: automatically (see core/lead_sourcing.py); a promoter's own free-text note is just one
     #: more entry in the same log. Never a single field that overwrites — the history itself is

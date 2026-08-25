@@ -1,7 +1,7 @@
 # =============================================================================
 # affiliate-service — what an affiliate does about HIS OWN team, not the platform's
 # -----------------------------------------------------------------------------
-# EVERY ROUTE HERE NOW CARRIES `_SELF` (`affiliates.self`, 2026-08-22) — the one capability every
+# EVERY ROUTE HERE NOW CARRIES `_SELF` (`affiliates.self`) — the one capability every
 # approved affiliate token holds, proving "is this a real, approved affiliate at all", the same
 # shape as billing-service's `billing.self`/compliance-service's `compliance.self`. It answers
 # NOTHING about which rows he may touch — that is still, and only, the ownership/role DATA check
@@ -12,7 +12,7 @@
 # `parent_id` matches his — a capability would answer "may marketers in general edit
 # applications", which is the wrong question.
 #
-# WHY THIS EXISTS AT ALL: before 2026-08-22 no route here checked a capability, because no role
+# WHY THIS EXISTS AT ALL: no route here used to check a capability, because no role
 # in this tenant had ever been bootstrapped with one (`onboarding.py::_ensure_tenant_ready` minted
 # both roles with `"capabilities": []`, unnoticed because zero real affiliates had ever completed
 # approval on the live server). `_SELF` closes that — see core/models.py's own note on
@@ -123,7 +123,7 @@ async def change_password(request: Request, body: ChangePasswordIn,
     check beyond `_SELF` because there is no ownership question here: a token can only ever change
     the password of the person it already is.
 
-    AUDITED, NOT MESSAGED (Tamam, 2026-08-22): he just typed his own current password to get here
+    AUDITED, NOT MESSAGED: he just typed his own current password to get here
     — a confirmation notification would tell him nothing he does not already know. What has to
     exist is a RECORD, same "write it before the mutation" discipline `places-api-key` already
     follows: identity is the one place the password itself lives, but the request entered through
@@ -146,7 +146,7 @@ async def change_password(request: Request, body: ChangePasswordIn,
 async def update_application(request: Request, application_id: str, body: UpdateApplicationIn,
                              principal: Principal = Depends(require_user)) -> Any:
     """A manager correcting what a person who used his referral link submitted — only while
-    there is still a decision to correct BEFORE (Tamam: "التعديل يكون قبل القبول من الادارة
+    there is still a decision to correct BEFORE ("التعديل يكون قبل القبول من الادارة
     وليس بعده"); see onboarding.update_application() for the whole reasoning. `principal.subject`
     is the token's `sub`, which — for this service's tenant — IS the identity person_id the
     affiliate row was minted under; there is no separate lookup table to keep in step."""
@@ -196,7 +196,7 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
     by_id = {m["affiliate_id"]: m for m in summary["members"]}
     empty = {"confirmed_halalas": 0, "pending_halalas": 0, "commission_count": 0,
             "shops": [], "total_net_revenue_minor": 0, "revenue_partial": False}
-    # spec §8's own ask (Tamam, 2026-08-20): a manager backs a «دعم الوفاء» decision with the SAME
+    # spec §8's own ask: a manager backs a «دعم الوفاء» decision with the SAME
     # measurable numbers the system's own recommendation uses (WafaService.performance_for) —
     # never a second, driftable copy of that math.
     perf = {m["id"]: await wafa.performance_for(m["id"]) for m in members}
@@ -208,7 +208,7 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
           "team_net_revenue_minor": summary["team_net_revenue_minor"],
           "team_revenue_partial": summary["team_revenue_partial"],
           "platform_revenue_enabled": affiliate["sees_platform_revenue"]}
-    # spec §10's OPTIONAL whole-platform view (Tamam, 2026-08-20) — an admin-only per-manager
+    # spec §10's OPTIONAL whole-platform view — an admin-only per-manager
     # grant (Affiliate.sees_platform_revenue), OFF by default. The read itself is not free (it
     # walks every referral ever stamped, platform-wide), so it only happens for the handful of
     # managers this is actually turned on for — never computed and then hidden client-side.
@@ -222,12 +222,12 @@ async def team(request: Request, principal: Principal = Depends(require_user)) -
 @router.put("/payout-method", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_payout_method(request: Request, body: PayoutMethodIn,
                             principal: Principal = Depends(require_user)) -> Any:
-    """spec §5, extended (Tamam, 2026-08-20): a bank IBAN or an intermediary payment platform
+    """spec §5, extended: a bank IBAN or an intermediary payment platform
     (بحر or any other — `channel_name` is free text so a new one never needs a code change).
     Setting this does NOT touch any withdrawal already requested — see WithdrawalRequest's own
     note on why the method is copied, not re-read, at request time.
 
-    AUDITED, WRITE-AHEAD (2026-08-22, same discipline `places-api-key` already follows): this
+    AUDITED, WRITE-AHEAD (same discipline `places-api-key` already follows): this
     changes WHERE his commission money is sent, so an unrecorded change is indistinguishable from
     an attacker redirecting a marketer's own earnings."""
     affiliate_id = await _my_affiliate_id(request, principal)
@@ -412,7 +412,7 @@ async def my_employment_eligibility(request: Request,
     return await request.app.state.container.employment.eligibility_preview(affiliate_id)
 
 
-# ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK, Tamam 2026-08-20) ──────────
+# ── §٦ Lead Sourcing — a manager's OWN Google Places API key (BYOK) ──────────
 
 class PlacesApiKeyIn(BaseModel):
     api_key: str = Field(min_length=1, max_length=512)
@@ -495,12 +495,12 @@ class CityIn(BaseModel):
 
 class SearchIn(BaseModel):
     place_type: str = Field(default="", max_length=100)
-    #: Sector.code, from the managed taxonomy (GET /me/sectors) — Tamam, 2026-08-20: "قطاعات...
+    #: Sector.code, from the managed taxonomy (GET /me/sectors) — "قطاعات...
     #: ما لها دخل بالمرادفات". The analytics column; never typed free, always picked.
     sector_code: str = Field(min_length=1, max_length=64)
     #: Synonyms searched TOGETHER in one job (places_scraper_v2.py's own multi-keyword loop —
     #: "صالون نسائي"/"مركز تجميل نسائي"/... found the same businesses under different listings).
-    #: The API's own ceiling stays generous (20); Tamam, 2026-08-20: the CONSOLE limits its own
+    #: The API's own ceiling stays generous (20); the CONSOLE limits its own
     #: form to 6 fields (each extra keyword multiplies the grid's own request count by one more
     #: full pass) — a UI/UX guard, not a hard API limit a future caller might need past.
     keywords: list[str] = Field(min_length=1, max_length=20)
@@ -636,7 +636,7 @@ class SetLeadStatusIn(BaseModel):
 @router.post("/leads/{lead_id}/status", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def set_lead_status(request: Request, lead_id: str, body: SetLeadStatusIn,
                           principal: Principal = Depends(require_user)) -> Any:
-    """Tamam, 2026-08-20: a real follow-up pipeline, so the marketing team actually tracks who
+    """A real follow-up pipeline, so the marketing team actually tracks who
     they contacted and how it went — see core/lead_sourcing.py::set_status for the exact
     ownership rule (the assigned promoter, or his own manager, never anyone else)."""
     affiliate = await _svc(request).me(principal.subject)
@@ -657,11 +657,11 @@ class LinkRegistrationIn(BaseModel):
 @router.post("/leads/{lead_id}/link-registration", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def link_lead_registration(request: Request, lead_id: str, body: LinkRegistrationIn,
                                  principal: Principal = Depends(require_user)) -> Any:
-    """Tamam, 2026-08-20: a shop sometimes signs up with a phone Google never had — the marketer
+    """A shop sometimes signs up with a phone Google never had — the marketer
     himself says "this lead became THIS real shop", by hand, from HIS OWN referrals only. See
     core/lead_sourcing.py::link_registration for why nothing here is inferred automatically.
 
-    AUDITED, WRITE-AHEAD (2026-08-22): this is the marketer SELF-DECLARING the event that opens
+    AUDITED, WRITE-AHEAD: this is the marketer SELF-DECLARING the event that opens
     his own commission entitlement — an unrecorded claim cannot be checked later if the shop
     disputes ever being referred by him."""
     affiliate = await _svc(request).me(principal.subject)
@@ -721,7 +721,7 @@ async def list_active_sectors(request: Request,
 @router.get("/referred-shops", dependencies=[Depends(_SELF), Depends(rate_limit)])
 async def my_referred_shops(request: Request,
                             principal: Principal = Depends(require_user)) -> dict:
-    """The gap the tickets UI actually needed first (2026-08-22): `/shops/{tenant}/tickets` needs
+    """The gap the tickets UI actually needed first: `/shops/{tenant}/tickets` needs
     a tenant id to call, and until now nothing gave a marketer his OWN list of them — he could
     only reach one if he already knew its tenant id from elsewhere. Any affiliate, not
     manager-only: `_my_shop_grant`'s own ownership check (a real referral he personally brought

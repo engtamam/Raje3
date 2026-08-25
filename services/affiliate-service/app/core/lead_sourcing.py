@@ -1,7 +1,7 @@
 # =============================================================================
 # affiliate-service — §٦ Lead Sourcing: the resumable search job + dedup + assignment
 # -----------------------------------------------------------------------------
-# Tamam's own conversion plan for places_scraper_v2.py, followed exactly:
+# The conversion plan for places_scraper_v2.py, followed exactly:
 #   1. CLI→CSV becomes a background job writing straight to the leads table (no CSV, ever).
 #   2. The Google API key is BYOK per manager (core/leads.py), never hardcoded.
 #   3. The manager sees progress; he never waits on it.
@@ -322,7 +322,7 @@ class LeadSourcingService:
 
     def _note(self, lead: Lead, *, by: str, text: str = "", status_from: str = "",
              status_to: str = "") -> None:
-        """APPEND-ONLY (Tamam, 2026-08-20: "خانة ملاحظات عشان ما ينسى وش سار") — every status
+        """APPEND-ONLY ("خانة ملاحظات عشان ما ينسى وش سار") — every status
         change and every reassignment writes its own entry automatically; a free-text note is
         just one more entry in the SAME log, never a second, separate history to keep in sync."""
         lead.notes.append({"at": int(time.time()), "by": by, "text": text,
@@ -380,7 +380,7 @@ class LeadSourcingService:
     # ── linking a lead to the real shop it became — spec's own "ربط بسيط", by hand only ────────
     async def link_registration(self, lead_id: str, *, affiliate_id: str, tenant: str,
                                 referrals) -> Lead:
-        """Tamam, 2026-08-20: a shop sometimes signs up with a DIFFERENT phone than the one
+        """A shop sometimes signs up with a DIFFERENT phone than the one
         Google has — the automatic place_id/phone dedup can never catch that. A marketer who
         recognises "this lead is the shop I just referred" says so HIMSELF; nothing here
         attempts to guess it from a name or address. `referrals` is the ReferralRegistry — the
@@ -409,8 +409,8 @@ class LeadSourcingService:
 
     # ── §٦'s own point: sector/city analytics for a data-driven dashboard ────────────────────────
     async def sector_stats(self, *, affiliate_id: str = "", limit: int = 5000) -> list[dict[str, Any]]:
-        """Counts grouped by (sector_code, city), WITH a full status breakdown per group (Tamam,
-        2026-08-20: "تنضاف هذه على الداشبورد الشاملة حقت المدير") — `affiliate_id` scopes to one
+        """Counts grouped by (sector_code, city), WITH a full status breakdown per group
+        ("تنضاف هذه على الداشبورد الشاملة حقت المدير") — `affiliate_id` scopes to one
         manager's own finds (his team dashboard); blank scans the whole table (the platform-wide
         admin view). A bounded scan over a config-sized collection, same idiom as
         SectorService.list — never the shape of a request-path read."""

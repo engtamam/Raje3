@@ -8,7 +8,7 @@ AND THERE WAS A THIRD NAME, `vault`, WHICH IS WHY THIS FILE CHANGED TWICE IN ONE
 offered by `container.py`, so any deployment could select it with one word — and none ever did:
 `SECRETS_DRIVER` defaults to `env`, no values file overrides it, no VAULT_* setting is filled
 anywhere, and its `hvac` extra was never installed. It was first given a contract here, with a
-loopback server speaking KV-v2. Then Tamam answered the question that work raised — «vault? do we
+loopback server speaking KV-v2. Then the question that work raised got answered — «vault? do we
 use it?» — and the honest answer was no.
 
 So it is gone from the registry rather than described here, and this file is now the shape the

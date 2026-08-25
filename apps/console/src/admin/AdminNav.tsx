@@ -1,9 +1,9 @@
 /**
- * لوحة الإدارة's own nav — ٥ أقسام فقط (Tamam, 2026-08-24: "ابغ من صفحة الادارة يكون 5 الى 6
+ * لوحة الإدارة's own nav — ٥ أقسام فقط ("ابغ من صفحة الادارة يكون 5 الى 6
  * حاجات فقط على الشريط الجانبي"), same dual-layout idiom as the affiliate portal's own
  * `AffiliateNav.tsx`: one tab list, two renderings picked by CSS (`md:hidden`/`hidden md:flex`),
  * never `matchMedia`. Sidebar on desktop; bottom bar on the phone, thumb-reachable — the SAME
- * behaviour from day one, never "mobile support added later" (Tamam, 2026-08-24).
+ * behaviour from day one, never "mobile support added later".
  */
 import type { ReactNode } from 'react';
 import {
@@ -12,7 +12,7 @@ import {
 
 export type Tab = 'home' | 'apps' | 'customers' | 'billing' | 'platform' | 'account';
 
-// خمسة أقسام تشغيلية فقط (Tamam, 2026-08-24) + سادس مخصّص لحساب المشغّل نفسه — كلمة مروره
+// خمسة أقسام تشغيلية فقط + سادس مخصّص لحساب المشغّل نفسه — كلمة مروره
 // وبياناته الشخصية، لا وظيفة تشغيلية زيادة على الخمسة.
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: 'home', label: 'الرئيسية', icon: <LayoutDashboard size={20} /> },

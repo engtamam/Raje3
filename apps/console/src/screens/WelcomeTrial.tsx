@@ -4,11 +4,11 @@
  * WHY THIS EXISTS AT ALL. A fresh signup used to walk straight into the ordinary app with nothing
  * marking the moment — no confirmation his shop was real, no word that the free trial billing
  * quietly opened behind the scenes (see `services/operations/app/core/signup.py`'s own
- * `_start_base_trial`) had actually started. Tamam, on seeing a brand-new account: «وهو عنده
+ * `_start_base_trial`) had actually started. On seeing a brand-new account: «وهو عنده
  * فترة تجربة ايضا شهر كامل … ابغ كمان ترحيب فيه بعد التسجيل … خليها فخمة كذا وراقية الترحيب».
  *
  * A DIALOG OVER THE APP, NOT A SECOND PAGE. The first version replaced App's whole render tree —
- * Tamam's own report: nothing right after signup (App had already mounted with nothing in
+ * nothing right after signup (App had already mounted with nothing in
  * sessionStorage yet, before `onWelcome` existed — see App.tsx), then a screen that COVERED
  * EVERYTHING after a refresh remounted it. Fixing the timing bug alone would still have left a
  * full-bleed page; he asked for it as «نافذة منبثقة … نافذة وسط الشاشة» — a dialog, portalled over
