@@ -136,6 +136,9 @@ class Container:
     booking_provider: Any = None
     points_summary: Any = None
     customer_lookup: Any = None
+    shop_identity: Any = None
+    service_catalog: Any = None
+    related_services: Any = None
     sender: Any = None
     secret_store: Any = None
     ticket_client: Any = None
@@ -199,7 +202,10 @@ def build_container(settings: Settings) -> Container:
     from app.adapters.whatsapp_sender import build as build_sender
     from app.core import booking as B
     from app.core import customer_lookup as CL
+    from app.core import shop_identity as SI
     from app.core import points as P
+    from app.core import service_catalog as SC
+    from app.core import related_services as RS
     from app.core.conversation import ConversationEngine
     from app.core.secret_store import SecretStore
 
@@ -213,6 +219,9 @@ def build_container(settings: Settings) -> Container:
     container.booking_provider = B.build(settings, store=container.datastore)
     container.points_summary = P.build(settings)
     container.customer_lookup = CL.build(settings)
+    container.shop_identity = SI.build(settings)
+    container.service_catalog = SC.build(settings)
+    container.related_services = RS.build(settings)
     container.sender = build_sender(settings)
     container.ticket_client = build_ticket_client(settings)
 
@@ -223,7 +232,9 @@ def build_container(settings: Settings) -> Container:
     container.inbound_feed = build_inbound_feed(settings)
     container.engine = ConversationEngine(
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
-        points_summary=container.points_summary,
+        points_summary=container.points_summary, shop_identity=container.shop_identity,
+        service_catalog=container.service_catalog, customer_lookup=container.customer_lookup,
+        related_services=container.related_services,
         debounce_seconds=settings.CONVERSATION_DEBOUNCE_SECONDS,
         session_timeout_seconds=settings.CONVERSATION_SESSION_TIMEOUT_SECONDS,
         raw_window_messages=settings.CONVERSATION_RAW_WINDOW_MESSAGES,

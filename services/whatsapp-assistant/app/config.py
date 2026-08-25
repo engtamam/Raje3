@@ -138,11 +138,29 @@ class Settings(BaseSettings):
     # pseudonym and a visit-count/last-visit PATTERN only — never the phone or name back to us.
     OPERATIONS_CUSTOMER_BY_PHONE_PATH: str = "/internal/operations/customer-by-phone"
     OPERATIONS_CUSTOMER_VISITS_PATH: str = "/internal/operations/customer-visits"
+    # The shop's display name, for the persona built in core/conversation.py::build_system_prompt —
+    # see app/core/shop_identity.py and operations' own /internal/operations/shop-name docstring for
+    # why this reads the main branch's name rather than the tenant registry's.
+    OPERATIONS_SHOP_NAME_PATH: str = "/internal/operations/shop-name"
+    # The shop's REAL, priced service list — sent to the model IN FULL (never PII, see
+    # app/core/service_catalog.py's module docstring) so it can answer "how much" and cross-sell
+    # honestly instead of guessing.
+    OPERATIONS_CATALOGUE_WITH_PRICES_PATH: str = "/internal/operations/catalogue-with-prices"
 
     # loyalty — points summaries and redemption confirmation (button-only, never LLM-triggered).
     LOYALTY_SERVICE_URL: str = ""
     LOYALTY_BALANCE_PATH: str = "/internal/loyalty/portal/balance"
     LOYALTY_REDEEM_PATH: str = "/internal/loyalty/redeem"
+
+    # insights — cross-sell suggestions during an AI-led booking conversation, reusing the SAME
+    # association engine (services/insights/app/core/associations.py) staff already see via
+    # apps/console/src/ServiceGrid.tsx's `together` prop. Never a new recommendation algorithm —
+    # a read of an existing, plan-gated one. See app/core/related_services.py and
+    # services/insights/app/api/internal.py::associated_services for the plan-gate detail (a
+    # tenant without the "associations" plan feature gets an empty list here too, same as the
+    # dashboard — this route is not a bypass of that paywall).
+    INSIGHTS_SERVICE_URL: str = ""
+    INSIGHTS_ASSOCIATED_SERVICES_PATH: str = "/internal/insights/associated-services"
 
     # ticket-service — human escalation (triage complaint/other, auto-reply ceiling, frustration
     # heuristic). ESCALATED: ticket-service has no /internal/* ticket-creation route (only
@@ -178,7 +196,8 @@ class Settings(BaseSettings):
     # function-calling API, once again server-side (core/tools.py) — a model that hallucinates a
     # tool name outside this list is rejected before any tool body runs.
     LLM_TOOL_ALLOWLIST: str = (
-        "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer")
+        "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,"
+        "suggest_related_service")
 
     @property
     def llm_tool_allowlist(self) -> frozenset[str]:

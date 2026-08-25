@@ -31,9 +31,11 @@ class StubLlm:
         self._queue.append(LlmReply(text=text, input_tokens=10, output_tokens=5))
 
     async def respond(self, *, system_prompt: str, summary: str, recent_messages: list[dict],
-                      user_message: str, allowed_tools: frozenset[str]) -> LlmReply:
-        self.calls.append({"summary": summary, "recent_messages": recent_messages,
-                           "user_message": user_message, "allowed_tools": allowed_tools})
+                      user_message: str, allowed_tools: frozenset[str],
+                      context_block: str = "") -> LlmReply:
+        self.calls.append({"system_prompt": system_prompt, "summary": summary,
+                           "recent_messages": recent_messages, "user_message": user_message,
+                           "allowed_tools": allowed_tools, "context_block": context_block})
         if self._queue:
             return self._queue.popleft()
         return LlmReply(text="عذرًا، لم أفهم طلبك.", input_tokens=5, output_tokens=5)

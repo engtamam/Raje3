@@ -44,7 +44,8 @@ class ToolValidationError(Exception):
 async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id: str,
                               tool: str, args: dict[str, Any], allowed_tools: frozenset[str],
                               store: Any, booking_provider: Any, points_summary: Any,
-                              proposal_ttl_seconds: int, now: int | None = None
+                              proposal_ttl_seconds: int, now: int | None = None,
+                              related_services: Any = None, service_catalog: Any = None
                               ) -> RenderedProposal | str:
     """Returns a RenderedProposal (interactive message + pending proposal persisted) for a
     state-changing tool, or a plain str for a read-only one. Raises ToolValidationError if the
@@ -119,6 +120,31 @@ async def validate_and_render(*, tenant: str, subject_ref: str, conversation_id:
             body=f"يمكنك استبدال «{offer['reward_name']}» بنقاطك الحالية. هل ترغب بذلك؟",
             buttons=[{"id": f"{proposal_id}:confirm", "title": "استبدال"},
                     {"id": f"{proposal_id}:cancel", "title": "لا شكرًا"}])
+
+    if tool == "suggest_related_service":
+        service_id = str(args.get("service_id") or "")
+        if not service_id:
+            raise ToolValidationError("suggest_related_service requires service_id")
+        # READ-ONLY, like check_availability/get_customer_points_summary — this NEVER adds the
+        # related service to a booking itself; a customer who wants it still goes through
+        # propose_booking/button-confirm like any other service. No proposal, no button, no
+        # PendingProposal row.
+        related_ids = (await related_services.related_to(tenant, service_id)
+                      if related_services is not None else [])
+        if not related_ids:
+            return "لا توجد خدمة أخرى تُطلب عادةً مع هذه الخدمة."
+        names_by_id: dict[str, str] = {}
+        if service_catalog is not None:
+            for s in await service_catalog.list_active(tenant):
+                names_by_id[str(s.get("id"))] = str(s.get("name") or s.get("id"))
+        names = [names_by_id.get(rid, rid) for rid in related_ids]
+        # NO DISCOUNT FIELD EXISTS ANYWHERE IN THIS RESULT — the associations engine
+        # (services/insights/app/core/associations.py) returns only a verdict and an id, never a
+        # price or a discount. There is nothing here for the model to embellish from; any discount
+        # claim in its reply is therefore always fabricated and is caught by
+        # core/conversation.py's `_sanitize_reply` regardless of what this tool returns.
+        listed = "، ".join(names[:3])
+        return f"عادةً ما يُطلب مع هذه الخدمة أيضًا: {listed}. هل تحب إضافتها؟"
 
     raise ToolValidationError(f"tool {tool!r} has no handler")
 

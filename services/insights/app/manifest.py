@@ -89,6 +89,7 @@ def build_manifest(
             # For campaigns: the share of today's ceiling the engine needs kept back, so a campaign
             # is promised against what is actually free rather than the whole allowance.
             {"path": "/internal/insights/engine-reserve", "tier": "internal", "method": "GET"},
+            {"path": "/internal/insights/associated-services", "tier": "internal", "method": "GET"},
             {"path": "/internal/privacy/erase", "tier": "internal", "method": "POST",
              # DECLARED, because a data map built from manifests is how a DSAR fan-out
              # finds who holds a person. An undeclared holder is never asked, never acks,

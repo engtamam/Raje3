@@ -127,6 +127,16 @@ env:
   LOYALTY_SERVICE_URL: "http://loyalty:8000"
   LOYALTY_BALANCE_PATH: "/internal/loyalty/portal/balance"
   LOYALTY_REDEEM_PATH: "/internal/loyalty/redeem"
+  # operations' priced catalogue — sent to the model IN FULL every turn (never trimmed) so it can
+  # answer "how much" honestly and never invent a price. Separate route from the one insights
+  # calls, which deliberately carries no prices — see operations' own route docstring.
+  OPERATIONS_CATALOGUE_WITH_PRICES_PATH: "/internal/operations/catalogue-with-prices"
+  # insights' association engine (services/insights/app/core/associations.py) — the SAME
+  # "frequently requested together" logic staff already see, reused for the AI's cross-sell
+  # suggestion tool rather than a new recommendation algorithm. Respects insights' own plan gate:
+  # a tenant without the paid "associations" feature gets no suggestions here either.
+  INSIGHTS_SERVICE_URL: "http://insights:8000"
+  INSIGHTS_ASSOCIATED_SERVICES_PATH: "/internal/insights/associated-services"
   PEER_TIMEOUT_SECONDS: "8"
 
   # ── LLM ─────────────────────────────────────────────────────────────────────────────────────
@@ -136,7 +146,12 @@ env:
   # THE ALLOWLIST. `confirm_booking` is deliberately absent and always will be — confirmation is
   # button-only (app/core/conversation.py::handle_button_reply is the ONLY path that can fire a
   # state-changing action), never a name the model is even offered.
-  LLM_TOOL_ALLOWLIST: "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer"
+  # suggest_related_service: a natural cross-sell during a customer-initiated conversation — a
+  # personal-assistant recommendation, not marketing, so it carries no opt-in gate (see
+  # app/core/tools.py's own docstring). It NEVER adds a service to a booking directly — that still
+  # goes through propose_booking/button-confirm — and it never carries a discount field (see
+  # app/core/conversation.py's `_DISCOUNT_CLAIM_PATTERNS` backstop).
+  LLM_TOOL_ALLOWLIST: "check_availability,propose_booking,get_customer_points_summary,suggest_redeemable_offer,suggest_related_service"
 
   # ── conversation engine — batching, session, summary (design point 3) ─────────────────────────
   # A DEFAULT worth revisiting once real usage exists, not a number derived from anything. 180s is

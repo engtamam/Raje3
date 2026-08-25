@@ -113,6 +113,7 @@ def build_manifest(
              "method": "POST"},
             # Service names and cycles, for insights. Includes retired services on purpose.
             {"path": "/internal/operations/catalogue", "tier": "internal", "method": "POST"},
+            {"path": "/internal/operations/catalogue-with-prices", "tier": "internal", "method": "POST"},
             # THE EVIDENCE FILE (task 283). Assembled from ledgers written at the moment each
             # thing happened, never reconstructed — and the extraction is itself audited.
             {"path": "/internal/operations/evidence", "tier": "internal", "method": "POST"},

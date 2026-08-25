@@ -64,6 +64,18 @@ _TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
         "description": "Suggest a reward the customer's current points balance can already afford.",
         "parameters": {"type": "object", "properties": {}},
     },
+    "suggest_related_service": {
+        "name": "suggest_related_service",
+        "description": (
+            "Suggest a service genuinely often booked together with one the customer is already "
+            "discussing or booking — a helpful reminder, never a state change. Never invent a "
+            "discount: only mention a price reduction if the tool result explicitly includes one."),
+        "parameters": {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+        },
+    },
 }
 
 
@@ -82,7 +94,7 @@ class GeminiLlm:
 
     async def respond(self, *, system_prompt: str, summary: str,
                       recent_messages: list[dict[str, str]], user_message: str,
-                      allowed_tools: frozenset[str]) -> LlmReply:
+                      allowed_tools: frozenset[str], context_block: str = "") -> LlmReply:
         # Per-call intersection too: a caller may narrow (never widen) what this specific turn may
         # propose — e.g. a conversation already holding a pending proposal should not be offered
         # `propose_booking` again until the pending one resolves.
@@ -96,7 +108,8 @@ class GeminiLlm:
 
         payload: dict[str, Any] = {
             "system_instruction": {"parts": [{"text": system_prompt + (
-                f"\n\nConversation summary so far: {summary}" if summary else "")}]},
+                f"\n\nConversation summary so far: {summary}" if summary else "") + (
+                f"\n\n{context_block}" if context_block else "")}]},
             "contents": contents,
         }
         if tools_for_call:

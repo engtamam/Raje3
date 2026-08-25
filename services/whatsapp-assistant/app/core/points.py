@@ -29,6 +29,9 @@ class NullPointsSummary:
     async def redeemable_offer(self, *, tenant: str, subject_ref: str) -> dict[str, Any] | None:
         return None
 
+    async def offers(self, *, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
+        return []
+
     async def redeem(self, *, tenant: str, subject_ref: str, reward_id: str,
                      idempotency_key: str) -> dict[str, Any]:
         raise RuntimeError("loyalty not configured — cannot redeem")
@@ -74,6 +77,24 @@ class HttpPointsSummary:
         r = affordable[0]
         return {"reward_id": r.get("id", ""), "reward_name": r.get("name", ""),
                "points": bal.get("points")}
+
+    async def offers(self, *, tenant: str, subject_ref: str) -> list[dict[str, Any]]:
+        """EVERY real, affordable-without-approval offer this customer personally holds today,
+        with the SAME real points cost and expiry loyalty's own portal balance route returns —
+        not a trimmed "one suggestion", so a per-turn context block (app/core/context_builder.py)
+        can ground the assistant in this customer's own best real deals, not a generic hint.
+
+        `expires_at` is the shop's points-expiry date (loyalty's `c.expiry.due_at`) — real, never
+        invented — so the model can say "your points expire on X" truthfully or say nothing about
+        expiry at all rather than guess.
+        """
+        bal = await self._balance(tenant, subject_ref)
+        rewards = bal.get("rewards") or []
+        expires_at = bal.get("expires_at") or ""
+        return [{"reward_id": r.get("id", ""), "reward_name": r.get("name", ""),
+                "points_cost": r.get("cost", 0), "points_balance": bal.get("points", 0),
+                "expires_at": expires_at}
+               for r in rewards if not r.get("needs_approval")]
 
     async def redeem(self, *, tenant: str, subject_ref: str, reward_id: str,
                      idempotency_key: str) -> dict[str, Any]:
