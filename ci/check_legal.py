@@ -45,6 +45,7 @@ PACK = ROOT / "platform" / "services" / "compliance-service" / "app" / "data" / 
 # Which of our files fills which template in the pack.
 DOCS = {
     "terms.yaml": "",           # ours entirely — the PDPL pack has no service contract
+    "affiliate-agreement.yaml": "",  # ours entirely — gates a different engagement (see rule 3)
     "processor-dpa.yaml": "doc14_processor_dpa.yaml",
     "processing-agreement.yaml": "doc13_processing_agreement.yaml",
     "ropa.yaml": "doc04_ropa.yaml",
@@ -134,30 +135,49 @@ for ours_name, pack_name in sorted(DOCS.items()):
     for stray in sorted(set(BRACKET.findall(body))):
         problems.append(f"{ours_name}: [{stray}] left unfilled — the publish guard does not see it")
 
-# 3 — exactly one document is the one that gates a subscription.
+# 3 — exactly one document gates EACH engagement.
 #
 # WHY THIS IS A CHECK AND NOT A CONVENTION. Acceptance is what makes the agreement binding, and the
-# gate is default-deny: every document marked for acceptance must be accepted before a shop may
-# proceed. Mark a second one and every establishment is stopped at a screen asking it to accept two
-# papers for one engagement — which is the drift we merged doc13 away to avoid, arriving by a
-# different road. Mark none and nothing is ever signed.
+# gate is default-deny: every document marked for acceptance must be accepted before the party it
+# binds may proceed. Mark a second one for the SAME party and it is stopped at a screen asking it
+# to accept two papers for one engagement — which is the drift we merged doc13 away to avoid,
+# arriving by a different road. Mark none and nothing is ever signed.
+#
+# TWO PARTIES, TWO ENGAGEMENTS, EACH WITH ITS OWN GATE. A shop accepting terms.yaml and a marketer
+# accepting affiliate-agreement.yaml are not the same signature required twice — they are different
+# people entering different relationships with us, and `Application.agreed_terms_version` on the
+# affiliate side is its own field for exactly that reason. So a document declares WHICH engagement
+# it gates with `gates: <engagement>`; documents silent on it default to `shop`, which is every
+# document this check knew about before the affiliate agreement existed. The invariant is still
+# "exactly one accept per engagement" — it is just no longer assumed there is only one engagement.
 modes: dict[str, str] = {}
+gates_of: dict[str, str] = {}
 for name in DOCS:
     f = OURS / name
     if f.exists():
-        m = re.search(r"^publication:\s*(\w+)", f.read_text(encoding="utf-8"), re.M)
+        text = f.read_text(encoding="utf-8")
+        m = re.search(r"^publication:\s*(\w+)", text, re.M)
         modes[name] = m.group(1) if m else ""
+        g = re.search(r"^gates:\s*(\w+)", text, re.M)
+        gates_of[name] = g.group(1) if g else "shop"
 missing_mode = [n for n, m in modes.items() if not m]
 if missing_mode:
     problems.append(f"no publication mode declared for {', '.join(sorted(missing_mode))} — "
                     f"whether a document is published, gated or internal is not a detail to infer")
-gated = [n for n, m in modes.items() if m == "accept"]
 # `annex` is bound by the acceptance of the master agreement rather than by one of its own — which
 # is why it does not count here and must not be marked `accept`.
-if len(gated) != 1:
-    problems.append(f"{len(gated)} document(s) marked `accept` ({', '.join(sorted(gated)) or 'none'}) "
-                    f"— exactly one agreement gates a subscription; two would make a shop sign twice "
-                    f"for one engagement, and none would leave nothing signed at all")
+gated_by_engagement: dict[str, list[str]] = {}
+for n, m in modes.items():
+    if m == "accept":
+        gated_by_engagement.setdefault(gates_of[n], []).append(n)
+for engagement, names in sorted(gated_by_engagement.items()):
+    if len(names) != 1:
+        problems.append(
+            f"{len(names)} document(s) marked `accept` for the {engagement} engagement "
+            f"({', '.join(sorted(names))}) — exactly one agreement gates it; two would make that "
+            f"party sign twice for one engagement")
+if not gated_by_engagement:
+    problems.append("no document marked `accept` for any engagement — nothing is ever signed")
 
 # 4 — the two faces of one engagement move together.
 try:
