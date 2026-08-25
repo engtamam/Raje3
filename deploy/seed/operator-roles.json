@@ -9,7 +9,19 @@
     "SPLIT BY JOB, NOT BY RANK. Finance has two capabilities and support has none that write. An",
     "operator who works on commission cannot edit a template, and an incident stays inside the job",
     "it belongs to. A single 'staff' role with everything would be one compromised laptop away from",
-    "every establishment on the product."
+    "every establishment on the product.",
+    "",
+    "TWO NAMES THAT LOOK REDUNDANT BUT ARE NOT: 'platform.identity' AND 'members:read'/",
+    "'members:write' on platform-owner. identity-service's own admin_actions.py never checks",
+    "'platform.identity' at all — its member-directory routes gate on the literal capability",
+    "strings IDENTITY_MEMBERS_READ_CAP/_WRITE_CAP default to ('members:read'/'members:write'),",
+    "which is unrelated naming this file used to leave ungranted entirely. The only reason a seeded",
+    "owner could ever add/edit/suspend/remove a member was seed-admin.sh's own bootstrap call",
+    "hard-coding 'members:write' onto that one account directly — never through this role, and never",
+    "including 'members:read' at all, so even a seeded owner could add a member but never list the",
+    "roster. Both are declared explicitly here now, the same way every other capability on this file",
+    "is, so a NEW platform-owner minted through the panel itself (not the bootstrap script) gets full",
+    "member-directory access too, not just the one seeded from outside."
   ],
   "roles": [
     {
@@ -27,6 +39,8 @@
         "platform.tenants",
         "platform.billing",
         "platform.identity",
+        "members:read",
+        "members:write",
         "platform.authz",
         "platform.audit",
         "platform.compliance",

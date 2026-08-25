@@ -17,6 +17,14 @@
 # SO THIS ADDS, AND NEVER REMOVES. A capability an operator granted by hand survives; one the file
 # gained is added. That is the only merge rule that is safe to run unattended — a replace would
 # make this the very migration seed-roles.sh refuses to be.
+#
+# COVERS OUR OWN `_platform` ROLES TOO, NOT ONLY ESTABLISHMENTS'. `operator-roles.json`'s
+# `platform-owner` shipped for phases without `members:read`/`members:write` at all (found the same
+# way `compliance.self` was: a live account that could add/edit/suspend/remove a member yet never
+# list one) — the exact "a capability added after the role already exists reaches nobody" defect
+# this script exists for, just on our own tenant instead of a shop's. `roles.json` and
+# `operator-roles.json` name their roles from disjoint sets ("owner" vs "platform-owner", …), so
+# merging both into one WANT map below is safe with no name collision to arbitrate.
 set -uo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../cluster.sh"
@@ -45,7 +53,12 @@ TOKEN=$(kubectl -n "$NS" get secret authz-service-secrets \
         -o jsonpath='{.data.INTERNAL_SERVICE_TOKEN}' 2>/dev/null | base64 -d)
 [ -n "$TOKEN" ] || { red "no internal token in authz-service-secrets"; exit 1; }
 
-ROLES_JSON=$(cat "$ROOT/deploy/seed/roles.json")
+ROLES_JSON=$(python3 -c '
+import json, sys
+shop = json.load(open(sys.argv[1]))["roles"]
+platform = json.load(open(sys.argv[2]))["roles"]
+print(json.dumps({"roles": shop + platform}))
+' "$ROOT/deploy/seed/roles.json" "$ROOT/deploy/seed/operator-roles.json")
 
 # INSIDE THE POD, over the internal tier. The role store is reachable from there and from nowhere
 # else, and `bootstrap` is the one door the platform opened for exactly this trust boundary.
