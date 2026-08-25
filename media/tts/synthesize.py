@@ -20,6 +20,8 @@ Usage (from this project's root, using the conda env pynini forced onto Windows)
     C:/Users/TEMOA/miniconda3/envs/raje3-tts/python.exe media/tts/synthesize.py shop-dashboard
     TTS_PROVIDER=elevenlabs ELEVENLABS_API_KEY=... ELEVENLABS_VOICE_ID=... \
         C:/Users/TEMOA/miniconda3/envs/raje3-tts/python.exe media/tts/synthesize.py shop-dashboard
+    TTS_PROVIDER=hamsa HAMSA_API_KEY=... [HAMSA_DIALECT=ksa] [HAMSA_SPEAKER=Hiba] \
+        C:/Users/TEMOA/miniconda3/envs/raje3-tts/python.exe media/tts/synthesize.py shop-dashboard
 """
 from __future__ import annotations
 
