@@ -68,7 +68,8 @@ env:
   # /api/v1/admin/affiliates queue) has been 401ing in production since this service was first
   # deployed; the gap was invisible because nothing calling it had a route at the gateway either
   # (see deploy/services/api-gateway.values.yaml's GATEWAY_ROUTES fix, same investigation).
-  TOKEN_VERIFIER_DRIVER: "rs256"
+  TOKEN_VERIFIER_DRIVER: "jwks"
+  TOKEN_JWKS_URL: "http://identity-service:8000/.well-known/jwks.json"
   TOKEN_ISSUER: "raje3"
   TOKEN_AUDIENCE: "raje3"
   AUDIT_SERVICE_URL: "http://audit-service:8000"
