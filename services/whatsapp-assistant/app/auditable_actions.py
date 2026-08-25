@@ -57,12 +57,22 @@ AUDITABLE_ACTIONS: list[dict[str, Any]] = [
         "critical": True,
         "resource": "conversation",
         "why": "the AI stopped replying and handed a customer off to a human (mandatory triage "
-               "complaint pick, the auto-reply turn ceiling, the frustration heuristic, or a "
-               "direct mid-conversation request) — the shop's own staff already see the same "
-               "WhatsApp thread via Meta coexistence, so nothing further is sent anywhere else. "
-               "If this cannot be recorded there is no way to prove the handoff happened or why "
-               "— which matters most exactly when a customer later says nobody ever got back to "
-               "them",
+               "complaint pick, the frustration heuristic, or a direct mid-conversation request) "
+               "— the shop's own staff already see the same WhatsApp thread via Meta coexistence, "
+               "so nothing further is sent anywhere else. If this cannot be recorded there is no "
+               "way to prove the handoff happened or why — which matters most exactly when a "
+               "customer later says nobody ever got back to them",
+    },
+    {
+        "action": "whatsapp_assistant.stopped_wallet_depleted",
+        "source": "internal",
+        "critical": True,
+        "resource": "conversation",
+        "why": "the AI stopped replying to a customer because the shop's wallet has no funds "
+               "beyond its plan's included quota — a real operational stop, not a human "
+               "escalation (it is true for every customer of this shop at once, not about how "
+               "this one conversation went). If this cannot be recorded there is no way to later "
+               "show a shop owner exactly when and why their customers stopped getting answers",
     },
     {
         "action": "whatsapp_assistant.proposal_rejected",

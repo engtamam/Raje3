@@ -1,8 +1,10 @@
 """Full flow: new conversation -> triage list sent -> free text ignored/re-prompted -> selection
-made -> normal flow -> auto-reply ceiling triggers -> the AI stops (no ticket-service ticket -- a
-shop WhatsApp number is provisioned in Meta coexistence mode, so the shop's own staff already see
-the same thread directly; see core/conversation.py::_escalate_to_human's docstring) -> customer
-notified -> Auditor recorded whatsapp_assistant.escalated_to_human."""
+made -> normal flow, with NO raw turn ceiling (a conversation runs however many turns it takes) ->
+a frustration signal or a direct human request triggers a stop (no ticket-service ticket -- a shop
+WhatsApp number is provisioned in Meta coexistence mode, so the shop's own staff already see the
+same thread directly; see core/conversation.py::_escalate_to_human's docstring) -> customer
+notified -> Auditor recorded whatsapp_assistant.escalated_to_human. A separate suite covers the
+wallet-depletion stop (a different, non-escalation condition)."""
 from app.adapters.datastore.memory import MemoryDataStore
 from app.adapters.llm.stub import StubLlm
 from app.auditable_actions import AUDITABLE_ACTIONS
@@ -42,7 +44,7 @@ def _provider(store):
     return ConfigDrivenAvailabilityProvider(store=store, cfg=cfg)
 
 
-async def test_new_conversation_triage_then_ceiling_escalation_stops_the_ai_and_notifies():
+async def test_a_long_conversation_runs_many_turns_with_no_ceiling_then_frustration_stops_it():
     store = MemoryDataStore()
     llm = StubLlm()
     sink = _AcceptingAuditSink()
@@ -51,11 +53,13 @@ async def test_new_conversation_triage_then_ceiling_escalation_stops_the_ai_and_
     engine = ConversationEngine(
         store=store, llm=llm, booking_provider=_provider(store),
         points_summary=NullPointsSummary(), debounce_seconds=180, session_timeout_seconds=2400,
-        raw_window_messages=12,
+        raw_window_messages=999,
         allowed_tools=frozenset({"check_availability", "propose_booking",
                                 "get_customer_points_summary", "suggest_redeemable_offer"}),
-        auditor=auditor, max_auto_reply_turns=2,
-        frustration_unconfirmed_proposals_threshold=99, frustration_duplicate_messages_threshold=99)
+        auditor=auditor,
+        # A generous duplicate threshold so the FIRST several ordinary turns genuinely do not
+        # trip frustration — only the deliberately-repeated question near the end does.
+        frustration_unconfirmed_proposals_threshold=99, frustration_duplicate_messages_threshold=3)
 
     now = 1_000_000
 
@@ -76,25 +80,31 @@ async def test_new_conversation_triage_then_ceiling_escalation_stops_the_ai_and_
         tenant=TENANT, subject_ref=SUBJECT, reply_id="triage:inquiry", now=now + 10)
     assert plan.kind == "text"
 
-    # ── step 4+: two ordinary text turns, each answered by the (unhelpful) stub LLM — the raw
-    # ceiling is max_auto_reply_turns=2, so the SECOND compose_reply must escalate rather than
-    # call the model a third time ─────────────────────────────────────────────────────────────
-    for i, t in enumerate((now + 20, now + 220)):
+    # ── step 4+: FIVE ordinary text turns — well past any old ceiling of 12/2/whatever, proving
+    # there is none — each still answered normally by the (unhelpful) stub LLM ─────────────────
+    t = now + 20
+    for i in range(5):
         await engine.handle_inbound_text(
             tenant=TENANT, subject_ref=SUBJECT, from_number="+966500000000",
-            text=f"سؤال {i}", now=t)
+            text=f"سؤال فريد {i}", now=t)
         reply_plan = await engine.compose_reply(TENANT, SUBJECT, now=t + 180)
         assert reply_plan.kind == "text"
+        t += 200
 
-    assert len(llm.calls) == 2   # exactly the ceiling — the third turn below must NOT call it
+    assert len(llm.calls) == 5   # every one of the five turns reached the model — no ceiling
 
-    await engine.handle_inbound_text(
-        tenant=TENANT, subject_ref=SUBJECT, from_number="+966500000000", text="سؤال 2", now=now + 500)
-    escalation_plan = await engine.compose_reply(TENANT, SUBJECT, now=now + 680)
+    # ── step 5: the SAME question repeated three times reads as "the bot didn't understand" —
+    # the frustration heuristic stops the ai, still never a ticket ─────────────────────────────
+    for _ in range(3):
+        await engine.handle_inbound_text(
+            tenant=TENANT, subject_ref=SUBJECT, from_number="+966500000000",
+            text="نفس السؤال بالضبط", now=t)
+        t += 200
+    escalation_plan = await engine.compose_reply(TENANT, SUBJECT, now=t)
 
     assert escalation_plan.kind == "text"
     assert "تحويل" in escalation_plan.text or "موظف" in escalation_plan.text
-    assert len(llm.calls) == 2   # the model was NOT called a third time
+    assert len(llm.calls) == 5   # the model was NOT called for the frustrating turn
 
     # ── customer notified (the ReplyPlan text IS what main.py sends via the sender adapter) ─────
     assert escalation_plan.text
@@ -109,7 +119,7 @@ async def test_new_conversation_triage_then_ceiling_escalation_stops_the_ai_and_
     assert conv.state == "closed"
 
     # ── a further tick is a no-op for the same closed session ──────────────────────────────────
-    again = await engine.compose_reply(TENANT, SUBJECT, now=now + 900)
+    again = await engine.compose_reply(TENANT, SUBJECT, now=t + 300)
     assert again.kind == "none"          # not "batching" anymore — closed
     escalated_events = [e for e in sink.events if e.action == "whatsapp_assistant.escalated_to_human"]
     assert len(escalated_events) == 1    # not recorded a second time for the same session

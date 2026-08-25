@@ -162,6 +162,35 @@ class Settings(BaseSettings):
     INSIGHTS_SERVICE_URL: str = ""
     INSIGHTS_ASSOCIATED_SERVICES_PATH: str = "/internal/insights/associated-services"
 
+    # wallet-service — the real operational stop condition (distinct from human escalation): a
+    # shop with no available funds beyond its plan's included quota gets the AI stopped entirely,
+    # not handed to a human. Authorization-HOLD pattern (reserve before the costed action, confirm
+    # or release after) via wallet-service's own reserve/confirm/release routes — see
+    # app/core/wallet_balance.py's module docstring for the full reasoning, including why this is
+    # the one peer in this service that fails CLOSED on an outage rather than open.
+    WALLET_SERVICE_URL: str = ""
+    WALLET_SERVICE_RESERVE_PATH: str = "/internal/wallet/reserve"
+    WALLET_SERVICE_CONFIRM_PATH: str = "/internal/wallet/confirm"
+    WALLET_SERVICE_RELEASE_PATH: str = "/internal/wallet/release"
+    # A GENEROUS per-turn ceiling, not a precise estimate — priced at the same real usage rate
+    # (PRICING_USAGE_HALALAS_PER_1K_TOKENS below) that is this service's actual cost basis. Sized
+    # to comfortably cover CONVERSATION_RAW_WINDOW_MESSAGES worth of context plus a normal reply;
+    # revisit once real usage data exists (see core/pricing.py's own "not a final decision" note).
+    WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: int = 4000
+    # THE HARD SAFETY MARGIN (halalas — 100 = 1 SAR) held back on TOP of the token estimate on
+    # every reserve, so a misestimate or a mid-flight rate change can never itself be what pushes
+    # a confirm past the true available balance. Config, not a literal in the reserve call itself.
+    WALLET_SAFETY_MARGIN_HALALAS: int = 100
+
+    @field_validator("WALLET_ESTIMATED_MAX_TOKENS_PER_TURN", "WALLET_SAFETY_MARGIN_HALALAS")
+    @classmethod
+    def _reject_negative_wallet_numbers(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("wallet hold sizing must be zero or positive — a negative estimate "
+                             "or margin would UNDER-reserve, which is exactly the negative-balance "
+                             "risk this exists to close")
+        return v
+
     # NO ticket-service INTEGRATION, DELIBERATELY. An earlier version opened a ticket-service
     # ticket on human escalation — a real design error, corrected after checking ticket-service's
     # actual consumer: no screen anywhere in apps/console/src wires to it, and its own phase doc
@@ -214,11 +243,10 @@ class Settings(BaseSettings):
     # session-timeout-elapsed conversations at this cadence.
     CONVERSATION_TICK_SECONDS: int = 30
 
-    # ── auto-reply ceiling & frustration escalation (core/frustration.py) ────
-    # The RAW ceiling on automated LLM turns in one conversation before it is forced to a human —
-    # a receptionist that never once hands off is the failure this exists to prevent regardless of
-    # how well the frustration heuristic below performs.
-    CONVERSATION_MAX_AUTO_REPLY_TURNS: int = 12
+    # ── frustration escalation (core/frustration.py) ──────────────────────────
+    # NO RAW TURN-COUNT CEILING, DELIBERATELY — a conversation continues however many turns it
+    # takes; only a genuine frustration/repetition signal (below), a direct request for a human, a
+    # triage complaint pick, or the wallet running out (WALLET_SERVICE_URL below) stop the AI.
     # EARLY escalation signal #1: a tool-proposal (propose_booking/suggest_redeemable_offer) still
     # sitting unconfirmed while the customer keeps typing instead of pressing a button, this many
     # times, reads as the assistant offering something the customer will not accept.
@@ -227,7 +255,7 @@ class Settings(BaseSettings):
     # in the raw window reads as "the bot did not understand me the first time".
     FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD: int = 3
 
-    @field_validator("CONVERSATION_MAX_AUTO_REPLY_TURNS", "FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD",
+    @field_validator("FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD",
                      "FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD")
     @classmethod
     def _reject_nonpositive_escalation_thresholds(cls, v: int) -> int:

@@ -40,14 +40,21 @@ what "escalate" actually means here (stop replying; the shop's own staff already
 WhatsApp thread via Meta coexistence — not a ticket-service ticket, which would reach Raje3's own
 support queue instead of the shop).
 
-AUTO-REPLY CEILING, FRUSTRATION & DIRECT REQUEST ESCALATION: `compose_reply` checks, before every
+FRUSTRATION & DIRECT REQUEST ESCALATION, NO RAW TURN CEILING: `compose_reply` checks, before every
 LLM call, whether the customer's own latest message asks for a human (`_requests_human` — pattern
-match, no model call), whether this session has hit its raw turn ceiling
-(CONVERSATION_MAX_AUTO_REPLY_TURNS), or an earlier frustration signal (app/core/frustration.py —
-repeated unconfirmed proposals, near-duplicate questions). All three are computed from data already
-on `ConversationState` or the current message, no extra LLM call, and all three route to the SAME
-`_escalate_to_human` instead of the model — one escalation mechanism, checked at every turn of an
-active conversation, not only at the first message.
+match, no model call), or an earlier frustration signal (app/core/frustration.py — repeated
+unconfirmed proposals, near-duplicate questions). A conversation otherwise runs however many turns
+it takes — there is no ceiling on `auto_reply_turns` (kept only as telemetry). Both signals are
+computed from data already on `ConversationState` or the current message, no extra LLM call, and
+both route to the SAME `_escalate_to_human` instead of the model — one escalation mechanism,
+checked at every turn of an active conversation, not only at the first message.
+
+WALLET HOLD, A DIFFERENT KIND OF STOP: right before the one action that actually costs money (the
+LLM call itself), `compose_reply` reserves an estimated ceiling against the shop's wallet
+(app/core/wallet_balance.py — the authorization-hold pattern, atomic on wallet-service's own side,
+so the balance can never go negative even under concurrent turns). A refused reserve routes to
+`_stop_wallet_depleted`, NOT `_escalate_to_human` — a depleted wallet is a billing fact about the
+shop, true for every customer at once, not a signal that this one conversation needs a human.
 """
 from __future__ import annotations
 
@@ -62,6 +69,7 @@ from app.core.frustration import detect_frustration
 from app.core.models import CONVERSATIONS, ConversationState, PendingProposal, PENDING_PROPOSALS, as_row
 from app.core.shop_identity import GENERIC_SHOP_LABEL
 from app.core import tools as T
+from app.core import wallet_balance as WB
 from app.ports.llm import LlmReply
 
 # ── mandatory first-message triage — fixed product copy, same convention as build_system_prompt's
@@ -85,6 +93,11 @@ _TRIAGE_PROMPT_BY_CHOICE = {
     "inquiry": "تفضل، كيف أقدر أساعدك؟ يمكنك سؤالي عن الخدمات، حجز موعد، أو رصيدك من النقاط.",
 }
 _HUMAN_HANDOVER_TEXT = "تم تحويلك إلى أحد موظفينا وسيتواصل معك قريبًا لمتابعة طلبك."
+# A REAL operational stop, not an escalation — the customer is told plainly rather than met with
+# sudden silence, and pointed at a human being (the same shop staff who already see this thread
+# via WhatsApp coexistence) rather than left with a dead end.
+_WALLET_DEPLETED_TEXT = ("نعتذر، الخدمة الآلية متوقفة مؤقتًا. يسعد أحد موظفي المحل مساعدتك مباشرة "
+                        "على نفس المحادثة.")
 
 # ── mid-conversation human-handover intent ──────────────────────────────────────────────────────
 # A customer may ask for a human at ANY point, not just at the triage gate. This is intent
@@ -243,11 +256,12 @@ class ConversationEngine:
                 debounce_seconds: int, session_timeout_seconds: int,
                 raw_window_messages: int, allowed_tools: frozenset[str],
                 proposal_ttl_seconds: int = 1800, auditor: Any = None,
-                max_auto_reply_turns: int = 12,
                 frustration_unconfirmed_proposals_threshold: int = 2,
                 frustration_duplicate_messages_threshold: int = 3,
                 shop_identity: Any = None, service_catalog: Any = None,
-                customer_lookup: Any = None, related_services: Any = None) -> None:
+                customer_lookup: Any = None, related_services: Any = None,
+                wallet_balance: Any = None, wallet_estimated_tokens: int = 4000,
+                wallet_rate_halalas_per_1k: int = 0, wallet_margin_halalas: int = 100) -> None:
         self._store = store
         self._llm = llm
         self._booking = booking_provider
@@ -258,6 +272,14 @@ class ConversationEngine:
         self._catalog = service_catalog
         self._customer_lookup = customer_lookup
         self._related_services = related_services
+        # None-safe: a conversation built without one runs no reserve/confirm at all (pre-existing
+        # test constructors and a deployment with no WALLET_SERVICE_URL) — the same
+        # "optional peer, safe default" shape as every other one, though this is the one peer
+        # that fails CLOSED rather than open once it IS configured (see wallet_balance.py).
+        self._wallet = wallet_balance
+        self._wallet_estimated_tokens = max(0, int(wallet_estimated_tokens))
+        self._wallet_rate_halalas_per_1k = max(0, int(wallet_rate_halalas_per_1k))
+        self._wallet_margin_halalas = max(0, int(wallet_margin_halalas))
         # NOT constructor-required either, same "keep pre-existing test constructors working
         # unmodified" reasoning as `auditor` below — a conversation whose engine was built
         # without one simply gets the generic label from `_shop_name`.
@@ -278,7 +300,6 @@ class ConversationEngine:
         # app/main.py::create_app. Optional here only so pre-existing test constructors that never
         # exercise escalation keep working unmodified.
         self._auditor = auditor
-        self._max_auto_reply_turns = max(1, int(max_auto_reply_turns))
         self._frustration_unconfirmed_threshold = max(1, int(frustration_unconfirmed_proposals_threshold))
         self._frustration_duplicate_threshold = max(1, int(frustration_duplicate_messages_threshold))
 
@@ -349,6 +370,50 @@ class ConversationEngine:
         return ReplyPlan(kind="list", text=TRIAGE_PROMPT, list_button_text=TRIAGE_LIST_BUTTON_TEXT,
                          list_rows=[dict(row) for row in TRIAGE_ROWS])
 
+    async def _reserve_llm_hold(self, tenant: str, conversation_ref: str) -> str | None:
+        """Authorization-HOLD, not a balance read (see app/core/wallet_balance.py's module
+        docstring for the full reasoning). Returns a hold id on success, or None — insufficient
+        funds, or the peer call itself failed, which this method treats identically (fails
+        CLOSED): an uncertain reserve is never treated as a successful one, because this is the
+        one call in this service where "probably fine" is not an acceptable answer.
+        """
+        if self._wallet is None:
+            return None
+        amount = WB.estimated_hold_halalas(
+            estimated_tokens=self._wallet_estimated_tokens,
+            halalas_per_1k_tokens=self._wallet_rate_halalas_per_1k,
+            safety_margin_halalas=self._wallet_margin_halalas)
+        source = WB.new_reserve_source(conversation_ref)
+        try:
+            return await self._wallet.reserve(tenant=tenant, amount_halalas=amount, source=source)
+        except Exception:
+            return None    # fails CLOSED — an exception is exactly as uncertain as no answer
+
+    async def _stop_wallet_depleted(self, conv: ConversationState, *, tenant: str,
+                                    subject_ref: str, now: int) -> ReplyPlan:
+        """A REAL operational stop, not an escalation — see app/core/wallet_balance.py's module
+        docstring for why the two are different things. The AI stops replying to EVERY customer of
+        this shop until the wallet is topped up; this is not about this one conversation.
+
+        Idempotent per session the same way `_escalate_to_human` is: a conversation already
+        stopped for this reason is simply told again, not re-recorded, so a re-entrant tick or a
+        stray message does not flood the audit log with the same fact every few minutes.
+        """
+        conversation_ref = self._key(tenant, subject_ref)
+        if not conv.wallet_stopped:
+            if self._auditor is not None:
+                await self._auditor.record(
+                    "whatsapp_assistant.stopped_wallet_depleted", actor="whatsapp-assistant",
+                    tenant=tenant, resource=f"conversation:{conversation_ref}",
+                    metadata={"subject_ref": subject_ref})
+            conv.wallet_stopped = True
+            conv.state = "closed"
+            conv.pending_proposal_id = ""
+            conv.batch_deadline = 0
+            conv.session_closed_at = now
+            await self._save(conv)
+        return ReplyPlan(kind="text", text=_WALLET_DEPLETED_TEXT)
+
     async def handle_inbound_text(self, *, tenant: str, subject_ref: str, from_number: str,
                                   text: str, now: int | None = None) -> ReplyPlan:
         """THE entry point for free text (app/main.py's bus subscription uses this, never
@@ -362,6 +427,10 @@ class ConversationEngine:
         now = now if now is not None else int(time.time())
         conv = await self._get(tenant, subject_ref)
 
+        # NO WALLET CHECK HERE, DELIBERATELY. The triage list is fixed product copy, not an LLM
+        # call — it costs nothing, so there is nothing to reserve against. The hold only happens
+        # around the one action that actually costs money: `compose_reply`'s call to the model.
+
         # NOT `conv.state in ("idle", "closed")` alone — a resolved triage pick also leaves the
         # conversation "idle" (see ConversationState.triage_resolved's docstring), and that must
         # NOT be re-gated as if it were a brand-new session.
@@ -371,12 +440,15 @@ class ConversationEngine:
             conv.session_started_at = now
             conv.session_closed_at = 0
             conv.last_activity_at = now
-            # A fresh session resets the per-session ceiling/frustration counters and the
-            # escalation flag — a customer who was handed to a human LAST session must be able to
-            # start a NEW one and reach the assistant again.
+            # A fresh session resets the per-session frustration counters, the escalation flag,
+            # and the wallet-stop flag — a customer who was handed to a human or stopped LAST
+            # session must be able to start a NEW one and reach the assistant again (the live
+            # wallet check still runs fresh every turn regardless; this only clears the "already
+            # told them this session" idempotency guard).
             conv.auto_reply_turns = 0
             conv.unconfirmed_proposal_attempts = 0
             conv.escalated = False
+            conv.wallet_stopped = False
             await self._save(conv)
             return self._triage_list_plan()
 
@@ -538,29 +610,31 @@ class ConversationEngine:
         if conv.state != "batching":
             return ReplyPlan(kind="none")
 
+        # NO WALLET CHECK HERE — escalating to a human (below) costs nothing either, so a
+        # depleted wallet must not block a customer from reaching a human. The hold only wraps
+        # the one action that actually costs money: the LLM call further down.
+
         # A proposal is STILL sitting unconfirmed while the customer typed again instead of
-        # pressing a button — counted BEFORE the ceiling/frustration check below reads it, so this
-        # very turn can trip the early-escalation signal. Cleared in `handle_button_reply` the
-        # moment a confirm/cancel actually resolves it.
+        # pressing a button — counted BEFORE the frustration check below reads it, so this very
+        # turn can trip the early-escalation signal. Cleared in `handle_button_reply` the moment a
+        # confirm/cancel actually resolves it.
         if conv.pending_proposal_id:
             conv.unconfirmed_proposal_attempts += 1
 
         if not conv.escalated:
             # THE CUSTOMER'S OWN WORDS, CHECKED FIRST — a direct request for a human overrides the
-            # ceiling/frustration heuristics below rather than waiting on them; someone who asks
-            # plainly should not have to also trip a turn count or a repetition pattern first.
+            # frustration heuristic below rather than waiting on it; someone who asks plainly
+            # should not have to also trip a repetition pattern first.
             latest_user_text = next(
                 (m["text"] for m in reversed(conv.raw_window) if m.get("role") == "user"), "")
             should_human_request = _requests_human(latest_user_text)
-            should_ceiling = not should_human_request and conv.auto_reply_turns >= self._max_auto_reply_turns
-            should_frustration = not (should_human_request or should_ceiling) and detect_frustration(
+            should_frustration = not should_human_request and detect_frustration(
                 unconfirmed_proposal_attempts=conv.unconfirmed_proposal_attempts,
                 recent_user_texts=[m["text"] for m in conv.raw_window if m.get("role") == "user"],
                 unconfirmed_proposals_threshold=self._frustration_unconfirmed_threshold,
                 duplicate_messages_threshold=self._frustration_duplicate_threshold)
-            if should_human_request or should_ceiling or should_frustration:
-                reason = ("human_requested" if should_human_request
-                         else "ceiling" if should_ceiling else "frustration")
+            if should_human_request or should_frustration:
+                reason = "human_requested" if should_human_request else "frustration"
                 return await self._escalate_to_human(
                     conv, tenant=tenant, subject_ref=subject_ref, reason=reason, now=now)
 
@@ -576,6 +650,19 @@ class ConversationEngine:
             allowed = frozenset(t for t in allowed
                                 if t not in ("propose_booking", "suggest_redeemable_offer"))
 
+        # THE HOLD, RIGHT BEFORE THE ONE ACTION THAT COSTS MONEY — see `_reserve_llm_hold`'s
+        # docstring. `self._wallet is not None` gates whether this service is wallet-gated at all
+        # (pre-existing test constructors and a deployment with no WALLET_SERVICE_URL both leave
+        # it None, matching NullWalletBalance's own "never blocks" contract — see
+        # app/core/wallet_balance.py).
+        hold_id: str | None = None
+        if self._wallet is not None:
+            conversation_ref = self._key(tenant, subject_ref)
+            hold_id = await self._reserve_llm_hold(tenant, conversation_ref)
+            if hold_id is None:
+                return await self._stop_wallet_depleted(
+                    conv, tenant=tenant, subject_ref=subject_ref, now=now)
+
         conv.auto_reply_turns += 1
         system_prompt = build_system_prompt(await self._shop_name(tenant))
         context_block = await self._context_block(tenant, subject_ref, conv.from_number)
@@ -584,6 +671,15 @@ class ConversationEngine:
             user_message=user_turn, allowed_tools=allowed, context_block=context_block)
         conv.input_tokens += reply.input_tokens
         conv.output_tokens += reply.output_tokens
+
+        if hold_id is not None:
+            # CONFIRM CHARGES THE FULL RESERVED CEILING, not the real (usually smaller) token
+            # cost — a deliberate choice, not an oversight; see `_reserve_llm_hold`'s and
+            # app/core/wallet_balance.py's module docstrings for why. If `self._llm.respond`
+            # raised above, this line never runs and the hold simply expires on wallet-service's
+            # own TTL — "the hold expires; it cannot strand the money" is wallet-service's own
+            # guarantee, not something this service needs to additionally handle.
+            await self._wallet.confirm(hold_id)
 
         if reply.tool_call is not None:
             try:

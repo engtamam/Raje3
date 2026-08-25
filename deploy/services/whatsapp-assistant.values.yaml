@@ -137,6 +137,23 @@ env:
   # a tenant without the paid "associations" feature gets no suggestions here either.
   INSIGHTS_SERVICE_URL: "http://insights:8000"
   INSIGHTS_ASSOCIATED_SERVICES_PATH: "/internal/insights/associated-services"
+  # wallet-service — the REAL operational stop condition. A shop with no available funds beyond
+  # its plan's included quota gets the AI stopped entirely, not handed to a human (that is a
+  # different thing — see app/core/wallet_balance.py and core/conversation.py's
+  # _stop_wallet_depleted). Authorization-HOLD pattern (reserve before the LLM call, confirm
+  # after) — the balance can never go negative, even under concurrent turns, because
+  # wallet-service's own reserve is atomic. Empty URL means this check is skipped
+  # (NullWalletBalance: never blocks), the right zero-infra default for a deployment that has not
+  # wired billing yet.
+  WALLET_SERVICE_URL: "http://wallet-service:8000"
+  WALLET_SERVICE_RESERVE_PATH: "/internal/wallet/reserve"
+  WALLET_SERVICE_CONFIRM_PATH: "/internal/wallet/confirm"
+  WALLET_SERVICE_RELEASE_PATH: "/internal/wallet/release"
+  # A generous per-turn token ceiling, priced at the real usage rate below, plus a fixed 1 SAR
+  # (100 halalas) safety margin on TOP — so a misestimate or a mid-flight rate wobble can never
+  # itself be what pushes a confirm past the true available balance.
+  WALLET_ESTIMATED_MAX_TOKENS_PER_TURN: "4000"
+  WALLET_SAFETY_MARGIN_HALALAS: "100"
   PEER_TIMEOUT_SECONDS: "8"
 
   # ── LLM ─────────────────────────────────────────────────────────────────────────────────────

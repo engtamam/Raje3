@@ -55,7 +55,9 @@ class ConversationState:
     # module docstring, "mandatory first-message triage gate").
     state: str = "idle"
     # How many times this SESSION has actually called the LLM (compose_reply). Reset to 0 whenever
-    # a fresh session opens (handle_inbound_text). Config ceiling: CONVERSATION_MAX_AUTO_REPLY_TURNS.
+    # a fresh session opens (handle_inbound_text). Telemetry only — there is no ceiling on this
+    # number; a conversation runs however many turns it takes (see core/conversation.py's module
+    # docstring).
     auto_reply_turns: int = 0
     # How many times compose_reply ran with a proposal STILL sitting unconfirmed on this
     # conversation — the customer typed again instead of pressing a button. Reset on any
@@ -66,6 +68,11 @@ class ConversationState:
     # unset — prevents a second ticket for the same session on a re-entrant tick or a stray
     # message arriving after the handoff text was sent but before the session actually closes.
     escalated: bool = False
+    # This session has already been told the wallet is depleted — a REAL operational stop, not an
+    # escalation (see core/wallet_balance.py). Set once, never unset within the session — prevents
+    # re-recording the same audit fact on a re-entrant tick or a stray message. Reset on a fresh
+    # session the same way `escalated` is.
+    wallet_stopped: bool = False
     # Has THIS session already answered the triage gate? `state` alone cannot carry this: a
     # resolved triage pick sets `state` back to "idle" so `on_inbound_text`'s own idle/closed
     # session-open branch still runs unmodified — but "idle" is ALSO a brand-new conversation's

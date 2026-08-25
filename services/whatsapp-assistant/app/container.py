@@ -139,6 +139,7 @@ class Container:
     shop_identity: Any = None
     service_catalog: Any = None
     related_services: Any = None
+    wallet_balance: Any = None
     sender: Any = None
     secret_store: Any = None
     inbound_feed: Any = None
@@ -204,6 +205,7 @@ def build_container(settings: Settings) -> Container:
     from app.core import points as P
     from app.core import service_catalog as SC
     from app.core import related_services as RS
+    from app.core import wallet_balance as WB
     from app.core.conversation import ConversationEngine
     from app.core.secret_store import SecretStore
 
@@ -220,6 +222,7 @@ def build_container(settings: Settings) -> Container:
     container.shop_identity = SI.build(settings)
     container.service_catalog = SC.build(settings)
     container.related_services = RS.build(settings)
+    container.wallet_balance = WB.build(settings)
     container.sender = build_sender(settings)
 
     from app.adapters.inbound_feed import build as build_inbound_feed
@@ -231,12 +234,14 @@ def build_container(settings: Settings) -> Container:
         store=container.datastore, llm=container.llm, booking_provider=container.booking_provider,
         points_summary=container.points_summary, shop_identity=container.shop_identity,
         service_catalog=container.service_catalog, customer_lookup=container.customer_lookup,
-        related_services=container.related_services,
+        related_services=container.related_services, wallet_balance=container.wallet_balance,
+        wallet_estimated_tokens=settings.WALLET_ESTIMATED_MAX_TOKENS_PER_TURN,
+        wallet_rate_halalas_per_1k=settings.PRICING_USAGE_HALALAS_PER_1K_TOKENS,
+        wallet_margin_halalas=settings.WALLET_SAFETY_MARGIN_HALALAS,
         debounce_seconds=settings.CONVERSATION_DEBOUNCE_SECONDS,
         session_timeout_seconds=settings.CONVERSATION_SESSION_TIMEOUT_SECONDS,
         raw_window_messages=settings.CONVERSATION_RAW_WINDOW_MESSAGES,
         allowed_tools=settings.llm_tool_allowlist,
-        max_auto_reply_turns=settings.CONVERSATION_MAX_AUTO_REPLY_TURNS,
         frustration_unconfirmed_proposals_threshold=settings.FRUSTRATION_UNCONFIRMED_PROPOSALS_THRESHOLD,
         frustration_duplicate_messages_threshold=settings.FRUSTRATION_DUPLICATE_MESSAGES_THRESHOLD)
     # `auditor` is NOT passed here — app/main.py builds it AFTER build_container() (it needs the
