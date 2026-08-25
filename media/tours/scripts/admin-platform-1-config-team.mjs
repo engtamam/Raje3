@@ -60,14 +60,13 @@
  * config/secret selector below is scoped structurally (first `<section>` under the tab) rather
  * than by a literal key name that could rename itself out from under this script.
  */
-const DEMO_EMAIL = 'admin-platform-tour-demo@raje3.test';
+const DEMO_PHONE = '0500000903';
 
 export default {
   id: 'admin-platform-1-config-team',
   title: 'لوحة الإدارة — المنصّة والفريق كاملة',
   section: 'لوحة الإدارة',
   skipAutoSignIn: true,
-  orientation: 'landscape',
   preload: true,
   // Four sub-screens, one a real invite/edit/suspend/reactivate/remove sequence, on a dev cluster
   // this heavily shared right now — bookings-2's own precedent for a screen this size needing
@@ -79,12 +78,18 @@ export default {
     {
       goto: '/admin/',
       chapter: 'تسجيل الدخول',
-      say: 'لوحة الإدارة — قسم «المنصّة والفريق»، آخر قسم بالشريط الجانبي',
+      say: 'لوحة الإدارة',
+    },
+    {
+      say: 'قسم «المنصّة والفريق»',
+    },
+    {
+      say: 'آخر قسم بالشريط الجانبي',
     },
     {
       type: 'label=البريد الإلكتروني',
       text: '0500000902',
-      say: 'بريدك الإداري',
+      say: 'رقم جوالك الإداري',
     },
     {
       type: 'label=كلمة المرور',
@@ -102,18 +107,27 @@ export default {
     { waitFor: 'role=button:المنصّة والفريق', timeoutMs: 480_000 },
     {
       click: 'role=button:المنصّة والفريق',
-      say: 'وهذا قسمها: كل ما يخص تشغيل المنصّة نفسها، لا محل عميل',
+      say: 'وهذا قسمها: كل ما يخص تشغيل المنصّة نفسها',
+    },
+    {
+      say: 'لا محل عميل',
     },
     // ── فريق الإدارة (recorded first — see the header note on why) ────────────────────────────
     { waitFor: 'text=الإعدادات الحيّة', timeoutMs: 60_000 },
     {
       click: 'role=radio:فريق الإدارة',
       chapter: 'فريق الإدارة',
-      say: 'أول ما نشرح فريق الإدارة نفسه — من يملك دخولاً للوحة هذي، وبأي دور',
+      say: 'أول ما نشرح فريق الإدارة نفسه',
+    },
+    {
+      say: 'من يملك دخولاً للوحة هذي، وبأي دور',
     },
     { waitFor: 'text=فريق الإدارة وصلاحياتهم', timeoutMs: 480_000 },
     {
-      say: 'قائمة حقيقية من دليل أعضاء تينانت المنصّة — لا بحث بمعرّف معروف مسبقاً',
+      say: 'قائمة حقيقية من دليل أعضاء تينانت المنصّة',
+    },
+    {
+      say: 'لا بحث بمعرّف معروف مسبقاً',
     },
     // THE ROSTER'S OWN LIST/ADD/EDIT/STATUS/REMOVE ROUND TRIPS ARE NOT EXERCISED LIVE HERE, AND
     // THAT IS A DELIBERATE, EVIDENCE-BACKED CALL — not the same "shared cluster, don't mutate real
@@ -142,28 +156,52 @@ export default {
     },
     { waitFor: 'text=دعوة عضو جديد لفريق الإدارة', timeoutMs: 30_000 },
     {
-      type: 'label=البريد الإلكتروني',
-      text: DEMO_EMAIL,
-      say: 'تكتب بريده',
+      type: 'label=رقم جوال العضو',
+      text: DEMO_PHONE,
+      say: 'تكتب رقم جواله',
     },
     {
-      say: 'ولا كلمة مرور تضبطها أنت أبداً — يضبطها هو بنفسه عبر رابط الدعوة',
+      say: 'ولا كلمة مرور تضبطها أنت أبداً',
+    },
+    {
+      say: 'يضبطها هو بنفسه عبر رابط الدعوة',
     },
     {
       click: 'css=[role="dialog"] >> text=الدعم (قراءة فقط)',
-      say: 'وتختار دوره — هذا مثلاً دعم بقراءة فقط، بلا أي كتابة',
+      say: 'وتختار دوره',
     },
     {
-      say: 'و«تعديل الأدوار» على أي عضو قائم يغيّر صلاحياته أي وقت، بلا حذفه وإعادة دعوته',
+      say: 'هذا مثلاً دعم بقراءة فقط، بلا أي كتابة',
     },
     {
-      say: 'و«إيقاف» — لا حذف — يقفل دخوله فوراً ويبقي سجلّه وأدواره كاملة لو رجّعته لاحقاً',
+      say: 'و«تعديل الأدوار» على أي',
     },
     {
-      say: 'و«إزالة» مختلفة تماماً: تُنهي عضويته بالمنصّة، لا حسابه بحد ذاته',
+      say: 'عضو قائم يغيّر صلاحياته أي وقت',
     },
     {
-      say: 'وتطلب تكتب معرّفه بالضبط قبل التأكيد — هي الإجراء الهدّام الحقيقي هنا',
+      say: 'بلا حذفه وإعادة دعوته',
+    },
+    {
+      say: 'و«إيقاف» — لا حذف',
+    },
+    {
+      say: 'يقفل دخوله فوراً ويبقي سجلّه',
+    },
+    {
+      say: 'وأدواره كاملة لو رجّعته لاحقاً',
+    },
+    {
+      say: 'و«إزالة» مختلفة تماماً: تُنهي عضويته بالمنصّة',
+    },
+    {
+      say: 'لا حسابه بحد ذاته',
+    },
+    {
+      say: 'وتطلب تكتب معرّفه بالضبط قبل التأكيد',
+    },
+    {
+      say: 'هي الإجراء الهدّام الحقيقي هنا',
     },
     {
       click: 'role=button:إلغاء',
@@ -174,7 +212,10 @@ export default {
     {
       click: 'role=radio:الإعدادات الحيّة',
       chapter: 'الإعدادات الحيّة',
-      say: 'وثاني تبويب: الإعدادات الحيّة — سياسة تشغيل كل خدمة، تتغيّر بلا نشر كود جديد',
+      say: 'وثاني تبويب: الإعدادات الحيّة',
+    },
+    {
+      say: 'سياسة تشغيل كل خدمة، تتغيّر بلا نشر كود جديد',
     },
     // SCOPED TO THE SERVICE CARD ITSELF (`h2`), NOT TO AN EDITABLE INPUT INSIDE IT. Each card's
     // own key/value form only renders once that service's OWN `operator.get_config` round trip
@@ -185,54 +226,105 @@ export default {
     { waitFor: 'css=section:has(h2)', timeoutMs: 120_000 },
     {
       hover: 'css=section:has(h2) >> nth=0',
-      say: 'كل خدمة أعلنت مفاتيحها القابلة للتعديل تطلع هنا بقسمها الخاص',
+      say: 'كل خدمة أعلنت مفاتيحها',
     },
     {
-      say: 'وهذي القيم حقيقية من الخدمة نفسها الآن — لا افتراضات ولا أرقام تجريبية',
+      say: 'القابلة للتعديل تطلع هنا بقسمها الخاص',
     },
     {
-      say: 'تقدر تعدّل أي قيمة هنا وتضغط «حفظ» فتُطبَّق فوراً على الخدمة الحيّة',
+      say: 'وهذي القيم حقيقية من الخدمة نفسها الآن',
     },
     {
-      say: 'و«إعادة للافتراضي» تمسح تجاوزك، ترجع القيمة الأصلية اللي بالكود',
+      say: 'لا افتراضات ولا أرقام تجريبية',
     },
     {
-      say: 'وما يظهر هنا إلا المفاتيح اللي أعلنتها الخدمة صراحةً — لا تعديل عشوائي على أي شيء',
+      say: 'تقدر تعدّل أي قيمة هنا وتضغط',
+    },
+    {
+      say: '«حفظ» فتُطبَّق فوراً على الخدمة الحيّة',
+    },
+    {
+      say: 'و«إعادة للافتراضي» تمسح تجاوزك',
+    },
+    {
+      say: 'ترجع القيمة الأصلية اللي بالكود',
+    },
+    {
+      say: 'وما يظهر هنا إلا المفاتيح',
+    },
+    {
+      say: 'اللي أعلنتها الخدمة صراحةً',
+    },
+    {
+      say: 'لا تعديل عشوائي على أي شيء',
     },
     // ── الأسرار ──────────────────────────────────────────────────────────────────────────────
     {
       click: 'role=radio:الأسرار',
       chapter: 'الأسرار',
-      say: 'وثالث تبويب: الأسرار — مفاتيح الاتصال بخدمات خارجية، واتساب ودفع وغيرها',
+      say: 'وثالث تبويب: الأسرار',
+    },
+    {
+      say: 'مفاتيح الاتصال بخدمات خارجية',
+    },
+    {
+      say: 'واتساب ودفع وغيرها',
     },
     { waitFor: 'text=أسرار المشغّل', timeoutMs: 60_000 },
     {
-      say: 'ولاحظ: الشاشة لا تعرض قيمة أي سرّ أبداً، ولا تقدر حتى تطلبها',
+      say: 'ولاحظ: الشاشة لا تعرض قيمة أي سرّ أبداً',
+    },
+    {
+      say: 'ولا تقدر حتى تطلبها',
     },
     // Scoped to a section that actually HAS the set form — some services list secrets read-only,
     // with no `operator.set_secret` capability granted, and would have no form to point at.
     { waitFor: 'css=section:has(button[type="submit"])', timeoutMs: 120_000 },
     {
       hover: 'css=section:has(button[type="submit"]) >> nth=0',
-      say: 'كل اللي تشوفه أربع خانات فقط — تلميح يكفي لتعرف أي سرّ هو، بلا كشف القيمة كلها',
+      say: 'كل اللي تشوفه أربع خانات فقط',
+    },
+    {
+      say: 'تلميح يكفي لتعرف أي سرّ هو',
+    },
+    {
+      say: 'بلا كشف القيمة كلها',
     },
     {
       type: 'css=section:has(button[type="submit"]) >> nth=0 >> css=input[dir="ltr"]:not([type="password"])',
       text: 'TOUR_DEMO_KEY',
-      say: 'وضبط سرّ جديد أو تدوير قائم يمرّان من نفس النموذج',
+      say: 'وضبط سرّ جديد أو تدوير',
+    },
+    {
+      say: 'قائم يمرّان من نفس النموذج',
     },
     {
       type: 'css=section:has(button[type="submit"]) >> nth=0 >> css=input[type="password"]',
       text: 'demo-value-not-real',
-      say: 'اسم السرّ وقيمته — والقيمة هذي لا تُقرأ ولا تُخزَّن بهذي الشاشة بعد الحفظ',
+      say: 'اسم السرّ وقيمته',
+    },
+    {
+      say: 'والقيمة هذي لا تُقرأ ولا',
+    },
+    {
+      say: 'تُخزَّن بهذي الشاشة بعد الحفظ',
     },
     {
       click: 'css=section:has(button[type="submit"]) >> nth=0 >> css=button[type="submit"]',
-      say: 'واضغط «ضبط / تدوير» يفتح تأكيداً صريحاً قبل أي تنفيذ',
+      say: 'واضغط «ضبط / تدوير» يفتح',
+    },
+    {
+      say: 'تأكيداً صريحاً قبل أي تنفيذ',
     },
     { waitFor: 'text=سيُستبدل أي سرّ سابق', timeoutMs: 30_000 },
     {
-      say: 'يحذّرك بالضبط بمن يتأثر: كل خدمات المنصّة اللي تستخدم هذا السرّ، فوراً',
+      say: 'يحذّرك بالضبط بمن يتأثر',
+    },
+    {
+      say: 'كل خدمات المنصّة اللي تستخدم هذا السرّ',
+    },
+    {
+      say: 'فوراً',
     },
     {
       click: 'role=button:إلغاء',
@@ -242,15 +334,24 @@ export default {
     {
       click: 'role=radio:سجل التدقيق',
       chapter: 'سجل التدقيق',
-      say: 'ورابع وآخر تبويب: سجل التدقيق — كل إجراء إداري حصل، بلا استثناء',
+      say: 'ورابع وآخر تبويب: سجل التدقيق',
+    },
+    {
+      say: 'كل إجراء إداري حصل، بلا استثناء',
     },
     { waitFor: 'text=تحقّق سلامة السلسلة', timeoutMs: 90_000 },
     {
-      say: 'كل حدث هنا مربوط بهاش الحدث اللي قبله — سلسلة، لا صفوف منفصلة',
+      say: 'كل حدث هنا مربوط بهاش الحدث اللي قبله',
+    },
+    {
+      say: 'سلسلة، لا صفوف منفصلة',
     },
     {
       click: 'role=button:تحقّق الآن',
-      say: 'و«تحقّق الآن» يعيد حساب السلسلة كلها من الأول ويتأكد ما تغيّر فيها حرف',
+      say: 'و«تحقّق الآن» يعيد حساب السلسلة',
+    },
+    {
+      say: 'كلها من الأول ويتأكد ما تغيّر فيها حرف',
     },
     // EITHER OUTCOME IS A REAL, HONEST RESULT — «سليمة» (a verified chain) or «مكسورة» (unreachable
     // right now, or genuinely broken); `VerifyChain`'s own catch renders the SAME red badge for a
@@ -259,7 +360,13 @@ export default {
     // shared dev cluster happens to return today.
     { waitFor: 'css=:text("سليمة"), :text("مكسورة")', timeoutMs: 60_000 },
     {
-      say: 'لو أحد عدّل حدثاً قديماً مباشرة بقاعدة البيانات، هذا هو اللي يكشفه',
+      say: 'لو أحد عدّل حدثاً',
+    },
+    {
+      say: 'قديماً مباشرة بقاعدة البيانات',
+    },
+    {
+      say: 'هذا هو اللي يكشفه',
     },
     {
       type: 'label=الفاعل',
@@ -270,15 +377,24 @@ export default {
       click: 'role=button:بحث',
       say: 'وابحث',
     },
-    // `Table`'s own failed/empty states render neither a `<table>` nor `role="alert"` — just an
-    // `EmptyState` title paragraph (`تعذّرت قراءة سجل التدقيق` / `لا أحداث بهذي الفلاتر`) — so this
-    // waits for whichever of the three real outcomes the search actually lands on.
-    { waitFor: 'css=table, :text("تعذّرت"), :text("لا أحداث")', timeoutMs: 60_000 },
+    // `Table`'s own failed/empty states render neither rows nor `role="alert"` — just an
+    // `EmptyState` title paragraph (`تعذّرت قراءة سجل التدقيق` / `لا أحداث بهذي الفلاتر`). AND on a
+    // portrait phone, `Table.tsx`'s own real rows never render as a `<table>` at all — that markup
+    // stays `display:none` below `md` — they render as its own `ul.md\\:hidden` card stack instead,
+    // so this waits for whichever of the FOUR real outcomes (table rows on wide, card rows on
+    // phone, or either empty message) the search actually lands on.
+    { waitFor: 'css=table, ul.md\\:hidden li, :text("تعذّرت"), :text("لا أحداث")', timeoutMs: 60_000 },
     {
-      say: 'وترجع كل الأحداث اللي نفّذها هذا الحساب، بأي خدمة وأي وقت',
+      say: 'وترجع كل الأحداث اللي نفّذها هذا الحساب',
     },
     {
-      say: 'فريق، إعداد حيّ، أسرار محمية، وسجل لا يُزوَّر — قسم «المنصّة والفريق» كاملاً',
+      say: 'بأي خدمة وأي وقت',
+    },
+    {
+      say: 'فريق، إعداد حيّ، أسرار محمية، وسجل لا يُزوَّر',
+    },
+    {
+      say: 'قسم «المنصّة والفريق» كاملاً',
     },
   ],
 };
