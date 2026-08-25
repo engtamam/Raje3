@@ -78,28 +78,45 @@ values:
 
 # ── الملحق (أ) — تفاصيل المعالجة ─────────────────────────────────────────────────────────────
 annex_a:
+  # THE PASS THAT CAUGHT THIS: this Annex predates services/bookings entirely — the platform's own
+  # scheduling system (creating, rescheduling, attending, and no-showing an appointment) was
+  # running for the whole of this build with NO purpose or category naming it here. Under Art.
+  # 17-4 that is not a paperwork gap: unwritten processing is the PROCESSOR's own purpose, with
+  # direct liability. Same for the AI feature — Annex C named the sub-processor, but the PURPOSE
+  # (composing a conversational reply, proposing or confirming a booking through it) was never
+  # stated here either. Both are added now, matched to what the code actually does, not a
+  # marketing description of it.
   purpose:
     ar: >-
-      تشغيل منصة راجِع للمنشأة: تسجيل زيارات عملائها، وجدولة رسائل المتابعة والتذكير وإرسالها عبر
-      واتساب باسم المنشأة، وإدارة برنامج الولاء ونقاطه، واحتساب مؤشرات أداء المنشأة وتقاريرها،
-      وتنفيذ الحملات التسويقية التي تُطلقها المنشأة بنفسها، وصفحة العميل التي يدير منها موافقته
-      ويطلب حذف بياناته.
+      تشغيل منصة راجِع للمنشأة: تسجيل زيارات عملائها، وإدارة حجوزات مواعيدها (إنشاءً وتعديلاً
+      وإلغاءً وتسجيل حضور أو عدم حضور)، وجدولة رسائل المتابعة والتذكير وإرسالها عبر واتساب باسم
+      المنشأة — بما فيها الردود الآلية التي تُنتجها ميزة الذكاء الاصطناعي عند تفعيل المنشأة لها،
+      وما تقترحه أو تُنفّذه من حجوزات بناءً على تأكيد صريح من العميل — وإدارة برنامج الولاء
+      ونقاطه، واحتساب مؤشرات أداء المنشأة وتقاريرها، وتنفيذ الحملات التسويقية التي تُطلقها
+      المنشأة بنفسها، وصفحة العميل التي يدير منها موافقته ويطلب حذف بياناته.
     en: >-
       Operating the Raje3 platform for the Establishment: recording its customers' visits;
-      scheduling and sending follow-up and reminder messages over WhatsApp in the Establishment's
-      name; running its loyalty programme and points; computing its performance indicators and
-      reports; executing marketing campaigns the Establishment itself launches; and the customer
-      page on which a customer manages consent and requests erasure.
+      managing its appointment bookings (creating, rescheduling, cancelling, and recording
+      attendance or no-shows); scheduling and sending follow-up and reminder messages over
+      WhatsApp in the Establishment's name — including the automated replies the AI feature
+      produces where the Establishment activates it, and any booking it proposes or executes on
+      the customer's explicit confirmation; running its loyalty programme and points; computing
+      its performance indicators and reports; executing marketing campaigns the Establishment
+      itself launches; and the customer page on which a customer manages consent and requests
+      erasure.
   categories:
     ar: >-
-      رقم جوال العميل واسمه إن سجّله الموظف، وسجلّ زياراته والخدمات المؤداة وتواريخها، ورصيد نقاطه
-      واستبدالاته، وحالة موافقته على الرسائل التسويقية. وفي قطاعات السيارات وحدها: رقم اللوحة
-      وبيانات المركبة وقراءة العدّاد. ولا تُعالَج أي بيانات شخصية حسّاسة.
+      رقم جوال العميل واسمه إن سجّله الموظف، وسجلّ زياراته والخدمات المؤداة وتواريخها، وحجوزاته
+      (وقتها وحالتها والموظف المخصَّص لها)، ورصيد نقاطه واستبدالاته، وحالة موافقته على الرسائل
+      التسويقية، ومحتوى محادثته مع ميزة الذكاء الاصطناعي إن تفاعل معها. وفي قطاعات السيارات
+      وحدها: رقم اللوحة وبيانات المركبة وقراءة العدّاد. ولا تُعالَج أي بيانات شخصية حسّاسة.
     en: >-
-      The customer's mobile number and his name where the operator recorded one; his visit history,
-      the services performed and their dates; his loyalty balance and redemptions; and his marketing
-      consent state. In vehicle sectors only: the plate, vehicle details and odometer reading. No
-      sensitive personal data is processed.
+      The customer's mobile number and his name where the operator recorded one; his visit
+      history, the services performed and their dates; his bookings (their time, status, and
+      assigned staff member); his loyalty balance and redemptions; his marketing consent state;
+      and the content of his conversation with the AI feature where he interacts with it. In
+      vehicle sectors only: the plate, vehicle details and odometer reading. No sensitive personal
+      data is processed.
   data_subjects:
     ar: عملاء المنشأة، وموظفوها الذين يُنشئون حسابات تشغيل على المنصة.
     en: The Establishment's customers, and its employees who hold operating accounts on the platform.
