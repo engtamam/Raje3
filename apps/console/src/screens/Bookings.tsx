@@ -43,7 +43,7 @@ const SNAP_MINUTES = 15;        // same grain as the conflict lock
 
 /** `date.weekday()`'s own numbering (0=Monday..6=Sunday) — the same one the server's
  *  `availability.Schedule` uses, from a `YYYY-MM-DD` string with no timezone ambiguity. */
-function pyWeekday(dateStr: string): number {
+export function pyWeekday(dateStr: string): number {
   const jsDay = new Date(`${dateStr}T00:00:00Z`).getUTCDay();   // 0=Sunday..6=Saturday
   return (jsDay + 6) % 7;
 }
@@ -173,6 +173,11 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
       && window.matchMedia('(pointer: coarse)').matches
       ? 'list' : 'grid'
   ));
+  // THE LIVE VALUE, READABLE WITHOUT DEPENDING ON IT — the phone-lookup effect below needs to know
+  // which layout it is about to replace, and listing `layout` in its own dependencies would re-run
+  // the whole customer read every time he merely switched view.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
   const [date, setDate] = useState(todayLocal);
   const [weekStaffId, setWeekStaffId] = useState('');
   // undefined = «not loaded yet» (skeleton); null = «the read failed» (retry). Collapsing them to
@@ -256,9 +261,26 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
   // "متى موعدي الجاي؟", not to audit him. Past appointments are one tap away, never open by
   // default: an option he reaches for stays out of his way until he actually wants it.
   const [customerHistoryMode, setCustomerHistoryMode] = useState<'upcoming' | 'past'>('upcoming');
+  // THE LAYOUT HE WAS ON BEFORE THE LOOKUP TOOK IT AWAY. Picking a customer by phone switches to
+  // the list on its own (below) — correct, since a cross-date history has no place on a
+  // one-day grid — but clearing that customer used to leave him there: a shop owner reading the
+  // desktop grid, who answers one "متى موعدي؟" at the counter and closes it again, found his grid
+  // replaced by a list he never chose and had to switch back by hand every single time. Kept in a
+  // ref rather than state so remembering it never re-runs the read below.
+  const layoutBeforeLookup = useRef<'grid' | 'list' | null>(null);
   useEffect(() => {
     setCustomerHistoryMode('upcoming');
-    if (!filterCustomer) { setCustomerAll(undefined); setCustomerVisits(undefined); return; }
+    if (!filterCustomer) {
+      // ONLY IF HE HASN'T CHOSEN SINCE. Switching to the grid himself while a customer was picked
+      // is a real preference, and putting the list back over it would be the same bug in reverse.
+      // READ INTO A LOCAL FIRST — the updater below runs when React flushes, not here, and a
+      // closure over `layoutBeforeLookup.current` would read it AFTER the line that clears it.
+      const previous = layoutBeforeLookup.current;
+      layoutBeforeLookup.current = null;
+      setLayout((cur) => (cur === 'list' && previous ? previous : cur));
+      setCustomerAll(undefined); setCustomerVisits(undefined); return;
+    }
+    if (layoutBeforeLookup.current === null) layoutBeforeLookup.current = layoutRef.current;
     setLayout('list');
     setCustomerAll(undefined);
     setCustomerVisits(undefined);
@@ -1050,6 +1072,18 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
                             background: dragOver.valid ? 'var(--rj-valid-soft)' : 'var(--rj-invalid-soft)',
                             borderColor: dragOver.valid ? 'var(--rj-valid)' : 'var(--rj-invalid)',
                             borderTopWidth: 3, borderTopStyle: 'solid',
+                            // ABOVE THE CARDS, WHICH IS THE ONLY PLACE IT CAN BE SEEN. The preview
+                            // is painted before them and carried no z-index of its own, so every
+                            // card (`zIndex: lane + 1`) covered it — and the ONE case that matters
+                            // most is exactly the covered one: the red "this slot is taken"
+                            // warning sits, by definition, on top of the appointment that takes
+                            // it, so the whole warning was hidden behind its own cause and only a
+                            // few pixels of red showed past the card's edge. Seen frame-by-frame
+                            // on a real recording of a real drag. Below the sticky header's own
+                            // z-20 (this is a hint inside the grid, not a layer over the toolbar),
+                            // and `pointer-events-none` throughout, so nothing it now covers
+                            // becomes any harder to drop onto.
+                            zIndex: 15,
                           }}>
                         <span
                           className="absolute inset-inline-start-1 -top-2.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
@@ -1303,6 +1337,10 @@ export function BookingsScreen({ session, branch, branches, onBranch }: Bookings
           initialServiceIds={dialog.serviceIds}
           services={services ?? []}
           staff={staffHere}
+          // ALREADY READ ONCE HERE — the dialog needs it only to tell «المحل مغلق الآن» apart from
+          // «المحل مفتوح ومزحوم», and a second request for a policy this screen is already holding
+          // would be one more round trip for an answer it can simply be handed.
+          weekly={weekly}
           editingBooking={dialog.editing}
           editingCustomerLabel={dialog.editingLabel}
           onClose={() => setDialog('closed')}

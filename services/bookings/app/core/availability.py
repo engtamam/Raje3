@@ -136,9 +136,23 @@ def free_slots(schedule: Schedule, busy: Sequence[Busy], *, duration_minutes: in
     while day <= last_day:
         day_epoch = _day_start_epoch(day)
         for w in schedule.windows_on(day):
-            win_start = max(day_epoch + w.start_minute * 60, window_start)
+            win_open = day_epoch + w.start_minute * 60
+            win_start = max(win_open, window_start)
             win_end = min(day_epoch + w.end_minute * 60, window_end)
-            cand = win_start
+            # CANDIDATES SIT ON THE WINDOW'S OWN GRID, NOT ON THE SEARCH FLOOR. This used to start
+            # counting from `window_start` itself — which is "right now" for every real "أقرب
+            # موعد" call — so a search begun at 14:34 offered 14:34, 14:49, 15:04… and a genuine
+            # 17:30-18:00 gap between two appointments was invisible, because no candidate on that
+            # offset ever landed inside it. The shop was told its afternoon was full while an hour
+            # of it was empty (reproduced against the live demo shop before this was changed).
+            # Anchoring to the window's own opening minute makes every candidate a real
+            # quarter-hour — the same geometry the double-booking lock buckets on, which is what
+            # this module's own header already promised.
+            if win_start > win_open:
+                ahead = win_start - win_open
+                cand = win_open + -(-ahead // step_seconds) * step_seconds   # ceil to the grid
+            else:
+                cand = win_open
             while cand + duration_seconds <= win_end:
                 cand_end = cand + duration_seconds
                 if not any(_overlaps(cand, cand_end, b.starts_at, b.ends_at) for b in busy):

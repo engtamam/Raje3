@@ -57,7 +57,11 @@ const flag = (name, fallback) => {
 // A CIRCUIT BREAKER, NOT A TARGET LENGTH. Same philosophy as config.ts's LENGTH.maxSeconds: a
 // tour whose steps run away (a selector that never resolves, a wait loop with no exit) should
 // stop and say so rather than record for an hour and produce a file nobody uploads.
-const SECONDS_CAP = flag('seconds-cap', 180);
+// A TOUR MAY RAISE ITS OWN CEILING (`secondsCap`), because "runaway" is not one number for every
+// clip: a five-step toggle demo that reaches three minutes IS broken, while a screen whose whole
+// subject is a full working day — الحجوزات on a desktop, eight stations deep — is simply long.
+// The command-line flag still wins when it is passed, so a run can always tighten it by hand.
+const SECONDS_CAP_DEFAULT = 180;
 
 const CONFIG = readConfig(join(ROOT, 'config.ts'));
 const FPS = CONFIG.VIDEO.fps;
@@ -72,10 +76,22 @@ async function main() {
   const { openShop, SESSION_FILE } = await import(pathToFileURL(join(CONSOLE_DIR, 'e2e/fixtures.ts')).href)
     .catch(() => { throw new Error('could not import apps/console/e2e/fixtures.ts — is the console app checked out?'); });
 
+  const SECONDS_CAP = flag('seconds-cap', tour.secondsCap ?? SECONDS_CAP_DEFAULT);
+
   // Trailing slash enforced here, once — new URL(relativePath, base) needs it to APPEND rather
   // than replace the last path segment of base, and a tour script shouldn't have to know that.
+  //
+  // AND THE APP'S OWN BASE PATH ADDED WHEN THE GIVEN URL IS MISSING IT. vite.config.ts serves this
+  // console under `/app/`, and the dev server answers a bare `/bookings` with a 404 page telling
+  // you so — but the URL a caller hands us (an ops-mcp connection's `console_url`, an env var
+  // typed by hand) is just as often the bare origin. Every tour script then names its route the
+  // one way that is true of the app itself ('/bookings'), and whether it resolved depended
+  // entirely on which of the two spellings the runner happened to be configured with. Only an
+  // origin with NO path of its own is corrected — a base that already carries `/app/`, or a
+  // deliberately different mount point, is left exactly as given.
   const rawBase = process.env.CONSOLE ?? 'http://localhost:5174';
-  const baseURL = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  const withSlash = rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
+  const baseURL = new URL(withSlash).pathname === '/' ? `${withSlash}app/` : withSlash;
   // out/ HOLDS ONLY VIDEOS, NAMED IN ARABIC — the file that actually gets uploaded to YouTube
   // should already carry the title it uploads under, not an internal kebab-case id someone has
   // to rename by hand every time. `tour.title` (every script already carries one, for exactly
@@ -421,7 +437,8 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     return;
   }
 
-  const target = step.click ?? step.type ?? step.check ?? step.longPress;
+  const target = step.click ?? step.type ?? step.check ?? step.longPress
+    ?? step.select ?? step.hover ?? step.dragFrom ?? step.dragOver ?? step.dragDrop;
   if (target) {
     // BOTH THE RING AND THE CAPTION, HIDDEN THROUGH THE WHOLE WAIT — not left showing while it
     // settles. Clearing only the ring still let the PREVIOUS step's CAPTION sit on screen over an
@@ -439,6 +456,20 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     // anywhere on the page for a short window — before trusting anything on it enough to measure.
     await waitForDomQuiet(page);
     await animatedScrollIntoView(page, locator);
+    // THE HOVER HAPPENS BEFORE ITS OWN CAPTION, UNLIKE EVERY OTHER ACTION HERE. A click is
+    // narrated ANTICIPATORY — the ring marks what is about to be pressed, the caption says why —
+    // because the press is the event. A hover is not an event; it is a STATE the caption is
+    // describing. Left in the action slot with everything else, a step captioned «مرّر على أي
+    // فراغ: يضيء ويقول وقته» spent its whole read over a cell that was not lit and said nothing,
+    // and only lit up in the second after the sentence had gone (caught frame-by-frame). Doing it
+    // here means the ring, the caption and the thing they are both about are on screen together.
+    // NO DRAWN FINGERTIP ON A HOVER — only the real pointer. overlay.mjs already learned this for
+    // clicks ("الضغطة تغطي الكلام… يكفي التحديد"): the dot is 30px across and sits ON the target,
+    // which swallows a 48px icon button whole (a real frame showed «حضر» as a gold dot). What a
+    // hover step needs on screen is the element's OWN hover state — a cell lighting up and
+    // printing its time, a row tinting — and the ring already says which element that is. The
+    // fingertip stays for gestures that TRAVEL: a scroll swipe, a card being dragged.
+    if (step.hover) await movePointerTo(page, locator, { draw: false });
     const box = await stableBoundingBox(locator);
     if (!box) throw new Error(`step ${index + 1}: selector "${target}" resolved to nothing visible`);
     // NO FINGERTIP DOT ON A CLICK TARGET — tried, then dropped on a real screenshot: the dot's
@@ -508,7 +539,15 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     // function generates that once, at the moment this step actually runs, instead of a tour
     // script trying to be its own random-data generator in static data.
     const text = typeof step.text === 'function' ? step.text() : step.text;
-    await locate(page, step.type).first().pressSequentially(text, { delay: CONFIG.PACE.typeDelayMs });
+    // `replace: true` — TYPE OVER WHAT IS THERE, NOT ONTO THE END OF IT. `pressSequentially`
+    // appends at the caret, which is right for an empty field and wrong for one that already
+    // holds a value: a step editing a booking's note re-recorded three times produced
+    // «أكدت بالواتساباأكدت بالواتساب…» on a real card, because each take typed its line onto the
+    // last one. Off by default — most fields a tour types into are genuinely empty, and clearing
+    // one that is would be an invisible extra act.
+    const field = locate(page, step.type).first();
+    if (step.replace) await field.fill('');
+    await field.pressSequentially(text, { delay: CONFIG.PACE.typeDelayMs });
     onAction?.();
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
@@ -537,9 +576,120 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
     await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.select) {
+    // A NATIVE <select>, WHICH A CLICK CANNOT ANSWER — the browser's own option list is an OS
+    // widget that is not part of the page, so a tour that "clicks the dropdown then clicks the
+    // option" films a control opening onto nothing and then fails to find the option. Playwright's
+    // selectOption sets the value and fires the same `change` React is listening for, which is the
+    // whole of what choosing an option actually does. Matched by the option's VISIBLE label, since
+    // that is the only half of it a tour author can see on screen (the value is an internal id).
+    console.log(`${label} select ${step.select} = ${step.option}`);
+    await locate(page, step.select).first().selectOption({ label: step.option });
+    onAction?.();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.hover) {
+    // A REAL POINTER RESTING ON SOMETHING — the only way to film a hover-only affordance. The
+    // bookings grid draws one: every quarter-hour cell is invisible until the pointer is on it,
+    // and only then does it light up and print its own time. A click would open the booking
+    // dialog instead of showing the cell; nothing but a genuine mouse position shows this at all.
+    // The move itself already happened, above, before the caption — see that note.
+    console.log(`${label} hover ${step.hover}`);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.dragFrom || step.dragOver || step.dragDrop) {
+    await runDragStep(page, step, label);
+    onAction?.();
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
   } else if (step.wait) {
     await sleep(step.wait);
   }
+}
+
+/**
+ * DESKTOP DRAG-AND-DROP, IN THREE STEPS RATHER THAN ONE — because the interesting part of a
+ * reschedule is not the drop, it is the HOVER before it: this grid answers every quarter-hour the
+ * card passes over with a live preview that is green where the move fits and red where it
+ * collides with an appointment already there. A single `dragTo(target)` call performs the whole
+ * gesture between two frames and films none of that. `dragFrom` picks the card up, `dragOver`
+ * carries it somewhere and HOLDS it there for its own caption's whole read, as many times as the
+ * tour wants, and `dragDrop` lets go.
+ *
+ * WHY THE EVENTS ARE DISPATCHED RATHER THAN DRIVEN FROM THE MOUSE. Tried first, at length, and
+ * measured: `page.mouse.down()` + `move()` DOES start a real drag here (Chromium's own
+ * `dragstart` fires, the app's own `onDragOver` runs, the preview appears) — but the release never
+ * becomes a `drop`. Playwright's drag interception ends the gesture with `dragend` and
+ * `dropEffect: "none"` no matter what the page does in `dragover`, and `locator.dragTo()` (the
+ * documented path) produced no drag events on this page at all, headed or headless. Two dead ends
+ * with nothing left to debug on this side of the browser. So the DRAG EVENTS themselves are
+ * dispatched onto the real elements, carrying one real `DataTransfer` from grab to drop — which
+ * is exactly what React's own `onDragStart`/`onDragOver`/`onDrop` listen for, so every line of the
+ * screen's real reschedule path runs: the live conflict check, the optimistic move, the real
+ * `PATCH /api/v1/bookings/{id}/reschedule`, the undo bar. The pointer is moved for real alongside
+ * it, so hover states light up and the fingertip travels the same path a hand would.
+ *
+ * `clientX/clientY` ARE READ INSIDE THE PAGE, at the instant of dispatch — never passed in from
+ * Node. This grid decides the dropped minute from `e.clientY` against the column's own rect, so a
+ * coordinate measured before a scroll (or before the preview reflowed anything) lands the card on
+ * a different quarter-hour than the one the ring was drawn around.
+ */
+async function runDragStep(page, step, label) {
+  const selector = step.dragFrom ?? step.dragOver ?? step.dragDrop;
+  const kind = step.dragFrom ? 'dragFrom' : step.dragOver ? 'dragOver' : 'dragDrop';
+  console.log(`${label} ${kind} ${selector}`);
+  const locator = locate(page, selector).first();
+  await movePointerTo(page, locator);
+
+  if (step.dragFrom) {
+    await locator.evaluate((el) => {
+      const dt = new DataTransfer();
+      // A REAL PAYLOAD, NOT AN EMPTY ONE. The HTML drag-and-drop model refuses to start a drag
+      // whose data store is empty, and browsers differ on how forgiving they are about it — so
+      // this carries something, the same way any page that means to be dragged does.
+      dt.effectAllowed = 'move';
+      dt.setData('text/plain', 'raje3-booking');
+      window.__tourDrag = { dt, source: el };
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new DragEvent('dragstart', {
+        bubbles: true, cancelable: true, dataTransfer: dt,
+        clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+      }));
+    });
+    return;
+  }
+
+  const dropping = Boolean(step.dragDrop);
+  await locator.evaluate((el, drop) => {
+    const held = window.__tourDrag;
+    if (!held) throw new Error('no drag in progress — a dragOver/dragDrop step needs a dragFrom before it');
+    const r = el.getBoundingClientRect();
+    const init = {
+      bubbles: true, cancelable: true, dataTransfer: held.dt,
+      clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    };
+    el.dispatchEvent(new DragEvent('dragenter', init));
+    el.dispatchEvent(new DragEvent('dragover', init));
+    if (!drop) return;
+    el.dispatchEvent(new DragEvent('drop', init));
+    // dragend GOES TO THE CARD, NOT THE CELL — it is the drag SOURCE's own event, and this grid
+    // clears its drag state from it (`onDragEnd`). Sent to the target instead, the card would
+    // stay half-transparent and "being dragged" for the rest of the recording.
+    held.source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: held.dt }));
+    window.__tourDrag = null;
+  }, dropping);
+  if (dropping) await page.evaluate(() => window.__tour?.hidePointer()).catch(() => undefined);
+}
+
+/** The pointer, moved for real AND drawn — the OS-level move so the page's own `:hover` rules
+ *  fire, the overlay's fingertip so a viewer can see where it went. */
+async function movePointerTo(page, locator, { draw = true } = {}) {
+  const box = await stableBoundingBox(locator);
+  if (!box) return;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y, { steps: 12 });
+  if (draw) await page.evaluate((p) => window.__tour?.pointTo(p.x, p.y), { x, y }).catch(() => undefined);
 }
 
 /**

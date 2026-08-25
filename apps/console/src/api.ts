@@ -772,11 +772,15 @@ export function noShowRisk(session: Session, customerId: string): Promise<NoShow
 /** The "أقرب موعد" button (§6.2) — `null` when nothing is free in the search window. */
 export function nearestSlot(
   session: Session, branchId: string, operatorId: string, serviceIds: string[], after: number,
+  /** The booking being RESCHEDULED, when there is one — its own current hour must not read as
+   *  taken while searching for a new one for it. Omitted for a brand-new booking. */
+  excludeBookingId?: string,
 ): Promise<{ starts_at: number | null }> {
   const q = new URLSearchParams({
     branch_id: branchId, operator_id: operatorId, service_ids: serviceIds.join(','),
     after: String(after),
   });
+  if (excludeBookingId) q.set('exclude_booking_id', excludeBookingId);
   return call(session, `/api/v1/bookings/nearest?${q.toString()}`);
 }
 

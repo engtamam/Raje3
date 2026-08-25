@@ -30,7 +30,7 @@ import {
   type CustomerHit, customerByPhone, earnSettings, type EarnSettings, editBookingNote,
   editBookingPayment, editBookingReward, editBookingServices, ensureCustomer, type FieldOffer, type FieldOperator,
   nearestSlot, type NoShowRisk, noShowRisk, offerFor, pointsByService, rescheduleBooking,
-  sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix,
+  sentenceFor, setServiceDuration, setServicePrice, suggestByPrefix, type WeeklyHours,
 } from '../api';
 import { asLocal } from '../phone';
 import { halalas, riyals } from '../money';
@@ -38,6 +38,7 @@ import { PAYMENT_LABEL, PAYMENT_ORDER, type PaymentStatus } from '../bookingPaym
 import { digitsOnly } from '../digits';
 import { newIdempotencyKey } from '../queue';
 import { ServiceGrid } from '../ServiceGrid';
+import { pyWeekday } from './Bookings';
 import type { Session } from '../session';
 
 export interface BookingDialogProps {
@@ -55,6 +56,10 @@ export interface BookingDialogProps {
   initialServiceIds?: string[];
   services: CatalogueService[];
   staff: FieldOperator[];
+  /** The shop's own weekly working hours, handed down by the grid that already read them — used
+   *  for exactly one sentence: whether «أقرب وقت فاضي» is late because the shop is CLOSED right
+   *  now, or merely because it is busy. */
+  weekly?: WeeklyHours;
   onClose: () => void;
   onCreated: (booking: Booking) => void;
   /** Set when opened from an existing card's action sheet ("تعديل") rather than an empty cell —
@@ -103,7 +108,7 @@ const SLOTS_PER_DAY = 6;
 
 export function BookingDialog(
   { session, branchId, date, initialOperatorId, initialStartsAt, initialCustomer,
-   initialServiceIds, services, staff, onClose, onCreated,
+   initialServiceIds, services, staff, weekly, onClose, onCreated,
    editingBooking, editingCustomerLabel }: BookingDialogProps,
 ) {
   const editing = editingBooking ?? null;
@@ -323,7 +328,7 @@ export function BookingDialog(
           let best: Slot | null = null;
           for (const opId of candidates) {
             // eslint-disable-next-line no-await-in-loop
-            const r = await nearestSlot(session, branchId, opId, chosen, cursor);
+            const r = await nearestSlot(session, branchId, opId, chosen, cursor, editing?.id);
             if (r.starts_at !== null && r.starts_at < dayEndEpoch
                 && (best === null || r.starts_at < best.startsAt)) {
               best = { operatorId: opId, startsAt: r.starts_at };
@@ -355,9 +360,24 @@ export function BookingDialog(
 
   // «المحل مغلق الآن» EXPLAINED, NOT LEFT AS A CONFUSING TIME — reported directly: the earliest
   // real slot on a currently-closed day IS the top of the next working window (the algorithm is
-  // correct), but a bare "09:00" with no context reads as a bug rather than a fact. Shown only
-  // when it is actually the reason (today, and the gap between now and the first slot is real).
-  const firstSlotIsShopOpening = day === todayStr() && (slots ?? []).length > 0
+  // correct), but a bare "09:00" with no context reads as a bug rather than a fact.
+  //
+  // AND ONLY WHEN THE SHOP IS ACTUALLY CLOSED. This used to be "today, and the first slot is more
+  // than five minutes away" — which is equally true of a shop that is wide open and simply booked
+  // solid until the evening, so a busy Tuesday afternoon was told, in the product's own voice,
+  // that the shop was closed (seen on a real recording at three in the afternoon, hours inside the
+  // working day). The shop's own hours are the only thing that can answer this, so they are what
+  // answers it: closed today, or now sitting before opening or after closing.
+  const shopClosedNow = (() => {
+    if (day !== todayStr() || !weekly) return false;
+    const today = weekly[String(pyWeekday(day))];
+    if (!today) return false;
+    if (today.closed) return true;
+    const n = new Date();
+    const minuteOfDay = n.getHours() * 60 + n.getMinutes();
+    return minuteOfDay < today.start_minute || minuteOfDay >= today.end_minute;
+  })();
+  const firstSlotIsShopOpening = shopClosedNow && (slots ?? []).length > 0
     && (slots as Slot[])[0].startsAt - Math.floor(Date.now() / 1000) > 5 * 60;
 
   // "أقرب يوم فيه فتحة" — for when the day on screen has nothing at all (closed, or fully
@@ -373,7 +393,7 @@ export function BookingDialog(
       let best: Slot | null = null;
       for (const opId of candidates) {
         // eslint-disable-next-line no-await-in-loop
-        const r = await nearestSlot(session, branchId, opId, chosen, after);
+        const r = await nearestSlot(session, branchId, opId, chosen, after, editing?.id);
         if (r.starts_at !== null && (best === null || r.starts_at < best.startsAt)) {
           best = { operatorId: opId, startsAt: r.starts_at };
         }

@@ -536,7 +536,8 @@ class BookingOperations:
 
     async def nearest_slot(self, *, tenant: str, branch_id: str, operator_id: str,
                            service_ids: list[str], after: int,
-                           search_days: int = 14) -> int | None:
+                           search_days: int = 14,
+                           exclude_booking_id: str = "") -> int | None:
         """The "أقرب موعد" button (§6.2) - the same pure derivation (app/core/availability.py),
         fed busy intervals from the operator's OWN real bookings, the shop's own working hours,
         and now (this feature) THIS OPERATOR'S OWN hours when he has a custom schedule - see
@@ -558,8 +559,11 @@ class BookingOperations:
         end_bucket = day_bucket(after + search_days * 86400)
         candidates = await self._bookings.slots_between(
             tenant, branch_id, start_bucket=bucket, end_bucket=end_bucket, limit=500)
+        # THE BOOKING BEING RESCHEDULED IS NOT BUSY AGAINST ITSELF — see the route's own note on
+        # `exclude_booking_id`. Same exclusion `_refuse_if_conflicting` already makes for the write.
         busy = [Busy(b.starts_at, b.starts_at + b.duration_minutes * 60)
-               for b in candidates if b.operator_id == operator_id and b.status != STATUS_CANCELLED]
+               for b in candidates if b.operator_id == operator_id and b.status != STATUS_CANCELLED
+               and b.id != exclude_booking_id]
 
         found = _nearest(schedule, busy, duration_minutes=duration, after=after,
                          search_days=search_days)

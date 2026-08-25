@@ -144,6 +144,7 @@ async function main() {
     console.log('▸ bookings only (BOOKINGS_ONLY=1)');
     const onlyBranch = await getBranchId(session, act);
     await seedWeekBoard(session, onlyBranch, [operatorId, ...extraOperatorIds]);
+    await seedDenseDay(session, onlyBranch, [operatorId, ...extraOperatorIds]);
     console.log('✔ bookings board refreshed');
     return;
   }
@@ -164,6 +165,7 @@ async function main() {
   const branchId = await getBranchId(session, act);
   await seedBookings(session, serviceIds, [operatorId, ...extraOperatorIds], branchId);
   await seedWeekBoard(session, branchId, [operatorId, ...extraOperatorIds]);
+  await seedDenseDay(session, branchId, [operatorId, ...extraOperatorIds]);
   console.log('  ✔ bookings seeded');
 
   console.log('✔ demo account ready');
@@ -355,20 +357,39 @@ async function seedHeroCustomer(session, act, serviceIds, operatorId, ticket) {
     }).catch(() => {});
   }
 
-  // TWO REAL REWARDS — one anyone can redeem alone, one that needs a manager's name typed in,
-  // matching the two real code paths Visit.tsx renders (`needs_approval` true/false).
-  const rewardsAction = catalogAction(session, act, 'loyalty.rewards.create');
-  if (rewardsAction) {
-    await callAction(session, rewardsAction, { name: 'قهوة مجانية', cost: 100, type: 'gift' }).catch(() => {});
-    await callAction(session, rewardsAction, { name: 'جلسة مجانية VIP', cost: 600, type: 'gift' }).catch(() => {});
-  }
-
   // WHICH SERVICE ID IS "بروتين شعر" THIS RUN — service ids are minted fresh every signup, so this
   // is resolved by name every time rather than assumed from SERVICES' own array order.
   const listAction = act('operations.list_services');
   const listed = await callAction(session, listAction).catch(() => ({ services: [] }));
   const heroServiceId = (listed.services ?? []).find((s) => s.name === HERO_SERVICE_NAME)?.id
     ?? serviceIds[0];
+
+  // THREE REAL REWARDS — one plain gift anyone can redeem, one tied to a real catalogue service
+  // (the only kind that lights the ⭐ badge on a service tile, since ServiceGrid's `redeemable` set
+  // is built from `reward.service_id`), and one above the shop's own manager threshold so
+  // `needs_approval` has something real to be true about.
+  //
+  // `item`, NOT `gift` — loyalty's own REWARD_TYPES is ("service", "item", "discount") and it
+  // refuses anything else by name. This said `gift` for as long as it existed, and the refusal was
+  // swallowed by a bare `.catch(() => {})`, so the demo shop silently had NO rewards at all: a hero
+  // customer with 4800 real points and an empty «مكافآته» list, on the one account every tour that
+  // shows a redemption is recorded against. Failures are printed now rather than swallowed —
+  // best-effort must still be able to say what went wrong.
+  const rewardsAction = catalogAction(session, act, 'loyalty.rewards.create');
+  const existingRewards = await getJson('/api/v1/loyalty/rewards', session.token).catch(() => ({ rewards: [] }));
+  const haveReward = new Set((existingRewards.rewards ?? []).map((r) => r.name));
+  if (rewardsAction) {
+    for (const reward of [
+      { name: 'قهوة مجانية', cost: 100, type: 'item' },
+      { name: 'قص شعر مجاناً', cost: 300, type: 'service', service_id: (listed.services ?? []).find((s) => s.name === 'قص شعر')?.id ?? '' },
+      { name: 'جلسة مجانية VIP', cost: 600, type: 'item' },
+    ]) {
+      if (haveReward.has(reward.name)) continue;
+      if (reward.type === 'service' && !reward.service_id) continue;   // nothing real to point at
+      await callAction(session, rewardsAction, reward)
+        .catch((e) => console.log(`  ⚠ reward "${reward.name}" refused: ${e.message}`));
+    }
+  }
 
   // FORTY REAL VISITS, EVERY FEW DAYS — a genuinely regular customer (a salon regular every 3
   // days is realistic, not a once-a-year one), and a BIG point buffer on purpose: the visit
@@ -635,6 +656,129 @@ async function seedWeekBoard(session, branchId, operatorIds) {
     }
   }
   console.log(`  ✔ week board: ${created} booking(s) across ${staff.length} staff, ${weekStart} → ${addDaysStr(weekStart, 6)}`);
+}
+
+// ── and TODAY, filled the way a good day actually fills ───────────────────────────────────────
+//
+// WHY A SECOND, DENSER PASS OVER ONE DAY. `seedWeekBoard` above gives every day of the week the
+// same shape — three or four appointments per staff member — which is a believable WEEK and a
+// thin DAY: at 1920×1080 the day grid draws fourteen hours as a 1554px column, and four cards in
+// it is mostly empty ruled paper. The desktop clip's whole subject is that column, so today gets
+// its own pass that walks each staff member's own working window from open to close and fills it
+// the way a booked-out salon fills: one appointment after another with real gaps between them,
+// never a uniform comb.
+//
+// DELIBERATELY NOT FULL. Roughly two thirds occupancy, because the same board has to leave real
+// empty quarter-hours for the things a tour DOES on it — a card dragged somewhere new, a booking
+// created from an empty cell, a slot search that has an answer. A perfectly full day would
+// demonstrate a busy shop and nothing else.
+const DENSE_GAPS = [30, 45, 30, 60, 30, 45];   // minutes of air after each appointment, cycled
+
+/** Each staff member's own long-form pool — `STAFF_SERVICES` names, but WITHOUT the ≤60-minute
+ *  ceiling `seedWeekBoard`'s spacing forced on it. A day with nothing longer than an hour on it
+ *  reads as a walk-in counter, not a salon: the two-hour colour job is the appointment the grid's
+ *  own proportional heights exist to show. */
+const DENSE_STAFF_SERVICES = [
+  { match: 'الشعر', names: ['قص شعر', 'صبغة جذور', 'صبغة شعر كاملة', 'هايلايت', 'غسيل وتنشيف', 'تسريحة سهرة'] },
+  { match: 'الأظافر', names: ['مانيكير', 'باديكير', 'أظافر جل', 'رموش فردي'] },
+  { match: '', names: ['تنظيف بشرة عميق', 'حمام مغربي', 'تقشير وترطيب', 'ماسك ذهب', 'مكياج يومي', 'مكياج سهرة'] },
+];
+
+async function seedDenseDay(session, branchId, operatorIds) {
+  if (!branchId || !operatorIds?.length) return;
+  const [{ services = [] }, staffAnswer, hoursAnswer] = await Promise.all([
+    callAction(session, CATALOGUE).catch(() => ({ services: [] })),
+    callAction(session, LIST_STAFF).catch(() => ({ operators: [] })),
+    callAction(session, { path: '/api/v1/bookings/working-hours', method: 'GET' }).catch(() => ({ weekly: {} })),
+  ]);
+  const staff = (staffAnswer.operators ?? []).filter((o) => operatorIds.includes(o.id));
+  if (staff.length === 0 || services.length === 0) return;
+
+  const date = riyadhToday();
+  const jsDay = new Date(`${date}T00:00:00Z`).getUTCDay();
+  const hours = hoursAnswer.weekly?.[String((jsDay + 6) % 7)];
+  if (hours?.closed) { console.log('  · today is a closed day — nothing to fill'); return; }
+  const open = hours?.start_minute ?? 480;
+  const close = hours?.end_minute ?? 1320;
+
+  const byName = new Map(services.map((s) => [s.name, s]));
+  const poolFor = (name) => {
+    const spec = DENSE_STAFF_SERVICES.find((s) => s.match && name.includes(s.match)) ?? DENSE_STAFF_SERVICES[2];
+    const picked = spec.names.map((n) => byName.get(n)).filter((s) => s && s.duration_minutes > 0);
+    return picked.length ? picked : services.filter((s) => s.duration_minutes > 0);
+  };
+
+  // WHAT IS ALREADY ON TODAY, READ FIRST — the same reasoning as `seedWeekBoard`'s own read: this
+  // runs on top of a board that already has bookings, and a slot overlapping one of them is simply
+  // refused by the server's conflict lock. Skipping those keeps the column filling up instead of
+  // silently coming up short.
+  const now = Math.floor(Date.now() / 1000);
+  const existing = await callAction(session, LIST_BOOKINGS(branchId, date)).catch(() => ({ bookings: [] }));
+  const busy = new Map();
+  const midnight = epochAtRiyadh(date, 0);
+  for (const b of existing.bookings ?? []) {
+    if (b.status === 'cancelled') continue;
+    const start = Math.round((b.starts_at - midnight) / 60);
+    if (!busy.has(b.operator_id)) busy.set(b.operator_id, []);
+    busy.get(b.operator_id).push([start, start + b.duration_minutes]);
+    // A BOARD IS NOT AN ALARM. A booking still «محجوز» hours after it ended raises the screen's own
+    // overdue banner, which then sits over the grid for the whole recording — an honest warning
+    // about a shop that never closes its day out, and the wrong subject for a clip about the board
+    // itself. Closed here the way the receptionist would have closed it during the day.
+    if (b.status === 'booked' && b.starts_at + b.duration_minutes * 60 < now) {
+      await callAction(session, ATTEND_BOOKING(b.id)).catch(() => {});
+    }
+  }
+
+  let created = 0;
+  for (const [i, operator] of staff.entries()) {
+    const pool = poolFor(operator.name || '');
+    if (pool.length === 0) continue;
+    const mine = busy.get(operator.id) ?? [];
+    // STAGGERED STARTS — three columns all beginning on the hour reads as generated data.
+    let minute = open + i * 45;
+    // `k` COUNTS APPOINTMENTS PLACED, NOT LOOP TURNS — a first version incremented it on every
+    // turn including the ones that only stepped past an already-taken quarter-hour, so a column
+    // with a few existing bookings in it exhausted its own iteration budget on collisions and
+    // stopped filling less than half way down the day.
+    let k = 0;
+    while (minute + 30 <= close && k < 14) {
+      const service = pool[(i + k) % pool.length];
+      const end = minute + service.duration_minutes;
+      if (end > close) break;
+      if (mine.some(([s, e]) => minute < e && s < end)) { minute += 15; continue; }
+      k += 1;
+
+      const phone = randomPhone();
+      const ensured = await callAction(session, ENSURE_CUSTOMER, { phone, name: randomName() })
+        .catch(() => ({}));
+      const customerId = ensured.customer?.id;
+      if (!customerId) { minute += 15; continue; }
+      const pay = ['deposit', 'none', 'paid', 'none', 'deposit', 'paid'][(i + k) % 6];
+      const startsAt = epochAtRiyadh(date, minute);
+      const booking = await callAction(session, CREATE_BOOKING, {
+        branch_id: branchId, operator_id: operator.id, customer_id: customerId,
+        service_ids: [service.id], starts_at: startsAt,
+        payment_status: pay,
+        deposit_amount_minor: pay === 'deposit' ? (k % 2 ? 10000 : 5000) : undefined,
+      }).catch(() => null);
+      if (booking?.id) {
+        created += 1;
+        mine.push([minute, end]);
+        // A DAY READ AT SIX IN THE EVENING HAS A PAST AND A FUTURE, and the grid colours them
+        // differently on purpose. Everything already over is closed out — mostly attended, a
+        // no-show now and then, because a board with none is a shop that has never had one.
+        if (startsAt + service.duration_minutes * 60 < now) {
+          const noShow = (i + k) % 7 === 4;
+          await callAction(session, noShow ? NO_SHOW_BOOKING(booking.id) : ATTEND_BOOKING(booking.id))
+            .catch(() => {});
+        }
+      }
+      busy.set(operator.id, mine);
+      minute = end + DENSE_GAPS[(i + k) % DENSE_GAPS.length];
+    }
+  }
+  console.log(`  ✔ today (${date}): ${created} more booking(s) across ${staff.length} staff`);
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

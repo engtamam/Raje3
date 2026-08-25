@@ -163,10 +163,17 @@ async def write_working_hours(request: Request, body: WorkingHoursIn,
 
 @router.get("/nearest", dependencies=[Depends(_READ), Depends(rate_limit)])
 async def nearest_slot(request: Request, branch_id: str, operator_id: str,
-                       service_ids: str, after: int,
+                       service_ids: str, after: int, exclude_booking_id: str = "",
                        principal: Principal = Depends(require_user)) -> dict:
     """The "أقرب فتحة" button (§6.2) — `service_ids` is a comma-separated list, since query
-    params carry no arrays cleanly. `null` when nothing is free in the search window."""
+    params carry no arrays cleanly. `null` when nothing is free in the search window.
+
+    `exclude_booking_id` IS FOR RESCHEDULING ONE THAT ALREADY EXISTS. Without it, an edit of a
+    booking asks "when is this operator free?" while that operator's own diary still contains the
+    very appointment being moved — so its current hour reads as taken and, for a long service on a
+    busy day, the answer comes back "لا فتحة فاضية هذا اليوم" for a booking that is sitting in a
+    perfectly good slot right now. The one booking being edited is not a conflict with itself.
+    """
     tenant = _tenant(principal)
     await _require_branch(request, principal, branch_id)
     c = request.app.state.container
@@ -174,7 +181,7 @@ async def nearest_slot(request: Request, branch_id: str, operator_id: str,
     try:
         found = await c.booking_ops.nearest_slot(
             tenant=tenant, branch_id=branch_id, operator_id=operator_id,
-            service_ids=ids, after=after)
+            service_ids=ids, after=after, exclude_booking_id=exclude_booking_id)
     except OperationError as exc:
         return _handle(exc)
     return {"starts_at": found}

@@ -39,8 +39,26 @@ export function installOverlay(cfg) {
   else document.addEventListener('DOMContentLoaded', build, { once: true });
 
   function build() {
+  // ── A CLOSED SHADOW ROOT, SO THE TOUR CANNOT FIND ITS OWN CAPTION ─────────────────────────
+  // The caption bar is a real element with real text, and the sentence it is showing is very
+  // often ABOUT the control the next step is going to press: a step captioned «وتحت «تفاصيل
+  // الدفع» سعر هذا الموعد» and targeting `text=تفاصيل الدفع` resolved to THE CAPTION, not to the
+  // screen — and then spent thirty seconds failing to click it, because a caption bar pinned over
+  // the page intercepts its own pointer events. Every `text=` selector in every tour was one
+  // well-written sentence away from the same trap.
+  //
+  // CLOSED, NOT OPEN. Playwright's selector engines pierce an OPEN shadow root exactly like
+  // ordinary DOM, so `mode: 'open'` would change nothing. A closed root is genuinely outside every
+  // query the tour can make — which is the honest description of what this layer is: not part of
+  // the page under test, and never a thing a tour means to click.
+  const host = document.createElement('div');
+  host.id = '__tour_overlay';
+  Object.assign(host.style, {
+    position: 'fixed', inset: '0', zIndex: '2147483647', pointerEvents: 'none',
+  });
+  const shadow = host.attachShadow({ mode: 'closed' });
+
   const root = document.createElement('div');
-  root.id = '__tour_overlay';
   Object.assign(root.style, {
     position: 'fixed', inset: '0', zIndex: '2147483647',
     pointerEvents: 'none', opacity: '0', transition: 'opacity 260ms ease',
@@ -102,7 +120,8 @@ export function installOverlay(cfg) {
   });
 
   root.append(ring, finger, caption);
-  document.body.appendChild(root);
+  shadow.appendChild(root);
+  document.body.appendChild(host);
   requestAnimationFrame(() => { root.style.opacity = '1'; });
 
   /**
