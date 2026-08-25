@@ -141,7 +141,13 @@ env:
 
   # ── LLM ─────────────────────────────────────────────────────────────────────────────────────
   LLM_DRIVER: "gemini"
-  GEMINI_MODEL: "gemini-1.5-flash"
+  # gemini-3.5-flash-lite, not the stronger/pricier 3.7-flash: this service's model calls are
+  # intent classification, a handful of allowlisted tool calls, and short replies — none of it
+  # needs 3.7's extra capability. Same price as the old 2.5-flash default it replaces ($0.30/$2.50
+  # per million input/output tokens) but current-generation, since the whole 2.5 family (Flash and
+  # Flash-Lite) retires 2026-10-16 and building on it now would mean an unnecessary near-term
+  # migration.
+  GEMINI_MODEL: "gemini-3.5-flash-lite"
   GEMINI_TIMEOUT_SECONDS: "20"
   # THE ALLOWLIST. `confirm_booking` is deliberately absent and always will be — confirmation is
   # button-only (app/core/conversation.py::handle_button_reply is the ONLY path that can fire a

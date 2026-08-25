@@ -187,7 +187,7 @@ class Settings(BaseSettings):
 
     # ── LLM (Gemini function calling) ────────────────────────────────────────
     LLM_DRIVER: str = "null"                 # null | gemini
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_API_KEY: str = ""                 # sealed via SecretStore in production; env for dev/test
     GEMINI_TIMEOUT_SECONDS: int = 20
     # The ONLY functions the model may call. Enforced twice: once by what we declare to Gemini's
