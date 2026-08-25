@@ -144,6 +144,10 @@ export interface WafaEligibility {
   // a formula default (100%/0%), not an earned number; PerformanceStats reads these to say "no
   // data yet" instead of a real-looking percentage ("كيف كذا وهو صفر اساس").
   total_referrals: number; total_commissions: number;
+  // THE ACTIVITY GATE — how many shops converted trial→paid in the last `conversion_lookback_days`.
+  // `eligible` is already false when this is 0 even with enough shops; the screen reads this pair
+  // to say WHY, rather than the misleading "N شركة يفتح لك الاستحقاق" a shop-count-only read would.
+  recent_conversions: number; min_recent_conversions: number; conversion_lookback_days: number;
 }
 export interface EmploymentEligibility {
   converted_customers: number; threshold: number; eligible: boolean;

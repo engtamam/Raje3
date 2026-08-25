@@ -315,6 +315,7 @@ def build_container(settings: Settings) -> Container:
         cooldown_days=settings.WAFA_COOLDOWN_DAYS,
         retention_min=settings.WAFA_RETENTION_MIN,
         refund_max=settings.WAFA_REFUND_MAX,
+        min_recent_conversions=settings.WAFA_MIN_RECENT_CONVERSIONS,
         tickets=tickets_reader,
     )
     container.tickets = tickets_reader

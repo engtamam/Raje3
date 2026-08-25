@@ -13,7 +13,7 @@ import time
 import pytest
 
 from app.adapters.datastore.memory import MemoryDataStore
-from app.core.models import ACTIVE, AFFILIATES, Affiliate
+from app.core.models import ACTIVE, AFFILIATES, COMMISSIONS, CONFIRMED, CONVERSION, Affiliate, Commission
 from app.core.referrals import ReferralRegistry
 from app.core.wafa import WafaError, WafaService
 
@@ -32,12 +32,27 @@ async def _stamp_n_shops(referrals: ReferralRegistry, affiliate_id: str, n: int,
         await referrals.stamp(tenant=f"t-{i}", affiliate_id=affiliate_id)
 
 
+async def _seed_recent_conversion(store, affiliate_id: str, tenant: str = "t-0",
+                                  days_ago: int = 1) -> None:
+    """A real CONVERSION commission (commission.py's own shape) inside the activity window —
+    the exact event `wafa.request()` now requires at least one of, per its own module note.
+    Written directly, not through CommissionEngine, because these tests are about wafa.py's own
+    gate reading the row, not about how the row gets created."""
+    now = int(time.time())
+    row = Commission(id=f"inv-{tenant}", tenant=tenant, affiliate_id=affiliate_id,
+                     kind=CONVERSION, amount_halalas=1000, status=CONFIRMED,
+                     earned_at="", confirms_at=now, created_at=now - days_ago * DAY)
+    await store.put(COMMISSIONS, row.id, row.to_dict())
+
+
 def build(store, *, tier_shops=50, tier_amount=50000, cooldown_days=30,
-         retention_min=0.70, refund_max=0.15, tickets=None) -> tuple[WafaService, ReferralRegistry]:
+         retention_min=0.70, refund_max=0.15, min_recent_conversions=1,
+         tickets=None) -> tuple[WafaService, ReferralRegistry]:
     referrals = ReferralRegistry(store=store, commission_amount_halalas=1000)
     wafa = WafaService(store=store, referrals=referrals, tier_shops=tier_shops,
                        tier_amount_halalas=tier_amount, cooldown_days=cooldown_days,
-                       retention_min=retention_min, refund_max=refund_max, tickets=tickets)
+                       retention_min=retention_min, refund_max=refund_max,
+                       min_recent_conversions=min_recent_conversions, tickets=tickets)
     return wafa, referrals
 
 
@@ -75,6 +90,7 @@ async def test_eligibility_preview_at_and_past_a_tier_boundary():
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
 
     out = await wafa.eligibility_preview("mgr-1")
     assert out["eligible"] is True
@@ -119,11 +135,67 @@ async def test_below_threshold_is_refused_before_any_recommendation_is_computed(
 
 
 @pytest.mark.anyio
+async def test_request_refused_with_enough_shops_but_no_recent_conversion():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store)
+    await _stamp_n_shops(referrals, "mgr-1", 50)   # shops alone are not enough anymore
+    with pytest.raises(WafaError) as exc:
+        await wafa.request("mgr-1")
+    assert exc.value.reason == "no_recent_conversion"
+
+
+@pytest.mark.anyio
+async def test_activity_window_follows_cooldown_days_not_a_fixed_30():
+    """"خلال مدة الطلب نفسها" — the lookback is `cooldown_days` itself, not an independent
+    setting; a conversion 45 days ago must count once cooldown_days is raised to 60."""
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store, cooldown_days=60)
+    await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1", days_ago=45)   # outside 30, inside 60
+    out = await wafa.request("mgr-1")
+    assert out["active_shops"] == 50
+
+
+@pytest.mark.anyio
+async def test_activity_window_shrinks_with_cooldown_days_too():
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store, cooldown_days=10)
+    await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1", days_ago=20)   # outside a 10-day window
+    with pytest.raises(WafaError) as exc:
+        await wafa.request("mgr-1")
+    assert exc.value.reason == "no_recent_conversion"
+
+
+@pytest.mark.anyio
+async def test_min_recent_conversions_can_require_more_than_one():
+    """"عدد العملاء الجدد... يكون ايضا متغير" — a separate knob from the window itself: one
+    qualifying conversion is not enough once the requirement is raised to 3."""
+    store = MemoryDataStore()
+    await _seed_manager(store)
+    wafa, referrals = build(store, min_recent_conversions=3)
+    await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1", tenant="t-0")
+    await _seed_recent_conversion(store, "mgr-1", tenant="t-1")
+    with pytest.raises(WafaError) as exc:
+        await wafa.request("mgr-1")   # only 2 of the required 3
+    assert exc.value.reason == "no_recent_conversion"
+
+    await _seed_recent_conversion(store, "mgr-1", tenant="t-2")
+    out = await wafa.request("mgr-1")   # the 3rd makes it eligible
+    assert out["active_shops"] == 50
+
+
+@pytest.mark.anyio
 async def test_request_locks_the_shop_count_and_tier_amount_and_recommends_approve():
     store = MemoryDataStore()
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)   # all REFERRED, nothing lapsed/refunded
+    await _seed_recent_conversion(store, "mgr-1")
     out = await wafa.request("mgr-1")
     assert out["active_shops"] == 50
     assert out["tier_amount_halalas"] == 50000
@@ -138,6 +210,7 @@ async def test_a_second_request_while_one_is_pending_is_refused():
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     await wafa.request("mgr-1")
     with pytest.raises(WafaError) as exc:
         await wafa.request("mgr-1")
@@ -155,6 +228,7 @@ async def test_the_system_recommends_reject_on_poor_retention():
         row = await store.get("affiliate_referrals", f"t-{i}")
         row["status"] = "lapsed"
         await store.put("affiliate_referrals", f"t-{i}", row)
+    await _seed_recent_conversion(store, "mgr-1")
     out = await wafa.request("mgr-1")
     assert out["system_recommendation"] == "reject"
 
@@ -165,6 +239,7 @@ async def test_manager_decision_is_advisory_and_recorded_but_never_changes_statu
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
 
     out = await wafa.manager_decide(req["id"], decision="reject", decided_by="mgr-2",
@@ -180,6 +255,7 @@ async def test_admin_can_grant_despite_a_manager_rejection():
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
     await wafa.manager_decide(req["id"], decision="reject", decided_by="mgr-2")
 
@@ -194,6 +270,7 @@ async def test_admin_can_refuse_despite_a_manager_approval():
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
     await wafa.manager_decide(req["id"], decision="approve", decided_by="mgr-2")
 
@@ -209,6 +286,7 @@ async def test_deciding_an_already_decided_request_is_refused():
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
     await wafa.admin_decide(req["id"], decision="approve", decided_by="admin-1")
 
@@ -225,6 +303,7 @@ async def test_cooldown_blocks_a_second_request_inside_30_days_of_the_last_grant
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
     await wafa.admin_decide(req["id"], decision="approve", decided_by="admin-1")
 
@@ -241,6 +320,7 @@ async def test_a_slow_admin_decision_does_not_push_the_next_cycle_later():
     await _seed_manager(store)
     wafa, referrals = build(store, cooldown_days=30)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
     requested_at = req["requested_at"]
 
@@ -257,6 +337,7 @@ async def test_a_rejected_request_never_sets_the_cooldown_anchor():
     await _seed_manager(store)
     wafa, referrals = build(store)
     await _stamp_n_shops(referrals, "mgr-1", 50)
+    await _seed_recent_conversion(store, "mgr-1")
     req = await wafa.request("mgr-1")
     await wafa.admin_decide(req["id"], decision="reject", decided_by="admin-1")
 
@@ -282,6 +363,7 @@ async def test_performance_for_reports_full_retention_and_zero_refund_with_no_hi
     out = await wafa.performance_for("mgr-1")
     assert out == {"active_shops": 0, "retention_rate": 1.0, "refund_rate": 0.0,
                    "support_kpis": {"available": False, "reason": "tickets_not_configured"},
+                   "recent_conversions": 0,
                    "total_referrals": 0, "total_commissions": 0}
     # THE POINT OF THIS TEST'S OWN NAME, made explicit: retention_rate/refund_rate are formula
     # DEFAULTS with no referral or commission behind them — a caller must read total_referrals/

@@ -181,8 +181,17 @@ function WafaCard({ session }: { session: AffiliateSession }) {
         <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-sm">
-        {elig.eligible ? `تستحق ${riyalsLabel(elig.current_tier_amount_halalas)} شهريًا الآن`
-                       : `${elig.shops_until_next_tier} محل يفتح لك الاستحقاق`}
+        {elig.eligible
+          ? `تستحق ${riyalsLabel(elig.current_tier_amount_halalas)} شهريًا الآن`
+          // ENOUGH SHOPS BUT NOT ENOUGH RECENT CONVERSIONS — a different sentence, not the
+          // shop-count one. "N محل يفتح لك الاستحقاق" would read as "0 يفتح لك الاستحقاق" here
+          // (he already has enough shops), telling him the opposite of what's actually blocking
+          // him. Singular/plural matches core/wafa.py's own request()-time message.
+          : elig.active_shops >= elig.tier_shops && elig.recent_conversions < elig.min_recent_conversions
+          ? `عندك ${elig.tier_shops} محل، بس تحتاج ${
+              elig.min_recent_conversions === 1 ? 'عميلاً جديداً' : `${elig.min_recent_conversions} عملاء جدد`
+            } تحوّلوا من تجربة مجانية لاشتراك خلال آخر ${elig.conversion_lookback_days} يوماً`
+          : `${elig.shops_until_next_tier} محل يفتح لك الاستحقاق`}
       </span>
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
       {elig.eligible && !hasOpenRequest ? (

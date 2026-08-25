@@ -196,6 +196,13 @@ class Settings(BaseSettings):
     # admin may still grant against it (see WafaService.admin_decide).
     WAFA_RETENTION_MIN: float = 0.70
     WAFA_REFUND_MAX: float = 0.15
+    # THE ACTIVITY GATE (core/wafa.py) reads WAFA_COOLDOWN_DAYS above for its own WINDOW —
+    # "خلال مدة الطلب نفسها" — deliberately not a second, independently-tunable window. The
+    # COUNT required inside that window is its own separate knob, on purpose: "1" today, raise
+    # to "3" later without touching the cooldown it is measured over.
+    WAFA_MIN_RECENT_CONVERSIONS: int = 1
+    # THE ACTIVITY GATE (core/wafa.py) reads WAFA_COOLDOWN_DAYS above for its own window too —
+    # "خلال مدة الطلب نفسها" — deliberately not a second, independently-tunable setting.
 
     # ── «رشّح نفسك لوظيفة» (spec §8) — see core/employment.py's own module docstring.
     AFFILIATE_EMPLOYMENT_THRESHOLD_CUSTOMERS: int = 500

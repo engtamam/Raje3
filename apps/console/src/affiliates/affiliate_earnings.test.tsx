@@ -19,6 +19,7 @@ const NO_ELIGIBILITY: WafaEligibility = {
   current_tier_amount_halalas: 0, retention_rate: 1, refund_rate: 0,
   support_kpis: { available: false, reason: 'no_shared_tickets' },
   total_referrals: 0, total_commissions: 0,
+  recent_conversions: 0, min_recent_conversions: 1, conversion_lookback_days: 30,
 };
 const NO_EMPLOYMENT_ELIGIBILITY = {
   converted_customers: 0, threshold: 500, eligible: false, customers_until_eligible: 500,
@@ -126,6 +127,18 @@ describe('AffiliateEarnings', () => {
     expect(screen.queryByText('0٪')).toBeFalsy();   // refund_rate's own fabricated default
     const dashes = screen.getAllByText('—');
     expect(dashes.length).toBe(2);   // retention AND refund, both with no sample behind them
+  });
+
+  it('tells him he has enough shops but needs a recent conversion, not the shop-count progress message', async () => {
+    meMock = () => Promise.resolve(PROMOTER);
+    stubCommon();
+    wafaEligibilityMock = () => Promise.resolve({
+      ...NO_ELIGIBILITY, active_shops: 50, shops_until_next_tier: 50,
+    });
+    render(<AffiliateEarnings session={SESSION} />);
+    await waitFor(() => expect(screen.getByText(/عندك 50 محل/)).toBeTruthy());
+    expect(screen.getByText(/عميلاً جديداً/)).toBeTruthy();
+    expect(screen.getByText(/آخر 30 يوماً/)).toBeTruthy();
   });
 
   it('lists a commission with its real status label', async () => {

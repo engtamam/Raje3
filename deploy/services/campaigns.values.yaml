@@ -17,7 +17,7 @@ service:
 
 image:
   repository: ghcr.io/engtamam/raje3/campaigns
-  digest: "sha256:2eb2b8e3f028be70abca6f97645c6c4c74fa6a2c036bbe790f18cfbf6e69bd1f"   # 3c19bd1, published by publish-images.sh
+  digest: "sha256:ab6a050c9464fef88c342b5a2c5730e54cf5e0a14f9a93fc399205b7b0092e31"   # 629ccdf, published by publish-images.sh
 
 replicas: 1
 

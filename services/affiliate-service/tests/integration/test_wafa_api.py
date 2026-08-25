@@ -77,7 +77,9 @@ def _seed_eligible_promoter(client: TestClient, *, manager_id: str = "") -> str:
     """Seeds ONE promoter with exactly the WAFA_TIER_SHOPS he needs to be request-eligible.
     Returns his affiliate id. A fresh id set per call, same reasoning as test_payouts_api.py's
     own `_seed_counter` — the client/container is shared module-wide."""
-    from app.core.models import ACTIVE, AFFILIATES, Affiliate
+    import time
+
+    from app.core.models import ACTIVE, AFFILIATES, COMMISSIONS, CONFIRMED, CONVERSION, Affiliate, Commission
 
     _seed_counter[0] += 1
     n = _seed_counter[0]
@@ -89,6 +91,13 @@ def _seed_eligible_promoter(client: TestClient, *, manager_id: str = "") -> str:
         await c.datastore.put(AFFILIATES, aff.id, aff.to_dict())
         for i in range(50):
             await c.referrals.stamp(tenant=f"t-w{n}-{i}", affiliate_id=aff.id)
+        # THE activity gate (core/wafa.py) also requires a recent CONVERSION commission —
+        # shops alone are no longer enough to be request-eligible.
+        now = int(time.time())
+        row = Commission(id=f"inv-w{n}", tenant=f"t-w{n}-0", affiliate_id=aff.id,
+                         kind=CONVERSION, amount_halalas=1000, status=CONFIRMED,
+                         earned_at="", confirms_at=now, created_at=now)
+        await c.datastore.put(COMMISSIONS, row.id, row.to_dict())
         return aff.id
 
     return asyncio.run(seed())
