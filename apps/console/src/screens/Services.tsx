@@ -841,6 +841,14 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                   const f = new FormData(e.currentTarget);
                   const pts = String(f.get('points') || '').trim();
                   const priceText = String(f.get('price') || '').trim();
+                  // SAME SILENT DROP AS THE TABLE'S OWN PRICE CELL, caught here before the create
+                  // call rather than inside it: `halalas` returning null for typed-but-invalid text
+                  // used to fall into the same branch as an empty box, so «إضافة» created the
+                  // service with no price at all and said nothing about why.
+                  if (priceText !== '' && halalas(priceText) === null) {
+                    setError('السعر غير صحيح — رقم بخانتين عشريتين على الأكثر.');
+                    return;
+                  }
                   addService(String(f.get('name') || ''), {
                     cycleDays: Number(f.get('cycle_days') || 0),
                     durationMinutes: Number(f.get('duration_minutes') || 0),
@@ -1094,7 +1102,13 @@ export function ServicesScreen({ session, catalog }: { session: Session; catalog
                     const raw = e.target.value.trim();
                     if (raw === '') return;
                     const minor = halalas(raw);
-                    if (minor !== null && minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
+                    // INVALID TEXT USED TO DROP SILENTLY HERE — `halalas` returning null (garbage,
+                    // or a third decimal place) fell through both branches with no write and no
+                    // word said, so the box quietly kept whatever he had actually typed while the
+                    // service kept its old price. `halalas`'s own comment says the caller shows a
+                    // reason; this was the caller, and it never did.
+                    if (minor === null) { setError('السعر غير صحيح — رقم بخانتين عشريتين على الأكثر.'); return; }
+                    if (minor !== svc.price_minor) patchService(svc.id, { price_minor: minor });
                   }}
                   className="h-9 w-full min-w-0 rounded-lg bg-surface-2 px-1 text-center tabular-nums"
                 />
