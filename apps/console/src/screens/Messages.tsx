@@ -60,6 +60,11 @@ const GOAL_TITLE: Record<string, string> = {
   occasion: 'هنّئ في مناسبة',
   awareness: 'وعِّ عملاءك',
   service_offer: 'عرض على خدمة',
+  // The two goals goals.py added after this map was first written — a campaign of either kind
+  // fell back to `c.goal` (the raw English key) in the list below until this was caught live
+  // against campaigns.goals: an owner would have read "seasonal_care" instead of its own title.
+  seasonal_care: 'نصيحة موسمية',
+  safety: 'نبّه عن خطر',
 };
 
 /** The four states, in his words rather than ours. */
