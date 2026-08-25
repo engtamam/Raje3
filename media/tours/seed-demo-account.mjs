@@ -389,6 +389,19 @@ async function seedBookings(session, serviceIds, operatorId, branchId) {
       starts_at: now + futureDays * 86400 + Math.floor(Math.random() * 8) * 3600,
     };
   });
+  // 60 bookings over 60 days averages ~1/day — TODAY specifically (the recorder's own default
+  // view) can easily land empty by chance, which is exactly what a live recording caught. A few
+  // guaranteed slots close to the seeding moment itself (not a UTC/local day-boundary
+  // calculation, which would risk landing on the wrong calendar day for the shop's own timezone)
+  // keep the default view from ever being a coin flip — safe as long as recording follows seeding
+  // the same day, which is how this script is actually used.
+  for (const offsetHours of [-3, -1, 1, 3]) {
+    drafts.push({
+      branch_id: branchId, operator_id: operatorId,
+      service_ids: shuffle(serviceIds).slice(0, 1 + Math.floor(Math.random() * 2)),
+      starts_at: now + offsetHours * 3600,
+    });
+  }
 
   await pool(drafts, CONCURRENCY, async (draft) => {
     // Each booking needs its own real customer, resolved the same way the booking dialog does.

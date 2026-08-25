@@ -43,14 +43,13 @@ export default {
       say: 'وفيه عرض ثاني — «عرض الشبكة»',
     },
     {
-      say: 'كل موظف عموده، والوقت محوره — نفس تقويم حقيقي',
+      say: 'كل موظف عموده، والوقت محوره',
     },
     {
       click: 'role=button:عرض القائمة',
       say: 'ورجّعناها قائمة — أوضح على الجوال',
     },
     {
-      chapter: 'يوم أو أسبوع',
       click: 'role=button:الأسبوع',
       say: 'اضغط «الأسبوع» تشوف أسبوعك كامل',
     },
@@ -60,8 +59,8 @@ export default {
     },
     {
       click: 'role=button:أوقات الدوام',
-      chapter: 'أوقات دوامك',
-      say: 'زر «أوقات الدوام» — يضبط دوام كل فروعك مرة وحدة',
+      chapter: 'أوقات دوامك وفلترتها',
+      say: 'زر «أوقات الدوام» — دوام فروعك بمكان واحد',
     },
     {
       say: 'كل يوم له وقت فتح وإغلاق، أو تقفله كامل',
@@ -73,7 +72,6 @@ export default {
       say: 'وترجع من هنا',
     },
     {
-      chapter: 'فلترة حجوزاتك',
       // AT THIS VIEWPORT (430×932, below Tailwind's `sm`), the desktop filter row is genuinely
       // `display:none` (Bookings.tsx's own `hidden sm:flex`) while an identical-looking mobile
       // panel (`sm:hidden`) sits right after it in the DOM — same role+name pairs exist twice.

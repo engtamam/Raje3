@@ -112,7 +112,13 @@ async function main() {
   // opposite: `skipAutoSignIn: true` skips this call entirely and leaves the door on screen as
   // the tour's own first frame, so its own steps (goto, type, click «ابدأ») are what the
   // recording actually shows happening, not a fait accompli.
-  const contextOpts = { baseURL, viewport: deviceViewport(tour) };
+  // hasTouch MUST match the real device this narration describes: Bookings.tsx's own layout
+  // default reads `matchMedia('(pointer: coarse)')` once at mount to decide list-vs-grid — a
+  // bare viewport resize alone leaves Playwright's default mouse pointer, so every mobile-sized
+  // recording silently opened on the DESKTOP grid layout while the caption said "on mobile it
+  // opens as a list" (caught by frame-by-frame review of bookings-1-grid-basics.mjs). A landscape
+  // tour is deliberately a real browser window, not a phone — it keeps the mouse pointer.
+  const contextOpts = { baseURL, viewport: deviceViewport(tour), hasTouch: tour.orientation !== 'landscape' };
   const context = tour.skipAutoSignIn
     ? await browser.newContext(contextOpts)
     : existsSync(SESSION_FILE)
