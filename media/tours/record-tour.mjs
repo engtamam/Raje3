@@ -27,7 +27,7 @@
  *   node media/tours/record-tour.mjs media/tours/scripts/stop-service.mjs
  *   CONSOLE=http://localhost:5174 node media/tours/record-tour.mjs <script> [--seconds-cap 90]
  */
-import { mkdir, rm, rename } from 'node:fs/promises';
+import { mkdir, rm, rename, copyFile } from 'node:fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname, basename, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -152,20 +152,41 @@ async function main() {
 
   let frameIndex = 0;
   const frameFile = () => join(framesDir, String(frameIndex++).padStart(6, '0') + '.png');
-  const shoot = () => page.screenshot({ path: frameFile(), animations: 'disabled' }).catch(() => undefined);
 
   // ── the real-time capture loop ─────────────────────────────────────────────────────────────
-  // A fixed cadence corrected against a running target time (`next += stepMs`), not `setTimeout`
-  // chained naively — the latter drifts by however long each screenshot itself takes, and over a
-  // minute-long tour that drift is seconds, not milliseconds.
+  // FRAME COUNT IS LOCKED TO REAL ELAPSED TIME, NOT TO HOW MANY SCREENSHOTS ACTUALLY FINISHED —
+  // the bug this replaces. `page.screenshot()` (a CDP round trip plus PNG encode) can take well
+  // over one frame's 33ms budget under load — this project routinely runs several CPU-heavy
+  // things at once (reseeding, other tours, background agents) — and the OLD loop just re-shot
+  // as fast as it could whenever behind, silently capturing FEWER frames than 30fps × real
+  // seconds elapsed. `assembleMp4` always muxes at a FIXED 30fps regardless of frame count, so
+  // fewer frames for the same real duration produced a shorter, visibly sped-up video: a caption
+  // held for its full configured seconds in real wall-clock time, but far fewer of those seconds
+  // ever became frames (caught live: a real recording's own captions.json showed steps ending in
+  // roughly half their configured hold time). Backfilling with a copy of the just-shot frame
+  // whenever real time has outrun the target frame count keeps the two locked together — a
+  // duplicated static frame is harmless (nothing meaningfully changes within one 33ms tick), a
+  // dropped one is not.
   let capturing = true;
   const stepMs = 1000 / FPS;
+  const recordStart = Date.now();
   const captureLoop = (async () => {
-    let next = Date.now();
     while (capturing) {
-      await shoot();
-      next += stepMs;
-      const delay = next - Date.now();
+      const file = frameFile();
+      await page.screenshot({ path: file, animations: 'disabled' }).catch(() => undefined);
+      // ASYNC COPIES, NOT SYNC — a first version used copyFileSync here and, under a genuinely
+      // large catch-up (many frames behind at once), froze Node's single event loop for the
+      // whole backfill: no await yields, so every pending Playwright command (the click this
+      // step was about to dispatch, the overlay's own clear()) queued up behind it, occasionally
+      // long enough that a CSS transition hadn't settled by the time the click finally reached
+      // the page (a real reproduced failure: "resolved to nothing visible" on the very selector
+      // that always worked). Awaiting each copy lets the event loop breathe between them.
+      const targetFrames = Math.round((Date.now() - recordStart) / stepMs);
+      while (capturing && frameIndex < targetFrames) {
+        await copyFile(file, frameFile());
+      }
+      const nextDue = recordStart + frameIndex * stepMs;
+      const delay = nextDue - Date.now();
       if (delay > 0) await sleep(delay);
     }
   })();
@@ -190,7 +211,10 @@ async function main() {
   // generic and always collected (cheap — a handful of numbers) rather than gated behind the
   // flag, so turning sfx on for a tour that already exists never needs a second recording pass.
   const clickTimeline = [];
-  const elapsedSeconds = () => frameIndex / FPS;
+  // REAL WALL-CLOCK TIME, NOT frameIndex / FPS — the capture loop above now keeps frameIndex
+  // locked to this same clock, but the step timeline should read directly off it rather than
+  // through a proxy that only converges to it once the loop's had a chance to backfill.
+  const elapsedSeconds = () => (Date.now() - recordStart) / 1000;
 
   const deadline = Date.now() + SECONDS_CAP * 1000;
   console.log(`${tour.id} · recording ${tour.steps.length} step(s) live from ${baseURL}`);
@@ -364,7 +388,7 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
     return;
   }
 
-  const target = step.click ?? step.type ?? step.check;
+  const target = step.click ?? step.type ?? step.check ?? step.longPress;
   if (target) {
     // BOTH THE RING AND THE CAPTION, HIDDEN THROUGH THE WHOLE WAIT — not left showing while it
     // settles. Clearing only the ring still let the PREVIOUS step's CAPTION sit on screen over an
@@ -452,6 +476,23 @@ async function runStep(page, step, index, tour, baseURL, onAction) {
   } else if (step.check) {
     console.log(`${label} check ${step.check}`);
     await locate(page, step.check).first().check();
+    onAction?.();
+    await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
+    await waitForDomQuiet(page);
+    await sleep(CONFIG.PACE.afterActionMs);
+  } else if (step.longPress) {
+    // A REAL HOLD, NOT A FAST TAP — Bookings.tsx's own touch reschedule (`onCardPointerDown`)
+    // arms only when `e.pointerType === 'touch'` AND the hold survives its own 450ms timeout
+    // before pointerup cancels it (`cancelLongPress`). Playwright's `.tap()` fires touchstart
+    // then touchend almost instantly — far too fast to ever arm it — and `.click()` dispatches
+    // pointerType "mouse" even in a touch-enabled context, which the app explicitly ignores
+    // (`if (!coarse …) return`). Only a manually-paced pointerdown → wait → pointerup, with
+    // pointerType set explicitly, exercises the code path a real finger actually takes.
+    console.log(`${label} longPress ${step.longPress}`);
+    const locator = locate(page, step.longPress).first();
+    await locator.dispatchEvent('pointerdown', { pointerType: 'touch', bubbles: true, isPrimary: true });
+    await sleep(step.holdMs ?? 600);   // safely above the app's own 450ms arm threshold
+    await locator.dispatchEvent('pointerup', { pointerType: 'touch', bubbles: true, isPrimary: true });
     onAction?.();
     await page.evaluate(() => window.__tour?.clear()).catch(() => undefined);
     await waitForDomQuiet(page);
